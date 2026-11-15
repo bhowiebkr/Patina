@@ -5,7 +5,7 @@ The current milestone is milestone 0, the risk prototypes (spec section 19).
 | Prototype | Result | Platforms that ran |
 | --- | --- | --- |
 | Rust types across clusters (5.1, 5.2) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
-| Hot reload (8.5) | Passed | Windows 11, `x86_64-pc-windows-msvc` |
+| Hot reload (8.5) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
 | Toolchain (13.2) | Not started | - |
 | Viewport (15.8) | Not started | - |
 | Connections (15.9) | Not started | - |
@@ -77,6 +77,10 @@ The test `cargo test -p types-across-clusters` ran and passed these checks in bo
 The code is in [prototypes/hot-reload](prototypes/hot-reload/README.md). It ran on 2026-11-15
 with Rust 1.94.0, on Windows 11 Pro, in the `dev` and the `release` profile. It did not run on
 Linux or macOS.
+
+CI runs the test for each push to `main`. It passed in both profiles on 2026-11-15, on the
+`windows-latest` runner, with Rust 1.100.0, in 12.1 s. On the Linux and macOS runners, clippy
+checks the prototype, but the test has no code to run.
 
 ### What was checked
 
