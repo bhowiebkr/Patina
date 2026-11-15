@@ -164,7 +164,7 @@ fn run_one(app: &AppHandle, toolchain: &mut Option<Toolchain>, loaded: &mut Opti
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     let outcome = outcome.unwrap_or_default();
     let reports = params.reports.into_iter().chain(outcome.reports).collect();
-    let badges = outcome.values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text) }).collect();
+    let badges = outcome.values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone() }).collect();
     *lock(&shared.values) = outcome.values;
     Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, skipped: outcome.skipped, stopped: outcome.stopped, reports, values: badges, errors })
 }

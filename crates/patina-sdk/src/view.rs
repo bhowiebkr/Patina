@@ -1,4 +1,4 @@
-//! The text of a value in the editor (spec 5.3).
+//! The text and the lanes of a value in the editor (spec 5.3, 6.3).
 
 use std::fmt;
 
@@ -22,6 +22,37 @@ use std::fmt;
 pub trait Viewer {
     /// Writes the text of the value. A long text stops at the limit of `Text`.
     fn text(&self, out: &mut Text<'_>) -> fmt::Result;
+}
+
+/// The lanes of a value on a wire (6.3, 15.9). A connection kind returns it. The first lane is
+/// the most significant bit, at the top of a wire that goes from left to right.
+///
+/// ```
+/// use patina_sdk::{connection, Lanes};
+///
+/// /// Shows a byte as 8 lanes.
+/// #[connection]
+/// pub fn byte_bus(value: &u8) -> Lanes {
+///     Lanes::bits(8, u64::from(*value)).label("data")
+/// }
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Lanes {
+    pub(crate) count: u32,
+    pub(crate) bits: u64,
+    pub(crate) label: &'static str,
+}
+
+impl Lanes {
+    /// One lane for each of the low `count` bits of `bits`. The count is 1 to 64.
+    pub fn bits(count: u32, bits: u64) -> Lanes {
+        Lanes { count: count.clamp(1, 64), bits, label: "" }
+    }
+
+    /// The name of the bus in the wire label, for example "data" in "data[7:0] / 8".
+    pub fn label(self, label: &'static str) -> Lanes {
+        Lanes { label, ..self }
+    }
 }
 
 /// The text of a value. It does not allocate. A full text stops the formatting with an error,

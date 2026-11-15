@@ -139,6 +139,22 @@ A wire shows the value that it carries while the graph runs, as a node shows its
   a wire around a node. The look of a wire never changes what it connects.
 - One output can feed many inputs. Splitting or joining a value takes a node.
 
+To add a connection kind:
+
+1. Make the folder `connections/<name>/` in the project, with a `Cargo.toml` that has
+   `patina-sdk = { workspace = true }`.
+2. In `src/lib.rs`, write a `#[connection]` function. It takes a reference to the value and
+   gives its lanes:
+
+   ```rust
+   #[patina_sdk::connection]
+   pub fn byte(value: &u8) -> patina_sdk::Lanes {
+       patina_sdk::Lanes::bits(8, *value as u64).label("data")
+   }
+   ```
+
+3. Run the graph. Each wire of that type shows its lanes and the label `data[7:0] / 8`.
+
 ## Views
 
 A view is a custom panel in the editor. A project can add its own views, for example a timeline,

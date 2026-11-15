@@ -13,8 +13,8 @@ import {
   type PointerEvent,
 } from 'react';
 import { EdgeLabelRenderer, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
-import type { Edit, Point } from './api';
-import { GlWires } from './gl';
+import { laneLabel, type Edit, type Point, type Value } from './api';
+import { FAR_ZOOM, GlWires, PITCH } from './gl';
 import { insertAt, midpoint, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */
@@ -29,8 +29,8 @@ export interface WireTools {
   store: WireStore;
   onEdit: (edit: Edit) => Promise<void>;
   editable: boolean;
-  /** The text of each live value by output (15.9), and true when it is from an old run. */
-  values: ReadonlyMap<string, string>;
+  /** Each live value by output (15.9), and true when it is from an old run. */
+  values: ReadonlyMap<string, Value>;
   stale: (from: string) => boolean;
 }
 
@@ -42,9 +42,14 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   // The route during a drag. It stays until the edit gives the new graph, so the wire does not jump back.
   const [draft, setDraft] = useState<readonly Point[] | null>(null);
   const route = draft ?? data!.route;
+  const value = values.get(data!.from);
+  const bits = value?.lanes?.bits ?? '';
+  const old = stale(data!.from);
+  // A bus shows one line with its width at a far zoom (15.9).
+  const far = useStore((s) => s.transform[2] < FAR_ZOOM);
   useLayoutEffect(
-    () => store.set(id, sourceX, sourceY, targetX, targetY, route, !!selected),
-    [store, id, sourceX, sourceY, targetX, targetY, route, selected],
+    () => store.set(id, sourceX, sourceY, targetX, targetY, route, !!selected, bits, old),
+    [store, id, sourceX, sourceY, targetX, targetY, route, selected, bits, old],
   );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
@@ -55,26 +60,33 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     void send([...route.slice(0, k), [Math.round(p.x), Math.round(p.y)], ...route.slice(k)]);
   };
   const d = wirePath(sourceX, sourceY, targetX, targetY, route);
-  const value = values.get(data!.from);
   const [mx, my] = midpoint(sourceX, sourceY, targetX, targetY, route);
-  const ty = data!.ty;
+  const lanes = value?.lanes;
+  // A bus shows its name and width in place of the type label, above its lanes.
+  const label = lanes ? (far ? `/ ${bits.length}` : laneLabel(lanes)) : data!.ty;
+  const above = 12 + (lanes && !far ? ((bits.length - 1) * PITCH) / 2 : 0);
   return (
     <>
+      {/* shortcut: the SVG fallback draws a bus as one line; draw its lanes when a GPU without WebGL2 matters. */}
       <path className="wire-line" d={d} />
       <path className="wire-hit" d={d} onDoubleClick={add} />
       <EdgeLabelRenderer>
-        {/* A wire with no lanes shows its type label above the badge (15.9). */}
-        {ty && (
-          <div className={selected ? 'wire-type selected' : 'wire-type'} style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - 12px))` }}>
-            {ty}
+        {/* The type label or the bus label is above the badge (15.9). */}
+        {label && (
+          <div
+            className={selected ? 'wire-type selected' : 'wire-type'}
+            title={data!.ty}
+            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))` }}
+          >
+            {label}
           </div>
         )}
         {value !== undefined && (
           <div
-            className={`wire-value${stale(data!.from) ? ' stale' : ''}${selected ? ' selected' : ''}`}
+            className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}
             style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)` }}
           >
-            {value}
+            {value.text}
           </div>
         )}
       </EdgeLabelRenderer>

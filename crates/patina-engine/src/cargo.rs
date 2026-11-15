@@ -27,9 +27,18 @@ const CLEARED_ENV: &[&str] = &[
     "RUSTDOCFLAGS",
 ];
 
-const WORKSPACE: &str = "# Made by Patina. Patina writes this file again at each build.\n\
-[workspace]\nresolver = \"3\"\nmembers = [\"nodes/*\", \"build/clusters/*\"]\n\n\
-[workspace.dependencies]\npatina-sdk = { path = \"build/sdk/patina-sdk\" }\n";
+/// The manifest of the project workspace. Cargo fails on a member glob that matches no folder, so
+/// `nodes/*` and `connections/*` (6.3) are members only when they have a folder.
+fn workspace(root: &Path) -> String {
+    let used = |group: &&str| std::fs::read_dir(root.join(group)).into_iter().flatten().flatten().any(|e| e.path().is_dir());
+    let members: Vec<String> =
+        ["nodes", "connections"].into_iter().filter(used).chain(["build/clusters"]).map(|g| format!("\"{g}/*\"")).collect();
+    format!(
+        "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
+         members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n",
+        members.join(", ")
+    )
+}
 
 /// The SDK crates that a project builds with. The engine carries their source.
 const SDK_FILES: [(&str, &str); 6] = [
@@ -127,7 +136,7 @@ fn run_text(command: &mut Command) -> Result<String, Error> {
 // shortcut: one cluster with a static std in the dev profile. Clusters, the shared types
 // library and bake mode come at milestone 6.
 pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf, Error> {
-    write(root, "Cargo.toml", WORKSPACE)?;
+    write(root, "Cargo.toml", &workspace(root))?;
     for (path, text) in SDK_FILES {
         write(root, path, text)?;
     }
@@ -223,6 +232,18 @@ mod tests {
     fn message(level: &str, text: &str, file: &Path) -> Value {
         let span = json!({ "is_primary": true, "file_name": file, "line_start": 3, "column_start": 5, "line_end": 3, "column_end": 9, "label": "here" });
         json!({ "reason": "compiler-message", "message": { "level": level, "message": text, "rendered": text, "spans": [span] } })
+    }
+
+    #[test]
+    fn a_member_glob_needs_a_folder() {
+        let root = std::env::temp_dir().join(format!("patina-members-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("connections")).unwrap();
+        assert!(workspace(&root).contains("members = [\"build/clusters/*\"]"));
+        std::fs::create_dir_all(root.join("nodes/num")).unwrap();
+        assert!(workspace(&root).contains("members = [\"nodes/*\", \"build/clusters/*\"]"), "an empty folder matches no member");
+        std::fs::create_dir_all(root.join("connections/byte")).unwrap();
+        assert!(workspace(&root).contains("members = [\"nodes/*\", \"connections/*\", \"build/clusters/*\"]"));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

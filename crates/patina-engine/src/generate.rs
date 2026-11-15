@@ -26,6 +26,9 @@ pub fn manifest(plan: &Plan) -> String {
     for name in names {
         let _ = writeln!(text, "{name} = {{ path = \"../../../nodes/{name}\" }}");
     }
+    for (name, _) in &plan.kinds {
+        let _ = writeln!(text, "{name} = {{ path = \"../../../connections/{name}\" }}");
+    }
     text
 }
 
@@ -66,7 +69,7 @@ pub fn source(plan: &Plan) -> String {
 
 /// Writes the call of one node. It runs only when each wired input has a value (15.3) and the
 /// user did not click **Stop** (15.2). Else `enter` reports why. After the call, it sends the text
-/// of each held value, before a later node takes the value (15.9).
+/// and the lanes (6.3) of each held value, before a later node takes the value (15.9).
 fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
     let step = &plan.steps[n];
     let (name, node) = &plan.nodes[step.node];
@@ -142,10 +145,13 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
     }
     let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), rep, {n});");
     for k in (0..values.len()).filter(|k| step.consumers[*k] > 0) {
+        let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {
+            format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, || ::{}::{}(v));", name.replace('-', "_"), kind.func)
+        });
         let _ = writeln!(
             s,
             "{indent}if let ::std::option::Option::Some(v) = &n{n}_{k} {{ ::patina_sdk::glue::send_value(rep, {probe}, \
-             |out| (&&&::patina_sdk::glue::Probe(v)).text(out)); }}"
+             |out| (&&&::patina_sdk::glue::Probe(v)).text(out));{lanes} }}"
         );
         *probe += 1;
     }

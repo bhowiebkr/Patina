@@ -5,8 +5,8 @@
 pub mod glue;
 mod view;
 
-pub use patina_macros::node;
-pub use view::{Text, Viewer};
+pub use patina_macros::{connection, node};
+pub use view::{Lanes, Text, Viewer};
 
 /// True when the user clicked **Stop** during the run (15.2). A node that runs for a long time
 /// reads it in its loop and returns early. It is false outside a run and on other threads.

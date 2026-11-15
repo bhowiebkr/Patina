@@ -1,5 +1,5 @@
-//! The `#[node]` attribute (spec 4.1). The engine reads the node signature with `syn` (4.1), so
-//! this macro only prepares the function for the cluster that calls it.
+//! The `#[node]` and `#[connection]` attributes (spec 4.1, 6.3). The engine reads the signatures
+//! with `syn`, so these macros only check the item and prepare it for the cluster.
 
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 
@@ -17,6 +17,19 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut out: TokenStream = "#[inline]".parse().expect("valid attribute");
     out.extend(item);
     out
+}
+
+/// Marks the function of a connection kind (6.3). The function takes `&T` and returns
+/// `patina_sdk::Lanes`. The editor calls it for each live value of type `T`.
+#[proc_macro_attribute]
+pub fn connection(attr: TokenStream, item: TokenStream) -> TokenStream {
+    if !attr.is_empty() {
+        return error("#[connection] takes no arguments");
+    }
+    if !is_function(&item) {
+        return error("a connection kind is a function (spec 6.3)");
+    }
+    item
 }
 
 /// Returns true when the item has the `fn` keyword before its body.

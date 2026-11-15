@@ -2,7 +2,7 @@
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
 import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { api, errorText, folderName, reportError, reportText, type Edit, type View } from './api';
+import { api, errorText, folderName, laneLabel, reportError, reportText, type Edit, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
 import type { Inspect } from './ProjectPanel';
@@ -55,7 +55,9 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
     return `${node ? folderName(node) : key.slice(0, dot)}.${key.slice(dot + 1)}`;
   };
   // The badge text shows until the full text arrives.
-  const text = (full?.from === from ? full.text : null) ?? run.values.get(from);
+  const value = run.values.get(from);
+  const text = (full?.from === from ? full.text : null) ?? value?.text;
+  const lanes = value?.lanes;
   const stale = valueStale(run, from);
   return (
     <aside className="panel" aria-label="Inspector">
@@ -77,6 +79,14 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
           <span className="label">Type</span>
           <span>{outputType(view, from) ?? 'Unknown'}</span>
         </div>
+        {lanes && (
+          <div className="param">
+            <span className="label">Lanes</span>
+            <span title="The most significant lane first">
+              {laneLabel(lanes)}: {lanes.bits}
+            </span>
+          </div>
+        )}
       </div>
       <div className="section">
         <h3>Value</h3>

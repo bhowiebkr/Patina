@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 
-use crate::node::{self, Node};
+use crate::node::{self, Kind, Node};
 use crate::project::{GraphFile, is_id};
 
 /// A graph that passed all checks, in run order.
@@ -13,6 +13,8 @@ pub struct Plan {
     pub steps: Vec<Step>,
     /// One parameter slot for each input with no wire.
     pub slots: Vec<Slot>,
+    /// The connection kinds of the held values, by folder name (6.3). The name is the crate name.
+    pub kinds: Vec<(String, Kind)>,
 }
 
 /// One use of a node folder (6.2).
@@ -32,6 +34,12 @@ impl Plan {
         self.steps.iter().enumerate().flat_map(|(n, step)| {
             step.consumers.iter().enumerate().filter(|(_, c)| **c > 0).map(move |(k, _)| (n, k))
         })
+    }
+
+    /// The connection kind of output `k` of step `n`, when a kind shows its type (6.3).
+    pub fn kind(&self, n: usize, k: usize) -> Option<&(String, Kind)> {
+        let ty = &self.nodes[self.steps[n].node].1.output_types[k];
+        self.kinds.iter().find(|(_, kind)| &kind.ty == ty)
     }
 }
 
@@ -61,6 +69,7 @@ struct Entry {
 /// Checks a graph of the project at `root`. Returns all the problems that it finds.
 pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let mut problems = Vec::new();
+    let kinds = read_kinds(root, &mut problems);
     let mut nodes: Vec<(String, Node)> = Vec::new();
     let mut by_name: HashMap<String, Option<usize>> = HashMap::new();
     let mut entries: Vec<Option<Entry>> = Vec::new();
@@ -181,14 +190,53 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             steps[step].inputs.push(source);
         }
     }
-    Ok(Plan { nodes, steps, slots })
+    let mut plan = Plan { nodes, steps, slots, kinds };
+    let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
+    plan.kinds.retain(|(name, _)| used.contains(name));
+    Ok(plan)
+}
+
+/// Reads each connection kind in `connections/` (6.3), sorted by folder name. A kind folder with
+/// an error is a problem of the graph, because the cargo workspace of the project contains it.
+fn read_kinds(root: &Path, problems: &mut Vec<String>) -> Vec<(String, Kind)> {
+    let mut names: Vec<String> = match std::fs::read_dir(root.join("connections")) {
+        Ok(entries) => entries
+            .filter_map(Result::ok)
+            .filter(|e| e.path().is_dir())
+            .filter_map(|e| e.file_name().into_string().ok())
+            .collect(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => {
+            problems.push(format!("connections: {e}"));
+            Vec::new()
+        }
+    };
+    names.sort_unstable();
+    let mut kinds: Vec<(String, Kind)> = Vec::new();
+    for name in names {
+        let kind = read_crate(root, "connections", &name).and_then(|code| node::parse_kind(&code).map_err(|e| format!("src/lib.rs: {e}")));
+        let problem = match kind {
+            Err(text) => text,
+            // Cargo refuses two packages with the same name in one workspace.
+            Ok(_) if root.join("nodes").join(&name).is_dir() => "a node folder has the same name. Rename one of them".to_owned(),
+            Ok(kind) => match kinds.iter().find(|(_, k)| k.ty == kind.ty) {
+                Some((other, _)) => format!("connections/{other} also shows the type {}", kind.ty),
+                None => {
+                    kinds.push((name, kind));
+                    continue;
+                }
+            },
+        };
+        problems.push(format!("connections/{name}: {problem}"));
+    }
+    kinds
 }
 
 /// Checks the name of a node folder. A name with a path separator or `..` does not pass.
 pub fn check_name(name: &str) -> Result<(), String> {
     let valid = name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
     if name.is_empty() || !valid || name.starts_with(|c: char| c.is_ascii_digit()) {
-        return Err("a node folder name has only letters, digits, _ and -, and starts with a letter".into());
+        return Err("a folder name has only letters, digits, _ and -, and starts with a letter".into());
     }
     if RESERVED.contains(&name.replace('-', "_").as_str()) {
         return Err(format!("the name {name:?} is reserved. Rename the folder"));
@@ -197,8 +245,13 @@ pub fn check_name(name: &str) -> Result<(), String> {
 }
 
 pub fn read_node(root: &Path, name: &str) -> Result<Node, String> {
+    node::parse(&read_crate(root, "nodes", name)?).map_err(|e| format!("src/lib.rs: {e}"))
+}
+
+/// Reads `src/lib.rs` of the crate folder `<group>/<name>`, after the checks of its name.
+fn read_crate(root: &Path, group: &str, name: &str) -> Result<String, String> {
     check_name(name)?;
-    let dir = root.join("nodes").join(name);
+    let dir = root.join(group).join(name);
     let read = |file: &str| {
         std::fs::read_to_string(dir.join(file)).map_err(|e| format!("cannot read {file}: {e}"))
     };
@@ -207,7 +260,7 @@ pub fn read_node(root: &Path, name: &str) -> Result<Node, String> {
     if package != Some(name) {
         return Err(format!("the package name in Cargo.toml must be {name:?}, the folder name"));
     }
-    node::parse(&read("src/lib.rs")?).map_err(|e| format!("src/lib.rs: {e}"))
+    read("src/lib.rs")
 }
 
 /// Finds the entry and the pin index of a wire end `<node ID>.<pin key>`.
@@ -265,11 +318,18 @@ mod tests {
     #[test]
     fn graph_problems_are_all_reported() {
         let root = std::env::temp_dir().join(format!("patina-plan-{}", std::process::id()));
-        for (name, code) in [("num", "pub fn num(v: f64) -> f64 { v }"), ("show", "pub fn show(v: &f64) {}")] {
-            let dir = root.join("nodes").join(name);
+        let crates = [
+            ("nodes/num", "node", "pub fn num(v: f64) -> f64 { v }"),
+            ("nodes/show", "node", "pub fn show(v: &f64) {}"),
+            ("connections/wide", "connection", "pub fn wide(v: &f64) -> Lanes { todo!() }"),
+            ("connections/byte", "connection", "pub fn byte(v: &u8) -> Lanes { todo!() }"),
+        ];
+        for (folder, attr, code) in crates {
+            let dir = root.join(folder);
             std::fs::create_dir_all(dir.join("src")).unwrap();
+            let name = &folder[folder.find('/').unwrap() + 1..];
             std::fs::write(dir.join("Cargo.toml"), format!("[package]\nname = \"{name}\"\n")).unwrap();
-            std::fs::write(dir.join("src/lib.rs"), format!("#[patina_sdk::node]\n{code}")).unwrap();
+            std::fs::write(dir.join("src/lib.rs"), format!("#[patina_sdk::{attr}]\n{code}")).unwrap();
         }
         let graph = |wires: &str| -> GraphFile {
             let nodes = "format = 1\n[[node]]\nid = \"000000000000000a\"\nfolder = \"nodes/num\"\n\
@@ -286,6 +346,8 @@ mod tests {
             ),
         );
         let cycle = check(&root, &graph("[[order]]\nbefore = \"000000000000000b\"\nafter = \"000000000000000b\"\n"));
+        std::fs::create_dir_all(root.join("connections/show")).unwrap();
+        let named = check(&root, &graph(""));
         std::fs::remove_dir_all(&root).unwrap();
 
         let plan = good.unwrap_or_else(|p| panic!("{p:?}"));
@@ -293,6 +355,11 @@ mod tests {
         assert_eq!(plan.slots.len(), 1);
         assert_eq!(plan.steps[0].consumers, [1]);
         assert!(matches!(plan.steps[1].inputs[0], Source::Wire { step: 0, output: 0 }));
+        // Only the kind of a held value goes into the plan.
+        assert_eq!(plan.kinds.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["wide"]);
+        assert_eq!(plan.kind(0, 0).map(|(_, kind)| kind.func.as_str()), Some("wide"));
+        let named = named.err().unwrap();
+        assert!(named.len() == 1 && named[0].starts_with("connections/show: cannot read Cargo.toml"), "{named:?}");
         let bad = bad.err().unwrap();
         assert_eq!(bad.len(), 2, "{bad:?}");
         assert!(bad[0].contains("no such pin") && bad[1].contains("more than one wire"));

@@ -39,6 +39,11 @@ To run the editor from a checkout:
 - Each wire shows the Rust type of its value in a small label above the badge (15.9), for
   example `f64`. A pin shows its type in a tooltip. The **Inspector** shows the type of the
   selected wire.
+- A project can have connection kinds in `connections/<name>/` (6.3). A `#[connection]`
+  function takes the value of a type and gives its lanes and a label. After a run, a wire of
+  that type draws as a bus of lanes, the most significant lane first, with a label such as
+  `whole[7:0] / 8` (15.9). A lit lane is light, and a stale bus is dim. Below a zoom of 0.5,
+  the bus is one line with the label `/ 8`. The **Inspector** shows the lanes as bits.
 - Select a wire to see its ends and the full text of its value in the **Inspector**, up to 4096
   bytes (15.7). A type crate implements the `Viewer` trait of `patina-sdk` to give its own text.
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
@@ -145,14 +150,19 @@ To run the editor from a checkout:
   stale text `2.5`.
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
-- `cargo test --workspace --locked` passed 47 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the pin types, the route points, the text of the live values with a `Viewer`, the cut of the badge
+- A manual check gave fake lanes of 8 bits to the values in the page, and captured the window.
+  The capture showed 8 lanes between the pins, with only lane 6 lit for the value 2.5, and the
+  label `whole[7:0] / 8` above the ribbon. The fake lanes were then removed.
+- The CLI test adds a kind to a copy of the hello example. The sum 6.5 has the lanes `00000110`
+  with the label `whole`.
+- `cargo test --workspace --locked` passed 51 tests. The tests check the graph edits with undo
+  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  15 tests: the miter normals, the rounded corners of a route, the place of a new route point,
+  16 tests: the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
   the SVG path of a route, the segment lists, the place of the badge, and the move, close,
   open, resize, reset and read of a dock layout.
 - CI run 43708446577 of the first editor slice passed on `windows-latest`, `ubuntu-latest` and
@@ -174,8 +184,7 @@ To run the editor from a checkout:
   starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
-- The badges have no lanes, no width badge and no tooltip, and they do not hide at a far zoom
-  (15.9). Two badges can cover each other. After each run, the engine copies the text of each
+- The badges do not hide at a far zoom (15.9). Two badges can cover each other. After each run, the engine copies the text of each
   value into a new `String`, and the badge text into a second `String`.
 - The route points have no **Reset route** and no orthogonal style (15.9). The keyboard cannot
   add a route point. The editor does not warn when a wire goes under a node.
@@ -184,8 +193,14 @@ To run the editor from a checkout:
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did
   not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
   old recovery file, and its new changes do not go into the file until the user answers.
-- The recovery file came before the connection kinds of 6.3 and 15.9. The connection kinds
-  need the type crates of 5.1, and the engine does not have them yet.
+- A connection kind matches a type by the type text that the node code writes, not by the type
+  crates of 5.1. A panic in a kind gives no lanes and no message. A compile error in a kind
+  stops the build of all of the graph.
+- The lanes have no names and no groups, and a bus socket has no contact for each lane (15.9).
+  The badge is always the viewer text. The **Code** tab does not open the files of
+  `connections/`.
+- The self-check project has no connection kind. The lanes ran in the CLI test, and the look
+  had one manual check with fake lanes in the page. No check zoomed a bus out below 0.5.
 - The check did not drag a tab or a splitter with the mouse. A layout change in the last
   300 ms before the window closes with no unsaved changes is not saved.
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
@@ -210,6 +225,8 @@ To run the editor from a checkout:
     person edited has such a route (`frontend/src/wires.ts`).
   - Each run formats and sends each held value, also when a graph runs faster than the display
     (15.6) (`crates/patina-sdk/src/glue.rs`).
+  - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
+  - The SVG wires draw a bus as one line (`frontend/src/WireLayer.tsx`).
 
 ## Milestone 1: engine and CLI
 

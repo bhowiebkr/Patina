@@ -1,26 +1,67 @@
 // The WebGL2 renderer of the connections (spec 15.1): one instanced draw of line segments on a
 // canvas under the nodes. A texture row holds the points and the miter normals of each wire.
 
-import { MAX_POINTS, STRIDE, type WireStore } from './wires';
+import { HAS_LANES, instances, LIT, MAX_POINTS, STALE, STRIDE, type WireStore } from './wires';
 
-/** The line widths, in graph pixels, and the colors of docs/gui-visual-guide.md. */
+/** The line widths and the lane pitch, in graph pixels, and the colors of docs/gui-visual-guide.md. */
 const WIRE_WIDTH = 2;
 const SELECT_WIDTH = 8;
-const WIRE = [187 / 255, 187 / 255, 181 / 255];
-const ACCENT = [223 / 255, 166 / 255, 75 / 255];
+const LANE_WIDTH = 2;
+/** The distance between the centers of two lanes. The dark gap between them is 1 px. */
+export const PITCH = 3;
+/** Below this zoom, a bus draws as one line of FAR_WIDTH (15.9). */
+export const FAR_ZOOM = 0.5;
+const FAR_WIDTH = 4;
+const WIRE = [187, 187, 181];
+const ACCENT = [223, 166, 75];
+/** A lane with the bit 1, and with the bit 0. An off lane stays visible (15.9). */
+const LANE_ON = [238, 238, 235];
+const LANE_OFF = [85, 85, 81];
 /** Above this number of changed wires, one upload of the whole texture is faster. */
 const ROW_UPLOADS = 64;
 
+const vec3 = (c: number[]) => `vec3(${c.map((v) => (v / 255).toFixed(4)).join(', ')})`;
+const float = (v: number) => v.toFixed(2);
+
 const VERTEX = `#version 300 es
 precision highp float;
-layout(location = 0) in uvec2 inst; // wire slot, segment
+layout(location = 0) in uvec4 inst; // wire slot, segment, lane, flags
 uniform highp sampler2D points;
 uniform vec3 view;
 uniform vec2 size;
-uniform float width;
+uniform bool chosen;
 out float vAcross;
 out float vHalf;
+out vec3 vColor;
 void main() {
+  uint count = (inst.w & 63u) + 1u;
+  bool lanes = (inst.w & ${HAS_LANES}u) != 0u;
+  bool far = view.z < ${float(FAR_ZOOM)} && count > 1u;
+  // The distance between the outer lanes of a bus.
+  float bus = far ? 0.0 : float(count - 1u) * ${float(PITCH)};
+  float width = ${float(LANE_WIDTH)};
+  float offset = 0.0;
+  if (chosen) {
+    width = ${float(SELECT_WIDTH)} + bus;
+    vColor = ${vec3(ACCENT)};
+  } else if (!lanes) {
+    width = ${float(WIRE_WIDTH)};
+    vColor = ${vec3(WIRE)};
+  } else if (far) {
+    width = ${float(FAR_WIDTH)};
+    vColor = ${vec3(WIRE)};
+    // One line: the other lanes have no area.
+    if (inst.z > 0u) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+  } else {
+    // Lane 0 is the most significant bit, on the left side of the direction of the wire.
+    offset = float(inst.z) * ${float(PITCH)} - bus * 0.5;
+    bool lit = (inst.w & ${LIT}u) != 0u;
+    vec3 on = (inst.w & ${STALE}u) != 0u ? mix(${vec3(LANE_OFF)}, ${vec3(LANE_ON)}, 0.5) : ${vec3(LANE_ON)};
+    vColor = lit ? on : ${vec3(LANE_OFF)};
+  }
   // The two ends of a segment use the miter normals, so the next segment starts at the same edge.
   int v = gl_VertexID;
   float along = (v == 1 || v == 4 || v == 5) ? 1.0 : 0.0;
@@ -28,7 +69,7 @@ void main() {
   vec4 p = texelFetch(points, ivec2(int(inst.y) + int(along), int(inst.x)), 0);
   float halfW = max(width * view.z, 1.0) * 0.5;
   float ext = halfW + 1.0;
-  vec2 pos = p.xy * view.z + view.xy + p.zw * side * ext;
+  vec2 pos = p.xy * view.z + view.xy + p.zw * (offset * view.z + side * ext);
   vec2 clip = pos / size * 2.0 - 1.0;
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
   vAcross = side * ext;
@@ -37,13 +78,13 @@ void main() {
 
 const FRAGMENT = `#version 300 es
 precision mediump float;
-uniform vec3 color;
 in float vAcross;
 in float vHalf;
+in vec3 vColor;
 out vec4 outColor;
 void main() {
   float a = clamp(vHalf + 0.5 - abs(vAcross), 0.0, 1.0);
-  outColor = vec4(color * a, a);
+  outColor = vec4(vColor * a, a);
 }`;
 
 function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
@@ -65,7 +106,7 @@ class Instances {
     gl.bindVertexArray(this.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     gl.enableVertexAttribArray(0);
-    gl.vertexAttribIPointer(0, 2, gl.UNSIGNED_SHORT, 4, 0);
+    gl.vertexAttribIPointer(0, 4, gl.UNSIGNED_SHORT, 8, 0);
     gl.vertexAttribDivisor(0, 1);
     gl.bindVertexArray(null);
   }
@@ -74,7 +115,7 @@ class Instances {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-    this.count = data.length / 2;
+    this.count = data.length / 4;
   }
 
   dispose() {
@@ -83,26 +124,10 @@ class Instances {
   }
 }
 
-/** The segments of the wires, or of the selected wires only. */
-function segments(store: WireStore, selectedOnly: boolean): Uint16Array {
-  let n = 0;
-  for (let s = 0; s < store.counts.length; s++) if (!selectedOnly || store.selected[s]) n += Math.max(0, store.counts[s] - 1);
-  const out = new Uint16Array(n * 2);
-  let at = 0;
-  for (let s = 0; s < store.counts.length; s++) {
-    if (selectedOnly && !store.selected[s]) continue;
-    for (let k = 0; k < store.counts[s] - 1; k++, at += 2) {
-      out[at] = s;
-      out[at + 1] = k;
-    }
-  }
-  return out;
-}
-
 export class GlWires {
   private readonly gl: WebGL2RenderingContext;
   private program!: WebGLProgram;
-  private uniforms!: Record<'points' | 'view' | 'size' | 'width' | 'color', WebGLUniformLocation | null>;
+  private uniforms!: Record<'points' | 'view' | 'size' | 'chosen', WebGLUniformLocation | null>;
   private texture!: WebGLTexture;
   private all!: Instances;
   private chosen!: Instances;
@@ -132,7 +157,7 @@ export class GlWires {
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(`program: ${gl.getProgramInfoLog(program)}`);
     this.program = program;
     const u = (name: string) => gl.getUniformLocation(program, name);
-    this.uniforms = { points: u('points'), view: u('view'), size: u('size'), width: u('width'), color: u('color') };
+    this.uniforms = { points: u('points'), view: u('view'), size: u('size'), chosen: u('chosen') };
     this.maxRows = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
     this.texture = gl.createTexture()!;
     gl.activeTexture(gl.TEXTURE0);
@@ -186,8 +211,8 @@ export class GlWires {
       }
     }
     if (store.layout) {
-      this.all.upload(segments(store, false));
-      this.chosen.upload(segments(store, true));
+      this.all.upload(instances(store, false));
+      this.chosen.upload(instances(store, true));
     }
     store.grown = false;
     store.layout = false;
@@ -200,15 +225,14 @@ export class GlWires {
     gl.uniform1i(this.uniforms.points, 0);
     gl.uniform3f(this.uniforms.view, tx, ty, zoom);
     gl.uniform2f(this.uniforms.size, this.width, this.height);
-    const pass = (b: Instances, width: number, color: number[]) => {
+    const pass = (b: Instances, chosen: boolean) => {
       if (b.count === 0) return;
-      gl.uniform1f(this.uniforms.width, width);
-      gl.uniform3f(this.uniforms.color, color[0], color[1], color[2]);
+      gl.uniform1i(this.uniforms.chosen, chosen ? 1 : 0);
       gl.bindVertexArray(b.vao);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, b.count);
     };
-    pass(this.chosen, SELECT_WIDTH, ACCENT);
-    pass(this.all, WIRE_WIDTH, WIRE);
+    pass(this.chosen, true);
+    pass(this.all, false);
     gl.bindVertexArray(null);
     this.last[0] = tx;
     this.last[1] = ty;

@@ -49,6 +49,27 @@ pub struct Value {
     pub from: String,
     /// The `Debug` text of the value, or its type name and size (5.3).
     pub text: String,
+    /// The lanes from the connection kind of the type (6.3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lanes: Option<Lanes>,
+}
+
+/// The lanes of a live value (6.3).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Lanes {
+    /// One '0' or '1' for each lane, the most significant lane first.
+    pub bits: String,
+    /// The name of the bus, or an empty text.
+    pub label: String,
+}
+
+impl Lanes {
+    /// Reads the text of a `LANES` report. A defective cluster can send a bad text.
+    fn read(text: &str) -> Option<Lanes> {
+        let (bits, label) = text.split_once(' ')?;
+        let valid = (1..=64).contains(&bits.len()) && bits.bytes().all(|b| b == b'0' || b == b'1');
+        valid.then(|| Lanes { bits: bits.to_owned(), label: label.to_owned() })
+    }
 }
 
 /// The result of one call: false when a node failed or the cluster failed with no report.
@@ -201,7 +222,15 @@ fn outcome(ok: bool, sink: Sink, names: &[(String, String)], probes: &[String]) 
         if kind == glue::VALUE {
             // Only a defective cluster sends an unknown index, and its value has no wire to show on.
             if let Some(from) = probes.get(index as usize) {
-                out.values.push(Value { from: from.clone(), text });
+                out.values.push(Value { from: from.clone(), text, lanes: None });
+            }
+            continue;
+        }
+        if kind == glue::LANES {
+            // The lanes come after the text of the same value.
+            let last = out.values.last_mut().filter(|v| probes.get(index as usize) == Some(&v.from));
+            if let Some(value) = last {
+                value.lanes = Lanes::read(&text);
             }
             continue;
         }
@@ -258,7 +287,12 @@ mod tests {
     fn values_go_apart_from_the_reports() {
         let names = [("a1".to_owned(), "number".to_owned())];
         let probes = ["a1.out".to_owned()];
-        let sink = vec![(0, glue::VALUE, "2.5".to_owned()), (7, glue::VALUE, "x".to_owned()), (0, glue::PANIC, "p".to_owned())];
+        let sink = vec![
+            (0, glue::VALUE, "2.5".to_owned()),
+            (0, glue::LANES, "0110 data bus".to_owned()),
+            (7, glue::VALUE, "x".to_owned()),
+            (0, glue::PANIC, "p".to_owned()),
+        ];
         let out = outcome(false, sink, &names, &probes);
         assert!(out.skipped.is_empty() && out.stopped.is_empty());
         let idle = vec![(0, glue::SKIPPED, String::new()), (0, glue::STOPPED, String::new()), (9, glue::STOPPED, String::new())];
@@ -266,6 +300,10 @@ mod tests {
         assert_eq!((idle.skipped, idle.stopped), (vec!["a1".to_owned()], vec!["a1".to_owned()]));
         assert_eq!(out.values.len(), 1);
         assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
+        assert_eq!(out.values[0].lanes, Some(Lanes { bits: "0110".to_owned(), label: "data bus".to_owned() }));
+        for bad in ["0110", "012 x", " x", &format!("{} x", "1".repeat(65))] {
+            assert_eq!(Lanes::read(bad), None, "{bad}");
+        }
         assert_eq!(out.reports.len(), 1);
         assert_eq!((out.reports[0].folder.as_str(), out.reports[0].kind), ("number", ReportKind::Panic));
     }

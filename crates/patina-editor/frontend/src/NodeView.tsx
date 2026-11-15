@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type View } from './api';
+import { errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type Value, type View } from './api';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -15,8 +15,8 @@ export interface RunState {
   runMs: number | null;
   ok: boolean;
   reports: Report[];
-  /** The text of each live value by output, "<node id>.<output key>" (15.9). */
-  values: ReadonlyMap<string, string>;
+  /** Each live value by output, "<node id>.<output key>" (15.9). */
+  values: ReadonlyMap<string, Value>;
   /** The compile errors of the last build (15.5). */
   errors: Diagnostic[];
   text: string;

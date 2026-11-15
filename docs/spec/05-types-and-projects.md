@@ -126,6 +126,16 @@ A connection kind can give:
 
 The SDK form of a connection kind is not fixed. Start with the lanes, the label and the badge. Expect changes as the editor grows.
 
+**The first SDK form** (Agent decision, 2026-11-15. The owner can change it.)
+
+- A connection kind is a crate in `connections/<name>/`, with `patina-sdk = { workspace = true }`. The project workspace has `connections/*` as a member only when that folder has a kind.
+- The crate has one `#[connection]` function. It takes `&T`, where `T` is the type of the kind. It returns `Lanes::bits(count, bits)`, with an optional `.label(name)`.
+- The kind applies to each output whose type text is the same as `T`, as the node code writes it.
+- `Lanes::bits` holds 1 to 64 lanes. Lane 0 is the most significant bit. The label has 64 bytes at most.
+- The cluster calls the kind each time it sends the live value of such a wire, and it sends the lanes with the value. The badge stays the viewer text (5.3).
+- A panic in a kind gives no lanes for that value, and the wire shows one line. A compile error in a kind stops the build, as an error in a node does.
+- Lane names, lane groups, socket contacts and a custom badge are not in the first form.
+
 ### 6.4 Project file format
 
 This is an agent decision of 2026-11-15 for question 1 (18). The owner can change it.

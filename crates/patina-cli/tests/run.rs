@@ -4,6 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use patina_engine::{Control, Lanes, Project, Toolchain};
+
 /// Copies a project into the temporary folder of the tests and sets the Rust version of the
 /// toolchain. The `build/` folder stays, so a second test run builds only the changes.
 fn copy(from: &Path, name: &str) -> PathBuf {
@@ -15,7 +17,7 @@ fn copy(from: &Path, name: &str) -> PathBuf {
         }
     }
     copy_dir(from, &to);
-    let release = patina_engine::Toolchain::detect().unwrap().release;
+    let release = Toolchain::detect().unwrap().release;
     let file = to.join("patina.toml");
     let text = fs::read_to_string(&file).unwrap().replace("rust = \"1.94.0\"", &format!("rust = \"{release}\""));
     fs::write(file, text).unwrap();
@@ -43,12 +45,32 @@ fn run(project: &Path) -> (Output, String, String) {
     (output, stdout, stderr)
 }
 
+/// A connection kind of the test, for the f64 wires of the hello example (6.3).
+const KIND: &str = "#[patina_sdk::connection]
+pub fn whole(value: &f64) -> patina_sdk::Lanes {
+    patina_sdk::Lanes::bits(8, *value as u64).label(\"whole\")
+}
+";
+
 #[test]
-fn hello_adds_two_numbers() {
+fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "hello");
+    let kind = project.join("connections/whole");
+    fs::create_dir_all(kind.join("src")).unwrap();
+    let manifest = "[package]\nname = \"whole\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\npatina-sdk = { workspace = true }\n";
+    fs::write(kind.join("Cargo.toml"), manifest).unwrap();
+    fs::write(kind.join("src/lib.rs"), KIND).unwrap();
     let (output, stdout, stderr) = run(&project);
     assert!(output.status.success(), "{stderr}");
     assert_eq!(stdout.trim(), "6.5");
+
+    // The cluster sends the lanes of each held value, the most significant lane first.
+    let opened = Project::open(&project).unwrap();
+    let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap()).unwrap();
+    cluster.set_params(opened.graph());
+    let values = cluster.run(&Control::default()).values;
+    let sum = values.iter().find(|v| v.from == "f89c6e329e8ea336.out").unwrap();
+    assert_eq!(sum.lanes, Some(Lanes { bits: "00000110".to_owned(), label: "whole".to_owned() }));
 }
 
 #[test]

@@ -1,7 +1,8 @@
-//! Reads the pins of a node from the `#[node]` function in its source (spec 4.1).
+//! Reads the pins of a node from the `#[node]` function in its source (spec 4.1), and the type
+//! of a connection kind from its `#[connection]` function (6.3).
 
 use quote::ToTokens;
-use syn::{FnArg, GenericArgument, Item, Pat, PathArguments, ReturnType, Type, Visibility};
+use syn::{Attribute, FnArg, GenericArgument, Item, Pat, PathArguments, ReturnType, Type, Visibility};
 
 /// How the node function takes an input.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -69,7 +70,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
             Item::Impl(i) => (&i.attrs, None),
             _ => continue,
         };
-        if !attrs.iter().any(|a| a.path().segments.last().is_some_and(|s| s.ident == "node")) {
+        if !marked(attrs, "node") {
             continue;
         }
         // shortcut: only function nodes, stateful nodes (4.2) come at milestone 5.
@@ -126,6 +127,50 @@ pub fn parse(source: &str) -> Result<Node, String> {
     let (output, mut output_types) = value.map_or((Output::None, Vec::new()), shape);
     output_types.extend(mut_types);
     Ok(Node { func: sig.ident.to_string(), inputs, output, fallible, output_types })
+}
+
+/// The function of a connection kind (6.3).
+#[derive(Debug)]
+pub struct Kind {
+    pub func: String,
+    /// The type of the values that the kind shows, as the code writes it, for example `u8`.
+    pub ty: String,
+}
+
+/// Finds the one `#[connection]` function of a connection kind crate and reads its value type.
+pub fn parse_kind(source: &str) -> Result<Kind, String> {
+    let file = syn::parse_file(source).map_err(|e| format!("the code does not parse: {e}"))?;
+    let mut found = None;
+    for item in &file.items {
+        if let Item::Fn(func) = item
+            && marked(&func.attrs, "connection")
+            && found.replace(func).is_some()
+        {
+            return Err("the crate has more than one #[connection] function".to_owned());
+        }
+    }
+    let func = found.ok_or("the crate has no #[connection] function")?;
+    let sig = &func.sig;
+    if !matches!(func.vis, Visibility::Public(_)) {
+        return Err(format!("make the connection function `{}` pub", sig.ident));
+    }
+    let plain = sig.asyncness.is_none() && sig.unsafety.is_none() && sig.abi.is_none() && sig.variadic.is_none();
+    if !plain || !sig.generics.params.is_empty() {
+        return Err("a connection function must be a plain safe Rust function with no generics".to_owned());
+    }
+    let mut args = sig.inputs.iter();
+    if let (Some(FnArg::Typed(arg)), None) = (args.next(), args.next())
+        && let Type::Reference(r) = &*arg.ty
+        && r.mutability.is_none()
+    {
+        return Ok(Kind { func: sig.ident.to_string(), ty: type_text(&r.elem) });
+    }
+    Err("a connection function takes one input, a `&T` of the type that it shows".to_owned())
+}
+
+/// True when an attribute has the name `name`, also as the last part of a path.
+fn marked(attrs: &[Attribute], name: &str) -> bool {
+    attrs.iter().any(|a| a.path().segments.last().is_some_and(|s| s.ident == name))
 }
 
 fn is_out_key(key: &str) -> bool {
@@ -207,6 +252,24 @@ mod tests {
         ];
         for source in fails {
             assert!(parse(source).is_err(), "{source}");
+        }
+    }
+
+    #[test]
+    fn reads_the_type_of_a_connection_kind() {
+        let kind = parse_kind("use patina_sdk::*;\n#[connection]\npub fn bus(v: &Vec<u8>) -> Lanes { todo!() }").unwrap();
+        assert_eq!((kind.func.as_str(), kind.ty.as_str()), ("bus", "Vec<u8>"));
+        let fails = [
+            "#[connection] fn f(v: &u8) {}",
+            "#[connection] pub fn f<'a>(v: &'a u8) {}",
+            "#[connection] pub fn f(v: u8) {}",
+            "#[connection] pub fn f(v: &mut u8) {}",
+            "#[connection] pub fn f(v: &u8, w: &u8) {}",
+            "#[connection] pub fn f(v: &u8) {} #[connection] pub fn g(v: &u8) {}",
+            "#[node] pub fn f(v: &u8) {}",
+        ];
+        for source in fails {
+            assert!(parse_kind(source).is_err(), "{source}");
         }
     }
 }

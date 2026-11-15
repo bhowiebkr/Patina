@@ -13,10 +13,10 @@ use std::fmt::{self, Write as _};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 
-use crate::{Param, Text, Viewer};
+use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 3;
+pub const ABI_VERSION: u32 = 4;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -28,6 +28,9 @@ pub const VALUE: u32 = 4;
 pub const STOPPED: u32 = 5;
 /// A node call that did not start, because a wired input had no value (15.3). It has no text.
 pub const SKIPPED: u32 = 6;
+/// The lanes of a held value (6.3), after its `VALUE`. The text has one '0' or '1' for each lane,
+/// the most significant lane first, then a space and the label.
+pub const LANES: u32 = 7;
 
 /// The longest text of a live value, in bytes. A longer text ends with "...".
 pub const TEXT_LEN: usize = 4096;
@@ -220,6 +223,18 @@ pub fn send_value(rep: &Reporter, index: u32, text: impl FnOnce(&mut Text<'_>)) 
     rep.send(index, VALUE, out.finish());
 }
 
+/// Sends the lanes of held value `index` (6.3), with its own catch. A panic sends no lanes.
+pub fn send_lanes(rep: &Reporter, index: u32, lanes: impl FnOnce() -> Lanes) {
+    let Ok(lanes) = catch_unwind(AssertUnwindSafe(lanes)) else { return };
+    let mut buf = [0; 64 + 1 + 64 + 3];
+    let mut out = Text::new(&mut buf);
+    for i in (0..lanes.count).rev() {
+        let _ = out.write_char(if lanes.bits >> i & 1 == 1 { '1' } else { '0' });
+    }
+    let _ = write!(out, " {}", lanes.label);
+    rep.send(index, LANES, out.finish());
+}
+
 fn panic_text(payload: &(dyn Any + Send)) -> String {
     let text = payload
         .downcast_ref::<&str>()
@@ -328,6 +343,18 @@ mod tests {
         // The quote and 2047 two-byte characters fill 4095 bytes. The next character does not fit.
         assert_eq!(sent[3].2, format!("\"{}...", "\u{e9}".repeat(TEXT_LEN / 2 - 1)));
         assert_eq!(sent[4].2, "the text of the value panicked");
+    }
+
+    #[test]
+    fn lanes_send_the_bits_msb_first_and_the_label() {
+        let mut sent: Vec<(u32, u32, String)> = Vec::new();
+        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+        send_lanes(&rep, 2, || Lanes::bits(4, 0b0110).label("a b"));
+        send_lanes(&rep, 3, || Lanes::bits(0, 1));
+        send_lanes(&rep, 4, || panic!("no lanes"));
+        send_lanes(&rep, 5, || Lanes::bits(99, u64::MAX).label("x"));
+        assert_eq!(sent[..2], [(2, LANES, "0110 a b".to_owned()), (3, LANES, "1 ".to_owned())]);
+        assert_eq!(sent[2], (5, LANES, format!("{} x", "1".repeat(64))));
     }
 
     #[test]

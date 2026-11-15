@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { insertAt, MAX_POINTS, MAX_ROUTE, midpoint, normals, routePoints, STRIDE, WireStore, wirePath } from './wires.ts';
+import { HAS_LANES, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, midpoint, normals, routePoints, STALE, STRIDE, WireStore, wirePath } from './wires.ts';
 
 /** The miter normals of a line through the x, y pairs. */
 function miters(...xy: number[]): number[][] {
@@ -85,6 +85,32 @@ test('a route with a new number of points rebuilds the segment lists', () => {
   store.layout = false;
   store.set('w', 0, 0, 100, 0, [[50, 60]], false);
   assert.ok(!store.layout, 'a moved point keeps the number of points');
+});
+
+test('a bus draws each lane of each segment, and a selected bus draws one ribbon', () => {
+  const store = new WireStore();
+  store.set('plain', 0, 0, 100, 0, [], false);
+  store.set('bus', 0, 0, 100, 0, [[50, 40]], true, '0110', true);
+  const plain = store.counts[0] - 1;
+  const bus = store.counts[1] - 1;
+  const all = instances(store, false);
+  assert.equal(all.length, (plain + bus * 4) * 4);
+  assert.deepEqual([...all.subarray(0, 4)], [0, 0, 0, 0]);
+  // Lane 0 is the most significant bit. Each instance keeps the lane count - 1.
+  const flags = 3 | HAS_LANES | STALE;
+  const first = [...all.subarray(plain * 4, plain * 4 + 16)];
+  assert.deepEqual(first, [1, 0, 0, flags, 1, 0, 1, flags | LIT, 1, 0, 2, flags | LIT, 1, 0, 3, flags]);
+  const chosen = instances(store, true);
+  assert.equal(chosen.length, bus * 4);
+  assert.deepEqual([...chosen.subarray(0, 4)], [1, 0, 0, flags]);
+  store.layout = false;
+  store.set('bus', 0, 0, 100, 0, [[50, 40]], true, '0110', true);
+  assert.ok(!store.layout, 'the same lanes keep the instances');
+  store.set('bus', 0, 0, 100, 0, [[50, 40]], true, '0111', true);
+  assert.ok(store.layout, 'a new lane state needs new instances');
+  for (let k = 0; k < 20; k++) store.set(`w${k}`, 0, 0, 10, 0, [], false, '1');
+  assert.equal(store.bits.length, store.counts.length, 'the lanes grow with the slots');
+  assert.equal(store.bits[21], '1');
 });
 
 test('the value badge sits at the middle of the curve or of the longest segment', () => {

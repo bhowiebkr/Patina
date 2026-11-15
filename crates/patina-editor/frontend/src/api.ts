@@ -81,10 +81,22 @@ export interface Report {
   text: string;
 }
 
+/** The lanes of a value from its connection kind (spec 6.3): one '0' or '1' for each lane, the most significant first. */
+export interface Lanes {
+  bits: string;
+  label: string;
+}
+
+/** The label of a bus (15.9), for example "data[7:0] / 8". */
+export function laneLabel({ bits, label }: Lanes): string {
+  return `${label}[${bits.length - 1}:0] / ${bits.length}`;
+}
+
 /** The live value of an output after a run (spec 15.9), with `from` as "<node id>.<output key>". */
 export interface Value {
   from: string;
   text: string;
+  lanes?: Lanes;
 }
 
 /** A compile error (spec 15.5). Lines and columns start at 1. */

@@ -186,15 +186,49 @@ export function normals(p: Float32Array, at: number, n: number) {
   }
 }
 
+/** The flags of a draw instance. Bits 0 to 5 hold the number of lanes - 1. */
+export const HAS_LANES = 64;
+export const LIT = 128;
+export const STALE = 256;
+
+/**
+ * The draw instances of the wires: slot, segment, lane and flags. Each lane of each segment of
+ * each wire, or one instance for each segment of the selected wires.
+ */
+export function instances(store: WireStore, selectedOnly: boolean): Uint16Array {
+  const lanesOf = (s: number) => (selectedOnly ? 1 : Math.max(1, store.bits[s].length));
+  let n = 0;
+  for (let s = 0; s < store.counts.length; s++) if (!selectedOnly || store.selected[s]) n += Math.max(0, store.counts[s] - 1) * lanesOf(s);
+  const out = new Uint16Array(n * 4);
+  let at = 0;
+  for (let s = 0; s < store.counts.length; s++) {
+    if (selectedOnly && !store.selected[s]) continue;
+    const bits = store.bits[s];
+    const flags = (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0);
+    for (let k = 0; k < store.counts[s] - 1; k++) {
+      for (let lane = 0; lane < lanesOf(s); lane++, at += 4) {
+        out[at] = s;
+        out[at + 1] = k;
+        out[at + 2] = lane;
+        out[at + 3] = flags | (bits[lane] === '1' ? LIT : 0);
+      }
+    }
+  }
+  return out;
+}
+
 /** The wires that the WebGL layer draws. A free slot has 0 points. */
 export class WireStore {
   points = new Float32Array(16 * MAX_POINTS * STRIDE);
   counts = new Uint8Array(16);
   selected = new Uint8Array(16);
+  /** The lanes of each wire (6.3), the most significant first, or "" for one plain line. */
+  bits: string[] = Array<string>(16).fill('');
+  stale = new Uint8Array(16);
   /** The slots that changed since the last draw. All slots changed when `grown` is true. */
   readonly changed = new Set<number>();
   grown = true;
-  /** True when a wire was added, removed, selected, cleared or got a new number of points since the last draw. */
+  /** True when a wire was added, removed, selected, cleared, or got new lanes or a new number of points since the last draw. */
   layout = true;
   private readonly slots = new Map<string, number>();
   private readonly free: number[] = [];
@@ -205,7 +239,7 @@ export class WireStore {
     this.notify = fn;
   }
 
-  set(id: string, sx: number, sy: number, tx: number, ty: number, route: readonly Point[], selected: boolean) {
+  set(id: string, sx: number, sy: number, tx: number, ty: number, route: readonly Point[], selected: boolean, bits = '', stale = false) {
     let slot = this.slots.get(id);
     if (slot === undefined) {
       slot = this.free.pop() ?? this.slots.size;
@@ -214,8 +248,12 @@ export class WireStore {
       this.layout = true;
     }
     const sel = selected ? 1 : 0;
-    if (this.selected[slot] !== sel) this.layout = true;
+    const old = stale ? 1 : 0;
+    // shortcut: a new lane state rebuilds the instances of all wires; put the lane states in a texture when values come at the display rate (15.6).
+    if (this.selected[slot] !== sel || this.bits[slot] !== bits || this.stale[slot] !== old) this.layout = true;
     this.selected[slot] = sel;
+    this.bits[slot] = bits;
+    this.stale[slot] = old;
     const at = slot * MAX_POINTS * STRIDE;
     const n = route.length === 0 ? bezierPoints(sx, sy, tx, ty, this.points, at) : routePoints(sx, sy, tx, ty, route, this.points, at);
     // A new number of points needs new segment lists, or the old segments read stale points.
@@ -232,6 +270,8 @@ export class WireStore {
     this.free.push(slot);
     this.counts[slot] = 0;
     this.selected[slot] = 0;
+    this.bits[slot] = '';
+    this.stale[slot] = 0;
     this.layout = true;
     this.notify();
   }
@@ -248,9 +288,13 @@ export class WireStore {
     counts.set(this.counts);
     const selected = new Uint8Array(n);
     selected.set(this.selected);
+    const stale = new Uint8Array(n);
+    stale.set(this.stale);
     this.points = points;
     this.counts = counts;
     this.selected = selected;
+    this.stale = stale;
+    this.bits = this.bits.concat(Array<string>(n - this.bits.length).fill(''));
     this.grown = true;
   }
 }

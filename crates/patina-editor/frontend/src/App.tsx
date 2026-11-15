@@ -214,10 +214,10 @@ export function App() {
     } else if (e.state === 'ran') {
       const failed = e.errors.length > 0;
       const idle = new Map([...e.skipped.map((id) => [id, 'skipped'] as const), ...e.stopped.map((id) => [id, 'stopped'] as const)]);
-      const values = new Map(e.values.map((v) => [v.from, v.text]));
+      const values = new Map(e.values.map((v) => [v.from, v]));
       setRun((r) => {
         // A node that did not run keeps its old values, and they show as stale (15.3).
-        for (const [from, text] of r.values) if (!values.has(from) && valueStale({ ...r, stale: false, idle }, from)) values.set(from, text);
+        for (const [from, v] of r.values) if (!values.has(from) && valueStale({ ...r, stale: false, idle }, from)) values.set(from, v);
         return {
         phase: 'ran',
         builtMs: e.builtMs,
