@@ -6,6 +6,9 @@ request from Codex through the
 [image handoff](../tools/image-handoff/README.md). A mockup is a design reference. It does not
 prove that the program works.
 
+Since 2026-11-15, Patina uses the current mockups and requests no new images. This plan stays
+as a record. A row that ends with **Covered** has a current mockup that shows the same work.
+
 ## Rules for every mockup
 
 - Follow the [spec](spec/README.md). The guide and spec section 0 list where the current
@@ -74,7 +77,7 @@ it to `.md`.
 | ID | Image | What it shows | Spec |
 |---|---|---|---|
 | 0001 | Node GUI widget kit | Each widget of 4.3 in the Patina theme, compact and large, with the fill color comparison | 4.3, 15.3 |
-| 0002 | Node GUI gallery | Six nodes with compact GUIs at 200% zoom: transform gizmo, gradient map, tone curve, envelope, sample waveform, export panel | 4.3, 9.1, 9.4 |
+| 0002 | Node GUI gallery | Six nodes with compact GUIs at 200% zoom: transform gizmo, gradient map, tone curve, envelope, sample waveform, export panel. **Covered** by mockup 4 | 4.3, 9.1, 9.4 |
 | 0003 | Image tool | The full editor: an image graph with node GUIs, the large curve GUI in the inspector, and the Layers panel when no node is in the slot | 4.3, 7.3, 15.2 to 15.4 |
 | 0004 | Sound tool | The full editor: a sound effect graph in the audio and frame domains, with the large envelope GUI in the inspector | 4.3, 9.1, 9.3 |
 | 0005 | Full-size node GUI | The Curve Editor GUI in the whole graph area, with **Back** and the path "Main Graph / Curve Editor" in the top bar. No brief yet | 4.3 |
@@ -86,10 +89,10 @@ with views. No briefs yet.
 
 | ID | Image | What it shows | Spec |
 |---|---|---|---|
-| 0006 | Texture painter | A 3D object view with painted textures, docked in the center, and the texture graph | 15.2, 15.8 |
+| 0006 | Texture painter | A 3D object view with painted textures, docked in the center, and the texture graph. **Covered** in part by mockup 9 | 15.2, 15.8 |
 | 0007 | Terrain generator | A 3D viewport of a procedural terrain, with the generator graph and its parameters | 15.8, 10.2 |
-| 0008 | Sound designer | A timeline view and a spectrum view in a sound tool. The spectrum view floats in its own window | 15.2, 15.8, 9.3 |
-| 0009 | Scientific view | A plot view and a field view of simulation data, next to the graph | 15.8 |
+| 0008 | Sound designer | A timeline view and a spectrum view in a sound tool. The spectrum view floats in its own window. **Covered** by mockup 5 | 15.2, 15.8, 9.3 |
+| 0009 | Scientific view | A plot view and a field view of simulation data, next to the graph. **Covered** by mockups 7 and 8 | 15.8 |
 | 0010 | Project panel | The **Project** tab with the folders of the project, **Import** of a node folder, and **Update** of an imported folder | 6.2, 15.2 |
 
 ## Batch 3: editor states
@@ -107,20 +110,20 @@ with views. No briefs yet.
 | ID | Image | What it shows | Spec |
 |---|---|---|---|
 | 0016 | Value viewers | Viewers on wires: image, table, plot, waveform, `Debug` text, type name and size | 5.3 |
-| 0017 | Automation pipeline | The event domain: trigger nodes, async nodes, run IDs in the logs | 9.4 |
+| 0017 | Automation pipeline | The event domain: trigger nodes, async nodes, run IDs in the logs. **Covered** by mockup 6 | 9.4 |
 | 0018 | First start | **Install toolchain** on Windows: the components, the folder and the progress | 13.2, 13.3 |
 | 0019 | Trust prompt | The trust question and a read-only project | 11 |
 | 0020 | Package export | Executable, C library and Python module | 14 |
 
-## Needs the owner first
+## Screens that the spec now defines
 
-The spec does not define these screens yet. Decide them before a mockup:
+These screens had no definition when this plan was written. The spec now defines them, and the
+editor has them:
 
-- How the user adds a node to the graph other than with a drag from the **Project** panel, for
-  example with a search palette.
-- How the user makes a new node, view or widget folder and names it.
-- How the user adds a crate to the project.
-- The start screen: new project, open project and recent projects.
-- Settings, for example the fuse time (section 18, question 7).
-- App mode (section 18, question 6). A mockup can help the owner decide, but only when the owner
-  asks for one.
+- The **Add node** palette and the **+** button that makes a node folder (15.2).
+- **Add crate** in the **Code** tab, and the place of the large node GUI (15.4).
+- The start screen and the settings screen (15.10). The fuse time goes into the settings screen
+  when section 18, question 7 has an answer.
+
+App mode (section 18, question 6) is still open. A mockup can help the owner decide, but only
+when the owner asks for one.

@@ -127,9 +127,9 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
 
 ## 7. Not blocking
 
-- [ ] Drop or mark the planned images that mockups 4 to 9 already cover. Mockup 4 covers 0002,
+- [x] Drop or mark the planned images that mockups 4 to 9 already cover. Mockup 4 covers 0002,
   mockup 5 covers 0008, mockup 6 covers 0017, mockups 7 and 8 cover 0009, and mockup 9 partly
-  covers 0006.
+  covers 0006. The [mockup plan](mockup-plan.md) marks these rows **Covered**, 2026-11-15.
 - [x] Link [laser-measurement-design.md](laser-measurement-design.md) and
   [circuit-graph-design.md](circuit-graph-design.md) from the README.
 - [x] Create `STATUS.md` with the result of the first prototype (AGENTS.md).
