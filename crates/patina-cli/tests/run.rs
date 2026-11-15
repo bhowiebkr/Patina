@@ -1,5 +1,7 @@
 //! Builds and runs projects with the CLI, as a person does (spec 3, milestone 1).
 
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -45,6 +47,33 @@ fn run(project: &Path, more: &[&str]) -> (Output, String, String) {
     (output, stdout, stderr)
 }
 
+thread_local! {
+    static COUNTING: Cell<bool> = const { Cell::new(false) };
+    static ALLOCATIONS: Cell<usize> = const { Cell::new(0) };
+}
+
+/// Counts the allocations of a thread while its `COUNTING` is true, to check the frame loop.
+struct Counter;
+
+// SAFETY: the system allocator does the work. The counter only reads and writes two cells.
+unsafe impl GlobalAlloc for Counter {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        if COUNTING.get() {
+            ALLOCATIONS.set(ALLOCATIONS.get() + 1);
+        }
+        // SAFETY: the caller keeps the contract of `GlobalAlloc::alloc`.
+        unsafe { System.alloc(layout) }
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        // SAFETY: `ptr` came from `alloc` with the same layout.
+        unsafe { System.dealloc(ptr, layout) }
+    }
+}
+
+#[global_allocator]
+static COUNTER: Counter = Counter;
+
 /// A connection kind of the test, for the f64 wires of the hello example (6.3).
 const KIND: &str = "#[patina_sdk::connection]
 pub fn whole(value: &f64) -> patina_sdk::Lanes {
@@ -65,8 +94,9 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     assert_eq!(stdout.trim(), "6.5");
 
     // The cluster sends the lanes of each held value, the most significant lane first.
+    let toolchain = Toolchain::detect().unwrap();
     let opened = Project::open(&project).unwrap();
-    let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap()).unwrap();
+    let mut cluster = opened.check().unwrap().build(&toolchain).unwrap();
     cluster.set_params(opened.graph());
     let values = cluster.run(&Control::default()).values;
     let sum = values.iter().find(|v| v.from == "f89c6e329e8ea336.out").unwrap();
@@ -96,6 +126,22 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let (output, stdout, stderr) = run(&project, &["--frames", "3"]);
     assert!(output.status.success(), "{stderr}");
     assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "8.5", "8.5", "8.5"]);
+
+    // After the first frames, a frame does not allocate (9.1). The two frame tasks wait for each
+    // other, so this thread runs both. The values, the lanes and the times are in each frame.
+    let opened = Project::open(&project).unwrap();
+    let (mut cluster, control) = (opened.check().unwrap().build(&toolchain).unwrap(), Control::default());
+    cluster.set_params(opened.graph());
+    assert!(cluster.run(&control).ok);
+    let warm = (0..3).all(|_| cluster.frame(&control).ok);
+    COUNTING.set(true);
+    drop(std::hint::black_box(Box::new(1)));
+    let boxed = ALLOCATIONS.replace(0);
+    let ok = (0..100).all(|_| cluster.frame(&control).ok);
+    COUNTING.set(false);
+    let frame = cluster.frame(&control);
+    assert!(warm && ok && frame.values.iter().any(|v| v.lanes.is_some()) && !frame.times.is_empty());
+    assert_eq!((boxed, ALLOCATIONS.get()), (1, 0), "one box, then the allocations of 100 frames");
 }
 
 #[test]

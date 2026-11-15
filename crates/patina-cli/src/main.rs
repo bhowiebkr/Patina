@@ -58,7 +58,7 @@ fn run(folder: &Path, frames: Option<u64>) -> Result<bool, patina_engine::Error>
         if frame > 0 {
             clock.wait();
         }
-        if !show(&cluster.frame(&control)) {
+        if !show(cluster.frame(&control)) {
             return Ok(false);
         }
     }

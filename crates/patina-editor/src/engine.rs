@@ -176,9 +176,11 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, cluster: &mut Cluster, shar
         let run_ms = start.elapsed().as_secs_f64() * 1000.0;
         frames += 1;
         let values = badges(&outcome.values);
-        keep(&mut lock(&shared.values), outcome.values);
+        keep(&mut lock(&shared.values), &outcome.values);
         let ok = outcome.ok;
-        let (skipped, stopped, times, logs, reports) = (outcome.skipped, outcome.stopped, outcome.times, outcome.logs, outcome.reports);
+        // shortcut: the editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
+        let (skipped, stopped, times) = (outcome.skipped.clone(), outcome.stopped.clone(), outcome.times.clone());
+        let (logs, reports) = (outcome.logs.clone(), outcome.reports.clone());
         let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
         if !ok {
             break None;
@@ -190,11 +192,11 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, cluster: &mut Cluster, shar
 
 /// Puts the values of a frame in place of the old values of the same outputs. The values of the
 /// batch domain stay.
-fn keep(kept: &mut Vec<Value>, values: Vec<Value>) {
+fn keep(kept: &mut Vec<Value>, values: &[Value]) {
     for value in values {
         match kept.iter_mut().find(|v| v.from == value.from) {
-            Some(old) => *old = value,
-            None => kept.push(value),
+            Some(old) => old.clone_from(value),
+            None => kept.push(value.clone()),
         }
     }
 }
@@ -272,7 +274,7 @@ mod tests {
     fn a_frame_replaces_only_the_values_of_its_outputs() {
         let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), lanes: None };
         let mut kept = vec![value("a.out", "1"), value("b.out", "2")];
-        keep(&mut kept, vec![value("b.out", "3"), value("c.out", "4")]);
+        keep(&mut kept, &[value("b.out", "3"), value("c.out", "4")]);
         let texts: Vec<_> = kept.iter().map(|v| (v.from.as_str(), v.text.as_str())).collect();
         assert_eq!(texts, [("a.out", "1"), ("b.out", "3"), ("c.out", "4")]);
     }

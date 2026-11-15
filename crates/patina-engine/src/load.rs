@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::fmt;
+use std::ops::Range;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering::Relaxed};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -16,9 +17,10 @@ use crate::plan::Task;
 use crate::pool::{self, Work};
 use crate::project::GraphFile;
 
-#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum ReportKind {
     /// The node returned an `Err` (4.7).
+    #[default]
     Error,
     /// The node panicked (4.7).
     Panic,
@@ -27,7 +29,7 @@ pub enum ReportKind {
 }
 
 /// A problem of one node during a call into the cluster.
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct Report {
     pub id: String,
     /// The node folder name.
@@ -48,7 +50,7 @@ impl fmt::Display for Report {
 }
 
 /// The live value of an output after a run (15.9).
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct Value {
     /// The output, as "<node id>.<output key>".
     pub from: String,
@@ -69,23 +71,30 @@ pub struct Lanes {
 }
 
 impl Lanes {
-    /// Reads the text of a `LANES` report. A defective cluster can send a bad text.
-    fn read(text: &str) -> Option<Lanes> {
-        let (bits, label) = text.split_once(' ')?;
-        let valid = (1..=64).contains(&bits.len()) && bits.bytes().all(|b| b == b'0' || b == b'1');
-        valid.then(|| Lanes { bits: bits.to_owned(), label: label.to_owned() })
+    /// Reads the text of a `LANES` report into `lanes`, and keeps the texts of old lanes. A
+    /// defective cluster can send a bad text.
+    fn read(text: Option<&str>, lanes: &mut Option<Lanes>) {
+        let valid = |bits: &str| (1..=64).contains(&bits.len()) && bits.bytes().all(|b| b == b'0' || b == b'1');
+        match (text.and_then(|t| t.split_once(' ')).filter(|(bits, _)| valid(bits)), lanes.as_mut()) {
+            (Some((bits, label)), Some(old)) => {
+                put(&mut old.bits, bits);
+                put(&mut old.label, label);
+            }
+            (Some((bits, label)), None) => *lanes = Some(Lanes { bits: bits.to_owned(), label: label.to_owned() }),
+            (None, _) => *lanes = None,
+        }
     }
 }
 
 /// The run time of one node call (15.7).
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Default)]
 pub struct NodeTime {
     pub id: String,
     pub ms: f64,
 }
 
 /// A log line of a node, from the `log` crate (15.7).
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Default)]
 pub struct NodeLog {
     pub id: String,
     /// The node folder name.
@@ -144,16 +153,50 @@ pub struct Cluster {
     probes: Vec<String>,
     /// True for each slot that got a text at the last `set_params`.
     has_text: Vec<bool>,
+    /// The reports of the last call.
+    sink: Sink,
+    /// The outcome of the last call. A frame fills it again, so it does not allocate (9.1).
+    out: Outcome,
 }
 
-/// The report list of one call. It is the context of the reporter.
-type Sink = Vec<(u32, u32, String)>;
+/// The reports of one call: the node, the kind and the text range of each report, and the texts
+/// in one buffer. It is the context of the reporter. The buffers keep their capacity.
+#[derive(Default)]
+struct Sink {
+    items: Vec<(u32, u32, Range<usize>)>,
+    text: String,
+}
+
+impl Sink {
+    fn push(&mut self, node: u32, kind: u32, text: &str) {
+        let start = self.text.len();
+        self.text.push_str(text);
+        self.items.push((node, kind, start..self.text.len()));
+    }
+
+    fn clear(&mut self) {
+        self.items.clear();
+        self.text.clear();
+    }
+
+    /// Moves the reports of `other` to the end of this sink.
+    fn append(&mut self, other: &mut Sink) {
+        let start = self.text.len();
+        self.text.push_str(&other.text);
+        self.items.extend(other.items.drain(..).map(|(node, kind, r)| (node, kind, r.start + start..r.end + start)));
+        other.text.clear();
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (u32, u32, &str)> {
+        self.items.iter().map(|(node, kind, r)| (*node, *kind, &self.text[r.clone()]))
+    }
+}
 
 unsafe extern "C" fn collect(ctx: *mut c_void, node: u32, kind: u32, text: *const u8, len: usize) {
     // SAFETY: `ctx` is the sink of `Cluster::call`, and `text` points to `len` bytes during the
     // call (glue::Reporter).
     let (sink, bytes) = unsafe { (&mut *ctx.cast::<Sink>(), std::slice::from_raw_parts(text, len)) };
-    sink.push((node, kind, String::from_utf8_lossy(bytes).into_owned()));
+    sink.push(node, kind, &String::from_utf8_lossy(bytes));
 }
 
 /// The tasks of a run of one domain (9.2), and a report list for each task. The worker pool
@@ -209,7 +252,7 @@ impl Tasks {
         for &n in next.iter().flatten() {
             inputs[n] += 1;
         }
-        let sinks = ids.iter().map(|_| Mutex::new(Sink::new())).collect();
+        let sinks = ids.iter().map(|_| Mutex::new(Sink::default())).collect();
         let (state, control) = (AtomicPtr::new(state), AtomicPtr::new(std::ptr::null_mut()));
         Tasks { state, control, task, ids, inputs, next, sinks, ok: AtomicBool::new(true) }
     }
@@ -248,7 +291,8 @@ impl Cluster {
             }
             let domains = [Domain::Batch, Domain::Frame].map(|d| Arc::new(Tasks::new(state, task, tasks, d)));
             let (parallel, has_text) = (parallel(state), vec![false; slots.len()]);
-            Cluster { state, new, set, end, free, parallel, domains, names, slots, probes, has_text }
+            let (sink, out) = (Sink::default(), Outcome::default());
+            Cluster { state, new, set, end, free, parallel, domains, names, slots, probes, has_text, sink, out }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -273,38 +317,33 @@ impl Cluster {
             self.state = state;
         }
         let mut all = Outcome { ok: true, ..Outcome::default() };
-        for (slot, text) in texts.iter().enumerate() {
+        for (slot, text) in (0u32..).zip(&texts) {
             let Some(text) = text else { continue };
-            let mut outcome = self.set(slot, text);
-            for report in &mut outcome.reports {
-                report.text = format!("input `{}`: {}", self.slots[slot].1, report.text);
-            }
-            all.ok &= outcome.ok;
-            all.reports.append(&mut outcome.reports);
+            let (state, set) = (self.state, self.set);
+            self.sink.clear();
+            // SAFETY: `state` is live, `text` is valid during the call, and so is the reporter.
+            self.call(std::ptr::null(), |rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) });
+            let key = &self.slots[slot as usize].1;
+            all.ok &= self.out.ok;
+            all.reports.extend(self.out.reports.drain(..).map(|r| Report { text: format!("input `{key}`: {}", r.text), ..r }));
         }
         self.has_text = texts.iter().map(Option::is_some).collect();
         all
     }
 
-    /// Sets parameter slot `slot` from its text form (4.8).
-    fn set(&mut self, slot: usize, text: &str) -> Outcome {
-        let Ok(slot) = u32::try_from(slot) else {
-            return Outcome::default();
-        };
-        let (state, set) = (self.state, self.set);
-        // SAFETY: `state` is live, `text` is valid during the call, and so is the reporter.
-        self.call(std::ptr::null(), Sink::new(), |rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) })
-    }
-
     /// Runs the batch domain of the graph one time. Another thread can ask the run to stop with
     /// `control` (15.2). The reports come in task order (9.2).
     pub fn run(&mut self, control: &Control) -> Outcome {
-        self.run_domain(Domain::Batch, control)
+        self.run_domain(Domain::Batch, control);
+        // The batch run is not a hot path, so it gives its lists to the caller.
+        std::mem::take(&mut self.out)
     }
 
-    /// Runs the frame domain of the graph one time: one frame (9.1).
-    pub fn frame(&mut self, control: &Control) -> Outcome {
-        self.run_domain(Domain::Frame, control)
+    /// Runs the frame domain of the graph one time: one frame (9.1). After the first frames, it
+    /// does not allocate, because it fills the lists of the last outcome again.
+    pub fn frame(&mut self, control: &Control) -> &Outcome {
+        self.run_domain(Domain::Frame, control);
+        &self.out
     }
 
     /// True when the graph has nodes in the frame domain.
@@ -312,7 +351,7 @@ impl Cluster {
         !self.domains[Domain::Frame as usize].ids.is_empty()
     }
 
-    fn run_domain(&mut self, domain: Domain, control: &Control) -> Outcome {
+    fn run_domain(&mut self, domain: Domain, control: &Control) {
         let tasks = &self.domains[domain as usize];
         tasks.state.store(self.state, Relaxed);
         tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
@@ -323,16 +362,15 @@ impl Cluster {
             (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
         }
         tasks.control.store(std::ptr::null_mut(), Relaxed);
-        let mut sink = Sink::new();
+        self.sink.clear();
         for task in &tasks.sinks {
-            sink.append(&mut lock(task));
+            self.sink.append(&mut lock(task));
         }
         let (state, end, ok) = (self.state, self.end, tasks.ok.load(Relaxed));
         // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
         // during the call.
-        let mut out = self.call(control, sink, |rep| unsafe { end(state, domain as u32, rep) });
-        out.ok &= ok;
-        out
+        self.call(control, |rep| unsafe { end(state, domain as u32, rep) });
+        self.out.ok &= ok;
     }
 
     /// The ID of each node, by the node index of `Control::node`.
@@ -340,61 +378,94 @@ impl Cluster {
         self.names.iter().map(|(id, _)| id.as_str())
     }
 
-    /// Calls `f` with a reporter that adds to `sink`.
-    fn call(&self, control: *const Control, mut sink: Sink, f: impl FnOnce(*const Reporter) -> bool) -> Outcome {
-        let reporter = Reporter { ctx: (&raw mut sink).cast(), report: collect, control };
+    /// Calls `f` with a reporter that adds to the sink. Then fills the outcome from the sink.
+    fn call(&mut self, control: *const Control, f: impl FnOnce(*const Reporter) -> bool) {
+        let reporter = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
         let ok = f(&reporter);
-        outcome(ok, sink, &self.names, &self.probes)
+        fill(&mut self.out, ok, &self.sink, &self.names, &self.probes);
     }
 }
 
-/// Splits the reports of one call into the problems of nodes and the live values.
-fn outcome(ok: bool, sink: Sink, names: &[(String, String)], probes: &[String]) -> Outcome {
-    let mut out = Outcome { ok, ..Outcome::default() };
-    for (index, kind, text) in sink {
-        if kind == glue::SKIPPED || kind == glue::STOPPED {
-            let list = if kind == glue::SKIPPED { &mut out.skipped } else { &mut out.stopped };
-            list.extend(names.get(index as usize).map(|(id, _)| id.clone()));
-            continue;
-        }
-        if kind == glue::VALUE {
-            // Only a defective cluster sends an unknown index, and its value has no wire to show on.
-            if let Some(from) = probes.get(index as usize) {
-                out.values.push(Value { from: from.clone(), text, lanes: None });
+/// Splits the reports of one call into the problems of nodes and the live values. It fills the
+/// lists of `out` again and keeps their texts, so it does not allocate after the first frames.
+fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, String)], probes: &[String]) {
+    let (mut reports, mut values, mut skipped, mut stopped, mut times, mut logs) = (0, 0, 0, 0, 0, 0);
+    let mut items = sink.iter().peekable();
+    while let Some((index, kind, text)) = items.next() {
+        let name = names.get(index as usize);
+        match kind {
+            glue::SKIPPED | glue::STOPPED => {
+                let (list, used) = if kind == glue::SKIPPED { (&mut out.skipped, &mut skipped) } else { (&mut out.stopped, &mut stopped) };
+                if let Some((id, _)) = name {
+                    put(reuse(list, used), id);
+                }
             }
-            continue;
-        }
-        if kind == glue::TIME {
-            // A defective cluster can send a bad text or index. Its time has no node to show on.
-            if let (Some((id, _)), Ok(ns)) = (names.get(index as usize), text.parse::<u64>()) {
-                out.times.push(NodeTime { id: id.clone(), ms: ns as f64 / 1e6 });
+            glue::VALUE => {
+                // Only a defective cluster sends an unknown index, and its value has no wire to show on.
+                let Some(from) = probes.get(index as usize) else { continue };
+                let value = reuse(&mut out.values, &mut values);
+                put(&mut value.from, from);
+                put(&mut value.text, text);
+                // The lanes come after the text of the same value.
+                let lanes = items.next_if(|&(i, k, _)| (i, k) == (index, glue::LANES));
+                Lanes::read(lanes.map(|(_, _, text)| text), &mut value.lanes);
             }
-            continue;
-        }
-        if kind == glue::LOG {
-            // A defective cluster can send a bad text or index. Its line has no node to show on.
-            if let (Some((id, folder)), Some((level, text))) = (names.get(index as usize), text.split_once(' ')) {
-                out.logs.push(NodeLog { id: id.clone(), folder: folder.clone(), level: level.to_owned(), text: text.to_owned() });
+            // Lanes with no value before them come only from a defective cluster.
+            glue::LANES => {}
+            glue::TIME => {
+                // A defective cluster can send a bad text or index. Its time has no node to show on.
+                if let (Some((id, _)), Ok(ns)) = (name, text.parse::<u64>()) {
+                    let time = reuse(&mut out.times, &mut times);
+                    put(&mut time.id, id);
+                    time.ms = ns as f64 / 1e6;
+                }
             }
-            continue;
-        }
-        if kind == glue::LANES {
-            // The lanes come after the text of the same value.
-            let last = out.values.last_mut().filter(|v| probes.get(index as usize) == Some(&v.from));
-            if let Some(value) = last {
-                value.lanes = Lanes::read(&text);
+            glue::LOG => {
+                // A defective cluster can send a bad text or index. Its line has no node to show on.
+                if let (Some((id, folder)), Some((level, text))) = (name, text.split_once(' ')) {
+                    let log = reuse(&mut out.logs, &mut logs);
+                    put(&mut log.id, id);
+                    put(&mut log.folder, folder);
+                    put(&mut log.level, level);
+                    put(&mut log.text, text);
+                }
             }
-            continue;
+            _ => {
+                let report = reuse(&mut out.reports, &mut reports);
+                let (id, folder) = name.map_or(("", ""), |(id, folder)| (id.as_str(), folder.as_str()));
+                put(&mut report.id, id);
+                put(&mut report.folder, folder);
+                put(&mut report.text, text);
+                report.kind = match kind {
+                    glue::PANIC => ReportKind::Panic,
+                    glue::BAD_PARAM => ReportKind::BadParam,
+                    _ => ReportKind::Error,
+                };
+            }
         }
-        let (id, folder) = names.get(index as usize).cloned().unwrap_or_default();
-        let kind = match kind {
-            glue::PANIC => ReportKind::Panic,
-            glue::BAD_PARAM => ReportKind::BadParam,
-            _ => ReportKind::Error,
-        };
-        out.reports.push(Report { id, folder, kind, text });
     }
-    out
+    out.ok = ok;
+    out.reports.truncate(reports);
+    out.values.truncate(values);
+    out.skipped.truncate(skipped);
+    out.stopped.truncate(stopped);
+    out.times.truncate(times);
+    out.logs.truncate(logs);
+}
+
+/// The next item of `list` to fill: an old item that keeps its texts, or a new item.
+fn reuse<'a, T: Default>(list: &'a mut Vec<T>, used: &mut usize) -> &'a mut T {
+    if *used == list.len() {
+        list.push(T::default());
+    }
+    *used += 1;
+    &mut list[*used - 1]
+}
+
+/// Puts `text` in `to`, and keeps the capacity of `to`.
+fn put(to: &mut String, text: &str) {
+    to.clear();
+    to.push_str(text);
 }
 
 impl Drop for Cluster {
@@ -439,32 +510,45 @@ mod tests {
     fn values_go_apart_from_the_reports() {
         let names = [("a1".to_owned(), "number".to_owned())];
         let probes = ["a1.out".to_owned()];
-        let sink = vec![
-            (0, glue::VALUE, "2.5".to_owned()),
-            (0, glue::LANES, "0110 data bus".to_owned()),
-            (7, glue::VALUE, "x".to_owned()),
-            (0, glue::PANIC, "p".to_owned()),
-            (0, glue::TIME, "2500000".to_owned()),
-            (0, glue::TIME, "x".to_owned()),
-            (5, glue::TIME, "1".to_owned()),
-            (0, glue::LOG, "INFO two words".to_owned()),
-            (0, glue::LOG, "INFO".to_owned()),
-            (5, glue::LOG, "INFO x".to_owned()),
-        ];
-        let out = outcome(false, sink, &names, &probes);
+        let sink = |items: &[(u32, u32, &str)]| {
+            let mut sink = Sink::default();
+            items.iter().for_each(|&(node, kind, text)| sink.push(node, kind, text));
+            sink
+        };
+        let run = sink(&[
+            (0, glue::VALUE, "2.5"),
+            (0, glue::LANES, "0110 data bus"),
+            (7, glue::VALUE, "x"),
+            (0, glue::PANIC, "p"),
+            (0, glue::TIME, "2500000"),
+            (0, glue::TIME, "x"),
+            (5, glue::TIME, "1"),
+            (0, glue::LOG, "INFO two words"),
+            (0, glue::LOG, "INFO"),
+            (5, glue::LOG, "INFO x"),
+        ]);
+        let mut out = Outcome::default();
+        fill(&mut out, false, &run, &names, &probes);
         assert!(out.skipped.is_empty() && out.stopped.is_empty());
         assert_eq!(out.logs.iter().map(ToString::to_string).collect::<Vec<_>>(), ["Node a1 (number): INFO two words"]);
         assert_eq!(out.times, [NodeTime { id: "a1".to_owned(), ms: 2.5 }]);
-        let idle = vec![(0, glue::SKIPPED, String::new()), (0, glue::STOPPED, String::new()), (9, glue::STOPPED, String::new())];
-        let idle = outcome(true, idle, &names, &probes);
-        assert_eq!((idle.skipped, idle.stopped), (vec!["a1".to_owned()], vec!["a1".to_owned()]));
         assert_eq!(out.values.len(), 1);
         assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
         assert_eq!(out.values[0].lanes, Some(Lanes { bits: "0110".to_owned(), label: "data bus".to_owned() }));
-        for bad in ["0110", "012 x", " x", &format!("{} x", "1".repeat(65))] {
-            assert_eq!(Lanes::read(bad), None, "{bad}");
+        for bad in [None, Some("0110"), Some("012 x"), Some(" x"), Some(&format!("{} x", "1".repeat(65)))] {
+            let mut lanes = out.values[0].lanes.clone();
+            Lanes::read(bad, &mut lanes);
+            assert_eq!(lanes, None, "{bad:?}");
         }
         assert_eq!(out.reports.len(), 1);
         assert_eq!((out.reports[0].folder.as_str(), out.reports[0].kind), ("number", ReportKind::Panic));
+
+        // A second fill keeps the texts of the first fill, and a shorter list drops the rest.
+        let text = out.values[0].text.as_ptr();
+        fill(&mut out, false, &run, &names, &probes);
+        assert_eq!(out.values[0].text.as_ptr(), text, "the text of the value keeps its buffer");
+        fill(&mut out, true, &sink(&[(0, glue::SKIPPED, ""), (0, glue::STOPPED, ""), (9, glue::STOPPED, "")]), &names, &probes);
+        assert!(out.ok && out.values.is_empty() && out.reports.is_empty() && out.times.is_empty() && out.logs.is_empty());
+        assert_eq!((&out.skipped[..], &out.stopped[..]), (&["a1".to_owned()][..], &["a1".to_owned()][..]));
     }
 }

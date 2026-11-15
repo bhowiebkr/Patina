@@ -8,11 +8,12 @@ checks open.
 
 ## Milestone 4: automatic parallelism and the frame domain
 
-Three slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2).
+Four slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2).
 The CLI and the editor run the frame domain at 60 FPS (9.1), and a frame node can read batch
-values. All ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. CI ran the tests of the first
-three slices on Windows, Ubuntu and macOS. The measurement of the split and of the pool comes
-next. The delay node moved to milestone 5 (9.2).
+values. A frame of the engine does not allocate after the first frames. All ran on 2026-11-15 on
+Windows 11 Pro, with Rust 1.94.0. CI ran the tests of the first four slices on Windows, Ubuntu
+and macOS. The measurement of the split and of the pool comes next. The delay node moved to
+milestone 5 (9.2).
 
 ### What works
 
@@ -36,6 +37,8 @@ next. The delay node moved to milestone 5 (9.2).
   one domain.
 - The engine keeps the tasks of each domain apart. `Cluster::run` runs the batch domain, and
   `Cluster::frame` runs one frame. The end of a domain drops the shared values of its steps.
+- After the first frames, `Cluster::frame` does not allocate. The reports of a call go into one
+  text buffer, and a frame fills the lists of the last outcome again with their old texts.
 - `patina-cli run <folder> --frames <count>` runs the batch domain one time and then the frames
   at 60 FPS. Without `--frames`, it runs frames until Ctrl+C. A late frame skips the missed
   ticks.
@@ -64,6 +67,9 @@ next. The delay node moved to milestone 5 (9.2).
   it, an add node that reads the batch sum and the frame node, and a show node. With
   `--frames 3`, it wrote `6.5` one time and then `8.5` three times. Thus the frame node read the
   batch value again at each frame, also with no other reader.
+- The hello test counts the allocations of its thread in 100 frames, after 3 frames that fill
+  the buffers. Each frame sends values with lanes and run times. The count was 0. The old code
+  made 2000 allocations in the same 100 frames, thus 20 in each frame.
 - A manual CLI run of 5 frames took 0.29 s with the build check.
 - The editor self-check passed its 57 steps in 15.0 s. A new step makes the number node a frame
   node and clicks **Run**. It waits for 3 frames that write `2.5`, and for the frame number in
@@ -71,16 +77,19 @@ next. The delay node moved to milestone 5 (9.2).
   after it.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.100.0.
 - CI run 43741563738 of the editor frame run passed on `windows-latest`, `ubuntu-latest` and
-  `macos-latest`.
+  `macos-latest`. So did CI run 43742036575 of the cycle check and CI run 43742347402 of the
+  latest-value wire.
 
 ### Known limits
 
 - No delay node yet, so a graph cannot have a feedback loop. It comes in milestone 5.
 - No measurement of the split or of the pool ran yet. The split rule can change after the
   measurement of a chain of small nodes and of heavy branches.
-- Each run collects the reports into a new list. Each frame thus allocates, and so does each
-  live value of a frame. The frame loop must not allocate (AGENTS.md). Change this before the
-  frame domain is measured.
+- The editor copies each frame into a JSON event for the page, so the frame loop of the editor
+  allocates. The frames of the engine and of the CLI do not allocate.
+- The allocation test counts only the thread of the run. In the test graph, this thread runs
+  all the frame tasks, because the second task waits for the first.
+- A text that is longer than the text of the last frame grows its buffer one time.
 - The editor sends an event to the page at each frame, also when no value changed.
 - A change while the frames run runs the batch domain again before the next frame.
 - A latest-value wire uses a shared slot with a lock, not a buffer that does not lock (9.1).
