@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
+use patina_engine::project::{self, GraphFile, NodeEntry, ProjectFile, PublicInput, PublicOutput, Wire};
 use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain, import};
 use serde::Serialize;
 use serde_json::Value;
@@ -55,6 +55,8 @@ pub struct View {
     nodes: Vec<NodeInfo>,
     /// The widget folders (6.2).
     widgets: Vec<String>,
+    /// The imported folders (6.4), for example `nodes/blur`.
+    imports: Vec<String>,
     /// The problems of the graph check, for example `node <id>: <text>`.
     problems: Vec<String>,
     dirty: bool,
@@ -213,6 +215,7 @@ impl Session {
             graph_name: project.graph_name().to_owned(),
             nodes,
             widgets: project.widgets(),
+            imports: project.imports(),
             problems,
             dirty: project.dirty(),
             trusted: self.trusted,
@@ -423,6 +426,30 @@ pub fn import_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, 
     import_source(&editor, &other)?;
     let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
     editor.change(|project| project.import(&toolchain, &other, &folder, &choices))
+}
+
+/// The trusted project that the imported `folder` came from, or None when Patina does not know
+/// its folder (6.2).
+#[tauri::command(async)]
+pub fn update_source(editor: State<'_, Editor>, folder: String) -> Result<Option<PathBuf>, String> {
+    let id = editor.with(|session| import::source_id(session.project.root(), &folder))?;
+    let id_of = |dir: &PathBuf| project::read(&dir.join("patina.toml"), |f: &ProjectFile| f.format).ok().map(|f: ProjectFile| f.id);
+    Ok(editor.data.trusted().into_iter().find(|dir| id_of(dir).as_deref() == Some(id.as_str())))
+}
+
+/// The differences between the imported `folder` and its folder in the project at `other` (6.2).
+#[tauri::command(async)]
+pub fn update_changes(editor: State<'_, Editor>, other: PathBuf, folder: String) -> Result<import::Changes, String> {
+    let root = import_source(&editor, &other)?;
+    import::changes(&root, &other, &folder)
+}
+
+/// Updates the imported `folder` with the picks of the user, and builds it first (6.2).
+#[tauri::command(async)]
+pub fn update_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, picks: BTreeMap<String, import::Pick>) -> Result<View, String> {
+    import_source(&editor, &other)?;
+    let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
+    editor.change(|project| project.update(&toolchain, &other, &folder, &picks))
 }
 
 /// The root of the open project. Patina imports only from a trusted project into a trusted

@@ -95,6 +95,8 @@ The **Import** button at the end of the **Project** panel copies a folder from a
 - When the user selects a folder, the dialog shows each folder that the import copies, with **New**, **Same files, not copied**, or the conflict. For each conflict, the user picks **Replace**, **Keep** or **Rename**, and a rename has a name field. The conflict also shows the folders of this project that a replace changes.
 - **Import** stays off until each conflict has a choice. During the build check the dialog shows **Building**. An error stays in the dialog, and the project stays as it was.
 - An untrusted project has no **Import** button.
+- Above the **Import** button, the **Imports** list shows each imported folder. A click on a folder opens the **Update** dialog for it. Patina finds the other project, or opens the folder dialog.
+- The **Update** dialog lists the files that are different, with **Only in the other project**, **Only in this project** or **Different**. When the two sides changed, each file has a choice of **Other project** or **This project**. **Update** stays off until each file has a choice, or when the other project did not change. During the build check the dialog shows **Building**.
 
 **Graph view navigation:**
 

@@ -105,6 +105,15 @@ The import rules of the first version. (Agent decision, 2026-11-15. The owner ca
 - The record hash is the hash of the folder in the other project, before a rename. Undo does not remove an import, as it does not remove a new node folder (15.2).
 - Reason: a trust rule for one folder needs a second trust list and a filter of the workspace members. The trusted source keeps the first version small and safe.
 
+The update rules of the first version. (Agent decision, 2026-11-15. The owner can change it.)
+
+- **Update** works on one imported folder. Patina finds the other project in the list of trusted projects by its ID, or asks for its folder. The other project must be trusted.
+- Patina compares the copy with the folder in the other project. The `Cargo.toml` of the other folder gets the crate names of this project first, so a rename of the import is not a change.
+- The record hash shows if the other project changed the folder. The `copy` hash of the record shows if this project changed the copy. When the other project did not change the folder, **Update** has nothing to do.
+- When only the other project changed, each different file comes from the other project. When the two sides changed, the user picks the version of each different file, because the record has no hash for each file.
+- A new dependency of the folder that is not in this project stops the update. The user imports that folder first.
+- Patina writes the new version to `build/import/` and moves it into the project. Then it builds the folder and the folders that use it. A failed build moves the old folder back and writes the old `patina.toml`.
+
 ### 6.3 Connection kinds
 
 A connection kind defines how the connections of some types look and how they show their values. Each domain needs other connections. The project defines its connection kinds, as it defines its nodes and views.
@@ -163,10 +172,12 @@ rust = "1.94.0"             # the Rust version of the project (8.1)
 project = "9a1b4c0d2e7f6385"     # the ID of the other project
 folder = "curve-editor"          # the folder name in the other project
 hash = "sha256:<64 hex characters>"
+copy = "sha256:<64 hex characters>"   # the copy in this project after the import or the last update
 ```
 
 - The import hash is a SHA-256 hash of the sorted relative paths and the bytes of each file in the folder. The paths use `/` on each platform. For each file, the hash reads the path, a zero byte, the length as 8 little-endian bytes, and the bytes. Hidden files, links and `target` folders are not part of a folder. (Agent decision, 2026-11-15. The owner can change it.)
 - An import record holds no path of the other project (6.2).
+- The `copy` hash uses the same method. An old record with no `copy` key counts as a copy that changed. (Agent decision, 2026-11-15. The owner can change it.)
 
 **Graph files**
 

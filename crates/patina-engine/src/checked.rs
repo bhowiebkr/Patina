@@ -1,0 +1,188 @@
+//! The build and the load of a checked graph (spec 7 and 8).
+
+use std::fs;
+use std::hash::{DefaultHasher, Hasher};
+use std::path::{Path, PathBuf};
+
+use crate::{Checked, Cluster, Error, Mode, Toolchain, cargo, generate, node, project};
+
+impl Checked {
+    /// The checked graph, with each use of a subgraph replaced by its nodes (6.4).
+    pub fn graph(&self) -> &project::GraphFile {
+        &self.graph
+    }
+
+    /// Each output pin `<use ID>.<pin key>` of a subgraph use of the main graph, with the inner
+    /// output `<use ID>/<node ID>.<key>` that gives its value (6.4).
+    pub fn aliases(&self) -> &[(String, String)] {
+        &self.aliases
+    }
+
+    /// Puts the node folder `name` in the slot (7.1): its uses call the slot library, and a build
+    /// of the slot alone builds only this node. `None` empties the slot.
+    pub fn set_slot(&mut self, name: Option<&str>) -> Result<(), Error> {
+        let Some(name) = name else {
+            self.plan.slot = None;
+            return Ok(());
+        };
+        let plan = &self.plan;
+        let node = (plan.nodes.iter().position(|(n, _)| n == name))
+            .filter(|&i| plan.steps.iter().any(|s| s.node == i))
+            .ok_or_else(|| Error::Build(format!("the graph has no use of the node {name}")))?;
+        if plan.delay == Some(node) {
+            return Err(Error::Build("the delay node is built in, so it does not go into the slot".to_owned()));
+        }
+        if !plan.nodes[node].1.generics.is_empty() {
+            // shortcut: a generic node does not go into the slot; its slot needs a copy for each set of types (7.1).
+            return Err(Error::Build(format!("the node {name} is generic, and a generic node does not go into the slot yet")));
+        }
+        self.plan.slot = Some(node);
+        Ok(())
+    }
+
+    /// Builds the clusters of the graph in `mode` and loads them (8.3). A bake build with no slot
+    /// is a fuse (7.2): `Cluster::adopt` then moves the states from the old clusters.
+    pub fn build(&self, toolchain: &Toolchain, mode: Mode) -> Result<Cluster, Error> {
+        self.check_rust(toolchain)?;
+        let built = cargo::build(&self.root, toolchain, &self.plan, mode)?;
+        let paths: Vec<PathBuf> = built.libraries.iter().map(|(_, path)| path.clone()).collect();
+        let copies = copy_to_loaded(&self.root, "cluster-", &paths)?;
+        let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();
+        let slot = copy_to_loaded(&self.root, "slot-", built.slot.as_slice())?;
+        copy_runtime(&self.root, &toolchain.libdir)?;
+        let mut cluster = Cluster::load(&libraries, slot.first().map(PathBuf::as_path), &self.plan, built.keys)?;
+        cluster.common = built.common;
+        cluster.base = self.base_hash();
+        cluster.mode = mode;
+        Ok(cluster)
+    }
+
+    /// Builds only the slot library and puts it in `cluster` (7.1). The nodes in the slot get new
+    /// states. Gives false, with no build, when the graph has no slot or the clusters must change:
+    /// then build all again with `build`.
+    pub fn build_slot(&self, toolchain: &Toolchain, cluster: &mut Cluster) -> Result<bool, Error> {
+        self.check_rust(toolchain)?;
+        if self.plan.slot.is_none() || cluster.base != self.base_hash() {
+            return Ok(false);
+        }
+        let (library, keys) = cargo::build_slot(&self.root, toolchain, &self.plan, cluster.common)?;
+        let copies = copy_to_loaded(&self.root, "slot-", &[library])?;
+        cluster.swap_slot(&copies[0], keys)?;
+        Ok(true)
+    }
+
+    fn check_rust(&self, toolchain: &Toolchain) -> Result<(), Error> {
+        if toolchain.release == self.rust {
+            return Ok(());
+        }
+        Err(Error::Build(format!("the project needs Rust {}, but the toolchain is Rust {}", self.rust, toolchain.release)))
+    }
+
+    /// A hash of the code of the clusters and of the signature of the node in the slot.
+    /// shortcut: a type alias in the node folder does not change the signature text, so a change of the alias needs a full build; read the types from the build when users hit it.
+    fn base_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        hasher.write(self.wiring().as_bytes());
+        if let Some(slot) = self.plan.slot {
+            hasher.write(format!("{:?}", self.plan.nodes[slot].1).as_bytes());
+        }
+        hasher.finish()
+    }
+
+    /// The generated code of the cluster. Two checks with the same wiring give the same text, so
+    /// a cluster of one stays correct for the other.
+    pub fn wiring(&self) -> String {
+        let domains = generate::domains(&self.plan);
+        domains.into_iter().map(|d| generate::manifest(&self.plan, d) + &generate::source(&self.plan, d)).collect()
+    }
+}
+
+/// Copies the built libraries to `build/loaded/`, with a hash of the bytes in each file name (8.5).
+/// Windows locks a loaded library, so cargo cannot write the library of the next build over it.
+/// The same bytes give the same name, so a loaded library stays in use. The copies of `prefix`
+/// that are not in `built` are removed.
+fn copy_to_loaded(root: &Path, prefix: &str, built: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
+    let dir = root.join("build").join("loaded");
+    let mut copies = Vec::new();
+    for library in built {
+        let bytes = fs::read(library).map_err(|e| Error::Io(library.clone(), e))?;
+        let mut hasher = DefaultHasher::new();
+        hasher.write(&bytes);
+        let path = dir.join(format!("{prefix}{:016x}.{}", hasher.finish(), std::env::consts::DLL_EXTENSION));
+        copies.push((path, bytes));
+    }
+    // An old copy that a process has loaded does not delete on Windows. It stays until later.
+    for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let old = entry.file_name().to_string_lossy().starts_with(prefix);
+        if old && !copies.iter().any(|(path, _)| *path == entry.path()) {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+    fs::create_dir_all(&dir).map_err(|e| Error::Io(dir.clone(), e))?;
+    for (path, bytes) in &copies {
+        if !path.exists() {
+            write_new(path, bytes)?;
+        }
+    }
+    Ok(copies.into_iter().map(|(path, _)| path).collect())
+}
+
+/// Copies the shared runtime of the toolchain to `build/loaded/`: the `std` library and the
+/// libraries of the `bin` folder of the target. A cluster links them, and the loader finds them
+/// only there (8.5). The name of `std` holds the hash of its build, so the same name has the same
+/// bytes.
+fn copy_runtime(root: &Path, libdir: &Path) -> Result<(), Error> {
+    let shared = |path: &Path| path.extension().is_some_and(|e| e == std::env::consts::DLL_EXTENSION);
+    let entries = fs::read_dir(libdir).map_err(|e| Error::Io(libdir.to_owned(), e))?;
+    let std = entries.flatten().map(|e| e.path()).find(|path| {
+        let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+        (name.starts_with("std-") || name.starts_with("libstd-")) && shared(path)
+    });
+    let std = std.ok_or_else(|| Error::Build(format!("{} has no shared std library", libdir.display())))?;
+    // On the gnu target of Windows, `std` needs libgcc_s and winpthreads from here. Other targets have no library here.
+    let bin = libdir.with_file_name("bin");
+    let more = fs::read_dir(&bin).into_iter().flatten().flatten().map(|e| e.path()).filter(|path| shared(path));
+    for library in std::iter::once(std).chain(more) {
+        let path = root.join("build").join("loaded").join(library.file_name().unwrap_or_default());
+        if !path.exists() {
+            write_new(&path, &fs::read(&library).map_err(|e| Error::Io(library.clone(), e))?)?;
+        }
+    }
+    Ok(())
+}
+
+/// Writes a new file through a temporary file, so a stopped write leaves no part of a library.
+fn write_new(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    let temp = path.with_extension("tmp");
+    fs::write(&temp, bytes).map_err(|e| Error::Io(temp.clone(), e))?;
+    fs::rename(&temp, path).map_err(|e| Error::Io(path.to_owned(), e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_shared_runtime_is_copied_one_time() {
+        let root = std::env::temp_dir().join(format!("patina-std-{}", std::process::id()));
+        let (libdir, loaded) = (root.join("lib"), root.join("build").join("loaded"));
+        fs::create_dir_all(&libdir).unwrap();
+        fs::create_dir_all(&loaded).unwrap();
+        fs::write(libdir.join("libstd-1.rlib"), "static").unwrap();
+        assert!(copy_runtime(&root, &libdir).is_err(), "a static std is not used");
+        let name = format!("std-1.{}", std::env::consts::DLL_EXTENSION);
+        fs::write(libdir.join(&name), "shared").unwrap();
+        copy_runtime(&root, &libdir).unwrap();
+        fs::write(libdir.join(&name), "changed").unwrap();
+        fs::create_dir_all(root.join("bin")).unwrap();
+        let gcc = format!("libgcc-1.{}", std::env::consts::DLL_EXTENSION);
+        fs::write(root.join("bin").join(&gcc), "gcc").unwrap();
+        fs::write(root.join("bin").join("tool.exe"), "tool").unwrap();
+        copy_runtime(&root, &libdir).unwrap();
+        let copied = fs::read_to_string(loaded.join(&name)).unwrap();
+        let more = (loaded.join(&gcc).is_file(), loaded.join("tool.exe").exists());
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(copied, "shared", "a loaded library is not written again");
+        assert_eq!(more, (true, false), "only the libraries of bin are copied");
+    }
+}

@@ -41,6 +41,11 @@ and 6.4).
   the undo of each, without a build.
 - The **Import** button of the **Project** panel opens a dialog with the folders of the other
   project, the conflicts and a choice for each.
+- The engine compares an imported folder with the other project, with the renames of the import,
+  and finds the changes of each side with the two record hashes. **Update** writes the new
+  version with the picks of the user and puts it back when the build fails. A unit test checks
+  a rename, an update, an undo, the picks and a new dependency.
+- The **Imports** list of the **Project** panel opens the **Update** dialog.
 
 ### Known limits
 
@@ -54,10 +59,12 @@ and 6.4).
   that cross. An undo keeps the new file. Ctrl+Shift+G expands the selected uses.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
 - The engine checks the key of a new public pin, but not the keys in a file.
-- **Import** works only from a trusted project. A renamed folder loses the comments of its
-  `Cargo.toml`. The build check of an import did not run with a real toolchain yet, and the
-  dialog did not run in the window yet.
-- **Update** of an imported folder is not done.
+- **Import** and **Update** work only from a trusted project. A renamed folder loses the comments
+  of its `Cargo.toml`. A temporary test with the real toolchain on Windows imported a node and
+  built it, put back an update that did not compile, and built a good update. The test is not
+  in the repository. The two dialogs did not run in the window yet.
+- When the two sides changed an imported folder, the user picks each different file, also the
+  files that only one side changed. The record has no hash for each file.
 
 ## Milestone 6: layers
 

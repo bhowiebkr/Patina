@@ -9,6 +9,10 @@ use sha2::{Digest, Sha256};
 
 use crate::plan::{check_name, name_key};
 use crate::project::{self, ProjectFile};
+use crate::{Project, Toolchain, cargo};
+
+mod update;
+pub use update::{Changes, FileChange, FileState, Pick, changes, source_id, update};
 
 /// The folder groups that are crates (6.2).
 const GROUPS: [&str; 5] = ["nodes", "views", "widgets", "connections", "types"];
@@ -72,6 +76,7 @@ pub fn plan(root: &Path, other: &Path, folder: &str) -> Result<Vec<Item>, String
 
 /// An import that is in the project. The caller builds the project, then calls
 /// [`Applied::finish`], or [`Applied::undo`] when the build fails.
+#[derive(Debug)]
 pub struct Applied {
     root: PathBuf,
     /// Each folder move `(from, to)`, in order.
@@ -79,6 +84,43 @@ pub struct Applied {
     project: String,
     /// The crates that the build check compiles.
     pub packages: Vec<String>,
+}
+
+impl Project {
+    /// Imports `folder` from the project at `other` with the choices of the user (6.2). Patina
+    /// builds the changed folders first. A failed build puts the project back as it was.
+    pub fn import(&mut self, toolchain: &Toolchain, other: &Path, folder: &str, choices: &BTreeMap<String, Choice>) -> Result<(), String> {
+        self.check_toolchain(toolchain)?;
+        let applied = apply(&self.root, other, folder, choices)?;
+        self.build_applied(toolchain, applied)
+    }
+
+    /// The imported folders of the project (6.4), for example `nodes/blur`.
+    pub fn imports(&self) -> Vec<String> {
+        read_project(&self.root).map(|f| f.imports.into_keys().collect()).unwrap_or_default()
+    }
+
+    fn check_toolchain(&self, toolchain: &Toolchain) -> Result<(), String> {
+        match toolchain.release == self.rust {
+            true => Ok(()),
+            false => Err(format!("the project needs Rust {}, but the toolchain is Rust {}", self.rust, toolchain.release)),
+        }
+    }
+
+    /// Builds the changed crates of an import or an update, and undoes it when the build fails.
+    fn build_applied(&mut self, toolchain: &Toolchain, applied: Applied) -> Result<(), String> {
+        if let Err(e) = cargo::build_packages(&self.root, toolchain, &applied.packages) {
+            return applied.undo().and(Err(e.to_string()));
+        }
+        // The copied folders can change the code of each node, so the run builds again.
+        self.code_revision += 1;
+        self.last_code = None;
+        applied.finish()
+    }
+}
+
+fn read_project(root: &Path) -> Result<ProjectFile, String> {
+    project::read(&root.join("patina.toml"), |f: &ProjectFile| f.format).map_err(|e| e.to_string())
 }
 
 impl Applied {
@@ -100,8 +142,7 @@ impl Applied {
 /// records each copy in `patina.toml` (6.4). An error leaves the project as it was.
 pub fn apply(root: &Path, other: &Path, folder: &str, choices: &BTreeMap<String, Choice>) -> Result<Applied, String> {
     let (root, other) = (absolute(root)?, absolute(other)?);
-    let read = |path: &Path| project::read(&path.join("patina.toml"), |f: &ProjectFile| f.format).map_err(|e| e.to_string());
-    let (mut file, source) = (read(&root)?, read(&other)?);
+    let (mut file, source) = (read_project(&root)?, read_project(&other)?);
     if file.id == source.id {
         return Err("the folder is in this project already".to_owned());
     }
@@ -117,15 +158,18 @@ pub fn apply(root: &Path, other: &Path, folder: &str, choices: &BTreeMap<String,
         for (from, to) in &copies {
             let staged = work.join("new").join(to);
             copy(&other.join(from), &staged)?;
-            rename_crates(&other.join(from), &staged, from, to, &other, &copies)?;
+            if let Some(text) = renamed_manifest(manifest(&staged)?, &other.join(from), from, to, &other, &copies)? {
+                let path = staged.join("Cargo.toml");
+                fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
+            }
             if let Some(item) = items.iter().find(|i| &i.folder == to && matches!(i.state, State::Conflict { .. })) {
                 move_folder(&root.join(to), &work.join("old").join(to), &mut moves)?;
                 packages.extend(item.users.iter().filter_map(|u| member(u)));
             }
             move_folder(&staged, &root.join(to), &mut moves)?;
             packages.extend(member(to));
-            let hash = hash(&other.join(from))?;
-            file.imports.insert(to.clone(), project::Import { project: source.id.clone(), folder: crate_name(from), hash });
+            let (hash, copy) = (hash(&other.join(from))?, Some(hash(&root.join(to))?));
+            file.imports.insert(to.clone(), project::Import { project: source.id.clone(), folder: crate_name(from), hash, copy });
         }
         Ok::<(), String>(())
     })();
@@ -274,11 +318,11 @@ fn manifest(dir: &Path) -> Result<toml::Table, String> {
     text.parse().map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Changes the crate names in the copy `staged` of `from` for the renamed folders. A renamed
-/// crate gets its new name, and a dependency on it gets the new path and the `package` key.
+/// The `Cargo.toml` of the copy of `from` (at `source`) for the renamed folders, or None when no
+/// name changes. A renamed crate gets its new name, and a dependency on it gets the new path and
+/// the `package` key.
 /// shortcut: the new Cargo.toml loses its comments and key order, change it if users miss them.
-fn rename_crates(source: &Path, staged: &Path, from: &str, to: &str, other: &Path, renames: &BTreeMap<String, String>) -> Result<(), String> {
-    let mut manifest = manifest(staged)?;
+fn renamed_manifest(mut manifest: toml::Table, source: &Path, from: &str, to: &str, other: &Path, renames: &BTreeMap<String, String>) -> Result<Option<String>, String> {
     let mut changed = false;
     if from != to {
         let package = manifest.get_mut("package").and_then(toml::Value::as_table_mut).ok_or("the Cargo.toml has no [package]")?;
@@ -295,12 +339,10 @@ fn rename_crates(source: &Path, staged: &Path, from: &str, to: &str, other: &Pat
             changed = true;
         }
     }
-    if !changed {
-        return Ok(());
+    match changed {
+        true => toml::to_string(&manifest).map(Some).map_err(|e| e.to_string()),
+        false => Ok(None),
     }
-    let text = toml::to_string(&manifest).map_err(|e| e.to_string())?;
-    let path = staged.join("Cargo.toml");
-    fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 fn crate_name(folder: &str) -> String {
@@ -342,18 +384,27 @@ fn files(dir: &Path) -> Result<Vec<(String, Vec<u8>)>, String> {
 
 /// The import hash of a folder (6.4): SHA-256 of each path, a zero byte, the length and the bytes.
 pub fn hash(dir: &Path) -> Result<String, String> {
+    Ok(digest(files(dir)?.iter().map(|(p, b)| (p, b))))
+}
+
+/// The import hash of files in the sorted order of their paths.
+fn digest<'a>(files: impl Iterator<Item = (&'a String, &'a Vec<u8>)>) -> String {
     let mut hasher = Sha256::new();
-    for (path, bytes) in files(dir)? {
+    for (path, bytes) in files {
         hasher.update(path.as_bytes());
         hasher.update([0]);
         hasher.update((bytes.len() as u64).to_le_bytes());
-        hasher.update(&bytes);
+        hasher.update(bytes);
     }
-    Ok(format!("sha256:{}", hasher.finalize().iter().map(|b| format!("{b:02x}")).collect::<String>()))
+    format!("sha256:{}", hasher.finalize().iter().map(|b| format!("{b:02x}")).collect::<String>())
 }
 
 fn copy(from: &Path, to: &Path) -> Result<(), String> {
-    for (path, bytes) in files(from)? {
+    write_files(to, files(from)?)
+}
+
+fn write_files(to: &Path, files: impl IntoIterator<Item = (String, Vec<u8>)>) -> Result<(), String> {
+    for (path, bytes) in files {
         let file = to.join(&path);
         let parent = file.parent().expect("a file is in a folder");
         fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;

@@ -38,6 +38,7 @@ import { NO_RUN, valueStale, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { ImportDialog } from './ImportDialog';
+import { UpdateDialog } from './UpdateDialog';
 import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
 import { useEvent } from './useEvent';
@@ -86,6 +87,7 @@ export function App() {
   const [logs, setLogs] = useState<Line[]>([]);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<{ other: string; folder: string } | null>(null);
   const [inspect, setInspect] = useState<Inspect>(null);
   const [ask, setAsk] = useState<'close' | 'quit' | null>(null);
   const [tab, setTab] = useState<InspectorTab>('parameters');
@@ -217,6 +219,16 @@ export function App() {
       api
         .pickFolder('')
         .then((folder) => folder && setImporting(folder))
+        .catch((e) => setError(String(e))),
+    [],
+  );
+
+  const pickUpdate = useCallback(
+    (folder: string) =>
+      api
+        .updateSource(folder)
+        .then((other) => other ?? api.pickFolder(''))
+        .then((other) => other && setUpdating({ other, folder }))
         .catch((e) => setError(String(e))),
     [],
   );
@@ -452,7 +464,7 @@ export function App() {
   );
   const panels: Record<PanelId, Panel> = {
     layers: { body: <LayersPanel run={run} /> },
-    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onImport={pickImport} /> },
+    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onImport={pickImport} onUpdate={pickUpdate} /> },
     inspector: {
       body: (
         <Inspector
@@ -607,6 +619,17 @@ export function App() {
             markStale(v);
           }}
           onClose={() => setImporting(null)}
+        />
+      )}
+      {updating && (
+        <UpdateDialog
+          {...updating}
+          onDone={(v) => {
+            setUpdating(null);
+            show(v);
+            markStale(v);
+          }}
+          onClose={() => setUpdating(null)}
         />
       )}
       {view.recovery && view.trusted && (

@@ -87,6 +87,8 @@ export interface View {
   nodes: NodeInfo[];
   /** The widget folders (6.2), for example `gradient-bar` for `widgets/gradient-bar`. */
   widgets: string[];
+  /** The imported folders (6.4), for example `nodes/blur`. */
+  imports: string[];
   problems: string[];
   dirty: boolean;
   trusted: boolean;
@@ -238,6 +240,17 @@ export interface ImportItem {
   users: string[];
 }
 
+/** The differences between an imported folder and its folder in the other project (6.2). */
+export interface UpdateChanges {
+  /** The other project changed the folder after the import or the last update. */
+  other: boolean;
+  /** This project changed the copy after the import or the last update. */
+  this: boolean;
+  files: { path: string; state: 'OnlyOther' | 'OnlyThis' | 'Different' }[];
+}
+
+export type UpdatePick = 'Other' | 'This';
+
 export type ImportChoice = { kind: 'Replace' } | { kind: 'Keep' } | { kind: 'Rename'; name: string };
 
 export const api = {
@@ -272,6 +285,12 @@ export const api = {
   /** Copies the folders with a choice for each conflict, and builds them first. */
   importFolder: (other: string, folder: string, choices: Record<string, ImportChoice>) =>
     invoke<View>('import_folder', { other, folder, choices }),
+  /** The trusted project that an imported folder came from, or null when Patina does not know it. */
+  updateSource: (folder: string) => invoke<string | null>('update_source', { folder }),
+  updateChanges: (other: string, folder: string) => invoke<UpdateChanges>('update_changes', { other, folder }),
+  /** Writes the new version of an imported folder, and builds it first. */
+  updateFolder: (other: string, folder: string, picks: Record<string, UpdatePick>) =>
+    invoke<View>('update_folder', { other, folder, picks }),
   readCode: (path: string) => invoke<string>('read_code', { path }),
   setUnsavedCode: (code: Code) => invoke<void>('set_unsaved_code', { code }),
   /** Restores or discards the changes of the recovery file (15.10). */

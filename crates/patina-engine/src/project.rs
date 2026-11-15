@@ -27,6 +27,9 @@ pub struct Import {
     pub project: String,
     pub folder: String,
     pub hash: String,
+    /// The hash of the copy in this project after the import or the last update (6.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
