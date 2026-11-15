@@ -22,6 +22,8 @@ interface Props {
   onNewWidget: (name: string) => Promise<void>;
   /** Asks for another project, and opens the Import dialog (6.2). */
   onImport: () => void;
+  /** Asks for a folder, and makes a package of the project in it (14.1). */
+  onPackage: () => void;
   /** Opens the Update dialog for an imported folder (6.2). */
   onUpdate: (folder: string) => void;
 }
@@ -40,7 +42,7 @@ function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget, onImport, onUpdate }: Props) {
+export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget, onImport, onUpdate, onPackage }: Props) {
   const [naming, setNaming] = useState<'node' | 'widget' | null>(null);
   const close = () => setNaming(null);
   const startDrag = (e: DragEvent, name: string) => {
@@ -108,6 +110,9 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget,
           ))}
           <button className="btn" onClick={onImport} title="Copy a folder from another project">
             Import
+          </button>
+          <button className="btn" onClick={onPackage} title="Save the project and make a program that runs it">
+            Package
           </button>
         </div>
       )}

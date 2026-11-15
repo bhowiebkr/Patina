@@ -452,6 +452,28 @@ pub fn update_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, 
     editor.change(|project| project.update(&toolchain, &other, &folder, &picks))
 }
 
+/// The package folder and the warnings of a package build (14.1).
+#[derive(Serialize)]
+pub struct Packaged {
+    out: PathBuf,
+    warnings: Vec<String>,
+}
+
+/// Makes a package of the saved project in `<parent>/<project name>` (14.1). The page saves first.
+#[tauri::command(async)]
+pub fn make_package(editor: State<'_, Editor>, parent: PathBuf) -> Result<Packaged, String> {
+    let root = editor.with(|session| match session.trusted {
+        true => Ok(session.project.root().to_owned()),
+        false => Err("Trust the project before you make a package.".to_owned()),
+    })?;
+    let out = parent.join(folder_name(&root));
+    let (reply, answer) = std::sync::mpsc::channel();
+    let stopped = || "The engine stopped.".to_owned();
+    editor.engine.send(Job::Package { root, out: out.clone(), reply }).map_err(|_| stopped())?;
+    let warnings = answer.recv().map_err(|_| stopped())??;
+    Ok(Packaged { out, warnings })
+}
+
 /// The root of the open project. Patina imports only from a trusted project into a trusted
 /// project (11), because the build check compiles the copy.
 fn import_source(editor: &Editor, other: &Path) -> Result<PathBuf, String> {

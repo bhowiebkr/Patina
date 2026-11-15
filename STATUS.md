@@ -13,7 +13,7 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
 ### Plan
 
 1. The executable package (14.1). This part works.
-2. The **Package** command of the editor.
+2. The **Package** button of the editor. This part works.
 3. The editor opens a package and shows the original project.
 4. The library (C API) and the Python module.
 
@@ -27,13 +27,17 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
   parameter fails.
 - A unit test checks the parameter arguments, the notice file names, the version check and the
   wiring check.
+- The **Package** button of the **Project** panel saves the project and makes the package on the
+  engine thread, with the `patina-cli` next to the editor as the runner.
 
 ### Known limits
 
 - A package is a folder, not one file.
 - The notices of the crates of the runner are only in the portable zip. A runner from a
   checkout gives a warning.
-- The editor has no **Package** command and cannot open a package yet.
+- The editor cannot open a package yet. The **Package** button did not run in the window yet.
+  It needs `patina-cli` next to the editor, as in the portable folder.
+- During a package build, the editor does not run the graph.
 - The library (C API) and the Python module are not done.
 - The package ran only on Windows.
 

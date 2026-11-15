@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock};
-use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog, NodeTime, Report, Toolchain, Value};
+use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog, NodeTime, Report, Toolchain, Value, package};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -25,6 +25,8 @@ pub enum Job {
     /// Fuses the clusters now: a bake build with no slot (7.2). **Bake** sends it, and the engine
     /// makes it after `FUSE_IDLE` with no change.
     Bake,
+    /// Makes a package of the saved project `root` in `out` (14.1). `reply` gets the warnings.
+    Package { root: PathBuf, out: PathBuf, reply: Sender<Result<Vec<String>, String>> },
 }
 
 /// Sends jobs to the engine thread. It counts the runs that wait for a build, so the engine
@@ -230,6 +232,10 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                     }
                 }
                 Job::Rerun => rerun = true,
+                // The engine thread makes the package, so no other build uses the build folder.
+                Job::Package { root, out, reply } => {
+                    let _ = reply.send(make_package(folder, &mut toolchain, &root, &out));
+                }
             }
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -404,6 +410,27 @@ fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, loaded: 
     built
 }
 
+/// The toolchain of the builds. After an install, the toolchain folder replaces the Rust of the
+/// system.
+fn find_toolchain<'a>(folder: &Path, toolchain: &'a mut Option<Toolchain>) -> Result<&'a Toolchain, Error> {
+    if toolchain.as_ref().is_none_or(|t| t.own.is_none() && Toolchain::installed(folder)) {
+        *toolchain = Some(Toolchain::find(folder)?);
+    }
+    Ok(toolchain.as_ref().expect("the toolchain is set above"))
+}
+
+/// Makes a package with a bake build. The runner of the package is the `patina-cli` next to the
+/// editor (14.1).
+fn make_package(folder: &Path, toolchain: &mut Option<Toolchain>, root: &Path, out: &Path) -> Result<Vec<String>, String> {
+    let toolchain = find_toolchain(folder, toolchain).map_err(|e| e.to_string())?;
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let runner = exe.with_file_name(format!("patina-cli{}", std::env::consts::EXE_SUFFIX));
+    if !runner.is_file() {
+        return Err(format!("Patina cannot make a package, because {} is not there.", runner.display()));
+    }
+    package::make(root, toolchain, Mode::Bake, &runner, out).map_err(|e| e.to_string())
+}
+
 fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Option<Event>, Error> {
     let mut built_ms = None;
     let mut slot_only = false;
@@ -411,11 +438,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     if let Some(build) = build {
         let start = Instant::now();
         let wiring = run.checked.wiring();
-        // After an install, the toolchain folder replaces the Rust of the system.
-        if toolchain.as_ref().is_none_or(|t| t.own.is_none() && Toolchain::installed(folder)) {
-            *toolchain = Some(Toolchain::find(folder)?);
-        }
-        let toolchain = toolchain.as_ref().expect("the toolchain is set above");
+        let toolchain = find_toolchain(folder, toolchain)?;
         let built = compile(&mut run.checked, toolchain, build, loaded.as_mut());
         if shared.builds.load(Ordering::SeqCst) > 0 {
             return Ok(None);

@@ -192,4 +192,4 @@ The package is a folder:
   zip (13.1). A runner that has no such folder gives a warning.
 
 (Agent decision, 2026-11-15. The owner can change it. One file for each package, the library,
-the Python module and the editor command are later work of milestone 8.)
+the Python module and the opening of a package in the editor are later work of milestone 8.)

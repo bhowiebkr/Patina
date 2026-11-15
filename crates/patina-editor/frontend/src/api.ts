@@ -287,6 +287,8 @@ export const api = {
     invoke<View>('import_folder', { other, folder, choices }),
   /** The trusted project that an imported folder came from, or null when Patina does not know it. */
   updateSource: (folder: string) => invoke<string | null>('update_source', { folder }),
+  /** Makes a package of the saved project in `<parent>/<project name>` (14.1). */
+  makePackage: (parent: string) => invoke<{ out: string; warnings: string[] }>('make_package', { parent }),
   updateChanges: (other: string, folder: string) => invoke<UpdateChanges>('update_changes', { other, folder }),
   /** Writes the new version of an imported folder, and builds it first. */
   updateFolder: (other: string, folder: string, picks: Record<string, UpdatePick>) =>

@@ -96,6 +96,7 @@ The **Import** button at the end of the **Project** panel copies a folder from a
 - **Import** stays off until each conflict has a choice. During the build check the dialog shows **Building**. An error stays in the dialog, and the project stays as it was.
 - An untrusted project has no **Import** button.
 - Above the **Import** button, the **Imports** list shows each imported folder. A click on a folder opens the **Update** dialog for it. Patina finds the other project, or opens the folder dialog.
+- The **Package** button after **Import** opens the folder dialog. Patina saves the project and makes an executable package in `<chosen folder>/<project name>` (14.1). The **Logs** panel shows **Making the package**, the warnings and the package folder. An error shows in the status bar. (Agent decision, 2026-11-15. The owner can change it.)
 - The **Update** dialog lists the files that are different, with **Only in the other project**, **Only in this project** or **Different**. When the two sides changed, each file has a choice of **Other project** or **This project**. **Update** stays off until each file has a choice, or when the other project did not change. During the build check the dialog shows **Building**.
 
 **Graph view navigation:**

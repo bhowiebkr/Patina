@@ -223,6 +223,19 @@ export function App() {
     [],
   );
 
+  const makePackage = useCallback(async () => {
+    try {
+      const parent = await api.pickFolder('');
+      if (!parent) return;
+      show(await api.save());
+      log([{ text: 'Making the package', kind: 'info' }]);
+      const made = await api.makePackage(parent);
+      log([...made.warnings.map((w): Line => ({ text: w, kind: 'warn' })), { text: `Made the package ${made.out}`, kind: 'info' }]);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, [show, log]);
+
   const pickUpdate = useCallback(
     (folder: string) =>
       api
@@ -464,7 +477,7 @@ export function App() {
   );
   const panels: Record<PanelId, Panel> = {
     layers: { body: <LayersPanel run={run} /> },
-    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onImport={pickImport} onUpdate={pickUpdate} /> },
+    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onImport={pickImport} onUpdate={pickUpdate} onPackage={makePackage} /> },
     inspector: {
       body: (
         <Inspector

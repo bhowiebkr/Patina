@@ -207,6 +207,7 @@ fn main() {
             session::update_source,
             session::update_changes,
             session::update_folder,
+            session::make_package,
             session::read_code,
             session::set_unsaved_code,
             session::recover,
