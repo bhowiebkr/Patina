@@ -27,8 +27,8 @@ interface Props {
   onTab: (tab: InspectorTab) => void;
   onEdit: (edit: Edit) => void;
   onSave: () => void;
-  /** Adds a crate to the node folder. It fails with the problem of the crate. */
-  onAddCrate: (node: string, spec: string) => Promise<void>;
+  /** Adds a crate to a node or widget folder. It fails with the problem of the crate. */
+  onAddCrate: (folder: string, spec: string) => Promise<void>;
   onPick: (at: Reveal) => void;
 }
 
@@ -158,15 +158,15 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   useEffect(() => {
     if (guiId) api.gui(guiId, 1, '').catch(() => {});
   }, [guiId]);
-  const code = (name: string) => (
-    <CodeTab name={name} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(name, spec)} />
+  const code = (folder: string) => (
+    <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
   );
-  if (inspect?.kind === 'type') {
+  if (inspect?.kind === 'type' || inspect?.kind === 'widget') {
     return (
       <aside className="panel" aria-label="Inspector">
         <div className="panel-title">{inspect.name}</div>
         <Tabs tab="code" only="code" onTab={onTab} />
-        {code(inspect.name)}
+        {code(`${inspect.kind === 'type' ? 'nodes' : 'widgets'}/${inspect.name}`)}
       </aside>
     );
   }
@@ -249,7 +249,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
           </div>
         </>
       )}
-      {shown === 'code' && info && code(info.name)}
+      {shown === 'code' && info && code(`nodes/${info.name}`)}
       {shown === 'logs' && (
         <div className="lines" role="log">
           {logs.length + reports.length + errors.length === 0 && <div className="info">No log lines or errors in the last run</div>}

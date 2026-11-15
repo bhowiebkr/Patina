@@ -86,7 +86,8 @@ The **+** button in the title of the **Nodes** group makes a new node folder. (A
 - A name also does not pass when a folder in `nodes`, `views`, `widgets`, `connections` or `types` has the same crate name. The compare ignores case and reads `-` as `_`, as Cargo and Windows do.
 - The new folder has a `Cargo.toml` and a `src/lib.rs` with a start node: a `#[node]` function with the crate name, an `f64` input `value` and an `f64` output. The **Inspector** shows the new `src/lib.rs`.
 - Undo does not remove the folder. The user deletes it in the file manager.
-- An untrusted project has no **+** button. The **Views** and **Widgets** groups get the same button when views (15.8) and widgets (4.3) come.
+- The **Widgets** group has the same **+** button. A new widget folder has a start widget: a struct that implements `Widget` and draws a bar on a canvas (4.3). The **Inspector** shows its code with the **Code** tab only.
+- An untrusted project has no **+** button. The **Views** group gets the same button when views (15.8) come.
 
 **Graph view navigation:**
 
@@ -194,11 +195,12 @@ The large node GUI (4.3) goes at the top of the **Inspector**, under the header 
 - The GUI area has the height that the node asks for, up to half of the height of the **Inspector**. A higher GUI scrolls in its area.
 - A node with no `ui` function has no GUI area, and the tabs start under the header.
 
-A crate of crates.io is a dependency of one node folder, in its `Cargo.toml` (8.1). (Agent decision, 2026-11-15. The owner can change it.)
+A crate of crates.io is a dependency of one node or widget folder, in its `Cargo.toml` (8.1). (Agent decision, 2026-11-15. The owner can change it.)
 
 - The user edits `[dependencies]` in the `Cargo.toml` tab of the **Code** tab, or clicks **Add crate** above the code.
 - **Add crate** opens a field. The user types `name` or `name@version`, for example `rand` or `rand@0.9`, and pushes Enter. Esc cancels.
-- Patina runs `cargo add` of the project toolchain for the node folder. The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate. The next build downloads the crate.
+- The name of a widget folder of the project adds that widget by its path, so a node can use it with `ui.add` (4.3).
+- Patina runs `cargo add` of the project toolchain for the folder. The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate. The next build downloads the crate.
 - A name has 1 to 64 letters, digits, `_` and `-`, and starts with a letter. Cargo gets the text as one argument, so it cannot be an option, a path or a second crate.
 - The field shows the problem of a bad name, of a crate that crates.io does not have, and of a crate that the node has already.
 - Patina refuses **Add crate** while the `Cargo.toml` has unsaved changes. An untrusted project has no **Add crate** button.

@@ -156,9 +156,26 @@ impl Project {
         Project::open(&root)
     }
 
-    /// Makes the node folder `nodes/<name>` with a start node (15.2). No other folder of the
-    /// project can have the same crate name (6.2).
+    /// Makes the node folder `nodes/<name>` with a start node (15.2).
     pub fn new_node(&self, name: &str) -> Result<(), String> {
+        let code = format!(
+            "use patina_sdk::node;\n\n/// Gives the value of the input. Write the work of the node here.\n\
+             #[node]\npub fn {}(value: f64) -> f64 {{\n    value\n}}\n",
+            plan::name_key(name)
+        );
+        self.new_folder("nodes", name, &code)
+    }
+
+    /// Makes the widget folder `widgets/<name>` with a start widget (4.3, 6.2).
+    pub fn new_widget(&self, name: &str) -> Result<(), String> {
+        plan::check_name(name)?;
+        let ty: String = name.split(['-', '_']).filter(|p| !p.is_empty()).map(|p| p[..1].to_ascii_uppercase() + &p[1..]).collect();
+        self.new_folder("widgets", name, &WIDGET_CODE.replace("NAME", &ty))
+    }
+
+    /// Makes the crate folder `<group>/<name>` with `code` in `src/lib.rs`. No other folder of the
+    /// project can have the same crate name (6.2).
+    fn new_folder(&self, group: &str, name: &str, code: &str) -> Result<(), String> {
         plan::check_name(name)?;
         let key = plan::name_key(name);
         for group in ["nodes", "views", "widgets", "connections", "types"] {
@@ -169,20 +186,16 @@ impl Project {
                 }
             }
         }
-        let nodes = self.root.join("nodes");
-        fs::create_dir_all(&nodes).map_err(|e| format!("{}: {e}", nodes.display()))?;
+        let parent = self.root.join(group);
+        fs::create_dir_all(&parent).map_err(|e| format!("{}: {e}", parent.display()))?;
         // create_dir fails when the folder exists, so the files of another folder stay.
-        let dir = nodes.join(name);
+        let dir = parent.join(name);
         fs::create_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         let manifest = format!(
             "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
              [dependencies]\npatina-sdk = {{ workspace = true }}\n"
         );
-        let code = format!(
-            "use patina_sdk::node;\n\n/// Gives the value of the input. Write the work of the node here.\n\
-             #[node]\npub fn {key}(value: f64) -> f64 {{\n    value\n}}\n"
-        );
-        let written = write_file(&dir.join("Cargo.toml"), &manifest).and_then(|()| write_file(&dir.join("src/lib.rs"), &code));
+        let written = write_file(&dir.join("Cargo.toml"), &manifest).and_then(|()| write_file(&dir.join("src/lib.rs"), code));
         if let Err(e) = written {
             let _ = fs::remove_dir_all(&dir);
             return Err(e.to_string());
@@ -297,18 +310,27 @@ impl Project {
         Ok(nodes)
     }
 
-    /// The files of the node folder `nodes/<name>` (15.4), as sorted paths from the project root.
-    /// Hidden files and `target` folders are not in the list.
-    pub fn node_files(&self, name: &str) -> Result<Vec<String>, Error> {
-        let dir = self.root.join("nodes").join(name);
-        plan::check_name(name).map_err(|text| Error::File(dir.clone(), text))?;
+    /// The widget folders in `widgets/` (6.2), sorted by name.
+    pub fn widgets(&self) -> Vec<String> {
+        let entries = fs::read_dir(self.root.join("widgets")).into_iter().flatten().flatten();
+        let dirs = entries.filter(|e| e.path().is_dir()).filter_map(|e| e.file_name().into_string().ok());
+        let mut names: Vec<String> = dirs.filter(|name| plan::check_name(name).is_ok()).collect();
+        names.sort();
+        names
+    }
+
+    /// The files of a node or widget folder, for example `nodes/number` (15.4), as sorted paths
+    /// from the project root. Hidden files and `target` folders are not in the list.
+    pub fn folder_files(&self, folder: &str) -> Result<Vec<String>, Error> {
+        let dir = self.root.join(folder);
+        code_folder(folder).map_err(|text| Error::File(dir.clone(), text))?;
         let mut files = Vec::new();
-        list_files(&dir, &format!("nodes/{name}"), &mut files)?;
+        list_files(&dir, folder, &mut files)?;
         files.sort();
         Ok(files)
     }
 
-    /// The text of a file in a node folder, for example `nodes/number/src/lib.rs`.
+    /// The text of a file in a node or widget folder, for example `nodes/number/src/lib.rs`.
     pub fn read_code(&self, path: &str) -> Result<String, String> {
         let file = code_file(&self.root, path)?;
         fs::read_to_string(&file).map_err(|e| format!("{path}: {e}"))
@@ -365,17 +387,47 @@ fn graph_path(root: &Path) -> PathBuf {
     root.join("graphs").join("main.toml")
 }
 
-/// The full path of an existing file in a node folder, from a path like `nodes/number/src/lib.rs`
-/// (6.2). The page sends the path, so it must stay in the node folder.
-fn code_file(root: &Path, path: &str) -> Result<PathBuf, String> {
-    let bad = || format!("{path:?} is not a file in a node folder");
-    let mut parts = path.split('/');
-    if parts.next() != Some("nodes") {
-        return Err(bad());
+/// The start code of a widget folder. `NAME` is the type name.
+const WIDGET_CODE: &str = "/// A bar that the user drags to set a value from 0 to 1. Write the drawing and the input of the
+/// widget here. A node keeps the widget in its state and shows it with `ui.add(&mut self.bar)`.
+pub struct NAME {
+    pub value: f32,
+}
+
+impl patina_sdk::Widget for NAME {
+    fn show(&mut self, ui: &mut patina_sdk::Ui) -> patina_sdk::Response {
+        const SIZE: [f32; 2] = [120.0, 16.0];
+        let mut canvas = ui.canvas(\"\", SIZE);
+        let mut changed = false;
+        for pointer in canvas.pointer() {
+            if let patina_sdk::Pointer::Down(at) | patina_sdk::Pointer::Move(at) = pointer {
+                self.value = (at[0] / SIZE[0]).clamp(0.0, 1.0);
+                changed = true;
+            }
+        }
+        canvas.rect([0.0, 0.0], [SIZE[0] * self.value, SIZE[1]], [200, 140, 60], true);
+        patina_sdk::Response::new(false, changed)
     }
-    let name = parts.next().ok_or_else(bad)?;
-    plan::check_name(name)?;
-    let mut file = root.join("nodes").join(name);
+}
+";
+
+/// Checks a node or widget folder as `nodes/<name>` or `widgets/<name>` (6.2). The page sends it.
+pub(crate) fn code_folder(folder: &str) -> Result<(), String> {
+    let (group, name) = folder.split_once('/').ok_or_else(|| format!("{folder:?} is not a node or widget folder"))?;
+    if group != "nodes" && group != "widgets" {
+        return Err(format!("{folder:?} is not a node or widget folder"));
+    }
+    plan::check_name(name)
+}
+
+/// The full path of an existing file in a node or widget folder, from a path like
+/// `nodes/number/src/lib.rs` (6.2). The page sends the path, so it must stay in the folder.
+fn code_file(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let bad = || format!("{path:?} is not a file in a node or widget folder");
+    let mut parts = path.split('/');
+    let folder = [parts.next().ok_or_else(bad)?, parts.next().ok_or_else(bad)?].join("/");
+    code_folder(&folder).map_err(|_| bad())?;
+    let mut file = root.join(&folder);
     let mut depth = 0;
     for part in parts {
         if part.is_empty() || part == "." || part == ".." || part.contains(['\\', ':']) {
@@ -461,12 +513,14 @@ mod tests {
         let pin = |key: &str, ty: &str| Pin { key: key.to_owned(), ty: ty.to_owned() };
         assert_eq!((&nodes[0].inputs[..], &nodes[0].outputs[..]), (&[pin("value", "f64")][..], &[pin("out", "f64")][..]));
         assert_eq!(nodes[1].inputs, [pin("value", "&f64")]);
-        assert_eq!(project.node_files("show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);
+        assert_eq!(project.folder_files("nodes/show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);
         assert!(project.read_code("nodes/show/src/lib.rs").unwrap().contains("println!"));
         for bad in ["patina.toml", "nodes/show", "nodes/show/../../patina.toml", "nodes/show/src\\..\\x", "nodes/show/c:x"] {
             assert!(project.read_code(bad).is_err(), "{bad}");
         }
-        assert!(project.node_files("..").is_err());
+        for bad in ["nodes/..", "nodes", "graphs/main", "widgets/a/b"] {
+            assert!(project.folder_files(bad).is_err(), "{bad}");
+        }
 
         project.new_node("my-node").unwrap();
         let made = project.nodes().unwrap().into_iter().find(|n| n.name == "my-node").unwrap();
@@ -474,6 +528,11 @@ mod tests {
         for bad in ["My_Node", "number", "type", "Con", "1a", "a/b", "..", ""] {
             assert!(project.new_node(bad).is_err(), "{bad}");
         }
+        project.new_widget("gradient-bar").unwrap();
+        assert!(project.new_widget("Number").is_err(), "a widget and a node have other names");
+        assert_eq!(project.widgets(), ["gradient-bar"]);
+        let code = project.read_code("widgets/gradient-bar/src/lib.rs").unwrap();
+        assert!(code.contains("pub struct GradientBar {"), "{code}");
 
         let path = "nodes/show/src/lib.rs".to_owned();
         let code = Edit::SetCode { path: path.clone(), text: "// new\n".to_owned() };

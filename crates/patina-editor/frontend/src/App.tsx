@@ -169,9 +169,9 @@ export function App() {
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
   const pick = useCallback((at: Reveal) => {
-    const name = at.path.split('/')[1] ?? '';
+    const [group, name = ''] = at.path.split('/');
     const entry = current.current?.graph.node?.find((n) => n.folder === `nodes/${name}`);
-    setInspect(entry ? { kind: 'node', id: entry.id } : { kind: 'type', name });
+    setInspect(group === 'widgets' ? { kind: 'widget', name } : entry ? { kind: 'node', id: entry.id } : { kind: 'type', name });
     if (entry) setFocus({ id: entry.id, n: at.n });
     setTab('code');
     setReveal(at);
@@ -186,10 +186,19 @@ export function App() {
     [show],
   );
 
-  /** Adds a crate to a node with `cargo add`. Undo removes it (15.4). */
+  /** Makes a widget folder and shows its code in the Inspector (4.3). */
+  const newWidget = useCallback(
+    async (name: string) => {
+      show(await api.newWidget(name));
+      setInspect({ kind: 'widget', name });
+    },
+    [show],
+  );
+
+  /** Adds a crate to a node or widget folder with `cargo add`. Undo removes it (15.4). */
   const addCrate = useCallback(
-    async (node: string, spec: string) => {
-      show(await api.addCrate(node, spec));
+    async (folder: string, spec: string) => {
+      show(await api.addCrate(folder, spec));
     },
     [show],
   );
@@ -351,7 +360,7 @@ export function App() {
     setInspect((old) => {
       if (ids.length === 1) return { kind: 'node', id: ids[0] };
       if (ids.length === 0 && wires.length === 1) return { kind: 'wire', from: wires[0].from, to: wires[0].to };
-      return old?.kind === 'type' ? old : null;
+      return old?.kind === 'type' || old?.kind === 'widget' ? old : null;
     });
   }, []);
 
@@ -403,7 +412,7 @@ export function App() {
     </button>
   );
   const panels: Record<PanelId, Panel> = {
-    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} /> },
+    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} /> },
     inspector: {
       body: (
         <Inspector

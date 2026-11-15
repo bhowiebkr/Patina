@@ -458,7 +458,7 @@ fn broken() -> u32 {
     steps.push('make a node folder');
 
     // Add crate (15.4): a bad crate name shows its problem before cargo runs, so no network is used.
-    const crateField = () => document.querySelector<HTMLInputElement>('[aria-label="Crate name"]');
+    const crateField = () => document.querySelector<HTMLInputElement>('[aria-label="Crate or widget name"]');
     [...document.querySelectorAll<HTMLButtonElement>('.code-bar .btn')].find((b) => b.textContent === 'Add crate')!.click();
     await until('the crate field', RUN_MS, () => !!crateField());
     enterText(crateField()!, '-x');

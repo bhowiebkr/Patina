@@ -8,6 +8,7 @@ import { NameField } from './NameField';
 export type Inspect =
   | { kind: 'node'; id: string }
   | { kind: 'type'; name: string }
+  | { kind: 'widget'; name: string }
   | { kind: 'wire'; from: string; to: string }
   | null;
 
@@ -17,14 +18,27 @@ interface Props {
   onInspect: (inspect: Inspect) => void;
   /** Makes the node folder `nodes/<name>`. It fails with the problem of the name. */
   onNewNode: (name: string) => Promise<void>;
+  /** Makes the widget folder `widgets/<name>`. It fails with the problem of the name. */
+  onNewWidget: (name: string) => Promise<void>;
 }
 
 function Empty() {
   return <div className="item empty">None</div>;
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNewNode }: Props) {
-  const [naming, setNaming] = useState(false);
+function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button className="icon-btn" aria-label={label} title={label} onClick={onClick}>
+      <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+        <path d="M6 1v10M1 6h10" />
+      </svg>
+    </button>
+  );
+}
+
+export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget }: Props) {
+  const [naming, setNaming] = useState<'node' | 'widget' | null>(null);
+  const close = () => setNaming(null);
   const startDrag = (e: DragEvent, name: string) => {
     e.dataTransfer.setData(NODE_MIME, `nodes/${name}`);
     e.dataTransfer.effectAllowed = 'move';
@@ -38,16 +52,10 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode }: Props) {
       <div className="group">
         <div className="group-title">
           Nodes
-          {view.trusted && (
-            <button className="icon-btn" aria-label="New node" title="New node" onClick={() => setNaming(true)}>
-              <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                <path d="M6 1v10M1 6h10" />
-              </svg>
-            </button>
-          )}
+          {view.trusted && <NewButton label="New node" onClick={() => setNaming('node')} />}
         </div>
-        {naming && <NameField label="Node name" onMake={onNewNode} onClose={() => setNaming(false)} />}
-        {view.nodes.length === 0 && !naming && <Empty />}
+        {naming === 'node' && <NameField label="Node name" onMake={onNewNode} onClose={close} />}
+        {view.nodes.length === 0 && naming !== 'node' && <Empty />}
         {view.nodes.map((n) => (
           <button
             key={n.name}
@@ -62,7 +70,24 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode }: Props) {
           </button>
         ))}
       </div>
-      {['Views', 'Widgets', 'Types'].map((title) => (
+      <div className="group">
+        <div className="group-title">
+          Widgets
+          {view.trusted && <NewButton label="New widget" onClick={() => setNaming('widget')} />}
+        </div>
+        {naming === 'widget' && <NameField label="Widget name" onMake={onNewWidget} onClose={close} />}
+        {view.widgets.length === 0 && naming !== 'widget' && <Empty />}
+        {view.widgets.map((name) => (
+          <button
+            key={name}
+            className={inspect?.kind === 'widget' && inspect.name === name ? 'item active' : 'item'}
+            onClick={() => onInspect({ kind: 'widget', name })}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+      {['Views', 'Types'].map((title) => (
         <div key={title} className="group">
           <div className="group-title">{title}</div>
           <Empty />

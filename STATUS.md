@@ -75,8 +75,11 @@ and in the editor.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
   palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
   the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.
-- Only stateful nodes can have a GUI. The value widgets, the audio `ui` with `#[settings]` and
-  widget folders are not done.
+- Only stateful nodes can have a GUI. The value widgets and the audio `ui` with `#[settings]`
+  are not done.
+- The **Widgets** group of the **Project** tab makes widget folders with a start widget. **Add
+  crate** with a widget name adds the widget by its path. A manual check built a node that shows
+  a widget folder in `patina-cli`. No editor test makes a widget.
 - A node GUI can have a canvas with lines, rectangles, circles and text. The canvas sends the
   pointer down, the moves of a drag (one for each frame at most) and the up. A custom widget
   implements the `Widget` trait. No test runs a canvas in the editor.

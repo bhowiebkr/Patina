@@ -61,6 +61,8 @@ export interface View {
   name: string;
   graph: GraphFile;
   nodes: NodeInfo[];
+  /** The widget folders (6.2), for example `gradient-bar` for `widgets/gradient-bar`. */
+  widgets: string[];
   problems: string[];
   dirty: boolean;
   trusted: boolean;
@@ -213,11 +215,17 @@ export const api = {
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),
   save: () => invoke<View>('save'),
-  nodeFiles: (name: string) => invoke<string[]>('node_files', { name }),
+  /** The files of a node or widget folder, for example `nodes/number`. */
+  folderFiles: (folder: string) => invoke<string[]>('folder_files', { folder }),
   /** Makes the node folder `nodes/<name>` (15.2). */
   newNode: (name: string) => invoke<View>('new_node', { name }),
-  /** Adds a crate of crates.io, `name` or `name@version`, to the node folder `nodes/<node>` (15.4). */
-  addCrate: (node: string, spec: string) => invoke<View>('add_crate', { node, spec }),
+  /** Makes the widget folder `widgets/<name>` (4.3). */
+  newWidget: (name: string) => invoke<View>('new_widget', { name }),
+  /**
+   * Adds a crate of crates.io, `name` or `name@version`, or a widget folder of the project to a
+   * node or widget folder, for example `nodes/number` (15.4).
+   */
+  addCrate: (folder: string, spec: string) => invoke<View>('add_crate', { folder, spec }),
   readCode: (path: string) => invoke<string>('read_code', { path }),
   setUnsavedCode: (code: Code) => invoke<void>('set_unsaved_code', { code }),
   /** Restores or discards the changes of the recovery file (15.10). */

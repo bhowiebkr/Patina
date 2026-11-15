@@ -1,11 +1,11 @@
-// The Code tab of the Inspector (spec 15.4, 15.10): the files of a node folder in Monaco, the
-// build state of the saved code and the compile errors of the node (15.5).
+// The Code tab of the Inspector (spec 15.4, 15.10): the files of a node or widget folder in
+// Monaco, the build state of the saved code and the compile errors of the folder (15.5).
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { api, errorText, seconds, type Diagnostic } from './api';
 import { monaco, openFile, subscribe, unsavedFiles } from './code';
 import { NameField } from './NameField';
-import { nodeErrors, type RunState } from './NodeView';
+import type { RunState } from './NodeView';
 
 /** A request to show a line of a file. A new `n` shows the line again. */
 export interface Reveal {
@@ -29,13 +29,13 @@ export function buildState(run: RunState): [string, boolean] {
 }
 
 interface Props {
-  /** The node folder, for example `number` for `nodes/number`. */
+  /** The node or widget folder, for example `nodes/number`. */
   name: string;
   run: RunState;
   readOnly: boolean;
   reveal: Reveal | null;
   onSave: () => void;
-  /** Adds a crate of crates.io to the node. It fails with the problem of the crate. */
+  /** Adds a crate to the folder. It fails with the problem of the crate. */
   onAddCrate: (spec: string) => Promise<void>;
 }
 
@@ -50,7 +50,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
   const shown = useRef<Reveal | null>(null);
   const save = useRef(onSave);
   const unsaved = useSyncExternalStore(subscribe, unsavedFiles);
-  const folder = `nodes/${name}/`;
+  const folder = `${name}/`;
 
   useEffect(() => {
     save.current = onSave;
@@ -85,7 +85,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
   useEffect(() => {
     let live = true;
     api
-      .nodeFiles(name)
+      .folderFiles(name)
       .then((list) => {
         if (!live) return;
         setFiles({ name, list });
@@ -127,7 +127,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
   }, [path, target]);
 
   const [state, bad] = buildState(run);
-  const mine = nodeErrors(run, name);
+  const mine = run.errors.filter((e) => e.file?.startsWith(folder));
   const list = files?.name === name ? files.list : [];
   return (
     <div className="code-tab">
@@ -149,7 +149,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
       </div>
       {adding && (
         <NameField
-          label="Crate name"
+          label="Crate or widget name"
           onMake={async (spec) => {
             await onAddCrate(spec);
             setPath(`${folder}Cargo.toml`);

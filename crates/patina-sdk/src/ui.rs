@@ -23,6 +23,11 @@ pub struct Response {
 }
 
 impl Response {
+    /// The response of a custom widget (`Widget`).
+    pub fn new(clicked: bool, changed: bool) -> Response {
+        Response { clicked, changed }
+    }
+
     /// True when the user clicked the widget.
     pub fn clicked(&self) -> bool {
         self.clicked

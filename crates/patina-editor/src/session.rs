@@ -52,6 +52,8 @@ pub struct View {
     name: String,
     graph: GraphFile,
     nodes: Vec<NodeInfo>,
+    /// The widget folders (6.2).
+    widgets: Vec<String>,
     /// The problems of the graph check, for example `node <id>: <text>`.
     problems: Vec<String>,
     dirty: bool,
@@ -205,6 +207,7 @@ impl Session {
             name: folder_name(project.root()),
             graph: project.graph().clone(),
             nodes,
+            widgets: project.widgets(),
             problems,
             dirty: project.dirty(),
             trusted: self.trusted,
@@ -358,15 +361,15 @@ pub fn save(editor: State<'_, Editor>) -> Result<View, String> {
 
 /// The files of a node folder for the Code tab (15.4).
 #[tauri::command(async)]
-pub fn node_files(editor: State<'_, Editor>, name: String) -> Result<Vec<String>, String> {
-    editor.with(|session| session.project.node_files(&name).map_err(|e| e.to_string()))
+pub fn folder_files(editor: State<'_, Editor>, folder: String) -> Result<Vec<String>, String> {
+    editor.with(|session| session.project.folder_files(&folder).map_err(|e| e.to_string()))
 }
 
-/// Adds a crate of crates.io to a node with `cargo add` (15.4). The new `Cargo.toml` is one
-/// `SetCode` edit, so undo removes the crate.
+/// Adds a crate of crates.io or a widget folder to a node or widget folder with `cargo add`
+/// (15.4). The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate.
 #[tauri::command(async)]
-pub fn add_crate(editor: State<'_, Editor>, node: String, spec: String) -> Result<View, String> {
-    let path = format!("nodes/{node}/Cargo.toml");
+pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Result<View, String> {
+    let path = format!("{folder}/Cargo.toml");
     let root = editor.with(|session| {
         if !session.trusted {
             return Err("Trust the project before you change it.".to_owned());
@@ -378,7 +381,7 @@ pub fn add_crate(editor: State<'_, Editor>, node: String, spec: String) -> Resul
     })?;
     // Cargo reads the index of crates.io, so the session stays unlocked while it runs.
     let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
-    let text = patina_engine::add_crate(&root, &toolchain, &node, &spec)?;
+    let text = patina_engine::add_crate(&root, &toolchain, &folder, &spec)?;
     editor.change(|project| {
         if project.root() != root {
             return Err("Another project opened while cargo ran.".to_owned());
@@ -391,6 +394,12 @@ pub fn add_crate(editor: State<'_, Editor>, node: String, spec: String) -> Resul
 #[tauri::command(async)]
 pub fn new_node(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_node(&name))
+}
+
+/// Makes the widget folder `widgets/<name>` (4.3). Undo does not remove the folder.
+#[tauri::command(async)]
+pub fn new_widget(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.change(|project| project.new_widget(&name))
 }
 
 /// The page sends the unsaved text of the Code tab, so a close of the window asks first and the

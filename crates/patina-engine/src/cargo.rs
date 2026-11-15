@@ -47,11 +47,11 @@ const KEPT_ENV: &[&str] = &[
 const KEPT_ENV: &[&str] = &["HOME", "USER", "LANG", "TMPDIR"];
 
 /// The manifest of the project workspace. Cargo fails on a member glob that matches no folder, so
-/// `nodes/*`, `connections/*` (6.3) and `build/clusters/*` are members only when they have a folder.
+/// `nodes/*`, `widgets/*`, `connections/*` and `build/clusters/*` are members only with a folder.
 fn workspace(root: &Path) -> String {
     let used = |group: &&str| std::fs::read_dir(root.join(group)).into_iter().flatten().flatten().any(|e| e.path().is_dir());
     let members: Vec<String> =
-        ["nodes", "connections", "build/clusters"].into_iter().filter(used).map(|g| format!("\"{g}/*\"")).collect();
+        ["nodes", "widgets", "connections", "build/clusters"].into_iter().filter(used).map(|g| format!("\"{g}/*\"")).collect();
     format!(
         "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
          members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n",
@@ -273,17 +273,24 @@ fn write_workspace(root: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-/// Runs `cargo add` for the node folder `nodes/<node>` and returns the new text of its `Cargo.toml`
-/// (15.4). The file keeps its old text, so the caller applies the new text as one edit with undo.
-pub fn add_crate(root: &Path, toolchain: &Toolchain, node: &str, spec: &str) -> Result<String, String> {
-    crate::plan::check_name(node)?;
+/// Runs `cargo add` for a node or widget folder, for example `nodes/number`, and returns the new
+/// text of its `Cargo.toml` (15.4). The file keeps its old text, so the caller applies the new
+/// text as one edit with undo. A widget folder of the project goes in by its path (6.2).
+pub fn add_crate(root: &Path, toolchain: &Toolchain, folder: &str, spec: &str) -> Result<String, String> {
+    crate::code_folder(folder)?;
     check_crate(spec)?;
-    let relative = format!("nodes/{node}/Cargo.toml");
+    let relative = format!("{folder}/Cargo.toml");
     let manifest = root.join(&relative);
     let old = std::fs::read_to_string(&manifest).map_err(|e| format!("{relative}: {e}"))?;
     write_workspace(root).map_err(|e| e.to_string())?;
     let mut command = toolchain.command(&toolchain.cargo).map_err(|e| e.to_string())?;
-    command.current_dir(root).arg("add").arg("--manifest-path").arg(&manifest).arg("--").arg(spec);
+    command.current_dir(root).arg("add").arg("--manifest-path").arg(&manifest);
+    let widget = root.join("widgets").join(spec);
+    if widget.is_dir() {
+        command.arg("--path").arg(widget);
+    } else {
+        command.arg("--").arg(spec);
+    }
     let output = command.output().map_err(|e| format!("cannot start {}: {e}", toolchain.cargo.display()));
     let new = std::fs::read_to_string(&manifest).map_err(|e| format!("{relative}: {e}"));
     write(root, &relative, &old).map_err(|e| e.to_string())?;
@@ -294,7 +301,7 @@ pub fn add_crate(root: &Path, toolchain: &Toolchain, node: &str, spec: &str) -> 
     }
     let new = new?;
     if new == old {
-        return Err(format!("the Cargo.toml of {node} has {spec} already"));
+        return Err(format!("the Cargo.toml of {folder} has {spec} already"));
     }
     Ok(new)
 }
@@ -390,10 +397,10 @@ mod tests {
         write(&root, "nodes/num/Cargo.toml", manifest).unwrap();
         write(&root, "nodes/num/src/lib.rs", "").unwrap();
         let toolchain = Toolchain::detect().unwrap();
-        let text = add_crate(&root, &toolchain, "num", "itoa@1").unwrap();
+        let text = add_crate(&root, &toolchain, "nodes/num", "itoa@1").unwrap();
         assert!(text.contains("itoa = \"1"), "{text}");
         assert_eq!(std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap(), manifest);
-        let error = add_crate(&root, &toolchain, "num", "patina-no-such-crate-x").unwrap_err();
+        let error = add_crate(&root, &toolchain, "nodes/num", "patina-no-such-crate-x").unwrap_err();
         assert!(error.contains("patina-no-such-crate-x"), "{error}");
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -430,6 +437,8 @@ mod tests {
         assert!(workspace(&root).contains("members = [\"nodes/*\", \"build/clusters/*\"]"), "an empty folder matches no member");
         std::fs::create_dir_all(root.join("connections/byte")).unwrap();
         assert!(workspace(&root).contains("members = [\"nodes/*\", \"connections/*\", \"build/clusters/*\"]"));
+        std::fs::create_dir_all(root.join("widgets/bar")).unwrap();
+        assert!(workspace(&root).contains("members = [\"nodes/*\", \"widgets/*\", \"connections/*\", \"build/clusters/*\"]"));
         std::fs::remove_dir_all(root).unwrap();
     }
 
