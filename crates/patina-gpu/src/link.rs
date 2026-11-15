@@ -1,8 +1,12 @@
 //! The WESL linker and the WESL package of Patina (10.1, 10.3).
 
+use std::borrow::Cow;
 use std::path::Path;
 
+use wesl::error::ResolveError;
+use wesl::resolver::{PackageResolver, Resolver};
 use wesl::sourcemap::SourceMap;
+use wesl::syntax::{ModulePath, PathOrigin};
 use wgpu::naga;
 
 static IMAGE: wesl::package::StaticPackageModule =
@@ -18,16 +22,51 @@ pub static PACKAGE: wesl::package::StaticPackage =
 /// the `@if` conditions. A feature that is not in the list is false. The file can import the
 /// package [`PACKAGE`]. The error has the WESL file and the line of the declaration.
 pub fn link(file: &Path, features: &[(&str, bool)]) -> Result<String, String> {
+    let main = file.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    finish(wesl::Compiler::new(options(features)).compile(file), &main)
+}
+
+/// Links WESL source text, for example the output of another node (10.3). The source can import
+/// only packages, for example [`PACKAGE`]. The error gives `name` in place of a file name.
+pub fn link_source(name: &str, source: &str, features: &[(&str, bool)]) -> Result<String, String> {
+    let mut packages = PackageResolver::new();
+    packages.add_package(&PACKAGE);
+    let compiler = wesl::Compiler::new_with_resolver(options(features), Text { source, packages });
+    finish(compiler.compile_module(&ModulePath::new_root()), name)
+}
+
+fn options(features: &[(&str, bool)]) -> wesl::CompileOptions {
     let mut options = wesl::CompileOptions::default();
     options.dependencies.push(&PACKAGE);
     for (name, on) in features {
         options.features.set(name, *on);
     }
-    let linked = wesl::Compiler::new(options).compile(file).map_err(|e| e.to_string())?;
+    options
+}
+
+/// The linked WGSL, after a check with `naga`.
+fn finish(linked: Result<wesl::CompileResult, wesl::Error>, main: &str) -> Result<String, String> {
+    let linked = linked.map_err(|e| e.to_string())?;
     let wgsl = linked.to_string();
     match validate(&wgsl) {
         Ok(()) => Ok(wgsl),
-        Err((line, message)) => Err(locate(&linked, file, &wgsl, line, &message)),
+        Err((line, message)) => Err(locate(&linked, main, &wgsl, line, &message)),
+    }
+}
+
+/// Source text as the root module, and the packages.
+struct Text<'a> {
+    source: &'a str,
+    packages: PackageResolver,
+}
+
+impl Resolver for Text<'_> {
+    fn resolve_source<'b>(&'b self, path: &ModulePath) -> Result<Cow<'b, str>, ResolveError> {
+        match path.origin {
+            PathOrigin::Package(_) => self.packages.resolve_source(path),
+            _ if path.components.is_empty() => Ok(Cow::Borrowed(self.source)),
+            _ => Err(ResolveError::ModuleNotFound(path.clone(), "shader source text can import only packages".into())),
+        }
     }
 }
 
@@ -42,8 +81,7 @@ fn validate(wgsl: &str) -> Result<(), (usize, String)> {
 }
 
 /// The error text with the WESL file and the line of the declaration that has the WGSL line.
-fn locate(linked: &wesl::CompileResult, file: &Path, wgsl: &str, line: usize, message: &str) -> String {
-    let main = file.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+fn locate(linked: &wesl::CompileResult, main: &str, wgsl: &str, line: usize, message: &str) -> String {
     let place = wgsl.lines().take(line).fold(None, |last, l| declared(l).or(last)).and_then(|name| {
         let map = linked.sourcemap.as_ref()?;
         let (source, shown, item) = match map.item(name) {
@@ -52,7 +90,7 @@ fn locate(linked: &wesl::CompileResult, file: &Path, wgsl: &str, line: usize, me
                 let shown = f.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned());
                 (f.source.as_str(), shown.or_else(|| f.display_name.clone())?, entry.name.as_str())
             }
-            None => (map.default_source()?, main.clone(), name),
+            None => (map.default_source()?, main.to_string(), name),
         };
         let number = source.lines().position(|l| declared(l) == Some(item))? + 1;
         Some(format!("{shown} line {number}, in `{item}`"))

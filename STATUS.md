@@ -37,6 +37,8 @@ with WESL (spec 10).
   shows it in its GUI.
 - Each node shader can import `patina_gpu::image`. The gradient of `examples/gpu` uses
   `inside` from it.
+- `patina_gpu::link_source` links WESL text, for example a string from another node. The text
+  can import only packages.
 
 ### What was checked
 
@@ -45,7 +47,8 @@ with WESL (spec 10).
   GUI of the preview node gives an image of 64 x 16 pixels.
 - The unit tests of `patina-gpu` check the link with an import and a feature, a bad import, the
   image read-back and a bad shader. They also link an import of the `patina_gpu` package, and
-  get the WESL file and line of a type error in an imported file and in the main file.
+  get the WESL file and line of a type error in an imported file and in the main file. A test
+  links WESL text with a package import.
 - A glue test checks the asset path with and without a project root.
 - On Windows 11 with an RTX 4090 and the CUDA Toolkit 12.6: the unit test of `patina-cuda`
   compiles a kernel, runs it and gets the compile log of a bad kernel. A project in the

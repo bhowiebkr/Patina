@@ -35,6 +35,15 @@ fn link_joins_the_imports_and_sets_the_features() {
 }
 
 #[test]
+fn link_source_links_text_that_imports_a_package() {
+    let text = "import patina_gpu::image::luma;\n@compute @workgroup_size(1) fn main() { let v = luma(vec3f(1.0)); }\n";
+    assert!(link_source("text", text, &[]).unwrap().contains("0.7152"));
+    assert!(link_source("text", "import package::other::f;\n@compute @workgroup_size(1) fn main() { f(); }\n", &[]).is_err());
+    let error = link_source("text", "@compute @workgroup_size(1)\nfn main() { let x: u32 = 1.5; }\n", &[]).unwrap_err();
+    assert!(error.starts_with("text line 2, in `main`: "), "{error}");
+}
+
+#[test]
 fn declared_finds_the_name_of_a_top_level_declaration() {
     use crate::link::declared;
     assert_eq!(declared("@if(invert) fn shade(t: f32) -> vec3f {"), Some("shade"));

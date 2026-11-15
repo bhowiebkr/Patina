@@ -222,7 +222,8 @@ in the `assets/` folder of the node, and find them with `asset!("file.wesl")`. T
 a preview node and writes its mean brightness.
 
 A shader can import the shared functions of the `patina_gpu` package, for example
-`import patina_gpu::image::luma;`. The `image` module has `luma` and `inside`. Run the example:
+`import patina_gpu::image::luma;`. The `image` module has `luma` and `inside`. A node can also
+link WESL text, for example a string from another node, with `link_source`. Run the example:
 
 ```
 cargo +1.100.0 run -p patina-cli -- run examples/gpu

@@ -148,6 +148,7 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
 ### 10.3 Shader nodes
 
 - A node can output shader source as a string. Another node compiles that source at run time: WESL through the `wesl` linker and `wgpu`, or CUDA C++ through NVRTC.
+  - `patina_gpu::link_source(name, source, features)` links WESL text. The text can import only packages, for example `patina_gpu`, because it has no folder. An error gives `name` in place of a file name. `Cuda::kernel` compiles CUDA C++ text. Agent decision of 2026-11-15, the owner can change it.
 - Shader files have the `.wesl` extension. A node keeps its shader files in its `assets/` folder (6.2).
 - The `asset!("file")` macro of `patina-sdk` gives the path of a file in the `assets/` folder of the node. The engine gives the project root to each cluster when it loads (ABI 14), so the path is also correct in a package that moved. Agent decision of 2026-11-15, the owner can change it.
 - `patina_gpu::link(file, features)` links a WESL file with its `@if` features at run time. `import package::name` finds `name.wesl` in the folder of the file. `Gpu::shader` compiles the WGSL and gives the validation error as text. Agent decision of 2026-11-15, the owner can change it.

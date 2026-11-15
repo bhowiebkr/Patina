@@ -12,7 +12,7 @@ use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Waker};
 
 pub use image::GpuImage;
-pub use link::{PACKAGE, link};
+pub use link::{PACKAGE, link, link_source};
 pub use wgpu;
 
 /// The shared GPU context.
