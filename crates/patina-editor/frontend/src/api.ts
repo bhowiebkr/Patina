@@ -26,10 +26,16 @@ export interface GraphFile {
   wire?: Wire[];
 }
 
+/** An input or an output of a node, with its Rust type (spec 4.1). */
+export interface Pin {
+  key: string;
+  ty: string;
+}
+
 export interface NodeInfo {
   name: string;
-  inputs: string[];
-  outputs: string[];
+  inputs: Pin[];
+  outputs: Pin[];
   error: string | null;
 }
 

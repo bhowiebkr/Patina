@@ -102,6 +102,13 @@ export function infoOf(entry: NodeEntry, nodes: NodeInfo[]): NodeInfo | null {
   return nodes.find((n) => n.name === name) ?? null;
 }
 
+/** The Rust type of output `from`, "<node id>.<output key>", or undefined when its node does not read. */
+export function outputType(view: View, from: string): string | undefined {
+  const dot = from.lastIndexOf('.');
+  const entry = view.graph.node?.find((n) => n.id === from.slice(0, dot));
+  return (entry && infoOf(entry, view.nodes))?.outputs.find((p) => p.key === from.slice(dot + 1))?.ty;
+}
+
 function StateIcon({ state }: { state: NodeState }) {
   const name = STATE_NAMES[state];
   let icon;
@@ -170,24 +177,24 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
       </div>
       <div className="patina-rows" style={{ height: rows * ROW + 2 * PAD }}>
         {Array.from({ length: rows }, (_, i) => {
-          const input = inputs[i];
-          const text = input && !wired.includes(input) ? entry.params?.[input] : undefined;
+          const [input, output] = [inputs[i], outputs[i]];
+          const text = input && !wired.includes(input.key) ? entry.params?.[input.key] : undefined;
           return (
             <div key={i} className="patina-row">
-              <span>
-                {input}
+              <span title={input && `${input.key}: ${input.ty}`}>
+                {input?.key}
                 {text !== undefined && <span className="param-text"> {text}</span>}
               </span>
-              <span>{outputs[i]}</span>
+              <span title={output && `${output.key}: ${output.ty}`}>{output?.key}</span>
             </div>
           );
         })}
       </div>
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
-      {inputs.map((key, i) => (
+      {inputs.map(({ key }, i) => (
         <Handle key={`i-${key}`} id={key} type="target" position={Position.Left} isConnectable={editable} style={{ top: pinTop(i) }} />
       ))}
-      {outputs.map((key, i) => (
+      {outputs.map(({ key }, i) => (
         <Handle key={`o-${key}`} id={key} type="source" position={Position.Right} isConnectable={editable} style={{ top: pinTop(i) }} />
       ))}
     </div>

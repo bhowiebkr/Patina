@@ -1,5 +1,6 @@
 //! Reads the pins of a node from the `#[node]` function in its source (spec 4.1).
 
+use quote::ToTokens;
 use syn::{FnArg, GenericArgument, Item, Pat, PathArguments, ReturnType, Type, Visibility};
 
 /// How the node function takes an input.
@@ -19,6 +20,8 @@ pub struct Input {
     pub pass: Pass,
     /// `x: &str`. Its parameter slot holds a `String`.
     pub is_str: bool,
+    /// The type as the code writes it, for example `&str`.
+    pub ty: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -36,6 +39,8 @@ pub struct Node {
     pub output: Output,
     /// The function returns a `Result`. An `Err` stops the node (4.7).
     pub fallible: bool,
+    /// The value type of each output pin, in the order of `output_keys`.
+    pub output_types: Vec<String>,
 }
 
 impl Node {
@@ -88,6 +93,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
         return Err("a node function must be a plain safe Rust function".to_owned());
     }
     let mut inputs = Vec::new();
+    let mut mut_types = Vec::new();
     for arg in &sig.inputs {
         let FnArg::Typed(arg) = arg else {
             return Err("a node function takes no self".to_owned());
@@ -97,7 +103,10 @@ pub fn parse(source: &str) -> Result<Node, String> {
         };
         let key = pat.ident.to_string();
         let (pass, is_str) = match &*arg.ty {
-            Type::Reference(r) if r.mutability.is_some() => (Pass::Mut, false),
+            Type::Reference(r) if r.mutability.is_some() => {
+                mut_types.push(type_text(&r.elem));
+                (Pass::Mut, false)
+            }
             Type::Reference(r) => (Pass::Ref, matches!(&*r.elem, Type::Path(p) if p.path.is_ident("str"))),
             Type::ImplTrait(_) => return Err("generic nodes come at milestone 5".to_owned()),
             _ => (Pass::Take, false),
@@ -105,16 +114,18 @@ pub fn parse(source: &str) -> Result<Node, String> {
         if pass == Pass::Mut && is_out_key(&key) {
             return Err(format!("rename the input `{key}`: its output key is used by the return value"));
         }
-        inputs.push(Input { key, pass, is_str });
+        inputs.push(Input { key, pass, is_str, ty: type_text(&arg.ty) });
     }
-    let (output, fallible) = match &sig.output {
-        ReturnType::Default => (Output::None, false),
+    let (value, fallible) = match &sig.output {
+        ReturnType::Default => (None, false),
         ReturnType::Type(_, ty) => match result_value(ty) {
-            Some(value) => (shape(value), true),
-            None => (shape(ty), false),
+            Some(value) => (Some(value), true),
+            None => (Some(&**ty), false),
         },
     };
-    Ok(Node { func: sig.ident.to_string(), inputs, output, fallible })
+    let (output, mut output_types) = value.map_or((Output::None, Vec::new()), shape);
+    output_types.extend(mut_types);
+    Ok(Node { func: sig.ident.to_string(), inputs, output, fallible, output_types })
 }
 
 fn is_out_key(key: &str) -> bool {
@@ -132,13 +143,33 @@ fn result_value(ty: &Type) -> Option<&Type> {
     }
 }
 
-fn shape(ty: &Type) -> Output {
+/// The output pins of a return value type, and the type of each pin.
+fn shape(ty: &Type) -> (Output, Vec<String>) {
     match ty {
-        Type::Tuple(t) if t.elems.is_empty() => Output::None,
-        Type::Tuple(t) => Output::Tuple(t.elems.len()),
+        Type::Tuple(t) if t.elems.is_empty() => (Output::None, Vec::new()),
+        Type::Tuple(t) => (Output::Tuple(t.elems.len()), t.elems.iter().map(type_text).collect()),
         Type::Paren(p) => shape(&p.elem),
-        _ => Output::One,
+        _ => (Output::One, vec![type_text(ty)]),
     }
+}
+
+/// The text of a type in the usual Rust form, for example `Vec<u8>` or `(f32, f32)`.
+fn type_text(ty: &Type) -> String {
+    let raw = ty.to_token_stream().to_string();
+    let chars: Vec<char> = raw.chars().collect();
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    let mut text = String::with_capacity(raw.len());
+    for (i, &c) in chars.iter().enumerate() {
+        // The token text has a space between each two tokens. Keep it between two words and after a comma.
+        let keep = c != ' '
+            || i > 0
+                && (matches!(chars[i - 1], ',' | ';')
+                    || word(chars[i - 1]) && chars.get(i + 1).is_some_and(|&n| word(n)));
+        if keep {
+            text.push(c);
+        }
+    }
+    text
 }
 
 #[cfg(test)]
@@ -156,6 +187,12 @@ mod tests {
         assert_eq!(passes, [("a", Pass::Ref, true), ("b", Pass::Take, false), ("c", Pass::Mut, false)]);
         assert!(node.fallible);
         assert_eq!(node.output_keys(), ["out0", "out1", "c"]);
+        let types: Vec<_> = node.inputs.iter().map(|i| i.ty.as_str()).collect();
+        assert_eq!(types, ["&str", "f64", "&mut Vec<u8>"]);
+        assert_eq!(node.output_types, ["f32", "f32", "Vec<u8>"]);
+        let node = parse("#[node] pub fn f(m: std::collections::HashMap<String, [u8; 4]>) -> &'static str { todo!() }").unwrap();
+        assert_eq!(node.inputs[0].ty, "std::collections::HashMap<String, [u8; 4]>");
+        assert_eq!(node.output_types, ["&'static str"]);
 
         let fails = [
             "#[node] fn f() {}",

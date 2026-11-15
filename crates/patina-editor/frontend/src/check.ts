@@ -286,7 +286,9 @@ fn broken() -> u32 {
     const badge = () => document.querySelector('.wire-value');
     await until('the live value on the wire', RUN_MS, () => badge()?.textContent === '2.5');
     if (badge()!.classList.contains('stale')) throw new Error('the value of the last run is stale');
-    steps.push('live value on the wire');
+    const label = document.querySelector('.wire-type')?.textContent;
+    if (label !== 'f64') throw new Error(`the wire type label is ${label}, not f64`);
+    steps.push('live value and type label on the wire');
 
     // The wire draws in WebGL (15.1). Its hit area is wider than the line, and a click selects it (15.9).
     const wire = await wireColumn();

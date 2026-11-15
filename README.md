@@ -133,6 +133,8 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 - The project defines how the wires of each data type look, with a connection kind. For
   example, a bus kind sets the lanes of a byte. A type with no connection kind shows one wire
   and its type name.
+- Hold the pointer on a pin name to see its Rust type. The **Inspector** shows the type of the
+  selected wire.
 - A wire can be curved, or straight with rounded or sharp corners. You can add bends and route
   a wire around a node. The look of a wire never changes what it connects.
 - One output can feed many inputs. Splitting or joining a value takes a node.

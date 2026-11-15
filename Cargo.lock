@@ -2398,6 +2398,7 @@ version = "0.0.0"
 dependencies = [
  "libloading 0.8.9",
  "patina-sdk",
+ "quote",
  "serde",
  "serde_json",
  "syn 2.0.119",

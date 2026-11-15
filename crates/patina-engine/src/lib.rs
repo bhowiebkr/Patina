@@ -68,13 +68,21 @@ pub struct Project {
     code_revision: u64,
 }
 
+/// An input or an output of a node (spec 4.1).
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Pin {
+    pub key: String,
+    /// The Rust type as the code writes it. An output has the type of its value.
+    pub ty: String,
+}
+
 /// A node folder of the project, for the node list of the editor (15.2).
 #[derive(Serialize, Debug)]
 pub struct NodeInfo {
     /// The folder name in `nodes/`.
     pub name: String,
-    pub inputs: Vec<String>,
-    pub outputs: Vec<String>,
+    pub inputs: Vec<Pin>,
+    pub outputs: Vec<Pin>,
     /// The problem of the folder when its node does not read.
     pub error: Option<String>,
 }
@@ -223,12 +231,12 @@ impl Project {
                 continue;
             }
             nodes.push(match plan::read_node(&self.root, &name) {
-                Ok(node) => NodeInfo {
-                    inputs: node.inputs.iter().map(|i| i.key.clone()).collect(),
-                    outputs: node.output_keys(),
-                    name,
-                    error: None,
-                },
+                Ok(node) => {
+                    let keys = node.output_keys().into_iter();
+                    let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty }).collect();
+                    let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty }).collect();
+                    NodeInfo { name, inputs, outputs, error: None }
+                }
                 Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text) },
             });
         }
@@ -386,7 +394,9 @@ mod tests {
         let nodes = project.nodes().unwrap();
         let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, ["number", "show"]);
-        assert_eq!((nodes[0].inputs.as_slice(), nodes[0].outputs.as_slice()), (&["value".to_owned()][..], &["out".to_owned()][..]));
+        let pin = |key: &str, ty: &str| Pin { key: key.to_owned(), ty: ty.to_owned() };
+        assert_eq!((&nodes[0].inputs[..], &nodes[0].outputs[..]), (&[pin("value", "f64")][..], &[pin("out", "f64")][..]));
+        assert_eq!(nodes[1].inputs, [pin("value", "&f64")]);
         assert_eq!(project.node_files("show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);
         assert!(project.read_code("nodes/show/src/lib.rs").unwrap().contains("println!"));
         for bad in ["patina.toml", "nodes/show", "nodes/show/../../patina.toml", "nodes/show/src\\..\\x", "nodes/show/c:x"] {

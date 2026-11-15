@@ -16,7 +16,7 @@ import {
 } from '@xyflow/react';
 import { newId, type Edit, type Point, type View } from './api';
 import { savedViewport, saveViewport } from './Dock';
-import { NodeView, infoOf, nodeState, valueStale, type PatinaNode, type RunState } from './NodeView';
+import { NodeView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type RunState } from './NodeView';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { WireStore } from './wires';
 
@@ -55,7 +55,7 @@ function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
     const [source, sourceHandle] = splitPin(w.from);
     const [target, targetHandle] = splitPin(w.to);
     const id = `${w.from}>${w.to}`;
-    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS } };
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, ty: outputType(view, w.from) } };
   });
 }
 

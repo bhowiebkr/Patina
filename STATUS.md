@@ -36,6 +36,9 @@ To run the editor from a checkout:
   the `Viewer` text of the value, the `Debug` text, or the type name and the size (5.3). A
   selected wire shows all of the badge text. After an edit, the badge is stale: its text is dim
   and its border is dashed.
+- Each wire shows the Rust type of its value in a small label above the badge (15.9), for
+  example `f64`. A pin shows its type in a tooltip. The **Inspector** shows the type of the
+  selected wire.
 - Select a wire to see its ends and the full text of its value in the **Inspector**, up to 4096
   bytes (15.7). A type crate implements the `Viewer` trait of `patina-sdk` to give its own text.
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
@@ -110,7 +113,7 @@ To run the editor from a checkout:
   - Open again. The graph is the saved graph. **Logs** is in the right area, and the pan and
     zoom are the same. **Reset layout** moves **Logs** back and keeps the pan and zoom.
   - Run again, and find 2 ready nodes in the graph.
-    Find `2.5` in the badge of the wire, not stale.
+    Find `2.5` in the badge of the wire, not stale, and `f64` in its type label.
   - Read the pixels of the wire from the WebGL canvas. They are gray, with no amber. The
     point under the wire is in the edge. Click the wire, and find the amber band. Find `2.5`
     in the **Inspector** and in the full text that the engine keeps.
@@ -143,7 +146,7 @@ To run the editor from a checkout:
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
 - `cargo test --workspace --locked` passed 47 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the route points, the text of the live values with a `Viewer`, the cut of the badge
+  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the pin types, the route points, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
@@ -271,6 +274,10 @@ The projects are very small, so these times do not predict real projects.
 - A node panic shows two messages: the default panic message of the cluster, and the report.
 - A `Result` output is found by the type name `Result` only. A type alias with another name is
   not found, and then an `Err` is a value, not a failure.
+- The editor does not compare the pin types when the user connects two pins (5.1). A wire
+  between two types that do not agree gives a compile error at the next build. The type key
+  check needs the type crates of 5.1. The type label is the text of the code, so `String` and
+  `std::string::String` show differently.
 - The CLI runs the graph one time. The clock domains (9.1) come later.
 - These shortcuts are open in the code:
   - The toolchain comes from `CARGO` or `PATH` (`crates/patina-engine/src/cargo.rs`).

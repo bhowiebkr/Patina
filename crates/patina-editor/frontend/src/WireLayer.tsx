@@ -22,8 +22,8 @@ const HIT_WIDTH = 12;
 /** The size of a route handle, in screen pixels. */
 const HANDLE = 10;
 
-/** The ends of a wire and its route points (spec 15.9). */
-export type WireData = { from: string; to: string; route: readonly Point[] };
+/** The ends of a wire, its route points and the type of its value (spec 15.9). */
+export type WireData = { from: string; to: string; route: readonly Point[]; ty?: string };
 
 export interface WireTools {
   store: WireStore;
@@ -57,20 +57,27 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const d = wirePath(sourceX, sourceY, targetX, targetY, route);
   const value = values.get(data!.from);
   const [mx, my] = midpoint(sourceX, sourceY, targetX, targetY, route);
+  const ty = data!.ty;
   return (
     <>
       <path className="wire-line" d={d} />
       <path className="wire-hit" d={d} onDoubleClick={add} />
-      {value !== undefined && (
-        <EdgeLabelRenderer>
+      <EdgeLabelRenderer>
+        {/* A wire with no lanes shows its type label above the badge (15.9). */}
+        {ty && (
+          <div className={selected ? 'wire-type selected' : 'wire-type'} style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - 12px))` }}>
+            {ty}
+          </div>
+        )}
+        {value !== undefined && (
           <div
             className={`wire-value${stale(data!.from) ? ' stale' : ''}${selected ? ' selected' : ''}`}
             style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)` }}
           >
             {value}
           </div>
-        </EdgeLabelRenderer>
-      )}
+        )}
+      </EdgeLabelRenderer>
       {selected && editable && <RouteHandles route={route} dragging={draft !== null} setDraft={setDraft} send={send} />}
     </>
   );

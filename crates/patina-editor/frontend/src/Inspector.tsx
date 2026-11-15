@@ -4,7 +4,7 @@
 import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { api, errorText, folderName, reportError, reportText, type Edit, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
-import { STATE_NAMES, infoOf, nodeErrors, nodeState, valueStale, type RunState } from './NodeView';
+import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
 import type { Inspect } from './ProjectPanel';
 
 export type InspectorTab = 'parameters' | 'code' | 'logs';
@@ -73,6 +73,10 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
           <span className="label">To</span>
           <span>{end(to)}</span>
         </div>
+        <div className="param">
+          <span className="label">Type</span>
+          <span>{outputType(view, from) ?? 'Unknown'}</span>
+        </div>
       </div>
       <div className="section">
         <h3>Value</h3>
@@ -136,7 +140,7 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
         <>
           <div className="section">
             {(info?.inputs ?? []).length === 0 && <div className="label">No inputs</div>}
-            {(info?.inputs ?? []).map((key) => {
+            {(info?.inputs ?? []).map(({ key }) => {
               const before = entry.params?.[key] ?? '';
               return (
                 <label key={key} className="param">

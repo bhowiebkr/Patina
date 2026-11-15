@@ -194,6 +194,23 @@
   pointer-events: none;
 }
 
+.wire-type {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--subtle);
+  font: 10px Consolas, 'Cascadia Mono', monospace;
+  pointer-events: none;
+}
+
+.wire-type.selected {
+  max-width: none;
+}
+
 .wire-value.selected {
   max-width: none;
   border-color: var(--accent);
