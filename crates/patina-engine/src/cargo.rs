@@ -3,6 +3,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use serde::Serialize;
+use serde_json::Value;
+
 use crate::Error;
 use crate::generate;
 use crate::plan::Plan;
@@ -44,6 +47,23 @@ const SDK_FILES: [(&str, &str); 5] = [
     ),
     ("build/sdk/patina-macros/src/lib.rs", include_str!("../../patina-macros/src/lib.rs")),
 ];
+
+/// A compile error (15.5).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Diagnostic {
+    pub message: String,
+    /// The note at the code of the error, for example "expected `f32`, found `&str`".
+    pub label: Option<String>,
+    /// The text as rustc shows it, with the lines of code.
+    pub rendered: String,
+    /// The file from the project root, for example `nodes/number/src/lib.rs`, when the error is in
+    /// a file of the project.
+    pub file: Option<String>,
+    /// The first line and column of the error, from 1, and the line and column after its end.
+    pub start: [u32; 2],
+    pub end: [u32; 2],
+}
 
 /// The Rust toolchain that builds a project.
 pub struct Toolchain {
@@ -116,7 +136,7 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
     let mut command = command(&toolchain.cargo);
     command
         .current_dir(root)
-        .args(["build", "-p", generate::PACKAGE, "--message-format=json-render-diagnostics"]);
+        .args(["build", "-p", generate::PACKAGE, "--message-format=json"]);
     for var in CLEARED_ENV {
         command.env_remove(var);
     }
@@ -125,10 +145,14 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
         .output()
         .map_err(|e| Error::Build(format!("cannot start {}: {e}", toolchain.cargo.display())))?;
     if !output.status.success() {
-        return Err(Error::Build(String::from_utf8_lossy(&output.stderr).into_owned()));
+        let errors = compile_errors(root, &output.stdout);
+        if errors.is_empty() {
+            return Err(Error::Build(String::from_utf8_lossy(&output.stderr).into_owned()));
+        }
+        return Err(Error::Compile(errors));
     }
     for line in output.stdout.split(|b| *b == b'\n') {
-        let Ok(message) = serde_json::from_slice::<serde_json::Value>(line) else { continue };
+        let Ok(message) = serde_json::from_slice::<Value>(line) else { continue };
         if message["reason"] != "compiler-artifact" || message["target"]["name"] != generate::TARGET {
             continue;
         }
@@ -143,6 +167,41 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
     Err(Error::Build("cargo gave no library for the cluster".to_owned()))
 }
 
+/// The errors in the JSON lines of cargo. The summary line "aborting due to ..." is not one.
+fn compile_errors(root: &Path, stdout: &[u8]) -> Vec<Diagnostic> {
+    let lines = stdout.split(|b| *b == b'\n').filter_map(|line| serde_json::from_slice::<Value>(line).ok());
+    let messages = lines.filter(|line| line["reason"] == "compiler-message").map(|line| line["message"].clone());
+    let errors = messages.filter(|m| m["level"].as_str().is_some_and(|level| level.starts_with("error")));
+    errors.filter_map(|m| diagnostic(root, &m)).collect()
+}
+
+fn diagnostic(root: &Path, message: &Value) -> Option<Diagnostic> {
+    let text = message["message"].as_str().unwrap_or_default();
+    let spans = message["spans"].as_array().map_or(&[][..], Vec::as_slice);
+    if spans.is_empty() && text.starts_with("aborting due to") {
+        return None;
+    }
+    let span = spans.iter().find(|s| s["is_primary"] == true);
+    let number = |key: &str| span.and_then(|s| s[key].as_u64()).and_then(|n| u32::try_from(n).ok()).unwrap_or(0);
+    let file = span.and_then(|s| s["file_name"].as_str()).and_then(|name| project_file(root, name));
+    Some(Diagnostic {
+        message: text.to_owned(),
+        label: span.and_then(|s| s["label"].as_str()).map(str::to_owned),
+        rendered: message["rendered"].as_str().unwrap_or(text).to_owned(),
+        file,
+        start: [number("line_start"), number("column_start")],
+        end: [number("line_end"), number("column_end")],
+    })
+}
+
+/// A path of rustc as a path from the project root with `/`, or none for a file outside it.
+fn project_file(root: &Path, name: &str) -> Option<String> {
+    let path = Path::new(name);
+    let relative = if path.is_absolute() { path.strip_prefix(root).ok()? } else { path };
+    let parts: Option<Vec<&str>> = relative.components().map(|c| c.as_os_str().to_str()).collect();
+    Some(parts?.join("/"))
+}
+
 /// Writes a file only when its content changes, so that cargo does not build it again.
 fn write(root: &Path, relative: &str, text: &str) -> Result<(), Error> {
     let path = root.join(relative);
@@ -153,4 +212,33 @@ fn write(root: &Path, relative: &str, text: &str) -> Result<(), Error> {
         std::fs::create_dir_all(dir).map_err(|e| Error::Io(dir.to_owned(), e))?;
     }
     std::fs::write(&path, text).map_err(|e| Error::Io(path, e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn message(level: &str, text: &str, file: &Path) -> Value {
+        let span = json!({ "is_primary": true, "file_name": file, "line_start": 3, "column_start": 5, "line_end": 3, "column_end": 9, "label": "here" });
+        json!({ "reason": "compiler-message", "message": { "level": level, "message": text, "rendered": text, "spans": [span] } })
+    }
+
+    #[test]
+    fn compile_errors_point_to_project_files() {
+        let root = std::env::temp_dir().join("patina-errors");
+        let relative = Path::new("nodes").join("a").join("src").join("lib.rs");
+        let lines = [
+            message("error", "bad", &root.join(&relative)),
+            message("error", "bad too", &relative),
+            message("error", "outside", &std::env::temp_dir().join("crate").join("lib.rs")),
+            message("warning", "unused", &relative),
+            json!({ "reason": "compiler-message", "message": { "level": "error", "message": "aborting due to 2 previous errors", "spans": [] } }),
+        ];
+        let stdout = lines.iter().map(|l| format!("{l}\nnot json\n")).collect::<String>();
+        let errors = compile_errors(&root, stdout.as_bytes());
+        let files: Vec<Option<&str>> = errors.iter().map(|e| e.file.as_deref()).collect();
+        assert_eq!(files, [Some("nodes/a/src/lib.rs"), Some("nodes/a/src/lib.rs"), None]);
+        assert_eq!((errors[0].start, errors[0].end, errors[0].label.as_deref()), ([3, 5], [3, 9], Some("here")));
+    }
 }

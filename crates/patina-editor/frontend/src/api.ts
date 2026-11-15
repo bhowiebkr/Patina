@@ -45,6 +45,8 @@ export interface View {
   live: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  /** Changes when an edit, undo or redo writes a code file. */
+  codeRevision: number;
 }
 
 export interface Recent {
@@ -66,10 +68,22 @@ export interface Report {
   text: string;
 }
 
+/** A compile error (spec 15.5). Lines and columns start at 1. */
+export interface Diagnostic {
+  message: string;
+  label: string | null;
+  rendered: string;
+  /** The file from the project root, for example `nodes/number/src/lib.rs`. */
+  file: string | null;
+  start: [number, number];
+  end: [number, number];
+}
+
+/** When `errors` of a run is not empty, the build failed and the last build that compiled ran. */
 export type EngineEvent =
   | { state: 'building'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; reports: Report[] }
-  | { state: 'failed'; serial: number; text: string };
+  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; reports: Report[]; errors: Diagnostic[] }
+  | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] };
 
 export interface OutputText {
   text: string;
@@ -84,6 +98,7 @@ export type Edit =
   | { kind: 'Connect'; from: string; to: string }
   | { kind: 'Disconnect'; from: string; to: string }
   | { kind: 'SetParam'; id: string; key: string; text: string | null }
+  | { kind: 'SetCode'; path: string; text: string }
   | { kind: 'Group'; edits: Edit[] };
 
 export const api = {
@@ -96,7 +111,9 @@ export const api = {
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),
   save: () => invoke<View>('save'),
-  nodeSource: (name: string) => invoke<string>('node_source', { name }),
+  nodeFiles: (name: string) => invoke<string[]>('node_files', { name }),
+  readCode: (path: string) => invoke<string>('read_code', { path }),
+  setUnsavedCode: (unsaved: boolean) => invoke<void>('set_unsaved_code', { unsaved }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
   quit: () => invoke<void>('quit'),
@@ -138,8 +155,16 @@ export function folderName(node: NodeEntry): string {
   return (node.folder ?? node.subgraph ?? '?').split('/').pop() ?? '?';
 }
 
+/** One line for a compile error, for example `mismatched types: expected f32, found &str`. */
+export function errorText(e: Diagnostic): string {
+  return e.label ? `${e.message}: ${e.label}` : e.message;
+}
+
 /** The problems of the graph check that name the node: `node <id>: <text>`. */
 export function nodeProblems(problems: string[], id: string): string[] {
   const prefix = `node ${id}: `;
   return problems.filter((p) => p.startsWith(prefix)).map((p) => p.slice(prefix.length));
 }
+
+export const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+export const millis = (ms: number) => `${ms < 10 ? ms.toFixed(2) : ms.toFixed(0)} ms`;

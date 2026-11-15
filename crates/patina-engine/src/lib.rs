@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-pub use cargo::Toolchain;
+pub use cargo::{Diagnostic, Toolchain};
 pub use edit::Edit;
 pub use load::{Cluster, Outcome, Report, ReportKind};
 use project::GraphFile;
@@ -30,6 +30,8 @@ pub enum Error {
     /// The graph file has these problems.
     Graph(PathBuf, Vec<String>),
     Build(String),
+    /// The code does not compile.
+    Compile(Vec<Diagnostic>),
     Load(String),
 }
 
@@ -43,6 +45,10 @@ impl fmt::Display for Error {
                 problems.iter().try_for_each(|p| write!(f, "\n  {p}"))
             }
             Error::Build(text) => write!(f, "the build failed: {text}"),
+            Error::Compile(errors) => {
+                write!(f, "the code does not compile:")?;
+                errors.iter().try_for_each(|e| write!(f, "\n{}", e.rendered.trim_end()))
+            }
             Error::Load(text) => write!(f, "the cluster did not load: {text}"),
         }
     }
@@ -50,11 +56,13 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-/// A project with its main graph and the undo history of the graph.
+/// A project with its main graph and the undo history of the graph and the code.
 pub struct Project {
     root: PathBuf,
     rust: String,
     history: edit::History,
+    /// The number of code writes of edits, undo and redo.
+    code_revision: u64,
 }
 
 /// A node folder of the project, for the node list of the editor (15.2).
@@ -92,7 +100,7 @@ impl Project {
         let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
         let file = project::read(&root.join("patina.toml"), |f: &project::ProjectFile| f.format)?;
         let graph = project::read(&graph_path(&root), |g: &GraphFile| g.format)?;
-        Ok(Project { root, rust: file.rust, history: edit::History::new(graph) })
+        Ok(Project { root, rust: file.rust, history: edit::History::new(graph), code_revision: 0 })
     }
 
     /// Makes a new project in a new or empty folder, with the `number` and `show` nodes and an
@@ -126,19 +134,44 @@ impl Project {
         &self.history.graph
     }
 
-    /// Applies an edit of the user to the main graph (7.4).
+    /// Applies an edit of the user (7.4). A code edit writes its file at once, because cargo
+    /// builds from the files.
     pub fn apply(&mut self, edit: &Edit) -> Result<(), String> {
-        self.history.apply(edit)
+        let Edit::SetCode { path, text } = edit else { return self.history.apply(edit) };
+        let old = swap_code(&self.root, path, text)?;
+        if old == *text {
+            return Err("the edit changes nothing".to_owned());
+        }
+        self.history.push_code(path.clone(), old);
+        self.code_revision += 1;
+        Ok(())
     }
 
     /// Removes the last edit. Returns false when there is no edit to remove.
-    pub fn undo(&mut self) -> bool {
-        self.history.undo()
+    pub fn undo(&mut self) -> Result<bool, String> {
+        self.step(true)
     }
 
     /// Applies the last removed edit again. Returns false when there is no such edit.
-    pub fn redo(&mut self) -> bool {
-        self.history.redo()
+    pub fn redo(&mut self) -> Result<bool, String> {
+        self.step(false)
+    }
+
+    fn step(&mut self, undo: bool) -> Result<bool, String> {
+        let root = &self.root;
+        let mut wrote = false;
+        let write = |path: &str, text: &str| {
+            wrote = true;
+            swap_code(root, path, text)
+        };
+        let done = if undo { self.history.undo(write) } else { self.history.redo(write) };
+        self.code_revision += u64::from(wrote && done.is_ok());
+        done
+    }
+
+    /// Changes when an edit, undo or redo writes a code file.
+    pub fn code_revision(&self) -> u64 {
+        self.code_revision
     }
 
     pub fn can_undo(&self) -> bool {
@@ -190,11 +223,21 @@ impl Project {
         Ok(nodes)
     }
 
-    /// The source of the node folder `nodes/<name>`.
-    pub fn node_source(&self, name: &str) -> Result<String, Error> {
-        let path = self.root.join("nodes").join(name).join("src").join("lib.rs");
-        plan::check_name(name).map_err(|text| Error::File(path.clone(), text))?;
-        fs::read_to_string(&path).map_err(|e| Error::Io(path, e))
+    /// The files of the node folder `nodes/<name>` (15.4), as sorted paths from the project root.
+    /// Hidden files and `target` folders are not in the list.
+    pub fn node_files(&self, name: &str) -> Result<Vec<String>, Error> {
+        let dir = self.root.join("nodes").join(name);
+        plan::check_name(name).map_err(|text| Error::File(dir.clone(), text))?;
+        let mut files = Vec::new();
+        list_files(&dir, &format!("nodes/{name}"), &mut files)?;
+        files.sort();
+        Ok(files)
+    }
+
+    /// The text of a file in a node folder, for example `nodes/number/src/lib.rs`.
+    pub fn read_code(&self, path: &str) -> Result<String, String> {
+        let file = code_file(&self.root, path)?;
+        fs::read_to_string(&file).map_err(|e| format!("{path}: {e}"))
     }
 
     /// Checks the main graph and puts its nodes in run order.
@@ -221,10 +264,73 @@ impl Checked {
         let slots = plan.slots.iter().map(|s| (plan.steps[s.step].id.clone(), s.key.clone())).collect();
         Cluster::load(&library, names, slots)
     }
+
+    /// The generated code of the cluster. Two checks with the same wiring give the same text, so
+    /// a cluster of one stays correct for the other.
+    pub fn wiring(&self) -> String {
+        generate::manifest(&self.plan) + &generate::source(&self.plan)
+    }
 }
 
 fn graph_path(root: &Path) -> PathBuf {
     root.join("graphs").join("main.toml")
+}
+
+/// The full path of an existing file in a node folder, from a path like `nodes/number/src/lib.rs`
+/// (6.2). The page sends the path, so it must stay in the node folder.
+fn code_file(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let bad = || format!("{path:?} is not a file in a node folder");
+    let mut parts = path.split('/');
+    if parts.next() != Some("nodes") {
+        return Err(bad());
+    }
+    let name = parts.next().ok_or_else(bad)?;
+    plan::check_name(name)?;
+    let mut file = root.join("nodes").join(name);
+    let mut depth = 0;
+    for part in parts {
+        if part.is_empty() || part == "." || part == ".." || part.contains(['\\', ':']) {
+            return Err(bad());
+        }
+        file.push(part);
+        depth += 1;
+    }
+    if depth == 0 || !file.is_file() {
+        return Err(format!("the project has no file {path}"));
+    }
+    Ok(file)
+}
+
+/// Writes the text to a code file and returns the old text. A temporary file and a rename keep
+/// the old text when the write fails.
+fn swap_code(root: &Path, path: &str, text: &str) -> Result<String, String> {
+    let file = code_file(root, path)?;
+    let old = fs::read_to_string(&file).map_err(|e| format!("{path}: {e}"))?;
+    if old != text {
+        let temp = file.with_extension("patina-tmp");
+        fs::write(&temp, text).map_err(|e| format!("{}: {e}", temp.display()))?;
+        fs::rename(&temp, &file).map_err(|e| format!("{path}: {e}"))?;
+    }
+    Ok(old)
+}
+
+fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) -> Result<(), Error> {
+    for entry in fs::read_dir(dir).map_err(|e| Error::Io(dir.to_owned(), e))? {
+        let entry = entry.map_err(|e| Error::Io(dir.to_owned(), e))?;
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else { continue };
+        // The file type does not follow links, so a link loop cannot make the walk endless.
+        let Ok(kind) = entry.file_type() else { continue };
+        if name.starts_with('.') || (kind.is_dir() && name == "target") {
+            continue;
+        }
+        let path = format!("{relative}/{name}");
+        if kind.is_dir() {
+            list_files(&entry.path(), &path, files)?;
+        } else if kind.is_file() {
+            files.push(path);
+        }
+    }
+    Ok(())
 }
 
 /// Copies the built library to `build/loaded/`, with a hash of its bytes in the file name (8.5).
@@ -264,8 +370,24 @@ mod tests {
         let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, ["number", "show"]);
         assert_eq!((nodes[0].inputs.as_slice(), nodes[0].outputs.as_slice()), (&["value".to_owned()][..], &["out".to_owned()][..]));
-        assert!(project.node_source("show").unwrap().contains("println!"));
-        assert!(project.node_source("../patina.toml").is_err());
+        assert_eq!(project.node_files("show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);
+        assert!(project.read_code("nodes/show/src/lib.rs").unwrap().contains("println!"));
+        for bad in ["patina.toml", "nodes/show", "nodes/show/../../patina.toml", "nodes/show/src\\..\\x", "nodes/show/c:x"] {
+            assert!(project.read_code(bad).is_err(), "{bad}");
+        }
+        assert!(project.node_files("..").is_err());
+
+        let path = "nodes/show/src/lib.rs".to_owned();
+        let code = Edit::SetCode { path: path.clone(), text: "// new\n".to_owned() };
+        project.apply(&code).unwrap();
+        assert!(project.apply(&code).is_err(), "an edit that changes nothing is not kept");
+        assert_eq!((project.read_code(&path).unwrap().as_str(), project.code_revision()), ("// new\n", 1));
+        assert!(project.undo().unwrap());
+        assert!(project.read_code(&path).unwrap().contains("println!"), "undo writes the old text");
+        assert!(project.redo().unwrap());
+        assert_eq!((project.read_code(&path).unwrap().as_str(), project.code_revision()), ("// new\n", 3));
+        let missing = Edit::SetCode { path: "nodes/show/src/new.rs".to_owned(), text: String::new() };
+        assert!(project.apply(&missing).is_err(), "a code edit does not make a file");
 
         let edit = Edit::AddNode { id: "000000000000000a".to_owned(), folder: "nodes/number".to_owned(), pos: [1.0, 2.0] };
         project.apply(&edit).unwrap();

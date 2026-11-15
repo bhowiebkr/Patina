@@ -22,15 +22,23 @@ pub enum Edit {
     SetParam { id: String, key: String, text: Option<String> },
     /// Applies the edits in order as one step of undo, for example a move of many nodes.
     Group { edits: Vec<Edit> },
+    /// Replaces the text of a file in a node folder (6.2). The path is relative to the project
+    /// root, for example `nodes/number/src/lib.rs`. The file must exist.
+    SetCode { path: String, text: String },
 }
 
-/// A graph with its undo and redo copies. Each entry is a full copy of the graph before or after
-/// an edit, so undo and redo are always correct.
+/// One entry of undo or redo: a full copy of the graph, or the text of a code file, before or
+/// after an edit. Full copies keep undo and redo always correct.
+enum Step {
+    Graph(GraphFile),
+    Code { path: String, text: String },
+}
+
 pub(crate) struct History {
     pub graph: GraphFile,
     saved: GraphFile,
-    undo: Vec<GraphFile>,
-    redo: Vec<GraphFile>,
+    undo: Vec<Step>,
+    redo: Vec<Step>,
 }
 
 impl History {
@@ -45,26 +53,33 @@ impl History {
         if next == self.graph {
             return Err("the edit changes nothing".to_owned());
         }
-        if self.undo.len() == UNDO_LIMIT {
-            self.undo.remove(0);
-        }
-        self.undo.push(std::mem::replace(&mut self.graph, next));
-        self.redo.clear();
+        let old = std::mem::replace(&mut self.graph, next);
+        self.push(Step::Graph(old));
         Ok(())
     }
 
-    /// Removes the last edit. Returns false when there is no edit to remove.
-    pub fn undo(&mut self) -> bool {
-        let Some(graph) = self.undo.pop() else { return false };
-        self.redo.push(std::mem::replace(&mut self.graph, graph));
-        true
+    /// Records a code edit that is written. `text` is the old text of the file.
+    pub fn push_code(&mut self, path: String, text: String) {
+        self.push(Step::Code { path, text });
+    }
+
+    fn push(&mut self, step: Step) {
+        if self.undo.len() == UNDO_LIMIT {
+            self.undo.remove(0);
+        }
+        self.undo.push(step);
+        self.redo.clear();
+    }
+
+    /// Removes the last edit. Returns false when there is no edit to remove. `write` writes a
+    /// code file and returns its old text.
+    pub fn undo(&mut self, write: impl FnOnce(&str, &str) -> Result<String, String>) -> Result<bool, String> {
+        step(&mut self.graph, &mut self.undo, &mut self.redo, write)
     }
 
     /// Applies the last removed edit again. Returns false when there is no such edit.
-    pub fn redo(&mut self) -> bool {
-        let Some(graph) = self.redo.pop() else { return false };
-        self.undo.push(std::mem::replace(&mut self.graph, graph));
-        true
+    pub fn redo(&mut self, write: impl FnOnce(&str, &str) -> Result<String, String>) -> Result<bool, String> {
+        step(&mut self.graph, &mut self.redo, &mut self.undo, write)
     }
 
     pub fn can_undo(&self) -> bool {
@@ -83,6 +98,28 @@ impl History {
     pub fn mark_saved(&mut self) {
         self.saved = self.graph.clone();
     }
+}
+
+/// Moves the last step of `from` to `to`. A step that does not write stays in `from`.
+fn step(
+    graph: &mut GraphFile,
+    from: &mut Vec<Step>,
+    to: &mut Vec<Step>,
+    write: impl FnOnce(&str, &str) -> Result<String, String>,
+) -> Result<bool, String> {
+    let Some(step) = from.pop() else { return Ok(false) };
+    let back = match step {
+        Step::Graph(other) => Step::Graph(std::mem::replace(graph, other)),
+        Step::Code { path, text } => match write(&path, &text) {
+            Ok(old) => Step::Code { path, text: old },
+            Err(e) => {
+                from.push(Step::Code { path, text });
+                return Err(e);
+            }
+        },
+    };
+    to.push(back);
+    Ok(true)
 }
 
 fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
@@ -145,6 +182,8 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                 change(graph, edit)?;
             }
         }
+        // `Project::apply` writes a code edit. Only a group gets one here.
+        Edit::SetCode { .. } => return Err("a group cannot hold a code edit".to_owned()),
     }
     Ok(())
 }
@@ -172,6 +211,10 @@ mod tests {
         Edit::AddNode { id: id.to_owned(), folder: "nodes/number".to_owned(), pos: [0.0, 0.0] }
     }
 
+    fn no_code(_: &str, _: &str) -> Result<String, String> {
+        unreachable!("these edits change no code")
+    }
+
     fn connect(from: &str, to: &str) -> Edit {
         Edit::Connect { from: from.to_owned(), to: to.to_owned() }
     }
@@ -192,23 +235,43 @@ mod tests {
         assert!(history.graph.wire.is_empty(), "the wires of a removed node go too");
         assert!(history.dirty());
 
-        assert!(history.undo());
+        assert!(history.undo(no_code).unwrap());
         assert_eq!(history.graph.node.len(), 2);
         assert_eq!(history.graph.wire[0].from, "000000000000000b.out");
-        assert!(history.redo());
+        assert!(history.redo(no_code).unwrap());
         assert_eq!(history.graph.node.len(), 1);
-        assert!(!history.redo());
-        while history.undo() {}
+        assert!(!history.redo(no_code).unwrap());
+        while history.undo(no_code).unwrap() {}
         assert!(!history.dirty(), "undo of all edits gives the saved graph");
         history.apply(&add(A)).unwrap();
         assert!(history.apply(&Edit::MoveNode { id: A.to_owned(), pos: [f64::NAN, 0.0] }).is_err());
 
         let group = Edit::Group { edits: vec![add(B), Edit::MoveNode { id: B.to_owned(), pos: [5.0, 5.0] }] };
         history.apply(&group).unwrap();
-        assert!(history.undo());
+        assert!(history.undo(no_code).unwrap());
         assert_eq!(history.graph.node.len(), 1, "undo removes all edits of a group");
         let bad = Edit::Group { edits: vec![add(B), Edit::RemoveNode { id: "000000000000000c".to_owned() }] };
         assert!(history.apply(&bad).is_err());
         assert_eq!(history.graph.node.len(), 1, "a group with a bad edit changes nothing");
+        let code = Edit::SetCode { path: "nodes/number/src/lib.rs".to_owned(), text: String::new() };
+        assert!(history.apply(&Edit::Group { edits: vec![code] }).is_err());
+    }
+
+    #[test]
+    fn code_edits_undo_and_redo_through_the_writer() {
+        let mut history = History::new(toml::from_str("format = 1").unwrap());
+        let mut file = "new".to_owned();
+        history.push_code("nodes/a/src/lib.rs".to_owned(), "old".to_owned());
+        let mut write = |path: &str, text: &str| {
+            assert_eq!(path, "nodes/a/src/lib.rs");
+            Ok(std::mem::replace(&mut file, text.to_owned()))
+        };
+        assert!(history.undo(&mut write).unwrap());
+        assert!(history.redo(&mut write).unwrap());
+        assert!(history.undo(&mut write).unwrap());
+        assert!(!history.dirty(), "a code edit does not change the graph");
+        assert!(history.redo(|_, _| Err("the disk is full".to_owned())).is_err());
+        assert!(history.can_redo(), "a step that does not write stays");
+        assert_eq!(file, "old");
     }
 }

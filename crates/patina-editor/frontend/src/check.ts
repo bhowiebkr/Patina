@@ -2,13 +2,15 @@
 // project again in the real window, then writes the result for the Rust side.
 
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from './api';
+import { bufferOf, unsavedFiles } from './code';
+import { revealOf, type Reveal } from './CodeTab';
 
 const BUILD_MS = 150_000;
 const RUN_MS = 20_000;
 const A = 'a000000000000001';
 const B = 'b000000000000002';
 
-export async function runCheck(dir: string, show: (v: View) => void) {
+export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void) {
   const steps: string[] = [];
   const events: EngineEvent[] = [];
   const output: string[] = [];
@@ -92,6 +94,41 @@ export async function runCheck(dir: string, show: (v: View) => void) {
     from = mark();
     v = await step('undo', () => api.undo());
     await result(v, from, '2.5', RUN_MS);
+
+    // A compile error keeps the last build that compiled running (15.10). The code, the node,
+    // Logs and the status bar show it (15.5).
+    const lib = 'nodes/number/src/lib.rs';
+    const original = await api.readCode(lib);
+    from = mark();
+    v = await step('break the code', () => api.edit({ kind: 'SetCode', path: lib, text: `${original}
+fn broken() -> u32 {
+    "x"
+}
+` }));
+    const broken = await result(v, from, '2.5', BUILD_MS);
+    const error = broken.errors.find((e) => e.file === lib);
+    if (!error) throw new Error(`no compile error in ${lib}: ${JSON.stringify(broken.errors)}`);
+    pick(revealOf(error, Date.now())!);
+    await until('the file in the Code tab', RUN_MS, () => bufferOf(lib) !== undefined && document.querySelector('.monaco-editor') !== null);
+    await until('the error mark in the gutter', RUN_MS, () => document.querySelector('.gutter-error') !== null);
+    await until('the error on the node and in the status bar', RUN_MS, () =>
+      document.querySelector('.patina-node.compile-error') !== null && document.querySelector('.status-link') !== null,
+    );
+    steps.push('compile error shown');
+    await new Promise((r) => setTimeout(r, 300));
+    await api.capture('code-error');
+
+    bufferOf(lib)!.setValue(original);
+    await until('the unsaved dot on the file tab', RUN_MS, () => document.querySelector('.code-tab .files .dot') !== null);
+    from = mark();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
+    const fixed = await result(v, from, '2.5', BUILD_MS);
+    if (fixed.builtMs === null || fixed.errors.length > 0) throw new Error(`the save did not build the fixed code: ${JSON.stringify(fixed.errors)}`);
+    if ((await api.readCode(lib)) !== original) throw new Error('the save did not write the code');
+    await until('no compile error and no unsaved code', RUN_MS, () =>
+      document.querySelector('.patina-node.compile-error') === null && unsavedFiles().length === 0,
+    );
+    steps.push('fix with Ctrl+S');
 
     v = await step('save', () => api.save());
     if (v.dirty) throw new Error('the project is not dirty after a save');

@@ -63,15 +63,22 @@ interface Props {
   run: RunState;
   onEdit: (edit: Edit) => void;
   onSelect: (ids: string[]) => void;
+  /** A request to select one node, for example from a click on a compile error. */
+  focus: { id: string; n: number } | null;
 }
 
-export function GraphView({ view, run, onEdit, onSelect }: Props) {
+export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   const flow = useReactFlow<PatinaNode, Edge>();
   const [nodes, setNodes] = useState<PatinaNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
   useEffect(() => setNodes((prev) => buildNodes(view, run, prev)), [view, run]);
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);
+  useEffect(() => {
+    if (!focus) return;
+    setNodes((list) => list.map((x) => (x.selected === (x.id === focus.id) ? x : { ...x, selected: x.id === focus.id })));
+    setEdges((list) => list.map((x) => (x.selected ? { ...x, selected: false } : x)));
+  }, [focus]);
 
   const onNodesChange = useCallback((changes: NodeChange<PatinaNode>[]) => setNodes((n) => applyNodeChanges(changes, n)), []);
   const onEdgesChange = useCallback((changes: EdgeChange[]) => setEdges((e) => applyEdgeChanges(changes, e)), []);

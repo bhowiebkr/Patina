@@ -242,7 +242,7 @@ input {
 
 .middle {
   display: grid;
-  grid-template-columns: 44px 260px 1fr 300px;
+  grid-template-columns: 44px 260px 1fr 360px;
   min-height: 0;
 }
 
@@ -285,6 +285,17 @@ input {
   border-bottom: 1px solid var(--border);
   font-weight: 600;
   flex: none;
+  gap: 8px;
+}
+
+.panel-title .spacer {
+  flex: 1;
+}
+
+.panel-title .label,
+.panel-title .error-text {
+  font-weight: 400;
+  font-size: 12px;
 }
 
 .group {
@@ -379,16 +390,99 @@ input {
   margin-bottom: 6px;
 }
 
-.code {
-  margin: 0;
-  padding: 8px;
-  background: var(--field);
-  border: 1px solid var(--border);
-  border-radius: 3px;
+/* The Code tab of the Inspector (spec 15.10) */
+
+.code-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.code-tab .files {
+  overflow-x: auto;
+  height: 28px;
+}
+
+.code-tab .files .tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  white-space: nowrap;
   font: 12px Consolas, 'Cascadia Mono', monospace;
-  white-space: pre;
+}
+
+.code-state {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.code-box {
+  flex: 1;
+  min-height: 160px;
+}
+
+.gutter-error::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: 5px auto;
+  border-radius: 50%;
+  background: var(--error);
+}
+
+.code-errors {
+  flex: none;
+  max-height: 40%;
   overflow: auto;
-  max-height: 420px;
+  margin: 8px;
+  padding: 8px 10px;
+  background: rgba(237, 123, 120, 0.08);
+  border: 1px solid rgba(237, 123, 120, 0.5);
+  border-radius: 4px;
+}
+
+.code-errors-title {
+  margin-bottom: 4px;
+  color: var(--error);
+  font-weight: 600;
+}
+
+.code-error,
+.line-link,
+.status-link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.code-error {
+  padding: 2px 0;
+  font: 12px Consolas, 'Cascadia Mono', monospace;
+  white-space: pre-wrap;
+}
+
+.line-link {
+  font: inherit;
+  white-space: pre-wrap;
+}
+
+.status-link {
+  width: auto;
+}
+
+.code-error:hover,
+.line-link:hover,
+.status-link:hover {
+  text-decoration: underline;
 }
 
 .bottom {

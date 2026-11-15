@@ -5,7 +5,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
 use patina_engine::project::GraphFile;
-use patina_engine::{Checked, Cluster, Report, Toolchain};
+use patina_engine::{Checked, Cluster, Diagnostic, Error, Report, Toolchain};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -29,8 +29,15 @@ pub struct Run {
 #[serde(tag = "state", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Event {
     Building { serial: u64 },
-    Ran { serial: u64, built_ms: Option<f64>, run_ms: f64, ok: bool, reports: Vec<Report> },
-    Failed { serial: u64, text: String },
+    /// When the build failed, `errors` has its compile errors, and the last build that compiled ran.
+    Ran { serial: u64, built_ms: Option<f64>, run_ms: f64, ok: bool, reports: Vec<Report>, errors: Vec<Diagnostic> },
+    Failed { serial: u64, text: String, errors: Vec<Diagnostic> },
+}
+
+/// A loaded cluster and the generated code that it was built from.
+struct Loaded {
+    cluster: Cluster,
+    wiring: String,
 }
 
 pub fn start(app: AppHandle) -> Sender<Job> {
@@ -44,14 +51,14 @@ pub fn start(app: AppHandle) -> Sender<Job> {
 
 fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>) {
     let mut toolchain = None;
-    let mut cluster = None;
+    let mut loaded = None;
     while let Ok(first) = jobs.recv() {
         // Only the newest run starts. A build that a skipped run asked for still happens.
         let mut newest = None;
         let mut build = false;
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
-                Job::Unload => (cluster, newest, build) = (None, None, false),
+                Job::Unload => (loaded, newest, build) = (None, None, false),
                 Job::Run(run) => {
                     build |= run.build;
                     newest = Some(run);
@@ -59,31 +66,42 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>) {
             }
         }
         let Some(run) = newest else { continue };
-        if build || cluster.is_none() {
+        if build || loaded.is_none() {
             let _ = app.emit("engine", Event::Building { serial: run.serial });
         }
-        let event = match run_one(&mut toolchain, &mut cluster, &run, build) {
+        let event = match run_one(&mut toolchain, &mut loaded, &run, build) {
             Ok(event) => event,
-            Err(text) => Event::Failed { serial: run.serial, text },
+            Err(e) => {
+                let text = e.to_string();
+                Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
+            }
         };
         let _ = app.emit("engine", event);
     }
 }
 
-fn run_one(toolchain: &mut Option<Toolchain>, cluster: &mut Option<Cluster>, run: &Run, build: bool) -> Result<Event, String> {
+fn run_one(toolchain: &mut Option<Toolchain>, loaded: &mut Option<Loaded>, run: &Run, build: bool) -> Result<Event, Error> {
     let mut built_ms = None;
-    if build || cluster.is_none() {
-        // A failed build leaves no cluster, so the old wiring never runs with the new graph.
-        *cluster = None;
+    let mut errors = Vec::new();
+    if build || loaded.is_none() {
         let start = Instant::now();
+        let wiring = run.checked.wiring();
         if toolchain.is_none() {
-            *toolchain = Some(Toolchain::detect().map_err(|e| e.to_string())?);
+            *toolchain = Some(Toolchain::detect()?);
         }
         let toolchain = toolchain.as_ref().expect("the toolchain is set above");
-        *cluster = Some(run.checked.build(toolchain).map_err(|e| e.to_string())?);
+        match run.checked.build(toolchain) {
+            Ok(cluster) => *loaded = Some(Loaded { cluster, wiring }),
+            // The last build that compiled keeps running only with the same wiring (7.2, 15.10).
+            Err(Error::Compile(list)) if loaded.as_ref().is_some_and(|l| l.wiring == wiring) => errors = list,
+            Err(e) => {
+                *loaded = None;
+                return Err(e);
+            }
+        }
         built_ms = Some(start.elapsed().as_secs_f64() * 1000.0);
     }
-    let cluster = cluster.as_mut().expect("the cluster is loaded above");
+    let cluster = &mut loaded.as_mut().expect("the cluster is loaded above").cluster;
     let params = cluster.set_params(&run.graph);
     let start = Instant::now();
     // A node with a bad parameter does not run, so the graph does not run (4.8).
@@ -91,5 +109,5 @@ fn run_one(toolchain: &mut Option<Toolchain>, cluster: &mut Option<Cluster>, run
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     let ok = outcome.as_ref().is_some_and(|o| o.ok);
     let reports = params.reports.into_iter().chain(outcome.into_iter().flat_map(|o| o.reports)).collect();
-    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok, reports })
+    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok, reports, errors })
 }

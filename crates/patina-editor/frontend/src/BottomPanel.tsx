@@ -1,10 +1,13 @@
 // The bottom panel (spec 15.8): the Logs of the editor and the Output of the nodes.
 
 import { useEffect, useRef, useState } from 'react';
+import type { Reveal } from './CodeTab';
 
 export interface Line {
   text: string;
   kind: 'out' | 'err' | 'info';
+  /** The place in the code of a compile error. A click shows it. */
+  at?: Reveal;
 }
 
 /** The panel keeps the newest lines only. */
@@ -21,9 +24,10 @@ interface Props {
   output: Line[];
   logs: Line[];
   onClear: (tab: Tab) => void;
+  onPick: (at: Reveal) => void;
 }
 
-export function BottomPanel({ output, logs, onClear }: Props) {
+export function BottomPanel({ output, logs, onClear, onPick }: Props) {
   const [tab, setTab] = useState<Tab>('output');
   const lines = tab === 'output' ? output : logs;
   const box = useRef<HTMLPreElement>(null);
@@ -45,11 +49,17 @@ export function BottomPanel({ output, logs, onClear }: Props) {
         </button>
       </div>
       <pre ref={box} className="lines" role="log">
-        {lines.map((line, i) => (
-          <div key={i} className={line.kind}>
-            {line.text}
-          </div>
-        ))}
+        {lines.map((line, i) =>
+          line.at ? (
+            <button key={i} className={`line-link ${line.kind}`} onClick={() => onPick({ ...line.at!, n: Date.now() })}>
+              {line.text}
+            </button>
+          ) : (
+            <div key={i} className={line.kind}>
+              {line.text}
+            </div>
+          ),
+        )}
       </pre>
     </section>
   );

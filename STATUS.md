@@ -25,10 +25,19 @@ To run the editor from a checkout:
   pans. A drag on the empty canvas selects. Shift or Ctrl adds to the selection.
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
   selection.
-- The **Inspector** shows the parameters, the state and the code of the selected node. A
+- The **Inspector** has the **Parameters**, **Code** and **Logs** tabs of the selected node. A
   parameter change applies when the field loses the focus.
+- The **Code** tab edits the files of the node folder in Monaco, with Rust colors. An unsaved
+  file has a dot on its tab. The tab shows the build state of the saved code (15.10).
 - Each graph change is one edit of the engine (7.4): add, remove, move, connect, disconnect, set
-  a parameter, or a group. Undo and redo work for each edit. Ctrl+S saves the project.
+  a parameter, or a group. Undo and redo work for each edit.
+- Ctrl+S saves all: one `SetCode` edit for each changed code file, then the graph files. Undo
+  and redo of a `SetCode` edit write the file and reload its buffer.
+- A compile error shows in the four places of 15.5: the underline and the gutter mark, the node
+  border, a line in **Logs** and the count in the status bar. A click on a **Logs** line or on
+  the count selects the node and shows the line in the **Code** tab.
+- When the saved code does not compile, the graph runs the last build that compiled. The **Code**
+  tab and the status bar show **Running the last build that compiled**.
 - A close or a quit with unsaved changes asks **Save**, **Discard** or **Cancel** (15.10).
 - **Run** builds the graph on the engine thread and runs it. While the graph runs, a parameter
   change runs it again with no build. A wiring change builds it again. A move does neither.
@@ -46,20 +55,30 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 13 steps in 2.3 s:
+  off-screen and does not take the focus. It passed these 16 steps in 4.3 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
+  - Save a function with a type error into `nodes/number/src/lib.rs`. The old build still
+    writes `2.5`. Find the error on the node, in Monaco, in the gutter and in the status bar.
+    Capture the window into `code-error.png`.
+  - Undo the error in the Monaco buffer and push Ctrl+S. The build passes, the file on disk is
+    the original and no file is unsaved.
   - Save, pause and close. The recent list starts with the project.
   - Open again. The graph is the saved graph. Run again, and find 2 ready nodes in the graph.
   - Capture the window into `check.png`.
 - The capture showed the two nodes with the ready state, the wire, the parameter value `2.5`
   and the **Output** tab with `2.5`. **Run** was disabled while the graph ran.
-- `cargo test --workspace --locked` passed 37 tests. The new tests check the graph edits with
-  undo and redo, the changes that need a run or a build, the project names, the recent and
-  trusted lists, the output lines and the refusal of page paths outside the page folder.
+- The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
+  the error well of the **Code** tab and **1 compile error** in the status bar.
+- `cargo test --workspace --locked` passed 39 tests. The tests check the graph edits with undo
+  and redo, `SetCode` with undo, the compile errors with the project paths, the changes that
+  need a run or a build, the project names, the recent and trusted lists, the output lines and
+  the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page.
+- CI run 43708446577 of the first editor slice passed on `windows-latest`, `ubuntu-latest` and
+  `macos-latest`.
 
 ### Known limits
 
@@ -67,16 +86,23 @@ To run the editor from a checkout:
   The owner check: make the first workflow of 15.10 with the mouse.
 - The content security policy was not tested with a page that breaks it.
 - The capture works only on Windows. The check did not run on Linux or macOS.
-- These parts of spec 15 are not in the editor yet: the dock layout (15.2), the code editor
-  (15.6), the **Debug** tab, the recovery file (15.10), the WebGL wire layer (15.1) and the
-  search palette. **Stop** does the same as **Pause**.
+- These parts of spec 15 are not in the editor yet: the dock layout (15.2), rust-analyzer in
+  Monaco (15.1), the **Debug** tab, the recovery file (15.10), the WebGL wire layer (15.1) and
+  the search palette. **Stop** does the same as **Pause**.
 - A node after a node that failed keeps its old state. The engine does not report **Skipped**
   yet (15.3).
-- Vite shows a warning for the `"use client"` lines of React Flow. The build is correct.
+- Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
+  of the page script. The build is correct.
+- `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,
+  which has the critical advisory GHSA-p98j-92pf-mc4p. `npm audit` now finds 0 problems.
 - These shortcuts are open in the code:
   - The user types the folder paths. The folder dialog of the platform comes at milestone 3
     (`frontend/src/StartScreen.tsx`).
-  - The code of a node shows as read-only text (`frontend/src/Inspector.tsx`).
+  - Monaco has no rust-analyzer. Milestone 3 connects it (`frontend/src/code.ts`).
+  - Monaco is in the main page script, which is 3.7 MB. Load it when the **Code** tab opens if
+    the start time gets slow (`frontend/src/code.ts`).
+  - The **Code** tab forgets the cursor and the scroll position when it closes
+    (`frontend/src/CodeTab.tsx`).
   - The page is read from the source tree, so the editor runs only from a checkout
     (`src/main.rs`).
   - A fatal error before the window shows writes only to a console (`src/main.rs`).

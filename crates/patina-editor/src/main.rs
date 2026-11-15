@@ -100,6 +100,7 @@ fn content_type(path: &str) -> &'static str {
         Some("svg") => "image/svg+xml",
         Some("png") => "image/png",
         Some("woff2") => "font/woff2",
+        Some("ttf") => "font/ttf",
         _ => "application/octet-stream",
     }
 }
@@ -176,7 +177,9 @@ fn main() {
             session::undo,
             session::redo,
             session::save,
-            session::node_source,
+            session::node_files,
+            session::read_code,
+            session::set_unsaved_code,
             session::run,
             session::pause,
             session::quit,

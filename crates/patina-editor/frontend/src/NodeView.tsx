@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { folderName, nodeProblems, type NodeEntry, type NodeInfo, type Report, type View } from './api';
+import { errorText, folderName, nodeProblems, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type View } from './api';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'unresolved';
 
@@ -10,15 +10,34 @@ export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-
 export interface RunState {
   phase: 'none' | 'building' | 'ran' | 'failed';
   builtMs: number | null;
+  /** The time of the last build that compiled. */
+  lastBuildMs: number | null;
   runMs: number | null;
   ok: boolean;
   reports: Report[];
+  /** The compile errors of the last build (15.5). */
+  errors: Diagnostic[];
   text: string;
   /** True after an edit while the graph is paused: the result is for an old graph. */
   stale: boolean;
 }
 
-export const NO_RUN: RunState = { phase: 'none', builtMs: null, runMs: null, ok: true, reports: [], text: '', stale: false };
+export const NO_RUN: RunState = {
+  phase: 'none',
+  builtMs: null,
+  lastBuildMs: null,
+  runMs: null,
+  ok: true,
+  reports: [],
+  errors: [],
+  text: '',
+  stale: false,
+};
+
+/** The compile errors in the folder of a node. */
+export function nodeErrors(run: RunState, name: string): Diagnostic[] {
+  return run.errors.filter((e) => e.file?.startsWith(`nodes/${name}/`));
+}
 
 export interface NodeData extends Record<string, unknown> {
   entry: NodeEntry;
@@ -51,6 +70,8 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
   const problems = nodeProblems(view.problems, entry.id);
   if (problems.length > 0) return ['compile-error', problems.join('\n')];
   if (run.phase === 'building') return ['compiling', ''];
+  const errors = nodeErrors(run, info.name);
+  if (errors.length > 0) return ['compile-error', errors.map((e) => `line ${e.start[0]}: ${errorText(e)}`).join('\n')];
   if (run.phase === 'failed') return ['stale', ''];
   if (run.phase !== 'ran') return ['none', ''];
   const reports = run.reports.filter((r) => r.id === entry.id);

@@ -31,6 +31,8 @@ struct Session {
     trusted: bool,
     /// True after **Run**. Each edit then runs the graph again, with a build when it needs one.
     live: bool,
+    /// True when the Code tab has changes that are not saved (15.10).
+    unsaved_code: bool,
 }
 
 /// All that the page shows of the open project.
@@ -49,6 +51,8 @@ pub struct View {
     live: bool,
     can_undo: bool,
     can_redo: bool,
+    /// Changes when an edit, undo or redo writes a code file, so the page reads the file again.
+    code_revision: u64,
 }
 
 #[derive(Serialize)]
@@ -71,9 +75,9 @@ impl Editor {
         Editor { data, engine, session: Mutex::new(None), check, serial: AtomicU64::new(0) }
     }
 
-    /// True when the open project has changes that are not saved.
+    /// True when the open project or the Code tab has changes that are not saved.
     pub fn dirty(&self) -> bool {
-        self.lock().as_ref().is_some_and(|s| s.project.dirty())
+        self.lock().as_ref().is_some_and(|s| s.unsaved_code || s.project.dirty())
     }
 
     /// A panic in a command does not stop the editor, so the state stays in use after it.
@@ -92,18 +96,21 @@ impl Editor {
         let _ = self.engine.send(Job::Unload);
         let mut session = self.lock();
         // A project opens paused (15.10).
-        Ok(session.insert(Session { project, serial, trusted, live: false }).view(&self.engine, None))
+        Ok(session.insert(Session { project, serial, trusted, live: false, unsaved_code: false }).view(&self.engine, None))
     }
 
-    /// Applies a change to the graph, then sends the graph to the engine when it is live.
+    /// Applies a change to the graph or the code, then sends the graph to the engine when it is
+    /// live. A code change needs a build (15.10).
     fn change(&self, f: impl FnOnce(&mut Project) -> Result<(), String>) -> Result<View, String> {
         self.with(|session| {
             if !session.trusted {
                 return Err("Trust the project before you change it.".to_owned());
             }
             let old = session.live.then(|| session.project.graph().clone());
+            let code = session.project.code_revision();
             f(&mut session.project)?;
-            let build = old.and_then(|old| affects_run(&old, session.project.graph()));
+            let built = (session.project.code_revision() != code).then_some(true);
+            let build = old.and_then(|old| built.or(affects_run(&old, session.project.graph())));
             Ok(session.view(&self.engine, build))
         })
     }
@@ -138,6 +145,7 @@ impl Session {
             live: self.live,
             can_undo: project.can_undo(),
             can_redo: project.can_redo(),
+            code_revision: project.code_revision(),
         }
     }
 }
@@ -244,18 +252,12 @@ pub fn edit(editor: State<'_, Editor>, edit: Edit) -> Result<View, String> {
 /// Undo and redo with nothing to do give the same view.
 #[tauri::command(async)]
 pub fn undo(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.change(|project| {
-        project.undo();
-        Ok(())
-    })
+    editor.change(|project| project.undo().map(drop))
 }
 
 #[tauri::command(async)]
 pub fn redo(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.change(|project| {
-        project.redo();
-        Ok(())
-    })
+    editor.change(|project| project.redo().map(drop))
 }
 
 #[tauri::command(async)]
@@ -266,9 +268,24 @@ pub fn save(editor: State<'_, Editor>) -> Result<View, String> {
     })
 }
 
+/// The files of a node folder for the Code tab (15.4).
 #[tauri::command(async)]
-pub fn node_source(editor: State<'_, Editor>, name: String) -> Result<String, String> {
-    editor.with(|session| session.project.node_source(&name).map_err(|e| e.to_string()))
+pub fn node_files(editor: State<'_, Editor>, name: String) -> Result<Vec<String>, String> {
+    editor.with(|session| session.project.node_files(&name).map_err(|e| e.to_string()))
+}
+
+/// The page tells when the Code tab has unsaved changes, so a close of the window asks first.
+#[tauri::command(async)]
+pub fn set_unsaved_code(editor: State<'_, Editor>, unsaved: bool) -> Result<(), String> {
+    editor.with(|session| {
+        session.unsaved_code = unsaved;
+        Ok(())
+    })
+}
+
+#[tauri::command(async)]
+pub fn read_code(editor: State<'_, Editor>, path: String) -> Result<String, String> {
+    editor.with(|session| session.project.read_code(&path))
 }
 
 /// Builds and runs the graph, and keeps it live (15.10).
