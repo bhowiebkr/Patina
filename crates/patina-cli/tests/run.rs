@@ -237,3 +237,99 @@ fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {
     let expected = "Node fea12c51067a34d8 (fail): bad parameter: input `value`: \"abc\" is not a number";
     assert!(stderr.contains(expected), "{stderr}");
 }
+
+/// A stateful node with each kind of input, for the slot (7.1).
+const ACC: &str = "#[patina_sdk::node]
+pub struct Acc {
+    total: f64,
+}
+
+impl Acc {
+    pub fn init() -> Self {
+        Acc { total: 0.0 }
+    }
+
+    pub fn process(&mut self, value: &f64, scale: f64, note: &str, extra: &mut f64) -> f64 {
+        self.total += *value * scale;
+        *extra += note.len() as f64;
+        self.total
+    }
+}
+";
+
+#[test]
+fn a_node_in_the_slot_builds_alone_and_keeps_its_uses() {
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "slot");
+    let folder = project.join("nodes/acc");
+    fs::create_dir_all(folder.join("src")).unwrap();
+    let manifest = fs::read_to_string(project.join("nodes/add/Cargo.toml")).unwrap().replace("\"add\"", "\"acc\"");
+    fs::write(folder.join("Cargo.toml"), manifest).unwrap();
+    fs::write(folder.join("src/lib.rs"), ACC).unwrap();
+    let graph = project.join("graphs/main.toml");
+    let more = "
+[[node]]
+id = \"00000000000000a1\"
+folder = \"nodes/acc\"
+
+[node.params]
+scale = \"2\"
+note = \"abc\"
+extra = \"1\"
+
+[[node]]
+id = \"00000000000000a2\"
+folder = \"nodes/show\"
+
+[[node]]
+id = \"00000000000000a3\"
+folder = \"nodes/show\"
+
+[[wire]]
+from = \"f89c6e329e8ea336.out\"
+to = \"00000000000000a1.value\"
+
+[[wire]]
+from = \"00000000000000a1.out\"
+to = \"00000000000000a2.value\"
+
+[[wire]]
+from = \"00000000000000a1.extra\"
+to = \"00000000000000a3.value\"
+";
+    fs::write(&graph, fs::read_to_string(&graph).unwrap() + more).unwrap();
+    let toolchain = Toolchain::detect().unwrap();
+    let control = Control::default();
+    let value = |cluster: &mut patina_engine::Cluster, from: &str| {
+        let out = cluster.run(&control);
+        assert!(out.ok, "{:?}", out.reports);
+        out.values.into_iter().find(|v| v.from == format!("00000000000000a1.{from}")).unwrap().text
+    };
+    let slotted = || Project::open(&project).unwrap().check().unwrap().with_slot("acc").unwrap();
+
+    // The base calls each input kind through the slot library, and the state stays in it.
+    let opened = Project::open(&project).unwrap();
+    let mut cluster = slotted().build(&toolchain).unwrap();
+    cluster.set_params(opened.graph());
+    assert_eq!(value(&mut cluster, "extra"), "4.0");
+    assert_eq!(value(&mut cluster, "out"), "26.0");
+
+    // An edit of the body builds the slot alone. The node gets a new state.
+    let edited = ACC.replace("*value * scale", "*value * scale * 10.0");
+    fs::write(folder.join("src/lib.rs"), &edited).unwrap();
+    assert!(slotted().build_slot(&toolchain, &mut cluster).unwrap());
+    assert_eq!(value(&mut cluster, "out"), "130.0");
+
+    // Fuse back: the fused cluster gets the state of the slot library (7.2).
+    let mut fused = Project::open(&project).unwrap().check().unwrap().build(&toolchain).unwrap();
+    fused.set_params(opened.graph());
+    assert_eq!(fused.adopt(&mut cluster), 1);
+    assert_eq!(value(&mut fused, "out"), "260.0");
+    assert!(!slotted().build_slot(&toolchain, &mut fused).unwrap(), "a fused cluster has no slot");
+
+    // A change of the signature changes the base, so the slot alone does not build.
+    let mut cluster = slotted().build(&toolchain).unwrap();
+    fs::write(folder.join("src/lib.rs"), edited.replace("scale: f64", "scale: f32").replace("* scale", "* f64::from(scale)")).unwrap();
+    assert!(!slotted().build_slot(&toolchain, &mut cluster).unwrap());
+    assert!(Project::open(&project).unwrap().check().unwrap().with_slot("number").is_ok());
+    assert!(Project::open(&project).unwrap().check().unwrap().with_slot("nothing").is_err());
+}

@@ -10,7 +10,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::Error;
-use crate::generate;
+use crate::generate::{self, slot};
 use crate::node::Domain;
 use crate::plan::Plan;
 
@@ -63,7 +63,7 @@ fn workspace(root: &Path) -> String {
 }
 
 /// The SDK crates that a project builds with. The engine carries their source.
-const SDK_FILES: [(&str, &str); 7] = [
+const SDK_FILES: [(&str, &str); 8] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -71,6 +71,7 @@ const SDK_FILES: [(&str, &str); 7] = [
     ),
     ("build/sdk/patina-sdk/src/lib.rs", include_str!("../../patina-sdk/src/lib.rs")),
     ("build/sdk/patina-sdk/src/glue.rs", include_str!("../../patina-sdk/src/glue.rs")),
+    ("build/sdk/patina-sdk/src/glue/slot.rs", include_str!("../../patina-sdk/src/glue/slot.rs")),
     ("build/sdk/patina-sdk/src/view.rs", include_str!("../../patina-sdk/src/view.rs")),
     ("build/sdk/patina-sdk/src/ui.rs", include_str!("../../patina-sdk/src/ui.rs")),
     (
@@ -260,9 +261,13 @@ pub(crate) fn run_text(command: &mut Command) -> Result<String, Error> {
 /// (7.2).
 pub struct Built {
     pub libraries: Vec<(Domain, PathBuf)>,
+    /// The slot library (7.1), when the plan has a node in the slot.
+    pub slot: Option<PathBuf>,
     /// A hash of all that can change the layout of the state type of each stateful step. A state
     /// moves to the next cluster only when its key did not change.
     pub keys: Vec<Option<u64>>,
+    /// The part of the keys that all steps share. A build of the slot alone uses it again.
+    pub common: u64,
 }
 
 /// Writes the files that Patina makes, builds the clusters in one cargo run and returns their
@@ -270,18 +275,62 @@ pub struct Built {
 // shortcut: the dev profile for all clusters. The shared types library and bake mode come later in milestone 6.
 pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<Built, Error> {
     let domains = generate::domains(plan);
-    remove_old_clusters(root, &domains)?;
+    remove_old_clusters(root, &domains, plan.slot.is_some())?;
     for &domain in &domains {
         let folder = format!("build/clusters/{}", domain.name());
         write(root, &format!("{folder}/Cargo.toml"), &generate::manifest(plan, domain))?;
         write(root, &format!("{folder}/lib.rs"), &generate::source(plan, domain))?;
     }
+    if let Some(slot) = plan.slot {
+        write_slot(root, plan, slot)?;
+    }
     write_workspace(root)?;
+    let mut packages: Vec<String> = domains.iter().map(|&d| generate::package(d)).collect();
+    if plan.slot.is_some() {
+        packages.push(slot::PACKAGE.to_owned());
+    }
+    let messages = run_cargo(root, toolchain, &packages)?;
+    let mut libraries = Vec::new();
+    let mut clusters = Vec::new();
+    for domain in domains {
+        let (library, id) = artifact(&messages, &generate::target(domain))?;
+        libraries.push((domain, library));
+        clusters.push(id);
+    }
+    let slot = match plan.slot {
+        Some(_) => {
+            let (library, id) = artifact(&messages, slot::TARGET)?;
+            clusters.push(id);
+            Some(library)
+        }
+        None => None,
+    };
+    let (common, keys) = keys(toolchain, plan, &messages, &clusters, None)?;
+    Ok(Built { libraries, slot, keys, common })
+}
 
+/// Builds only the slot library (7.2). Gives its library and the state keys of the uses of the
+/// node in the slot. `common` is the shared part of the keys of the last full build.
+pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) -> Result<(PathBuf, Vec<Option<u64>>), Error> {
+    let slot = plan.slot.ok_or_else(|| Error::Build("no node is in the slot".to_owned()))?;
+    write_slot(root, plan, slot)?;
+    let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()])?;
+    let (library, id) = artifact(&messages, slot::TARGET)?;
+    let (_, keys) = keys(toolchain, plan, &messages, &[id], Some(common))?;
+    Ok((library, keys))
+}
+
+fn write_slot(root: &Path, plan: &Plan, slot: usize) -> Result<(), Error> {
+    write(root, "build/clusters/slot/Cargo.toml", &slot::manifest(plan, slot))?;
+    write(root, "build/clusters/slot/lib.rs", &slot::source(plan, slot))
+}
+
+/// Runs one cargo build of `packages`, and gives its JSON messages.
+fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String]) -> Result<Vec<Value>, Error> {
     let mut command = toolchain.command(&toolchain.cargo)?;
     command.current_dir(root).arg("build");
-    for &domain in &domains {
-        command.arg("-p").arg(generate::package(domain));
+    for package in packages {
+        command.arg("-p").arg(package);
     }
     command.arg("--message-format=json");
     command.env("CARGO_TARGET_DIR", root.join("build/target")).env("RUSTC", &toolchain.rustc);
@@ -296,36 +345,32 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<Built, E
         }
         return Err(Error::Compile(errors));
     }
-    let messages: Vec<Value> =
-        output.stdout.split(|b| *b == b'\n').filter_map(|line| serde_json::from_slice(line).ok()).collect();
-    let mut libraries = Vec::new();
-    let mut clusters = Vec::new();
-    for domain in domains {
-        let target = generate::target(domain);
-        let cluster = messages
-            .iter()
-            .find(|m| m["reason"] == "compiler-artifact" && m["target"]["name"] == target.as_str())
-            .ok_or_else(|| Error::Build(format!("cargo gave no artifact for {target}")))?;
-        let files = cluster["filenames"].as_array().into_iter().flatten().filter_map(|f| f.as_str());
-        let library = files
-            .map(PathBuf::from)
-            .find(|f| f.extension().is_some_and(|e| e == std::env::consts::DLL_EXTENSION))
-            .ok_or_else(|| Error::Build(format!("cargo gave no library for {target}")))?;
-        libraries.push((domain, library));
-        clusters.push(cluster["package_id"].as_str().unwrap_or_default());
-    }
-    let keys = keys(toolchain, plan, &messages, &clusters)?;
-    Ok(Built { libraries, keys })
+    Ok(output.stdout.split(|b| *b == b'\n').filter_map(|line| serde_json::from_slice(line).ok()).collect())
+}
+
+/// The library of the library target `target`, and the ID of its package.
+fn artifact<'a>(messages: &'a [Value], target: &str) -> Result<(PathBuf, &'a str), Error> {
+    let cluster = messages
+        .iter()
+        .find(|m| m["reason"] == "compiler-artifact" && m["target"]["name"] == target)
+        .ok_or_else(|| Error::Build(format!("cargo gave no artifact for {target}")))?;
+    let files = cluster["filenames"].as_array().into_iter().flatten().filter_map(|f| f.as_str());
+    let library = files
+        .map(PathBuf::from)
+        .find(|f| f.extension().is_some_and(|e| e == std::env::consts::DLL_EXTENSION))
+        .ok_or_else(|| Error::Build(format!("cargo gave no library for {target}")))?;
+    Ok((library, cluster["package_id"].as_str().unwrap_or_default()))
 }
 
 /// Removes each cluster folder of an older build that the plan does not use, because the member
 /// glob of the workspace reads each folder in `build/clusters`.
-fn remove_old_clusters(root: &Path, domains: &[Domain]) -> Result<(), Error> {
+fn remove_old_clusters(root: &Path, domains: &[Domain], slot: bool) -> Result<(), Error> {
     let folder = root.join("build/clusters");
     let Ok(entries) = std::fs::read_dir(&folder) else { return Ok(()) };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() && !domains.iter().any(|d| entry.file_name() == d.name()) {
+        let used = domains.iter().any(|d| entry.file_name() == d.name()) || (slot && entry.file_name() == "slot");
+        if path.is_dir() && !used {
             std::fs::remove_dir_all(&path).map_err(|e| Error::Io(path, e))?;
         }
     }
@@ -334,8 +379,15 @@ fn remove_old_clusters(root: &Path, domains: &[Domain]) -> Result<(), Error> {
 
 /// The state key of each step (7.2), from the units of the build. A unit of a node folder goes
 /// only into the keys of that node. All other units go into all keys. The cluster crates change
-/// with the wiring, so they are not in the keys.
-fn keys(toolchain: &Toolchain, plan: &Plan, messages: &[Value], clusters: &[&str]) -> Result<Vec<Option<u64>>, Error> {
+/// with the wiring, so they are not in the keys. `common` replaces the shared part, for a build
+/// of the slot alone. Gives the shared part and the keys.
+fn keys(
+    toolchain: &Toolchain,
+    plan: &Plan,
+    messages: &[Value],
+    clusters: &[&str],
+    common: Option<u64>,
+) -> Result<(u64, Vec<Option<u64>>), Error> {
     let folders: HashMap<&str, &Path> = (messages.iter())
         .filter(|m| m["reason"] == "compiler-artifact")
         .filter_map(|m| Some((m["package_id"].as_str()?, Path::new(m["manifest_path"].as_str()?).parent()?)))
@@ -346,11 +398,11 @@ fn keys(toolchain: &Toolchain, plan: &Plan, messages: &[Value], clusters: &[&str
         let folder = folders.get(id).filter(|_| id.contains("path+file:"))?;
         plan.nodes.iter().position(|(name, _)| folder.ends_with(format!("nodes/{name}")))
     };
-    let mut common = Vec::new();
+    let mut shared = Vec::new();
     let mut own = vec![Vec::new(); plan.nodes.len()];
     let mut add = |id: &str, hash: u64| match node_of(id) {
         Some(node) => own[node].push(hash),
-        None => common.push(hash),
+        None => shared.push(hash),
     };
     for m in messages {
         let id = m["package_id"].as_str().unwrap_or_default();
@@ -367,12 +419,14 @@ fn keys(toolchain: &Toolchain, plan: &Plan, messages: &[Value], clusters: &[&str
         add(id, folder_hash(folder)?);
     }
     // Cargo gives the units in an order that can change, so the hashes are sorted.
-    common.sort_unstable();
+    shared.sort_unstable();
     own.iter_mut().for_each(|units| units.sort_unstable());
-    let mut hasher = DefaultHasher::new();
-    (&toolchain.rustc, &toolchain.release, &toolchain.host, &toolchain.libdir, toolchain.rustflags()).hash(&mut hasher);
-    common.hash(&mut hasher);
-    let common = hasher.finish();
+    let common = common.unwrap_or_else(|| {
+        let mut hasher = DefaultHasher::new();
+        (&toolchain.rustc, &toolchain.release, &toolchain.host, &toolchain.libdir, toolchain.rustflags()).hash(&mut hasher);
+        shared.hash(&mut hasher);
+        hasher.finish()
+    });
     let mut keys = vec![None; plan.steps.len()];
     for n in plan.stateful() {
         let step = &plan.steps[n];
@@ -386,7 +440,7 @@ fn keys(toolchain: &Toolchain, plan: &Plan, messages: &[Value], clusters: &[&str
         }
         keys[n] = Some(hasher.finish());
     }
-    Ok(keys)
+    Ok((common, keys))
 }
 
 /// A hash of the paths and the bytes of the files of a crate folder.
@@ -597,12 +651,14 @@ mod tests {
     #[test]
     fn only_the_clusters_of_the_plan_stay() {
         let root = std::env::temp_dir().join(format!("patina-old-clusters-{}", std::process::id()));
-        for folder in ["main", "batch", "frame"] {
+        for folder in ["main", "batch", "frame", "slot"] {
             std::fs::create_dir_all(root.join("build/clusters").join(folder)).unwrap();
         }
-        remove_old_clusters(&root, &[Domain::Batch]).unwrap();
-        let left: Vec<_> = std::fs::read_dir(root.join("build/clusters")).unwrap().flatten().map(|e| e.file_name()).collect();
-        assert_eq!(left, ["batch"]);
+        let left = || -> Vec<_> { std::fs::read_dir(root.join("build/clusters")).unwrap().flatten().map(|e| e.file_name()).collect() };
+        remove_old_clusters(&root, &[Domain::Batch], true).unwrap();
+        assert_eq!(left(), ["batch", "slot"]);
+        remove_old_clusters(&root, &[Domain::Batch], false).unwrap();
+        assert_eq!(left(), ["batch"]);
         std::fs::remove_dir_all(root).unwrap();
     }
 

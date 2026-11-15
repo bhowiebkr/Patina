@@ -206,3 +206,39 @@ fn a_link_reads_the_value_of_the_other_cluster() {
     assert!(export_link(&value, &mut out) && !import_link(&link, Moved(out)), "a link takes one value");
     assert_eq!(std::sync::Arc::strong_count(&value), 2);
 }
+
+#[test]
+fn the_base_calls_a_node_in_the_slot() {
+    unsafe extern "C" fn call_slot(state: *const c_void, node: u32, args: *const *mut c_void, len: usize, rep: *const Reporter) -> bool {
+        // SAFETY: the test gives the slot cluster and the arguments of `Slot::call`.
+        unsafe { call(state.cast(), node, args, len, rep) }
+    }
+    fn make_slot() -> Cluster {
+        let f = typed(|cmd, _| match cmd {
+            // SAFETY: the base gives a `&f64`, an `Option<String>`, a `&mut f64` and an
+            // `Option<usize>` (below).
+            Cmd::Call(7, args) => unsafe {
+                let text: String = take_arg(args[1]);
+                *mut_arg::<f64>(args[2]) += read_arg::<f64>(args[0]);
+                put_result(args[3], text.len() + NODE.get() as usize);
+                true
+            },
+            _ => false,
+        });
+        cluster(f, false)
+    }
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+    let base = Slot::new();
+    let (value, mut text, mut total, mut out) = (2.5_f64, Some("abc".to_owned()), 1.0_f64, None::<usize>);
+    assert!(!base.call(7, &[], &rep), "no slot yet");
+    let state = new_cluster(make_slot);
+    let slot = SlotRef { state: state.cast(), call: call_slot };
+    assert!(base.set(&slot));
+    assert!(base.call(7, &[arg(&value), arg_mut(&mut text), arg_mut(&mut total), arg_mut(&mut out)], &rep));
+    assert!(!base.call(8, &[], &rep), "the slot has no node 8");
+    // SAFETY: the cluster comes from `new_cluster` and is freed one time.
+    unsafe { free(state) };
+    assert_eq!((text, total, out), (None, 3.5, Some(10)));
+    assert_eq!(sent, [(7, ERROR, "the node has no build in the slot".to_owned())]);
+}

@@ -3,10 +3,10 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering::Relaxed;
 
-use patina_sdk::glue::{self, Control, Reporter};
+use patina_sdk::glue::{self, Control, Reporter, SlotRef};
 use serde::Serialize;
 
 use crate::library::{Library, Sink, collect, lock};
@@ -130,6 +130,16 @@ pub struct Outcome {
 pub struct Cluster {
     /// The cluster of the batch and of the frame domain. A domain with no step has none.
     libraries: [Option<Library>; 2],
+    /// The slot library and the reference that the clusters call it with (7.1). The box keeps the
+    /// address of the reference while the clusters keep it.
+    slot: Option<(Library, Box<SlotRef>)>,
+    /// True for each node in the slot, by node index.
+    slotted: Vec<bool>,
+    /// The shared part of the state keys of the last full build (`cargo::Built::common`).
+    pub(crate) common: u64,
+    /// A hash of the code of the clusters and of the signature of the node in the slot. A build
+    /// of the slot alone is correct only while it does not change (7.1).
+    pub(crate) base: u64,
     /// The domain of each node, by node index.
     domains: Vec<Domain>,
     /// The domain that gives, the domain that reads and the index of each link (8.2).
@@ -155,12 +165,18 @@ pub struct Cluster {
 }
 
 impl Cluster {
-    /// Loads the cluster of each domain. If one cluster fails, no cluster stays loaded (7.2).
-    pub(crate) fn load(libraries: &[(Domain, PathBuf)], plan: &Plan, keys: Vec<Option<u64>>) -> Result<Cluster, Error> {
+    /// Loads the cluster of each domain and the slot library. If one fails, none stays loaded (7.2).
+    pub(crate) fn load(
+        libraries: &[(Domain, PathBuf)],
+        slot: Option<&Path>,
+        plan: &Plan,
+        keys: Vec<Option<u64>>,
+    ) -> Result<Cluster, Error> {
         let mut loaded: [Option<Library>; 2] = [None, None];
         for &(domain, ref path) in libraries {
             loaded[domain as usize] = Some(Library::load(path, &plan.tasks, domain)?);
         }
+        let slot = slot.map(slot_library).transpose()?;
         let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
         let slots: Vec<(usize, String)> = plan.slots.iter().map(|s| (s.step, s.key.clone())).collect();
         let probes = plan
@@ -179,7 +195,7 @@ impl Cluster {
             }
         }
         let mut sink = Sink::default();
-        if !link(&loaded, &links, &mut sink) {
+        if !link(&loaded, &links, slot.as_ref().map(|(_, r)| &**r), &mut sink) {
             return Err(Error::Load("a cluster did not link a value of another cluster. Build it again".to_owned()));
         }
         if loaded.iter().flatten().any(|l| l.parallel) {
@@ -187,6 +203,10 @@ impl Cluster {
         }
         Ok(Cluster {
             libraries: loaded,
+            slot,
+            slotted: (0..plan.steps.len()).map(|n| plan.in_slot(n)).collect(),
+            common: 0,
+            base: 0,
             domains: plan.steps.iter().map(|s| s.domain).collect(),
             links,
             keys,
@@ -206,6 +226,31 @@ impl Cluster {
         self.libraries[*self.domains.get(n)? as usize].as_ref()
     }
 
+    /// The library that keeps the state of node `n`: the slot library for a node in the slot.
+    fn owner(&self, n: usize) -> Option<&Library> {
+        match self.slotted.get(n)? {
+            true => self.slot.as_ref().map(|(library, _)| library),
+            false => self.library(n),
+        }
+    }
+
+    /// Puts the slot library at `path` in place of the active one (7.1). The nodes in the slot
+    /// get new states and the state keys `keys`. On a failure, the active slot library stays.
+    pub(crate) fn swap_slot(&mut self, path: &Path, keys: Vec<Option<u64>>) -> Result<(), Error> {
+        let slot = slot_library(path)?;
+        if !link(&self.libraries, &[], Some(&slot.1), &mut self.sink) {
+            if let Some((_, old)) = &self.slot {
+                link(&self.libraries, &[], Some(old), &mut self.sink);
+            }
+            return Err(Error::Load("a cluster did not take the slot library. Build it again".to_owned()));
+        }
+        self.slot = Some(slot);
+        for (n, key) in keys.into_iter().enumerate().filter(|&(n, _)| self.slotted.get(n) == Some(&true)) {
+            self.keys[n] = key;
+        }
+        Ok(())
+    }
+
     /// Sets each parameter from its text in the graph (4.8). An input that lost its text gets its
     /// default value again.
     pub fn set_params(&mut self, graph: &GraphFile) -> Outcome {
@@ -221,7 +266,7 @@ impl Cluster {
                 return Outcome::default();
             }
             self.libraries.iter_mut().flatten().zip(states).for_each(|(library, state)| library.replace(state));
-            if !link(&self.libraries, &self.links, &mut self.sink) {
+            if !link(&self.libraries, &self.links, self.slot.as_ref().map(|(_, r)| &**r), &mut self.sink) {
                 return Outcome::default();
             }
         }
@@ -271,7 +316,8 @@ impl Cluster {
         tasks.state.store(library.state, Relaxed);
         tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
         tasks.ok.store(true, Relaxed);
-        if use_pool(library.parallel, tasks.inputs.len(), self.work[domain as usize]) {
+        let parallel = library.parallel && self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel);
+        if use_pool(parallel, tasks.inputs.len(), self.work[domain as usize]) {
             pool::run(tasks.clone());
         } else {
             (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
@@ -294,7 +340,7 @@ impl Cluster {
     /// Returns the widget lines, or `None` when the node has no GUI or failed (see the outcome).
     pub fn ui(&mut self, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
         let Some(n) = self.names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
-        let (Some(library), Ok(node)) = (self.library(n), u32::try_from(n)) else { return (None, Outcome::default()) };
+        let (Some(library), Ok(node)) = (self.owner(n), u32::try_from(n)) else { return (None, Outcome::default()) };
         let (state, ui) = (library.state, library.ui);
         self.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run is active, and `events` and the
@@ -320,7 +366,7 @@ impl Cluster {
             .collect();
         let mut moved = 0;
         for (from, to) in pairs {
-            let (Some(source), Ok(from)) = (old.library(from), u32::try_from(from)) else { continue };
+            let (Some(source), Ok(from)) = (old.owner(from), u32::try_from(from)) else { continue };
             let (old_state, take, mut value) = (source.state, source.take, std::ptr::null_mut());
             old.call(std::ptr::null(), |rep| {
                 // SAFETY: `old_state` is live, `&mut old` shows that no run is active, and the
@@ -332,7 +378,7 @@ impl Cluster {
                 continue;
             }
             // shortcut: a node with no cluster or index loses its state. Only a defective plan gives this, so no free.
-            let (Some(target), Ok(to)) = (self.library(to), u32::try_from(to)) else { continue };
+            let (Some(target), Ok(to)) = (self.owner(to), u32::try_from(to)) else { continue };
             let (state, put, mut ok) = (target.state, target.put, false);
             self.call(std::ptr::null(), |rep| {
                 // SAFETY: `state` is live and no run is active. `value` came from `take` of a node
@@ -359,11 +405,24 @@ impl Cluster {
     }
 }
 
-/// Gives each value that a cluster makes to each cluster of another domain that reads it (8.2).
-/// False when a cluster has no such link. Each new state needs its links again.
-fn link(libraries: &[Option<Library>; 2], links: &[(Domain, Domain, u32)], sink: &mut Sink) -> bool {
+/// Loads a slot library (7.1) and makes the reference that the clusters call it with.
+fn slot_library(path: &Path) -> Result<(Library, Box<SlotRef>), Error> {
+    let library = Library::load(path, &[], Domain::Batch)?;
+    let reference = Box::new(SlotRef { state: library.state, call: library.call });
+    Ok((library, reference))
+}
+
+/// Gives each value that a cluster makes to each cluster of another domain that reads it (8.2),
+/// and gives each cluster the slot library. False when a cluster has no such link. Each new
+/// state needs its links again.
+fn link(libraries: &[Option<Library>; 2], links: &[(Domain, Domain, u32)], slot: Option<&SlotRef>, sink: &mut Sink) -> bool {
     let rep = Reporter { ctx: std::ptr::from_mut(sink).cast(), report: collect, control: std::ptr::null() };
-    links.iter().all(|&(from, to, index)| {
+    let slotted = slot.is_none_or(|slot| {
+        // SAFETY: the state is live, no run is active, and the reporter is valid during the call.
+        // `slot` and the state of its library stay valid while the cluster keeps them.
+        libraries.iter().flatten().all(|l| unsafe { (l.slot)(l.state, slot, &rep) })
+    });
+    slotted && links.iter().all(|&(from, to, index)| {
         let (Some(source), Some(target)) = (&libraries[from as usize], &libraries[to as usize]) else { return false };
         // SAFETY: the state is live, no run is active, and the reporter is valid during the call.
         let value = unsafe { (source.export)(source.state, index, &rep) };

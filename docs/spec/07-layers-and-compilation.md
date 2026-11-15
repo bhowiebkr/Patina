@@ -20,6 +20,11 @@ Patina compiles a graph in two layers:
 - The base calls the slot through a function pointer. This costs one indirect call each time the node runs, and only while the node is in the slot.
 - If the graph uses the node folder more than once (6.2), each use calls the slot. For a generic node, the slot holds a copy for each set of types that the graph uses (4.5).
 - A change to a shared type crate (5.2) rebuilds the base. The slot does not help there.
+- The slot is a library of its own, in `build/clusters/slot`. It holds the node in the slot and the state of each use. The base gives the slot library a pointer to each input and to the `Option` of the result. The engine gives each cluster the slot library after the load (`patina_cluster_slot` and `patina_cluster_call`, ABI version 12).
+- The base takes the type of the result from dead code with the call of the node, as a link does (8.2). Thus the base depends on the node crate, but runs no code of it.
+- The engine builds the slot alone only while the code of the base and the signature of N stay the same. Else it builds the base and the slot again. A change of a type alias in the node folder does not change the signature text, so it needs a full build. This is a shortcut.
+- A generic node does not go into the slot yet. Its slot needs a copy for each set of types. This is a shortcut and an agent decision of 2026-11-15. The owner can change it.
+- A new slot library gives new states to the uses of N, because the code of N changed. When N fuses back, the base takes the state of each use from the slot library, if the key did not change (7.2).
 
 ### 7.2 Edit cycle
 
@@ -105,7 +110,7 @@ enum Edit {
 - Put cluster boundaries at large nodes. Keep small nodes inside one cluster, so the compiler can inline and fuse them.
 - A cluster never crosses a clock domain boundary.
 - Now the engine makes one cluster for each clock domain with a step. A domain with no step gets no cluster. The split at large nodes comes when milestone 6 measures the need. This is an agent decision of 2026-11-15. The owner can change it.
-- A value that a node of another domain reads is a link: a latest-value wire (9.1). The cluster that makes the value keeps it in a shared `Arc`. After the load, the engine gives the `Arc` of each link to the cluster that reads it (`patina_cluster_export` and `patina_cluster_import`, ABI version 11).
+- A value that a node of another domain reads is a link: a latest-value wire (9.1). The cluster that makes the value keeps it in a shared `Arc`. After the load, the engine gives the `Arc` of each link to the cluster that reads it (`patina_cluster_export` and `patina_cluster_import`, ABI version 11 and later).
 - The reader cluster names no type. Its crate depends on the crates of the producer and of the steps before it, and dead code with their calls gives Rust the type of each link. Thus a change of the producer also builds the reader again.
 - The link depends on the same layout hypothesis as the state move (7.2).
 - The engine loads and links all clusters of a build before it uses one. If one fails, no new cluster stays loaded (7.2).
@@ -125,6 +130,8 @@ enum Edit {
 ### 8.4 Base and slot
 
 Section 7 describes the base and the slot. The base builds in bake mode. The slot builds in edit mode.
+
+- Now the base and the slot both build in the `dev` profile. Bake mode comes with the fuse back of milestone 6. This is a shortcut.
 
 ### 8.5 Hot reload
 

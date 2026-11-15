@@ -9,6 +9,11 @@ use std::fmt::Write;
 use crate::node::{Domain, Output, Pass};
 use crate::plan::{Plan, Source};
 
+mod exports;
+pub mod slot;
+
+use exports::{EXPORTS, LOGGER};
+
 const HEADER: &str = "# Made by Patina. Patina writes this file again at each build.\n";
 
 /// The domains that get a cluster: each domain with a step, or batch for a graph with no step.
@@ -129,8 +134,14 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         shared.push(format!("n{n}_{k}"));
     }
     witness(&mut s, plan, domain);
-    // Each use of a stateful node has its own state (4.2). It drops with the cluster.
-    let stateful: Vec<usize> = plan.stateful().filter(|&n| mine(n)).collect();
+    let slotted = (0..plan.steps.len()).any(|n| mine(n) && plan.in_slot(n));
+    if slotted {
+        s.push_str("    let slot = ::patina_sdk::glue::Slot::new();\n");
+        shared.push("slot".to_owned());
+    }
+    // Each use of a stateful node has its own state (4.2). It drops with the cluster. The slot
+    // library keeps the states of the node in the slot (7.1).
+    let stateful: Vec<usize> = plan.stateful().filter(|&n| mine(n) && !plan.in_slot(n)).collect();
     for &n in &stateful {
         let _ = writeln!(s, "    let s{n} = ::patina_sdk::glue::State::new(); // {}", plan.steps[n].id);
         shared.push(format!("s{n}"));
@@ -181,16 +192,10 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n");
     // The GUI of each node with a `ui` function (4.3). The CLI never calls it.
     s.push_str("        ::patina_sdk::glue::Cmd::Ui(index, mode, events) => match index {\n");
-    for (n, step) in plan.steps.iter().enumerate().filter(|&(n, _)| mine(n)) {
-        let (name, node) = &plan.nodes[step.node];
-        let (Some(state), true) = (&node.state, node.ui) else { continue };
-        let krate = name.replace('-', "_");
-        let _ = writeln!(
-            s,
-            "            {n} => ::patina_sdk::glue::draw(&s{n}, ::{krate}::{state}::init, |st, ui| st.ui(ui), (mode, events), rep, {n}),"
-        );
-    }
+    ui_arms(&mut s, plan, &stateful);
     s.push_str("            _ => false,\n        },\n");
+    s.push_str(if slotted { "        ::patina_sdk::glue::Cmd::Slot(p) => slot.set(p),\n" } else { "        ::patina_sdk::glue::Cmd::Slot(_) => true,\n" });
+    s.push_str("        ::patina_sdk::glue::Cmd::Call(..) => false,\n");
     // The states move from an old cluster to a new cluster when their keys did not change (7.2).
     s.push_str("        ::patina_sdk::glue::Cmd::Take(index, out) => match index {\n");
     for n in &stateful {
@@ -239,6 +244,19 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         s.push_str(LOGGER);
     }
     s
+}
+
+/// Writes the `Ui` arm of each step of `steps` with a `ui` function (4.3).
+fn ui_arms(s: &mut String, plan: &Plan, steps: &[usize]) {
+    for &n in steps {
+        let (name, node) = &plan.nodes[plan.steps[n].node];
+        let (Some(state), true) = (&node.state, node.ui) else { continue };
+        let krate = name.replace('-', "_");
+        let _ = writeln!(
+            s,
+            "            {n} => ::patina_sdk::glue::draw(&s{n}, ::{krate}::{state}::init, |st, ui| st.ui(ui), (mode, events), rep, {n}),"
+        );
+    }
 }
 
 /// Writes a block that never runs. It calls each step before the imports of `domain`, so Rust
@@ -330,9 +348,9 @@ fn held(plan: &Plan, n: usize, k: usize) -> [String; 3] {
 /// user did not click **Stop** (15.2). Else `enter` reports why. After the call, it sends the text
 /// and the lanes (6.3) of each held value, before a later node takes the value (15.9). `probe` is
 /// the index of the first held value of the step.
-fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
+fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
     let step = &plan.steps[n];
-    let (name, node) = &plan.nodes[step.node];
+    let name = &plan.nodes[step.node].0;
     // A delay gives the value of the previous frame, so it waits for no input (9.2).
     let delay = plan.is_delay(n);
     let wired: Vec<String> = step
@@ -350,6 +368,20 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
         let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
     }
     let _ = writeln!(s, "            if rep.enter({n}, {ready}) {{");
+    if plan.in_slot(n) {
+        slot::call(s, plan, n);
+    } else {
+        inline(s, plan, n);
+    }
+    probes(s, plan, n, probe);
+    s.push_str("            }\n");
+}
+
+/// Writes the call of step `n` in the cluster.
+fn inline(s: &mut String, plan: &Plan, n: usize) {
+    let step = &plan.steps[n];
+    let (name, node) = &plan.nodes[step.node];
+    let delay = plan.is_delay(n);
     let indent = "                ";
     let krate = name.replace('-', "_");
     if node.state.is_some() {
@@ -371,23 +403,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
         args.push("st".to_owned());
         call = format!("::{krate}::{state}::{}", node.func);
     }
-    for (input, source) in node.inputs.iter().zip(&step.inputs).filter(|_| !delay) {
-        let value = match (source, input.pass) {
-            (Source::Slot(i), Pass::Ref) => format!("&*p{i}.read()"),
-            (Source::Slot(i), _) => format!("::std::clone::Clone::clone(&*p{i}.read())"),
-            (Source::Wire { step: from, output }, pass) => {
-                let [read, write, _] = held(plan, *from, *output);
-                match pass {
-                    Pass::Ref => format!("{read}.as_ref().unwrap()"),
-                    // Only one node reads the value, so it takes the value with no copy. A frame
-                    // reads a batch value again at each frame.
-                    _ if plan.steps[*from].consumers[*output] == 1 && plan.steps[*from].domain == step.domain => {
-                        format!("{write}.take().unwrap()")
-                    }
-                    _ => format!("::std::clone::Clone::clone({read}.as_ref().unwrap())"),
-                }
-            }
-        };
+    for (input, value) in node.inputs.iter().zip(inputs(plan, n)).filter(|_| !delay) {
         if input.pass == Pass::Mut {
             let _ = writeln!(s, "{inner}let mut m_{} = {value};", input.key);
             args.push(format!("&mut m_{}", input.key));
@@ -406,30 +422,66 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
     } else {
         let _ = writeln!(s, "{inner}let r = {call};");
     }
+    store(s, plan, n, &inner);
+    let state = if node.state.is_some() { "&mut *st, " } else { "" };
+    let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), {state}rep, {n});");
+    let _ = writeln!(s, "{indent}rep.time({n}, t);");
+}
+
+/// The expression of the value of each input of step `n`, in the order of the node inputs.
+fn inputs(plan: &Plan, n: usize) -> Vec<String> {
+    let step = &plan.steps[n];
+    let node = &plan.nodes[step.node].1;
+    let value = |(input, source): (&crate::node::Input, &Source)| match (source, input.pass) {
+        (Source::Slot(i), Pass::Ref) => format!("&*p{i}.read()"),
+        (Source::Slot(i), _) => format!("::std::clone::Clone::clone(&*p{i}.read())"),
+        (Source::Wire { step: from, output }, pass) => {
+            let [read, write, _] = held(plan, *from, *output);
+            match pass {
+                Pass::Ref => format!("{read}.as_ref().unwrap()"),
+                // Only one node reads the value, so it takes the value with no copy. A frame
+                // reads a batch value again at each frame.
+                _ if plan.steps[*from].consumers[*output] == 1 && plan.steps[*from].domain == step.domain => {
+                    format!("{write}.take().unwrap()")
+                }
+                _ => format!("::std::clone::Clone::clone({read}.as_ref().unwrap())"),
+            }
+        }
+    };
+    node.inputs.iter().zip(&step.inputs).map(value).collect()
+}
+
+/// Unpacks the result `r` of step `n`, and stores each output and each `m_` value that a node
+/// reads. It drops the other values.
+fn store(s: &mut String, plan: &Plan, n: usize, indent: &str) {
+    let node = &plan.nodes[plan.steps[n].node].1;
     let mut values: Vec<String> = match node.output {
         Output::None => {
-            let _ = writeln!(s, "{inner}let () = r;");
+            let _ = writeln!(s, "{indent}let () = r;");
             Vec::new()
         }
         Output::One => vec!["r".to_owned()],
         Output::Tuple(count) => {
             let names: Vec<String> = (0..count).map(|i| format!("r{i}")).collect();
-            let _ = writeln!(s, "{inner}let ({},) = r;", names.join(", "));
+            let _ = writeln!(s, "{indent}let ({},) = r;", names.join(", "));
             names
         }
     };
     values.extend(node.inputs.iter().filter(|i| i.pass == Pass::Mut).map(|i| format!("m_{}", i.key)));
     for (k, value) in values.iter().enumerate() {
-        if step.consumers[k] > 0 {
-            let _ = writeln!(s, "{inner}{} = ::std::option::Option::Some({value});", held(plan, n, k)[2]);
+        if plan.steps[n].consumers[k] > 0 {
+            let _ = writeln!(s, "{indent}{} = ::std::option::Option::Some({value});", held(plan, n, k)[2]);
         } else {
-            let _ = writeln!(s, "{inner}::std::mem::drop({value});");
+            let _ = writeln!(s, "{indent}::std::mem::drop({value});");
         }
     }
-    let state = if node.state.is_some() { "&mut *st, " } else { "" };
-    let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), {state}rep, {n});");
-    let _ = writeln!(s, "{indent}rep.time({n}, t);");
-    for k in (0..values.len()).filter(|k| step.consumers[*k] > 0) {
+}
+
+/// Writes the probes of step `n` (15.9). `probe` is the index of its first held value.
+fn probes(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
+    let step = &plan.steps[n];
+    let indent = "                ";
+    for k in (0..step.consumers.len()).filter(|k| step.consumers[*k] > 0) {
         let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {
             format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, || ::{}::{}(v));", name.replace('-', "_"), kind.func)
         });
@@ -441,165 +493,4 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
         );
         probe += 1;
     }
-    s.push_str("            }\n");
 }
-
-const EXPORTS: &str = r#"
-#[unsafe(no_mangle)]
-pub extern "C" fn patina_abi_version() -> u32 {
-    ::patina_sdk::glue::ABI_VERSION
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn patina_cluster_new() -> *mut ::std::ffi::c_void {
-    ::patina_sdk::glue::new_cluster(make).cast()
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::set`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_set(
-    cluster: *mut ::std::ffi::c_void,
-    index: u32,
-    text: *const u8,
-    len: usize,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> bool {
-    // SAFETY: the engine keeps the rules of `glue::set`.
-    unsafe { ::patina_sdk::glue::set(cluster.cast(), index, text, len, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::ui`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_ui(
-    cluster: *const ::std::ffi::c_void,
-    node: u32,
-    mode: u32,
-    text: *const u8,
-    len: usize,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> bool {
-    // SAFETY: the engine keeps the rules of `glue::ui`.
-    unsafe { ::patina_sdk::glue::ui(cluster.cast(), node, mode, text, len, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::parallel`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_parallel(cluster: *const ::std::ffi::c_void) -> bool {
-    // SAFETY: the engine keeps the rules of `glue::parallel`.
-    unsafe { ::patina_sdk::glue::parallel(cluster.cast()) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::task`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_task(
-    cluster: *const ::std::ffi::c_void,
-    task: u32,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> bool {
-    // SAFETY: the engine keeps the rules of `glue::task`.
-    unsafe { ::patina_sdk::glue::task(cluster.cast(), task, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::end`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_end(
-    cluster: *const ::std::ffi::c_void,
-    domain: u32,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> bool {
-    // SAFETY: the engine keeps the rules of `glue::end`.
-    unsafe { ::patina_sdk::glue::end(cluster.cast(), domain, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::take`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_take(
-    cluster: *const ::std::ffi::c_void,
-    node: u32,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> *mut ::std::ffi::c_void {
-    // SAFETY: the engine keeps the rules of `glue::take`.
-    unsafe { ::patina_sdk::glue::take(cluster.cast(), node, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::put`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_put(
-    cluster: *const ::std::ffi::c_void,
-    node: u32,
-    value: *mut ::std::ffi::c_void,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> bool {
-    // SAFETY: the engine keeps the rules of `glue::put`.
-    unsafe { ::patina_sdk::glue::put(cluster.cast(), node, value, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::export`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_export(
-    cluster: *const ::std::ffi::c_void,
-    index: u32,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> *mut ::std::ffi::c_void {
-    // SAFETY: the engine keeps the rules of `glue::export`.
-    unsafe { ::patina_sdk::glue::export(cluster.cast(), index, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::import`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_import(
-    cluster: *const ::std::ffi::c_void,
-    index: u32,
-    value: *mut ::std::ffi::c_void,
-    rep: *const ::patina_sdk::glue::Reporter,
-) -> bool {
-    // SAFETY: the engine keeps the rules of `glue::import`.
-    unsafe { ::patina_sdk::glue::import(cluster.cast(), index, value, rep) }
-}
-
-/// # Safety
-///
-/// The engine keeps the rules of `patina_sdk::glue::free`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn patina_cluster_free(cluster: *mut ::std::ffi::c_void) {
-    // SAFETY: the engine keeps the rules of `glue::free`.
-    unsafe { ::patina_sdk::glue::free(cluster.cast()) }
-}
-"#;
-
-/// Sends the `log` records of the nodes to the engine (15.7).
-const LOGGER: &str = r#"
-struct PatinaLog;
-
-impl ::patina_log::Log for PatinaLog {
-    fn enabled(&self, metadata: &::patina_log::Metadata<'_>) -> bool {
-        metadata.level() <= ::patina_log::Level::Info
-    }
-
-    fn log(&self, record: &::patina_log::Record<'_>) {
-        if self.enabled(record.metadata()) {
-            ::patina_sdk::glue::log_line(record.level().as_str(), record.args());
-        }
-    }
-
-    fn flush(&self) {}
-}
-"#;

@@ -23,6 +23,9 @@ pub struct Plan {
     pub tasks: Vec<Task>,
     /// The index in `nodes` of the built-in delay node (9.2), when the graph uses it.
     pub delay: Option<usize>,
+    /// The index in `nodes` of the node in the slot (7.1). Each of its uses runs in the slot
+    /// library.
+    pub slot: Option<usize>,
 }
 
 /// A chain of steps that one call runs in order (9.2).
@@ -67,6 +70,11 @@ impl Plan {
     /// True when step `n` is a delay node (9.2).
     pub fn is_delay(&self, n: usize) -> bool {
         self.delay == Some(self.steps[n].node)
+    }
+
+    /// True when step `n` is a use of the node in the slot (7.1).
+    pub fn in_slot(&self, n: usize) -> bool {
+        self.slot == Some(self.steps[n].node)
     }
 
     /// The connection kind of output `k` of step `n`, when a kind shows its type (6.3).
@@ -282,7 +290,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         }
     }
     let tasks = split(&mut steps, &edges);
-    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, delay };
+    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, delay, slot: None };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
     plan.kinds.retain(|(name, _)| used.contains(name));
     let mut folders = plan.nodes.iter().enumerate().filter(|(i, _)| plan.delay != Some(*i)).map(|(_, (n, _))| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));

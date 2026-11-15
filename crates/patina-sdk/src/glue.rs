@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 11;
+pub const ABI_VERSION: u32 = 12;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -203,6 +203,11 @@ pub enum Cmd<'a> {
     Export(u32, &'a mut *mut c_void),
     /// Links the link with this index to a value from `Export` of a cluster of the same build.
     Import(u32, Moved),
+    /// Gives the base the slot library (7.1). The engine keeps it valid until the next `Slot`.
+    Slot(*const SlotRef),
+    /// Calls the node with this index in the slot library (7.1). The arguments point to the
+    /// inputs, in the order of the node inputs, then to an `Option` for the result.
+    Call(u32, &'a [*mut c_void]),
 }
 
 /// A node state that moves from an old cluster to a new cluster (7.2), or a value of a link
@@ -660,6 +665,9 @@ pub unsafe fn free(cluster: *mut Cluster) {
         let _ = catch_unwind(AssertUnwindSafe(move || drop(cluster)));
     }
 }
+
+mod slot;
+pub use slot::*;
 
 #[cfg(test)]
 mod tests;

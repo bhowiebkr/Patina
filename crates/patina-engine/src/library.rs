@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering::Relaxed};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use patina_sdk::glue::{self, Control, Reporter};
+use patina_sdk::glue::{self, CallFn, Control, Reporter, SlotRef};
 
 use crate::Error;
 use crate::node::Domain;
@@ -23,6 +23,7 @@ pub(crate) type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter
 type FreeFn = unsafe extern "C" fn(*mut c_void);
 pub(crate) type TakeFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> *mut c_void;
 pub(crate) type PutFn = unsafe extern "C" fn(*const c_void, u32, *mut c_void, *const Reporter) -> bool;
+pub(crate) type SlotFn = unsafe extern "C" fn(*const c_void, *const SlotRef, *const Reporter) -> bool;
 
 /// The cluster of one clock domain: its library functions and its state (8.2).
 pub(crate) struct Library {
@@ -36,6 +37,10 @@ pub(crate) struct Library {
     pub put: PutFn,
     pub export: TakeFn,
     pub import: PutFn,
+    /// Gives a base the slot library (7.1).
+    pub slot: SlotFn,
+    /// Calls a node of a slot library (7.1).
+    pub call: CallFn,
     /// True when the tasks of a run can run on many threads at a time (9.2).
     pub parallel: bool,
     /// The tasks of the domain (9.1).
@@ -65,12 +70,14 @@ impl Library {
             let put: PutFn = symbol(&library, b"patina_cluster_put\0").map_err(missing)?;
             let export: TakeFn = symbol(&library, b"patina_cluster_export\0").map_err(missing)?;
             let import: PutFn = symbol(&library, b"patina_cluster_import\0").map_err(missing)?;
+            let slot: SlotFn = symbol(&library, b"patina_cluster_slot\0").map_err(missing)?;
+            let call: CallFn = symbol(&library, b"patina_cluster_call\0").map_err(missing)?;
             let state = new();
             if state.is_null() {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
             let tasks = Arc::new(Tasks::new(state, task, all, domain));
-            Library { state, new, set, ui, end, free, take, put, export, import, parallel: parallel(state), tasks }
+            Library { state, new, set, ui, end, free, take, put, export, import, slot, call, parallel: parallel(state), tasks }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);

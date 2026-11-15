@@ -17,7 +17,7 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 2. The state across swaps: the cluster gives the state of each node whose key did not change to
    the next cluster. This part works.
 3. More than one cluster in a build, and swaps of all of them or of none. This part works.
-4. The slot: the base calls the node in edit mode through a function pointer.
+4. The slot: the base calls the node in edit mode through a function pointer. This part works.
 5. Fuse back, the bake profile and **Bake**, with the decision of the idle time (Q7).
 6. The **Layers** panel, the slot icon and the status bar.
 7. The check of the roadmap, with the measured fuse time.
@@ -43,6 +43,10 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - A frame node that reads a batch value reads it through a link: the batch cluster keeps the
   value in a shared `Arc`, and the engine gives the `Arc` to the frame cluster after the load
   (ABI version 11).
+- `Checked::with_slot` puts one node folder in the slot (7.1). Each use of the node calls the
+  slot library, `build/clusters/slot`, which keeps the state of each use (ABI version 12).
+  `Checked::build_slot` builds and loads the slot library alone, while the base stays loaded.
+  It refuses, with false, when the code of the base or the signature of the node changed.
 
 ### What was checked
 
@@ -59,6 +63,10 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The hello test now builds and runs two clusters. Its frame nodes read the batch values
   through links, and the tick state moves into the new frame cluster. The glue test checks
   that a link reads the value of the other cluster and takes one value only.
+- The slot test puts a stateful node with a `&` input, a `&str`, a moved input and a `&mut`
+  input in the slot. Two runs keep its state. An edit of its body builds the slot alone and
+  resets the state. A fused build takes the state from the slot library. A change of the
+  signature makes `build_slot` refuse. The glue test calls a node in a slot library.
 
 ### Known limits
 
@@ -75,6 +83,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.
 - Nobody ran the state move in the editor. The editor calls the same engine code as the test.
+- The editor does not use the slot yet. Nobody measured the time of a build of the slot alone.
+- A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a
+  type alias in the node folder needs a full build, because the base compares the signature
+  text. The base and the slot both use the `dev` profile (`crates/patina-engine/src/cargo.rs`).
+- A node GUI of a node in the slot calls the slot library. No test draws one.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
