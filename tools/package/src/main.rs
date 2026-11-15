@@ -16,6 +16,15 @@ type Result<T> = std::result::Result<T, String>;
 const PACKAGES: [&str; 2] = ["patina-editor", "patina-cli"];
 const PROGRAMS: [&str; 2] = ["patina", "patina-cli"];
 
+/// The license texts in `notices/` for the crates that have no license file. Each text comes
+/// from the repository of the crate.
+const NOTICES: [(&str, &str); 4] = [
+    ("selectors", "MPL-2.0.txt"),
+    ("webview2-com", "webview2-rs-MIT.txt"),
+    ("webview2-com-macros", "webview2-rs-MIT.txt"),
+    ("webview2-com-sys", "webview2-rs-MIT.txt"),
+];
+
 const PORTABLE: &str = "This file marks the portable edition of Patina. Patina keeps all its data in this folder.\n";
 
 fn main() {
@@ -69,7 +78,15 @@ fn run() -> Result<()> {
         }
         let dir = Path::new(text(package, "manifest_path")).parent().ok_or("a crate has no folder")?;
         let extra = package["license_file"].as_str();
-        let count = copy_notices(dir, extra, &licenses.join("crates").join(format!("{name}-{ver}")))?;
+        let dest = licenses.join("crates").join(format!("{name}-{ver}"));
+        let mut count = copy_notices(dir, extra, &dest)?;
+        if count == 0
+            && let Some((_, file)) = NOTICES.iter().find(|(crate_name, _)| *crate_name == name)
+        {
+            make_dir(&dest)?;
+            copy(&root.join("tools/package/notices").join(file), &dest.join(file))?;
+            count = 1;
+        }
         line(&mut notes, "crate", name, ver, package["license"].as_str(), count);
     }
     for (key, entry) in npm_packages(&frontend)? {

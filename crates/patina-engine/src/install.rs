@@ -18,8 +18,9 @@ use crate::cargo::{Toolchain, command, own_env, run_text};
 const HOST: &str = "x86_64-pc-windows-gnu";
 /// The download server of Rust.
 const DIST: &str = "https://static.rust-lang.org";
-/// The packages of the minimal rustup profile (the `[profiles]` table of the channel manifest).
-const MINIMAL: &[&str] = &["rustc", "cargo", "rust-std", "rust-mingw"];
+/// The packages of the minimal rustup profile (the `[profiles]` table of the channel manifest),
+/// and rust-analyzer for the code editor. The manifest renames `rust-analyzer` to this package.
+const PACKAGES: &[&str] = &["rustc", "cargo", "rust-std", "rust-mingw", "rust-analyzer-preview"];
 /// The Zig target for the C code of the Rust target `x86_64-pc-windows-gnu`.
 const ZIG_TARGET: &str = "x86_64-windows-gnu";
 
@@ -59,6 +60,8 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
     }
     step("Check the toolchain");
     let release = Toolchain::find(&work)?.release;
+    let analyzer = work.join("cargo").join("bin").join("rust-analyzer.exe");
+    run_text(tool(&work, &analyzer)?.arg("--version"))?;
     let source = downloads.join("check.c");
     fs::write(&source, "int patina_check(void) { return 1; }\n").map_err(|e| Error::Io(source.clone(), e))?;
     run_text(tool(&work, &zig.join("zig-cc.exe"))?.arg("-c").arg(&source).arg("-o").arg(downloads.join("check.o")))?;
@@ -120,7 +123,8 @@ fn cc_args(args: Vec<OsString>) -> Vec<OsString> {
     out
 }
 
-/// Installs Rust with rustup: the minimal profile of the stable channel, for the gnu host.
+/// Installs Rust with rustup: the minimal profile of the stable channel and rust-analyzer, for the
+/// gnu host.
 fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(), Error> {
     step("Download rustup-init");
     let init = downloads.join("rustup-init.exe");
@@ -148,6 +152,8 @@ fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(),
         "--no-modify-path",
         "--profile",
         "minimal",
+        "--component",
+        "rust-analyzer",
         "--default-host",
         HOST,
         "--default-toolchain",
@@ -156,9 +162,9 @@ fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(),
     Ok(())
 }
 
-/// Returns the name, the xz URL and the hash of each package of the minimal profile.
+/// Returns the name, the xz URL and the hash of each package of [`PACKAGES`].
 fn packages(manifest: &str, target: &str) -> Result<Vec<(&'static str, String, String)>, Error> {
-    MINIMAL
+    PACKAGES
         .iter()
         .map(|&name| {
             let header = format!("[pkg.{name}.target.{target}]");
@@ -314,7 +320,7 @@ mod tests {
     #[test]
     fn packages_read_only_the_target_table() {
         let mut manifest = String::new();
-        for name in MINIMAL {
+        for name in PACKAGES {
             manifest += &format!("[pkg.{name}.target.x-gnullvm]\nxz_url = \"wrong\"\nxz_hash = \"wrong\"\n\n");
             manifest += &format!("[pkg.{name}.target.x-gnu]\navailable = true\nxz_url = \"u-{name}\"\nxz_hash = \"h\"\n\n");
         }

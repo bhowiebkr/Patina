@@ -40,7 +40,7 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 - No edition changes the `PATH` or installs Rust for the whole system.
 - Patina is under the MIT license or the Apache License 2.0, as the user chooses (`MIT OR Apache-2.0`). The repository has the files `LICENSE-MIT` and `LICENSE-APACHE`.
 - Each release file includes the license notices: the two Patina license files, and the license and `NOTICE` files of each crate in the build. The portable edition keeps them in a `licenses/` folder (13.3).
-- `cargo run -p package` makes the portable zip (`tools/package`). It builds the page and the release programs `patina` and `patina-cli`. It copies the notice files of each crate and npm package in the build, without the dev-dependencies, and lists the license of each package in `licenses/README.txt`. The list marks a package that has no license file. On Windows, `tar.exe` of System32 writes the zip. On Linux, the `zip` program writes it. This is an agent decision of 2026-11-15. The owner can change it.
+- `cargo run -p package` makes the portable zip (`tools/package`). It builds the page and the release programs `patina` and `patina-cli`. It copies the notice files of each crate and npm package in the build, without the dev-dependencies, and lists the license of each package in `licenses/README.txt`. The list marks a package that has no license file. On Windows, `tar.exe` of System32 writes the zip. On Linux, the `zip` program writes it. The **Package** workflow of GitHub Actions runs the tool on Windows and Linux when a person starts it or pushes a tag `v*`. The zips are artifacts of the run. This is an agent decision of 2026-11-15. The owner can change it.
 - The installers do not include the toolchain. Both editions use the **Install toolchain** button (13.2).
 - The `.msi` installs the WebView2 Runtime if it is missing, with the bootstrapper of Tauri. This needs internet.
 - The portable edition checks for the WebView2 Runtime before it opens a window. If it is missing, Patina shows a Windows message with a link to the Microsoft download. The Runtime then installs for the current user.
@@ -52,7 +52,7 @@ On first use, Patina installs these components into its toolchain folder (13.3):
 
 1. **Rust:** `rustup-init` with `RUSTUP_HOME` and `CARGO_HOME` inside the toolchain folder, and `--no-modify-path`. Patina downloads `rustup-init`, the channel manifest and the packages of the minimal profile, and checks the SHA-256 hash of each file. Rustup then installs from this local copy of the server (`RUSTUP_DIST_SERVER` with a `file:` URL).
 2. **C compiler and linker:** Many crates compile C code in build scripts. On Linux, rustc also needs `cc` as the linker driver. Preferred choice: **Zig** as a portable C compiler and linker for all three platforms (`zig cc`). On Windows, Zig compiles the C code, and `rust-lld` of the Rust toolchain links (see below). Fallback: the system compiler.
-3. **rust-analyzer:** for autocomplete in the code editor.
+3. **rust-analyzer:** for autocomplete in the code editor. The install downloads its package with the packages of the minimal profile, and gives rustup `--component rust-analyzer`. The check runs `rust-analyzer --version`.
 4. **NVRTC:** optional, for CUDA nodes.
 
 - The toolchain alone builds nodes on a clean Windows computer, under a standard account: no Visual Studio, no Windows SDK, and no admin rights. Milestone 0 proves this (19).

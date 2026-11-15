@@ -198,6 +198,11 @@ To run the editor from a checkout:
   `patina`, `patina-cli`, the `portable` file and `licenses/`. The license folder has the two
   Patina license files, the notice files of 233 crates and 31 npm packages, and a list with
   the license of each package.
+- 4 crates in the build have no license file: `selectors` (MPL-2.0) and three `webview2-com`
+  crates (MIT). The package tool copies their texts from `tools/package/notices`: the MPL-2.0
+  text, and the MIT text of the `webview2-rs` repository.
+- The **Package** workflow of GitHub Actions makes the Windows and the Linux zip when a person
+  starts it or pushes a tag `v*`.
 - The editor and the CLI use the toolchain folder (13.3) when it has `cargo`. Its tools get the
   clean environment of 13.2. Else Patina uses the Rust of the system, and **Settings** tells so.
   A unit test checks the clean environment.
@@ -395,12 +400,11 @@ The projects are very small, so these times do not predict real projects.
   Subgraphs come at milestone 7, and async nodes at milestone 12.
 - The toolchain comes from the toolchain folder (13.3), or else from the `CARGO` variable or
   `PATH`. Its version must be the `rust` version of `patina.toml`.
-- **Install toolchain** works only on Windows. It does not install rust-analyzer yet.
-- The portable zip is made on the computer of a contributor. No CI job or GitHub release makes
-  it yet. The Linux zip did not run.
-- 4 crates in the build have no license file: `selectors` (MPL-2.0) and three `webview2-com`
-  crates (MIT). `licenses/README.txt` marks them. Add their license texts before the first
-  release.
+- **Install toolchain** works only on Windows. It installs rust-analyzer too, but no install
+  with rust-analyzer ran yet, because the run downloads about 285 MB. A toolchain from an older
+  install has no rust-analyzer. Remove the `toolchain` folder and install again.
+- No GitHub release makes the portable zip yet. The **Package** workflow keeps the zips only as
+  artifacts of the run.
 - The engine loads the library from the cargo target folder, and never unloads it. Windows
   locks the file, so one process cannot build the same project again after the load.
 - A node panic shows two messages: the default panic message of the cluster, and the report.

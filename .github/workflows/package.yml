@@ -1,0 +1,63 @@
+# Makes the portable zip of Windows and Linux with `cargo run -p package` (spec 13.1).
+# Start it by hand, or push a tag `v*`. The zip is an artifact of the run.
+name: Package
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  zip:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      # The system libraries of Tauri on Linux (spec 13.4).
+      - name: Install the Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev libdbus-1-dev zip
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crates/patina-editor/frontend/package-lock.json
+
+      - name: Install the npm packages
+        working-directory: crates/patina-editor/frontend
+        run: npm ci
+
+      - name: Make the zip
+        run: cargo run -p package --locked
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: patina-${{ runner.os }}
+          path: target/package/*.zip
+          if-no-files-found: error
