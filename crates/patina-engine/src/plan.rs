@@ -5,6 +5,7 @@ use std::path::Path;
 
 use crate::node::{self, Domain, Kind, Node};
 use crate::project::{GraphFile, is_id};
+use crate::types;
 
 /// A graph that passed all checks, in run order.
 pub struct Plan {
@@ -41,6 +42,8 @@ pub struct Step {
     pub inputs: Vec<Source>,
     /// The number of wires from each output, in the order of `Node::output_keys`.
     pub consumers: Vec<usize>,
+    /// The type of each output, with the types of the wires in the parameters of a generic node (4.5).
+    pub types: Vec<String>,
     /// The index in `Plan::tasks`.
     pub task: usize,
     pub domain: Domain,
@@ -56,7 +59,7 @@ impl Plan {
 
     /// The connection kind of output `k` of step `n`, when a kind shows its type (6.3).
     pub fn kind(&self, n: usize, k: usize) -> Option<&(String, Kind)> {
-        let ty = &self.nodes[self.steps[n].node].1.output_types[k];
+        let ty = &self.steps[n].types[k];
         self.kinds.iter().find(|(_, kind)| &kind.ty == ty)
     }
 }
@@ -206,6 +209,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             node: entries[e].node,
             inputs: Vec::new(),
             consumers: vec![0; nodes[entries[e].node].1.output_keys().len()],
+            types: Vec::new(),
             task: 0,
             domain: Domain::Batch,
         })
@@ -227,6 +231,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             steps[step].inputs.push(source);
         }
     }
+    resolve(&mut steps, &nodes)?;
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
     domains(&mut steps, &edges, |n| entries[order[n]].domain)?;
     let tasks = split(&mut steps, &edges);
@@ -236,6 +241,34 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let mut folders = plan.nodes.iter().map(|(n, _)| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
     plan.log = folders.any(|(group, name)| uses_log(root, group, name));
     Ok(plan)
+}
+
+/// Sets the output types of each step, in run order. The wires give the type parameters of a
+/// generic node (4.5). The compiler then makes a copy of the node for each set of types.
+// shortcut: the types go only from an output to an input, so a parameter that only an output uses
+// stays unresolved. Infer it from the input at the other end of the wire when a node needs it.
+fn resolve(steps: &mut [Step], nodes: &[(String, Node)]) -> Result<(), Vec<String>> {
+    let mut problems = Vec::new();
+    for n in 0..steps.len() {
+        let node = &nodes[steps[n].node].1;
+        let mut bound = vec![None; node.generics.len()];
+        for (input, source) in node.inputs.iter().zip(&steps[n].inputs) {
+            if let Source::Wire { step, output } = *source
+                && let Some(actual) = steps[step].types.get(output)
+                && let Err(text) = types::unify(&input.value, actual, &node.generics, &mut bound)
+            {
+                problems.push(format!("node {}: the wires give two types: {text}", steps[n].id));
+            }
+        }
+        let open: Vec<&str> = node.generics.iter().zip(&bound).filter(|(_, b)| b.is_none()).map(|(g, _)| g.as_str()).collect();
+        if !open.is_empty() {
+            problems.push(format!("node {}: connect a wire that gives the type of {} (spec 4.5)", steps[n].id, open.join(", ")));
+            continue;
+        }
+        let bound: Vec<String> = bound.into_iter().flatten().collect();
+        steps[n].types = node.output_types.iter().map(|ty| types::substitute(ty, &node.generics, &bound)).collect();
+    }
+    if problems.is_empty() { Ok(()) } else { Err(problems) }
 }
 
 /// True when the crate folder `<group>/<name>` has the `log` crate in `[dependencies]` (15.7).
@@ -433,7 +466,7 @@ mod tests {
 
     #[test]
     fn chains_become_one_task_and_branches_split() {
-        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), task: 0, domain: Domain::Batch }).collect();
+        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), task: 0, domain: Domain::Batch }).collect();
         // 0 -> 1 -> 2 is a chain. 2 feeds 3 and 4, and both feed 5. An order wire 1 -> 2 doubles a data wire.
         let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)]);
         let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
@@ -448,6 +481,8 @@ mod tests {
             ("nodes/num", "node", "pub fn num(v: f64) -> f64 { v }", ""),
             ("nodes/show", "node", "pub fn show(v: &f64) {}", "[dependencies]\nlog = \"0.4\"\n"),
             ("nodes/tick", "node(domain = frame)", "pub fn tick() -> f64 { 0.0 }", ""),
+            ("nodes/bits", "node", "pub fn bits() -> u8 { 0 }", ""),
+            ("nodes/pick", "node", "pub fn pick<T: Copy>(a: T, b: &T) -> (T, Vec<T>) { todo!() }", ""),
             ("connections/wide", "connection", "pub fn wide(v: &f64) -> Lanes { todo!() }", ""),
             ("connections/byte", "connection", "pub fn byte(v: &u8) -> Lanes { todo!() }", ""),
         ];
@@ -486,6 +521,17 @@ mod tests {
         let mut latest = graph("[[wire]]\nfrom = \"000000000000000a.out\"\nto = \"000000000000000b.v\"\n");
         latest.node[1].domain = Some("frame".to_owned());
         let latest = check(&root, &latest);
+        // The wires to pick give its type parameter (4.5): bits d gives u8, num a gives f64.
+        let generic = |wires: &str| {
+            let text = format!(
+                "format = 1\n[[node]]\nid = \"000000000000000a\"\nfolder = \"nodes/num\"\n[[node]]\nid = \"000000000000000d\"\n\
+                 folder = \"nodes/bits\"\n[[node]]\nid = \"000000000000000e\"\nfolder = \"nodes/pick\"\n{wires}"
+            );
+            check(&root, &toml::from_str(&text).unwrap())
+        };
+        let wire = |from: &str, to: &str| format!("[[wire]]\nfrom = \"00000000000000{from}\"\nto = \"000000000000000e.{to}\"\n");
+        let resolved = generic(&(wire("0d.out", "a") + &wire("0d.out", "b")));
+        let (two, open) = (generic(&(wire("0d.out", "a") + &wire("0a.out", "b"))), generic(""));
         std::fs::create_dir_all(root.join("connections/show")).unwrap();
         let named = check(&root, &graph(""));
         let num_logs = uses_log(&root, "nodes", "num");
@@ -512,6 +558,12 @@ mod tests {
         assert!(crossed.err().unwrap()[0].contains("from the frame domain to the batch domain"));
         let mixed = mixed.unwrap_or_else(|p| panic!("{p:?}"));
         assert_eq!(mixed.steps.iter().find(|s| s.id.ends_with('b')).map(|s| s.domain), Some(Domain::Frame), "batch and frame inputs give the frame domain");
+        let resolved = resolved.unwrap_or_else(|p| panic!("{p:?}"));
+        let pick = resolved.steps.iter().position(|s| s.id.ends_with('e')).unwrap();
+        assert_eq!(resolved.steps[pick].types, ["u8", "Vec<u8>"]);
+        assert_eq!(resolved.kind(pick, 0).map(|(name, _)| name.as_str()), Some("byte"), "the kind of the resolved type");
+        assert!(two.err().unwrap()[0].contains("the wires give two types: `T` is `u8` and `f64`"));
+        assert!(open.err().unwrap()[0].contains("connect a wire that gives the type of T"));
         let latest = latest.unwrap_or_else(|p| panic!("{p:?}"));
         let parts: Vec<(Domain, &[usize])> = latest.tasks.iter().map(|t| (t.domain, &t.steps[..])).collect();
         assert_eq!(parts, [(Domain::Batch, &[0][..]), (Domain::Frame, &[1][..])], "a task holds the steps of one domain");

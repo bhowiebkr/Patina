@@ -81,21 +81,30 @@ pub fn whole(value: &f64) -> patina_sdk::Lanes {
 }
 ";
 
-/// A stateful frame node of the test (4.2).
+/// A generic stateful frame node of the test (4.2, 4.5).
 const TICK: &str = "#[patina_sdk::node(domain = frame)]
-pub struct Tick {
+pub struct Tick<T> {
     count: f64,
+    last: Option<T>,
 }
 
-impl Tick {
+impl<T: Copy + Into<f64>> Tick<T> {
     pub fn init() -> Self {
-        Tick { count: 0.0 }
+        Tick { count: 0.0, last: None }
     }
 
-    pub fn process(&mut self, base: f64) -> f64 {
-        self.count = (self.count + base) % 10.0;
+    pub fn process(&mut self, base: T) -> f64 {
+        self.last = Some(base);
+        self.count = (self.count + base.into()) % 10.0;
         self.count
     }
+}
+";
+
+/// A generic node of the test (4.5).
+const MIX: &str = "#[patina_sdk::node]
+pub fn mix<T: std::ops::Add<Output = T> + Copy>(a: &T, b: T) -> T {
+    *a + b
 }
 ";
 
@@ -121,20 +130,23 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     assert_eq!(sum.lanes, Some(Lanes { bits: "00000110".to_owned(), label: "whole".to_owned() }));
 
     // A frame node reads batch values at each frame, after the batch run (9.1): number f0 (1) to
-    // tick f1, then add f3 (sum 6.5 + tick) and show f2. Only tick reads f0. Tick is a stateful
-    // frame node (4.2) that adds its input to its count at each frame: 1, 2, 3.
-    // The count stays under 10, so the texts stop growing after 10 frames.
-    let tick = project.join("nodes/tick");
-    fs::create_dir_all(tick.join("src")).unwrap();
-    fs::write(tick.join("Cargo.toml"), manifest.replace("whole", "tick")).unwrap();
-    fs::write(tick.join("src/lib.rs"), TICK).unwrap();
+    // tick f1, then mix f3 (sum 6.5 + tick) and show f2. Only tick reads f0. Tick is a stateful
+    // frame node (4.2) that adds its input to its count at each frame: 1, 2, 3. The wires give
+    // the type parameters of tick and mix (4.5). The count stays under 10, so the texts stop
+    // growing after 10 frames.
+    for (name, code) in [("tick", TICK), ("mix", MIX)] {
+        let folder = project.join("nodes").join(name);
+        fs::create_dir_all(folder.join("src")).unwrap();
+        fs::write(folder.join("Cargo.toml"), manifest.replace("whole", name)).unwrap();
+        fs::write(folder.join("src/lib.rs"), code).unwrap();
+    }
     let graph = project.join("graphs/main.toml");
     let node = |id: &str, folder: &str| format!("\n[[node]]\nid = \"00000000000000{id}\"\nfolder = \"nodes/{folder}\"\n");
     let wire = |from: &str, to: &str| format!("\n[[wire]]\nfrom = \"{from}\"\nto = \"{to}\"\n");
     let more = [
         node("f0", "number") + "[node.params]\nvalue = \"1\"\n",
         node("f1", "tick"),
-        node("f3", "add"),
+        node("f3", "mix"),
         node("f2", "show"),
         wire("00000000000000f0.out", "00000000000000f1.base"),
         wire("f89c6e329e8ea336.out", "00000000000000f3.a"),

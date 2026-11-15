@@ -162,6 +162,8 @@ pub fn add<T: std::ops::Add<Output = T>>(a: T, b: T) -> T { a + b }
 
 - A generic pin shows as "unresolved" until the user connects it.
 - Patina compiles the node when it knows all type parameters. Each set of types is a separate compiled copy.
+- The engine gets the type parameters from the types of the input wires, in run order. If no input wire gives a type parameter, the engine refuses the graph and names the node. (Agent decision, 2026-11-15. The owner can change it.)
+- A generic node has only type parameters: no lifetime or const parameters, and no `impl Trait` input. A generic stateful node puts the type parameters on its struct, and its `impl` blocks use the same names, for example `impl<T: Copy> Delay<T>`. (Agent decision, 2026-11-15. The owner can change it.)
 
 ### 4.6 Async nodes
 

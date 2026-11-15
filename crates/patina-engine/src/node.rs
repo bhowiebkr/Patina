@@ -3,7 +3,10 @@
 //! `#[connection]` function (6.3).
 
 use quote::ToTokens;
-use syn::{Attribute, FnArg, Ident, ImplItem, Meta, GenericArgument, Item, Pat, PathArguments, ReturnType, Signature, Type, Visibility};
+use syn::{
+    Attribute, FnArg, GenericArgument, GenericParam, Generics, Ident, ImplItem, Item, ItemStruct, Meta, Pat, PathArguments, ReturnType, Signature, Type,
+    Visibility,
+};
 
 /// How the node function takes an input.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -24,6 +27,8 @@ pub struct Input {
     pub is_str: bool,
     /// The type as the code writes it, for example `&str`.
     pub ty: String,
+    /// The type of the value that the wire brings: `ty` without `&` or `&mut`.
+    pub value: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -67,6 +72,8 @@ pub struct Node {
     pub func: String,
     /// The name of the state struct of a stateful node (4.2).
     pub state: Option<String>,
+    /// The type parameters of a generic node, in order (4.5). The wires give their types.
+    pub generics: Vec<String>,
     pub inputs: Vec<Input>,
     pub output: Output,
     /// The function returns a `Result`. An `Err` stops the node (4.7).
@@ -111,16 +118,17 @@ pub fn parse(source: &str) -> Result<Node, String> {
     }
     let (attr, item) = found.ok_or("the crate has no #[node] function or struct")?;
     let domain = read_domain(attr)?;
-    let (sig, state) = match item {
-        Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None),
+    let (sig, state, generics) = match item {
+        Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None, type_params(&func.sig.generics)?),
         Item::Fn(func) => return Err(format!("make the node function `{}` pub", func.sig.ident)),
         Item::Struct(s) if !matches!(s.vis, Visibility::Public(_)) => return Err(format!("make the node struct `{}` pub", s.ident)),
-        // shortcut: no generic nodes, they come in a later slice of milestone 5 (4.5).
-        Item::Struct(s) if !s.generics.params.is_empty() => return Err(GENERIC.to_owned()),
-        Item::Struct(s) => (process(&file, &s.ident)?, Some(s.ident.to_string())),
+        Item::Struct(s) => {
+            let generics = type_params(&s.generics)?;
+            (process(&file, s, &generics)?, Some(s.ident.to_string()), generics)
+        }
         _ => return Err("put #[node] on a function (spec 4.1) or a struct (spec 4.2)".to_owned()),
     };
-    plain(sig)?;
+    plain(sig, state.is_none())?;
     let mut inputs = Vec::new();
     let mut mut_types = Vec::new();
     for (i, arg) in sig.inputs.iter().enumerate() {
@@ -134,19 +142,22 @@ pub fn parse(source: &str) -> Result<Node, String> {
             return Err("give each input of the node a plain name".to_owned());
         };
         let key = pat.ident.to_string();
-        let (pass, is_str) = match &*arg.ty {
+        let ty = type_text(&arg.ty);
+        if ty.split(|c: char| !c.is_alphanumeric()).any(|word| word == "impl") {
+            return Err(format!("give the input `{key}` a type parameter, not `impl` (spec 4.5)"));
+        }
+        let (pass, is_str, value) = match &*arg.ty {
             Type::Reference(r) if r.mutability.is_some() => {
                 mut_types.push(type_text(&r.elem));
-                (Pass::Mut, false)
+                (Pass::Mut, false, type_text(&r.elem))
             }
-            Type::Reference(r) => (Pass::Ref, matches!(&*r.elem, Type::Path(p) if p.path.is_ident("str"))),
-            Type::ImplTrait(_) => return Err(GENERIC.to_owned()),
-            _ => (Pass::Take, false),
+            Type::Reference(r) => (Pass::Ref, matches!(&*r.elem, Type::Path(p) if p.path.is_ident("str")), type_text(&r.elem)),
+            _ => (Pass::Take, false, ty.clone()),
         };
         if pass == Pass::Mut && is_out_key(&key) {
             return Err(format!("rename the input `{key}`: its output key is used by the return value"));
         }
-        inputs.push(Input { key, pass, is_str, ty: type_text(&arg.ty) });
+        inputs.push(Input { key, pass, is_str, ty, value });
     }
     let (value, fallible) = match &sig.output {
         ReturnType::Default => (None, false),
@@ -160,18 +171,27 @@ pub fn parse(source: &str) -> Result<Node, String> {
     if state.is_some() && !matches!(sig.inputs.first(), Some(FnArg::Receiver(_))) {
         return Err(PROCESS.to_owned());
     }
-    Ok(Node { func: sig.ident.to_string(), state, inputs, output, fallible, output_types, domain })
+    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain })
 }
 
-const GENERIC: &str = "Patina does not support generic nodes (spec 4.5) at this time";
 const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
 
-fn plain(sig: &Signature) -> Result<(), String> {
+/// The names of the type parameters. A node has no lifetime or const parameters (4.5).
+fn type_params(generics: &Generics) -> Result<Vec<String>, String> {
+    let name = |param: &GenericParam| match param {
+        GenericParam::Type(t) => Ok(t.ident.to_string()),
+        _ => Err("a generic node takes only type parameters (spec 4.5)".to_owned()),
+    };
+    generics.params.iter().map(name).collect()
+}
+
+/// Checks that `sig` is a plain safe function. A method of a stateful node has no generics of its own.
+fn plain(sig: &Signature, own_generics: bool) -> Result<(), String> {
     if sig.asyncness.is_some() {
         return Err("async nodes come at milestone 12".to_owned());
     }
-    if !sig.generics.params.is_empty() {
-        return Err(GENERIC.to_owned());
+    if !own_generics && !sig.generics.params.is_empty() {
+        return Err(format!("put the type parameters of `{}` on the node struct (spec 4.5)", sig.ident));
     }
     if sig.unsafety.is_some() || sig.variadic.is_some() || sig.abi.is_some() {
         return Err(format!("`{}` must be a plain safe Rust function", sig.ident));
@@ -179,12 +199,16 @@ fn plain(sig: &Signature) -> Result<(), String> {
     Ok(())
 }
 
-/// Finds the `process` method of stateful node `name`, and checks its `init` method (4.2).
-fn process<'a>(file: &'a syn::File, name: &Ident) -> Result<&'a Signature, String> {
+/// Finds the `process` method of stateful node `node`, and checks its `init` method (4.2). The
+/// `impl` block names the type parameters as the struct does (4.5).
+fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> Result<&'a Signature, String> {
+    let name = &node.ident;
+    let this = if generics.is_empty() { name.to_string() } else { format!("{name}<{}>", generics.join(", ")) };
+    let head = if generics.is_empty() { format!("impl {this}") } else { format!("impl<{}> {this}", generics.join(", ")) };
     let (mut init, mut process) = (None, None);
     for item in &file.items {
         let Item::Impl(block) = item else { continue };
-        if block.trait_.is_some() || !matches!(&*block.self_ty, Type::Path(p) if p.path.is_ident(name)) {
+        if block.trait_.is_some() || type_text(&block.self_ty) != this {
             continue;
         }
         for func in block.items.iter().filter_map(|i| if let ImplItem::Fn(f) = i { Some(f) } else { None }) {
@@ -199,13 +223,13 @@ fn process<'a>(file: &'a syn::File, name: &Ident) -> Result<&'a Signature, Strin
             *slot = Some(&func.sig);
         }
     }
-    let init = init.ok_or(format!("add `pub fn init() -> Self` to `impl {name}`"))?;
-    plain(init)?;
-    let is_self = |ty: &Type| matches!(ty, Type::Path(p) if p.path.is_ident("Self") || p.path.is_ident(name));
+    let init = init.ok_or(format!("add `pub fn init() -> Self` to `{head}`"))?;
+    plain(init, false)?;
+    let is_self = |ty: &Type| matches!(&*type_text(ty), "Self") || type_text(ty) == this;
     if !init.inputs.is_empty() || !matches!(&init.output, ReturnType::Type(_, ty) if is_self(ty)) {
         return Err(format!("`{name}::init` takes no inputs and returns `Self`"));
     }
-    process.ok_or(format!("add `pub fn process(&mut self, ...)` to `impl {name}`"))
+    process.ok_or(format!("add `pub fn process(&mut self, ...)` to `{head}`"))
 }
 
 /// Reads `domain = <name>` of `#[node(...)]` (9.1).
@@ -344,8 +368,10 @@ mod tests {
         let fails = [
             "#[node] fn f() {}",
             "#[node] pub async fn f() {}",
-            "#[node] pub fn f<T>(x: T) {}",
+            "#[node] pub fn f<'a>(x: &'a u8) {}",
+            "#[node] pub fn f<const N: usize>() {}",
             "#[node] pub fn f(x: impl Copy) {}",
+            "#[node] pub fn f<T>(x: &impl Into<T>) {}",
             "#[node] pub fn f((a, b): (u8, u8)) {}",
             "#[node] pub fn f(out1: &mut u8) {}",
             "#[node] pub fn f() {} #[node] pub fn g() {}",
@@ -366,9 +392,19 @@ mod tests {
         let node = parse(counter).unwrap();
         assert_eq!((node.func.as_str(), node.state.as_deref(), node.domain), ("process", Some("Counter"), Some(Domain::Frame)));
         assert_eq!((node.inputs.len(), node.inputs[0].key.as_str(), node.output_keys()), (1, "step", vec!["out".to_owned()]));
+        let hold = "#[node] pub struct Hold<T, U> { v: Option<(T, U)> }\n\
+                    impl<T: Clone, U> Hold<T, U> { pub fn init() -> Hold<T, U> { todo!() } }\n\
+                    impl<T, U> Hold<T, U> where T: Copy { pub fn process(&mut self, x: T, y: &mut Vec<U>) -> Option<T> { todo!() } }";
+        let node = parse(hold).unwrap();
+        assert_eq!((node.generics, node.output_types), (vec!["T".to_owned(), "U".to_owned()], vec!["Option<T>".to_owned(), "Vec<U>".to_owned()]));
+        let values: Vec<_> = node.inputs.iter().map(|i| i.value.as_str()).collect();
+        assert_eq!(values, ["T", "Vec<U>"]);
         let fails = [
             "#[node] struct S; impl S { pub fn init() -> Self { S } pub fn process(&mut self) {} }",
             "#[node] pub struct S<T>(T);",
+            "#[node] pub struct S<T>(T); impl<U> S<U> { pub fn init() -> Self { todo!() } pub fn process(&mut self) {} }",
+            "#[node] pub struct S<T>(T); impl<T> S<T> { pub fn init() -> Self { todo!() } pub fn process<V>(&mut self, v: V) {} }",
+            "#[node] pub struct S<'a>(&'a u8);",
             "#[node] pub struct S; impl S { pub fn process(&mut self) {} }",
             "#[node] pub struct S; impl S { pub fn init() -> Self { S } }",
             "#[node] pub struct S; impl S { pub fn init(x: u8) -> Self { S } pub fn process(&mut self) {} }",

@@ -9,8 +9,8 @@ checks open.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
-The first slice works: stateful nodes (4.2). It ran on 2026-11-15 on Windows 11 Pro, with Rust
-1.94.0. Generic nodes, the delay node and node GUIs come next.
+Two slices work: stateful nodes (4.2) and generic nodes (4.5). They ran on 2026-11-15 on
+Windows 11 Pro, with Rust 1.94.0. The delay node and node GUIs come next.
 
 ### What works
 
@@ -21,6 +21,9 @@ The first slice works: stateful nodes (4.2). It ran on 2026-11-15 on Windows 11 
 - A panic in `init` or `process` drops the state, so the next run calls `init` again (4.7).
   An `Err` of `process` keeps the state.
 - The state is in a lock of its own. A state that is `Send` lets the cluster run in parallel.
+- A node function or a state struct can have type parameters. The engine gets them from the
+  types of the input wires, and finds the connection kind of each output from its real type.
+  A parameter that no input wire gives makes an error on the node.
 
 ### What was checked
 
@@ -31,6 +34,10 @@ The first slice works: stateful nodes (4.2). It ran on 2026-11-15 on Windows 11 
 - The hello test has a stateful frame node that adds its input to a count at each frame. With
   `--frames 3`, the CLI wrote `6.5`, `7.5`, `8.5` and `9.5`. Thus the state stayed between
   frames. 100 frames with the stateful node made no allocation.
+- In the same test, the tick node and the mix node are generic (`Tick<T>` and `mix<T>`). The
+  cluster compiled them with `f64` from the wires, and the output was the same.
+- The plan test resolves `pick<T>` to `u8` and `Vec<u8>`, and finds the kind of `u8`. It refuses
+  two wires that give `u8` and `f64` for `T`, and a `T` that no wire gives.
 
 ### Known limits
 
@@ -39,7 +46,12 @@ The first slice works: stateful nodes (4.2). It ran on 2026-11-15 on Windows 11 
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
   not only the task of the node (9.2).
 - No test makes a real cluster panic in `process`. The glue test checks the rule.
-- The editor was not run with a stateful node. It uses the same engine code as the CLI.
+- The editor was not run with a stateful or a generic node. It uses the same engine code as
+  the CLI.
+- The editor shows a generic pin with the name of its type parameter, not in gray. The search
+  of the Add node palette does not join a wire to a generic pin.
+- The types go only from an output to an input. A type parameter that only an output uses
+  stays unresolved, also when a wire goes from that output to a pin of a known type.
 
 ## Milestone 4: automatic parallelism and the frame domain
 

@@ -11,6 +11,7 @@ mod node;
 mod plan;
 mod pool;
 pub mod project;
+mod types;
 
 use std::fmt;
 use std::fs;
