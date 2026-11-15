@@ -14,6 +14,9 @@ export interface RunState {
   builtMs: number | null;
   /** The time of the last build that compiled. */
   lastBuildMs: number | null;
+  /** The time of the last build of the base and of the slot that compiled (7.3). */
+  baseMs: number | null;
+  slotMs: number | null;
   runMs: number | null;
   ok: boolean;
   reports: Report[];
@@ -42,6 +45,8 @@ export const NO_RUN: RunState = {
   phase: 'none',
   builtMs: null,
   lastBuildMs: null,
+  baseMs: null,
+  slotMs: null,
   runMs: null,
   ok: true,
   reports: [],

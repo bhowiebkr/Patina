@@ -20,7 +20,7 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 4. The slot: the base calls the node in edit mode through a function pointer. This part works.
 5. Fuse back, the bake profile and **Bake**, with the decision of the idle time (Q7). This part
    works.
-6. The **Layers** panel, the slot icon and the status bar. The slot icon and the status bar work.
+6. The **Layers** panel, the slot icon and the status bar. This part works.
 7. The check of the roadmap, with the measured fuse time. This part works.
 
 ### What works
@@ -53,6 +53,8 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   **Slot: name**, **Fused** or **Edit build**.
 - After 30 s with no change, the editor fuses the live graph in bake mode (Q7). The **Bake**
   button fuses at once.
+- The **Layers** tab of the left area shows a **Base** row and a **Slot** row. Each row shows
+  its build state and the time of its last build that compiled (7.3).
 - When a newer build waits after a build, the editor drops the older build. It does not run
   it, and its errors do not show (7.2).
 
@@ -104,7 +106,10 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.
 - Nobody ran the state move in the editor. The editor calls the same engine code as the test.
-- The **Layers** panel (7.3) does not exist yet.
+- A layout that an older editor saved has no **Layers** tab. **Views** or **Reset layout**
+  shows it.
+- The **Layers** panel shows a build as **Building** on the slot row when a node is in the slot.
+  The engine does not tell the frontend before the build which layer it builds.
 - The fuse builds on the engine thread, so the graph does not run during a fuse
   (`crates/patina-editor/src/engine.rs`).
 - When a build of the slot alone fails, the editor marks the base as stale. The next save builds
@@ -629,7 +634,7 @@ To run the editor from a checkout:
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
-  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
+  (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
 - The palette of a drag from a pin compares the type text (15.2). Two paths of one type, for
   example `String` and `std::string::String`, do not match.
 - The **Views** and **Widgets** groups have no **+** button yet. Undo does not remove a new

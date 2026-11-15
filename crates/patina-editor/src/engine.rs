@@ -97,9 +97,11 @@ pub enum Event {
     /// node call that started, and `logs` has the log lines of the nodes (15.7). `frames` is true
     /// when the frame domain runs after this run of the batch domain (9.1). `fused` is true for
     /// clusters in bake mode with no slot, and `slot` has the node folder in the slot (7.3).
+    /// `slot_only` is true when the build made only the slot library.
     Ran {
         serial: u64,
         built_ms: Option<f64>,
+        slot_only: bool,
         fused: bool,
         slot: Option<String>,
         run_ms: f64,
@@ -395,6 +397,7 @@ fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, loaded: 
 
 fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Option<Event>, Error> {
     let mut built_ms = None;
+    let mut slot_only = false;
     let mut errors = Vec::new();
     if let Some(build) = build {
         let start = Instant::now();
@@ -410,7 +413,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
         }
         match built {
             // The slot library changed in place, and the nodes in it got new states (7.1).
-            Ok(None) => {}
+            Ok(None) => slot_only = true,
             Ok(Some(mut cluster)) => {
                 *lock(&shared.ids) = cluster.node_ids().map(str::to_owned).collect();
                 // The node states with the same key go on in the new cluster (7.2).
@@ -449,7 +452,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
     let frames = params.ok && outcome.ok && cluster.frames() && !shared.control.stopped();
-    Ok(Some(Event::Ran { serial: run.serial, built_ms, fused, slot, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors }))
+    Ok(Some(Event::Ran { serial: run.serial, built_ms, slot_only, fused, slot, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors }))
 }
 
 /// Cuts a text for its badge at a character boundary.

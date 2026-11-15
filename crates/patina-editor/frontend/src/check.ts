@@ -238,6 +238,11 @@ fn broken() -> u32 {
     // A save of a Rust file of a node puts the node in the slot (7.1).
     if (fixed.slot !== 'number') throw new Error(`the save did not put the node in the slot: ${fixed.slot}`);
     await until('the slot icon on the node', RUN_MS, () => document.querySelector('.patina-node [title="In the slot"]') !== null);
+    // The Layers panel shows the node in the slot with the time of its build (7.3).
+    const leftTab = (name: string) => [...document.querySelectorAll<HTMLElement>('.area.left [role=tab]')].find((t) => t.textContent === name)!;
+    leftTab('Layers').click();
+    await until('the slot row of the Layers panel', RUN_MS, () => /Slotnumber - Edit buildBuilt in/.test(document.querySelector('.layers')?.textContent ?? ''));
+    leftTab('Project').click();
     await until('no compile error and no unsaved code', RUN_MS, () =>
       document.querySelector('.patina-node.compile-error') === null && unsavedFiles().length === 0,
     );

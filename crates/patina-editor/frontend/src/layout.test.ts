@@ -28,7 +28,7 @@ test('a closed tab gives the next tab and opens again in its default area', () =
   let l = closePanel(defaultLayout(), 'output');
   assert.deepEqual(l.areas.bottom, { tabs: ['logs'], active: 'logs', size: 200 });
   l = closePanel(movePanel(l, 'logs', 'left'), 'project');
-  assert.deepEqual([l.areas.left.tabs, l.areas.left.active, l.areas.bottom.active], [['logs'], 'logs', null]);
+  assert.deepEqual([l.areas.left.tabs, l.areas.left.active, l.areas.bottom.active], [['layers', 'logs'], 'logs', null]);
   l = openPanel(l, 'output');
   assert.deepEqual(l.areas.bottom, { tabs: ['output'], active: 'output', size: 200 });
   l = openPanel(l, 'logs');

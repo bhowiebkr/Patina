@@ -402,7 +402,8 @@ to = \"00000000000000b4.base\"
     fs::write(&graph, kept.join("\n[[")).unwrap();
     let toolchain = Toolchain::detect().unwrap();
     let code = project.join("nodes/number/src/lib.rs");
-    let number = fs::read_to_string(&code).unwrap();
+    // A checkout with CRLF line ends must still match the patterns below.
+    let number = fs::read_to_string(&code).unwrap().replace("\r\n", "\n");
     let first = number.replace("-> f64 {\n    value", "-> f32 {\n    value as f32");
     let second = number.replace("-> f64 {\n    value", "-> i32 {\n    (value * 3.0) as i32");
     assert!(first != number && second != number);

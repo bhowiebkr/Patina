@@ -32,6 +32,7 @@ import { Inspector, type InspectorTab } from './Inspector';
 import type { PanelId } from './layout';
 import { addLines, Lines, type Line } from './Lines';
 import { ExpandGui, FullGui } from './NodeGui';
+import { LayersPanel } from './LayersPanel';
 import { NO_RUN, valueStale, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
@@ -269,6 +270,9 @@ export function App() {
         phase: 'ran',
         builtMs: e.builtMs,
         lastBuildMs: e.builtMs !== null && !failed ? e.builtMs : r.lastBuildMs,
+        // A build of the base with a node in the slot also builds the slot (7.1).
+        baseMs: e.builtMs !== null && !failed && !e.slotOnly ? e.builtMs : r.baseMs,
+        slotMs: e.slot === null ? null : e.builtMs !== null && !failed ? e.builtMs : r.slotMs,
         runMs: e.runMs,
         ok: e.ok,
         reports: e.reports,
@@ -415,6 +419,7 @@ export function App() {
     </button>
   );
   const panels: Record<PanelId, Panel> = {
+    layers: { body: <LayersPanel run={run} /> },
     project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} /> },
     inspector: {
       body: (

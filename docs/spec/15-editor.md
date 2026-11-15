@@ -47,7 +47,7 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 This is an agent decision of 2026-11-15. The owner can change it.
 
 - The left, right and bottom areas take panels. The center holds only the graph view. Tabs in the center come with the views (15.8).
-- The panels are **Project**, **Inspector**, **Logs** and **Output**. The **Debug** tab and the **Layers** tab come later.
+- The panels are **Layers**, **Project**, **Inspector**, **Logs** and **Output**. The **Debug** tab comes later. The left area has the **Layers** tab and the **Project** tab, and **Project** is active at the start.
 - Float windows come later. In version 1, a tab cannot go out of the window.
 - A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area** and **Close**. The menu is the method for the keyboard and for screen readers.
 - An area with no tabs takes no space. During a drag, it shows as a drop zone.

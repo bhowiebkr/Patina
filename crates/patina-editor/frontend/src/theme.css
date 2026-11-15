@@ -814,3 +814,36 @@ select {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* The Layers panel (7.3): one row for the base and one for the slot. */
+.layers {
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.layer {
+  min-height: 26px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layer-state {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-state.failed {
+  color: var(--error);
+}
+
+.layer .hint {
+  margin-left: auto;
+  color: var(--subtle);
+  font-size: 12px;
+  white-space: nowrap;
+}
