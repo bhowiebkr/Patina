@@ -106,9 +106,11 @@ These block milestone 2. The [mockup plan](mockup-plan.md) lists them too.
   a dependency of one node folder. **Add crate** in the **Code** tab runs `cargo add`, with undo.
 - [x] The start screen: new project, open project and recent projects. Spec 15.10 defines it,
   and the editor has it.
-- [ ] The settings screen.
-- [ ] Where the large node GUI goes in the inspector. The mockup plan proposes the top, under
-  the header. The spec does not say.
+- [x] The settings screen. Agent decision in 15.10, 2026-11-15: the **Settings** button of the
+  start screen shows the toolchain, the data folders and the trusted projects. **Remove** takes a
+  folder off the trusted list.
+- [x] Where the large node GUI goes in the inspector. Agent decision in 15.4, 2026-11-15: at
+  the top, under the header and above the tabs, as the mockup plan proposed.
 
 ## 6. GUI guide colors
 

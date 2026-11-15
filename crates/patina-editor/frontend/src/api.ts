@@ -80,6 +80,17 @@ export interface StartInfo {
   check: string | null;
 }
 
+/** The settings screen (15.10). `rust` and `cargo` are null when Patina finds no toolchain. */
+export interface Settings {
+  rust: string | null;
+  cargo: string | null;
+  toolchainProblem: string | null;
+  dataDir: string;
+  projectsDir: string;
+  portable: boolean;
+  trusted: string[];
+}
+
 export interface Report {
   id: string;
   folder: string;
@@ -147,6 +158,9 @@ export const api = {
   openProject: (path: string) => invoke<View>('open_project', { path }),
   closeProject: () => invoke<void>('close_project'),
   trustProject: () => invoke<View>('trust_project'),
+  settings: () => invoke<Settings>('settings'),
+  /** Takes a folder off the list of trusted projects (11), and returns the new list. */
+  untrustProject: (path: string) => invoke<string[]>('untrust_project', { path }),
   edit: (edit: Edit) => invoke<View>('edit', { edit }),
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),

@@ -173,6 +173,8 @@ fn main() {
             session::open_project,
             session::close_project,
             session::trust_project,
+            session::settings,
+            session::untrust_project,
             session::edit,
             session::undo,
             session::redo,

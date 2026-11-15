@@ -6,9 +6,10 @@ import { api, type StartInfo, type View } from './api';
 interface Props {
   start: StartInfo;
   onOpen: (view: View) => void;
+  onSettings: () => void;
 }
 
-export function StartScreen({ start, onOpen }: Props) {
+export function StartScreen({ start, onOpen, onSettings }: Props) {
   const [parent, setParent] = useState(start.projectsDir);
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
@@ -33,7 +34,12 @@ export function StartScreen({ start, onOpen }: Props) {
   return (
     <main className="start">
       <div className="start-card">
-        <img className="logo" src="/logo.png" alt="Patina" />
+        <div className="settings-head">
+          <img className="logo" src="/logo.png" alt="Patina" />
+          <button className="btn" onClick={onSettings}>
+            Settings
+          </button>
+        </div>
         <form className="start-box" onSubmit={create}>
           <h2>New project</h2>
           <div className="start-row">

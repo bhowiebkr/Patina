@@ -28,6 +28,8 @@ To run the editor from a checkout:
   reserved name shows its problem under the field.
 - **Add crate** in the **Code** tab adds a crate of crates.io to the node (15.4). Type `rand` or
   `rand@0.9` and push Enter. Patina runs `cargo add`, and undo removes the crate.
+- **Settings** on the start screen shows the Rust version, the path of `cargo`, the data
+  folders and the trusted projects (15.10). **Remove** takes a folder off the trusted list.
 - The canvas has no animation. The mouse wheel zooms. The middle button, or Space and a drag,
   pans. A drag on the empty canvas selects. Shift or Ctrl adds to the selection.
 - The wires draw on one WebGL2 canvas under the nodes (15.1). A selected wire has an amber
@@ -107,7 +109,9 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 47 steps in 12.0 s:
+  off-screen and does not take the focus. It passed these 48 steps in 11.6 s:
+  - Open **Settings**, find the Rust version and the trusted list, and capture the window into
+    `settings.png`. Click **Back**.
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -171,7 +175,7 @@ To run the editor from a checkout:
 - `cargo test --workspace --locked` passed 52 tests. The tests check the graph edits with undo
   and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the crate names of **Add crate**, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
-  need a run or a build, the project names, the recent and trusted lists, the output lines and
+  need a run or a build, the project names, the recent and trusted lists with a removal, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
@@ -198,13 +202,17 @@ To run the editor from a checkout:
   `ResizeObserver loop`. Monaco causes this message when the **Inspector** shows a new editor.
 - The engine test makes `my-node` and reads its input pin. It refuses `My_Node`, `number`,
   `type`, `Con`, `1a`, `a/b`, `..` and an empty name.
-- CI run 43726582105 of **New node** passed on `windows-latest`, `ubuntu-latest`
+- The capture `settings.png` shows the three parts of the settings screen in the charcoal
+  palette, with the long paths wrapped in the card.
+- CI run 43727365197 of **Add crate** passed on `windows-latest`, `ubuntu-latest`
   and `macos-latest`.
 
 ### Known limits
 
 - **Add crate** has no search of crates.io and no list of versions. The self-check does not run
   `cargo add`, because CI must not need crates.io for the UI check.
+- The settings screen has no **Install toolchain** button yet (milestone 3). The self-check
+  does not click **Remove**. The data test covers the removal.
 - The check does not drag nodes. It pushes only Ctrl+S and Delete. A person did not use the
   editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.

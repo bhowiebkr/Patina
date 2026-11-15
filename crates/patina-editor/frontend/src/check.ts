@@ -107,6 +107,19 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
   };
 
   try {
+    // The settings screen (15.10): the start screen opens it. It shows the Rust version of the
+    // toolchain and the list of trusted projects. Back returns to the start screen.
+    const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text);
+    const section = (name: string) => document.querySelector(`section[aria-label="${name}"]`)?.textContent ?? '';
+    await until('the Settings button', RUN_MS, () => !!button('Settings'));
+    button('Settings')!.click();
+    const trustedList = () => section('Trusted projects').endsWith('None') || !!document.querySelector('.settings-row');
+    await until('the toolchain and the trusted projects', RUN_MS, () => /Rust\d/.test(section('Toolchain')) && trustedList());
+    await api.capture('settings');
+    button('Back')!.click();
+    await until('the start screen', RUN_MS, () => !!button('Settings'));
+    steps.push('settings screen');
+
     let v = await step('new project', () => api.newProject(dir, 'check'));
     if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0) throw new Error('a new project is trusted, paused and empty');
     v = await step('add nodes', () =>

@@ -47,6 +47,8 @@ pub struct Data {
     pub dir: PathBuf,
     /// The default parent folder of new projects.
     pub projects: PathBuf,
+    /// True when the data stays in the folder of a portable edition or of `--portable` (13.3).
+    pub portable: bool,
 }
 
 impl Data {
@@ -54,19 +56,19 @@ impl Data {
     /// then the folder of the user.
     pub fn find(portable: Option<PathBuf>) -> Result<Data, String> {
         let exe_dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_owned));
-        let (dir, projects) = match (portable, exe_dir) {
-            (Some(dir), _) => (dir.join("data"), dir.join("projects")),
-            (None, Some(exe)) if exe.join("portable").is_file() => (exe.join("data"), exe.join("projects")),
+        let (dir, projects, portable) = match (portable, exe_dir) {
+            (Some(dir), _) => (dir.join("data"), dir.join("projects"), true),
+            (None, Some(exe)) if exe.join("portable").is_file() => (exe.join("data"), exe.join("projects"), true),
             (None, _) => {
                 let base = dirs::data_local_dir().ok_or("the folder for local data is not known")?;
                 let name = if cfg!(target_os = "linux") { "patina" } else { "Patina" };
                 let documents = dirs::document_dir().unwrap_or_else(|| base.clone());
-                (base.join(name).join("data"), documents.join("Patina"))
+                (base.join(name).join("data"), documents.join("Patina"), false)
             }
         };
         let dir = std::path::absolute(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         fs::create_dir_all(&dir).map_err(|e| format!("Patina cannot write to {}: {e}", dir.display()))?;
-        Ok(Data { dir, projects })
+        Ok(Data { dir, projects, portable })
     }
 
     /// The recent projects, the newest first.
@@ -82,8 +84,13 @@ impl Data {
         self.write_list(RECENT, &list)
     }
 
+    /// The trusted project folders, in the order of trust (11).
+    pub fn trusted(&self) -> Vec<PathBuf> {
+        self.read_list(TRUSTED)
+    }
+
     pub fn is_trusted(&self, root: &Path) -> bool {
-        self.read_list(TRUSTED).iter().any(|path| same_path(path, root))
+        self.trusted().iter().any(|path| same_path(path, root))
     }
 
     pub fn trust(&self, root: &Path) -> Result<(), String> {
@@ -91,6 +98,13 @@ impl Data {
         if !list.iter().any(|path| same_path(path, root)) {
             list.push(root.to_owned());
         }
+        self.write_list(TRUSTED, &list)
+    }
+
+    /// Takes a folder off the list of trusted projects.
+    pub fn untrust(&self, root: &Path) -> Result<(), String> {
+        let mut list = self.trusted();
+        list.retain(|path| !same_path(path, root));
         self.write_list(TRUSTED, &list)
     }
 
@@ -203,7 +217,7 @@ fn path_key(path: &Path) -> Vec<OsString> {
     path.components().map(part).collect()
 }
 
-fn same_path(a: &Path, b: &Path) -> bool {
+pub fn same_path(a: &Path, b: &Path) -> bool {
     path_key(a) == path_key(b)
 }
 
@@ -226,9 +240,14 @@ mod tests {
         assert!(!data.is_trusted(&path(1)));
         data.trust(&path(1)).unwrap();
         data.trust(&path(1)).unwrap();
-        let trusted = data.read_list(TRUSTED);
+        data.trust(&path(2)).unwrap();
+        let trusted = data.trusted();
+        data.untrust(&path(1).join(".")).unwrap();
+        let after = data.trusted();
         fs::remove_dir_all(&dir).unwrap();
-        assert_eq!(trusted, [path(1)]);
+        assert_eq!(trusted, [path(1), path(2)]);
+        assert_eq!(after, [path(2)]);
+        assert!(data.portable);
         assert!(same_path(Path::new("/a/b/"), Path::new("/a/b")));
         assert_eq!(same_path(Path::new("/A/b"), Path::new("/a/b")), cfg!(windows));
     }

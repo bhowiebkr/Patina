@@ -185,6 +185,12 @@ The engine reports a node as skipped when a wired input has no value, because an
 - The **Code** tab shows the files of the node folder (6.2).
 - The user can open the code of a view (15.8), a widget or a type crate. Then the header shows its name, its kind and its build state.
 
+The large node GUI (4.3) goes at the top of the **Inspector**, under the header and above the tabs. (Agent decision, 2026-11-15. The owner can change it.)
+
+- Reason: the GUI is the main control of the node. It stays in view while the user changes tabs.
+- The GUI area has the height that the node asks for, up to half of the height of the **Inspector**. A higher GUI scrolls in its area.
+- A node with no `ui` function has no GUI area, and the tabs start under the header.
+
 A crate of crates.io is a dependency of one node folder, in its `Cargo.toml` (8.1). (Agent decision, 2026-11-15. The owner can change it.)
 
 - The user edits `[dependencies]` in the `Cargo.toml` tab of the **Code** tab, or clicks **Add crate** above the code.
@@ -410,3 +416,14 @@ These are the fewest steps from a new project to a reopen:
 - A new project goes on the list of trusted projects (11).
 - A project opens with its graph paused. The user clicks **Run**.
 - The start screen has **New project**, **Open project** and a list of recent projects.
+
+**Settings screen**
+
+This is an agent decision of 2026-11-15. The owner can change it.
+
+- The start screen has a **Settings** button. The settings screen replaces the start screen. **Back** or Esc returns to the start screen.
+- The **Toolchain** part shows the Rust version and the path of `cargo`, or the problem that stops a build. It is the toolchain panel of 13.2. **Install toolchain** comes with milestone 3.
+- The **Folders** part shows the data folder, with **(portable)** for the portable edition (13.3), and the folder of new projects.
+- The **Trusted projects** part lists the trusted folders (11). **Remove** takes a folder off the list. Patina asks again when that project opens.
+- Patina refuses to remove the open project from the list. The start screen has no open project, so this case does not occur from the settings screen.
+- Reason: no project is open on the start screen, so a change of trust has no effect on a build or a run. The settings of a project, for example the wire look, stay in the **Inspector**. Later settings of Patina, for example the keys, go on this screen.

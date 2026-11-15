@@ -308,6 +308,10 @@ Click **Stop** to also end the active run: Patina starts no new node call. The n
 not start show **Stale**. A node with a long loop can read `patina_sdk::stop_requested()` and
 return early.
 
+Click **Settings** on the start screen to see the Rust toolchain, the data folders and the
+trusted projects. Click **Remove** to take a project off the trusted list. Patina then asks
+again before it builds the project.
+
 If Patina stops before you save, it keeps your changes. When you open the project again, click
 **Restore** to get them back, or **Discard** to delete them.
 

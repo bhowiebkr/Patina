@@ -32,6 +32,7 @@ import { addLines, Lines, type Line } from './Lines';
 import { NO_RUN, valueStale, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
+import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
 
 /** Listens to a Tauri event while the component is mounted. */
@@ -86,6 +87,7 @@ let checkStarted = false;
 
 export function App() {
   const [start, setStart] = useState<StartInfo | null>(null);
+  const [settings, setSettings] = useState(false);
   const [view, setView] = useState<View | null>(null);
   const [run, setRun] = useState<RunState>(NO_RUN);
   const [output, setOutput] = useState<Line[]>([]);
@@ -205,6 +207,7 @@ export function App() {
   );
 
   const refreshStart = useCallback(() => api.startInfo().then(setStart).catch((e) => setError(String(e))), []);
+  const closeSettings = useCallback(() => setSettings(false), []);
 
   useEffect(() => {
     refreshStart();
@@ -324,7 +327,8 @@ export function App() {
   }, []);
 
   if (!view) {
-    return start ? <StartScreen start={start} onOpen={show} /> : null;
+    if (settings) return <SettingsScreen onBack={closeSettings} />;
+    return start ? <StartScreen start={start} onOpen={show} onSettings={() => setSettings(true)} /> : null;
   }
 
   const live = view.live;

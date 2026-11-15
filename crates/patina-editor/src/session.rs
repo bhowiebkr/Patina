@@ -12,7 +12,7 @@ use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
 
-use crate::data::{Data, Recovery};
+use crate::data::{Data, Recovery, same_path};
 use crate::engine::{self, Job, Run, Shared};
 
 pub struct Editor {
@@ -78,6 +78,20 @@ pub struct StartInfo {
     recent: Vec<Recent>,
     projects_dir: PathBuf,
     check: Option<PathBuf>,
+}
+
+/// The settings screen (15.10): the toolchain, the folders and the trusted projects.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Settings {
+    /// The Rust version, or none when Patina finds no toolchain.
+    rust: Option<String>,
+    cargo: Option<PathBuf>,
+    toolchain_problem: Option<String>,
+    data_dir: PathBuf,
+    projects_dir: PathBuf,
+    portable: bool,
+    trusted: Vec<PathBuf>,
 }
 
 #[derive(Serialize)]
@@ -256,6 +270,26 @@ pub fn start_info(editor: State<'_, Editor>) -> StartInfo {
         projects_dir: editor.data.projects.clone(),
         check: editor.check.clone(),
     }
+}
+
+#[tauri::command(async)]
+pub fn settings(editor: State<'_, Editor>) -> Settings {
+    let (rust, cargo, toolchain_problem) = match Toolchain::detect() {
+        Ok(t) => (Some(t.release), Some(t.cargo), None),
+        Err(e) => (None, None, Some(e.to_string())),
+    };
+    let data = &editor.data;
+    Settings { rust, cargo, toolchain_problem, data_dir: data.dir.clone(), projects_dir: data.projects.clone(), portable: data.portable, trusted: data.trusted() }
+}
+
+/// Takes a folder off the list of trusted projects (11). Patina asks again when it opens next.
+#[tauri::command(async)]
+pub fn untrust_project(editor: State<'_, Editor>, path: PathBuf) -> Result<Vec<PathBuf>, String> {
+    if editor.lock().as_ref().is_some_and(|s| same_path(s.project.root(), &path)) {
+        return Err("Close the project first.".to_owned());
+    }
+    editor.data.untrust(&path)?;
+    Ok(editor.data.trusted())
 }
 
 /// Makes a project with the `number` and `show` nodes in `<parent>/<name>` (15.10).

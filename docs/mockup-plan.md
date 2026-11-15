@@ -57,8 +57,8 @@ Patina theme, so a node GUI looks like the rest of the editor.
 - A node GUI has a compact size in the node body and a large size in the inspector. A node can
   also have a full size that fills the graph area (spec 4.3). Its header then shows an expand
   button.
-- Proposal, not yet in the spec: the inspector shows the large GUI at the top, under the
-  header. The **Parameters**, **Code** and **Logs** tabs are below it.
+- Spec 15.4: the inspector shows the large GUI at the top, under the header. The
+  **Parameters**, **Code** and **Logs** tabs are below it.
 - Widget fills are neutral light gray. The widget kit (0001) also shows a version filled with
   the header color of the node, so that the owner can choose. A focused control has an outline
   in a lighter shade of the header color (spec 15.3).
