@@ -15,7 +15,8 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
 1. The executable package (14.1). This part works.
 2. The **Package** button of the editor. This part works.
 3. The editor opens a package and shows the original project. This part works.
-4. The library (C API) and the Python module.
+4. The library (C API) (14.2). This part works.
+5. The Python module.
 
 ### What works
 
@@ -29,6 +30,9 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
   wiring check.
 - The **Package** button of the **Project** panel saves the project and makes the package on the
   engine thread, with the `patina-cli` next to the editor as the runner.
+- The crate `patina-capi` gives the C library `patina_capi` of 14.2. The package build copies it
+  and writes `patina_capi.h`. The CLI test opens the package through the C functions, sets a
+  parameter, runs the graph and reads the value `5.0`. A unit test checks the error results.
 
 ### Known limits
 
@@ -39,7 +43,9 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
   folder into the package. The **Package** button and the opening did not run in the window yet.
   It needs `patina-cli` next to the editor, as in the portable folder.
 - During a package build, the editor does not run the graph.
-- The library (C API) and the Python module are not done.
+- No C program loaded `patina_capi.dll` yet. The test calls the functions through the Rust
+  library of the crate.
+- The Python module is not done. It needs the `pyo3` crate (a download) and a Python install.
 - The package ran only on Windows.
 
 ## Milestone 7: subgraphs and reuse

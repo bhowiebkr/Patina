@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/patina-capi",
     "crates/patina-cli",
     "crates/patina-editor",
     "crates/patina-engine",

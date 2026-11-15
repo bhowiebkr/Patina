@@ -265,6 +265,9 @@ A finished graph can become a package that runs without the editor:
 - A library with a C API, to call from other software.
 - A Python module.
 
+To call a package from C, load `patina_capi.dll` (`libpatina_capi.so` on Linux) of the
+package and include `patina_capi.h`. Then call `patina_open` with the package folder.
+
 A package holds the full source of the project. The editor can open a package and show the
 original project. A package also holds the license notices of Patina and of the crates in it.
 

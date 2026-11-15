@@ -16,6 +16,9 @@ pub const HEADER: &str = "package.toml";
 /// The project files and folders that a package holds (6.2). `build/` stays out.
 const SOURCE: [&str; 9] = ["patina.toml", "Cargo.toml", "Cargo.lock", "graphs", "nodes", "views", "widgets", "connections", "types"];
 
+/// The C header of the library of a package (14.2).
+const C_HEADER: (&str, &str) = ("patina_capi.h", include_str!("../../patina-capi/patina_capi.h"));
+
 const PATINA_LICENSES: [(&str, &str); 2] =
     [("LICENSE-MIT", include_str!("../../../LICENSE-MIT")), ("LICENSE-APACHE", include_str!("../../../LICENSE-APACHE"))];
 
@@ -81,10 +84,19 @@ fn write(dir: &Path, checked: &Checked, toolchain: &Toolchain, libraries: &[(nod
     }
     let program = dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
     fs::copy(runner, &program).map_err(|e| Error::Io(program, e))?;
+    // The C library is next to the runner in the portable zip (14.2).
+    let mut warnings = Vec::new();
+    let library = format!("{}patina_capi{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX);
+    match runner.with_file_name(&library) {
+        from if from.is_file() => drop(fs::copy(from, dir.join(&library)).map_err(|e| Error::Io(dir.join(&library), e))?),
+        from => warnings.push(format!("{} is not there, so the package has no C library", from.display())),
+    }
+    fs::write(dir.join(C_HEADER.0), C_HEADER.1).map_err(|e| Error::Io(dir.join(C_HEADER.0), e))?;
     let header = Header { format: 1, patina: env!("CARGO_PKG_VERSION").to_owned(), rust: toolchain.release.clone(), wiring: wiring(checked) };
     let text = toml::to_string(&header).map_err(|e| Error::Build(e.to_string()))?;
     fs::write(dir.join(HEADER), text).map_err(|e| Error::Io(dir.join(HEADER), e))?;
-    notices(&checked.root, toolchain, runner, &dir.join("licenses"))
+    warnings.extend(notices(&checked.root, toolchain, runner, &dir.join("licenses"))?);
+    Ok(warnings)
 }
 
 /// Opens the package in `dir` and loads its clusters. The project source must give the same

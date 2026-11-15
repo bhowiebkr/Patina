@@ -179,6 +179,8 @@ The package is a folder:
 | `lib/` | The clusters, `cluster-batch` and `cluster-frame`, and the shared Rust runtime (8.5). |
 | `project/` | The project source of item 3. |
 | `licenses/` | The notices of item 5, and a `README.txt` with the license of each crate. |
+| `patina_capi.dll` (`libpatina_capi.so` on Linux) | The C library of 14.2, when it is next to the runner. |
+| `patina_capi.h` | The C header of 14.2. |
 
 - When `package.toml` is next to the program, the program runs the package and not the CLI
   commands.
@@ -194,5 +196,29 @@ The package is a folder:
 - The notices of the crates of `patina-cli` come from the `licenses/crates` folder of the portable
   zip (13.1). A runner that has no such folder gives a warning.
 
-(Agent decision, 2026-11-15. The owner can change it. One file for each package, the library,
-and the Python module are later work of milestone 8.)
+(Agent decision, 2026-11-15. The owner can change it. One file for each package and the Python
+module are later work of milestone 8.)
+
+### 14.2 Library package
+
+Each package is also a library. The C library `patina_capi` (crate `crates/patina-capi`) opens
+a package folder and runs its graph in the process of the caller. `patina_capi.h` declares the
+functions:
+
+| Function | Result |
+|---|---|
+| `patina_open(folder)` | The package, or NULL. The checks of 14.1 apply. |
+| `patina_set(package, "<node ID>.<input key>", value)` | 0, or -1 for a bad name or value. |
+| `patina_run(package)` | Runs the graph one time. 0, or -1 when a node failed. |
+| `patina_frame(package)` | Runs one frame. 0, or -1 when a node failed or the graph has no frame nodes. |
+| `patina_value(package, "<node ID>.<output key>")` | The value as text, or NULL. |
+| `patina_error()` | The text of the last error on this thread. |
+| `patina_close(package)` | Closes the package. NULL is permitted. |
+
+- `patina_value` gives the outputs of the last run or frame. Only wired outputs have a value.
+  The text is the Rust `Debug` text. It stays valid until the next call with the package.
+- One thread at a time uses a package. A panic in Patina gives the failure result and an error.
+- The portable zip (13.1) contains the library next to `patina-cli`. The package build copies it
+  when it is there, and writes the header always.
+
+(Agent decision, 2026-11-15. The owner can change it.)

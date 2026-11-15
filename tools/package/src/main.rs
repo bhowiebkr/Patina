@@ -12,8 +12,9 @@ use std::process::Command;
 
 type Result<T> = std::result::Result<T, String>;
 
-/// The workspace packages in the zip, and their programs.
-const PACKAGES: [&str; 2] = ["patina-editor", "patina-cli"];
+/// The workspace packages in the zip, and their programs. `patina-capi` gives the C library of
+/// the packages (spec 14.2).
+const PACKAGES: [&str; 3] = ["patina-editor", "patina-cli", "patina-capi"];
 const PROGRAMS: [&str; 2] = ["patina", "patina-cli"];
 
 /// The license texts in `notices/` for the crates that have no license file. Each text comes
@@ -58,6 +59,8 @@ fn run() -> Result<()> {
         let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
         copy(&root.join("target").join("release").join(&file), &folder.join(&file))?;
     }
+    let library = format!("{}patina_capi{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX);
+    copy(&root.join("target").join("release").join(&library), &folder.join(&library))?;
     write(&folder.join("portable"), PORTABLE)?;
     for name in ["LICENSE-MIT", "LICENSE-APACHE"] {
         copy(&root.join(name), &licenses.join(name))?;

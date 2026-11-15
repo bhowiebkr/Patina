@@ -1,0 +1,16 @@
+[package]
+name = "patina-capi"
+version = "0.0.0"
+description = "The C API of a Patina package (spec 14.2)."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+patina-engine = { path = "../patina-engine" }

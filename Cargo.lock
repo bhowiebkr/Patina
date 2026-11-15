@@ -2378,9 +2378,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-capi"
+version = "0.0.0"
+dependencies = [
+ "patina-engine",
+]
+
+[[package]]
 name = "patina-cli"
 version = "0.0.0"
 dependencies = [
+ "patina-capi",
  "patina-engine",
 ]
 

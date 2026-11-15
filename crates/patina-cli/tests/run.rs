@@ -483,7 +483,7 @@ fn a_package_runs_alone_and_takes_parameters() {
     }
     let made = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("package").arg(&project).arg(&out).arg("--edit").output().unwrap();
     assert!(made.status.success(), "{}", String::from_utf8_lossy(&made.stderr));
-    assert!(out.join("licenses/LICENSE-MIT").is_file() && out.join("project/graphs/main.toml").is_file());
+    assert!(out.join("licenses/LICENSE-MIT").is_file() && out.join("project/graphs/main.toml").is_file() && out.join("patina_capi.h").is_file());
     assert!(!out.join("project/build").exists(), "the build folder stays out of the package");
 
     let program = out.join(format!("hello-pkg{}", std::env::consts::EXE_SUFFIX));
@@ -492,4 +492,22 @@ fn a_package_runs_alone_and_takes_parameters() {
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "5");
     let bad = Command::new(&program).arg("nothing.value=1").output().unwrap();
     assert!(!bad.status.success());
+
+    // The C API opens the same package (14.2).
+    let dir = std::ffi::CString::new(out.to_str().unwrap()).unwrap();
+    // SAFETY: each pointer is a valid C string, or the package from `patina_open`.
+    unsafe {
+        use patina_capi::*;
+        let error = || std::ffi::CStr::from_ptr(patina_error()).to_string_lossy().into_owned();
+        let package = patina_open(dir.as_ptr());
+        assert!(!package.is_null(), "{}", error());
+        assert_eq!(patina_set(package, c"9bc1790966687030.value".as_ptr(), c"1".as_ptr()), 0);
+        assert_eq!(patina_set(package, c"nothing.value".as_ptr(), c"1".as_ptr()), -1);
+        assert_eq!(patina_run(package), 0, "{}", error());
+        let value = patina_value(package, c"f89c6e329e8ea336.out".as_ptr());
+        assert_eq!(std::ffi::CStr::from_ptr(value).to_str().unwrap(), "5.0");
+        assert!(patina_value(package, c"3b7cec82f6a4ed1a.out".as_ptr()).is_null());
+        assert_eq!(patina_frame(package), -1, "hello has no frame nodes");
+        patina_close(package);
+    }
 }
