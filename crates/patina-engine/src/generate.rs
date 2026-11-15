@@ -63,8 +63,9 @@ pub fn source(plan: &Plan) -> String {
         shared.push(format!("n{n}_{k}"));
     }
     // Each use of a stateful node has its own state (4.2). It drops with the cluster.
-    for (n, step) in plan.steps.iter().enumerate().filter(|(_, step)| plan.nodes[step.node].1.state.is_some()) {
-        let _ = writeln!(s, "    let s{n} = ::patina_sdk::glue::State::new(); // {}", step.id);
+    let stateful: Vec<usize> = plan.stateful().collect();
+    for &n in &stateful {
+        let _ = writeln!(s, "    let s{n} = ::patina_sdk::glue::State::new(); // {}", plan.steps[n].id);
         shared.push(format!("s{n}"));
     }
     // The value of each delay for the next frame (9.2). The first frame gives `Default::default()`.
@@ -121,6 +122,16 @@ pub fn source(plan: &Plan) -> String {
             s,
             "            {n} => ::patina_sdk::glue::draw(&s{n}, ::{krate}::{state}::init, |st, ui| st.ui(ui), (mode, events), rep, {n}),"
         );
+    }
+    s.push_str("            _ => false,\n        },\n");
+    // The states move from an old cluster to a new cluster when their keys did not change (7.2).
+    s.push_str("        ::patina_sdk::glue::Cmd::Take(index, out) => match index {\n");
+    for n in &stateful {
+        let _ = writeln!(s, "            {n} => ::patina_sdk::glue::take_state(&s{n}, out),");
+    }
+    s.push_str("            _ => false,\n        },\n        ::patina_sdk::glue::Cmd::Put(index, moved) => match index {\n");
+    for n in &stateful {
+        let _ = writeln!(s, "            {n} => ::patina_sdk::glue::put_state(&s{n}, moved, rep, {n}),");
     }
     s.push_str("            _ => false,\n        },\n");
     // The end of a domain drops the values of its steps (9.1). A value that another domain reads
@@ -371,6 +382,33 @@ pub unsafe extern "C" fn patina_cluster_end(
 ) -> bool {
     // SAFETY: the engine keeps the rules of `glue::end`.
     unsafe { ::patina_sdk::glue::end(cluster.cast(), domain, rep) }
+}
+
+/// # Safety
+///
+/// The engine keeps the rules of `patina_sdk::glue::take`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_cluster_take(
+    cluster: *const ::std::ffi::c_void,
+    node: u32,
+    rep: *const ::patina_sdk::glue::Reporter,
+) -> *mut ::std::ffi::c_void {
+    // SAFETY: the engine keeps the rules of `glue::take`.
+    unsafe { ::patina_sdk::glue::take(cluster.cast(), node, rep) }
+}
+
+/// # Safety
+///
+/// The engine keeps the rules of `patina_sdk::glue::put`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_cluster_put(
+    cluster: *const ::std::ffi::c_void,
+    node: u32,
+    value: *mut ::std::ffi::c_void,
+    rep: *const ::patina_sdk::glue::Reporter,
+) -> bool {
+    // SAFETY: the engine keeps the rules of `glue::put`.
+    unsafe { ::patina_sdk::glue::put(cluster.cast(), node, value, rep) }
 }
 
 /// # Safety

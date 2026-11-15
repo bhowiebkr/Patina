@@ -354,7 +354,7 @@ impl Checked {
             )));
         }
         let built = cargo::build(&self.root, toolchain, &self.plan)?;
-        let library = copy_to_loaded(&self.root, &built)?;
+        let library = copy_to_loaded(&self.root, &built.library)?;
         copy_runtime(&self.root, &toolchain.libdir)?;
         let plan = &self.plan;
         let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
@@ -368,7 +368,7 @@ impl Checked {
             .filter(|(_, s)| plan.nodes[s.node].1.ui && plan.nodes[s.node].1.state.is_some())
             .map(|(n, s)| (s.id.clone(), frame(n)))
             .collect();
-        Cluster::load(&library, names, guis, slots, probes, &plan.tasks)
+        Cluster::load(&library, names, guis, slots, probes, &plan.tasks, built.keys)
     }
 
     /// The generated code of the cluster. Two checks with the same wiring give the same text, so
@@ -456,7 +456,7 @@ fn swap_code(root: &Path, path: &str, text: &str) -> Result<String, String> {
     Ok(old)
 }
 
-fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) -> Result<(), Error> {
+pub(crate) fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) -> Result<(), Error> {
     for entry in fs::read_dir(dir).map_err(|e| Error::Io(dir.to_owned(), e))? {
         let entry = entry.map_err(|e| Error::Io(dir.to_owned(), e))?;
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else { continue };

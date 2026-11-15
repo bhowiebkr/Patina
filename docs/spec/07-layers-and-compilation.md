@@ -36,6 +36,13 @@ Patina compiles a graph in two layers:
 Rules:
 
 - A swap keeps the state of each stateful node whose code did not change. Only the edited node resets (4.2).
+- Each build gives a state key to each use of a stateful node. The new build takes the state of a node from the old build only when the node ID and the key did not change. The key is a hash of these items:
+  - The toolchain: the `rustc` path, the Rust version, the host target, the library folder and the rustflags.
+  - Each unit that cargo built, except the cluster crate: the package ID, the target, the profile, the features, and the cfg values and environment variables of its build script. A unit of a node folder goes only into the key of that node.
+  - The files of each path package, because its version does not change when its files change.
+  - The node folder name, the types of the outputs of the use and the types of its input wires. The wire types set the type parameters of a generic node (4.5).
+- The state move depends on a hypothesis: rustc gives the same layout to the same type with the same compiler, profile and cfg values. A change to a shared crate, to the features or to the toolchain resets all states. This is an agent decision of 2026-11-15. The owner can change it.
+- The state that moves keeps its links to the old build, for example a vtable. The old build stays loaded (8.5).
 - The slot takes a change only when the pins of N stay the same. If a change adds, removes, or changes a pin, the engine rebuilds each cluster that holds a use of N, as for a wiring change.
 - Each build has the revision of the code that it built. The engine never swaps in a build older than the active one, and it shows only the errors of the newest revision.
 - When a swap touches more than one cluster, the engine loads and checks all the new builds before the first switch. If one fails, all the active builds stay. Each clock domain switches at its next run boundary.

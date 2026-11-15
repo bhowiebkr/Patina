@@ -59,6 +59,11 @@ impl Plan {
         })
     }
 
+    /// The index of each step of a stateful node (4.2).
+    pub fn stateful(&self) -> impl Iterator<Item = usize> + '_ {
+        (0..self.steps.len()).filter(|&n| self.nodes[self.steps[n].node].1.state.is_some())
+    }
+
     /// True when step `n` is a delay node (9.2).
     pub fn is_delay(&self, n: usize) -> bool {
         self.delay == Some(self.steps[n].node)

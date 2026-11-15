@@ -134,6 +134,8 @@ type ParallelFn = unsafe extern "C" fn(*const c_void) -> bool;
 type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 type FreeFn = unsafe extern "C" fn(*mut c_void);
+type TakeFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> *mut c_void;
+type PutFn = unsafe extern "C" fn(*const c_void, u32, *mut c_void, *const Reporter) -> bool;
 
 /// A loaded cluster with its parameters and its node states.
 pub struct Cluster {
@@ -143,6 +145,10 @@ pub struct Cluster {
     ui: UiFn,
     end: EndFn,
     free: FreeFn,
+    take: TakeFn,
+    put: PutFn,
+    /// The state key of each node, by node index (7.2). A node with no state has none.
+    keys: Vec<Option<u64>>,
     /// True when the tasks of a run can run on many threads at a time (9.2).
     parallel: bool,
     /// The tasks of the batch and of the frame domain (9.1).
@@ -276,6 +282,7 @@ impl Cluster {
         slots: Vec<(String, String)>,
         probes: Vec<String>,
         tasks: &[Task],
+        keys: Vec<Option<u64>>,
     ) -> Result<Cluster, Error> {
         let fail = |text: String| Error::Load(format!("{}: {text}", path.display()));
         let missing = |e: libloading::Error| fail(e.to_string());
@@ -293,6 +300,8 @@ impl Cluster {
             let task: TaskFn = symbol(&library, b"patina_cluster_task\0").map_err(missing)?;
             let end: EndFn = symbol(&library, b"patina_cluster_end\0").map_err(missing)?;
             let free: FreeFn = symbol(&library, b"patina_cluster_free\0").map_err(missing)?;
+            let take: TakeFn = symbol(&library, b"patina_cluster_take\0").map_err(missing)?;
+            let put: PutFn = symbol(&library, b"patina_cluster_put\0").map_err(missing)?;
             let state = new();
             if state.is_null() {
                 return Err(fail("a parameter default panicked".to_owned()));
@@ -304,7 +313,10 @@ impl Cluster {
             }
             let (sink, out) = (Sink::default(), Outcome::default());
             let work = [f64::INFINITY; 2];
-            Cluster { state, new, set, ui, end, free, parallel, domains, work, names, guis, slots, probes, has_text, sink, out }
+            Cluster {
+                state, new, set, ui, end, free, take, put, keys, parallel, domains, work, names, guis, slots, probes,
+                has_text, sink, out,
+            }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -408,6 +420,40 @@ impl Cluster {
     }
 
     /// The ID of each node, by the node index of `Control::node`.
+    /// Moves the state of each node from `old`, when the node ID and the state key did not change
+    /// (7.2). Returns the number of states that moved. A node of `old` with no state yet gives none.
+    pub fn adopt(&mut self, old: &mut Cluster) -> usize {
+        let pairs: Vec<(u32, u32)> = (self.keys.iter().zip(&self.names).enumerate())
+            .filter_map(|(n, (key, (id, _)))| {
+                let from = old.keys.iter().zip(&old.names).position(|(k, (i, _))| key.is_some() && k == key && i == id)?;
+                Some((u32::try_from(from).ok()?, u32::try_from(n).ok()?))
+            })
+            .collect();
+        let mut moved = 0;
+        for (from, to) in pairs {
+            let (old_state, take, mut value) = (old.state, old.take, std::ptr::null_mut());
+            old.call(std::ptr::null(), |rep| {
+                // SAFETY: `old_state` is live, `&mut old` shows that no run is active, and the
+                // reporter is valid during the call.
+                value = unsafe { take(old_state, from, rep) };
+                true
+            });
+            if value.is_null() {
+                continue;
+            }
+            let (state, put, mut ok) = (self.state, self.put, false);
+            self.call(std::ptr::null(), |rep| {
+                // SAFETY: `state` is live and no run is active. `value` came from `take` of a node
+                // with the same state key, so it has the state type of node `to` (7.2). It is
+                // given one time.
+                ok = unsafe { put(state, to, value, rep) };
+                ok
+            });
+            moved += usize::from(ok);
+        }
+        moved
+    }
+
     pub fn node_ids(&self) -> impl Iterator<Item = &str> {
         self.names.iter().map(|(id, _)| id.as_str())
     }

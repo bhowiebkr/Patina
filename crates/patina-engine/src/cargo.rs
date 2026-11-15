@@ -1,6 +1,8 @@
 //! Finds the Rust toolchain and builds the cluster crate with cargo (spec 8).
 
+use std::collections::HashMap;
 use std::ffi::OsString;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -253,10 +255,18 @@ pub(crate) fn run_text(command: &mut Command) -> Result<String, Error> {
     String::from_utf8(output.stdout).map_err(|e| Error::Build(format!("{program}: {e}")))
 }
 
-/// Writes the files that Patina makes, builds the cluster and returns the path of its library.
+/// A built cluster: the path of its library, and the state key of each step (7.2).
+pub struct Built {
+    pub library: PathBuf,
+    /// A hash of all that can change the layout of the state type of each stateful step. A state
+    /// moves to the next cluster only when its key did not change.
+    pub keys: Vec<Option<u64>>,
+}
+
+/// Writes the files that Patina makes, builds the cluster and returns its library.
 // shortcut: one cluster in the dev profile. Clusters, the shared types library and bake mode
 // come at milestone 6.
-pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf, Error> {
+pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<Built, Error> {
     write(root, "build/clusters/main/Cargo.toml", &generate::manifest(plan))?;
     write(root, "build/clusters/main/lib.rs", &generate::source(plan))?;
     write_workspace(root)?;
@@ -277,20 +287,89 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
         }
         return Err(Error::Compile(errors));
     }
-    for line in output.stdout.split(|b| *b == b'\n') {
-        let Ok(message) = serde_json::from_slice::<Value>(line) else { continue };
-        if message["reason"] != "compiler-artifact" || message["target"]["name"] != generate::TARGET {
+    let messages: Vec<Value> =
+        output.stdout.split(|b| *b == b'\n').filter_map(|line| serde_json::from_slice(line).ok()).collect();
+    let cluster = messages
+        .iter()
+        .find(|m| m["reason"] == "compiler-artifact" && m["target"]["name"] == generate::TARGET)
+        .ok_or_else(|| Error::Build("cargo gave no artifact for the cluster".to_owned()))?;
+    let files = cluster["filenames"].as_array().into_iter().flatten().filter_map(|f| f.as_str());
+    let library = files
+        .map(PathBuf::from)
+        .find(|f| f.extension().is_some_and(|e| e == std::env::consts::DLL_EXTENSION))
+        .ok_or_else(|| Error::Build("cargo gave no library for the cluster".to_owned()))?;
+    let keys = keys(toolchain, plan, &messages, cluster["package_id"].as_str().unwrap_or_default())?;
+    Ok(Built { library, keys })
+}
+
+/// The state key of each step (7.2), from the units of the build. A unit of a node folder goes
+/// only into the keys of that node. All other units go into all keys. The cluster crate changes
+/// with the wiring, so it is not in the keys.
+fn keys(toolchain: &Toolchain, plan: &Plan, messages: &[Value], cluster: &str) -> Result<Vec<Option<u64>>, Error> {
+    let folders: HashMap<&str, &Path> = (messages.iter())
+        .filter(|m| m["reason"] == "compiler-artifact")
+        .filter_map(|m| Some((m["package_id"].as_str()?, Path::new(m["manifest_path"].as_str()?).parent()?)))
+        .filter(|&(id, _)| id != cluster)
+        .collect();
+    // A path package keeps its version when its files change, so its files go into the hash.
+    let node_of = |id: &str| {
+        let folder = folders.get(id).filter(|_| id.contains("path+file:"))?;
+        plan.nodes.iter().position(|(name, _)| folder.ends_with(format!("nodes/{name}")))
+    };
+    let mut common = Vec::new();
+    let mut own = vec![Vec::new(); plan.nodes.len()];
+    let mut add = |id: &str, hash: u64| match node_of(id) {
+        Some(node) => own[node].push(hash),
+        None => common.push(hash),
+    };
+    for m in messages {
+        let id = m["package_id"].as_str().unwrap_or_default();
+        if id == cluster || (m["reason"] != "compiler-artifact" && m["reason"] != "build-script-executed") {
             continue;
         }
-        let files = message["filenames"].as_array().into_iter().flatten().filter_map(|f| f.as_str());
-        let mut libraries = files.map(PathBuf::from).filter(|f| {
-            f.extension().is_some_and(|e| e == std::env::consts::DLL_EXTENSION)
-        });
-        if let Some(library) = libraries.next() {
-            return Ok(library);
+        let mut hasher = DefaultHasher::new();
+        for key in ["package_id", "target", "profile", "features", "cfgs", "env"] {
+            m[key].to_string().hash(&mut hasher);
         }
+        add(id, hasher.finish());
     }
-    Err(Error::Build("cargo gave no library for the cluster".to_owned()))
+    for (id, folder) in folders.iter().filter(|(id, _)| id.contains("path+file:")) {
+        add(id, folder_hash(folder)?);
+    }
+    // Cargo gives the units in an order that can change, so the hashes are sorted.
+    common.sort_unstable();
+    own.iter_mut().for_each(|units| units.sort_unstable());
+    let mut hasher = DefaultHasher::new();
+    (&toolchain.rustc, &toolchain.release, &toolchain.host, &toolchain.libdir, toolchain.rustflags()).hash(&mut hasher);
+    common.hash(&mut hasher);
+    let common = hasher.finish();
+    let mut keys = vec![None; plan.steps.len()];
+    for n in plan.stateful() {
+        let step = &plan.steps[n];
+        let mut hasher = DefaultHasher::new();
+        (common, &own[step.node], &plan.nodes[step.node].0, &step.types).hash(&mut hasher);
+        // The wire types set the parameters of a generic node, so they can change its state type.
+        for source in &step.inputs {
+            if let crate::plan::Source::Wire { step: from, output } = *source {
+                plan.steps[from].types[output].hash(&mut hasher);
+            }
+        }
+        keys[n] = Some(hasher.finish());
+    }
+    Ok(keys)
+}
+
+/// A hash of the paths and the bytes of the files of a crate folder.
+fn folder_hash(folder: &Path) -> Result<u64, Error> {
+    let mut files = Vec::new();
+    crate::list_files(folder, ".", &mut files)?;
+    files.sort();
+    let mut hasher = DefaultHasher::new();
+    for file in &files {
+        let path = folder.join(file);
+        (file, std::fs::read(&path).map_err(|e| Error::Io(path.clone(), e))?).hash(&mut hasher);
+    }
+    Ok(hasher.finish())
 }
 
 /// Writes the manifest of the project workspace and the SDK crates.

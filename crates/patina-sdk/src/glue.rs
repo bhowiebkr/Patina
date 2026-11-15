@@ -18,7 +18,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockW
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 9;
+pub const ABI_VERSION: u32 = 10;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -193,7 +193,16 @@ pub enum Cmd<'a> {
     End(u32),
     /// Calls the `ui` function of the node with this index (4.3), with a mode and the events.
     Ui(u32, u32, &'a str),
+    /// Takes the state of the stateful node with this index out of the cluster (7.2), as a box.
+    /// Writes null when the node has no state.
+    Take(u32, &'a mut *mut c_void),
+    /// Gives a state from `Take` of an old cluster to the node with this index (7.2).
+    Put(u32, Moved),
 }
+
+/// A node state that moves from an old cluster to a new cluster (7.2). Only `put` makes it, from
+/// a box of `take_state` with the same state type.
+pub struct Moved(*mut c_void);
 
 type ClusterFn = dyn Fn(Cmd<'_>, &Reporter) -> bool;
 
@@ -301,6 +310,21 @@ pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &
         rep.send(node, UI, gui.tree());
     }
     ok
+}
+
+/// Takes the state out of `state` as a raw box, for `Cmd::Take`.
+pub fn take_state<T>(state: &State<T>, out: &mut *mut c_void) -> bool {
+    *out = state.lock().take().map_or(std::ptr::null_mut(), |value| Box::into_raw(Box::new(value)).cast());
+    true
+}
+
+/// Puts a state from an old cluster into `state`, for `Cmd::Put`. A state that the node had drops.
+pub fn put_state<T>(state: &State<T>, moved: Moved, rep: &Reporter, node: u32) -> bool {
+    // SAFETY: `put` makes `moved` only from a box of `take_state`, and its caller keeps the rule
+    // that the state type is `T`.
+    let value = unsafe { Box::from_raw(moved.0.cast::<T>()) };
+    let old = state.lock().replace(*value);
+    drop_value(old, rep, node)
 }
 
 pub fn default_value<T: Param>() -> T {
@@ -512,6 +536,32 @@ pub unsafe fn end(cluster: *const Cluster, domain: u32, rep: *const Reporter) ->
     ok
 }
 
+/// The body of `patina_cluster_take`: the state of node `node` as a box, or null (7.2).
+///
+/// # Safety
+///
+/// The same as for `ui`.
+pub unsafe fn take(cluster: *const Cluster, node: u32, rep: *const Reporter) -> *mut c_void {
+    // SAFETY: the caller keeps the rules of this function.
+    let (cluster, rep) = unsafe { (&*cluster, &*rep) };
+    let mut out = std::ptr::null_mut();
+    let _ = catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Take(node, &mut out), rep)));
+    out
+}
+
+/// The body of `patina_cluster_put`: gives `value` to node `node` (7.2). Returns false when the
+/// cluster did not take it. Then the value leaks.
+///
+/// # Safety
+///
+/// The same as for `ui`. `value` comes from `take` of a cluster, and is not given again. Its state
+/// type is the same type as the state type of node `node`.
+pub unsafe fn put(cluster: *const Cluster, node: u32, value: *mut c_void, rep: *const Reporter) -> bool {
+    // SAFETY: the caller keeps the rules of this function.
+    let (cluster, rep) = unsafe { (&*cluster, &*rep) };
+    catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Put(node, Moved(value)), rep))).unwrap_or(false)
+}
+
 /// Calls `f` with `rep` as the reporter of the task on this thread.
 fn in_run(rep: &Reporter, f: impl FnOnce() -> bool) -> bool {
     let outer = RUN.replace(rep);
@@ -586,6 +636,44 @@ mod tests {
         assert!(!finish_state(catch_unwind(|| -> Result<(), String> { panic!("broken") }), &mut *state.lock(), &rep, 1));
         assert_eq!(*state.lock(), None);
         assert_eq!(sent, [(1, ERROR, "bad".to_owned()), (1, PANIC, "panic: broken".to_owned())]);
+    }
+
+    #[test]
+    fn a_state_moves_to_a_new_cluster() {
+        fn make() -> Cluster {
+            let state = State::new();
+            let f = typed(move |cmd, rep| match cmd {
+                Cmd::Task(_) => {
+                    *state.lock().get_or_insert(0) += 1;
+                    true
+                }
+                Cmd::End(_) => true,
+                Cmd::Take(0, out) => take_state(&state, out),
+                Cmd::Put(0, moved) => put_state(&state, moved, rep, 0),
+                Cmd::Ui(..) => {
+                    rep.send(0, UI, &format!("{:?}", *state.lock()));
+                    true
+                }
+                _ => false,
+            });
+            cluster(f, false)
+        }
+        let mut sent: Vec<(u32, u32, String)> = Vec::new();
+        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+        let (old, new) = (new_cluster(make), new_cluster(make));
+        // SAFETY: the clusters come from `new_cluster` and are freed one time. The moved value
+        // comes from `take` of a cluster of the same closure, so its type is the state type.
+        unsafe {
+            assert!(take(old, 0, &rep).is_null(), "no state before the first run");
+            assert!(run(old, &rep) && run(old, &rep) && run(new, &rep));
+            let value = take(old, 0, &rep);
+            assert!(!value.is_null() && take(old, 0, &rep).is_null());
+            assert!(put(new, 0, value, &rep));
+            assert!(run(new, &rep) && ui(new, 0, 0, "".as_ptr(), 0, &rep));
+            free(old);
+            free(new);
+        }
+        assert_eq!(sent, [(0, UI, "Some(3)".to_owned())]);
     }
 
     #[test]

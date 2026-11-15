@@ -203,6 +203,17 @@ builtin = \"delay\"
     assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t7\t0\t10"));
     assert!(cluster.ui("00000000000000f3", 0, "").0.is_none());
     assert_eq!(cluster.guis(), [("00000000000000f1".to_owned(), true)]);
+
+    // After an edit of mix, the new cluster gets the state of tick (7.2). An edit of tick changes
+    // its state key, so its count starts again.
+    for (name, code, moved, count) in [("mix", MIX, 1, "7"), ("tick", TICK, 0, "0")] {
+        fs::write(project.join("nodes").join(name).join("src/lib.rs"), format!("{code}// An edit.\n")).unwrap();
+        let mut new = Project::open(&project).unwrap().check().unwrap().build(&toolchain).unwrap();
+        assert_eq!(new.adopt(&mut cluster), moved, "{name}");
+        cluster = new;
+        let tree = cluster.ui("00000000000000f1", 0, "").0.unwrap();
+        assert!(tree.ends_with(&format!("slider\tCount\t{count}\t0\t10")), "{name}: {tree}");
+    }
 }
 
 #[test]

@@ -15,7 +15,7 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 
 1. A shared `std` and reproducible links. This part works.
 2. The state across swaps: the cluster gives the state of each node whose key did not change to
-   the next cluster.
+   the next cluster. This part works.
 3. More than one cluster in a build, and swaps of all of them or of none.
 4. The slot: the base calls the node in edit mode through a function pointer.
 5. Fuse back, the bake profile and **Bake**, with the decision of the idle time (Q7).
@@ -33,6 +33,10 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   through an rpath.
 - rustc makes the import libraries of `std` with dlltool. The dlltool of binutils cannot open a
   path with CJK letters, so the own toolchain uses `zig-dlltool.exe`, a new Zig wrapper.
+- Each build gives a state key to each stateful step (7.2). After a build, the new cluster takes
+  the state of each node with the same ID and the same key from the old cluster. The editor
+  does this between two runs. The C ABI has `patina_cluster_take` and `patina_cluster_put`
+  (ABI version 10).
 
 ### What was checked
 
@@ -43,6 +47,9 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   `libsqlite3-sys` ran, and the fixture of the toolchain prototype built.
 - The link flag test checks the flags of each host. The runtime test checks that the engine
   copies `std` and the libraries of `bin` one time.
+- The hello test edits mix and builds again: the generic tick node keeps its count 7. Then it
+  edits tick and builds again: the count starts at 0. The glue test moves a state from one
+  cluster to another.
 
 ### Known limits
 
@@ -50,6 +57,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   Delete the `toolchain` folder, then install the toolchain again.
 - The rpath on Linux and macOS ran only in CI. Nobody compared the bytes of two builds yet. Part
   7 of the plan compares them.
+- The state move depends on a hypothesis: rustc gives the same layout to the same type with the
+  same compiler, profile and cfg values (7.2). No test checks a state that holds a type of a
+  dependency with changed features.
+- When a parameter loses its text, `set_params` makes all the states of the cluster again.
+- Nobody ran the state move in the editor. The editor calls the same engine code as the test.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
@@ -131,8 +143,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. Nobody opened a full size in the editor.
-- Each build makes a new cluster, so a build resets the state of all nodes. Milestone 6 keeps
-  the state of each node whose code did not change (7.2).
+- Each build makes a new cluster. Milestone 6 keeps the state of each node whose code did not
+  change (7.2).
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
   not only the task of the node (9.2).
 - No test makes a real cluster panic in `process`. The glue test checks the rule.

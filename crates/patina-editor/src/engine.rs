@@ -301,8 +301,12 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
         }
         let toolchain = toolchain.as_ref().expect("the toolchain is set above");
         match run.checked.build(toolchain) {
-            Ok(cluster) => {
+            Ok(mut cluster) => {
                 *lock(&shared.ids) = cluster.node_ids().map(str::to_owned).collect();
+                // The node states with the same key go on in the new cluster (7.2).
+                if let Some(old) = loaded.as_mut() {
+                    cluster.adopt(&mut old.cluster);
+                }
                 *loaded = Some(Loaded { cluster, wiring });
             }
             // The last build that compiled keeps running only with the same wiring (7.2, 15.10).
