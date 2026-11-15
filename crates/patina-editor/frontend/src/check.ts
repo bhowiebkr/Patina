@@ -375,6 +375,28 @@ fn broken() -> u32 {
     edited(v);
     await until('the stale value on the wire', RUN_MS, () => badge()?.classList.contains('stale') === true && badge()?.textContent === '2.5');
     v = await step('undo the edit', () => api.undo());
+
+    // The Add node palette (15.2): Shift+A opens it and Esc closes it. A double-click on an empty
+    // area opens it, and Enter adds the first match at the point of the double-click.
+    const search = () => document.querySelector<HTMLInputElement>('.palette input');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'A', shiftKey: true, bubbles: true }));
+    await until('the palette after Shift+A', RUN_MS, () => !!search());
+    search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await until('no palette after Esc', RUN_MS, () => !search());
+    document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, ...at }));
+    await until('the palette after a double-click', RUN_MS, () => !!search());
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search(), 'SHO');
+    search()!.dispatchEvent(new Event('input', { bubbles: true }));
+    const options = () => [...document.querySelectorAll('.palette [role=option]')].map((o) => o.textContent);
+    await until('one match for SHO', RUN_MS, () => options().join() === 'show');
+    search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const newNode = () => [...document.querySelectorAll('.react-flow__node')].find((n) => ![A, B].includes(n.getAttribute('data-id')!));
+    await until('the added node', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'show');
+    const box = newNode()!.getBoundingClientRect();
+    if (Math.abs(box.left - at.clientX) > 4 || Math.abs(box.top - at.clientY) > 4) throw new Error('the added node is not at the point of the double-click');
+    v = await step('undo the added node', () => api.undo());
+    if (v.graph.node?.length !== 2) throw new Error('undo did not remove the added node');
+    steps.push('add a node with the palette');
     v = await step('save the route', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');
 

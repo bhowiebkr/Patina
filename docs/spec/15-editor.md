@@ -99,8 +99,17 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | F key | Fit the selection, or the full graph when nothing is selected |
 | Delete | Delete the selection |
 | Esc | Cancel the drag, or clear the selection |
+| Double-click on an empty area, Shift+A | Open the **Add node** palette |
 
 The owner asked for the standard controls. The table, the zoom range and the wheel steps are an agent decision of 2026-11-15.
+
+The **Add node** palette is the second way to add a node, after a drag from the **Project** panel. (Agent decision, 2026-11-15. The owner can change it.)
+
+- A double-click opens it at the pointer. Shift+A opens it at the pointer, or at the middle of the canvas when the pointer is not on it.
+- It has a search field and a list of the nodes of the project. The list shows each name that contains the text, with no regard to case. The names that start with the text come first.
+- The arrow keys move in the list. Enter or a click adds the node, with its top left corner at the point where the palette opened. Esc or a click out of the palette closes it.
+- Tab does not open the palette, because Tab moves the focus between the controls.
+- An untrusted project has no palette, as it has no drag of a node.
 
 **Run, Pause, Stop, and Bake:**
 

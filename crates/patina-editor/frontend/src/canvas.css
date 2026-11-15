@@ -221,3 +221,47 @@
   color: var(--subtle);
   border-style: dashed;
 }
+
+/* The Add node palette (spec 15.2). It uses the menu and field styles of theme.css. */
+
+.menu.palette {
+  width: 240px;
+  padding: 6px;
+}
+
+.palette [role='listbox'] {
+  max-height: 240px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.palette [role='option'],
+.palette .empty {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 3px;
+}
+
+.palette [role='option'] {
+  cursor: pointer;
+}
+
+.palette [role='option']:hover {
+  background: var(--hover);
+}
+
+.palette [role='option'][aria-selected='true'] {
+  background: var(--hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.palette .hint {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.palette .empty {
+  color: var(--disabled);
+}

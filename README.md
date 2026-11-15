@@ -287,7 +287,8 @@ saves it. To start it from a checkout of this repository, you need Rust and Node
 To make your first graph:
 
 1. On the start screen, click **New project**. Give a name and click **Create**.
-2. Drag `number` and `show` from the **Project** panel into the graph.
+2. Drag `number` and `show` from the **Project** panel into the graph. You can also
+   double-click an empty area of the graph, type a part of the name and push Enter.
 3. Drag from the output of `number` to the input of `show`.
 4. Select `number`, and type a value in the **Inspector**.
 5. Click **Run**. The **Output** tab shows the value, and a badge on the wire shows it too.

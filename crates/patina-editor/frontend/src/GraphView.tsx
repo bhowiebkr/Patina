@@ -1,6 +1,6 @@
 // The graph canvas (spec 15.2). Navigation is snappy: no animation between two views.
 
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -14,6 +14,7 @@ import {
   type NodeChange,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
+import { AddNode } from './AddNode';
 import { newId, type Edit, type Point, type View } from './api';
 import { savedViewport, saveViewport } from './Dock';
 import { NodeView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type RunState } from './NodeView';
@@ -78,6 +79,9 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [glOk, setGlOk] = useState(true);
+  // The screen point of the open Add node palette, and the last pointer point over the canvas.
+  const [palette, setPalette] = useState<{ x: number; y: number } | null>(null);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport('main'));
   const tools = useMemo(
@@ -132,6 +136,9 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
         if (edits.length > 0) onEdit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
       } else if (e.key === 'f' || e.key === 'F') {
         flow.fitView(FIT);
+      } else if (e.shiftKey && e.key.toLowerCase() === 'a' && view.trusted) {
+        const r = document.querySelector('.react-flow')!.getBoundingClientRect();
+        setPalette(pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 });
       } else if (e.key === 'Escape') {
         setNodes((n) => n.map((x) => (x.selected ? { ...x, selected: false } : x)));
         setEdges((list) => list.map((x) => (x.selected ? { ...x, selected: false } : x)));
@@ -151,12 +158,21 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
     }
   };
 
+  /** Adds a node with its top left corner at a screen point. */
+  const addNode = (folder: string, x: number, y: number) => {
+    const p = flow.screenToFlowPosition({ x, y });
+    onEdit({ kind: 'AddNode', id: newId(), folder, pos: [Math.round(p.x), Math.round(p.y)] });
+  };
+
   const onDrop = (e: DragEvent) => {
     const folder = e.dataTransfer.getData(NODE_MIME);
     if (!folder || !view.trusted) return;
     e.preventDefault();
-    const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    onEdit({ kind: 'AddNode', id: newId(), folder, pos: [Math.round(p.x), Math.round(p.y)] });
+    addNode(folder, e.clientX, e.clientY);
+  };
+
+  const onDoubleClick = (e: MouseEvent) => {
+    if (view.trusted && e.target instanceof Element && e.target.classList.contains('react-flow__pane')) setPalette({ x: e.clientX, y: e.clientY });
   };
 
   return (
@@ -174,6 +190,9 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
         onConnect={onConnect}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        onDoubleClick={onDoubleClick}
+        onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
+        onPointerLeave={() => (pointer.current = null)}
         nodesDraggable={view.trusted}
         nodesConnectable={view.trusted}
         panOnDrag={PAN_BUTTONS}
@@ -195,6 +214,7 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
         <Background id="major" variant={BackgroundVariant.Lines} gap={100} color="#292929" bgColor="transparent" />
         <WireLayer store={wires} onReady={setGlOk} />
       </ReactFlow>
+      {palette && <AddNode {...palette} nodes={view.nodes} onAdd={(name) => addNode(`nodes/${name}`, palette.x, palette.y)} onClose={() => setPalette(null)} />}
     </WireContext.Provider>
   );
 }

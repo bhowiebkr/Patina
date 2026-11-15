@@ -21,6 +21,8 @@ To run the editor from a checkout:
   has the `number` and `show` node folders, and goes on the list of trusted projects (11).
 - The graph shows the nodes, their pins, their parameter values and the wires. Drag a node
   folder from the **Project** panel into the graph to add a node.
+- A double-click on an empty area of the graph, or Shift+A, opens the **Add node** palette
+  (15.2). Type to filter the nodes, and push Enter or click a node to add it at that point.
 - The canvas has no animation. The mouse wheel zooms. The middle button, or Space and a drag,
   pans. A drag on the empty canvas selects. Shift or Ctrl adds to the selection.
 - The wires draw on one WebGL2 canvas under the nodes (15.1). A selected wire has an amber
@@ -168,13 +170,16 @@ To run the editor from a checkout:
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  19 tests: the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
+  22 tests: the search of the **Add node** palette, the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
   the SVG path of a route, the orthogonal paths, the sharp corners, the curve through route
   points, the segment lists, the place of the badge, and the move, close, open, resize, reset
   and read of a dock layout.
 - The self-check sets **Orthogonal** in the **Inspector**, finds 3 corners or more on the wire,
   clicks **Reset route**, and undoes both edits.
-- CI run 43724210873 of the wire look controls passed on `windows-latest`, `ubuntu-latest` and
+- The self-check opens the **Add node** palette with Shift+A and closes it with Esc. Then it
+  opens the palette with a double-click, types `SHO`, pushes Enter, finds the `show` node at the
+  point of the double-click, and undoes the edit.
+- CI run 43724468916 of the far zoom form passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 
 ### Known limits
@@ -186,8 +191,8 @@ To run the editor from a checkout:
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
-  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1), the **Debug** tab and
-  the search palette.
+  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab. A drag
+  from a pin into an empty area does not open the **Add node** palette yet.
 - The check does not test the **does not stop** message of **Stop** (15.2), because that needs
   a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
   starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.
