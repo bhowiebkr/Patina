@@ -94,7 +94,7 @@ pub(crate) const DELAY: &str = "delay";
 /// Crate names that a node folder cannot have, after `-` changes to `_`.
 /// Crate names of Rust and Patina, the keywords of Rust, the folder names of Cargo and the device
 /// names of Windows. Cargo or Windows refuses a crate or a folder with one of these names.
-const RESERVED: &str = "std core alloc proc_macro test patina_sdk patina_macros patina_log cluster_main \
+const RESERVED: &str = "std core alloc proc_macro test patina_sdk patina_macros patina_log cluster_batch cluster_frame \
     as async await break const continue crate dyn else enum extern false fn for gen if impl in let \
     loop match mod move mut pub ref return self static struct super trait true type unsafe use \
     where while abstract become box do final macro override priv try typeof unsized virtual yield \

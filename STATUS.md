@@ -16,7 +16,7 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 1. A shared `std` and reproducible links. This part works.
 2. The state across swaps: the cluster gives the state of each node whose key did not change to
    the next cluster. This part works.
-3. More than one cluster in a build, and swaps of all of them or of none.
+3. More than one cluster in a build, and swaps of all of them or of none. This part works.
 4. The slot: the base calls the node in edit mode through a function pointer.
 5. Fuse back, the bake profile and **Bake**, with the decision of the idle time (Q7).
 6. The **Layers** panel, the slot icon and the status bar.
@@ -37,6 +37,12 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   the state of each node with the same ID and the same key from the old cluster. The editor
   does this between two runs. The C ABI has `patina_cluster_take` and `patina_cluster_put`
   (ABI version 10).
+- Each build makes one cluster for each clock domain with a step: `build/clusters/batch` and
+  `build/clusters/frame` (8.2). One cargo run builds all of them. The engine loads all
+  clusters of a build before it uses one, so a swap changes all clusters or none.
+- A frame node that reads a batch value reads it through a link: the batch cluster keeps the
+  value in a shared `Arc`, and the engine gives the `Arc` to the frame cluster after the load
+  (ABI version 11).
 
 ### What was checked
 
@@ -50,6 +56,9 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The hello test edits mix and builds again: the generic tick node keeps its count 7. Then it
   edits tick and builds again: the count starts at 0. The glue test moves a state from one
   cluster to another.
+- The hello test now builds and runs two clusters. Its frame nodes read the batch values
+  through links, and the tick state moves into the new frame cluster. The glue test checks
+  that a link reads the value of the other cluster and takes one value only.
 
 ### Known limits
 
@@ -60,7 +69,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The state move depends on a hypothesis: rustc gives the same layout to the same type with the
   same compiler, profile and cfg values (7.2). No test checks a state that holds a type of a
   dependency with changed features.
-- When a parameter loses its text, `set_params` makes all the states of the cluster again.
+- When a parameter loses its text, `set_params` makes all the states of all clusters again,
+  and links them again.
+- There is one cluster for each clock domain. No cluster boundary is at a large node yet.
+- The reader cluster depends on the crates of the producer and of the steps before it, so a
+  change of a batch node builds the frame cluster again too.
 - Nobody ran the state move in the editor. The editor calls the same engine code as the test.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes

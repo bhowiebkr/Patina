@@ -6,6 +6,7 @@ pub mod clock;
 mod edit;
 mod generate;
 pub mod install;
+mod library;
 mod load;
 mod node;
 mod plan;
@@ -354,27 +355,16 @@ impl Checked {
             )));
         }
         let built = cargo::build(&self.root, toolchain, &self.plan)?;
-        let library = copy_to_loaded(&self.root, &built.library)?;
+        let libraries = copy_to_loaded(&self.root, &built.libraries)?;
         copy_runtime(&self.root, &toolchain.libdir)?;
-        let plan = &self.plan;
-        let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
-        let slots = plan.slots.iter().map(|s| (plan.steps[s.step].id.clone(), s.key.clone())).collect();
-        let probes = plan
-            .held()
-            .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
-            .collect();
-        let frame = |n: usize| plan.tasks.iter().any(|t| t.domain == node::Domain::Frame && t.steps.contains(&n));
-        let guis = (plan.steps.iter().enumerate())
-            .filter(|(_, s)| plan.nodes[s.node].1.ui && plan.nodes[s.node].1.state.is_some())
-            .map(|(n, s)| (s.id.clone(), frame(n)))
-            .collect();
-        Cluster::load(&library, names, guis, slots, probes, &plan.tasks, built.keys)
+        Cluster::load(&libraries, &self.plan, built.keys)
     }
 
     /// The generated code of the cluster. Two checks with the same wiring give the same text, so
     /// a cluster of one stays correct for the other.
     pub fn wiring(&self) -> String {
-        generate::manifest(&self.plan) + &generate::source(&self.plan)
+        let domains = generate::domains(&self.plan);
+        domains.into_iter().map(|d| generate::manifest(&self.plan, d) + &generate::source(&self.plan, d)).collect()
     }
 }
 
@@ -475,27 +465,33 @@ pub(crate) fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) ->
     Ok(())
 }
 
-/// Copies the built library to `build/loaded/`, with a hash of its bytes in the file name (8.5).
+/// Copies the built libraries to `build/loaded/`, with a hash of the bytes in each file name (8.5).
 /// Windows locks a loaded library, so cargo cannot write the library of the next build over it.
-/// The same bytes give the same name, so the loaded library stays in use.
-fn copy_to_loaded(root: &Path, built: &Path) -> Result<PathBuf, Error> {
-    let bytes = fs::read(built).map_err(|e| Error::Io(built.to_owned(), e))?;
-    let mut hasher = DefaultHasher::new();
-    hasher.write(&bytes);
+/// The same bytes give the same name, so a loaded library stays in use.
+fn copy_to_loaded(root: &Path, built: &[(node::Domain, PathBuf)]) -> Result<Vec<(node::Domain, PathBuf)>, Error> {
     let dir = root.join("build").join("loaded");
-    let path = dir.join(format!("cluster-{:016x}.{}", hasher.finish(), std::env::consts::DLL_EXTENSION));
-    if path.exists() {
-        return Ok(path);
+    let mut copies = Vec::new();
+    for (domain, library) in built {
+        let bytes = fs::read(library).map_err(|e| Error::Io(library.clone(), e))?;
+        let mut hasher = DefaultHasher::new();
+        hasher.write(&bytes);
+        let path = dir.join(format!("cluster-{:016x}.{}", hasher.finish(), std::env::consts::DLL_EXTENSION));
+        copies.push((*domain, path, bytes));
     }
     // An old copy that a process has loaded does not delete on Windows. It stays until later.
     for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
-        if entry.file_name().to_string_lossy().starts_with("cluster-") {
+        let old = entry.file_name().to_string_lossy().starts_with("cluster-");
+        if old && !copies.iter().any(|(_, path, _)| *path == entry.path()) {
             let _ = fs::remove_file(entry.path());
         }
     }
     fs::create_dir_all(&dir).map_err(|e| Error::Io(dir.clone(), e))?;
-    write_new(&path, &bytes)?;
-    Ok(path)
+    for (_, path, bytes) in &copies {
+        if !path.exists() {
+            write_new(path, bytes)?;
+        }
+    }
+    Ok(copies.into_iter().map(|(domain, path, _)| (domain, path)).collect())
 }
 
 /// Copies the shared runtime of the toolchain to `build/loaded/`: the `std` library and the

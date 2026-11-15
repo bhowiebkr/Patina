@@ -1,21 +1,20 @@
-//! Loads a cluster library and calls it through the C ABI of `patina_sdk::glue`.
+//! Loads the cluster libraries of a graph and calls them through the C ABI of `patina_sdk::glue`.
 
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::fmt;
-use std::ops::Range;
-use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering::Relaxed};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::path::PathBuf;
+use std::sync::atomic::Ordering::Relaxed;
 
 use patina_sdk::glue::{self, Control, Reporter};
 use serde::Serialize;
 
-use crate::Error;
+use crate::library::{Library, Sink, collect, lock};
 use crate::node::Domain;
-use crate::plan::Task;
+use crate::plan::Plan;
 use crate::pool::{self, Work};
 use crate::project::GraphFile;
+use crate::{Error, generate};
 
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum ReportKind {
@@ -126,41 +125,25 @@ pub struct Outcome {
     pub logs: Vec<NodeLog>,
 }
 
-type VersionFn = unsafe extern "C" fn() -> u32;
-type NewFn = unsafe extern "C" fn() -> *mut c_void;
-type SetFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const Reporter) -> bool;
-type UiFn = unsafe extern "C" fn(*const c_void, u32, u32, *const u8, usize, *const Reporter) -> bool;
-type ParallelFn = unsafe extern "C" fn(*const c_void) -> bool;
-type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
-type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
-type FreeFn = unsafe extern "C" fn(*mut c_void);
-type TakeFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> *mut c_void;
-type PutFn = unsafe extern "C" fn(*const c_void, u32, *mut c_void, *const Reporter) -> bool;
-
-/// A loaded cluster with its parameters and its node states.
+/// The loaded clusters of a graph, one for each clock domain (8.2), with their parameters and
+/// their node states.
 pub struct Cluster {
-    state: *mut c_void,
-    new: NewFn,
-    set: SetFn,
-    ui: UiFn,
-    end: EndFn,
-    free: FreeFn,
-    take: TakeFn,
-    put: PutFn,
+    /// The cluster of the batch and of the frame domain. A domain with no step has none.
+    libraries: [Option<Library>; 2],
+    /// The domain of each node, by node index.
+    domains: Vec<Domain>,
+    /// The domain that gives, the domain that reads and the index of each link (8.2).
+    links: Vec<(Domain, Domain, u32)>,
     /// The state key of each node, by node index (7.2). A node with no state has none.
     keys: Vec<Option<u64>>,
-    /// True when the tasks of a run can run on many threads at a time (9.2).
-    parallel: bool,
-    /// The tasks of the batch and of the frame domain (9.1).
-    domains: [Arc<Tasks>; 2],
     /// The sum of the node run times of the last run of each domain, in ms.
     work: [f64; 2],
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
     /// The ID of each node with a GUI, and true when the node is in the frame domain (4.3).
     guis: Vec<(String, bool)>,
-    /// The node ID and the input key of each parameter slot.
-    slots: Vec<(String, String)>,
+    /// The node index and the input key of each parameter slot.
+    slots: Vec<(usize, String)>,
     /// The output of each held value, as "<node id>.<output key>" (`Plan::held`).
     probes: Vec<String>,
     /// True for each slot that got a text at the last `set_params`.
@@ -171,156 +154,56 @@ pub struct Cluster {
     out: Outcome,
 }
 
-/// The reports of one call: the node, the kind and the text range of each report, and the texts
-/// in one buffer. It is the context of the reporter. The buffers keep their capacity.
-#[derive(Default)]
-struct Sink {
-    items: Vec<(u32, u32, Range<usize>)>,
-    text: String,
-}
-
-impl Sink {
-    fn push(&mut self, node: u32, kind: u32, text: &str) {
-        let start = self.text.len();
-        self.text.push_str(text);
-        self.items.push((node, kind, start..self.text.len()));
-    }
-
-    fn clear(&mut self) {
-        self.items.clear();
-        self.text.clear();
-    }
-
-    /// Moves the reports of `other` to the end of this sink.
-    fn append(&mut self, other: &mut Sink) {
-        let start = self.text.len();
-        self.text.push_str(&other.text);
-        self.items.extend(other.items.drain(..).map(|(node, kind, r)| (node, kind, r.start + start..r.end + start)));
-        other.text.clear();
-    }
-
-    fn iter(&self) -> impl Iterator<Item = (u32, u32, &str)> {
-        self.items.iter().map(|(node, kind, r)| (*node, *kind, &self.text[r.clone()]))
-    }
-}
-
-unsafe extern "C" fn collect(ctx: *mut c_void, node: u32, kind: u32, text: *const u8, len: usize) {
-    // SAFETY: `ctx` is the sink of `Cluster::call`, and `text` points to `len` bytes during the
-    // call (glue::Reporter).
-    let (sink, bytes) = unsafe { (&mut *ctx.cast::<Sink>(), std::slice::from_raw_parts(text, len)) };
-    sink.push(node, kind, &String::from_utf8_lossy(bytes));
-}
-
-/// The tasks of a run of one domain (9.2), and a report list for each task. The worker pool
-/// calls them.
-struct Tasks {
-    state: AtomicPtr<c_void>,
-    control: AtomicPtr<Control>,
-    task: TaskFn,
-    /// The cluster task index of each task.
-    ids: Vec<usize>,
-    inputs: Vec<u32>,
-    next: Vec<Vec<usize>>,
-    sinks: Vec<Mutex<Sink>>,
-    ok: AtomicBool,
-}
-
-// SAFETY: `Cluster::run_domain` sets the state and the control before the tasks start, and keeps
-// them valid until all tasks are done. Many threads call tasks at a time only when the cluster says
-// that each value that it keeps is `Sync` (`patina_cluster_parallel`).
-unsafe impl Send for Tasks {}
-// SAFETY: the same as for `Send`.
-unsafe impl Sync for Tasks {}
-
-impl Work for Tasks {
-    fn inputs(&self) -> &[u32] {
-        &self.inputs
-    }
-
-    fn next(&self, task: usize) -> &[usize] {
-        &self.next[task]
-    }
-
-    fn run(&self, task: usize) {
-        let index = self.ids.get(task).and_then(|&id| u32::try_from(id).ok());
-        let (Some(sink), Some(index)) = (self.sinks.get(task), index) else { return };
-        let mut sink = lock(sink);
-        let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: self.control.load(Relaxed) };
-        // SAFETY: the same as for `unsafe impl Send for Tasks`. The reporter and its sink are valid
-        // during the call.
-        if !unsafe { (self.task)(self.state.load(Relaxed), index, &rep) } {
-            self.ok.store(false, Relaxed);
-        }
-    }
-}
-
-impl Tasks {
-    /// The tasks of `all` in `domain`, in the same order. A link to another domain is not a wait.
-    fn new(state: *mut c_void, task: TaskFn, all: &[Task], domain: Domain) -> Tasks {
-        let ids: Vec<usize> = (0..all.len()).filter(|&t| all[t].domain == domain).collect();
-        let next: Vec<Vec<usize>> =
-            ids.iter().map(|&t| all[t].next.iter().filter_map(|n| ids.iter().position(|i| i == n)).collect()).collect();
-        let mut inputs = vec![0; ids.len()];
-        for &n in next.iter().flatten() {
-            inputs[n] += 1;
-        }
-        let sinks = ids.iter().map(|_| Mutex::new(Sink::default())).collect();
-        let (state, control) = (AtomicPtr::new(state), AtomicPtr::new(std::ptr::null_mut()));
-        Tasks { state, control, task, ids, inputs, next, sinks, ok: AtomicBool::new(true) }
-    }
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
 impl Cluster {
-    pub(crate) fn load(
-        path: &Path,
-        names: Vec<(String, String)>,
-        guis: Vec<(String, bool)>,
-        slots: Vec<(String, String)>,
-        probes: Vec<String>,
-        tasks: &[Task],
-        keys: Vec<Option<u64>>,
-    ) -> Result<Cluster, Error> {
-        let fail = |text: String| Error::Load(format!("{}: {text}", path.display()));
-        let missing = |e: libloading::Error| fail(e.to_string());
-        let library = open(path).map_err(missing)?;
-        // SAFETY: Patina generated the cluster with these symbols and signatures (generate.rs).
-        let cluster = unsafe {
-            let version: VersionFn = symbol(&library, b"patina_abi_version\0").map_err(missing)?;
-            if version() != glue::ABI_VERSION {
-                return Err(fail("the cluster has another ABI version. Build it again".to_owned()));
+    /// Loads the cluster of each domain. If one cluster fails, no cluster stays loaded (7.2).
+    pub(crate) fn load(libraries: &[(Domain, PathBuf)], plan: &Plan, keys: Vec<Option<u64>>) -> Result<Cluster, Error> {
+        let mut loaded: [Option<Library>; 2] = [None, None];
+        for &(domain, ref path) in libraries {
+            loaded[domain as usize] = Some(Library::load(path, &plan.tasks, domain)?);
+        }
+        let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
+        let slots: Vec<(usize, String)> = plan.slots.iter().map(|s| (s.step, s.key.clone())).collect();
+        let probes = plan
+            .held()
+            .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
+            .collect();
+        let guis = (plan.steps.iter())
+            .filter(|s| plan.nodes[s.node].1.ui && plan.nodes[s.node].1.state.is_some())
+            .map(|s| (s.id.clone(), s.domain == Domain::Frame))
+            .collect();
+        let mut links = Vec::new();
+        for (index, (n, k)) in (0u32..).zip(generate::links(plan)) {
+            let from = plan.steps[n].domain;
+            for to in [Domain::Batch, Domain::Frame].into_iter().filter(|&d| d != from && generate::reads(plan, n, k, d)) {
+                links.push((from, to, index));
             }
-            let new: NewFn = symbol(&library, b"patina_cluster_new\0").map_err(missing)?;
-            let set: SetFn = symbol(&library, b"patina_cluster_set\0").map_err(missing)?;
-            let ui: UiFn = symbol(&library, b"patina_cluster_ui\0").map_err(missing)?;
-            let parallel: ParallelFn = symbol(&library, b"patina_cluster_parallel\0").map_err(missing)?;
-            let task: TaskFn = symbol(&library, b"patina_cluster_task\0").map_err(missing)?;
-            let end: EndFn = symbol(&library, b"patina_cluster_end\0").map_err(missing)?;
-            let free: FreeFn = symbol(&library, b"patina_cluster_free\0").map_err(missing)?;
-            let take: TakeFn = symbol(&library, b"patina_cluster_take\0").map_err(missing)?;
-            let put: PutFn = symbol(&library, b"patina_cluster_put\0").map_err(missing)?;
-            let state = new();
-            if state.is_null() {
-                return Err(fail("a parameter default panicked".to_owned()));
-            }
-            let domains = [Domain::Batch, Domain::Frame].map(|d| Arc::new(Tasks::new(state, task, tasks, d)));
-            let (parallel, has_text) = (parallel(state), vec![false; slots.len()]);
-            if parallel {
-                pool::prepare(tasks.len());
-            }
-            let (sink, out) = (Sink::default(), Outcome::default());
-            let work = [f64::INFINITY; 2];
-            Cluster {
-                state, new, set, ui, end, free, take, put, keys, parallel, domains, work, names, guis, slots, probes,
-                has_text, sink, out,
-            }
-        };
-        // Rust libraries do not unload safely, so the library stays loaded (8.5).
-        std::mem::forget(library);
-        Ok(cluster)
+        }
+        let mut sink = Sink::default();
+        if !link(&loaded, &links, &mut sink) {
+            return Err(Error::Load("a cluster did not link a value of another cluster. Build it again".to_owned()));
+        }
+        if loaded.iter().flatten().any(|l| l.parallel) {
+            pool::prepare(plan.tasks.len());
+        }
+        Ok(Cluster {
+            libraries: loaded,
+            domains: plan.steps.iter().map(|s| s.domain).collect(),
+            links,
+            keys,
+            work: [f64::INFINITY; 2],
+            names,
+            guis,
+            has_text: vec![false; slots.len()],
+            slots,
+            probes,
+            sink,
+            out: Outcome::default(),
+        })
+    }
+
+    /// The cluster of the domain of node `n`.
+    fn library(&self, n: usize) -> Option<&Library> {
+        self.libraries[*self.domains.get(n)? as usize].as_ref()
     }
 
     /// Sets each parameter from its text in the graph (4.8). An input that lost its text gets its
@@ -329,21 +212,24 @@ impl Cluster {
         let params: HashMap<&str, &BTreeMap<String, String>> =
             graph.node.iter().map(|n| (n.id.as_str(), &n.params)).collect();
         let texts: Vec<Option<&String>> =
-            self.slots.iter().map(|(id, key)| params.get(id.as_str()).and_then(|p| p.get(key))).collect();
+            self.slots.iter().map(|(n, key)| params.get(self.names[*n].0.as_str()).and_then(|p| p.get(key))).collect();
         if self.has_text.iter().zip(&texts).any(|(had, text)| *had && text.is_none()) {
-            // SAFETY: the functions came from the loaded cluster, and `self.state` is live.
-            let state = unsafe { (self.new)() };
-            if state.is_null() {
+            // All clusters get new states, so that the links stay valid (8.2).
+            let states: Vec<*mut c_void> = self.libraries.iter().flatten().map(Library::make).collect();
+            if states.iter().any(|s| s.is_null()) {
+                self.libraries.iter().flatten().zip(&states).for_each(|(library, &state)| library.free_state(state));
                 return Outcome::default();
             }
-            // SAFETY: the old state came from `patina_cluster_new` and is not used again.
-            unsafe { (self.free)(self.state) };
-            self.state = state;
+            self.libraries.iter_mut().flatten().zip(states).for_each(|(library, state)| library.replace(state));
+            if !link(&self.libraries, &self.links, &mut self.sink) {
+                return Outcome::default();
+            }
         }
         let mut all = Outcome { ok: true, ..Outcome::default() };
         for (slot, text) in (0u32..).zip(&texts) {
             let Some(text) = text else { continue };
-            let (state, set) = (self.state, self.set);
+            let Some(library) = self.library(self.slots[slot as usize].0) else { continue };
+            let (state, set) = (library.state, library.set);
             self.sink.clear();
             // SAFETY: `state` is live, `text` is valid during the call, and so is the reporter.
             self.call(std::ptr::null(), |rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) });
@@ -372,15 +258,20 @@ impl Cluster {
 
     /// True when the graph has nodes in the frame domain.
     pub fn frames(&self) -> bool {
-        !self.domains[Domain::Frame as usize].ids.is_empty()
+        self.libraries[Domain::Frame as usize].as_ref().is_some_and(|l| !l.tasks.ids.is_empty())
     }
 
     fn run_domain(&mut self, domain: Domain, control: &Control) {
-        let tasks = &self.domains[domain as usize];
-        tasks.state.store(self.state, Relaxed);
+        let Some(library) = &self.libraries[domain as usize] else {
+            self.sink.clear();
+            self.call(control, |_| true);
+            return;
+        };
+        let tasks = &library.tasks;
+        tasks.state.store(library.state, Relaxed);
         tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
         tasks.ok.store(true, Relaxed);
-        if use_pool(self.parallel, tasks.inputs.len(), self.work[domain as usize]) {
+        if use_pool(library.parallel, tasks.inputs.len(), self.work[domain as usize]) {
             pool::run(tasks.clone());
         } else {
             (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
@@ -390,7 +281,7 @@ impl Cluster {
         for task in &tasks.sinks {
             self.sink.append(&mut lock(task));
         }
-        let (state, end, ok) = (self.state, self.end, tasks.ok.load(Relaxed));
+        let (state, end, ok) = (library.state, library.end, tasks.ok.load(Relaxed));
         // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
         // during the call.
         self.call(control, |rep| unsafe { end(state, domain as u32, rep) });
@@ -402,10 +293,9 @@ impl Cluster {
     /// 1 large, 2 full). `events` has a line for each user input: the widget index and the value.
     /// Returns the widget lines, or `None` when the node has no GUI or failed (see the outcome).
     pub fn ui(&mut self, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
-        let Some(node) = self.names.iter().position(|(n, _)| n == id).and_then(|n| u32::try_from(n).ok()) else {
-            return (None, Outcome::default());
-        };
-        let (state, ui) = (self.state, self.ui);
+        let Some(n) = self.names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
+        let (Some(library), Ok(node)) = (self.library(n), u32::try_from(n)) else { return (None, Outcome::default()) };
+        let (state, ui) = (library.state, library.ui);
         self.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run is active, and `events` and the
         // reporter are valid during the call.
@@ -419,19 +309,19 @@ impl Cluster {
         &self.guis
     }
 
-    /// The ID of each node, by the node index of `Control::node`.
     /// Moves the state of each node from `old`, when the node ID and the state key did not change
     /// (7.2). Returns the number of states that moved. A node of `old` with no state yet gives none.
     pub fn adopt(&mut self, old: &mut Cluster) -> usize {
-        let pairs: Vec<(u32, u32)> = (self.keys.iter().zip(&self.names).enumerate())
+        let pairs: Vec<(usize, usize)> = (self.keys.iter().zip(&self.names).enumerate())
             .filter_map(|(n, (key, (id, _)))| {
                 let from = old.keys.iter().zip(&old.names).position(|(k, (i, _))| key.is_some() && k == key && i == id)?;
-                Some((u32::try_from(from).ok()?, u32::try_from(n).ok()?))
+                Some((from, n))
             })
             .collect();
         let mut moved = 0;
         for (from, to) in pairs {
-            let (old_state, take, mut value) = (old.state, old.take, std::ptr::null_mut());
+            let (Some(source), Ok(from)) = (old.library(from), u32::try_from(from)) else { continue };
+            let (old_state, take, mut value) = (source.state, source.take, std::ptr::null_mut());
             old.call(std::ptr::null(), |rep| {
                 // SAFETY: `old_state` is live, `&mut old` shows that no run is active, and the
                 // reporter is valid during the call.
@@ -441,7 +331,9 @@ impl Cluster {
             if value.is_null() {
                 continue;
             }
-            let (state, put, mut ok) = (self.state, self.put, false);
+            // shortcut: a node with no cluster or index loses its state. Only a defective plan gives this, so no free.
+            let (Some(target), Ok(to)) = (self.library(to), u32::try_from(to)) else { continue };
+            let (state, put, mut ok) = (target.state, target.put, false);
             self.call(std::ptr::null(), |rep| {
                 // SAFETY: `state` is live and no run is active. `value` came from `take` of a node
                 // with the same state key, so it has the state type of node `to` (7.2). It is
@@ -454,6 +346,7 @@ impl Cluster {
         moved
     }
 
+    /// The ID of each node, by the node index of `Control::node`.
     pub fn node_ids(&self) -> impl Iterator<Item = &str> {
         self.names.iter().map(|(id, _)| id.as_str())
     }
@@ -465,6 +358,21 @@ impl Cluster {
         fill(&mut self.out, ok, &self.sink, &self.names, &self.probes);
     }
 }
+
+/// Gives each value that a cluster makes to each cluster of another domain that reads it (8.2).
+/// False when a cluster has no such link. Each new state needs its links again.
+fn link(libraries: &[Option<Library>; 2], links: &[(Domain, Domain, u32)], sink: &mut Sink) -> bool {
+    let rep = Reporter { ctx: std::ptr::from_mut(sink).cast(), report: collect, control: std::ptr::null() };
+    links.iter().all(|&(from, to, index)| {
+        let (Some(source), Some(target)) = (&libraries[from as usize], &libraries[to as usize]) else { return false };
+        // SAFETY: the state is live, no run is active, and the reporter is valid during the call.
+        let value = unsafe { (source.export)(source.state, index, &rep) };
+        // SAFETY: the same as for the export. `value` came from the export of the same link index,
+        // so it has the type that the reader expects (the witness of generate.rs). It is given one time.
+        !value.is_null() && unsafe { (target.import)(target.state, index, value, &rep) }
+    })
+}
+
 
 /// Splits the reports of one call into the problems of nodes and the live values. It fills the
 /// lists of `out` again and keeps their texts, so it does not allocate after the first frames.
@@ -547,40 +455,6 @@ fn reuse<'a, T: Default>(list: &'a mut Vec<T>, used: &mut usize) -> &'a mut T {
 fn put(to: &mut String, text: &str) {
     to.clear();
     to.push_str(text);
-}
-
-impl Drop for Cluster {
-    fn drop(&mut self) {
-        // SAFETY: `state` came from `patina_cluster_new` and is freed only here.
-        unsafe { (self.free)(self.state) }
-    }
-}
-
-/// Reads a symbol of the library as a function pointer.
-///
-/// # Safety
-///
-/// The symbol has the type `T`.
-unsafe fn symbol<T: Copy>(library: &libloading::Library, name: &[u8]) -> Result<T, libloading::Error> {
-    // SAFETY: the caller gives the type of the symbol.
-    unsafe { library.get::<T>(name).map(|s| *s) }
-}
-
-#[cfg(windows)]
-fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
-    use libloading::os::windows::{LOAD_LIBRARY_SEARCH_DEFAULT_DIRS, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, Library};
-    // Only the folder of the library and the system folders give other libraries (8.5).
-    let flags = LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS;
-    // SAFETY: the load runs the init code of the library. Patina built it from a project that
-    // the owner trusts (11).
-    unsafe { Library::load_with_flags(path, flags) }.map(libloading::Library::from)
-}
-
-#[cfg(not(windows))]
-fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
-    // SAFETY: the load runs the init code of the library. Patina built it from a project that
-    // the owner trusts (11).
-    unsafe { libloading::Library::new(path) }
 }
 
 /// Spec 9.2: the pool runs the tasks only when the nodes of the last run took 0.1 ms or more.

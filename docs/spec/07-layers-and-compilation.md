@@ -104,6 +104,11 @@ enum Edit {
 - A cluster is a part of the graph that compiles as one unit.
 - Put cluster boundaries at large nodes. Keep small nodes inside one cluster, so the compiler can inline and fuse them.
 - A cluster never crosses a clock domain boundary.
+- Now the engine makes one cluster for each clock domain with a step. A domain with no step gets no cluster. The split at large nodes comes when milestone 6 measures the need. This is an agent decision of 2026-11-15. The owner can change it.
+- A value that a node of another domain reads is a link: a latest-value wire (9.1). The cluster that makes the value keeps it in a shared `Arc`. After the load, the engine gives the `Arc` of each link to the cluster that reads it (`patina_cluster_export` and `patina_cluster_import`, ABI version 11).
+- The reader cluster names no type. Its crate depends on the crates of the producer and of the steps before it, and dead code with their calls gives Rust the type of each link. Thus a change of the producer also builds the reader again.
+- The link depends on the same layout hypothesis as the state move (7.2).
+- The engine loads and links all clusters of a build before it uses one. If one fails, no new cluster stays loaded (7.2).
 
 ### 8.3 Build modes
 
