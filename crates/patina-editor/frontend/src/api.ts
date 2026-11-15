@@ -95,7 +95,8 @@ export interface Diagnostic {
 /** When `errors` of a run is not empty, the build failed and the last build that compiled ran. */
 export type EngineEvent =
   | { state: 'building'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; reports: Report[]; values: Value[]; errors: Diagnostic[] }
+  | { state: 'started'; serial: number }
+  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; stopped: boolean; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] };
 
 export interface OutputText {
@@ -132,6 +133,10 @@ export const api = {
   recover: (restore: boolean) => invoke<{ view: View; code: Code }>('recover', { restore }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
+  /** Pauses, and asks the active run to stop (15.2). */
+  stop: () => invoke<View>('stop'),
+  /** The ID of the node that runs, or that ran last in the active run. Null between runs (15.2). */
+  running: () => invoke<string | null>('running'),
   /** The full text of the live value of an output after the last run (15.7), or null. */
   value: (from: string) => invoke<string | null>('value', { from }),
   /** The saved layout of a project (15.2), or null. */

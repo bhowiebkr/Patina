@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
 use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain};
@@ -13,12 +13,12 @@ use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
 
 use crate::data::{Data, Recovery};
-use crate::engine::{self, Job, Run, Values};
+use crate::engine::{self, Job, Run, Shared};
 
 pub struct Editor {
     pub data: Data,
     pub engine: Sender<Job>,
-    values: Values,
+    shared: Arc<Shared>,
     session: Mutex<Option<Session>>,
     /// The folder of the self-check (`--check`), or none in normal use.
     pub check: Option<PathBuf>,
@@ -88,8 +88,8 @@ pub struct Recent {
 }
 
 impl Editor {
-    pub fn new(data: Data, (engine, values): (Sender<Job>, Values), check: Option<PathBuf>) -> Editor {
-        Editor { data, engine, values, session: Mutex::new(None), check, serial: AtomicU64::new(0) }
+    pub fn new(data: Data, (engine, shared): (Sender<Job>, Arc<Shared>), check: Option<PathBuf>) -> Editor {
+        Editor { data, engine, shared, session: Mutex::new(None), check, serial: AtomicU64::new(0) }
     }
 
     /// True when the open project or the Code tab has changes that are not saved.
@@ -367,12 +367,13 @@ pub fn run(editor: State<'_, Editor>) -> Result<View, String> {
             return Err("Trust the project before you run it (11).".to_owned());
         }
         session.project.check().map_err(|e| e.to_string())?;
+        editor.shared.control.set_stop(false);
         session.live = true;
         Ok(session.view(&editor.engine, Some(true)))
     })
 }
 
-/// Stops the live runs. For a batch graph, **Stop** does the same (Q10).
+/// Stops the live runs. The active run finishes (15.2).
 #[tauri::command(async)]
 pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
@@ -381,11 +382,24 @@ pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
     })
 }
 
+/// Stops the live runs, and asks the active run to stop (15.2). **Run** removes the request.
+#[tauri::command(async)]
+pub fn stop(editor: State<'_, Editor>) -> Result<View, String> {
+    editor.shared.control.set_stop(true);
+    pause(editor)
+}
+
+/// The ID of the node that runs, or that ran last in the active run. None between runs (15.2).
+#[tauri::command(async)]
+pub fn running(editor: State<'_, Editor>) -> Option<String> {
+    editor.shared.running()
+}
+
 /// The full text of the live value of output `from` ("<node id>.<output key>") after the last run
 /// (15.7). A read never changes the run (9.2).
 #[tauri::command(async)]
 pub fn value(editor: State<'_, Editor>, from: String) -> Option<String> {
-    engine::lock(&editor.values).iter().find(|v| v.from == from).map(|v| v.text.clone())
+    engine::lock(&editor.shared.values).iter().find(|v| v.from == from).map(|v| v.text.clone())
 }
 
 /// The saved layout of a project (15.2). The page checks the text.

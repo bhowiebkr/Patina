@@ -5,7 +5,7 @@ use std::ffi::c_void;
 use std::fmt;
 use std::path::Path;
 
-use patina_sdk::glue::{self, Reporter};
+use patina_sdk::glue::{self, Control, Reporter};
 use serde::Serialize;
 
 use crate::Error;
@@ -57,6 +57,8 @@ pub struct Outcome {
     pub ok: bool,
     pub reports: Vec<Report>,
     pub values: Vec<Value>,
+    /// True when a node call did not start, because the user clicked **Stop** (15.2).
+    pub stopped: bool,
 }
 
 type VersionFn = unsafe extern "C" fn() -> u32;
@@ -162,19 +164,24 @@ impl Cluster {
         };
         let (state, set) = (self.state, self.set);
         // SAFETY: `state` is live, `text` is valid during the call, and so is the reporter.
-        self.call(|rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) })
+        self.call(std::ptr::null(), |rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) })
     }
 
-    /// Runs the graph one time.
-    pub fn run(&mut self) -> Outcome {
+    /// Runs the graph one time. Another thread can ask the run to stop with `control` (15.2).
+    pub fn run(&mut self, control: &Control) -> Outcome {
         let (state, run) = (self.state, self.run);
-        // SAFETY: `state` is live, and the reporter is valid during the call.
-        self.call(|rep| unsafe { run(state, rep) })
+        // SAFETY: `state` is live, and the reporter and the control are valid during the call.
+        self.call(control, |rep| unsafe { run(state, rep) })
     }
 
-    fn call(&self, f: impl FnOnce(*const Reporter) -> bool) -> Outcome {
+    /// The ID of each node, by the node index of `Control::node`.
+    pub fn node_ids(&self) -> impl Iterator<Item = &str> {
+        self.names.iter().map(|(id, _)| id.as_str())
+    }
+
+    fn call(&self, control: *const Control, f: impl FnOnce(*const Reporter) -> bool) -> Outcome {
         let mut sink: Sink = Vec::new();
-        let reporter = Reporter { ctx: (&raw mut sink).cast(), report: collect };
+        let reporter = Reporter { ctx: (&raw mut sink).cast(), report: collect, control };
         let ok = f(&reporter);
         outcome(ok, sink, &self.names, &self.probes)
     }
@@ -184,6 +191,10 @@ impl Cluster {
 fn outcome(ok: bool, sink: Sink, names: &[(String, String)], probes: &[String]) -> Outcome {
     let mut out = Outcome { ok, ..Outcome::default() };
     for (index, kind, text) in sink {
+        if kind == glue::STOPPED {
+            out.stopped = true;
+            continue;
+        }
         if kind == glue::VALUE {
             // Only a defective cluster sends an unknown index, and its value has no wire to show on.
             if let Some(from) = probes.get(index as usize) {
@@ -246,6 +257,8 @@ mod tests {
         let probes = ["a1.out".to_owned()];
         let sink = vec![(0, glue::VALUE, "2.5".to_owned()), (7, glue::VALUE, "x".to_owned()), (0, glue::PANIC, "p".to_owned())];
         let out = outcome(false, sink, &names, &probes);
+        assert!(!out.stopped);
+        assert!(outcome(true, vec![(0, glue::STOPPED, String::new())], &names, &probes).stopped);
         assert_eq!(out.values.len(), 1);
         assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
         assert_eq!(out.reports.len(), 1);

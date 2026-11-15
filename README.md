@@ -274,6 +274,8 @@ To make your first graph:
 7. Push Ctrl+S to save the project.
 
 While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
+Click **Stop** to also end the active run: Patina starts no new node call. A node with a long
+loop can read `patina_sdk::stop_requested()` and return early.
 
 If Patina stops before you save, it keeps your changes. When you open the project again, click
 **Restore** to get them back, or **Discard** to delete them.

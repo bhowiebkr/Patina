@@ -109,6 +109,7 @@ The owner asked for the standard controls. The table, the zoom range and the whe
   - The engine starts no new node call. The nodes that did not run show **Stale** (15.3).
   - An async node (4.6) drops at its next wait.
   - Stop sets a stop flag. A node with a long loop can read it with `patina_sdk::stop_requested()`, and return early.
+  - The generated code reads the flag before each node call. The engine shares the flag and the index of the active node with the cluster (C ABI version 3), so the editor can name a node that does not stop.
   - Stop never kills a thread. Native code cannot stop safely in the middle of a call. A call that does not read the flag runs to its end.
   - When a call runs for 2 s after Stop, the status bar shows "Node X does not stop" and the time. Only process isolation (16) can end it. Without process isolation, the user can close Patina.
   - Run after Stop starts the graph again. Node states stay.

@@ -159,17 +159,49 @@ fn broken() -> u32 {
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('code-error');
 
-    bufferOf(lib)!.setValue(original);
+    // The fixed code also waits while the value is 99, until the user clicks Stop (15.2).
+    const stoppable = original.replace(/    value\r?\n\}/, `    while value == 99.0 && !patina_sdk::stop_requested() {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    value
+}`);
+    if (stoppable === original) throw new Error(`the Stop check cannot change the code of ${lib}`);
+    bufferOf(lib)!.setValue(stoppable);
     await until('the unsaved dot on the file tab', RUN_MS, () => document.querySelector('.code-tab .files .dot') !== null);
     from = mark();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
     const fixed = await result(v, from, '2.5', BUILD_MS);
     if (fixed.builtMs === null || fixed.errors.length > 0) throw new Error(`the save did not build the fixed code: ${JSON.stringify(fixed.errors)}`);
-    if ((await api.readCode(lib)) !== original) throw new Error('the save did not write the code');
+    if ((await api.readCode(lib)) !== stoppable) throw new Error('the save did not write the code');
     await until('no compile error and no unsaved code', RUN_MS, () =>
       document.querySelector('.patina-node.compile-error') === null && unsavedFiles().length === 0,
     );
     steps.push('fix with Ctrl+S');
+
+    // Stop (15.2): the node waits in its loop until Stop sets the flag. Then the show node does not start.
+    from = mark();
+    v = await step('a node that waits', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '99' }));
+    const waitEnd = Date.now() + RUN_MS;
+    while ((await api.running()) !== A) {
+      if (Date.now() > waitEnd) throw new Error(`no run of node ${A} after ${RUN_MS} ms`);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    const topButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === label);
+    await until('the Stop button', RUN_MS, () => topButton('Stop')?.disabled === false);
+    topButton('Stop')!.click();
+    let ended: EngineEvent | undefined;
+    await until('the end of the stopped run', RUN_MS, () => (ended = events.slice(from).find((e) => e.serial === v.serial && e.state !== 'started')) !== undefined);
+    if (ended!.state !== 'ran' || !ended!.ok || !ended!.stopped || output.slice(outputFrom).includes('99')) {
+      throw new Error(`Stop did not keep node ${B} from its start: ${JSON.stringify(ended)}`);
+    }
+    const statusText = () => document.querySelector('.statusbar')?.textContent ?? '';
+    await until('a paused, stale graph with no run', RUN_MS, () =>
+      topButton('Stop')?.disabled === true && topButton('Run')?.disabled === false && statusText().includes('Stale'),
+    );
+    if ((await api.running()) !== null) throw new Error('a node runs after the end of the run');
+    v = await step('undo the wait', () => api.undo());
+    if (v.live) throw new Error('the graph is live after Stop');
+    steps.push('stop a node that waits');
 
     v = await step('save', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');

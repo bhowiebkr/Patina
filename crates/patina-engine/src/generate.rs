@@ -64,12 +64,13 @@ pub fn source(plan: &Plan) -> String {
     s
 }
 
-/// Writes the call of one node. It runs only when each wired input has a value (15.3). Then it
-/// sends the text of each held value, before a later node takes the value (15.9).
+/// Writes the call of one node. It runs only when each wired input has a value (15.3) and the
+/// user did not click **Stop** (15.2). Then it sends the text of each held value, before a later
+/// node takes the value (15.9).
 fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
     let step = &plan.steps[n];
     let (name, node) = &plan.nodes[step.node];
-    let wired: Vec<String> = step
+    let mut run_if: Vec<String> = step
         .inputs
         .iter()
         .filter_map(|source| match source {
@@ -77,13 +78,11 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
             Source::Slot(_) => None,
         })
         .collect();
+    // The last test, so that only a node that can run checks the stop flag and records its index.
+    run_if.push(format!("rep.enter({n})"));
     let _ = writeln!(s, "            // {}: nodes/{name}", step.id);
-    let indent = if wired.is_empty() {
-        "            "
-    } else {
-        let _ = writeln!(s, "            if {} {{", wired.join(" && "));
-        "                "
-    };
+    let _ = writeln!(s, "            if {} {{", run_if.join(" && "));
+    let indent = "                ";
     let _ = writeln!(
         s,
         "{indent}ok &= ::patina_sdk::glue::finish(::std::panic::catch_unwind(\
@@ -151,9 +150,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
         );
         *probe += 1;
     }
-    if !wired.is_empty() {
-        s.push_str("            }\n");
-    }
+    s.push_str("            }\n");
 }
 
 const EXPORTS: &str = r#"

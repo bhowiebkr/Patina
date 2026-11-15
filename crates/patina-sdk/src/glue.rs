@@ -7,14 +7,16 @@
 //! (spec 4.7).
 
 use std::any::Any;
+use std::cell::Cell;
 use std::ffi::c_void;
 use std::fmt::{self, Write as _};
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 
 use crate::{Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 2;
+pub const ABI_VERSION: u32 = 3;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -22,6 +24,8 @@ pub const PANIC: u32 = 2;
 pub const BAD_PARAM: u32 = 3;
 /// A live value (15.9). Its node index is the index of the held value, in the order of `Plan::held`.
 pub const VALUE: u32 = 4;
+/// A node call that did not start, because the user clicked **Stop** (15.2). It has no text.
+pub const STOPPED: u32 = 5;
 
 /// The longest text of a live value, in bytes. A longer text ends with "...".
 pub const TEXT_LEN: usize = 4096;
@@ -29,11 +33,42 @@ pub const TEXT_LEN: usize = 4096;
 /// The engine function that receives a report: a node index, a kind and a UTF-8 text.
 pub type ReportFn = unsafe extern "C" fn(*mut c_void, u32, u32, *const u8, usize);
 
+/// The node index of a `Control` when no run is active.
+pub const IDLE: u32 = u32::MAX;
+
+/// The engine side of **Stop** (15.2): the stop flag, and the node index of the call that runs.
+#[repr(C)]
+pub struct Control {
+    stop: AtomicBool,
+    node: AtomicU32,
+}
+
+impl Default for Control {
+    fn default() -> Control {
+        Control { stop: AtomicBool::new(false), node: AtomicU32::new(IDLE) }
+    }
+}
+
+impl Control {
+    /// Asks the active run to stop, or removes the request.
+    pub fn set_stop(&self, stop: bool) {
+        self.stop.store(stop, Relaxed);
+    }
+
+    /// The index of the node that runs, or that ran last in the active run. None between runs.
+    pub fn node(&self) -> Option<u32> {
+        let node = self.node.load(Relaxed);
+        (node != IDLE).then_some(node)
+    }
+}
+
 /// The engine gives a reporter to each call. It stays valid during the call.
 #[repr(C)]
 pub struct Reporter {
     pub ctx: *mut c_void,
     pub report: ReportFn,
+    /// The control of a run, or null for a call that is not a run.
+    pub control: *const Control,
 }
 
 impl Reporter {
@@ -41,6 +76,36 @@ impl Reporter {
         // SAFETY: the engine gives a function and a context that are valid during the call.
         unsafe { (self.report)(self.ctx, node, kind, text.as_ptr(), text.len()) }
     }
+
+    /// Records that node `node` starts. When the user clicked **Stop**, it reports `STOPPED` and
+    /// returns false, and the node does not start (15.2).
+    pub fn enter(&self, node: u32) -> bool {
+        // SAFETY: the same as in `set_node`.
+        if unsafe { self.control.as_ref() }.is_some_and(|c| c.stop.load(Relaxed)) {
+            self.send(node, STOPPED, "");
+            return false;
+        }
+        self.set_node(node);
+        true
+    }
+
+    fn set_node(&self, node: u32) {
+        // SAFETY: the engine gives null or a control that is valid during the call.
+        if let Some(control) = unsafe { self.control.as_ref() } {
+            control.node.store(node, Relaxed);
+        }
+    }
+}
+
+thread_local! {
+    /// The control of the run on this thread, for `stop_requested`. Null outside a run.
+    static CONTROL: Cell<*const Control> = const { Cell::new(std::ptr::null()) };
+}
+
+pub(crate) fn stop_requested() -> bool {
+    let control = CONTROL.with(Cell::get);
+    // SAFETY: `run` sets the pointer only during the call, and the engine keeps the control valid.
+    unsafe { control.as_ref() }.is_some_and(|c| c.stop.load(Relaxed))
 }
 
 /// A command to a cluster.
@@ -94,6 +159,7 @@ pub fn finish(caught: std::thread::Result<Result<(), String>>, rep: &Reporter, n
 
 /// Drops a value that no node took, with its own catch (spec 4.7).
 pub fn drop_value<T>(value: Option<T>, rep: &Reporter, node: u32) -> bool {
+    rep.set_node(node);
     let caught = catch_unwind(AssertUnwindSafe(move || {
         drop(value);
         Ok(())
@@ -191,11 +257,15 @@ pub unsafe fn set(
 ///
 /// # Safety
 ///
-/// `cluster` comes from `new_cluster` and is not freed, and `rep` points to a valid reporter.
+/// `cluster` comes from `new_cluster` and is not freed. `rep` points to a valid reporter, and its
+/// control is null or valid during the call.
 pub unsafe fn run(cluster: *mut Cluster, rep: *const Reporter) -> bool {
     // SAFETY: the caller keeps the rules of this function.
     let (cluster, rep) = unsafe { (&mut *cluster, &*rep) };
+    let outer = CONTROL.replace(rep.control);
     let ok = catch_unwind(AssertUnwindSafe(|| cluster(Cmd::Run, rep))).unwrap_or(false);
+    CONTROL.set(outer);
+    rep.set_node(IDLE);
     // The cluster has its own standard library, which does not flush its stdout at exit.
     let _ = std::io::Write::flush(&mut std::io::stdout());
     ok
@@ -239,7 +309,7 @@ mod tests {
     #[allow(clippy::needless_borrow, reason = "the calls are the same as in the generated code")]
     fn values_use_the_viewer_then_debug_then_the_type_name() {
         let mut sent: Vec<(u32, u32, String)> = Vec::new();
-        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep };
+        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
         send_value(&rep, 0, |out| (&&&Probe(&2.5_f64)).text(out));
         send_value(&rep, 1, |out| (&&&Probe(&NoDebug)).text(out));
         send_value(&rep, 2, |out| (&&&Probe(&Hex(10))).text(out));
@@ -252,5 +322,31 @@ mod tests {
         // The quote and 2047 two-byte characters fill 4095 bytes. The next character does not fit.
         assert_eq!(sent[3].2, format!("\"{}...", "\u{e9}".repeat(TEXT_LEN / 2 - 1)));
         assert_eq!(sent[4].2, "the text of the value panicked");
+    }
+
+    #[test]
+    fn stop_starts_no_new_node_call() {
+        fn make() -> Cluster {
+            cluster(|_, rep| {
+                // SAFETY: the test gives a control that is valid during the run.
+                let node = || unsafe { &*rep.control }.node();
+                if stop_requested() { !rep.enter(7) && node().is_none() } else { rep.enter(7) && node() == Some(7) }
+            })
+        }
+        let mut sent: Vec<(u32, u32, String)> = Vec::new();
+        let control = Control::default();
+        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: &raw const control };
+        let state = new_cluster(make);
+        // SAFETY: the cluster comes from `new_cluster` and is freed one time. The reporter and the
+        // control are valid during each run.
+        unsafe {
+            assert!(run(state, &rep));
+            assert_eq!(control.node(), None);
+            control.set_stop(true);
+            assert!(run(state, &rep));
+            free(state);
+        }
+        assert_eq!(sent, [(7, STOPPED, String::new())]);
+        assert!(!stop_requested(), "the flag is not visible outside a run");
     }
 }

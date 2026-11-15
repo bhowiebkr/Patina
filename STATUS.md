@@ -54,6 +54,10 @@ To run the editor from a checkout:
 - When the saved code does not compile, the graph runs the last build that compiled. The **Code**
   tab and the status bar show **Running the last build that compiled**.
 - A close or a quit with unsaved changes asks **Save**, **Discard** or **Cancel** (15.10).
+- **Stop** pauses and asks the active run to stop (15.2). The engine starts no new node call.
+  A node with a long loop can read `patina_sdk::stop_requested()` and return early. When a
+  node call runs for 2 s after **Stop**, the status bar shows **Node** `<id>` **does not stop**
+  and the time.
 - The unsaved graph and code go to a recovery file in `data/recovery/` (15.10). When a project
   opens with a recovery file, a dialog asks **Restore** or **Discard**. A save, or a close after
   the question, deletes the file.
@@ -80,15 +84,20 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 34 steps in 7.8 s:
+  off-screen and does not take the focus. It passed these 37 steps in 8.2 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
   - Save a function with a type error into `nodes/number/src/lib.rs`. The old build still
     writes `2.5`. Find the error on the node, in Monaco, in the gutter and in the status bar.
     Capture the window into `code-error.png`.
-  - Undo the error in the Monaco buffer and push Ctrl+S. The build passes, the file on disk is
-    the original and no file is unsaved.
+  - Replace the error in the Monaco buffer with the original code and a loop that waits while
+    the value is 99. Push Ctrl+S. The build passes, the file on disk has that code and no file
+    is unsaved.
+  - Set the parameter to 99. Wait until the engine names `number` as the active node, and
+    click **Stop**. The run ends with no error, and the engine reports a node call that did not
+    start. The output has no `99`. **Run** is enabled, the status bar shows **Stale**, and no
+    node is active. Undo, and the graph stays paused.
   - Save and pause. Move the **Logs** tab to the right area with its menu. Push Shift and the
     right arrow on the left splitter, and zoom the graph with the wheel. Read the layout file:
     it has the tab, the size 324 and the pan and zoom.
@@ -128,8 +137,8 @@ To run the editor from a checkout:
   stale text `2.5`.
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
-- `cargo test --workspace --locked` passed 46 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the recovery files, the route points, the text of the live values with a `Viewer`, the cut of the badge
+- `cargo test --workspace --locked` passed 47 tests. The tests check the graph edits with undo
+  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the route points, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
@@ -151,8 +160,11 @@ To run the editor from a checkout:
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
   and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1), the **Debug** tab and
-  the search palette. **Stop**
-  does the same as **Pause**.
+  the search palette.
+- After **Stop**, all the badges show **Stale**, not only the outputs of the nodes that did not
+  run (15.2). The check does not test the **does not stop** message, because that needs a node
+  that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
+  starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
 - The badges have no lanes, no width badge and no tooltip, and they do not hide at a far zoom

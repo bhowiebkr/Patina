@@ -8,6 +8,12 @@ mod view;
 pub use patina_macros::node;
 pub use view::{Text, Viewer};
 
+/// True when the user clicked **Stop** during the run (15.2). A node that runs for a long time
+/// reads it in its loop and returns early. It is false outside a run and on other threads.
+pub fn stop_requested() -> bool {
+    glue::stop_requested()
+}
+
 /// A type that can be a parameter: an input pin with no wire (spec 4.8).
 ///
 /// The text form is for save and undo (6.4). Parse errors give a message for the person.

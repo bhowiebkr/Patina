@@ -95,6 +95,10 @@ export function App() {
   const [tab, setTab] = useState<InspectorTab>('parameters');
   const [reveal, setReveal] = useState<Reveal | null>(null);
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
+  // True while a build or a run is active, so Stop can stop it after Pause (15.2).
+  const [busy, setBusy] = useState(false);
+  const [stuck, setStuck] = useState('');
+  const stopTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const serial = useRef(-1);
   const revision = useRef(0);
   const current = useRef<View | null>(null);
@@ -105,6 +109,12 @@ export function App() {
   const log = useCallback((more: Line[]) => setLogs((l) => addLines(l, more)), []);
   useEffect(() => onCodeError(setError), []);
 
+  const endStop = useCallback(() => {
+    clearInterval(stopTimer.current);
+    stopTimer.current = undefined;
+    setStuck('');
+  }, []);
+
   const show = useCallback((v: View) => {
     if (v.serial !== serial.current) {
       // Another project: the old results do not apply.
@@ -113,6 +123,8 @@ export function App() {
       loadLayout(v.id, v.serial).then((e) => e && setError(e));
       closeCode();
       setRun(NO_RUN);
+      setBusy(false);
+      endStop();
       setOutput([]);
       setLogs([]);
       setInspect(null);
@@ -125,7 +137,7 @@ export function App() {
     current.current = v;
     setView(v);
     setError('');
-  }, []);
+  }, [endStop]);
 
   const act = useCallback(
     (job: Promise<View>, after?: (v: View) => void) =>
@@ -191,6 +203,10 @@ export function App() {
 
   useEvent(onEngine, (e: EngineEvent) => {
     if (e.serial !== serial.current) return;
+    const active = e.state === 'building' || e.state === 'started';
+    setBusy(active);
+    if (!active) endStop();
+    if (e.state === 'started') return;
     if (e.state === 'building') {
       setRun((r) => ({ ...r, phase: 'building' }));
       log([{ text: 'Building the graph', kind: 'info' }]);
@@ -207,12 +223,14 @@ export function App() {
         // A run without a build keeps the errors of the last build.
         errors: e.builtMs === null ? r.errors : e.errors,
         text: '',
-        stale: false,
+        // shortcut: all badges show Stale after Stop, mark only the nodes that did not run when nodes get their own run state.
+        stale: e.stopped,
       }));
       const lines: Line[] = [];
       if (failed) lines.push({ text: 'The build failed. Running the last build that compiled.', kind: 'err' }, ...errorLines(e.errors));
       else if (e.builtMs !== null) lines.push({ text: `Built in ${seconds(e.builtMs)}`, kind: 'info' });
       lines.push({ text: `Ran in ${millis(e.runMs)}`, kind: 'info' });
+      if (e.stopped) lines.push({ text: 'Stop ended the run before all nodes ran.', kind: 'info' });
       for (const r of e.reports) lines.push({ text: `${r.folder} (${r.id}): ${r.kind}: ${r.text}`, kind: 'err' });
       log(lines);
     } else {
@@ -286,6 +304,22 @@ export function App() {
   }
 
   const live = view.live;
+  // After Stop, a node call that runs for 2 s or more shows in the status bar (15.2).
+  const stop = () => {
+    endStop();
+    act(api.stop());
+    const from = Date.now();
+    const timer = setInterval(() => {
+      const s = Math.floor((Date.now() - from) / 1000);
+      if (s < 2) return;
+      api.running().then((id) => {
+        if (stopTimer.current !== timer) return;
+        if (id === null) endStop();
+        else setStuck(`Node ${id} does not stop - ${s} s`);
+      }, endStop);
+    }, 1000);
+    stopTimer.current = timer;
+  };
   const dirty = view.dirty || unsaved.length > 0;
   let runText = '';
   if (run.phase === 'building') runText = 'Building';
@@ -365,8 +399,7 @@ export function App() {
         <button className="btn" disabled={!live} onClick={() => act(api.pause())}>
           Pause
         </button>
-        {/* Stop is the same as Pause in this version (spec 18, Q10). */}
-        <button className="btn" disabled={!live} onClick={() => act(api.pause())}>
+        <button className="btn" disabled={!live && !busy} onClick={stop}>
           Stop
         </button>
         <span className="sep" />
@@ -393,6 +426,7 @@ export function App() {
       <footer className="statusbar">
         <span title={view.problems.join('\n')}>{view.problems.length === 0 ? 'Ready' : `${view.problems.length} problems`}</span>
         {runText && <span>{runText}</span>}
+        {stuck && <span className="error-text">{stuck}</span>}
         {run.errors.length > 0 && (
           <button className="status-link error-text" onClick={() => firstError && pick(firstError)}>
             {plural(run.errors.length, 'compile error')}

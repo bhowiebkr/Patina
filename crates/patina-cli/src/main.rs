@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use patina_engine::{Outcome, Project, Toolchain};
+use patina_engine::{Control, Outcome, Project, Toolchain};
 
 const USAGE: &str = "usage: patina-cli run <project folder>";
 
@@ -40,7 +40,7 @@ fn run(folder: &Path) -> Result<bool, patina_engine::Error> {
     let params = cluster.set_params(project.graph());
     let ok = show(&params);
     // A node with a bad parameter does not run, so the graph does not run.
-    Ok(ok && show(&cluster.run()))
+    Ok(ok && show(&cluster.run(&Control::default())))
 }
 
 fn show(outcome: &Outcome) -> bool {

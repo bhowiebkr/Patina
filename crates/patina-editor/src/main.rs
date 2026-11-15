@@ -183,6 +183,8 @@ fn main() {
             session::recover,
             session::run,
             session::pause,
+            session::stop,
+            session::running,
             session::value,
             session::layout,
             session::save_layout,
