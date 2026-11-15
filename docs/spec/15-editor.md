@@ -270,6 +270,8 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Lanes show in a fixed order, the most significant bit first. A route bend never changes the order.
 - At a far zoom, a bus shows as one line with a width badge. At a near zoom, it shows each lane.
 - A stale value (15.3) shows dim, on the wire as on the node.
+- The badge of a wire with one value is at the middle of the default curve, or at the middle of the longest segment of a route. A route point never covers it. (Agent decision, 2026-11-15. The owner can change it.)
+- The badge shows the `Debug` text of the value, or the type name and the size when the type has no `Debug`. The engine cuts the text at 64 bytes. The badge cuts it at 160 px with "...", and a selected wire shows all of the text. A stale badge has dim text and a dashed border. A failed build removes the badges. (Agent decision, 2026-11-15. The owner can change it.)
 - Live values follow the viewer rules (5.3, 9.2). The editor reads them at the display rate at most (15.6), and a read never changes the run.
 - A type with no lane description (6.3) shows one line and its type label. The editor does not make lanes from the size of a value or the length of a list.
 - How the engine reads a wire inside a fused chain (9.2) is open (18).

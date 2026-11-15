@@ -174,3 +174,32 @@
   outline: 2px solid var(--text);
   outline-offset: 1px;
 }
+
+/* The live value of a wire (15.9). The selected wire shows the full text. */
+.wire-value {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 160px;
+  padding: 1px 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: 11px Consolas, 'Cascadia Mono', monospace;
+  pointer-events: none;
+}
+
+.wire-value.selected {
+  max-width: none;
+  border-color: var(--accent);
+}
+
+/* A stale value is dim, and its dashed border carries the meaning without brightness (15.3). */
+.wire-value.stale {
+  color: var(--subtle);
+  border-style: dashed;
+}

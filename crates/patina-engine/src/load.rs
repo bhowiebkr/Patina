@@ -42,10 +42,21 @@ impl fmt::Display for Report {
     }
 }
 
+/// The live value of an output after a run (15.9).
+#[derive(Serialize, Clone, Debug)]
+pub struct Value {
+    /// The output, as "<node id>.<output key>".
+    pub from: String,
+    /// The `Debug` text of the value, or its type name and size (5.3).
+    pub text: String,
+}
+
 /// The result of one call: false when a node failed or the cluster failed with no report.
+#[derive(Default)]
 pub struct Outcome {
     pub ok: bool,
     pub reports: Vec<Report>,
+    pub values: Vec<Value>,
 }
 
 type VersionFn = unsafe extern "C" fn() -> u32;
@@ -65,6 +76,8 @@ pub struct Cluster {
     names: Vec<(String, String)>,
     /// The node ID and the input key of each parameter slot.
     slots: Vec<(String, String)>,
+    /// The output of each held value, as "<node id>.<output key>" (`Plan::held`).
+    probes: Vec<String>,
     /// True for each slot that got a text at the last `set_params`.
     has_text: Vec<bool>,
 }
@@ -80,7 +93,12 @@ unsafe extern "C" fn collect(ctx: *mut c_void, node: u32, kind: u32, text: *cons
 }
 
 impl Cluster {
-    pub(crate) fn load(path: &Path, names: Vec<(String, String)>, slots: Vec<(String, String)>) -> Result<Cluster, Error> {
+    pub(crate) fn load(
+        path: &Path,
+        names: Vec<(String, String)>,
+        slots: Vec<(String, String)>,
+        probes: Vec<String>,
+    ) -> Result<Cluster, Error> {
         let fail = |text: String| Error::Load(format!("{}: {text}", path.display()));
         let missing = |e: libloading::Error| fail(e.to_string());
         let library = open(path).map_err(missing)?;
@@ -99,7 +117,7 @@ impl Cluster {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
             let has_text = vec![false; slots.len()];
-            Cluster { state, new, set, run, free, names, slots, has_text }
+            Cluster { state, new, set, run, free, names, slots, probes, has_text }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -117,13 +135,13 @@ impl Cluster {
             // SAFETY: the functions came from the loaded cluster, and `self.state` is live.
             let state = unsafe { (self.new)() };
             if state.is_null() {
-                return Outcome { ok: false, reports: Vec::new() };
+                return Outcome::default();
             }
             // SAFETY: the old state came from `patina_cluster_new` and is not used again.
             unsafe { (self.free)(self.state) };
             self.state = state;
         }
-        let mut all = Outcome { ok: true, reports: Vec::new() };
+        let mut all = Outcome { ok: true, ..Outcome::default() };
         for (slot, text) in texts.iter().enumerate() {
             let Some(text) = text else { continue };
             let mut outcome = self.set(slot, text);
@@ -140,7 +158,7 @@ impl Cluster {
     /// Sets parameter slot `slot` from its text form (4.8).
     fn set(&mut self, slot: usize, text: &str) -> Outcome {
         let Ok(slot) = u32::try_from(slot) else {
-            return Outcome { ok: false, reports: Vec::new() };
+            return Outcome::default();
         };
         let (state, set) = (self.state, self.set);
         // SAFETY: `state` is live, `text` is valid during the call, and so is the reporter.
@@ -158,20 +176,30 @@ impl Cluster {
         let mut sink: Sink = Vec::new();
         let reporter = Reporter { ctx: (&raw mut sink).cast(), report: collect };
         let ok = f(&reporter);
-        let reports = sink
-            .into_iter()
-            .map(|(node, kind, text)| {
-                let (id, folder) = self.names.get(node as usize).cloned().unwrap_or_default();
-                let kind = match kind {
-                    glue::PANIC => ReportKind::Panic,
-                    glue::BAD_PARAM => ReportKind::BadParam,
-                    _ => ReportKind::Error,
-                };
-                Report { id, folder, kind, text }
-            })
-            .collect();
-        Outcome { ok, reports }
+        outcome(ok, sink, &self.names, &self.probes)
     }
+}
+
+/// Splits the reports of one call into the problems of nodes and the live values.
+fn outcome(ok: bool, sink: Sink, names: &[(String, String)], probes: &[String]) -> Outcome {
+    let mut out = Outcome { ok, ..Outcome::default() };
+    for (index, kind, text) in sink {
+        if kind == glue::VALUE {
+            // Only a defective cluster sends an unknown index, and its value has no wire to show on.
+            if let Some(from) = probes.get(index as usize) {
+                out.values.push(Value { from: from.clone(), text });
+            }
+            continue;
+        }
+        let (id, folder) = names.get(index as usize).cloned().unwrap_or_default();
+        let kind = match kind {
+            glue::PANIC => ReportKind::Panic,
+            glue::BAD_PARAM => ReportKind::BadParam,
+            _ => ReportKind::Error,
+        };
+        out.reports.push(Report { id, folder, kind, text });
+    }
+    out
 }
 
 impl Drop for Cluster {
@@ -206,4 +234,21 @@ fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
     // SAFETY: the load runs the init code of the library. Patina built it from a project that
     // the owner trusts (11).
     unsafe { libloading::Library::new(path) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn values_go_apart_from_the_reports() {
+        let names = [("a1".to_owned(), "number".to_owned())];
+        let probes = ["a1.out".to_owned()];
+        let sink = vec![(0, glue::VALUE, "2.5".to_owned()), (7, glue::VALUE, "x".to_owned()), (0, glue::PANIC, "p".to_owned())];
+        let out = outcome(false, sink, &names, &probes);
+        assert_eq!(out.values.len(), 1);
+        assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
+        assert_eq!(out.reports.len(), 1);
+        assert_eq!((out.reports[0].folder.as_str(), out.reports[0].kind), ("number", ReportKind::Panic));
+    }
 }

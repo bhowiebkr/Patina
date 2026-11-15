@@ -49,7 +49,7 @@ async function wireColumn(at?: { x: number; y: number }): Promise<{ x: number; y
   throw new Error('the wire layer drew nothing at the middle of the wire');
 }
 
-export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void) {
+export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void, edited: (v: View) => void) {
   const steps: string[] = [];
   const events: EngineEvent[] = [];
   const output: string[] = [];
@@ -188,6 +188,10 @@ fn broken() -> u32 {
     await result(v, from, '2.5', BUILD_MS);
     await until('two ready nodes on the canvas', RUN_MS, () => document.querySelectorAll('.patina-node.ready').length === 2);
     steps.push('ready on the canvas');
+    const badge = () => document.querySelector('.wire-value');
+    await until('the live value on the wire', RUN_MS, () => badge()?.textContent === '2.5');
+    if (badge()!.classList.contains('stale')) throw new Error('the value of the last run is stale');
+    steps.push('live value on the wire');
 
     // The wire draws in WebGL (15.1). Its hit area is wider than the line, and a click selects it (15.9).
     const wire = await wireColumn();
@@ -225,6 +229,12 @@ fn broken() -> u32 {
     await until('no route point', RUN_MS, () => document.querySelectorAll('.route-point').length === 0);
     v = await step('undo the removal', () => api.undo());
     if (v.graph.wire?.length !== 1 || v.graph.wire[0].points?.length !== 1) throw new Error('Delete on a route point changed more than the point');
+    // While the graph is paused, an edit makes the value of the last run stale (15.3, 15.9).
+    await step('pause', () => api.pause());
+    v = await step('edit while paused', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '3' }));
+    edited(v);
+    await until('the stale value on the wire', RUN_MS, () => badge()?.classList.contains('stale') === true && badge()?.textContent === '2.5');
+    v = await step('undo the edit', () => api.undo());
     v = await step('save the route', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');
 

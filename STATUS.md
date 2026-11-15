@@ -32,6 +32,9 @@ To run the editor from a checkout:
   drag. A route has rounded corners.
 - The graph file keeps the route points. Undo and redo work for each route edit. A route edit
   does not make the result of the run stale.
+- After each run, each wire shows the value that it carries in a badge (15.9). The badge shows
+  the `Debug` text of the value, or the type name and the size. A selected wire shows all of
+  the text. After an edit, the badge is stale: its text is dim and its border is dashed.
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
   selection.
 - The **Inspector** has the **Parameters**, **Code** and **Logs** tabs of the selected node. A
@@ -64,7 +67,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 23 steps in 4.8 s:
+  off-screen and does not take the focus. It passed these 27 steps in 5.9 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -75,12 +78,15 @@ To run the editor from a checkout:
     the original and no file is unsaved.
   - Save, pause and close. The recent list starts with the project.
   - Open again. The graph is the saved graph. Run again, and find 2 ready nodes in the graph.
+    Find `2.5` in the badge of the wire, not stale.
   - Read the pixels of the wire from the WebGL canvas. They are gray, with no amber. The
     point under the wire is in the edge. Click the wire, and find the amber band.
   - Double-click the wire, and find 1 route handle. Drag the handle down by 60 px. After the
     edit, the handle is under the pointer and the old place of the point has no wire pixels.
   - Undo and redo the drag. Push Delete on the focused handle, and find no handle. Undo, and
-    find 1 wire with 1 route point. Save, and find no unsaved changes.
+    find 1 wire with 1 route point.
+  - Pause, and set the parameter to 3. Find a stale badge with `2.5`. Undo, save, and find no
+    unsaved changes.
   - Capture the window into `check.png`.
 - The first capture with a route showed a stale segment from the old curve. The segment lists
   did not change when the number of points changed. The fix makes new lists, and the check
@@ -88,16 +94,20 @@ To run the editor from a checkout:
 - The capture showed the two nodes with the ready state, the wire, the parameter value `2.5`
   and the **Output** tab with `2.5`. **Run** was disabled while the graph ran. The selected wire
   had one rounded corner at its amber route handle.
+- The first capture with a badge showed the route handle on the badge text. The badge was at
+  half of the length of the route, on the route point. It is now at the middle of the longest
+  segment. The stale badge also showed the wire through its background, so only its text is
+  dim now.
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
-- `cargo test --workspace --locked` passed 40 tests. The tests check the graph edits with undo
-  and redo, the route points, `SetCode` with undo, the compile errors with the project paths, the changes that
+- `cargo test --workspace --locked` passed 42 tests. The tests check the graph edits with undo
+  and redo, the route points, the text of the live values, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  10 tests: the miter normals, the rounded corners of a route, the place of a new route point,
-  the SVG path of a route and the segment lists.
+  11 tests: the miter normals, the rounded corners of a route, the place of a new route point,
+  the SVG path of a route, the segment lists and the place of the badge.
 - CI run 43708446577 of the first editor slice passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 
@@ -110,8 +120,11 @@ To run the editor from a checkout:
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: the dock layout (15.2), rust-analyzer in
-  Monaco (15.1), the **Debug** tab, the recovery file (15.10), the value badges of the wires
-  (15.9), and the search palette. **Stop** does the same as **Pause**.
+  Monaco (15.1), the **Debug** tab, the recovery file (15.10), the value viewers (15.2), and
+  the search palette. **Stop** does the same as **Pause**.
+- The badges have no lanes, no width badge and no tooltip, and they do not hide at a far zoom
+  (15.9). Two badges can cover each other. The engine copies the text of each value into a
+  new `String` after each run.
 - The route points have no **Reset route** and no orthogonal style (15.9). The keyboard cannot
   add a route point. The editor does not warn when a wire goes under a node.
 - The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG
@@ -139,6 +152,8 @@ To run the editor from a checkout:
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).
   - A route of more than 62 points draws only its first 62 points. Only a graph file that a
     person edited has such a route (`frontend/src/wires.ts`).
+  - Each run formats and sends each held value, also when a graph runs faster than the display
+    (15.6) (`crates/patina-sdk/src/glue.rs`).
 
 ## Milestone 1: engine and CLI
 

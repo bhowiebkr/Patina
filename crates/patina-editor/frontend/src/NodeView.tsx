@@ -15,6 +15,8 @@ export interface RunState {
   runMs: number | null;
   ok: boolean;
   reports: Report[];
+  /** The text of each live value by output, "<node id>.<output key>" (15.9). */
+  values: ReadonlyMap<string, string>;
   /** The compile errors of the last build (15.5). */
   errors: Diagnostic[];
   text: string;
@@ -29,6 +31,7 @@ export const NO_RUN: RunState = {
   runMs: null,
   ok: true,
   reports: [],
+  values: new Map(),
   errors: [],
   text: '',
   stale: false,

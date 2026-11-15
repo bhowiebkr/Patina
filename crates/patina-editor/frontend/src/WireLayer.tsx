@@ -12,10 +12,10 @@ import {
   type MouseEvent,
   type PointerEvent,
 } from 'react';
-import { useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
+import { EdgeLabelRenderer, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
 import type { Edit, Point } from './api';
 import { GlWires } from './gl';
-import { insertAt, wirePath, type WireStore } from './wires';
+import { insertAt, midpoint, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */
 const HIT_WIDTH = 12;
@@ -29,12 +29,15 @@ export interface WireTools {
   store: WireStore;
   onEdit: (edit: Edit) => Promise<void>;
   editable: boolean;
+  /** The text of each live value by output (15.9), and true when it is for an old graph. */
+  values: ReadonlyMap<string, string>;
+  stale: boolean;
 }
 
 export const WireContext = createContext<WireTools | null>(null);
 
 export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
-  const { store, onEdit, editable } = useContext(WireContext)!;
+  const { store, onEdit, editable, values, stale } = useContext(WireContext)!;
   const flow = useReactFlow();
   // The route during a drag. It stays until the edit gives the new graph, so the wire does not jump back.
   const [draft, setDraft] = useState<readonly Point[] | null>(null);
@@ -52,10 +55,22 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     void send([...route.slice(0, k), [Math.round(p.x), Math.round(p.y)], ...route.slice(k)]);
   };
   const d = wirePath(sourceX, sourceY, targetX, targetY, route);
+  const value = values.get(data!.from);
+  const [mx, my] = midpoint(sourceX, sourceY, targetX, targetY, route);
   return (
     <>
       <path className="wire-line" d={d} />
       <path className="wire-hit" d={d} onDoubleClick={add} />
+      {value !== undefined && (
+        <EdgeLabelRenderer>
+          <div
+            className={`wire-value${stale ? ' stale' : ''}${selected ? ' selected' : ''}`}
+            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)` }}
+          >
+            {value}
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {selected && editable && <RouteHandles route={route} dragging={draft !== null} setDraft={setDraft} send={send} />}
     </>
   );

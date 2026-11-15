@@ -5,7 +5,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
 use patina_engine::project::GraphFile;
-use patina_engine::{Checked, Cluster, Diagnostic, Error, Report, Toolchain};
+use patina_engine::{Checked, Cluster, Diagnostic, Error, Report, Toolchain, Value};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -30,7 +30,16 @@ pub struct Run {
 pub enum Event {
     Building { serial: u64 },
     /// When the build failed, `errors` has its compile errors, and the last build that compiled ran.
-    Ran { serial: u64, built_ms: Option<f64>, run_ms: f64, ok: bool, reports: Vec<Report>, errors: Vec<Diagnostic> },
+    /// `values` has the live value of each output that a wire reads (15.9).
+    Ran {
+        serial: u64,
+        built_ms: Option<f64>,
+        run_ms: f64,
+        ok: bool,
+        reports: Vec<Report>,
+        values: Vec<Value>,
+        errors: Vec<Diagnostic>,
+    },
     Failed { serial: u64, text: String, errors: Vec<Diagnostic> },
 }
 
@@ -107,7 +116,7 @@ fn run_one(toolchain: &mut Option<Toolchain>, loaded: &mut Option<Loaded>, run: 
     // A node with a bad parameter does not run, so the graph does not run (4.8).
     let outcome = params.ok.then(|| cluster.run());
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
-    let ok = outcome.as_ref().is_some_and(|o| o.ok);
-    let reports = params.reports.into_iter().chain(outcome.into_iter().flat_map(|o| o.reports)).collect();
-    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok, reports, errors })
+    let outcome = outcome.unwrap_or_default();
+    let reports = params.reports.into_iter().chain(outcome.reports).collect();
+    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, reports, values: outcome.values, errors })
 }

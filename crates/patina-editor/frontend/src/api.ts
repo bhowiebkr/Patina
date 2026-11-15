@@ -68,6 +68,12 @@ export interface Report {
   text: string;
 }
 
+/** The live value of an output after a run (spec 15.9), with `from` as "<node id>.<output key>". */
+export interface Value {
+  from: string;
+  text: string;
+}
+
 /** A compile error (spec 15.5). Lines and columns start at 1. */
 export interface Diagnostic {
   message: string;
@@ -82,7 +88,7 @@ export interface Diagnostic {
 /** When `errors` of a run is not empty, the build failed and the last build that compiled ran. */
 export type EngineEvent =
   | { state: 'building'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; reports: Report[]; errors: Diagnostic[] }
+  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] };
 
 export interface OutputText {

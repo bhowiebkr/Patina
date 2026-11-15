@@ -26,6 +26,15 @@ pub struct Step {
     pub consumers: Vec<usize>,
 }
 
+impl Plan {
+    /// Each output that a wire reads, as a step index and an output index, in run order.
+    pub fn held(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        self.steps.iter().enumerate().flat_map(|(n, step)| {
+            step.consumers.iter().enumerate().filter(|(_, c)| **c > 0).map(move |(k, _)| (n, k))
+        })
+    }
+}
+
 pub enum Source {
     Slot(usize),
     Wire { step: usize, output: usize },

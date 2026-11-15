@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { insertAt, MAX_POINTS, MAX_ROUTE, normals, routePoints, STRIDE, WireStore, wirePath } from './wires.ts';
+import { insertAt, MAX_POINTS, MAX_ROUTE, midpoint, normals, routePoints, STRIDE, WireStore, wirePath } from './wires.ts';
 
 /** The miter normals of a line through the x, y pairs. */
 function miters(...xy: number[]): number[][] {
@@ -85,4 +85,13 @@ test('a route with a new number of points rebuilds the segment lists', () => {
   store.layout = false;
   store.set('w', 0, 0, 100, 0, [[50, 60]], false);
   assert.ok(!store.layout, 'a moved point keeps the number of points');
+});
+
+test('the value badge sits at the middle of the curve or of the longest segment', () => {
+  assert.deepEqual(midpoint(0, 0, 100, 40, []), [50, 20]);
+  // Segments of 10, 10 and 20: the badge is at the middle of the last one, not on a route point.
+  assert.deepEqual(midpoint(0, 0, 30, 10, [[10, 0], [10, 10]]), [20, 10]);
+  // Two equal segments: the first one wins, so the badge is not on the route point between them.
+  assert.deepEqual(midpoint(0, 0, 20, 0, [[10, 0]]), [5, 0]);
+  assert.deepEqual(midpoint(0, 0, 0, 0, [[0, 0]]), [0, 0]);
 });

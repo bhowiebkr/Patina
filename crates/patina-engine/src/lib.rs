@@ -19,7 +19,7 @@ use serde::Serialize;
 
 pub use cargo::{Diagnostic, Toolchain};
 pub use edit::Edit;
-pub use load::{Cluster, Outcome, Report, ReportKind};
+pub use load::{Cluster, Outcome, Report, ReportKind, Value};
 use project::GraphFile;
 
 #[derive(Debug)]
@@ -262,7 +262,11 @@ impl Checked {
         let plan = &self.plan;
         let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
         let slots = plan.slots.iter().map(|s| (plan.steps[s.step].id.clone(), s.key.clone())).collect();
-        Cluster::load(&library, names, slots)
+        let probes = plan
+            .held()
+            .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
+            .collect();
+        Cluster::load(&library, names, slots, probes)
     }
 
     /// The generated code of the cluster. Two checks with the same wiring give the same text, so

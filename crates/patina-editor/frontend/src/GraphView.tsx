@@ -77,7 +77,10 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [glOk, setGlOk] = useState(true);
-  const tools = useMemo(() => ({ store: wires, onEdit, editable: view.trusted }), [wires, onEdit, view.trusted]);
+  const tools = useMemo(
+    () => ({ store: wires, onEdit, editable: view.trusted, values: run.values, stale: run.stale }),
+    [wires, onEdit, view.trusted, run.values, run.stale],
+  );
 
   useEffect(() => setNodes((prev) => buildNodes(view, run, prev)), [view, run]);
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);

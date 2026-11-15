@@ -32,6 +32,7 @@ pub fn manifest(plan: &Plan) -> String {
 pub fn source(plan: &Plan) -> String {
     let mut s = String::from(
         "// Made by Patina. Patina writes this file again at each build.\n#![allow(unused)]\n\n\
+         use ::patina_sdk::glue::{DebugText as _, NameText as _};\n\n\
          fn make() -> ::patina_sdk::glue::Cluster {\n",
     );
     for (i, slot) in plan.slots.iter().enumerate() {
@@ -48,18 +49,14 @@ pub fn source(plan: &Plan) -> String {
     }
     s.push_str("            _ => false,\n        },\n        ::patina_sdk::glue::Cmd::Run => {\n");
     s.push_str("            let mut ok = true;\n");
-    let held = || {
-        plan.steps.iter().enumerate().flat_map(|(n, step)| {
-            step.consumers.iter().enumerate().filter(|(_, c)| **c > 0).map(move |(k, _)| (n, k))
-        })
-    };
-    for (n, k) in held() {
+    for (n, k) in plan.held() {
         let _ = writeln!(s, "            let mut n{n}_{k} = ::std::option::Option::None;");
     }
+    let mut probe = 0;
     for n in 0..plan.steps.len() {
-        step(&mut s, plan, n);
+        step(&mut s, plan, n, &mut probe);
     }
-    for (n, k) in held() {
+    for (n, k) in plan.held() {
         let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}, rep, {n});");
     }
     s.push_str("            ok\n        }\n    })\n}\n");
@@ -67,8 +64,9 @@ pub fn source(plan: &Plan) -> String {
     s
 }
 
-/// Writes the call of one node. It runs only when each wired input has a value (15.3).
-fn step(s: &mut String, plan: &Plan, n: usize) {
+/// Writes the call of one node. It runs only when each wired input has a value (15.3). Then it
+/// sends the text of each held value, before a later node takes the value (15.9).
+fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
     let step = &plan.steps[n];
     let (name, node) = &plan.nodes[step.node];
     let wired: Vec<String> = step
@@ -145,6 +143,14 @@ fn step(s: &mut String, plan: &Plan, n: usize) {
         }
     }
     let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), rep, {n});");
+    for k in (0..values.len()).filter(|k| step.consumers[*k] > 0) {
+        let _ = writeln!(
+            s,
+            "{indent}if let ::std::option::Option::Some(v) = &n{n}_{k} {{ ::patina_sdk::glue::send_value(rep, {probe}, \
+             |out| (&&::patina_sdk::glue::Probe(v)).text(out)); }}"
+        );
+        *probe += 1;
+    }
     if !wired.is_empty() {
         s.push_str("            }\n");
     }

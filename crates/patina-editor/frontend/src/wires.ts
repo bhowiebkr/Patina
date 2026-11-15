@@ -63,6 +63,24 @@ export function wirePath(sx: number, sy: number, tx: number, ty: number, route: 
   return `${d}L${tx} ${ty}`;
 }
 
+/** The place of the value badge (15.9): the middle of the default curve, or of the longest segment of the route. */
+export function midpoint(sx: number, sy: number, tx: number, ty: number, route: readonly Point[]): Point {
+  // At t = 0.5 the control points of the default curve cancel, so its middle is the middle of the ends.
+  if (route.length === 0) return [(sx + tx) / 2, (sy + ty) / 2];
+  // The middle of a segment is never on a route point, so the handles of a selected wire do not hide the badge.
+  let best = 0;
+  let longest = -1;
+  for (let k = 0; k <= route.length; k++) {
+    const len = Math.hypot(vertex(sx, sy, tx, ty, route, k + 1, 0) - vertex(sx, sy, tx, ty, route, k, 0), vertex(sx, sy, tx, ty, route, k + 1, 1) - vertex(sx, sy, tx, ty, route, k, 1));
+    if (len > longest) {
+      longest = len;
+      best = k;
+    }
+  }
+  const mid = (axis: 0 | 1) => (vertex(sx, sy, tx, ty, route, best, axis) + vertex(sx, sy, tx, ty, route, best + 1, axis)) / 2;
+  return [mid(0), mid(1)];
+}
+
 /** The index in the route for a new point at (x, y): the place of the nearest segment. */
 export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number): number {
   let best = 0;

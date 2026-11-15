@@ -177,9 +177,9 @@ export function App() {
   useEffect(() => {
     if (start?.check && !checkStarted) {
       checkStarted = true;
-      runCheck(start.check, show, pick);
+      runCheck(start.check, show, pick, markStale);
     }
-  }, [start, show, pick]);
+  }, [start, show, pick, markStale]);
 
   useEffect(() => showErrors(run.errors), [run.errors]);
 
@@ -197,6 +197,7 @@ export function App() {
         runMs: e.runMs,
         ok: e.ok,
         reports: e.reports,
+        values: new Map(e.values.map((v) => [v.from, v.text])),
         // A run without a build keeps the errors of the last build.
         errors: e.builtMs === null ? r.errors : e.errors,
         text: '',
@@ -209,7 +210,7 @@ export function App() {
       for (const r of e.reports) lines.push({ text: `${r.folder} (${r.id}): ${r.kind}: ${r.text}`, kind: 'err' });
       log(lines);
     } else {
-      setRun((r) => ({ ...r, phase: 'failed', text: e.text, errors: e.errors }));
+      setRun((r) => ({ ...r, phase: 'failed', text: e.text, values: NO_RUN.values, errors: e.errors }));
       log(e.errors.length > 0 ? [{ text: 'The build failed.', kind: 'err' }, ...errorLines(e.errors)] : [{ text: e.text, kind: 'err' }]);
     }
   });
