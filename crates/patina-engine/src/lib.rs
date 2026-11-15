@@ -74,6 +74,8 @@ pub struct Project {
     history: edit::History,
     /// The number of code writes of edits, undo and redo.
     code_revision: u64,
+    /// The path of the last code write.
+    last_code: Option<String>,
 }
 
 /// An input or an output of a node (spec 4.1).
@@ -139,7 +141,7 @@ impl Project {
         let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
         let file = project::read(&root.join("patina.toml"), |f: &project::ProjectFile| f.format)?;
         let graph = project::read(&graph_path(&root), |g: &GraphFile| g.format)?;
-        Ok(Project { root, id: file.id, rust: file.rust, history: edit::History::new(graph), code_revision: 0 })
+        Ok(Project { root, id: file.id, rust: file.rust, history: edit::History::new(graph), code_revision: 0, last_code: None })
     }
 
     /// Makes a new project in a new or empty folder, with the `number` and `show` nodes and an
@@ -231,6 +233,7 @@ impl Project {
         }
         self.history.push_code(path.clone(), old);
         self.code_revision += 1;
+        self.last_code = Some(path.clone());
         Ok(())
     }
 
@@ -252,19 +255,27 @@ impl Project {
 
     fn step(&mut self, undo: bool) -> Result<bool, String> {
         let root = &self.root;
-        let mut wrote = false;
+        let mut wrote = None;
         let write = |path: &str, text: &str| {
-            wrote = true;
+            wrote = Some(path.to_owned());
             swap_code(root, path, text)
         };
         let done = if undo { self.history.undo(write) } else { self.history.redo(write) };
-        self.code_revision += u64::from(wrote && done.is_ok());
+        if let (Some(path), true) = (wrote, done.is_ok()) {
+            self.code_revision += 1;
+            self.last_code = Some(path);
+        }
         done
     }
 
-    /// Changes when an edit, undo or redo writes a code file.
+    /// Changes when an edit, undo or redo writes a code file. Each step writes one file.
     pub fn code_revision(&self) -> u64 {
         self.code_revision
+    }
+
+    /// The path of the last code file that an edit, undo or redo wrote.
+    pub fn last_code(&self) -> Option<&str> {
+        self.last_code.as_deref()
     }
 
     pub fn can_undo(&self) -> bool {
@@ -347,8 +358,12 @@ impl Project {
 
 impl Checked {
     /// Puts the node folder `name` in the slot (7.1): its uses call the slot library, and a build
-    /// of the slot alone builds only this node.
-    pub fn with_slot(mut self, name: &str) -> Result<Checked, Error> {
+    /// of the slot alone builds only this node. `None` empties the slot.
+    pub fn set_slot(&mut self, name: Option<&str>) -> Result<(), Error> {
+        let Some(name) = name else {
+            self.plan.slot = None;
+            return Ok(());
+        };
         let plan = &self.plan;
         let node = (plan.nodes.iter().position(|(n, _)| n == name))
             .filter(|&i| plan.steps.iter().any(|s| s.node == i))
@@ -361,7 +376,7 @@ impl Checked {
             return Err(Error::Build(format!("the node {name} is generic, and a generic node does not go into the slot yet")));
         }
         self.plan.slot = Some(node);
-        Ok(self)
+        Ok(())
     }
 
     /// Builds the clusters of the graph in `mode` and loads them (8.3). A bake build with no slot
@@ -625,6 +640,7 @@ mod tests {
         assert!(project.read_code(&path).unwrap().contains("println!"), "undo writes the old text");
         assert!(project.redo().unwrap());
         assert_eq!((project.read_code(&path).unwrap().as_str(), project.code_revision()), ("// new\n", 3));
+        assert_eq!(project.last_code(), Some(path.as_str()));
         let missing = Edit::SetCode { path: "nodes/show/src/new.rs".to_owned(), text: String::new() };
         assert!(project.apply(&missing).is_err(), "a code edit does not make a file");
 

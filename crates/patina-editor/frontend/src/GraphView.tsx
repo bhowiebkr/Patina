@@ -47,7 +47,8 @@ function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
     const position = { x: entry.pos?.[0] ?? 0, y: entry.pos?.[1] ?? 0 };
     const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
-    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`) };
+    const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
+    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot };
     const before = old.get(entry.id);
     return before ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });

@@ -24,7 +24,7 @@ Ask the owner. Do not decide these alone.
 4. Process isolation: default on or off.
 5. Zig: does it remove the need for Xcode on macOS?
 6. App mode: a layout that shows the views and the node GUIs without the graph, so a project becomes a tool for other users (15.8). Can a package include it, with its views?
-7. Fuse time: how long a node stays in the slot with no change before the engine fuses it back (7.2).
+7. Fuse time: how long a node stays in the slot with no change before the engine fuses it back (7.2). Decided: 30 s with no change to the graph or the code. A bake build of a small cluster takes a few seconds, so a shorter time can build again while the user still edits. Agent decision of 2026-11-15. The owner can change it.
 8. Dock layout. Decided: each user keeps their own layout for each project, in the data folder of the user, not in the project (15.2). Agent decision of 2026-11-15. The owner can change it.
 9. First workflow. Decided: graph edits apply at once, code applies at Ctrl+S, and Ctrl+S saves the full project (15.10). Agent decision of 2026-11-15. The owner can change it.
 10. Stop. Decided: the top bar has a **Stop** button next to **Pause**. Stop asks the nodes to stop, and never kills a thread (15.2). Agent decision of 2026-11-15. The owner can change it.

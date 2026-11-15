@@ -227,6 +227,9 @@ fn broken() -> u32 {
     const fixed = await result(v, from, '2.5', BUILD_MS);
     if (fixed.builtMs === null || fixed.errors.length > 0) throw new Error(`the save did not build the fixed code: ${JSON.stringify(fixed.errors)}`);
     if ((await api.readCode(lib)) !== stoppable) throw new Error('the save did not write the code');
+    // A save of a Rust file of a node puts the node in the slot (7.1).
+    if (fixed.slot !== 'number') throw new Error(`the save did not put the node in the slot: ${fixed.slot}`);
+    await until('the slot icon on the node', RUN_MS, () => document.querySelector('.patina-node [title="In the slot"]') !== null);
     await until('no compile error and no unsaved code', RUN_MS, () =>
       document.querySelector('.patina-node.compile-error') === null && unsavedFiles().length === 0,
     );

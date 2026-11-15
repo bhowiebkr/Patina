@@ -139,7 +139,7 @@ impl Editor {
         let mut session = self.lock();
         // A project opens paused (15.10).
         let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), recovery, recovery_error };
-        Ok(session.insert(new).view(&self.engine, None))
+        Ok(session.insert(new).view(&self.engine, None, None))
     }
 
     /// Closes the project. The user saved or discarded the changes, so the recovery file goes. A
@@ -167,7 +167,8 @@ impl Editor {
             session.keep_recovery(&self.data);
             let built = (session.project.code_revision() != code).then_some(true);
             let build = old.and_then(|old| built.or(affects_run(&old, session.project.graph())));
-            Ok(session.view(&self.engine, build))
+            let slot = built.and(session.project.last_code()).and_then(slot_folder);
+            Ok(session.view(&self.engine, build, slot))
         })
     }
 }
@@ -183,7 +184,8 @@ impl Session {
     }
 
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
-    fn view(&self, engine: &Sender<Job>, build: Option<bool>) -> View {
+    /// `slot` is the node folder of a code change, for the slot (7.1).
+    fn view(&self, engine: &Sender<Job>, build: Option<bool>, slot: Option<String>) -> View {
         let project = &self.project;
         let (checked, problems) = match project.check() {
             Ok(checked) => (Some(checked), Vec::new()),
@@ -191,7 +193,7 @@ impl Session {
             Err(e) => (None, vec![e.to_string()]),
         };
         if let (Some(checked), Some(build), true) = (checked, build, self.live) {
-            let run = Run { serial: self.serial, checked, graph: project.graph().clone(), build };
+            let run = Run { serial: self.serial, checked, graph: project.graph().clone(), build, slot };
             let _ = engine.send(Job::Run(Box::new(run)));
         }
         let (mut nodes, mut problems) = match project.nodes() {
@@ -218,6 +220,13 @@ impl Session {
             recovery: self.recovery.is_some(),
         }
     }
+}
+
+/// The node folder of a code file, when a change of the file can build in the slot: a Rust file of
+/// the node folder, not its `Cargo.toml`. A new crate can change the crates of the base (7.1).
+fn slot_folder(path: &str) -> Option<String> {
+    let (name, file) = path.strip_prefix("nodes/")?.split_once('/')?;
+    file.ends_with(".rs").then(|| name.to_owned())
 }
 
 /// Some(true) when the change needs a new build, and Some(false) when only parameters changed.
@@ -330,7 +339,7 @@ pub fn trust_project(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         editor.data.trust(session.project.root())?;
         session.trusted = true;
-        Ok(session.view(&editor.engine, None))
+        Ok(session.view(&editor.engine, None, None))
     })
 }
 
@@ -355,7 +364,7 @@ pub fn save(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         session.project.save().map_err(|e| e.to_string())?;
         session.keep_recovery(&editor.data);
-        Ok(session.view(&editor.engine, None))
+        Ok(session.view(&editor.engine, None, None))
     })
 }
 
@@ -431,7 +440,7 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
         }
         session.code = code.clone();
         session.keep_recovery(&editor.data);
-        Ok(Recovered { view: session.view(&editor.engine, None), code })
+        Ok(Recovered { view: session.view(&editor.engine, None, None), code })
     })
 }
 
@@ -450,7 +459,19 @@ pub fn run(editor: State<'_, Editor>) -> Result<View, String> {
         session.project.check().map_err(|e| e.to_string())?;
         editor.shared.control.set_stop(false);
         session.live = true;
-        Ok(session.view(&editor.engine, Some(true)))
+        Ok(session.view(&editor.engine, Some(true), None))
+    })
+}
+
+/// Fuses the node in the slot back into the base now, in bake mode (7.2). Only a live graph runs
+/// a build, so a paused graph fuses at the next **Run** and the time after it.
+#[tauri::command(async)]
+pub fn bake(editor: State<'_, Editor>) -> Result<View, String> {
+    editor.with(|session| {
+        if session.live {
+            let _ = editor.engine.send(Job::Bake);
+        }
+        Ok(session.view(&editor.engine, None, None))
     })
 }
 
@@ -460,7 +481,7 @@ pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         session.live = false;
         let _ = editor.engine.send(Job::Pause);
-        Ok(session.view(&editor.engine, None))
+        Ok(session.view(&editor.engine, None, None))
     })
 }
 
@@ -558,6 +579,13 @@ pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_rust_file_of_a_node_goes_into_the_slot() {
+        assert_eq!(slot_folder("nodes/acc/src/lib.rs").as_deref(), Some("acc"));
+        assert_eq!(slot_folder("nodes/acc/Cargo.toml"), None);
+        assert_eq!(slot_folder("widgets/bar/src/lib.rs"), None);
+    }
 
     #[test]
     fn only_a_change_that_runs_needs_the_engine() {

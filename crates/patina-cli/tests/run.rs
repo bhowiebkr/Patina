@@ -304,7 +304,12 @@ to = \"00000000000000a3.value\"
         assert!(out.ok, "{:?}", out.reports);
         out.values.into_iter().find(|v| v.from == format!("00000000000000a1.{from}")).unwrap().text
     };
-    let slotted = || Project::open(&project).unwrap().check().unwrap().with_slot("acc").unwrap();
+    let checked = || Project::open(&project).unwrap().check().unwrap();
+    let slotted = || {
+        let mut checked = checked();
+        checked.set_slot(Some("acc")).unwrap();
+        checked
+    };
 
     // The base calls each input kind through the slot library, and the state stays in it.
     let opened = Project::open(&project).unwrap();
@@ -320,7 +325,7 @@ to = \"00000000000000a3.value\"
     assert_eq!(value(&mut cluster, "out"), "130.0");
 
     // Fuse back in bake mode: the fused cluster gets the state of the slot library (7.2).
-    let mut fused = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Bake).unwrap();
+    let mut fused = checked().build(&toolchain, Mode::Bake).unwrap();
     fused.set_params(opened.graph());
     assert!(cluster.slotted() && !fused.slotted() && fused.mode() == Mode::Bake);
     assert_eq!(fused.adopt(&mut cluster), 1);
@@ -331,6 +336,6 @@ to = \"00000000000000a3.value\"
     let mut cluster = slotted().build(&toolchain, Mode::Edit).unwrap();
     fs::write(folder.join("src/lib.rs"), edited.replace("scale: f64", "scale: f32").replace("* scale", "* f64::from(scale)")).unwrap();
     assert!(!slotted().build_slot(&toolchain, &mut cluster).unwrap());
-    assert!(Project::open(&project).unwrap().check().unwrap().with_slot("number").is_ok());
-    assert!(Project::open(&project).unwrap().check().unwrap().with_slot("nothing").is_err());
+    assert!(checked().set_slot(Some("number")).is_ok());
+    assert!(checked().set_slot(Some("nothing")).is_err());
 }

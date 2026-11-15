@@ -281,6 +281,8 @@ export function App() {
         times: new Map(e.times.map((t) => [t.id, t.ms])),
         logs: e.logs,
         frames: 0,
+        fused: e.fused,
+        slot: e.slot,
         };
       });
       const lines: Line[] = [];
@@ -484,6 +486,9 @@ export function App() {
         <button className="btn" disabled={!live && !busy} onClick={stop}>
           Stop
         </button>
+        <button className="btn" title="Fuse the node in the slot back into the base now" disabled={!live || run.fused} onClick={() => act(api.bake())}>
+          Bake
+        </button>
         <span className="sep" />
         <ViewsMenu />
         <HelpMenu />
@@ -519,6 +524,7 @@ export function App() {
       <footer className="statusbar">
         <span title={view.problems.join('\n')}>{view.problems.length === 0 ? 'Ready' : `${view.problems.length} problems`}</span>
         {runText && <span>{runText}</span>}
+        {run.phase === 'ran' && <span>{run.slot !== null ? `Slot: ${run.slot}` : run.fused ? 'Fused' : 'Edit build'}</span>}
         {stuck && <span className="error-text">{stuck}</span>}
         {run.errors.length > 0 && (
           <button className="status-link error-text" onClick={() => firstError && pick(firstError)}>

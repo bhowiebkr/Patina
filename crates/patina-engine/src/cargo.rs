@@ -684,7 +684,12 @@ mod tests {
         for folder in ["main", "batch", "frame", "slot"] {
             std::fs::create_dir_all(root.join("build/clusters").join(folder)).unwrap();
         }
-        let left = || -> Vec<_> { std::fs::read_dir(root.join("build/clusters")).unwrap().flatten().map(|e| e.file_name()).collect() };
+        // The order of read_dir depends on the file system, so the names are sorted.
+        let left = || -> Vec<_> {
+            let mut names: Vec<_> = std::fs::read_dir(root.join("build/clusters")).unwrap().flatten().map(|e| e.file_name()).collect();
+            names.sort();
+            names
+        };
         remove_old_clusters(&root, &[Domain::Batch], true).unwrap();
         assert_eq!(left(), ["batch", "slot"]);
         remove_old_clusters(&root, &[Domain::Batch], false).unwrap();

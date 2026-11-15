@@ -2,13 +2,13 @@
 //! the graph (spec 7.2, 15.10).
 
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock};
 use patina_engine::project::GraphFile;
-use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, NodeLog, NodeTime, Report, Toolchain, Value};
+use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog, NodeTime, Report, Toolchain, Value};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -22,7 +22,13 @@ pub enum Job {
     Gui(GuiInput),
     /// Runs the batch domain again after a GUI change of a batch node. Only the frame run sends it.
     Rerun,
+    /// Fuses the clusters now: a bake build with no slot (7.2). **Bake** sends it, and the engine
+    /// makes it after `FUSE_IDLE` with no change.
+    Bake,
 }
+
+/// The time with no change after which the engine fuses the clusters (7.2, roadmap question 7).
+const FUSE_IDLE: Duration = Duration::from_secs(30);
 
 pub struct GuiInput {
     pub id: String,
@@ -51,6 +57,14 @@ pub struct Run {
     pub checked: Checked,
     pub graph: GraphFile,
     pub build: bool,
+    /// The node folder of the code file that this change wrote, which goes into the slot (7.1).
+    pub slot: Option<String>,
+}
+
+/// What a run builds: the mode and the node folder for the slot (7.2).
+struct Build {
+    mode: Mode,
+    slot: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -63,10 +77,13 @@ pub enum Event {
     /// `values` has the badge text of each output that a wire reads (15.9). `skipped` and `stopped`
     /// have the IDs of the nodes that did not run (15.3, 15.2). `times` has the run time of each
     /// node call that started, and `logs` has the log lines of the nodes (15.7). `frames` is true
-    /// when the frame domain runs after this run of the batch domain (9.1).
+    /// when the frame domain runs after this run of the batch domain (9.1). `fused` is true for
+    /// clusters in bake mode with no slot, and `slot` has the node folder in the slot (7.3).
     Ran {
         serial: u64,
         built_ms: Option<f64>,
+        fused: bool,
+        slot: Option<String>,
         run_ms: f64,
         ok: bool,
         frames: bool,
@@ -101,6 +118,18 @@ pub enum Event {
 struct Loaded {
     cluster: Cluster,
     wiring: String,
+    /// The node folder in the slot (7.1).
+    slot: Option<String>,
+    /// True after a build of the clusters failed, so the base is older than the code. Then a
+    /// save does not build the slot alone.
+    stale: bool,
+}
+
+impl Loaded {
+    /// True when the clusters are in edit mode or a node is in the slot, so a fuse changes them.
+    fn needs_fuse(&self) -> bool {
+        self.cluster.mode() == Mode::Edit || self.cluster.slotted()
+    }
 }
 
 /// The state that the engine thread shares with the commands.
@@ -149,22 +178,29 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
     let mut next = None;
     // The last run, which a GUI change runs again, and the nodes of the Inspector and the full size.
     let (mut last, mut shown) = (None::<Box<Run>>, Shown::default());
-    while let Some(first) = next.take().or_else(|| jobs.recv().ok()) {
+    // The time of the fuse while the graph is live and the clusters are not fused (7.2).
+    let mut fuse_at = None;
+    while let Some(first) = next.take().or_else(|| wait(jobs, fuse_at)) {
         // Only the newest run starts. A build that a skipped run asked for still happens.
         let mut newest = None;
-        let mut build = false;
-        let mut rerun = false;
+        let (mut build, mut rerun, mut fuse) = (false, false, false);
+        // The slot holds a node only when all the changes that need a build are in its code.
+        let mut slot = None;
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
                 Job::Unload => {
-                    (loaded, newest, build, last) = (None, None, false, None);
+                    (loaded, newest, build, last, fuse_at) = (None, None, false, None, None);
                     lock(&shared.values).clear();
                 }
                 Job::Run(run) => {
-                    build |= run.build;
+                    if run.build {
+                        slot = if build && slot != run.slot { None } else { run.slot.clone() };
+                        build = true;
+                    }
                     newest = Some(run);
                 }
-                Job::Pause => (newest, build, rerun) = (None, false, false),
+                Job::Pause => (newest, build, rerun, fuse, fuse_at) = (None, false, false, false, None),
+                Job::Bake => fuse = true,
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
                         rerun |= gui(app, &mut loaded.cluster, serial, &input, &mut shown).is_some();
@@ -173,14 +209,21 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Rerun => rerun = true,
             }
         }
-        if rerun && newest.is_none() {
+        fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
+        if (rerun || fuse) && newest.is_none() {
             newest = last.take();
         }
-        let Some(run) = newest else { continue };
-        if build || loaded.is_none() {
+        let Some(mut run) = newest else { continue };
+        let build = match (fuse, build || loaded.is_none()) {
+            (true, _) => Some(Build { mode: Mode::Bake, slot: None }),
+            (false, true) => Some(Build { mode: Mode::Edit, slot }),
+            (false, false) => None,
+        };
+        if build.is_some() {
             let _ = app.emit("engine", Event::Building { serial: run.serial });
         }
-        let event = match run_one(app, (folder, &mut toolchain), &mut loaded, &run, build, shared) {
+        // shortcut: the fuse builds on the engine thread, so a change waits for it; build in a background thread when bake builds get slow.
+        let event = match run_one(app, (folder, &mut toolchain), &mut loaded, &mut run, build.as_ref(), shared) {
             Ok(event) => event,
             Err(e) => {
                 lock(&shared.values).clear();
@@ -188,16 +231,31 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
             }
         };
+        // An edit build fuses after a time with no change. A failed fuse waits for the next change.
+        if let Some(build) = &build {
+            let edit = build.mode == Mode::Edit && loaded.as_ref().is_some_and(Loaded::needs_fuse);
+            fuse_at = edit.then(|| Instant::now() + FUSE_IDLE);
+        }
         let frames = matches!(event, Event::Ran { frames: true, .. });
         let ran = matches!(event, Event::Ran { .. });
         let _ = app.emit("engine", event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
             draw(app, &mut loaded.cluster, run.serial, &shown);
             if frames {
-                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown), shared, run.serial);
+                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown), shared, (run.serial, fuse_at));
             }
         }
         last = Some(run);
+    }
+}
+
+/// Waits for the next job. At `fuse_at`, gives `Job::Bake` (7.2).
+fn wait(jobs: &Receiver<Job>, fuse_at: Option<Instant>) -> Option<Job> {
+    let Some(at) = fuse_at else { return jobs.recv().ok() };
+    match jobs.recv_timeout(at.saturating_duration_since(Instant::now())) {
+        Ok(job) => Some(job),
+        Err(RecvTimeoutError::Timeout) => Some(Job::Bake),
+        Err(RecvTimeoutError::Disconnected) => None,
     }
 }
 
@@ -235,12 +293,15 @@ fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, shown: &Shown) {
     }
 }
 
-/// Runs the frame domain at 60 FPS until a job comes, the user stops the run, or a frame fails
-/// (9.1). Returns the job that ended the run.
-fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown): (&mut Cluster, &mut Shown), shared: &Shared, serial: u64) -> Option<Job> {
+/// Runs the frame domain at 60 FPS until a job comes, the user stops the run, a frame fails or
+/// the time of the fuse comes (9.1, 7.2). Returns the job that ended the run.
+fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown): (&mut Cluster, &mut Shown), shared: &Shared, (serial, fuse_at): (u64, Option<Instant>)) -> Option<Job> {
     let (mut clock, mut frames) = (Clock::new(clock::FRAME), 0);
     let job = loop {
         clock.wait();
+        if fuse_at.is_some_and(|at| Instant::now() >= at) {
+            break Some(Job::Bake);
+        }
         match jobs.try_recv() {
             // A change of a frame node applies at the next frame. A batch node needs a batch run.
             Ok(Job::Gui(input)) => {
@@ -289,10 +350,30 @@ fn badges(values: &[Value]) -> Vec<Value> {
     values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone() }).collect()
 }
 
-fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &Run, build: bool, shared: &Shared) -> Result<Event, Error> {
+/// Builds the clusters for a run (7.2). A save of the code of one node puts the node into the
+/// slot, and builds the slot library alone when the base can stay. Gives None when only the slot
+/// library changed.
+fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, loaded: Option<&mut Loaded>) -> Result<Option<Cluster>, Error> {
+    // A generic node or the delay node does not go into the slot, so its change builds all (7.1).
+    let slotted = build.slot.is_some() && checked.set_slot(build.slot.as_deref()).is_ok();
+    let swapped = match loaded.filter(|l| slotted && !l.stale && l.slot == build.slot) {
+        Some(loaded) => checked.build_slot(toolchain, &mut loaded.cluster),
+        None => Ok(false),
+    };
+    let built = match swapped {
+        Ok(true) => Ok(None),
+        Ok(false) => checked.build(toolchain, build.mode).map(Some),
+        Err(e) => Err(e),
+    };
+    // The run stays for a rerun and for the fuse, which builds with no slot.
+    checked.set_slot(None).expect("an empty slot always works");
+    built
+}
+
+fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Event, Error> {
     let mut built_ms = None;
     let mut errors = Vec::new();
-    if build || loaded.is_none() {
+    if let Some(build) = build {
         let start = Instant::now();
         let wiring = run.checked.wiring();
         // After an install, the toolchain folder replaces the Rust of the system.
@@ -300,17 +381,24 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
             *toolchain = Some(Toolchain::find(folder)?);
         }
         let toolchain = toolchain.as_ref().expect("the toolchain is set above");
-        match run.checked.build(toolchain, patina_engine::Mode::Edit) {
-            Ok(mut cluster) => {
+        match compile(&mut run.checked, toolchain, build, loaded.as_mut()) {
+            // The slot library changed in place, and the nodes in it got new states (7.1).
+            Ok(None) => {}
+            Ok(Some(mut cluster)) => {
                 *lock(&shared.ids) = cluster.node_ids().map(str::to_owned).collect();
                 // The node states with the same key go on in the new cluster (7.2).
                 if let Some(old) = loaded.as_mut() {
                     cluster.adopt(&mut old.cluster);
                 }
-                *loaded = Some(Loaded { cluster, wiring });
+                let slot = build.slot.clone().filter(|_| cluster.slotted());
+                *loaded = Some(Loaded { cluster, wiring, slot, stale: false });
             }
             // The last build that compiled keeps running only with the same wiring (7.2, 15.10).
-            Err(Error::Compile(list)) if loaded.as_ref().is_some_and(|l| l.wiring == wiring) => errors = list,
+            Err(Error::Compile(list)) if loaded.as_ref().is_some_and(|l| l.wiring == wiring) => {
+                // shortcut: a failed build of the slot alone also marks the base as old, so the next save builds all; keep the slot build when saves after an error get slow.
+                loaded.as_mut().expect("the cluster is checked above").stale = true;
+                errors = list;
+            }
             Err(e) => {
                 *loaded = None;
                 return Err(e);
@@ -318,7 +406,9 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
         }
         built_ms = Some(start.elapsed().as_secs_f64() * 1000.0);
     }
-    let cluster = &mut loaded.as_mut().expect("the cluster is loaded above").cluster;
+    let loaded = loaded.as_mut().expect("the cluster is loaded above");
+    let (fused, slot) = (!loaded.needs_fuse(), loaded.slot.clone());
+    let cluster = &mut loaded.cluster;
     let params = cluster.set_params(&run.graph);
     if params.ok {
         let _ = app.emit("engine", Event::Started { serial: run.serial });
@@ -332,7 +422,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
     let frames = params.ok && outcome.ok && cluster.frames() && !shared.control.stopped();
-    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors })
+    Ok(Event::Ran { serial: run.serial, built_ms, fused, slot, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors })
 }
 
 /// Cuts a text for its badge at a character boundary.

@@ -32,6 +32,10 @@ export interface RunState {
   logs: NodeLog[];
   /** The number of frames of the frame run after the last batch run (9.1). */
   frames: number;
+  /** True for clusters in bake mode with no slot (7.3). */
+  fused: boolean;
+  /** The node folder in the slot (7.1), or null. */
+  slot: string | null;
 }
 
 export const NO_RUN: RunState = {
@@ -49,6 +53,8 @@ export const NO_RUN: RunState = {
   times: new Map(),
   logs: [],
   frames: 0,
+  fused: false,
+  slot: null,
 };
 
 /** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
@@ -72,6 +78,8 @@ export interface NodeData extends Record<string, unknown> {
   time?: number;
   /** The widget lines of the node GUI in the node body size (4.3). */
   gui?: string;
+  /** True when the node runs in the slot library (7.3). */
+  slot?: boolean;
 }
 
 export type PatinaNode = Node<NodeData, 'patina'>;
@@ -178,7 +186,7 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable, time, gui } = data;
+  const { entry, info, wired, state, message, editable, time, gui, slot } = data;
   const inputs = info?.inputs ?? [];
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
@@ -193,6 +201,14 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
       <div className="patina-node-header">
         <span className="title">{folderName(entry)}</span>
         {info?.full && <ExpandButton id={entry.id} />}
+        {slot && (
+          <span className="state-icon" role="img" title="In the slot" aria-label="In the slot">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+              <rect x="1.5" y="3.5" width="11" height="7" rx="1.5" />
+              <path d="M4.5 7h5" />
+            </svg>
+          </span>
+        )}
         <StateIcon state={state} />
       </div>
       <div className="patina-rows" style={{ height: rows * ROW + 2 * PAD }}>

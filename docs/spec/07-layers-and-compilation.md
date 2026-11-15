@@ -34,7 +34,7 @@ Patina compiles a graph in two layers:
 4. If N does not compile, the slot keeps the last build that compiled, and the graph keeps running. The node shows the error (15.5), and its outputs keep their normal look. If N never compiled, it has no build: it shows the error, and its downstream nodes are Skipped (15.3).
 5. The engine fuses N back into the base when one of these occurs:
    - The user opens the code of another node.
-   - The user makes no change to N for a set time (see 18).
+   - The user makes no change to N for 30 s (Q7 of section 18).
    - The user clicks **Bake**.
 6. To fuse, the engine rebuilds the cluster of N in bake mode, with the new code of N inline. It swaps in the new cluster between two runs. If the user opened node M, the same build makes the slot for M.
 
@@ -53,6 +53,8 @@ Rules:
 - When a swap touches more than one cluster, the engine loads and checks all the new builds before the first switch. If one fails, all the active builds stay. Each clock domain switches at its next run boundary.
 - A change to a widget folder rebuilds each cluster and each view that uses it, as a wiring change does.
 - A wiring change, for example a new node or a new connection, rebuilds the affected cluster in edit mode. That cluster fuses back after the same set time with no change, or when the user clicks **Bake**.
+- The editor of version 1 starts the slot at the first save of a Rust file of N, not when the user opens the code. That save builds the base with the slot in edit mode, and the next saves build the slot alone. A save of `Cargo.toml` of N builds all clusters, because a new crate can change the base. Agent decision of 2026-11-15. The owner can change it.
+- A paused graph does not build, so it does not fuse. **Bake** fuses only a live graph. A paused graph fuses after the next **Run** and the set time. Agent decision of 2026-11-15. The owner can change it.
 
 ### 7.3 Visual display
 

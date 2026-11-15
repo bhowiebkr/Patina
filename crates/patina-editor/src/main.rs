@@ -206,6 +206,7 @@ fn main() {
             session::recover,
             session::run,
             session::pause,
+            session::bake,
             session::stop,
             session::gui,
             session::running,

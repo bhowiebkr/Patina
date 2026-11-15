@@ -166,7 +166,7 @@ export function logKind(level: string): 'err' | 'warn' | 'out' {
 export type EngineEvent =
   | { state: 'building'; serial: number }
   | { state: 'started'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; frames: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
+  | { state: 'ran'; serial: number; builtMs: number | null; fused: boolean; slot: string | null; runMs: number; ok: boolean; frames: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] }
   /** One frame of the frame domain (9.1). Only the nodes of the frame domain ran. */
   | { state: 'frame'; serial: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
@@ -232,6 +232,8 @@ export const api = {
   recover: (restore: boolean) => invoke<{ view: View; code: Code }>('recover', { restore }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
+  /** Fuses the node in the slot back into the base now (7.2). */
+  bake: () => invoke<View>('bake'),
   /** Pauses, and asks the active run to stop (15.2). */
   stop: () => invoke<View>('stop'),
   /** Sends user input to a node GUI, or asks for its widget lines when `events` is empty (4.3). */
