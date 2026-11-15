@@ -6,6 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod data;
+mod dialog;
 mod engine;
 mod output;
 mod session;
@@ -70,9 +71,12 @@ fn parse_args() -> Result<Args, String> {
     Ok(args)
 }
 
-// shortcut: a fatal error before the window shows only on a console; add a message box at milestone 3.
+/// Writes the error and stops. A message box shows it too, except in the hidden self-check.
 fn fatal(text: &str) -> ! {
     eprintln!("patina: {text}");
+    if !std::env::args_os().any(|arg| arg == "--check") {
+        dialog::error(text);
+    }
     std::process::exit(1);
 }
 
@@ -169,6 +173,14 @@ fn main() {
         }
         std::fs::create_dir_all(dir).unwrap_or_else(|e| fatal(&format!("{}: {e}", dir.display())));
     }
+    #[cfg(windows)]
+    if tauri::webview_version().is_err() {
+        if args.check.is_none() {
+            dialog::offer_webview();
+        }
+        eprintln!("patina: the Microsoft Edge WebView2 Runtime is not installed");
+        std::process::exit(1);
+    }
     let data = Data::find(args.portable.or_else(|| args.check.clone())).unwrap_or_else(|e| fatal(&e));
     let check = args.check;
     tauri::Builder::default()
@@ -203,6 +215,7 @@ fn main() {
             session::page_error,
             session::capture,
             toolchain::install_toolchain,
+            dialog::pick_folder,
         ])
         .on_window_event(|window, event| {
             // The page asks **Save**, **Discard** or **Cancel**, then calls `quit` (15.10).
@@ -229,7 +242,7 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("the Tauri app runs");
+        .unwrap_or_else(|e| fatal(&format!("the window cannot open: {e}")));
 }
 
 #[cfg(test)]

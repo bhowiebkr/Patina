@@ -17,6 +17,8 @@ tauri = { version = "2.12", default-features = false, features = ["wry", "common
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dirs = "7"
+# The folder dialog and the fatal error message of the platform. gtk3 uses the GTK of Tauri on Linux.
+rfd = { version = "0.17", default-features = false, features = ["gtk3", "common-controls-v6"] }
 
 # The check run takes screenshots with the DevTools protocol of WebView2 (src/shot.rs).
 [target.'cfg(windows)'.dependencies]

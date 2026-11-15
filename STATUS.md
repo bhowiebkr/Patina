@@ -249,6 +249,13 @@ To run the editor from a checkout:
   `macos-latest`.
 - CI run 43734261126 of the **Install toolchain** button passed on `windows-latest`,
   `ubuntu-latest` and `macos-latest`.
+- CI run 43735014784 of the package tool passed on `windows-latest`, `ubuntu-latest` and
+  `macos-latest`.
+- The start screen has a **Browse** button for each folder field. The self-check finds the two
+  buttons, but does not click them, because the folder dialog waits for a person.
+- An error that stops the editor shows in a message box of the platform (`rfd`), except in the
+  self-check. The WebView2 check runs before the window opens. On this computer the Runtime is
+  installed, so the self-check passed the check.
 - `cargo run -p package` made the Windows zip in 41 s (7.2 MB). Unzipped in a scratch folder:
   - The release `patina.exe` passed the 53 steps of the self-check in 13.0 s.
   - Copies of the release `patina.exe` worked as the Zig wrappers. A good C file compiled, a
@@ -263,6 +270,8 @@ To run the editor from a checkout:
   `cargo add`, because CI must not need crates.io for the UI check.
 - The self-check does not click **Install toolchain**, because CI must not download the
   toolchain. The self-check does not click **Remove**. The data test covers the removal.
+- No check opened the folder dialog, the fatal message box or the WebView2 message. A person
+  must click them. The message of a missing WebView2 Runtime did not run.
 - The check does not drag nodes. It pushes only Ctrl+S and Delete. A person did not use the
   editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.
@@ -313,14 +322,11 @@ To run the editor from a checkout:
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,
   which has the critical advisory GHSA-p98j-92pf-mc4p. `npm audit` now finds 0 problems.
 - These shortcuts are open in the code:
-  - The user types the folder paths. The folder dialog of the platform comes at milestone 3
-    (`frontend/src/StartScreen.tsx`).
   - Monaco has no rust-analyzer. Milestone 3 connects it (`frontend/src/code.ts`).
   - Monaco is in the main page script, which is 3.7 MB. Load it when the **Code** tab opens if
     the start time gets slow (`frontend/src/code.ts`).
   - The **Code** tab forgets the cursor and the scroll position when it closes
     (`frontend/src/CodeTab.tsx`).
-  - A fatal error before the window shows writes only to a console (`src/main.rs`).
   - The capture works only on Windows (`src/session.rs`).
   - One texture row holds the points of each wire. Above `MAX_TEXTURE_SIZE` wires (2048 or
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).

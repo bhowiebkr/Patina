@@ -44,6 +44,7 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 - The installers do not include the toolchain. Both editions use the **Install toolchain** button (13.2).
 - The `.msi` installs the WebView2 Runtime if it is missing, with the bootstrapper of Tauri. This needs internet.
 - The portable edition checks for the WebView2 Runtime before it opens a window. If it is missing, Patina shows a Windows message with a link to the Microsoft download. The Runtime then installs for the current user.
+- An error that stops Patina before or while its window opens shows in a message box of the platform, and goes to the standard error. The hidden self-check (`--check`) shows no message box. This is an agent decision of 2026-11-15. The owner can change it.
 
 ### 13.2 "Install toolchain" button
 

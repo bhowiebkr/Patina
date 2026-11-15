@@ -117,7 +117,9 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     await until('the toolchain and the trusted projects', RUN_MS, () => /Rust\d/.test(section('Toolchain')) && trustedList());
     await api.capture('settings');
     button('Back')!.click();
-    await until('the start screen', RUN_MS, () => !!button('Settings'));
+    // The check does not click Browse: the folder dialog of the platform would wait for a person.
+    const browse = () => [...document.querySelectorAll('button')].filter((b) => b.textContent === 'Browse').length;
+    await until('the start screen with two Browse buttons', RUN_MS, () => !!button('Settings') && browse() === 2);
     steps.push('settings screen');
 
     let v = await step('new project', () => api.newProject(dir, 'check'));

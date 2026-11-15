@@ -179,6 +179,7 @@ export type Edit =
 
 export const api = {
   startInfo: () => invoke<StartInfo>('start_info'),
+  pickFolder: (start: string) => invoke<string | null>('pick_folder', { start }),
   newProject: (parent: string, name: string) => invoke<View>('new_project', { parent, name }),
   openProject: (path: string) => invoke<View>('open_project', { path }),
   closeProject: () => invoke<void>('close_project'),

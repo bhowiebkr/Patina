@@ -29,8 +29,13 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
     e.preventDefault();
     act(api.openProject(path.trim()));
   };
+  const browse = (from: string, set: (folder: string) => void) => {
+    api
+      .pickFolder(from.trim())
+      .then((folder) => folder && set(folder))
+      .catch((e) => setError(String(e)));
+  };
 
-  // shortcut: typed folder paths; use the folder dialog of the platform at milestone 3.
   return (
     <main className="start">
       <div className="start-card">
@@ -47,6 +52,9 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
               <span className="label">Folder</span>
               <input className="field" value={parent} onChange={(e) => setParent(e.target.value)} spellCheck={false} />
             </label>
+            <button className="btn" type="button" disabled={busy} onClick={() => browse(parent, setParent)}>
+              Browse
+            </button>
             <label>
               <span className="label">Name</span>
               <input className="field" value={name} onChange={(e) => setName(e.target.value)} spellCheck={false} autoFocus />
@@ -63,6 +71,9 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
               <span className="label">Project folder</span>
               <input className="field" value={path} onChange={(e) => setPath(e.target.value)} spellCheck={false} />
             </label>
+            <button className="btn" type="button" disabled={busy} onClick={() => browse(path || parent, setPath)}>
+              Browse
+            </button>
             <button className="btn" disabled={busy || !path.trim()}>
               Open
             </button>

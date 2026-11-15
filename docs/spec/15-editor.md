@@ -424,6 +424,7 @@ These are the fewest steps from a new project to a reopen:
 - A new project goes on the list of trusted projects (11).
 - A project opens with its graph paused. The user clicks **Run**.
 - The start screen has **New project**, **Open project** and a list of recent projects.
+- The user can type each folder, or click **Browse** to select it in the folder dialog of the platform. This is an agent decision of 2026-11-15. The owner can change it.
 
 **Settings screen**
 
