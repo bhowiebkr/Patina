@@ -96,7 +96,7 @@ export interface Diagnostic {
 export type EngineEvent =
   | { state: 'building'; serial: number }
   | { state: 'started'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; stopped: boolean; reports: Report[]; values: Value[]; errors: Diagnostic[] }
+  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] };
 
 export interface OutputText {
@@ -184,6 +184,11 @@ export function folderName(node: NodeEntry): string {
 /** One line for a compile error, for example `mismatched types: expected f32, found &str`. */
 export function errorText(e: Diagnostic): string {
   return e.label ? `${e.message}: ${e.label}` : e.message;
+}
+
+/** The text of a run report as patina-cli shows it. The text of a panic starts with "panic:". */
+export function reportText(r: Report): string {
+  return `${r.kind === 'Error' ? 'error: ' : r.kind === 'BadParam' ? 'bad parameter: ' : ''}${r.text}`;
 }
 
 /** The problems of the graph check that name the node: `node <id>: <text>`. */

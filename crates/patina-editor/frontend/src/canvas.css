@@ -20,7 +20,8 @@
   border-color: var(--error);
 }
 
-.patina-node.stale {
+.patina-node.stale,
+.patina-node.skipped {
   opacity: 0.55;
 }
 

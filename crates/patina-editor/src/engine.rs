@@ -33,14 +33,15 @@ pub enum Event {
     /// A run starts, so **Stop** can stop it (15.2).
     Started { serial: u64 },
     /// When the build failed, `errors` has its compile errors, and the last build that compiled ran.
-    /// `values` has the badge text of each output that a wire reads (15.9). `stopped` is true when
-    /// Stop kept a node from its start (15.2).
+    /// `values` has the badge text of each output that a wire reads (15.9). `skipped` and `stopped`
+    /// have the IDs of the nodes that did not run (15.3, 15.2).
     Ran {
         serial: u64,
         built_ms: Option<f64>,
         run_ms: f64,
         ok: bool,
-        stopped: bool,
+        skipped: Vec<String>,
+        stopped: Vec<String>,
         reports: Vec<Report>,
         values: Vec<Value>,
         errors: Vec<Diagnostic>,
@@ -165,7 +166,7 @@ fn run_one(app: &AppHandle, toolchain: &mut Option<Toolchain>, loaded: &mut Opti
     let reports = params.reports.into_iter().chain(outcome.reports).collect();
     let badges = outcome.values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text) }).collect();
     *lock(&shared.values) = outcome.values;
-    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, stopped: outcome.stopped, reports, values: badges, errors })
+    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, skipped: outcome.skipped, stopped: outcome.stopped, reports, values: badges, errors })
 }
 
 /// Cuts a text for its badge at a character boundary.

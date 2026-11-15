@@ -159,8 +159,10 @@ fn broken() -> u32 {
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('code-error');
 
-    // The fixed code also waits while the value is 99, until the user clicks Stop (15.2).
-    const stoppable = original.replace(/    value\r?\n\}/, `    while value == 99.0 && !patina_sdk::stop_requested() {
+    // The fixed code also panics at 13 (15.3), and waits while the value is 99 until the user
+    // clicks Stop (15.2).
+    const stoppable = original.replace(/    value\r?\n\}/, `    assert!(value != 13.0, "the check panics at 13");
+    while value == 99.0 && !patina_sdk::stop_requested() {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
     value
@@ -178,6 +180,29 @@ fn broken() -> u32 {
     );
     steps.push('fix with Ctrl+S');
 
+    const statusText = () => document.querySelector('.statusbar')?.textContent ?? '';
+    const nodeClass = (id: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .patina-node`)?.classList;
+    const endOf = async (v: View, from: number) => {
+      let ended: EngineEvent | undefined;
+      await until('the end of the run', RUN_MS, () => (ended = events.slice(from).find((e) => e.serial === v.serial && e.state !== 'started')) !== undefined);
+      return ended!;
+    };
+
+    // A node after a failed node is skipped (15.3).
+    from = mark();
+    v = await step('a node that panics', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '13' }));
+    const failed = await endOf(v, from);
+    if (failed.state !== 'ran' || failed.ok || failed.skipped.join() !== B) {
+      throw new Error(`node ${B} is not skipped after a panic: ${JSON.stringify(failed)}`);
+    }
+    await until('a failed node and a skipped node', RUN_MS, () =>
+      statusText().includes('1 skipped node') && nodeClass(A)?.contains('run-error') === true && nodeClass(B)?.contains('skipped') === true,
+    );
+    from = mark();
+    v = await step('undo the panic', () => api.undo());
+    await result(v, from, '2.5', RUN_MS);
+    steps.push('skip the node after a panic');
+
     // Stop (15.2): the node waits in its loop until Stop sets the flag. Then the show node does not start.
     from = mark();
     v = await step('a node that waits', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '99' }));
@@ -189,14 +214,16 @@ fn broken() -> u32 {
     const topButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === label);
     await until('the Stop button', RUN_MS, () => topButton('Stop')?.disabled === false);
     topButton('Stop')!.click();
-    let ended: EngineEvent | undefined;
-    await until('the end of the stopped run', RUN_MS, () => (ended = events.slice(from).find((e) => e.serial === v.serial && e.state !== 'started')) !== undefined);
-    if (ended!.state !== 'ran' || !ended!.ok || !ended!.stopped || output.slice(outputFrom).includes('99')) {
+    const ended = await endOf(v, from);
+    if (ended.state !== 'ran' || !ended.ok || ended.stopped.join() !== B || output.slice(outputFrom).includes('99')) {
       throw new Error(`Stop did not keep node ${B} from its start: ${JSON.stringify(ended)}`);
     }
-    const statusText = () => document.querySelector('.statusbar')?.textContent ?? '';
-    await until('a paused, stale graph with no run', RUN_MS, () =>
-      topButton('Stop')?.disabled === true && topButton('Run')?.disabled === false && statusText().includes('Stale'),
+    await until('a paused graph with one stale node and no run', RUN_MS, () =>
+      topButton('Stop')?.disabled === true &&
+      topButton('Run')?.disabled === false &&
+      statusText().includes('1 stale node') &&
+      nodeClass(B)?.contains('stale') === true &&
+      nodeClass(A)?.contains('ready') === true,
     );
     if ((await api.running()) !== null) throw new Error('a node runs after the end of the run');
     v = await step('undo the wait', () => api.undo());

@@ -71,7 +71,7 @@ pub fn exposure(
   or a text field for it. A parameter change needs no compile.
 - A node can use any crate from crates.io.
 - A node can return a `Result`. An error shows on the node, and the nodes after it do not run.
-  A panic also shows on the node. It does not stop the engine.
+  They show **Skipped**. A panic also shows on the node. It does not stop the engine.
 
 A node that keeps data between runs is a struct:
 
@@ -253,7 +253,8 @@ cargo run -p patina-cli -- run examples/hello
 ```
 
 The example adds two numbers and writes `6.5`. A node that fails or panics gives a message with
-its ID, and the nodes after it do not run. The exit code is then 1.
+its ID. The nodes after it do not run, and each one gives a `skipped` message. The exit code is
+then 1.
 
 ## Open the editor
 
@@ -274,8 +275,9 @@ To make your first graph:
 7. Push Ctrl+S to save the project.
 
 While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
-Click **Stop** to also end the active run: Patina starts no new node call. A node with a long
-loop can read `patina_sdk::stop_requested()` and return early.
+Click **Stop** to also end the active run: Patina starts no new node call. The nodes that did
+not start show **Stale**. A node with a long loop can read `patina_sdk::stop_requested()` and
+return early.
 
 If Patina stops before you save, it keeps your changes. When you open the project again, click
 **Restore** to get them back, or **Discard** to delete them.

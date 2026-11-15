@@ -154,6 +154,8 @@ Node bodies fit their contents; their widths and heights need not match.
 | Skipped | Dim, with a "skipped" label. An upstream node failed |
 | Unresolved | Gray pins. A generic node with unknown types |
 
+The engine reports a node as skipped when a wired input has no value, because an upstream node failed or was skipped. After **Stop**, each node that did not start is stale. A skipped or stale node keeps the old values of its outputs, and their badges show dim. The status bar counts the skipped and the stale nodes. (Agent decision, 2026-11-15. The owner can change it.)
+
 **Times:** build time and run time always have separate labels, for example "Built in 1.8 s" and "Run 0.42 ms".
 
 ### 15.4 Inspector

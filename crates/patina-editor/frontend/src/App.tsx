@@ -12,6 +12,7 @@ import {
   onEngine,
   onOutput,
   outputLines,
+  reportText,
   seconds,
   type Diagnostic,
   type EngineEvent,
@@ -28,7 +29,7 @@ import { GraphView, useFit } from './GraphView';
 import { Inspector, type InspectorTab } from './Inspector';
 import type { PanelId } from './layout';
 import { addLines, Lines, type Line } from './Lines';
-import { NO_RUN, type RunState } from './NodeView';
+import { NO_RUN, valueStale, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { StartScreen } from './StartScreen';
@@ -212,26 +213,32 @@ export function App() {
       log([{ text: 'Building the graph', kind: 'info' }]);
     } else if (e.state === 'ran') {
       const failed = e.errors.length > 0;
-      setRun((r) => ({
+      const idle = new Map([...e.skipped.map((id) => [id, 'skipped'] as const), ...e.stopped.map((id) => [id, 'stopped'] as const)]);
+      const values = new Map(e.values.map((v) => [v.from, v.text]));
+      setRun((r) => {
+        // A node that did not run keeps its old values, and they show as stale (15.3).
+        for (const [from, text] of r.values) if (!values.has(from) && valueStale({ ...r, stale: false, idle }, from)) values.set(from, text);
+        return {
         phase: 'ran',
         builtMs: e.builtMs,
         lastBuildMs: e.builtMs !== null && !failed ? e.builtMs : r.lastBuildMs,
         runMs: e.runMs,
         ok: e.ok,
         reports: e.reports,
-        values: new Map(e.values.map((v) => [v.from, v.text])),
+        values,
         // A run without a build keeps the errors of the last build.
         errors: e.builtMs === null ? r.errors : e.errors,
         text: '',
-        // shortcut: all badges show Stale after Stop, mark only the nodes that did not run when nodes get their own run state.
-        stale: e.stopped,
-      }));
+        stale: false,
+        idle,
+        };
+      });
       const lines: Line[] = [];
       if (failed) lines.push({ text: 'The build failed. Running the last build that compiled.', kind: 'err' }, ...errorLines(e.errors));
       else if (e.builtMs !== null) lines.push({ text: `Built in ${seconds(e.builtMs)}`, kind: 'info' });
       lines.push({ text: `Ran in ${millis(e.runMs)}`, kind: 'info' });
-      if (e.stopped) lines.push({ text: 'Stop ended the run before all nodes ran.', kind: 'info' });
-      for (const r of e.reports) lines.push({ text: `${r.folder} (${r.id}): ${r.kind}: ${r.text}`, kind: 'err' });
+      if (e.stopped.length > 0) lines.push({ text: 'Stop ended the run before all nodes ran.', kind: 'info' });
+      for (const r of e.reports) lines.push({ text: `${r.folder} (${r.id}): ${reportText(r)}`, kind: 'err' });
       log(lines);
     } else {
       setRun((r) => ({ ...r, phase: 'failed', text: e.text, values: NO_RUN.values, errors: e.errors }));
@@ -330,7 +337,11 @@ export function App() {
     else if (run.builtMs !== null) parts.push(`Built in ${seconds(run.builtMs)}`);
     parts.push(`Run ${millis(run.runMs ?? 0)}`);
     if (run.reports.length > 0) parts.push(plural(run.reports.length, 'run error'));
+    const idle = [...run.idle.values()];
+    const skipped = idle.filter((s) => s === 'skipped').length;
+    if (skipped > 0) parts.push(plural(skipped, 'skipped node'));
     if (run.stale) parts.push('Stale');
+    else if (idle.length > skipped) parts.push(plural(idle.length - skipped, 'stale node'));
     runText = parts.join(' - ');
   }
   const firstError = run.errors.map((e) => revealOf(e, Date.now())).find((at) => at !== null);

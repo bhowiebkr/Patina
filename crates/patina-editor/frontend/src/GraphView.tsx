@@ -16,7 +16,7 @@ import {
 } from '@xyflow/react';
 import { newId, type Edit, type Point, type View } from './api';
 import { savedViewport, saveViewport } from './Dock';
-import { NodeView, infoOf, nodeState, type PatinaNode, type RunState } from './NodeView';
+import { NodeView, infoOf, nodeState, valueStale, type PatinaNode, type RunState } from './NodeView';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { WireStore } from './wires';
 
@@ -81,8 +81,8 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport('main'));
   const tools = useMemo(
-    () => ({ store: wires, onEdit, editable: view.trusted, values: run.values, stale: run.stale }),
-    [wires, onEdit, view.trusted, run.values, run.stale],
+    () => ({ store: wires, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from) }),
+    [wires, onEdit, view.trusted, run],
   );
 
   useEffect(() => setNodes((prev) => buildNodes(view, run, prev)), [view, run]);

@@ -2,9 +2,9 @@
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
 import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { api, errorText, folderName, reportError, type Edit, type View } from './api';
+import { api, errorText, folderName, reportError, reportText, type Edit, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
-import { STATE_NAMES, infoOf, nodeErrors, nodeState, type RunState } from './NodeView';
+import { STATE_NAMES, infoOf, nodeErrors, nodeState, valueStale, type RunState } from './NodeView';
 import type { Inspect } from './ProjectPanel';
 
 export type InspectorTab = 'parameters' | 'code' | 'logs';
@@ -56,12 +56,13 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
   };
   // The badge text shows until the full text arrives.
   const text = (full?.from === from ? full.text : null) ?? run.values.get(from);
+  const stale = valueStale(run, from);
   return (
     <aside className="panel" aria-label="Inspector">
       <div className="panel-title">
         Wire
         <span className="spacer" />
-        {run.stale && <span className="label">Stale</span>}
+        {stale && <span className="label">Stale</span>}
       </div>
       <div className="section">
         <div className="param">
@@ -78,7 +79,7 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
         {text === undefined ? (
           <div className="label">Run the graph to see the value.</div>
         ) : (
-          <pre className={run.stale ? 'value-text stale' : 'value-text'}>{text}</pre>
+          <pre className={stale ? 'value-text stale' : 'value-text'}>{text}</pre>
         )}
       </div>
     </aside>
@@ -177,7 +178,7 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
           ))}
           {reports.map((r, i) => (
             <div key={`r${i}`} className="err">
-              {r.kind}: {r.text}
+              {reportText(r)}
             </div>
           ))}
         </div>

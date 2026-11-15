@@ -66,7 +66,9 @@ To run the editor from a checkout:
 - The **Output** tab shows the text that the nodes write. The **Logs** tab shows the build
   time, the run time and the reports of the nodes.
 - Each node shows its state with an icon and a border: ready, compiling, compile error, run
-  error, stale or unresolved (15.3). A header color never shows a state.
+  error, stale, skipped or unresolved (15.3). A header color never shows a state. A node after
+  a failed node shows **Skipped**. After **Stop**, only the nodes that did not start show
+  **Stale**. `patina-cli` writes a `skipped` line for each skipped node.
 - The window is a dock (15.2). The **Project**, **Inspector**, **Logs** and **Output** panels
   are tabs in the left, right and bottom areas. Drag a tab to another area, or use its
   right-click menu to move or close it. A splitter changes the size of an area, with the mouse
@@ -84,20 +86,23 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 37 steps in 8.2 s:
+  off-screen and does not take the focus. It passed these 40 steps in 8.4 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
   - Save a function with a type error into `nodes/number/src/lib.rs`. The old build still
     writes `2.5`. Find the error on the node, in Monaco, in the gutter and in the status bar.
     Capture the window into `code-error.png`.
-  - Replace the error in the Monaco buffer with the original code and a loop that waits while
-    the value is 99. Push Ctrl+S. The build passes, the file on disk has that code and no file
+  - Replace the error in the Monaco buffer with the original code, a panic at 13 and a loop
+    that waits while the value is 99. Push Ctrl+S. The build passes, the file on disk has that code and no file
     is unsaved.
+  - Set the parameter to 13. The run fails, and the engine reports `show` as skipped. `number`
+    shows the run error, `show` shows **Skipped** and the status bar shows **1 skipped node**.
+    Undo, and wait for `2.5`.
   - Set the parameter to 99. Wait until the engine names `number` as the active node, and
-    click **Stop**. The run ends with no error, and the engine reports a node call that did not
-    start. The output has no `99`. **Run** is enabled, the status bar shows **Stale**, and no
-    node is active. Undo, and the graph stays paused.
+    click **Stop**. The run ends with no error, and the engine reports that `show` did not
+    start. The output has no `99`. **Run** is enabled, the status bar shows **1 stale node**,
+    `show` is stale, `number` is ready and no node is active. Undo, and the graph stays paused.
   - Save and pause. Move the **Logs** tab to the right area with its menu. Push Shift and the
     right arrow on the left splitter, and zoom the graph with the wheel. Read the layout file:
     it has the tab, the size 324 and the pan and zoom.
@@ -138,7 +143,7 @@ To run the editor from a checkout:
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
 - `cargo test --workspace --locked` passed 47 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the route points, the text of the live values with a `Viewer`, the cut of the badge
+  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the route points, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
@@ -161,9 +166,8 @@ To run the editor from a checkout:
 - These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
   and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1), the **Debug** tab and
   the search palette.
-- After **Stop**, all the badges show **Stale**, not only the outputs of the nodes that did not
-  run (15.2). The check does not test the **does not stop** message, because that needs a node
-  that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
+- The check does not test the **does not stop** message of **Stop** (15.2), because that needs
+  a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
   starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
@@ -181,8 +185,6 @@ To run the editor from a checkout:
   need the type crates of 5.1, and the engine does not have them yet.
 - The check did not drag a tab or a splitter with the mouse. A layout change in the last
   300 ms before the window closes with no unsaved changes is not saved.
-- A node after a node that failed keeps its old state. The engine does not report **Skipped**
-  yet (15.3).
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
   of the page script. The build is correct.
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,
@@ -199,7 +201,6 @@ To run the editor from a checkout:
     (`src/main.rs`).
   - A fatal error before the window shows writes only to a console (`src/main.rs`).
   - The capture works only on Windows (`src/session.rs`).
-  - A node after a failed node shows its old state (`frontend/src/NodeView.tsx`).
   - One texture row holds the points of each wire. Above `MAX_TEXTURE_SIZE` wires (2048 or
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).
   - A route of more than 62 points draws only its first 62 points. Only a graph file that a

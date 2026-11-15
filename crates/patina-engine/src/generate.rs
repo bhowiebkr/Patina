@@ -65,12 +65,12 @@ pub fn source(plan: &Plan) -> String {
 }
 
 /// Writes the call of one node. It runs only when each wired input has a value (15.3) and the
-/// user did not click **Stop** (15.2). Then it sends the text of each held value, before a later
-/// node takes the value (15.9).
+/// user did not click **Stop** (15.2). Else `enter` reports why. After the call, it sends the text
+/// of each held value, before a later node takes the value (15.9).
 fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
     let step = &plan.steps[n];
     let (name, node) = &plan.nodes[step.node];
-    let mut run_if: Vec<String> = step
+    let wired: Vec<String> = step
         .inputs
         .iter()
         .filter_map(|source| match source {
@@ -78,10 +78,9 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
             Source::Slot(_) => None,
         })
         .collect();
-    // The last test, so that only a node that can run checks the stop flag and records its index.
-    run_if.push(format!("rep.enter({n})"));
+    let ready = if wired.is_empty() { "true".to_owned() } else { wired.join(" && ") };
     let _ = writeln!(s, "            // {}: nodes/{name}", step.id);
-    let _ = writeln!(s, "            if {} {{", run_if.join(" && "));
+    let _ = writeln!(s, "            if rep.enter({n}, {ready}) {{");
     let indent = "                ";
     let _ = writeln!(
         s,

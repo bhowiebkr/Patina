@@ -26,6 +26,8 @@ pub const BAD_PARAM: u32 = 3;
 pub const VALUE: u32 = 4;
 /// A node call that did not start, because the user clicked **Stop** (15.2). It has no text.
 pub const STOPPED: u32 = 5;
+/// A node call that did not start, because a wired input had no value (15.3). It has no text.
+pub const SKIPPED: u32 = 6;
 
 /// The longest text of a live value, in bytes. A longer text ends with "...".
 pub const TEXT_LEN: usize = 4096;
@@ -77,16 +79,20 @@ impl Reporter {
         unsafe { (self.report)(self.ctx, node, kind, text.as_ptr(), text.len()) }
     }
 
-    /// Records that node `node` starts. When the user clicked **Stop**, it reports `STOPPED` and
-    /// returns false, and the node does not start (15.2).
-    pub fn enter(&self, node: u32) -> bool {
+    /// Records that node `node` starts, and returns true. `ready` is true when each wired input
+    /// has a value. Else it reports `STOPPED` after **Stop** (15.2), or `SKIPPED` (15.3).
+    pub fn enter(&self, node: u32, ready: bool) -> bool {
         // SAFETY: the same as in `set_node`.
-        if unsafe { self.control.as_ref() }.is_some_and(|c| c.stop.load(Relaxed)) {
-            self.send(node, STOPPED, "");
-            return false;
-        }
-        self.set_node(node);
-        true
+        let kind = if unsafe { self.control.as_ref() }.is_some_and(|c| c.stop.load(Relaxed)) {
+            STOPPED
+        } else if !ready {
+            SKIPPED
+        } else {
+            self.set_node(node);
+            return true;
+        };
+        self.send(node, kind, "");
+        false
     }
 
     fn set_node(&self, node: u32) {
@@ -325,12 +331,14 @@ mod tests {
     }
 
     #[test]
-    fn stop_starts_no_new_node_call() {
+    fn stop_and_missing_inputs_start_no_node_call() {
         fn make() -> Cluster {
             cluster(|_, rep| {
                 // SAFETY: the test gives a control that is valid during the run.
                 let node = || unsafe { &*rep.control }.node();
-                if stop_requested() { !rep.enter(7) && node().is_none() } else { rep.enter(7) && node() == Some(7) }
+                let skipped = !rep.enter(8, false) && node().is_none();
+                let started = rep.enter(7, true);
+                skipped && started != stop_requested() && node() == started.then_some(7)
             })
         }
         let mut sent: Vec<(u32, u32, String)> = Vec::new();
@@ -346,7 +354,7 @@ mod tests {
             assert!(run(state, &rep));
             free(state);
         }
-        assert_eq!(sent, [(7, STOPPED, String::new())]);
+        assert_eq!(sent, [(8, SKIPPED, String::new()), (8, STOPPED, String::new()), (7, STOPPED, String::new())]);
         assert!(!stop_requested(), "the flag is not visible outside a run");
     }
 }

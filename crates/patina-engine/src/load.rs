@@ -57,8 +57,10 @@ pub struct Outcome {
     pub ok: bool,
     pub reports: Vec<Report>,
     pub values: Vec<Value>,
-    /// True when a node call did not start, because the user clicked **Stop** (15.2).
-    pub stopped: bool,
+    /// The ID of each node that did not run, because a wired input had no value (15.3).
+    pub skipped: Vec<String>,
+    /// The ID of each node that did not start, because the user clicked **Stop** (15.2).
+    pub stopped: Vec<String>,
 }
 
 type VersionFn = unsafe extern "C" fn() -> u32;
@@ -191,8 +193,9 @@ impl Cluster {
 fn outcome(ok: bool, sink: Sink, names: &[(String, String)], probes: &[String]) -> Outcome {
     let mut out = Outcome { ok, ..Outcome::default() };
     for (index, kind, text) in sink {
-        if kind == glue::STOPPED {
-            out.stopped = true;
+        if kind == glue::SKIPPED || kind == glue::STOPPED {
+            let list = if kind == glue::SKIPPED { &mut out.skipped } else { &mut out.stopped };
+            list.extend(names.get(index as usize).map(|(id, _)| id.clone()));
             continue;
         }
         if kind == glue::VALUE {
@@ -257,8 +260,10 @@ mod tests {
         let probes = ["a1.out".to_owned()];
         let sink = vec![(0, glue::VALUE, "2.5".to_owned()), (7, glue::VALUE, "x".to_owned()), (0, glue::PANIC, "p".to_owned())];
         let out = outcome(false, sink, &names, &probes);
-        assert!(!out.stopped);
-        assert!(outcome(true, vec![(0, glue::STOPPED, String::new())], &names, &probes).stopped);
+        assert!(out.skipped.is_empty() && out.stopped.is_empty());
+        let idle = vec![(0, glue::SKIPPED, String::new()), (0, glue::STOPPED, String::new()), (9, glue::STOPPED, String::new())];
+        let idle = outcome(true, idle, &names, &probes);
+        assert_eq!((idle.skipped, idle.stopped), (vec!["a1".to_owned()], vec!["a1".to_owned()]));
         assert_eq!(out.values.len(), 1);
         assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
         assert_eq!(out.reports.len(), 1);

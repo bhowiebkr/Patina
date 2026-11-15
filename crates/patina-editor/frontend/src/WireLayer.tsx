@@ -29,9 +29,9 @@ export interface WireTools {
   store: WireStore;
   onEdit: (edit: Edit) => Promise<void>;
   editable: boolean;
-  /** The text of each live value by output (15.9), and true when it is for an old graph. */
+  /** The text of each live value by output (15.9), and true when it is from an old run. */
   values: ReadonlyMap<string, string>;
-  stale: boolean;
+  stale: (from: string) => boolean;
 }
 
 export const WireContext = createContext<WireTools | null>(null);
@@ -64,7 +64,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
       {value !== undefined && (
         <EdgeLabelRenderer>
           <div
-            className={`wire-value${stale ? ' stale' : ''}${selected ? ' selected' : ''}`}
+            className={`wire-value${stale(data!.from) ? ' stale' : ''}${selected ? ' selected' : ''}`}
             style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)` }}
           >
             {value}

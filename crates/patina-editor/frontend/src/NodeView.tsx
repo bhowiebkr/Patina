@@ -2,9 +2,9 @@
 
 import { memo } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { errorText, folderName, nodeProblems, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type View } from './api';
+import { errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type View } from './api';
 
-export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'unresolved';
+export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
 /** The last result of the engine for the open project. */
 export interface RunState {
@@ -22,6 +22,8 @@ export interface RunState {
   text: string;
   /** True after an edit while the graph is paused: the result is for an old graph. */
   stale: boolean;
+  /** Each node that did not run in the last run, by ID (15.2, 15.3). Its values are old. */
+  idle: ReadonlyMap<string, 'skipped' | 'stopped'>;
 }
 
 export const NO_RUN: RunState = {
@@ -35,7 +37,13 @@ export const NO_RUN: RunState = {
   errors: [],
   text: '',
   stale: false,
+  idle: new Map(),
 };
+
+/** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
+export function valueStale(run: RunState, from: string): boolean {
+  return run.stale || run.idle.has(from.slice(0, from.lastIndexOf('.')));
+}
 
 /** The compile errors in the folder of a node. */
 export function nodeErrors(run: RunState, name: string): Diagnostic[] {
@@ -64,6 +72,7 @@ export const STATE_NAMES: Record<NodeState, string> = {
   'compile-error': 'Compile error',
   'run-error': 'Run error',
   stale: 'Stale',
+  skipped: 'Skipped',
   unresolved: 'Unresolved',
 };
 
@@ -79,10 +88,11 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
   if (run.phase !== 'ran') return ['none', ''];
   const reports = run.reports.filter((r) => r.id === entry.id);
   if (reports.length > 0) {
-    return ['run-error', reports.map((r) => (r.kind === 'Panic' ? `Panic: ${r.text}` : r.text)).join('\n')];
+    return ['run-error', reports.map(reportText).join('\n')];
   }
-  // shortcut: a node after a failed node shows its old state; show "skipped" when the engine reports it.
-  return [run.stale ? 'stale' : 'ready', ''];
+  const idle = run.idle.get(entry.id);
+  if (idle === 'skipped') return ['skipped', 'Skipped: an input has no value.'];
+  return [run.stale || idle === 'stopped' ? 'stale' : 'ready', ''];
 }
 
 /** The node info of an entry, or null when its folder is missing. */
@@ -116,6 +126,14 @@ function StateIcon({ state }: { state: NodeState }) {
       icon = (
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
           <circle cx="6" cy="6" r="4.5" fill="none" stroke="var(--subtle)" strokeWidth="1.5" />
+        </svg>
+      );
+      break;
+    case 'skipped':
+      icon = (
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <circle cx="6" cy="6" r="4.5" fill="none" stroke="var(--subtle)" strokeWidth="1.5" />
+          <path d="M3 9 9 3" stroke="var(--subtle)" strokeWidth="1.5" />
         </svg>
       );
       break;
@@ -165,7 +183,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
           );
         })}
       </div>
-      {message && <div className={state === 'unresolved' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
+      {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {inputs.map((key, i) => (
         <Handle key={`i-${key}`} id={key} type="target" position={Position.Left} isConnectable={editable} style={{ top: pinTop(i) }} />
       ))}

@@ -47,6 +47,9 @@ fn show(outcome: &Outcome) -> bool {
     for report in &outcome.reports {
         eprintln!("{report}");
     }
+    for id in &outcome.skipped {
+        eprintln!("Node {id}: skipped: an input has no value");
+    }
     if !outcome.ok && outcome.reports.is_empty() {
         eprintln!("error: the cluster failed with no report");
     }
