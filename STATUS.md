@@ -194,6 +194,10 @@ To run the editor from a checkout:
   and read of a dock layout.
 - The editor binary holds the page files (13.1). `build.rs` embeds `frontend/dist` at compile
   time. A copy of `patina.exe` in a folder outside the checkout passed the self-check.
+- `cargo run -p package` makes the portable zip in `target/package` (13.1). The zip has
+  `patina`, `patina-cli`, the `portable` file and `licenses/`. The license folder has the two
+  Patina license files, the notice files of 233 crates and 31 npm packages, and a list with
+  the license of each package.
 - The editor and the CLI use the toolchain folder (13.3) when it has `cargo`. Its tools get the
   clean environment of 13.2. Else Patina uses the Rust of the system, and **Settings** tells so.
   A unit test checks the clean environment.
@@ -243,6 +247,12 @@ To run the editor from a checkout:
   `macos-latest`.
 - CI run 43732552697 of the toolchain folder passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
+- CI run 43734261126 of the **Install toolchain** button passed on `windows-latest`,
+  `ubuntu-latest` and `macos-latest`.
+- `cargo run -p package` made the Windows zip in 41 s (7.2 MB). Unzipped in a scratch folder:
+  - The release `patina.exe` passed the 53 steps of the self-check in 13.0 s.
+  - Copies of the release `patina.exe` worked as the Zig wrappers. A good C file compiled, a
+    bad C file gave the Zig error and exit code 1, and `zig-ar` made a library.
 - A copy of the hello example with `log = "0.4"` in the `add` node ran in `patina-cli` on
   Windows. It wrote `INFO adding 2.5 and 4` and `WARN a warning` for the node, and no debug
   line. The build took 1.57 s.
@@ -380,6 +390,11 @@ The projects are very small, so these times do not predict real projects.
 - The toolchain comes from the toolchain folder (13.3), or else from the `CARGO` variable or
   `PATH`. Its version must be the `rust` version of `patina.toml`.
 - **Install toolchain** works only on Windows. It does not install rust-analyzer yet.
+- The portable zip is made on the computer of a contributor. No CI job or GitHub release makes
+  it yet. The Linux zip did not run.
+- 4 crates in the build have no license file: `selectors` (MPL-2.0) and three `webview2-com`
+  crates (MIT). `licenses/README.txt` marks them. Add their license texts before the first
+  release.
 - The engine loads the library from the cargo target folder, and never unloads it. Windows
   locks the file, so one process cannot build the same project again after the load.
 - A node panic shows two messages: the default panic message of the cluster, and the report.

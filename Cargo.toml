@@ -11,6 +11,7 @@ members = [
     "prototypes/hot-reload",
     "prototypes/types-across-clusters",
     "prototypes/toolchain",
+    "tools/package",
     "tools/repo-checks",
 ]
 # The user projects of the prototypes build alone, with their own flags and toolchains.

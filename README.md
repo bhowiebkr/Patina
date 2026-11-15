@@ -404,6 +404,13 @@ A source file can have 1000 lines at most. When a file gets longer, refactor it.
 Windows is the main platform. If you use Linux or macOS, your tests and fixes for that system
 are welcome. They are the way those builds get better.
 
+To make the portable zip from a checkout:
+
+1. In `crates/patina-editor/frontend`, run `npm ci` one time.
+2. In the root folder, run `cargo run -p package`.
+
+The zip goes to `target/package`. On Linux, the `zip` program must be installed.
+
 ## License
 
 Patina is under two licenses. You can use it under the license that you choose:

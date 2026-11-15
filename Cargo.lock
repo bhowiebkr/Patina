@@ -2323,6 +2323,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "package"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "pango"
 version = "0.18.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

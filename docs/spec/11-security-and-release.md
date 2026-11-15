@@ -40,6 +40,7 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 - No edition changes the `PATH` or installs Rust for the whole system.
 - Patina is under the MIT license or the Apache License 2.0, as the user chooses (`MIT OR Apache-2.0`). The repository has the files `LICENSE-MIT` and `LICENSE-APACHE`.
 - Each release file includes the license notices: the two Patina license files, and the license and `NOTICE` files of each crate in the build. The portable edition keeps them in a `licenses/` folder (13.3).
+- `cargo run -p package` makes the portable zip (`tools/package`). It builds the page and the release programs `patina` and `patina-cli`. It copies the notice files of each crate and npm package in the build, without the dev-dependencies, and lists the license of each package in `licenses/README.txt`. The list marks a package that has no license file. On Windows, `tar.exe` of System32 writes the zip. On Linux, the `zip` program writes it. This is an agent decision of 2026-11-15. The owner can change it.
 - The installers do not include the toolchain. Both editions use the **Install toolchain** button (13.2).
 - The `.msi` installs the WebView2 Runtime if it is missing, with the bootstrapper of Tauri. This needs internet.
 - The portable edition checks for the WebView2 Runtime before it opens a window. If it is missing, Patina shows a Windows message with a link to the Microsoft download. The Runtime then installs for the current user.
@@ -70,6 +71,7 @@ Portable edition (Windows and Linux):
 ```
 Patina/
   patina(.exe)
+  patina-cli(.exe)
   portable         marks the portable edition (13.1)
   licenses/        the license notices (13.1)
   toolchain/
