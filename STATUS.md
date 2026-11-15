@@ -9,9 +9,10 @@ checks open.
 ## Milestone 4: automatic parallelism and the frame domain
 
 Three slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2).
-The CLI and the editor run the frame domain at 60 FPS (9.1). All ran on 2026-11-15 on Windows 11
-Pro, with Rust 1.94.0. CI ran the tests of the three slices on Windows, Ubuntu and macOS. The
-wires between domains come next. The delay node moved to milestone 5 (9.2).
+The CLI and the editor run the frame domain at 60 FPS (9.1), and a frame node can read batch
+values. All ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. CI ran the tests of the first
+three slices on Windows, Ubuntu and macOS. The measurement of the split and of the pool comes
+next. The delay node moved to milestone 5 (9.2).
 
 ### What works
 
@@ -28,8 +29,11 @@ wires between domains come next. The delay node moved to milestone 5 (9.2).
 - The log lines, the values and the run times come in task order, so a run gives the same
   reports each time.
 - A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. A
-  node with no domain takes the domain of its inputs. The plan reports a node with inputs from
-  two domains, and a wire between two domains.
+  node with no domain takes the domain of its inputs. A node with batch and frame inputs takes
+  the frame domain. The plan reports a wire from the frame domain to the batch domain.
+- A wire from a batch node to a frame node is a latest-value wire. The frame node reads the
+  batch value at each frame. The value stays until the next batch run. A task holds the steps of
+  one domain.
 - The engine keeps the tasks of each domain apart. `Cluster::run` runs the batch domain, and
   `Cluster::frame` runs one frame. The end of a domain drops the shared values of its steps.
 - `patina-cli run <folder> --frames <count>` runs the batch domain one time and then the frames
@@ -48,15 +52,18 @@ wires between domains come next. The delay node moved to milestone 5 (9.2).
   - The plan makes one task of a chain and splits the branches.
   - The pool starts a task only after its inputs, also with a second run inside a task.
   - Only `Sync` values let a cluster run in parallel (`Cell` and `Rc` do not).
-  - The plan gives the frame domain to the node after a frame node, and reports a wire between
-    two domains and a node with inputs from two domains.
+  - The plan gives the frame domain to the node after a frame node, and to a node with batch
+    and frame inputs. It reports a wire from the frame domain to the batch domain. A batch node
+    and the frame node after it go into two tasks.
   - The frame clock skips the ticks that a late frame missed.
   - A frame replaces only the live values of its outputs. The batch values stay.
   - A connection that makes a cycle gives an error with the nodes of the cycle, and the graph
     does not change. This also applies to a wire from a node to itself.
 - The CLI tests ran the hello example (3 tasks, with shared values) and the fail project (2
-  branches) through the pool. The hello test also added a frame node and a show node. With
-  `--frames 3`, it wrote `6.5` one time and then `1` three times.
+  branches) through the pool. The hello test also added a batch number, a frame node that reads
+  it, an add node that reads the batch sum and the frame node, and a show node. With
+  `--frames 3`, it wrote `6.5` one time and then `8.5` three times. Thus the frame node read the
+  batch value again at each frame, also with no other reader.
 - A manual CLI run of 5 frames took 0.29 s with the build check.
 - The editor self-check passed its 57 steps in 15.0 s. A new step makes the number node a frame
   node and clicks **Run**. It waits for 3 frames that write `2.5`, and for the frame number in
@@ -76,7 +83,9 @@ wires between domains come next. The delay node moved to milestone 5 (9.2).
   frame domain is measured.
 - The editor sends an event to the page at each frame, also when no value changed.
 - A change while the frames run runs the batch domain again before the next frame.
-- A wire between two domains is a graph error. The latest-value wire comes later in milestone 4.
+- A latest-value wire uses a shared slot with a lock, not a buffer that does not lock (9.1).
+  The two domains do not run at the same time yet, so the lock never waits.
+- A batch value that a frame node reads stays after the frames end, until the next batch run.
 - Ctrl+C stops the CLI at once. The values that the frame domain keeps do not drop.
 
 ## Milestone 2: editor

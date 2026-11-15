@@ -361,17 +361,23 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
     }
 }
 
-/// Sets the domain of each step (9.1). A step with no domain of its own takes the domain of its
-/// inputs, or the batch domain when it has no inputs.
+/// True when a wire can go from domain `from` to domain `to` (9.1). The batch domain runs before
+/// the frames, so a frame node reads the latest batch value. No value goes back.
+fn reaches(from: Domain, to: Domain) -> bool {
+    from == to || (from, to) == (Domain::Batch, Domain::Frame)
+}
+
+/// Sets the domain of each step (9.1). A step with no domain of its own takes the domain that all
+/// its inputs reach, or the batch domain when it has no inputs.
 fn domains(steps: &mut [Step], edges: &[(usize, usize)], own: impl Fn(usize) -> Option<Domain>) -> Result<(), Vec<String>> {
     let mut problems = Vec::new();
     for n in 0..steps.len() {
         let inputs: BTreeSet<Domain> = edges.iter().filter(|e| e.1 == n).map(|e| steps[e.0].domain).collect();
-        steps[n].domain = match (own(n), inputs.first()) {
-            (Some(domain), _) => domain,
-            (None, Some(&domain)) if inputs.len() == 1 => domain,
-            (None, None) => Domain::Batch,
-            (None, Some(_)) => {
+        let common = inputs.iter().copied().find(|&d| inputs.iter().all(|&i| reaches(i, d)));
+        steps[n].domain = match (own(n), common) {
+            (Some(domain), _) | (None, Some(domain)) => domain,
+            (None, None) if inputs.is_empty() => Domain::Batch,
+            (None, None) => {
                 problems.push(format!("node {}: its inputs come from more than one domain. Select its domain", steps[n].id));
                 Domain::Batch
             }
@@ -379,16 +385,15 @@ fn domains(steps: &mut [Step], edges: &[(usize, usize)], own: impl Fn(usize) -> 
     }
     for &(from, to) in edges.iter().collect::<BTreeSet<_>>() {
         let (a, b) = (steps[from].domain, steps[to].domain);
-        if a != b && own(to).is_some() {
-            // shortcut: no wires between domains, the latest-value wire (9.1) comes in the next slice of milestone 4.
-            problems.push(format!("node {}: a wire from the {} domain to the {} domain comes later", steps[to].id, a.name(), b.name()));
+        if !reaches(a, b) && own(to).is_some() {
+            problems.push(format!("node {}: a value cannot go from the {} domain to the {} domain", steps[to].id, a.name(), b.name()));
         }
     }
     if problems.is_empty() { Ok(()) } else { Err(problems) }
 }
 
 /// Puts the steps into tasks (9.2). A step joins the task of its predecessor when it has exactly
-/// one predecessor, and that predecessor has exactly one successor.
+/// one predecessor, that predecessor has exactly one successor, and both have the same domain.
 fn split(steps: &mut [Step], edges: &[(usize, usize)]) -> Vec<Task> {
     let mut before: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
     let mut after: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
@@ -398,7 +403,7 @@ fn split(steps: &mut [Step], edges: &[(usize, usize)]) -> Vec<Task> {
     }
     let mut tasks: Vec<Task> = Vec::new();
     for n in 0..steps.len() {
-        let chain = before[n].first().filter(|&&p| before[n].len() == 1 && after[p].len() == 1);
+        let chain = before[n].first().filter(|&&p| before[n].len() == 1 && after[p].len() == 1 && steps[p].domain == steps[n].domain);
         steps[n].task = match chain {
             Some(&p) => steps[p].task,
             None => {
@@ -478,6 +483,9 @@ mod tests {
         };
         let mixed = "[[node]]\nid = \"000000000000000a\"\nfolder = \"nodes/num\"\n[[order]]\nbefore = \"000000000000000a\"\nafter = \"000000000000000b\"";
         let (frame, crossed, mixed) = (frames(""), frames("domain = \"batch\""), frames(mixed));
+        let mut latest = graph("[[wire]]\nfrom = \"000000000000000a.out\"\nto = \"000000000000000b.v\"\n");
+        latest.node[1].domain = Some("frame".to_owned());
+        let latest = check(&root, &latest);
         std::fs::create_dir_all(root.join("connections/show")).unwrap();
         let named = check(&root, &graph(""));
         let num_logs = uses_log(&root, "nodes", "num");
@@ -502,6 +510,10 @@ mod tests {
         let domains: Vec<Domain> = frame.steps.iter().map(|s| s.domain).chain(frame.tasks.iter().map(|t| t.domain)).collect();
         assert_eq!(domains, [Domain::Frame; 3], "show takes the domain of its input");
         assert!(crossed.err().unwrap()[0].contains("from the frame domain to the batch domain"));
-        assert!(mixed.err().unwrap()[0].contains("more than one domain"));
+        let mixed = mixed.unwrap_or_else(|p| panic!("{p:?}"));
+        assert_eq!(mixed.steps.iter().find(|s| s.id.ends_with('b')).map(|s| s.domain), Some(Domain::Frame), "batch and frame inputs give the frame domain");
+        let latest = latest.unwrap_or_else(|p| panic!("{p:?}"));
+        let parts: Vec<(Domain, &[usize])> = latest.tasks.iter().map(|t| (t.domain, &t.steps[..])).collect();
+        assert_eq!(parts, [(Domain::Batch, &[0][..]), (Domain::Frame, &[1][..])], "a task holds the steps of one domain");
     }
 }

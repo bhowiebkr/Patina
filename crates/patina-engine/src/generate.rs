@@ -96,10 +96,11 @@ pub fn source(plan: &Plan) -> String {
         s.push_str("            ok\n        }\n");
     }
     s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n");
-    // A value never crosses a domain, so the end of a domain drops the values of its steps (9.1).
+    // The end of a domain drops the values of its steps (9.1). A value that another domain reads
+    // stays until its step runs again.
     for domain in plan.tasks.iter().map(|t| t.domain).collect::<std::collections::BTreeSet<_>>() {
         let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::End({}) => {{\n            let mut ok = true;", domain as u32);
-        for (n, k) in plan.held().filter(|&(n, k)| plan.steps[n].domain == domain && is_shared(plan, n, k)) {
+        for (n, k) in plan.held().filter(|&(n, k)| plan.steps[n].domain == domain && is_shared(plan, n, k) && !is_kept(plan, n, k)) {
             let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
         }
         s.push_str("            ok\n        }\n");
@@ -121,6 +122,13 @@ pub fn source(plan: &Plan) -> String {
 fn is_shared(plan: &Plan, n: usize, k: usize) -> bool {
     let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
     plan.steps.iter().any(|step| step.task != plan.steps[n].task && step.inputs.iter().any(reads))
+}
+
+/// True when a node of another domain reads output `k` of step `n`: a latest-value wire (9.1).
+/// shortcut: the domains never run at the same time, so the lock never waits. Use a buffer that does not lock with the audio domain (milestone 11).
+fn is_kept(plan: &Plan, n: usize, k: usize) -> bool {
+    let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
+    plan.steps.iter().any(|step| step.domain != plan.steps[n].domain && step.inputs.iter().any(reads))
 }
 
 /// The read, the write and the store expressions of output `k` of step `n`.
@@ -150,6 +158,9 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
         .collect();
     let ready = if wired.is_empty() { "true".to_owned() } else { wired.join(" && ") };
     let _ = writeln!(s, "            // {}: nodes/{name}", step.id);
+    for k in (0..step.consumers.len()).filter(|&k| is_kept(plan, n, k)) {
+        let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
+    }
     let _ = writeln!(s, "            if rep.enter({n}, {ready}) {{");
     let indent = "                ";
     let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
@@ -168,8 +179,11 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
                 let [read, write, _] = held(plan, *from, *output);
                 match pass {
                     Pass::Ref => format!("{read}.as_ref().unwrap()"),
-                    // Only one node reads the value, so it takes the value with no copy.
-                    _ if plan.steps[*from].consumers[*output] == 1 => format!("{write}.take().unwrap()"),
+                    // Only one node reads the value, so it takes the value with no copy. A frame
+                    // reads a batch value again at each frame.
+                    _ if plan.steps[*from].consumers[*output] == 1 && plan.steps[*from].domain == step.domain => {
+                        format!("{write}.take().unwrap()")
+                    }
                     _ => format!("::std::clone::Clone::clone({read}.as_ref().unwrap())"),
                 }
             }

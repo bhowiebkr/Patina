@@ -72,18 +72,30 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let sum = values.iter().find(|v| v.from == "f89c6e329e8ea336.out").unwrap();
     assert_eq!(sum.lanes, Some(Lanes { bits: "00000110".to_owned(), label: "whole".to_owned() }));
 
-    // A frame node and the show node after it run at each frame, after the batch run (9.1).
+    // A frame node reads batch values at each frame, after the batch run (9.1): number f0 (1) to
+    // tick f1 (frame, 1 + 1), then add f3 (sum 6.5 + 2) and show f2. Only tick reads f0.
     let tick = project.join("nodes/tick");
     fs::create_dir_all(tick.join("src")).unwrap();
     fs::write(tick.join("Cargo.toml"), manifest.replace("whole", "tick")).unwrap();
-    fs::write(tick.join("src/lib.rs"), "#[patina_sdk::node(domain = frame)]\npub fn tick() -> f64 {\n    1.0\n}\n").unwrap();
+    fs::write(tick.join("src/lib.rs"), "#[patina_sdk::node(domain = frame)]\npub fn tick(base: f64) -> f64 {\n    base + 1.0\n}\n").unwrap();
     let graph = project.join("graphs/main.toml");
-    let more = "\n[[node]]\nid = \"00000000000000f1\"\nfolder = \"nodes/tick\"\n\n[[node]]\nid = \"00000000000000f2\"\n\
-                folder = \"nodes/show\"\n\n[[wire]]\nfrom = \"00000000000000f1.out\"\nto = \"00000000000000f2.value\"\n";
-    fs::write(&graph, fs::read_to_string(&graph).unwrap() + more).unwrap();
+    let node = |id: &str, folder: &str| format!("\n[[node]]\nid = \"00000000000000{id}\"\nfolder = \"nodes/{folder}\"\n");
+    let wire = |from: &str, to: &str| format!("\n[[wire]]\nfrom = \"{from}\"\nto = \"{to}\"\n");
+    let more = [
+        node("f0", "number") + "[node.params]\nvalue = \"1\"\n",
+        node("f1", "tick"),
+        node("f3", "add"),
+        node("f2", "show"),
+        wire("00000000000000f0.out", "00000000000000f1.base"),
+        wire("f89c6e329e8ea336.out", "00000000000000f3.a"),
+        wire("00000000000000f1.out", "00000000000000f3.b"),
+        wire("00000000000000f3.out", "00000000000000f2.value"),
+    ]
+    .concat();
+    fs::write(&graph, fs::read_to_string(&graph).unwrap() + &more).unwrap();
     let (output, stdout, stderr) = run(&project, &["--frames", "3"]);
     assert!(output.status.success(), "{stderr}");
-    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "1", "1", "1"]);
+    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "8.5", "8.5", "8.5"]);
 }
 
 #[test]

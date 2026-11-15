@@ -31,14 +31,16 @@ Each node runs in one clock domain. The domain decides when the node runs.
 
 - A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. Audio and event give an error until their milestones (11 and 12).
 - The `domain` key of a node in the graph file (6.4) is the domain that the user selects. A node that declares a domain cannot have another domain in the graph file.
-- A node with no declared and no selected domain takes the domain of its data wires and order wires. A node with no wires in is in the batch domain.
-- A node with inputs from more than one domain and no selected domain is a graph error: "select its domain". The editor shows it as an error, not a warning, until it can show warnings.
+- A node with no declared and no selected domain takes the domain that all its data wires and order wires can reach. A batch and a frame input thus give the frame domain. A node with no wires in is in the batch domain.
+- A node with inputs that reach no common domain and no selected domain is a graph error: "select its domain". The editor shows it as an error, not a warning, until it can show warnings.
 - A task (9.2) holds steps of one domain. A value never goes from one domain to another inside a task.
 - The batch domain runs one time, when the user clicks **Run**. Then the frame domain runs at each tick of a 60 FPS clock until the user clicks **Stop**. A frame that is late starts at once, and the clock skips the ticks that it missed. Frames never queue.
 - A run of the frame domain stops at the first frame in which a node fails.
 - `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process.
 - In the editor, **Pause**, **Stop**, a failed frame and a change that runs the graph again end the frame run. A change runs the batch domain again, and then the frames start again. The status bar shows the number of the frame, and the values and run times of the frame nodes change at each frame.
-- In the first slice of milestone 4, a wire between two domains is a graph error. The latest-value wire comes in a later slice of milestone 4.
+- A wire from the batch domain to the frame domain is a latest-value wire. At each frame, the frame node reads the value of the last batch run. The value stays until its node runs again in the next batch run.
+- A wire from the frame domain to the batch domain is a graph error, because the batch domain runs before the frames.
+- In milestone 4, the batch and the frame domain never run at the same time. Thus the latest value is in a shared slot with a lock that never waits. The buffer that does not lock comes with the audio domain (milestone 11).
 
 ### 9.2 Automatic parallelism
 
