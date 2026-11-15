@@ -187,6 +187,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
   const classes = ['patina-node', state];
   if (selected) classes.push('selected');
+  if (far) classes.push('far');
   return (
     <div className={classes.join(' ')}>
       <div className="patina-node-header">

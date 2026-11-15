@@ -1,4 +1,4 @@
-/* The dock (spec 15.2). A splitter is a 1 px line with a wider hit area. */
+/* The dock (spec 15.2). Each area is a card with a small gap, as in mockups 9 and 10. */
 .area {
   flex: none;
   display: flex;
@@ -6,6 +6,10 @@
   min-width: 0;
   min-height: 0;
   background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
 
 .area.left,
@@ -33,36 +37,49 @@
   flex: 1;
 }
 
+/* A splitter is the gap between two cards, with a wider hit area and a line on hover. */
 .splitter {
   flex: none;
   position: relative;
   z-index: 5;
-  background: var(--border);
 }
 
 .splitter.vertical {
-  width: 1px;
+  width: 5px;
   cursor: col-resize;
 }
 
 .splitter.horizontal {
-  height: 1px;
+  height: 5px;
   cursor: row-resize;
+}
+
+.splitter::before {
+  content: '';
+  position: absolute;
+  inset: 0 2px;
+}
+
+.splitter.horizontal::before {
+  inset: 2px 0;
 }
 
 .splitter::after {
   content: '';
   position: absolute;
-  inset: 0 -3px;
+  inset: 0 -2px;
 }
 
 .splitter.horizontal::after {
-  inset: -3px 0;
+  inset: -2px 0;
 }
 
-.splitter:hover,
-.splitter:focus-visible {
+.splitter:hover::before,
+.splitter:focus-visible::before {
   background: var(--accent);
+}
+
+.splitter:focus-visible {
   outline: none;
 }
 
@@ -70,6 +87,7 @@
   flex: none;
   background: rgba(223, 166, 75, 0.08);
   border: 1px dashed var(--accent);
+  border-radius: 6px;
 }
 
 .drop-zone.left,

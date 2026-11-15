@@ -8,10 +8,25 @@
   background: var(--node);
   border: 1px solid var(--border);
   border-radius: 6px;
+  /* A soft shadow lifts the node off the canvas, as in mockup 9. */
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.patina-node:hover {
+  border-color: var(--control-border);
 }
 
 .patina-node.selected {
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(223, 166, 75, 0.28), 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* At a far zoom, a node has no shadow, so a large graph paints less (15.1). */
+.patina-node.far {
+  box-shadow: none;
+}
+
+.patina-node.far.selected {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
@@ -31,10 +46,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--border);
+  /* A very small neutral gradient and a top highlight (theme guide). */
+  background: linear-gradient(rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 80%), var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 0 rgba(0, 0, 0, 0.35);
   border-radius: 5px 5px 0 0;
   font-size: 14px;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   white-space: nowrap;
 }
 
@@ -84,6 +102,7 @@
   background: var(--field);
   border: 1px solid var(--border);
   border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   color: var(--text);
   line-height: 18px;
 }
@@ -122,6 +141,7 @@
   background: var(--field);
   border: 1px solid var(--border);
   border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
   touch-action: none;
 }
 
@@ -135,6 +155,7 @@
   background: var(--field);
   border: 1px solid var(--border);
   border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .gui-chart {
@@ -263,8 +284,15 @@
   color: var(--muted);
 }
 
+.gui-table tbody tr:hover:not([aria-selected='true']) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* The selected row has a tint and an edge of the accent, as the selected layer of mockup 9. */
 .gui-table tr[aria-selected='true'] {
-  background: var(--hover);
+  background: rgba(223, 166, 75, 0.12);
+  outline: 1px solid rgba(223, 166, 75, 0.65);
+  outline-offset: -1px;
 }
 
 .gui-image {
@@ -315,10 +343,53 @@
   gap: 8px;
 }
 
+/* A thin neutral track, filled to the thumb from `--fill` (controls guide). */
 .gui-slider {
   flex: 1;
   min-width: 60px;
-  accent-color: var(--subtle);
+  height: 16px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gui-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--subtle) var(--fill, 0%), var(--field) var(--fill, 0%));
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.gui-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  appearance: none;
+  background: var(--text);
+  border: 1px solid var(--app);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.gui-slider:focus-visible {
+  outline: none;
+}
+
+.gui-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.gui-slider:disabled {
+  cursor: default;
+}
+
+.gui-slider:disabled::-webkit-slider-thumb {
+  background: var(--disabled);
+}
+
+.node-gui input[type='checkbox'] {
+  accent-color: var(--muted);
 }
 
 .gui-value {
@@ -341,23 +412,32 @@
 .patina-node-time {
   height: 24px;
   padding: 0 10px;
+  /* A darker footer band, as in mockups 6 and 7. */
+  background: rgba(0, 0, 0, 0.16);
   border-top: 1px solid var(--border);
+  border-radius: 0 0 5px 5px;
   font-size: 12px;
   line-height: 24px;
   color: var(--muted);
 }
 
+/* A pin is a light dot with a ring of the node color, as in mockup 9. */
 .react-flow__node-patina .react-flow__handle {
-  width: 10px;
-  height: 10px;
-  min-height: 10px;
-  background: var(--raised);
-  border: 1.5px solid var(--wire);
+  width: 11px;
+  height: 11px;
+  min-height: 11px;
+  background: var(--wire);
+  border: 2px solid var(--node);
   border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.react-flow__node-patina .react-flow__handle:hover {
+  background: var(--text);
 }
 
 .patina-node.unresolved .react-flow__handle {
-  border-color: var(--disabled);
+  background: var(--disabled);
 }
 
 .react-flow__attribution a {
@@ -437,6 +517,7 @@
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   font: 11px Consolas, 'Cascadia Mono', monospace;
   pointer-events: none;
 }

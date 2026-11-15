@@ -60,6 +60,17 @@ Use brightness to separate surfaces. Avoid broad blue gradients, glowing panel
 edges and black-to-navy backgrounds. A very small neutral header gradient is
 acceptable, but flat fills are the default.
 
+Use soft dark shadows for depth, as mockups 9 and 10 do. This is an agent
+decision of 2026-11-15. The owner can change it.
+
+- Each dock area and the graph are cards with a 6 px radius on the **app**
+  color. A 5 px gap is the splitter, and it shows an accent line on hover.
+- Nodes, menus, dialogs and wire value labels have a dark shadow. A node at a
+  far zoom has no shadow, so a large graph paints less.
+- A selected node has a soft glow of its selection color.
+- Fields, plots and tables are insets with a small inner shadow.
+- A selected list row or table row has a tint and a 1 px edge of the accent.
+
 ## Application accent and state
 
 | Token | Hex | Use |

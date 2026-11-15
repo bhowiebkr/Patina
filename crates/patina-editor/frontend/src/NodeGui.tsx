@@ -1,6 +1,6 @@
 // Draws the widget lines of a node GUI with the shared controls (spec 4.3, GUI guide controls).
 
-import { createContext, memo, useContext, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { api } from './api';
 import { eventLine, parseTree, type Shape, type Widget } from './gui';
 import { ColorPicker, Curve, Picture, Plot, Table, Waveform } from './ValueWidgets';
@@ -17,6 +17,7 @@ function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>;
   // A drag shows its own value and sends it at the end, so a drag runs the graph one time (9.1).
   const [draft, setDraft] = useState<number | null>(null);
   const value = draft ?? w.value;
+  const fill = w.high > w.low ? Math.min(100, Math.max(0, ((value - w.low) / (w.high - w.low)) * 100)) : 0;
   const commit = () => {
     if (draft !== null && draft !== w.value) send(draft);
     setDraft(null);
@@ -31,6 +32,7 @@ function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>;
         max={w.high}
         step="any"
         value={value}
+        style={{ '--fill': `${fill}%` } as CSSProperties}
         disabled={disabled}
         onChange={(e) => setDraft(Number(e.currentTarget.value))}
         onPointerUp={commit}
