@@ -13,9 +13,13 @@ interface Props {
 }
 
 function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>; send: (value: number) => void; disabled: boolean }) {
-  // The engine sends the new value after a short time, so the drag shows its own value until then.
+  // A drag shows its own value and sends it at the end, so a drag runs the graph one time (9.1).
   const [draft, setDraft] = useState<number | null>(null);
   const value = draft ?? w.value;
+  const commit = () => {
+    if (draft !== null && draft !== w.value) send(draft);
+    setDraft(null);
+  };
   return (
     <label className="gui-row">
       <span className="label">{w.text}</span>
@@ -27,13 +31,10 @@ function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>;
         step="any"
         value={value}
         disabled={disabled}
-        onChange={(e) => {
-          const v = Number(e.currentTarget.value);
-          setDraft(v);
-          send(v);
-        }}
-        onPointerUp={() => setDraft(null)}
-        onBlur={() => setDraft(null)}
+        onChange={(e) => setDraft(Number(e.currentTarget.value))}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={commit}
       />
       <span className="gui-value">{Number(value.toPrecision(4))}</span>
     </label>
