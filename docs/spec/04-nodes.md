@@ -136,7 +136,7 @@ A node can open its GUI in the whole graph area, for a GUI that needs more room 
 pub struct CurveEditor { points: Vec<[f32; 2]> }
 ```
 
-- The full size is optional. Only a node with `full_gui` has it.
+- The full size is optional. Only a node with `full_gui` has it. A node with `full_gui` must have a `ui` function, else the node shows an error.
 - The header of the node and the header of the inspector show an expand button.
 - When the user clicks it, the GUI fills the area of the graph view. The top bar path shows the node, for example "Main Graph / Curve Editor".
 - **Back** in the top bar, or Esc, returns to the graph view.

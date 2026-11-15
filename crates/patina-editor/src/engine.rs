@@ -26,8 +26,8 @@ pub enum Job {
 
 pub struct GuiInput {
     pub id: String,
-    /// 0 for the node body, 1 for the **Inspector**. The engine draws the node of the last
-    /// mode 1 input in the **Inspector** size after each run.
+    /// 0 for the node body, 1 for the **Inspector**, 2 for the full size. After each run, the
+    /// engine draws the node of the last mode 1 and mode 2 input in that size. An empty ID ends it.
     pub mode: u32,
     /// A line for each user input: the widget index and the value.
     pub events: String,
@@ -147,8 +147,8 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
     let mut toolchain = None;
     let mut loaded: Option<Loaded> = None;
     let mut next = None;
-    // The last run, which a GUI change runs again, and the node of the Inspector.
-    let (mut last, mut large) = (None::<Box<Run>>, None::<String>);
+    // The last run, which a GUI change runs again, and the nodes of the Inspector and the full size.
+    let (mut last, mut shown) = (None::<Box<Run>>, Shown::default());
     while let Some(first) = next.take().or_else(|| jobs.recv().ok()) {
         // Only the newest run starts. A build that a skipped run asked for still happens.
         let mut newest = None;
@@ -167,7 +167,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Pause => (newest, build, rerun) = (None, false, false),
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-                        rerun |= gui(app, &mut loaded.cluster, serial, &input, &mut large).is_some();
+                        rerun |= gui(app, &mut loaded.cluster, serial, &input, &mut shown).is_some();
                     }
                 }
                 Job::Rerun => rerun = true,
@@ -192,9 +192,9 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
         let ran = matches!(event, Event::Ran { .. });
         let _ = app.emit("engine", event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
-            draw(app, &mut loaded.cluster, run.serial, large.as_deref());
+            draw(app, &mut loaded.cluster, run.serial, &shown);
             if frames {
-                next = run_frames(app, jobs, (&mut loaded.cluster, &mut large), shared, run.serial);
+                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown), shared, run.serial);
             }
         }
         last = Some(run);
@@ -203,9 +203,9 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
 
 /// Gives the GUI input to node `input.id`, and sends its new widget lines. Returns `Some` when
 /// the change must run the graph again: `Some(true)` when the node is in the frame domain.
-fn gui(app: &AppHandle, cluster: &mut Cluster, serial: u64, input: &GuiInput, large: &mut Option<String>) -> Option<bool> {
-    if input.mode == 1 {
-        *large = Some(input.id.clone());
+fn gui(app: &AppHandle, cluster: &mut Cluster, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
+    if let Some(node) = (input.mode as usize).checked_sub(1).and_then(|i| shown.get_mut(i)) {
+        *node = (!input.id.is_empty()).then(|| input.id.clone());
     }
     let (tree, out) = cluster.ui(&input.id, input.mode, &input.events);
     let trees = tree.map(|tree| Tree { id: input.id.clone(), mode: input.mode, tree }).into_iter().collect();
@@ -214,14 +214,17 @@ fn gui(app: &AppHandle, cluster: &mut Cluster, serial: u64, input: &GuiInput, la
     (input.rerun && !input.events.is_empty()).then_some(frame)
 }
 
+/// The node of the **Inspector** size and the node of the full size (4.3).
+type Shown = [Option<String>; 2];
+
 /// Sends the widget lines of each node GUI (4.3): the node body size of each node, and the
-/// **Inspector** size of node `large`.
-fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, large: Option<&str>) {
+/// larger sizes of the nodes in `shown`.
+fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, shown: &Shown) {
     let (mut trees, mut reports) = (Vec::new(), Vec::new());
     // shortcut: the engine draws all node GUIs, also the nodes out of view (4.3 rule 3). Send the visible nodes from the page when graphs get large.
     for n in 0..cluster.guis().len() {
         let id = cluster.guis()[n].0.clone();
-        for mode in [0, 1].into_iter().filter(|&m| m == 0 || large == Some(id.as_str())) {
+        for mode in [0, 1, 2].into_iter().filter(|&m| m == 0 || shown[m as usize - 1].as_ref() == Some(&id)) {
             let (tree, out) = cluster.ui(&id, mode, "");
             reports.extend(out.reports);
             trees.extend(tree.map(|tree| Tree { id: id.clone(), mode, tree }));
@@ -234,14 +237,14 @@ fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, large: Option<&str>
 
 /// Runs the frame domain at 60 FPS until a job comes, the user stops the run, or a frame fails
 /// (9.1). Returns the job that ended the run.
-fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, large): (&mut Cluster, &mut Option<String>), shared: &Shared, serial: u64) -> Option<Job> {
+fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown): (&mut Cluster, &mut Shown), shared: &Shared, serial: u64) -> Option<Job> {
     let (mut clock, mut frames) = (Clock::new(clock::FRAME), 0);
     let job = loop {
         clock.wait();
         match jobs.try_recv() {
             // A change of a frame node applies at the next frame. A batch node needs a batch run.
             Ok(Job::Gui(input)) => {
-                if gui(app, cluster, serial, &input, large) == Some(false) {
+                if gui(app, cluster, serial, &input, shown) == Some(false) {
                     break Some(Job::Rerun);
                 }
             }
@@ -261,7 +264,7 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, large): (&mut Clu
         let (skipped, stopped, times) = (outcome.skipped.clone(), outcome.stopped.clone(), outcome.times.clone());
         let (logs, reports) = (outcome.logs.clone(), outcome.reports.clone());
         let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
-        draw(app, cluster, serial, large.as_deref());
+        draw(app, cluster, serial, shown);
         if !ok {
             break None;
         }

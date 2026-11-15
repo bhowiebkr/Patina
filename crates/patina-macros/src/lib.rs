@@ -5,13 +5,13 @@ use proc_macro::{Delimiter, TokenStream, TokenTree};
 
 /// Marks the function of a node, or the state struct of a stateful node (spec 4.2). A function
 /// gets `#[inline]`, so small nodes inline into each other inside one cluster (8.3).
-/// `#[node(domain = frame)]` sets the clock domain (9.1). The engine reads the domain.
+/// `#[node(domain = frame)]` sets the clock domain (9.1), and `#[node(full_gui)]` gives the GUI a
+/// full size (4.3). The engine reads these arguments.
 #[proc_macro_attribute]
 pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args: Vec<String> = attr.into_iter().map(|t| t.to_string()).collect();
-    let domains = ["batch", "frame", "audio", "event"];
-    if !(args.is_empty() || args.len() == 3 && args[0] == "domain" && args[1] == "=" && domains.contains(&&*args[2])) {
-        return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`");
+    if !node_args(&args) {
+        return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`, and `full_gui`");
     }
     match keyword(&item).as_deref() {
         Some("fn") => {}
@@ -21,6 +21,17 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut out: TokenStream = "#[inline]".parse().expect("valid attribute");
     out.extend(item);
     out
+}
+
+/// True when the tokens of `#[node(...)]` are a list of `domain = <name>` and `full_gui`.
+fn node_args(args: &[String]) -> bool {
+    let domains = ["batch", "frame", "audio", "event"];
+    args.is_empty()
+        || args.split(|a| a == ",").all(|arg| match arg {
+            [full] => full == "full_gui",
+            [key, eq, name] => key == "domain" && eq == "=" && domains.contains(&name.as_str()),
+            _ => false,
+        })
 }
 
 /// Marks the function of a connection kind (6.3). The function takes `&T` and returns
@@ -52,4 +63,14 @@ fn keyword(item: &TokenStream) -> Option<String> {
 
 fn error(message: &str) -> TokenStream {
     format!("compile_error!({message:?});").parse().expect("valid compile_error")
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn node_takes_a_domain_and_full_gui() {
+        let args = |text: &str| super::node_args(&text.split(' ').filter(|t| !t.is_empty()).map(str::to_owned).collect::<Vec<_>>());
+        assert!(args("") && args("full_gui") && args("domain = frame , full_gui"));
+        assert!(!args("domain = gpu") && !args("full") && !args("full_gui ,") && !args("domain frame"));
+    }
 }

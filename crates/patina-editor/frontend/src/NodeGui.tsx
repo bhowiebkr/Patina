@@ -1,12 +1,12 @@
 // Draws the widget lines of a node GUI with the shared controls (spec 4.3, GUI guide controls).
 
-import { memo, useState } from 'react';
+import { createContext, memo, useContext, useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { eventLine, parseTree, type Widget } from './gui';
 
 interface Props {
   id: string;
-  /** 0 for the node body, 1 for the Inspector. */
+  /** 0 for the node body, 1 for the Inspector, 2 for the full size. */
   mode: number;
   tree: string;
   disabled: boolean;
@@ -122,3 +122,46 @@ function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
 }
 
 export const NodeGui = memo(NodeGuiImpl);
+
+/** Opens the full size of the GUI of a node (4.3). The app gives it. */
+export const ExpandGui = createContext<(id: string) => void>(() => {});
+
+/** The expand button of a node with `full_gui`, in the node header and the Inspector header. */
+export function ExpandButton({ id }: { id: string }) {
+  const expand = useContext(ExpandGui);
+  return (
+    <button className="icon-btn expand nodrag" aria-label="Open the full size" title="Full size" onClick={() => expand(id)}>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+        <path d="M9 2h5v5M7 14H2V9M14 2 9 7M2 14l5-5" />
+      </svg>
+    </button>
+  );
+}
+
+/** The full size of a node GUI over the graph area (4.3). Esc closes it. */
+export function FullGui({ id, tree, disabled, onBack }: { id: string; tree: string; disabled: boolean; onBack: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+    api.gui(id, 2, '').catch(() => {});
+    // An empty ID tells the engine to stop the draws of the full size.
+    return () => void api.gui('', 2, '').catch(() => {});
+  }, [id]);
+  return (
+    <div
+      ref={ref}
+      className="full-gui"
+      tabIndex={-1}
+      role="region"
+      aria-label="Full size GUI"
+      onKeyDown={(e) => {
+        // The keys do not change the graph under the GUI. The Ctrl keys still reach the app.
+        if (!e.ctrlKey && !e.metaKey) e.stopPropagation();
+        const field = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
+        if (e.key === 'Escape' && !field) onBack();
+      }}
+    >
+      <NodeGui id={id} mode={2} tree={tree} disabled={disabled} />
+    </div>
+  );
+}

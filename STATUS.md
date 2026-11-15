@@ -62,6 +62,9 @@ and in the editor.
   graph runs the graph again (4.3). The frontend test checks the widget lines. A Rust check and
   the frontend build passed. The editor selfcheck does not use a node GUI, and nobody clicked a
   node GUI in the editor.
+- A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
+  header. The button opens the full size over the graph area. **Back** or Esc closes it. The
+  parse test and the macro test check `full_gui`. Nobody opened a full size in the editor.
 - Each build makes a new cluster, so a build resets the state of all nodes. Milestone 6 keeps
   the state of each node whose code did not change (7.2).
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
@@ -72,8 +75,8 @@ and in the editor.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
   palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
   the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.
-- Only stateful nodes can have a GUI. The value widgets, the canvas, the full size, `full_gui`,
-  the audio `ui` with `#[settings]` and widget folders are not done.
+- Only stateful nodes can have a GUI. The value widgets, the canvas, the audio `ui` with
+  `#[settings]` and widget folders are not done.
 - shortcut: the engine draws all node GUIs after each run and frame, also the nodes out of view
   (4.3). Send the visible nodes from the page when graphs get large.
 - The delay runs only in the frame domain.

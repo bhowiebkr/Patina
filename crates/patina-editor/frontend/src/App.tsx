@@ -6,6 +6,7 @@ import { useViewport } from '@xyflow/react';
 import {
   api,
   errorText,
+  folderName,
   logKind,
   millis,
   onCloseRequested,
@@ -29,6 +30,7 @@ import { GraphView, useFit } from './GraphView';
 import { Inspector, type InspectorTab } from './Inspector';
 import type { PanelId } from './layout';
 import { addLines, Lines, type Line } from './Lines';
+import { ExpandGui, FullGui } from './NodeGui';
 import { NO_RUN, valueStale, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
@@ -337,6 +339,14 @@ export function App() {
     else go();
   };
 
+  // The node whose GUI fills the graph area (4.3). The Inspector shows it.
+  const [full, setFull] = useState<string | null>(null);
+  const expand = useCallback((id: string) => {
+    setFull(id);
+    setInspect({ kind: 'node', id });
+  }, []);
+  const closeFull = useCallback(() => setFull(null), []);
+
   const onSelect = useCallback((ids: string[], wires: WireData[]) => {
     setInspect((old) => {
       if (ids.length === 1) return { kind: 'node', id: ids[0] };
@@ -351,6 +361,7 @@ export function App() {
   }
 
   const live = view.live;
+  const fullEntry = full ? view.graph.node?.find((n) => n.id === full) : undefined;
   // After Stop, a node call that runs for 2 s or more shows in the status bar (15.2).
   const stop = () => {
     endStop();
@@ -419,8 +430,13 @@ export function App() {
       <header className="topbar">
         <img className="logo" src="/logo.png" alt="Patina" />
         <span className="path">
-          <b>{view.name}</b> / main
+          <b>{view.name}</b> / main{fullEntry && ` / ${folderName(fullEntry)}`}
         </span>
+        {fullEntry && (
+          <button className="btn" title="Back to the graph (Esc)" onClick={closeFull}>
+            Back
+          </button>
+        )}
         {dirty && <span className="dot" title="Unsaved changes" aria-label="Unsaved changes" />}
         <button className="btn" onClick={() => (dirty ? setAsk('close') : closeProject())}>
           Close
@@ -461,19 +477,29 @@ export function App() {
       </header>
       {/* The dock waits for the layout of the project, so the graph opens at its saved pan and zoom. */}
       {layoutSerial === view.serial ? (
-        <Dock panels={panels}>
-          {!view.trusted && (
-            <div className="banner" role="alert">
-              <span>This project is not trusted. Patina does not build or run its code until you trust it.</span>
-              <button className="btn primary" onClick={() => act(api.trustProject())}>
-                Trust project
-              </button>
+        <ExpandGui.Provider value={expand}>
+          <Dock panels={panels}>
+            {!view.trusted && (
+              <div className="banner" role="alert">
+                <span>This project is not trusted. Patina does not build or run its code until you trust it.</span>
+                <button className="btn primary" onClick={() => act(api.trustProject())}>
+                  Trust project
+                </button>
+              </div>
+            )}
+            <div className="canvas">
+              <GraphView key={view.serial} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} />
+              {fullEntry && (
+                <FullGui
+                  id={fullEntry.id}
+                  tree={guis.get(`2 ${fullEntry.id}`) ?? guis.get(`1 ${fullEntry.id}`) ?? guis.get(`0 ${fullEntry.id}`) ?? ''}
+                  disabled={!view.trusted}
+                  onBack={closeFull}
+                />
+              )}
             </div>
-          )}
-          <div className="canvas">
-            <GraphView key={view.serial} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} />
-          </div>
-        </Dock>
+          </Dock>
+        </ExpandGui.Provider>
       ) : (
         <div className="middle" />
       )}

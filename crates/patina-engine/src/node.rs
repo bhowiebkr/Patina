@@ -84,6 +84,8 @@ pub struct Node {
     pub domain: Option<Domain>,
     /// The state struct has `pub fn ui(&mut self, ui: &mut Ui)` (4.3).
     pub ui: bool,
+    /// `#[node(full_gui)]`: the GUI has a full size (4.3).
+    pub full: bool,
 }
 
 impl Node {
@@ -119,7 +121,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
         }
     }
     let (attr, item) = found.ok_or("the crate has no #[node] function or struct")?;
-    let domain = read_domain(attr)?;
+    let (domain, full) = read_attr(attr)?;
     let (sig, state, generics, ui) = match item {
         Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None, type_params(&func.sig.generics)?, false),
         Item::Fn(func) => return Err(format!("make the node function `{}` pub", func.sig.ident)),
@@ -174,7 +176,10 @@ pub fn parse(source: &str) -> Result<Node, String> {
     if state.is_some() && !matches!(sig.inputs.first(), Some(FnArg::Receiver(_))) {
         return Err(PROCESS.to_owned());
     }
-    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, ui })
+    if full && !ui {
+        return Err("a node with `full_gui` needs `pub fn ui(&mut self, ui: &mut Ui)` (spec 4.3)".to_owned());
+    }
+    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, ui, full })
 }
 
 const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
@@ -184,7 +189,7 @@ pub fn delay() -> Node {
     let t = "T".to_owned();
     let input = Input { key: "value".to_owned(), pass: Pass::Take, is_str: false, ty: t.clone(), value: t.clone() };
     let (generics, output_types) = (vec![t.clone()], vec![t]);
-    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame), ui: false }
+    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame), ui: false, full: false }
 }
 
 /// The names of the type parameters. A node has no lifetime or const parameters (4.5).
@@ -253,22 +258,26 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
     Ok((process, ui.is_some()))
 }
 
-/// Reads `domain = <name>` of `#[node(...)]` (9.1).
-fn read_domain(attr: &Attribute) -> Result<Option<Domain>, String> {
+/// Reads `domain = <name>` (9.1) and `full_gui` (4.3) of `#[node(...)]`.
+fn read_attr(attr: &Attribute) -> Result<(Option<Domain>, bool), String> {
     if matches!(attr.meta, Meta::Path(_)) {
-        return Ok(None);
+        return Ok((None, false));
     }
-    let mut domain = None;
+    let (mut domain, mut full) = (None, false);
     attr.parse_nested_meta(|meta| {
+        if meta.path.is_ident("full_gui") {
+            full = true;
+            return Ok(());
+        }
         if !meta.path.is_ident("domain") {
-            return Err(meta.error("#[node] takes only `domain = <name>`"));
+            return Err(meta.error("#[node] takes only `domain = <name>` and `full_gui`"));
         }
         let name: Ident = meta.value()?.parse()?;
         domain = Some(Domain::parse(&name.to_string()).map_err(|e| meta.error(e))?);
         Ok(())
     })
     .map_err(|e| e.to_string())?;
-    Ok(domain)
+    Ok((domain, full))
 }
 
 /// The function of a connection kind (6.3).
@@ -416,6 +425,9 @@ mod tests {
         assert!(!node.ui);
         let gui = counter.replace("fn other(&self) {}", "pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {}");
         assert!(parse(&gui).unwrap().ui);
+        let full = gui.replace("#[node(domain = frame)]", "#[node(domain = frame, full_gui)]");
+        assert!(parse(&full).unwrap().full);
+        assert!(parse(&counter.replace("#[node(domain = frame)]", "#[node(full_gui)]")).is_err());
         let hold = "#[node] pub struct Hold<T, U> { v: Option<(T, U)> }\n\
                     impl<T: Clone, U> Hold<T, U> { pub fn init() -> Hold<T, U> { todo!() } }\n\
                     impl<T, U> Hold<T, U> where T: Copy { pub fn process(&mut self, x: T, y: &mut Vec<U>) -> Option<T> { todo!() } }";

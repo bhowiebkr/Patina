@@ -111,6 +111,27 @@
   cursor: default;
 }
 
+/* The full size of a node GUI fills the graph area (spec 4.3). */
+.full-gui {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: auto;
+  background: var(--canvas);
+  outline: none;
+}
+
+.full-gui .node-gui {
+  border-top: none;
+  padding: 16px 24px;
+  font-size: 13px;
+}
+
+.patina-node-header .expand {
+  width: 22px;
+  height: 22px;
+}
+
 .gui-row {
   min-height: 24px;
   display: flex;

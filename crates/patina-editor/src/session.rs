@@ -462,8 +462,8 @@ pub fn stop(editor: State<'_, Editor>) -> Result<View, String> {
     pause(editor)
 }
 
-/// Gives user input to the GUI of node `id` in size `mode` (0 node body, 1 **Inspector**), or asks
-/// for its widget lines when `events` is empty (4.3). A change runs a live graph again.
+/// Gives user input to the GUI of node `id` in size `mode` (0 node body, 1 **Inspector**, 2 full),
+/// or asks for its widget lines when `events` is empty (4.3). A change runs a live graph again.
 #[tauri::command(async)]
 pub fn gui(editor: State<'_, Editor>, id: String, mode: u32, events: String) -> Result<(), String> {
     editor.with(|session| {

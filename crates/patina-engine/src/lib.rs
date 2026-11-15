@@ -96,6 +96,8 @@ pub struct NodeInfo {
     pub builtin: bool,
     /// The type parameters (4.5). A pin of such a type joins a wire of any type.
     pub generics: Vec<String>,
+    /// True when the node GUI has a full size (4.3).
+    pub full: bool,
 }
 
 impl NodeInfo {
@@ -103,7 +105,7 @@ impl NodeInfo {
         let keys = node.output_keys().into_iter();
         let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty }).collect();
         let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty }).collect();
-        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics }
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full }
     }
 }
 
@@ -288,7 +290,7 @@ impl Project {
             }
             nodes.push(match plan::read_node(&self.root, &name) {
                 Ok(node) => NodeInfo::new(name, node, false),
-                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new() },
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false },
             });
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));

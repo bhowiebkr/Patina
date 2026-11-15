@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
 import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type NodeLog, type Report, type Value, type View } from './api';
 import { FAR_ZOOM } from './gl';
-import { NodeGui } from './NodeGui';
+import { ExpandButton, NodeGui } from './NodeGui';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -191,6 +191,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
     <div className={classes.join(' ')}>
       <div className="patina-node-header">
         <span className="title">{folderName(entry)}</span>
+        {info?.full && <ExpandButton id={entry.id} />}
         <StateIcon state={state} />
       </div>
       <div className="patina-rows" style={{ height: rows * ROW + 2 * PAD }}>

@@ -5,7 +5,7 @@ import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
-import { NodeGui } from './NodeGui';
+import { ExpandButton, NodeGui } from './NodeGui';
 import type { Inspect } from './ProjectPanel';
 
 export type InspectorTab = 'parameters' | 'code' | 'logs';
@@ -204,6 +204,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
       <div className="panel-title">
         {folderName(entry)}
         <span className="spacer" />
+        {info?.full && <ExpandButton id={entry.id} />}
         <span className={state === 'compile-error' || state === 'run-error' ? 'error-text' : 'label'}>{STATE_NAMES[state]}</span>
       </div>
       <Tabs tab={shown} only={hasCode ? undefined : 'parameters'} onTab={onTab} />

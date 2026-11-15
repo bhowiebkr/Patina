@@ -49,6 +49,8 @@ export interface NodeInfo {
   builtin: boolean;
   /** The type parameters (4.5). A pin of such a type joins a wire of any type. */
   generics: string[];
+  /** True when the node GUI has a full size, from `#[node(full_gui)]` (4.3). */
+  full: boolean;
 }
 
 export interface View {
