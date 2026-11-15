@@ -1,0 +1,91 @@
+# Image request: 0002 node GUI gallery
+
+- **From:** Claude Code
+- **Created:** 2026-11-14 20:42 -05:00
+- **Purpose:** Show what custom node GUIs look like in the graph, at their compact size, with
+  enough detail to judge them.
+- **Output:** `docs/mockups/0002-node-gui-gallery-v1.png`
+- **Size:** 3200 x 2000 if the tool can make it. Else the largest landscape size that it can
+  make. Do not upscale a smaller image. Report the real size.
+- **Background:** opaque, the graph background of the editor, #181818.
+- **References:** `docs/gui-visual-guide.md`: use its palette, header colors and node sizing.
+  `docs/mockups/mockup-9-smart-material-editor.png`: keep its node style (header, pins, footer,
+  wires, grid). `docs/mockups/0001-node-gui-widget-kit-v1.png`: use its widgets.
+- **Spec:** 4.3 (Node GUI), 9.1 (Clock domains), 9.4 (Trigger nodes), 15.3 (Visual rules).
+  Common rules and icons: `docs/mockup-plan.md`.
+- **Previous request:** none
+
+## Brief
+
+A close-up of the graph view at 200% zoom. No side panels and no top bar: only the grid,
+the nodes and the wires. Six nodes in two rows of three. Each node shows its compact GUI in the
+node body. A node with a GUI is larger than a plain node, but keeps the same header, pins and
+footer as the reference nodes.
+
+Each node has:
+
+- A header: the node-kind icon, the title, the clock domain icon, and a green Ready dot with its
+  icon.
+- Input pins on the left and output pins on the right, with their names.
+- A body with the compact GUI.
+- A footer with the run time, for example "Run 0.08 ms".
+
+Each header has the color that the node code sets, a flat fill with a light title (#EEEEEB).
+The node bodies stay neutral charcoal, #262626. The header colors come from the families of the
+guide. Transform: processing teal #175C59. Gradient Map, Curve Editor and ADSR Envelope: curve
+magenta #71344F. Sample Player: input amber #6B4B1E. Batch Export: output purple #59366F.
+
+Row 1, frame domain:
+
+1. **Transform**: stateful. Input `Image`, output `Image`. An image thumbnail with a gizmo on
+   it: move arrows, a rotate ring and corner scale handles. Under it, number fields "X 120",
+   "Y -40", "Rot 12 deg" and "Scale 1.10".
+2. **Gradient Map**: stateful. Input `Image`, output `Image`. A gradient bar from dark blue to
+   orange to white, with four stop handles. One stop is focused, with a pink outline #DE8FBA.
+   Under it, a color swatch, a hex field "#E8A33D" and a number field "Pos 0.62". A small
+   thumbnail of the mapped image.
+3. **Curve Editor**: stateful, with the full size, so its header also shows an expand button
+   (two outward corner arrows). Output `Curve`. A canvas with a smooth tone curve over a faint
+   histogram, and five points. One point is being dragged, with a small tooltip
+   "In 0.42, Out 0.55". Above the canvas, a segmented control **RGB R G B**. Under it, a
+   **Reset** button.
+
+Row 2:
+
+4. **ADSR Envelope**: stateful, audio domain. Input `Gate`, output `Envelope`. A canvas with the
+   envelope shape, four handles and a faint grid. Number fields "A 12 ms", "D 180 ms", "S 0.65"
+   and "R 420 ms". A toggle **Loop**.
+5. **Sample Player**: stateful, audio domain. Input `Trigger`, output `Audio`. The waveform of
+   "impact_03.wav", with trim handles at both ends and a playhead. A play button and a slider
+   "Pitch +2.0 st".
+6. **Batch Export**: trigger node, event domain. No inputs. Output `Run`. A text field
+   "out/frame_####.png", a dropdown "PNG", a number field "Quality 92", a toggle **Overwrite**
+   and a button **Export now**. A small label "Last run #1042, 2.4 s".
+
+Wires:
+
+- Transform `Image` to Gradient Map `Image`.
+- The other output pins have short wires that leave the frame on the right.
+- A dashed wire comes from the left edge into Sample Player `Trigger`. It is dashed because it
+  crosses from the frame domain into the audio domain.
+
+Avoid:
+
+- Green, yellow or red in widget chrome. Only the state dots use green.
+- Colored widget fills. Use the neutral default of 0001. Outside the headers, a node color
+  shows only in the pink outline of the focused gradient stop.
+
+## Exact text
+
+Required: the six node titles, the pin names and the values listed above.
+
+Illustrative: the image content, the histogram, the waveform shape.
+
+## Acceptance
+
+- Six nodes, each with a different compact GUI that is readable at 100% zoom.
+- Each node has a kind icon, a domain icon, a state dot with an icon, pins and a run time.
+- The audio nodes and the frame nodes have different domain icons.
+- The widgets match the 0001 widget kit.
+- Exactly one dashed wire, into Sample Player.
+- Only Curve Editor has an expand button.

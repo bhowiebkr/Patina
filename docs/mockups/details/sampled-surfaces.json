@@ -1,0 +1,62 @@
+[
+    {
+        "name":  "Toolbar surface",
+        "rectangle":  [
+                          150,
+                          5,
+                          12,
+                          30
+                      ],
+        "median":  "#171D22"
+    },
+    {
+        "name":  "Canvas including grid",
+        "rectangle":  [
+                          1075,
+                          700,
+                          80,
+                          50
+                      ],
+        "median":  "#10151A"
+    },
+    {
+        "name":  "Node body, Material Layers",
+        "rectangle":  [
+                          688,
+                          640,
+                          8,
+                          17
+                      ],
+        "median":  "#222426"
+    },
+    {
+        "name":  "Preview dock surface",
+        "rectangle":  [
+                          1210,
+                          879,
+                          340,
+                          10
+                      ],
+        "median":  "#15191C"
+    },
+    {
+        "name":  "Raised tab surface",
+        "rectangle":  [
+                          1207,
+                          137,
+                          15,
+                          16
+                      ],
+        "median":  "#404446"
+    },
+    {
+        "name":  "Export button surface",
+        "rectangle":  [
+                          1208,
+                          904,
+                          25,
+                          20
+                      ],
+        "median":  "#2B3239"
+    }
+]

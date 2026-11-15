@@ -1,0 +1,16 @@
+# Build output
+/target
+dist/
+
+# Editor frontend dependencies.
+node_modules/
+
+# Machine-specific agent rules.
+/AGENTS.local.md
+
+# The toolchain and the user projects of a portable Patina folder (spec 13.3).
+/toolchain/
+/projects/
+
+# Reports and other files that agents and tools make.
+/artifacts/

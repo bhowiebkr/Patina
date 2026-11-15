@@ -1,0 +1,347 @@
+{
+  "description": "Exact unscaled PNG extracts from the accepted mockups. x/y are source pixels from the top-left. Source images remain unchanged.",
+  "crops": [
+    {
+      "file": "chrome/patina-logo.png",
+      "source": "mockup-1-main-editor-colored-headers.png",
+      "x": 12,
+      "y": 5,
+      "width": 165,
+      "height": 49,
+      "description": "Blue faceted logo and wordmark"
+    },
+    {
+      "file": "chrome/main-toolbar.png",
+      "source": "mockup-1-main-editor-colored-headers.png",
+      "x": 190,
+      "y": 0,
+      "width": 1396,
+      "height": 62,
+      "description": "Main editor toolbar"
+    },
+    {
+      "file": "chrome/code-inspector.png",
+      "source": "mockup-1-main-editor-colored-headers.png",
+      "x": 1170,
+      "y": 65,
+      "width": 410,
+      "height": 735,
+      "description": "Code inspector and parameters"
+    },
+    {
+      "file": "chrome/compile-error.png",
+      "source": "mockup-3-error-view.png",
+      "x": 1268,
+      "y": 145,
+      "width": 380,
+      "height": 380,
+      "description": "Code location and compile error"
+    },
+    {
+      "file": "chrome/error-log.png",
+      "source": "mockup-3-error-view.png",
+      "x": 15,
+      "y": 733,
+      "width": 1640,
+      "height": 155,
+      "description": "Error log and source location"
+    },
+    {
+      "file": "nodes/transform.png",
+      "source": "mockup-4-custom-node-canvas.png",
+      "x": 40,
+      "y": 45,
+      "width": 496,
+      "height": 457,
+      "description": "Transform with 2D handles"
+    },
+    {
+      "file": "nodes/gradient-map.png",
+      "source": "mockup-4-custom-node-canvas.png",
+      "x": 586,
+      "y": 101,
+      "width": 518,
+      "height": 361,
+      "description": "Gradient editor and image"
+    },
+    {
+      "file": "nodes/curve-editor.png",
+      "source": "mockup-4-custom-node-canvas.png",
+      "x": 1128,
+      "y": 44,
+      "width": 520,
+      "height": 455,
+      "description": "Curve with local pink focus"
+    },
+    {
+      "file": "nodes/adsr.png",
+      "source": "mockup-4-custom-node-canvas.png",
+      "x": 70,
+      "y": 523,
+      "width": 454,
+      "height": 371,
+      "description": "ADSR controls"
+    },
+    {
+      "file": "nodes/sample-player.png",
+      "source": "mockup-4-custom-node-canvas.png",
+      "x": 567,
+      "y": 511,
+      "width": 573,
+      "height": 387,
+      "description": "Waveform and transport"
+    },
+    {
+      "file": "nodes/batch-export.png",
+      "source": "mockup-4-custom-node-canvas.png",
+      "x": 1217,
+      "y": 570,
+      "width": 401,
+      "height": 261,
+      "description": "Compact batch export"
+    },
+    {
+      "file": "nodes/audio-mixer.png",
+      "source": "mockup-5-custom-views.png",
+      "x": 548,
+      "y": 218,
+      "width": 144,
+      "height": 124,
+      "description": "Small mixer"
+    },
+    {
+      "file": "nodes/audio-filter.png",
+      "source": "mockup-5-custom-views.png",
+      "x": 694,
+      "y": 146,
+      "width": 243,
+      "height": 291,
+      "description": "Larger frequency response editor"
+    },
+    {
+      "file": "views/spectrum.png",
+      "source": "mockup-5-custom-views.png",
+      "x": 1120,
+      "y": 55,
+      "width": 465,
+      "height": 421,
+      "description": "Spectrum custom view"
+    },
+    {
+      "file": "views/timeline.png",
+      "source": "mockup-5-custom-views.png",
+      "x": 230,
+      "y": 480,
+      "width": 1355,
+      "height": 420,
+      "description": "Timeline custom view"
+    },
+    {
+      "file": "nodes/webhook.png",
+      "source": "mockup-6-automation-graph.png",
+      "x": 76,
+      "y": 306,
+      "width": 167,
+      "height": 271,
+      "description": "Small trigger with collapsed details"
+    },
+    {
+      "file": "nodes/score-lead.png",
+      "source": "mockup-6-automation-graph.png",
+      "x": 696,
+      "y": 193,
+      "width": 302,
+      "height": 468,
+      "description": "Rich scoring GUI"
+    },
+    {
+      "file": "nodes/crm-mapping.png",
+      "source": "mockup-6-automation-graph.png",
+      "x": 1023,
+      "y": 258,
+      "width": 230,
+      "height": 378,
+      "description": "Field mapping"
+    },
+    {
+      "file": "nodes/slack-preview.png",
+      "source": "mockup-6-automation-graph.png",
+      "x": 1273,
+      "y": 244,
+      "width": 302,
+      "height": 383,
+      "description": "Message preview"
+    },
+    {
+      "file": "nodes/camera.png",
+      "source": "mockup-7-laser-acquisition.png",
+      "x": 65,
+      "y": 173,
+      "width": 247,
+      "height": 541,
+      "description": "Camera controls and histogram"
+    },
+    {
+      "file": "nodes/orientation.png",
+      "source": "mockup-7-laser-acquisition.png",
+      "x": 361,
+      "y": 196,
+      "width": 171,
+      "height": 218,
+      "description": "Small orientation utility"
+    },
+    {
+      "file": "nodes/beam-finder.png",
+      "source": "mockup-7-laser-acquisition.png",
+      "x": 580,
+      "y": 170,
+      "width": 481,
+      "height": 604,
+      "description": "Linked image ROI and profile"
+    },
+    {
+      "file": "nodes/calibration.png",
+      "source": "mockup-7-laser-acquisition.png",
+      "x": 325,
+      "y": 512,
+      "width": 225,
+      "height": 272,
+      "description": "Sensor calibration diagram"
+    },
+    {
+      "file": "nodes/calibrated-reading.png",
+      "source": "mockup-7-laser-acquisition.png",
+      "x": 1148,
+      "y": 194,
+      "width": 339,
+      "height": 186,
+      "description": "Large numeric measurement"
+    },
+    {
+      "file": "nodes/warm-up-monitor.png",
+      "source": "mockup-7-laser-acquisition.png",
+      "x": 1156,
+      "y": 459,
+      "width": 363,
+      "height": 393,
+      "description": "Scientific drift plot"
+    },
+    {
+      "file": "nodes/station-plan.png",
+      "source": "mockup-8-laser-survey.png",
+      "x": 84,
+      "y": 156,
+      "width": 283,
+      "height": 265,
+      "description": "Interactive station map"
+    },
+    {
+      "file": "nodes/sample-window.png",
+      "source": "mockup-8-laser-survey.png",
+      "x": 427,
+      "y": 140,
+      "width": 277,
+      "height": 285,
+      "description": "Sampling uncertainty and progress"
+    },
+    {
+      "file": "nodes/fit-surface.png",
+      "source": "mockup-8-laser-survey.png",
+      "x": 446,
+      "y": 448,
+      "width": 284,
+      "height": 164,
+      "description": "Compact fitting summary"
+    },
+    {
+      "file": "views/measurement-console.png",
+      "source": "mockup-8-laser-survey.png",
+      "x": 46,
+      "y": 626,
+      "width": 960,
+      "height": 322,
+      "description": "Operator console"
+    },
+    {
+      "file": "views/surface-results.png",
+      "source": "mockup-8-laser-survey.png",
+      "x": 1008,
+      "y": 87,
+      "width": 577,
+      "height": 861,
+      "description": "Surface viewport and results table"
+    },
+    {
+      "file": "nodes/mesh-maps.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 69,
+      "y": 130,
+      "width": 201,
+      "height": 269,
+      "description": "Mesh data sources"
+    },
+    {
+      "file": "nodes/fractal-noise.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 72,
+      "y": 477,
+      "width": 208,
+      "height": 323,
+      "description": "Procedural noise source"
+    },
+    {
+      "file": "nodes/wear-curve.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 306,
+      "y": 125,
+      "width": 322,
+      "height": 263,
+      "description": "Mask and editable curve"
+    },
+    {
+      "file": "nodes/patina-mask.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 318,
+      "y": 456,
+      "width": 293,
+      "height": 426,
+      "description": "Mask authoring GUI"
+    },
+    {
+      "file": "nodes/copper-base.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 679,
+      "y": 128,
+      "width": 248,
+      "height": 200,
+      "description": "Compact base material"
+    },
+    {
+      "file": "nodes/material-layers.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 680,
+      "y": 402,
+      "width": 322,
+      "height": 502,
+      "description": "Ordered custom material stack"
+    },
+    {
+      "file": "nodes/material-output.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 1028,
+      "y": 507,
+      "width": 152,
+      "height": 141,
+      "description": "Small material sink"
+    },
+    {
+      "file": "views/material-preview.png",
+      "source": "mockup-9-smart-material-editor.png",
+      "x": 1190,
+      "y": 46,
+      "width": 396,
+      "height": 908,
+      "description": "Docked shader preview and shared controls"
+    }
+  ]
+}
