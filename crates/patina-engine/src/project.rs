@@ -11,17 +11,17 @@ use crate::Error;
 /// The newest file format that this engine reads (6.4).
 pub const FORMAT: u32 = 1;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectFile {
     pub format: u32,
     pub id: String,
     pub rust: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub imports: BTreeMap<String, Import>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Import {
     pub project: String,

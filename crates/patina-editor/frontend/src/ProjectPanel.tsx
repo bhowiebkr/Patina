@@ -20,6 +20,8 @@ interface Props {
   onNewNode: (name: string) => Promise<void>;
   /** Makes the widget folder `widgets/<name>`. It fails with the problem of the name. */
   onNewWidget: (name: string) => Promise<void>;
+  /** Asks for another project, and opens the Import dialog (6.2). */
+  onImport: () => void;
 }
 
 function Empty() {
@@ -36,7 +38,7 @@ function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget }: Props) {
+export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget, onImport }: Props) {
   const [naming, setNaming] = useState<'node' | 'widget' | null>(null);
   const close = () => setNaming(null);
   const startDrag = (e: DragEvent, name: string) => {
@@ -93,6 +95,13 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget 
           <Empty />
         </div>
       ))}
+      {view.trusted && (
+        <div className="group">
+          <button className="btn" onClick={onImport} title="Copy a folder from another project">
+            Import
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

@@ -5,6 +5,7 @@ mod cargo;
 pub mod clock;
 mod edit;
 mod generate;
+pub mod import;
 pub mod install;
 mod library;
 mod load;
@@ -15,7 +16,7 @@ pub mod project;
 mod subgraph;
 mod types;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs;
 use std::hash::{BuildHasher, DefaultHasher, Hasher, RandomState};
@@ -219,6 +220,22 @@ impl Project {
             return Err(e.to_string());
         }
         Ok(())
+    }
+
+    /// Imports `folder` from the project at `other` with the choices of the user (6.2). Patina
+    /// builds the changed folders first. A failed build puts the project back as it was.
+    pub fn import(&mut self, toolchain: &Toolchain, other: &Path, folder: &str, choices: &BTreeMap<String, import::Choice>) -> Result<(), String> {
+        if toolchain.release != self.rust {
+            return Err(format!("the project needs Rust {}, but the toolchain is Rust {}", self.rust, toolchain.release));
+        }
+        let applied = import::apply(&self.root, other, folder, choices)?;
+        if let Err(e) = cargo::build_packages(&self.root, toolchain, &applied.packages) {
+            return applied.undo().and(Err(e.to_string()));
+        }
+        // The copied folders can change the code of each node, so the run builds again.
+        self.code_revision += 1;
+        self.last_code = None;
+        applied.finish()
     }
 
     pub fn root(&self) -> &Path {

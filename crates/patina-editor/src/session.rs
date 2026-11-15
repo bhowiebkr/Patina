@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
-use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain};
+use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain, import};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
@@ -399,6 +399,41 @@ pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Res
             return Err("Another project opened while cargo ran.".to_owned());
         }
         project.apply(&Edit::SetCode { path, text })
+    })
+}
+
+/// The folders of another project that **Import** can copy (6.2).
+#[tauri::command(async)]
+pub fn import_folders(editor: State<'_, Editor>, other: PathBuf) -> Result<Vec<String>, String> {
+    import_source(&editor, &other)?;
+    Ok(import::folders(&other))
+}
+
+/// The folders that an import of `folder` copies, with the conflicts (6.2).
+#[tauri::command(async)]
+pub fn import_plan(editor: State<'_, Editor>, other: PathBuf, folder: String) -> Result<Vec<import::Item>, String> {
+    let root = import_source(&editor, &other)?;
+    import::plan(&root, &other, &folder)
+}
+
+/// Imports a folder with the choices of the user (6.2). The project stays locked during the
+/// build check, so no edit comes between the copy and an undo. Undo does not remove the copy.
+#[tauri::command(async)]
+pub fn import_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, choices: BTreeMap<String, import::Choice>) -> Result<View, String> {
+    import_source(&editor, &other)?;
+    let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
+    editor.change(|project| project.import(&toolchain, &other, &folder, &choices))
+}
+
+/// The root of the open project. Patina imports only from a trusted project into a trusted
+/// project (11), because the build check compiles the copy.
+fn import_source(editor: &Editor, other: &Path) -> Result<PathBuf, String> {
+    if !editor.data.is_trusted(other) {
+        return Err("Open the other project and trust it before you import from it.".to_owned());
+    }
+    editor.with(|session| match session.trusted {
+        true => Ok(session.project.root().to_owned()),
+        false => Err("Trust the project before you change it.".to_owned()),
     })
 }
 

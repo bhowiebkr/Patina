@@ -37,6 +37,7 @@ import { LayersPanel } from './LayersPanel';
 import { NO_RUN, valueStale, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
+import { ImportDialog } from './ImportDialog';
 import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
 import { useEvent } from './useEvent';
@@ -84,6 +85,7 @@ export function App() {
   const [output, setOutput] = useState<Line[]>([]);
   const [logs, setLogs] = useState<Line[]>([]);
   const [error, setError] = useState('');
+  const [importing, setImporting] = useState<string | null>(null);
   const [inspect, setInspect] = useState<Inspect>(null);
   const [ask, setAsk] = useState<'close' | 'quit' | null>(null);
   const [tab, setTab] = useState<InspectorTab>('parameters');
@@ -210,6 +212,15 @@ export function App() {
   );
 
   /** Makes a widget folder and shows its code in the Inspector (4.3). */
+  const pickImport = useCallback(
+    () =>
+      api
+        .pickFolder('')
+        .then((folder) => folder && setImporting(folder))
+        .catch((e) => setError(String(e))),
+    [],
+  );
+
   const newWidget = useCallback(
     async (name: string) => {
       show(await api.newWidget(name));
@@ -441,7 +452,7 @@ export function App() {
   );
   const panels: Record<PanelId, Panel> = {
     layers: { body: <LayersPanel run={run} /> },
-    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} /> },
+    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onImport={pickImport} /> },
     inspector: {
       body: (
         <Inspector
@@ -586,6 +597,17 @@ export function App() {
             </div>
           </div>
         </div>
+      )}
+      {importing && (
+        <ImportDialog
+          other={importing}
+          onDone={(v) => {
+            setImporting(null);
+            show(v);
+            markStale(v);
+          }}
+          onClose={() => setImporting(null)}
+        />
       )}
       {view.recovery && view.trusted && (
         <div className="backdrop">

@@ -35,6 +35,12 @@ and 6.4).
   with their wires, and the path bar goes back to the main graph. A change of graph saves first.
 - In an open subgraph, the editor adds, moves, connects, renames and removes the public pins.
   Unit tests check the pin edits and an output with no source.
+- The engine plans an **Import** with the type and widget folders that the folder depends on, and
+  finds the name conflicts. It copies, renames with the `package` key, replaces and records the
+  hash. A failed build check puts the project back. A unit test checks a rename, a replace and
+  the undo of each, without a build.
+- The **Import** button of the **Project** panel opens a dialog with the folders of the other
+  project, the conflicts and a choice for each.
 
 ### Known limits
 
@@ -48,6 +54,10 @@ and 6.4).
   that cross. An undo keeps the new file. Ctrl+Shift+G expands the selected uses.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
 - The engine checks the key of a new public pin, but not the keys in a file.
+- **Import** works only from a trusted project. A renamed folder loses the comments of its
+  `Cargo.toml`. The build check of an import did not run with a real toolchain yet, and the
+  dialog did not run in the window yet.
+- **Update** of an imported folder is not done.
 
 ## Milestone 6: layers
 

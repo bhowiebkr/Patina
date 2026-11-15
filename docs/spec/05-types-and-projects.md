@@ -95,6 +95,16 @@ A project is a folder with a stable random ID. Each node, view, custom widget, c
 - Patina builds the changed folders before it applies an **Import** or an **Update**. If the build fails or the user cancels, the project stays as it was.
 - A folder from a project that the user does not trust stays read-only, and out of the build, until the user trusts it (11).
 
+The import rules of the first version. (Agent decision, 2026-11-15. The owner can change it.)
+
+- Patina imports only from a trusted project into a trusted project. The build check compiles the copy, so the code of an untrusted project does not get into the build. The user opens the other project one time and trusts it first.
+- The dependencies of a folder are the `path` entries of `[dependencies]`, `[dev-dependencies]` and `[build-dependencies]` in its `Cargo.toml`. A path to a folder that is not in `types/` or `widgets/` of the other project stops the import.
+- A folder with the same path and the same files is not copied. A name conflict with a folder in another group, for example `nodes/image` for `types/image`, allows only a rename.
+- Patina copies the folders to `build/import/`, moves each replaced folder there, and moves the copies into the project. Then it writes the records and builds the copied node, widget and connection crates and the folders that use a replaced folder. A failed build moves the old folders back and writes the old `patina.toml`.
+- A renamed folder gets a new `Cargo.toml` from the parsed file, without its comments.
+- The record hash is the hash of the folder in the other project, before a rename. Undo does not remove an import, as it does not remove a new node folder (15.2).
+- Reason: a trust rule for one folder needs a second trust list and a filter of the workspace members. The trusted source keeps the first version small and safe.
+
 ### 6.3 Connection kinds
 
 A connection kind defines how the connections of some types look and how they show their values. Each domain needs other connections. The project defines its connection kinds, as it defines its nodes and views.
@@ -155,7 +165,7 @@ folder = "curve-editor"          # the folder name in the other project
 hash = "sha256:<64 hex characters>"
 ```
 
-- The import hash is a SHA-256 hash of the sorted relative paths and the bytes of each file in the folder. The paths use `/` on each platform.
+- The import hash is a SHA-256 hash of the sorted relative paths and the bytes of each file in the folder. The paths use `/` on each platform. For each file, the hash reads the path, a zero byte, the length as 8 little-endian bytes, and the bytes. Hidden files, links and `target` folders are not part of a folder. (Agent decision, 2026-11-15. The owner can change it.)
 - An import record holds no path of the other project (6.2).
 
 **Graph files**

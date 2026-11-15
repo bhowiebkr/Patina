@@ -230,6 +230,16 @@ export type Edit =
   | { kind: 'DisconnectPin'; key: string; end: string }
   | { kind: 'Group'; edits: Edit[] };
 
+/** A folder that an import copies, with its state in this project (6.2). */
+export interface ImportItem {
+  folder: string;
+  state: { kind: 'New' } | { kind: 'Same' } | { kind: 'Conflict'; existing: string; replace: boolean };
+  /** The folders of this project that a replace changes. */
+  users: string[];
+}
+
+export type ImportChoice = { kind: 'Replace' } | { kind: 'Keep' } | { kind: 'Rename'; name: string };
+
 export const api = {
   startInfo: () => invoke<StartInfo>('start_info'),
   pickFolder: (start: string) => invoke<string | null>('pick_folder', { start }),
@@ -256,6 +266,12 @@ export const api = {
    * node or widget folder, for example `nodes/number` (15.4).
    */
   addCrate: (folder: string, spec: string) => invoke<View>('add_crate', { folder, spec }),
+  /** The folders of the trusted project at `other` that Import can copy (6.2). */
+  importFolders: (other: string) => invoke<string[]>('import_folders', { other }),
+  importPlan: (other: string, folder: string) => invoke<ImportItem[]>('import_plan', { other, folder }),
+  /** Copies the folders with a choice for each conflict, and builds them first. */
+  importFolder: (other: string, folder: string, choices: Record<string, ImportChoice>) =>
+    invoke<View>('import_folder', { other, folder, choices }),
   readCode: (path: string) => invoke<string>('read_code', { path }),
   setUnsavedCode: (code: Code) => invoke<void>('set_unsaved_code', { code }),
   /** Restores or discards the changes of the recovery file (15.10). */

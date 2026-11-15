@@ -486,6 +486,15 @@ fn folder_hash(folder: &Path) -> Result<u64, Error> {
     Ok(hasher.finish())
 }
 
+/// Builds the crates `packages` of the workspace, for example the folders of an import (6.2).
+pub(crate) fn build_packages(root: &Path, toolchain: &Toolchain, packages: &[String]) -> Result<(), Error> {
+    if packages.is_empty() {
+        return Ok(());
+    }
+    write_workspace(root)?;
+    run_cargo(root, toolchain, packages, Mode::Edit).map(drop)
+}
+
 /// Writes the manifest of the project workspace and the SDK crates.
 fn write_workspace(root: &Path) -> Result<(), Error> {
     write(root, "Cargo.toml", &workspace(root))?;

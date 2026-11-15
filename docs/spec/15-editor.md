@@ -89,6 +89,13 @@ The **+** button in the title of the **Nodes** group makes a new node folder. (A
 - The **Widgets** group has the same **+** button. A new widget folder has a start widget: a struct that implements `Widget` and draws a bar on a canvas (4.3). The **Inspector** shows its code with the **Code** tab only.
 - An untrusted project has no **+** button. The **Views** group gets the same button when views (15.8) come.
 
+The **Import** button at the end of the **Project** panel copies a folder from another project (6.2). (Agent decision, 2026-11-15. The owner can change it.)
+
+- The button opens the folder dialog for the other project. Then the **Import** dialog lists the node, view, widget, connection and type folders of that project.
+- When the user selects a folder, the dialog shows each folder that the import copies, with **New**, **Same files, not copied**, or the conflict. For each conflict, the user picks **Replace**, **Keep** or **Rename**, and a rename has a name field. The conflict also shows the folders of this project that a replace changes.
+- **Import** stays off until each conflict has a choice. During the build check the dialog shows **Building**. An error stays in the dialog, and the project stays as it was.
+- An untrusted project has no **Import** button.
+
 **Graph view navigation:**
 
 The graph view is snappy. This is an owner decision of 2026-11-15.
