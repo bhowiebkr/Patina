@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 12;
+pub const ABI_VERSION: u32 = 13;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -503,6 +503,58 @@ fn panic_text(payload: &(dyn Any + Send)) -> String {
         .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
         .unwrap_or("no message");
     format!("panic: {text}")
+}
+
+/// The engine function that keeps one value for each key in the process (10.2). When the key has
+/// no value and `value` is not null, it keeps `value`. It gives the value of the key, or null.
+pub type ShareFn = unsafe extern "C" fn(key: *const u8, len: usize, value: *mut c_void) -> *mut c_void;
+
+static HOST_SHARE: OnceLock<ShareFn> = OnceLock::new();
+
+/// The body of `patina_cluster_host`. The engine calls it before `patina_cluster_new`.
+pub fn set_host(share: ShareFn) {
+    let _ = HOST_SHARE.set(share);
+}
+
+/// The `ShareFn` of the engine. A cluster with no engine, as in a test, uses its own copy.
+///
+/// # Safety
+///
+/// `key` points to `len` bytes. `value` is null or a value that stays until the process ends.
+pub unsafe extern "C" fn share(key: *const u8, len: usize, value: *mut c_void) -> *mut c_void {
+    static VALUES: Mutex<Vec<(Box<[u8]>, usize)>> = Mutex::new(Vec::new());
+    // SAFETY: the caller gives `len` bytes at `key`.
+    let key = unsafe { std::slice::from_raw_parts(key, len) };
+    let mut values = VALUES.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(&(_, kept)) = values.iter().find(|(k, _)| **k == *key) {
+        return kept as *mut c_void;
+    }
+    if !value.is_null() {
+        values.push((key.into(), value as usize));
+    }
+    value
+}
+
+/// The body of `patina_sdk::shared`. The key holds the `TypeId`, which is the same in each
+/// cluster of one build and different in other builds.
+pub fn shared<T: Send + Sync + 'static>(make: impl FnOnce() -> T) -> &'static T {
+    let key = format!("{:?} {}", std::any::TypeId::of::<T>(), std::any::type_name::<T>());
+    let share = HOST_SHARE.get().copied().unwrap_or(share);
+    // SAFETY: the key is valid during the calls, and a kept value is never freed.
+    let value = unsafe {
+        let mut value = share(key.as_ptr(), key.len(), std::ptr::null_mut());
+        if value.is_null() {
+            let mine = Box::into_raw(Box::new(make())).cast::<c_void>();
+            value = share(key.as_ptr(), key.len(), mine);
+            if value != mine {
+                // Another thread kept its value first.
+                drop(Box::from_raw(mine.cast::<T>()));
+            }
+        }
+        value
+    };
+    // SAFETY: the key holds the `TypeId` of `T`, so the value of the key is a `T`.
+    unsafe { &*value.cast::<T>() }
 }
 
 /// The body of `patina_cluster_new`. Returns null when the parameter defaults panic.

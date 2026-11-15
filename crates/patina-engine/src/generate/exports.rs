@@ -7,6 +7,11 @@ pub extern "C" fn patina_abi_version() -> u32 {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn patina_cluster_host(share: ::patina_sdk::glue::ShareFn) {
+    ::patina_sdk::glue::set_host(share)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn patina_cluster_new() -> *mut ::std::ffi::c_void {
     ::patina_sdk::glue::new_cluster(make).cast()
 }

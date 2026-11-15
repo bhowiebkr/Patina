@@ -10,6 +10,13 @@ pub use patina_macros::{connection, node};
 pub use ui::{Canvas, Mode, Number, Pointer, Response, Ui, Widget};
 pub use view::{Lanes, Text, Viewer};
 
+/// One value of type `T` for the whole process, also across clusters (10.2). The first call makes
+/// the value with `make`. The value stays until the process ends. A type crate keeps the reference
+/// in its own `OnceLock`, because each call formats the key.
+pub fn shared<T: Send + Sync + 'static>(make: impl FnOnce() -> T) -> &'static T {
+    glue::shared(make)
+}
+
 /// True when the user clicked **Stop** during the run (15.2). A node that runs for a long time
 /// reads it in its loop and returns early. It is false outside a run and on other threads.
 pub fn stop_requested() -> bool {

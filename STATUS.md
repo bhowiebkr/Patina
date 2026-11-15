@@ -1,14 +1,16 @@
 # Status
 
-The current milestone is milestone 8, packaging (spec section 19). Milestone 7, subgraphs and
-reuse, ended on 2026-11-15. Milestones 2 to 7 work, with the open items in their known limits. The installers of
+The current milestone is milestone 9, the GPU (spec section 19). Milestone 8, packaging, ended
+on 2026-11-15 without the Python module, which needs a download that the owner did not approve
+yet. Milestones 2 to 8 work, with the open items in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
 ## Milestone 8: packaging
 
-Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
+Milestone 8 started on 2026-11-15 and ended on 2026-11-15. It makes packages of a project
+(spec 14). Milestone 8 added no `shortcut:` comments.
 
 ### Plan
 
@@ -16,7 +18,7 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
 2. The **Package** button of the editor. This part works.
 3. The editor opens a package and shows the original project. This part works.
 4. The library (C API) (14.2). This part works.
-5. The Python module.
+5. The Python module. This part waits for the approval of a download.
 
 ### What works
 
@@ -33,6 +35,9 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
 - The crate `patina-capi` gives the C library `patina_capi` of 14.2. The package build copies it
   and writes `patina_capi.h`. The CLI test opens the package through the C functions, sets a
   parameter, runs the graph and reads the value `5.0`. A unit test checks the error results.
+- A manual check on 2026-11-15 loaded `patina_capi.dll` of the test package with Python
+  `ctypes`, a program that is not Rust. `patina_set`, `patina_run` and `patina_value` gave 0, 0
+  and `5.0`.
 
 ### Known limits
 
@@ -43,8 +48,8 @@ Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
   folder into the package. The **Package** button and the opening did not run in the window yet.
   It needs `patina-cli` next to the editor, as in the portable folder.
 - During a package build, the editor does not run the graph.
-- No C program loaded `patina_capi.dll` yet. The test calls the functions through the Rust
-  library of the crate.
+- No automated test loads `patina_capi.dll`. The test calls the functions through the Rust
+  library of the crate. Only the manual `ctypes` check loaded the DLL, on Windows.
 - The Python module is not done. It needs the `pyo3` crate (a download) and a Python install.
 - The package ran only on Windows.
 

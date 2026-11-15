@@ -242,3 +242,12 @@ fn the_base_calls_a_node_in_the_slot() {
     assert_eq!((text, total, out), (None, 3.5, Some(10)));
     assert_eq!(sent, [(7, ERROR, "the node has no build in the slot".to_owned())]);
 }
+
+#[test]
+fn shared_gives_one_value_and_makes_it_one_time() {
+    struct Once(u32);
+    let first: &Once = shared(|| Once(1));
+    let second: &Once = shared(|| Once(2));
+    assert!(std::ptr::eq(first, second));
+    assert_eq!(second.0, 1);
+}

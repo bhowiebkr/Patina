@@ -17,6 +17,7 @@ type VersionFn = unsafe extern "C" fn() -> u32;
 type NewFn = unsafe extern "C" fn() -> *mut c_void;
 pub(crate) type SetFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const Reporter) -> bool;
 pub(crate) type UiFn = unsafe extern "C" fn(*const c_void, u32, u32, *const u8, usize, *const Reporter) -> bool;
+type HostFn = unsafe extern "C" fn(glue::ShareFn);
 type ParallelFn = unsafe extern "C" fn(*const c_void) -> bool;
 type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 pub(crate) type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
@@ -59,6 +60,8 @@ impl Library {
             if version() != glue::ABI_VERSION {
                 return Err(fail("the cluster has another ABI version. Build it again".to_owned()));
             }
+            let host: HostFn = symbol(&library, b"patina_cluster_host\0").map_err(missing)?;
+            host(glue::share);
             let new: NewFn = symbol(&library, b"patina_cluster_new\0").map_err(missing)?;
             let set: SetFn = symbol(&library, b"patina_cluster_set\0").map_err(missing)?;
             let ui: UiFn = symbol(&library, b"patina_cluster_ui\0").map_err(missing)?;

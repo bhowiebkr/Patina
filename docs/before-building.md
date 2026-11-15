@@ -134,6 +134,8 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
 - [x] Link [laser-measurement-design.md](laser-measurement-design.md) and
   [circuit-graph-design.md](circuit-graph-design.md) from the README.
 - [x] Create `STATUS.md` with the result of the first prototype (AGENTS.md).
+- [ ] Make the Python module of a package (spec 14, milestone 8). It needs the `pyo3` crate,
+  a download, and a Python install for the test. Ask the owner to approve the download.
 - [ ] Add a check for updates: Patina looks for new releases on GitHub. The owner asked for it
   on 2026-11-15, for later.
 - [ ] Compare the mechanics and the look of all mockups with the editor, not only mockup 9.
