@@ -22,8 +22,16 @@ Working rules for AI agents in this repository.
   behavior. Preserve existing image names unless the owner asks for a replacement or removal.
 - Keep the README a user guide to the program. Put long plans and designs in their own Markdown
   files in `docs/`, as the spec is, and link them from the README.
-- Write documentation in the spec's style: short sentences, one action per step, and the words
-  that the program shows in bold.
+- Write documentation, commit messages and replies to the owner in ASD-STE100 Simplified
+  Technical English ([asd-ste100.org](https://www.asd-ste100.org/)):
+  - Write procedural sentences of 20 words or fewer, and descriptive sentences of 25 words or
+    fewer.
+  - Write one instruction in each sentence. Use the imperative for instructions.
+  - Use the active voice and simple tenses: present, past and future.
+  - Use one word for one meaning. Use approved words, technical names and technical verbs.
+  - Write one topic in each paragraph, with 6 sentences or fewer.
+  - Keep the articles "the" and "a". Use vertical lists for steps and complex text.
+  - Put the words that the program shows in bold.
 - Write plain ASCII in all files and replies: no section signs, arrows, long dashes, times
   signs or other symbols. Write "section 7", "to", "-" and "x" instead.
 - All code is Rust, in one Cargo workspace, except the web frontend of the editor (spec 3). Keep
