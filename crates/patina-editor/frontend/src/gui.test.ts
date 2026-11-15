@@ -14,3 +14,13 @@ test('each widget line gives a widget, and a bad line keeps its index', () => {
   ]);
   assert.equal(eventLine(4, 0.5), '4 0.5');
 });
+
+test('fields and dropdowns keep their values, and an event text stays on one line', () => {
+  const tree = 'number\tCount\t3\ntext\tName\ta b\ndropdown\tWave\t1\tSine\tSaw\nnumber\tBad\tx';
+  assert.deepEqual(parseTree(tree), [
+    { kind: 'number', index: 0, text: 'Count', value: 3 },
+    { kind: 'text', index: 1, text: 'Name', value: 'a b' },
+    { kind: 'dropdown', index: 2, text: 'Wave', selected: 1, options: ['Sine', 'Saw'] },
+  ]);
+  assert.equal(eventLine(1, 'x\ny'), '1 x y');
+});

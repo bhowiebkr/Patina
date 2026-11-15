@@ -34,7 +34,7 @@ impl Response {
     }
 }
 
-/// A number that a slider can change.
+/// A number that a slider or a number field can change.
 pub trait Number: Copy {
     fn to_f64(self) -> f64;
     fn from_f64(value: f64) -> Self;
@@ -70,7 +70,7 @@ number!(f32, f64, i32, i64, u32);
 pub struct Ui {
     mode: Mode,
     /// The events from the editor: the index of the widget and the new value.
-    events: Vec<(u32, f64)>,
+    events: Vec<(u32, String)>,
     /// One line for each widget: the kind, the text and the value, with tabs between them.
     tree: String,
     next: u32,
@@ -89,7 +89,7 @@ impl Ui {
             .lines()
             .filter_map(|line| {
                 let (index, value) = line.split_once(' ')?;
-                Some((index.parse().ok()?, value.parse().ok()?))
+                Some((index.parse().ok()?, value.to_owned()))
             })
             .collect();
         Ui { mode, events, tree: String::new(), next: 0 }
@@ -102,27 +102,54 @@ impl Ui {
 
     /// Shows a text.
     pub fn label(&mut self, text: &str) {
-        self.add("label", text, None);
+        self.add("label", text);
     }
 
     /// Shows a button.
     pub fn button(&mut self, text: &str) -> Response {
-        let clicked = self.add("button", text, None).is_some();
+        let clicked = self.add("button", text).is_some();
         Response { clicked, changed: false }
     }
 
     /// Shows a toggle for `on`.
     pub fn toggle(&mut self, text: &str, on: &mut bool) -> Response {
-        let event = self.add("toggle", text, Some(f64::from(u8::from(*on))));
-        self.apply(event, |v| *on = v != 0.0)
+        let event = number(self.add("toggle", text));
+        let _ = write!(self.tree, "\t{}", u8::from(*on));
+        changed(event.map(|v| *on = v != 0.0))
     }
 
     /// Shows a slider for `value` in `range`.
     pub fn slider<T: Number>(&mut self, text: &str, value: &mut T, range: RangeInclusive<T>) -> Response {
         let (low, high) = (range.start().to_f64(), range.end().to_f64());
-        let event = self.add("slider", text, Some(value.to_f64()));
-        let _ = write!(self.tree, "\t{low}\t{high}");
-        self.apply(event, |v| *value = T::from_f64(v.clamp(low, high)))
+        let event = number(self.add("slider", text));
+        let _ = write!(self.tree, "\t{}\t{low}\t{high}", value.to_f64());
+        changed(event.map(|v| *value = T::from_f64(v.clamp(low, high))))
+    }
+
+    /// Shows a field for the number `value`.
+    pub fn number<T: Number>(&mut self, text: &str, value: &mut T) -> Response {
+        let event = number(self.add("number", text));
+        let _ = write!(self.tree, "\t{}", value.to_f64());
+        changed(event.map(|v| *value = T::from_f64(v)))
+    }
+
+    /// Shows a field for the text `value` on one line.
+    pub fn text_field(&mut self, text: &str, value: &mut String) -> Response {
+        let event = self.add("text", text).map(str::to_owned);
+        self.tree.push('\t');
+        push_clean(&mut self.tree, value);
+        changed(event.map(|v| *value = v))
+    }
+
+    /// Shows a list of `options`. `selected` is the index of the selected option.
+    pub fn dropdown(&mut self, text: &str, selected: &mut usize, options: &[&str]) -> Response {
+        let event = number(self.add("dropdown", text)).filter(|&v| v >= 0.0 && (v as usize) < options.len());
+        let _ = write!(self.tree, "\t{selected}");
+        for option in options {
+            self.tree.push('\t');
+            push_clean(&mut self.tree, option);
+        }
+        changed(event.map(|v| *selected = v as usize))
     }
 
     /// The widget lines, for the editor.
@@ -131,7 +158,7 @@ impl Ui {
     }
 
     /// Adds the line of the next widget, and returns its event.
-    fn add(&mut self, kind: &str, text: &str, value: Option<f64>) -> Option<f64> {
+    fn add(&mut self, kind: &str, text: &str) -> Option<&str> {
         let index = self.next;
         self.next += 1;
         if !self.tree.is_empty() {
@@ -139,18 +166,22 @@ impl Ui {
         }
         self.tree.push_str(kind);
         self.tree.push('\t');
-        self.tree.extend(text.chars().map(|c| if c.is_control() { ' ' } else { c }));
-        if let Some(value) = value {
-            let _ = write!(self.tree, "\t{value}");
-        }
-        self.events.iter().rev().find(|(i, _)| *i == index).map(|(_, v)| *v)
+        push_clean(&mut self.tree, text);
+        self.events.iter().rev().find(|(i, _)| *i == index).map(|(_, v)| v.as_str())
     }
+}
 
-    fn apply(&self, event: Option<f64>, set: impl FnOnce(f64)) -> Response {
-        let Some(value) = event.filter(|v| v.is_finite()) else { return Response::default() };
-        set(value);
-        Response { clicked: false, changed: true }
-    }
+/// A tab or a line break in a text would break the widget lines, so it becomes a space.
+fn push_clean(tree: &mut String, text: &str) {
+    tree.extend(text.chars().map(|c| if c.is_control() { ' ' } else { c }));
+}
+
+fn number(event: Option<&str>) -> Option<f64> {
+    event?.parse().ok().filter(|v: &f64| v.is_finite())
+}
+
+fn changed(event: Option<()>) -> Response {
+    Response { clicked: false, changed: event.is_some() }
 }
 
 #[cfg(test)]
@@ -168,5 +199,17 @@ mod tests {
         assert!(ui.toggle("Off", &mut on).changed());
         assert_eq!((on, level), (false, 10));
         assert_eq!(ui.tree(), "button\tRe set\ntoggle\tOn\t1\nslider\tLevel\t3\t0\t10\ntoggle\tOff\t1");
+    }
+
+    #[test]
+    fn fields_and_dropdowns_take_their_values() {
+        let (mut count, mut name, mut pick) = (1_u32, String::from("a"), 0);
+        let mut ui = Ui::new(0, "0 7\n1 new name\n2 5\n3 x");
+        assert!(ui.number("Count", &mut count).changed());
+        assert!(ui.text_field("Name", &mut name).changed());
+        assert!(!ui.dropdown("Wave", &mut pick, &["Sine", "Saw"]).changed());
+        assert!(!ui.number("Bad", &mut count).changed());
+        assert_eq!((count, name.as_str(), pick), (7, "new name", 0));
+        assert_eq!(ui.tree(), "number\tCount\t1\ntext\tName\ta\ndropdown\tWave\t0\tSine\tSaw\nnumber\tBad\t7");
     }
 }

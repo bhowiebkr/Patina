@@ -26,8 +26,8 @@ and in the editor.
   types of the input wires, and finds the connection kind of each output from its real type.
   A parameter that no input wire gives makes an error on the node.
 - A stateful node can have `pub fn ui(&mut self, ui: &mut Ui)`. `Cluster::ui` calls it between
-  two runs, with the user input as events, and gives the widget lines. The `Ui` has a label, a
-  button, a toggle and a slider. A panic in `ui` drops the state, as in `process`.
+  two runs, with the user input as events, and gives the widget lines. The `Ui` has the basic
+  widgets: a label, a button, a toggle, a slider, a number field, a text field and a dropdown. A panic in `ui` drops the state, as in `process`.
 - A graph can have a feedback loop in the frame domain through a delay node
   (`builtin = "delay"`). The delay gives the value of its input in the previous frame, and
   `Default::default()` in the first frame.
@@ -71,9 +71,8 @@ and in the editor.
   the CLI.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The search
   of the Add node palette does not join a wire to a generic pin.
-- Only stateful nodes can have a GUI. The number field, text field, dropdown, the value
-  widgets, the canvas, the full size, `full_gui`, the audio `ui` with `#[settings]` and widget
-  folders are not done.
+- Only stateful nodes can have a GUI. The value widgets, the canvas, the full size, `full_gui`,
+  the audio `ui` with `#[settings]` and widget folders are not done.
 - shortcut: the engine draws all node GUIs after each run and frame, also the nodes out of view
   (4.3). Send the visible nodes from the page when graphs get large.
 - The delay runs only in the frame domain. The editor palette has no delay node.

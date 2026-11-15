@@ -40,8 +40,38 @@ function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>;
   );
 }
 
+/** A field that sends its value on Enter or when it loses the focus, and Esc restores it. */
+function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 'text' }>; send: (value: number | string) => void; disabled: boolean }) {
+  const shown = String(w.value);
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    if (draft === shown) return;
+    if (w.kind === 'text') send(draft);
+    else if (draft.trim() !== '' && Number.isFinite(Number(draft))) send(Number(draft));
+  };
+  return (
+    <label className="gui-row">
+      <span className="label">{w.text}</span>
+      <input
+        className="field gui-field"
+        inputMode={w.kind === 'number' ? 'decimal' : undefined}
+        value={draft ?? shown}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          else if (e.key === 'Escape') setDraft(null);
+        }}
+      />
+    </label>
+  );
+}
+
 function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
-  const send = (index: number) => (value: number) => void api.gui(id, mode, eventLine(index, value)).catch(() => {});
+  const send = (index: number) => (value: number | string) => void api.gui(id, mode, eventLine(index, value)).catch(() => {});
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
     <div className="node-gui nodrag nowheel" role="group" aria-label="Node controls">
@@ -68,6 +98,22 @@ function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
             );
           case 'slider':
             return <Slider key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'number':
+          case 'text':
+            return <Field key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'dropdown':
+            return (
+              <label key={w.index} className="gui-row">
+                <span className="label">{w.text}</span>
+                <select className="field gui-field" value={w.selected} disabled={disabled} onChange={(e) => send(w.index)(Number(e.currentTarget.value))}>
+                  {w.options.map((o, i) => (
+                    <option key={i} value={i}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
         }
       })}
     </div>
