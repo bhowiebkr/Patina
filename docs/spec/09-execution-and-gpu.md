@@ -50,6 +50,11 @@ Rules:
 - Inside a cluster (8.2), a chain of small nodes is one task: one call that runs the nodes in order, inlined.
 - Independent branches are separate tasks, so they can run in parallel.
 - Milestone 4 measures where to split, with a chain of small nodes and with heavy independent branches (19). Patina does not fix the cluster rules before that.
+- First rule, an agent decision of 2026-11-15 that the owner can change: a node joins the task of its predecessor when it has exactly one predecessor (by data wires and order wires), and that predecessor has exactly one successor. Else the node starts a new task.
+- A value that goes from one task to another is in a lock that many readers can share. A value inside one task is a local variable of the task.
+- The engine has one worker pool for each process: one thread for each CPU core. The thread that starts the run is one of them. The pool runs one cluster run at a time. A second run at the same time runs its tasks one after another on its own thread.
+- A cluster with a value or a parameter of a type that is not `Send` or not `Sync` runs all its tasks one after another on one thread. This keeps the rules above.
+- The log lines, the live values and the run times of a run come in task order.
 
 **Graph checks:** the engine checks a graph before the scheduler accepts it.
 

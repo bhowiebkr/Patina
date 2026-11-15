@@ -8,6 +8,7 @@ pub mod install;
 mod load;
 mod node;
 mod plan;
+mod pool;
 pub mod project;
 
 use std::fmt;
@@ -322,7 +323,7 @@ impl Checked {
             .held()
             .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
             .collect();
-        Cluster::load(&library, names, slots, probes)
+        Cluster::load(&library, names, slots, probes, &plan.tasks)
     }
 
     /// The generated code of the cluster. Two checks with the same wiring give the same text, so

@@ -1,7 +1,47 @@
 # Status
 
-The current milestone is milestone 2, the editor (spec section 19). Milestone 1, the engine and
-the CLI, works. Milestone 0 ended on 2026-11-15, with three owner checks open.
+The current milestone is milestone 4, automatic parallelism and the frame domain (spec section
+19). Milestones 2 and 3 work, with the open items in their known limits. The installers of
+milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
+Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
+checks open.
+
+## Milestone 4: automatic parallelism and the frame domain
+
+The first slice works: the engine splits a graph into tasks and runs them on a worker pool
+(9.2). It ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. It did not run on Linux or
+macOS. The frame domain, the delay node and the wires between domains come next.
+
+### What works
+
+- The plan puts a step into the task of its input when the step has one input step, and that
+  step has no other next step. Thus a chain of nodes is one task, and each branch is a task.
+- The cluster ABI is version 7. A cluster has one call for each task, a call that ends the run,
+  and a call that tells if its tasks can run on many threads at a time.
+- A value that goes from one task to another is in a shared slot with a lock. A value inside one
+  task is a local value of the task. The parameters are in shared slots.
+- The cluster can run on many threads only when each shared value is `Sync`. Else all tasks run
+  in index order on the thread of the run.
+- One worker pool for each process has one thread for each CPU core. The thread of the run is
+  one of them. A second run at the same time runs its tasks in index order on its own thread.
+- The log lines, the values and the run times come in task order, so a run gives the same
+  reports each time.
+
+### What was checked
+
+- `cargo test --workspace --locked` passed 62 tests on Windows. New tests:
+  - The plan makes one task of a chain and splits the branches.
+  - The pool starts a task only after its inputs, also with a second run inside a task.
+  - Only `Sync` values let a cluster run in parallel (`Cell` and `Rc` do not).
+- The CLI tests ran the hello example (3 tasks, with shared values) and the fail project (2
+  branches) through the pool. The editor self-check passed its 53 steps.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.100.0.
+
+### Known limits
+
+- No measurement of the split or of the pool ran yet. The split rule can change after the
+  measurement of a chain of small nodes and of heavy branches.
+- Each run collects the reports into a new list.
 
 ## Milestone 2: editor
 

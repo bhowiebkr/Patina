@@ -18,6 +18,17 @@ pub struct Plan {
     /// True when a crate folder of the plan has the `log` crate. The cluster then sends the log
     /// lines of its nodes (15.7).
     pub log: bool,
+    /// The tasks of the scheduler (9.2), in run order.
+    pub tasks: Vec<Task>,
+}
+
+/// A chain of steps that one call runs in order (9.2).
+pub struct Task {
+    pub steps: Vec<usize>,
+    /// The number of tasks that must end before this task starts.
+    pub inputs: u32,
+    /// The tasks that wait for this task.
+    pub next: Vec<usize>,
 }
 
 /// One use of a node folder (6.2).
@@ -29,6 +40,8 @@ pub struct Step {
     pub inputs: Vec<Source>,
     /// The number of wires from each output, in the order of `Node::output_keys`.
     pub consumers: Vec<usize>,
+    /// The index in `Plan::tasks`.
+    pub task: usize,
 }
 
 impl Plan {
@@ -180,6 +193,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             node: entries[e].node,
             inputs: Vec::new(),
             consumers: vec![0; nodes[entries[e].node].1.output_keys().len()],
+            task: 0,
         })
         .collect();
     let mut slots = Vec::new();
@@ -199,7 +213,9 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             steps[step].inputs.push(source);
         }
     }
-    let mut plan = Plan { nodes, steps, slots, kinds, log: false };
+    let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
+    let tasks = split(&mut steps, &edges);
+    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
     plan.kinds.retain(|(name, _)| used.contains(name));
     let mut folders = plan.nodes.iter().map(|(n, _)| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
@@ -330,6 +346,35 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
     }
 }
 
+/// Puts the steps into tasks (9.2). A step joins the task of its predecessor when it has exactly
+/// one predecessor, and that predecessor has exactly one successor.
+fn split(steps: &mut [Step], edges: &[(usize, usize)]) -> Vec<Task> {
+    let mut before: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
+    let mut after: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
+    for &(from, to) in edges {
+        before[to].insert(from);
+        after[from].insert(to);
+    }
+    let mut tasks: Vec<Task> = Vec::new();
+    for n in 0..steps.len() {
+        let chain = before[n].first().filter(|&&p| before[n].len() == 1 && after[p].len() == 1);
+        steps[n].task = match chain {
+            Some(&p) => steps[p].task,
+            None => {
+                tasks.push(Task { steps: Vec::new(), inputs: 0, next: Vec::new() });
+                tasks.len() - 1
+            }
+        };
+        tasks[steps[n].task].steps.push(n);
+    }
+    let links: BTreeSet<(usize, usize)> = edges.iter().map(|&(from, to)| (steps[from].task, steps[to].task)).filter(|(a, b)| a != b).collect();
+    for (from, to) in links {
+        tasks[from].next.push(to);
+        tasks[to].inputs += 1;
+    }
+    tasks
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,6 +383,16 @@ mod tests {
     fn sort_keeps_file_order_and_finds_cycles() {
         assert_eq!(sort(3, &[(2, 0)]), Ok(vec![1, 2, 0]));
         assert_eq!(sort(3, &[(0, 1), (1, 0)]), Err(vec![0, 1]));
+    }
+
+    #[test]
+    fn chains_become_one_task_and_branches_split() {
+        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), task: 0 }).collect();
+        // 0 -> 1 -> 2 is a chain. 2 feeds 3 and 4, and both feed 5. An order wire 1 -> 2 doubles a data wire.
+        let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)]);
+        let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
+        assert_eq!(parts, [(&[0, 1, 2][..], 0, &[1, 2][..]), (&[3], 1, &[3]), (&[4], 1, &[3]), (&[5], 2, &[])]);
+        assert_eq!(steps.iter().map(|s| s.task).collect::<Vec<_>>(), [0, 0, 0, 1, 2, 3]);
     }
 
     #[test]

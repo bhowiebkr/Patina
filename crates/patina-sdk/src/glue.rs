@@ -10,13 +10,15 @@ use std::any::Any;
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::fmt::{self, Write as _};
+use std::marker::PhantomData;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
+use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 6;
+pub const ABI_VERSION: u32 = 7;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -48,16 +50,18 @@ pub type ReportFn = unsafe extern "C" fn(*mut c_void, u32, u32, *const u8, usize
 /// The node index of a `Control` when no run is active.
 pub const IDLE: u32 = u32::MAX;
 
-/// The engine side of **Stop** (15.2): the stop flag, and the node index of the call that runs.
+/// The engine side of **Stop** (15.2): the stop flag, the node index of the call that started
+/// last, and the number of log lines of the run (15.7).
 #[repr(C)]
 pub struct Control {
     stop: AtomicBool,
     node: AtomicU32,
+    lines: AtomicU32,
 }
 
 impl Default for Control {
     fn default() -> Control {
-        Control { stop: AtomicBool::new(false), node: AtomicU32::new(IDLE) }
+        Control { stop: AtomicBool::new(false), node: AtomicU32::new(IDLE), lines: AtomicU32::new(0) }
     }
 }
 
@@ -67,7 +71,7 @@ impl Control {
         self.stop.store(stop, Relaxed);
     }
 
-    /// The index of the node that runs, or that ran last in the active run. None between runs.
+    /// The index of the node that started last in the active run. None between runs.
     pub fn node(&self) -> Option<u32> {
         let node = self.node.load(Relaxed);
         (node != IDLE).then_some(node)
@@ -113,6 +117,7 @@ impl Reporter {
     }
 
     fn set_node(&self, node: u32) {
+        NODE.set(node);
         if let Some(control) = self.control() {
             control.node.store(node, Relaxed);
         }
@@ -125,11 +130,11 @@ impl Reporter {
 }
 
 thread_local! {
-    /// The reporter of the run on this thread, for `stop_requested` and `log_line`. Null outside
-    /// a run.
+    /// The reporter of the task on this thread, for `stop_requested` and `log_line`. Null outside
+    /// a task.
     static RUN: Cell<*const Reporter> = const { Cell::new(std::ptr::null()) };
-    /// The number of log lines of the run on this thread.
-    static LINES: Cell<u32> = const { Cell::new(0) };
+    /// The node that runs on this thread, for `log_line`.
+    static NODE: Cell<u32> = const { Cell::new(IDLE) };
 }
 
 /// Calls `f` with the reporter of the run on this thread. Gives None outside a run.
@@ -147,8 +152,15 @@ pub(crate) fn stop_requested() -> bool {
 /// Patina generates in a cluster calls it. It does not send a record outside a node call.
 pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
     with_run(|rep| {
-        let Some(node) = rep.control().and_then(Control::node) else { return };
-        let lines = LINES.with(|l| l.replace(l.get().saturating_add(1)));
+        let (node, Some(control)) = (NODE.get(), rep.control()) else { return };
+        if node == IDLE {
+            return;
+        }
+        // The first check stops the count near the limit, so it cannot overflow.
+        if control.lines.load(Relaxed) > LOG_LINES {
+            return;
+        }
+        let lines = control.lines.fetch_add(1, Relaxed);
         if lines > LOG_LINES {
             return;
         }
@@ -167,15 +179,76 @@ pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
 pub enum Cmd<'a> {
     /// Sets the parameter with this index from its text form (6.4).
     Set(u32, &'a str),
-    /// Runs the graph one time. Returns false when a node failed.
-    Run,
+    /// Runs the task with this index (9.2). Returns false when a node failed.
+    Task(u32),
+    /// Ends a run: drops each value that no node took. Returns false when a drop failed.
+    End,
 }
 
-pub type Cluster = Box<dyn FnMut(Cmd<'_>, &Reporter) -> bool>;
+type ClusterFn = dyn Fn(Cmd<'_>, &Reporter) -> bool;
 
-/// Boxes the closure of a cluster. The bound gives the closure its argument types.
-pub fn cluster<F: FnMut(Cmd<'_>, &Reporter) -> bool + 'static>(f: F) -> Cluster {
-    Box::new(f)
+/// The closure of a cluster, and true when the engine can call it from many threads at a time.
+pub struct Cluster {
+    f: Box<ClusterFn>,
+    parallel: bool,
+}
+
+/// Gives the closure of a cluster its argument types.
+pub fn typed<F: Fn(Cmd<'_>, &Reporter) -> bool + 'static>(f: F) -> F {
+    f
+}
+
+/// `parallel` is true only when each value that the closure keeps is `Sync` (see `Check`).
+pub fn cluster<F: Fn(Cmd<'_>, &Reporter) -> bool + 'static>(f: F, parallel: bool) -> Cluster {
+    Cluster { f: Box::new(f), parallel }
+}
+
+/// The type of a value, for its thread rule (9.2). The generated code calls `(&&check(&v)).sync()`
+/// after the closure, when Rust knows the type. Rust then uses `SyncCheck` when the type is
+/// `Sync`, and `NotSyncCheck` if not. A check of the closure type itself does not work, because
+/// Rust knows the types that a closure keeps only at the end of the function.
+pub struct Check<T>(PhantomData<fn() -> T>);
+
+pub fn check<T>(_: &T) -> Check<T> {
+    Check(PhantomData)
+}
+
+pub trait SyncCheck {
+    fn sync(&self) -> bool;
+}
+
+impl<T: Sync> SyncCheck for &Check<T> {
+    fn sync(&self) -> bool {
+        true
+    }
+}
+
+pub trait NotSyncCheck {
+    fn sync(&self) -> bool;
+}
+
+impl<T> NotSyncCheck for Check<T> {
+    fn sync(&self) -> bool {
+        false
+    }
+}
+
+/// A parameter, or a value that goes from one task to another (9.2). Many readers can share it.
+/// The lock ignores poison: a panic in a node call never leaves a value half written.
+pub struct Shared<T>(RwLock<T>);
+
+impl<T> Shared<T> {
+    pub fn new(value: T) -> Shared<T> {
+        Shared(RwLock::new(value))
+    }
+
+    pub fn read(&self) -> RwLockReadGuard<'_, T> {
+        self.0.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub fn write(&self) -> RwLockWriteGuard<'_, T> {
+        self.0.write().unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
 pub fn default_value<T: Param>() -> T {
@@ -312,30 +385,63 @@ pub unsafe fn set(
     rep: *const Reporter,
 ) -> bool {
     // SAFETY: the caller keeps the rules of this function.
-    let (cluster, rep, bytes) =
-        unsafe { (&mut *cluster, &*rep, std::slice::from_raw_parts(text, len)) };
+    let (cluster, rep, bytes) = unsafe { (&*cluster, &*rep, std::slice::from_raw_parts(text, len)) };
     let Ok(text) = std::str::from_utf8(bytes) else {
         return false;
     };
-    catch_unwind(AssertUnwindSafe(|| cluster(Cmd::Set(index, text), rep))).unwrap_or(false)
+    catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Set(index, text), rep))).unwrap_or(false)
 }
 
-/// The body of `patina_cluster_run`.
+/// The body of `patina_cluster_parallel`: true when the engine can run the tasks of a run on many
+/// threads at a time.
 ///
 /// # Safety
 ///
-/// `cluster` comes from `new_cluster` and is not freed. `rep` points to a valid reporter, and its
-/// control is null or valid during the call.
-pub unsafe fn run(cluster: *mut Cluster, rep: *const Reporter) -> bool {
+/// `cluster` comes from `new_cluster` and is not freed.
+pub unsafe fn parallel(cluster: *const Cluster) -> bool {
     // SAFETY: the caller keeps the rules of this function.
-    let (cluster, rep) = unsafe { (&mut *cluster, &*rep) };
-    let (outer, lines) = (RUN.replace(rep), LINES.replace(0));
-    let ok = catch_unwind(AssertUnwindSafe(|| cluster(Cmd::Run, rep))).unwrap_or(false);
-    RUN.set(outer);
-    LINES.set(lines);
+    unsafe { (*cluster).parallel }
+}
+
+/// The body of `patina_cluster_task`.
+///
+/// # Safety
+///
+/// `cluster` comes from `new_cluster`, and is not freed or set during the call. `rep` points to a
+/// valid reporter, and its control is valid during the call. Other tasks of the same run can run
+/// on other threads at the same time only when `parallel` is true.
+pub unsafe fn task(cluster: *const Cluster, task: u32, rep: *const Reporter) -> bool {
+    // SAFETY: the caller keeps the rules of this function.
+    let (cluster, rep) = unsafe { (&*cluster, &*rep) };
+    in_run(rep, || (cluster.f)(Cmd::Task(task), rep))
+}
+
+/// The body of `patina_cluster_end`, after the last task of a run.
+///
+/// # Safety
+///
+/// The same as for `task`, and no task of the cluster runs during the call.
+pub unsafe fn end(cluster: *const Cluster, rep: *const Reporter) -> bool {
+    // SAFETY: the caller keeps the rules of this function.
+    let (cluster, rep) = unsafe { (&*cluster, &*rep) };
+    let ok = in_run(rep, || (cluster.f)(Cmd::End, rep));
     rep.set_node(IDLE);
+    NODE.set(IDLE);
+    if let Some(control) = rep.control() {
+        control.lines.store(0, Relaxed);
+    }
     // The cluster has its own standard library, which does not flush its stdout at exit.
     let _ = std::io::Write::flush(&mut std::io::stdout());
+    ok
+}
+
+/// Calls `f` with `rep` as the reporter of the task on this thread.
+fn in_run(rep: &Reporter, f: impl FnOnce() -> bool) -> bool {
+    let outer = RUN.replace(rep);
+    NODE.set(IDLE);
+    let ok = catch_unwind(AssertUnwindSafe(f)).unwrap_or(false);
+    RUN.set(outer);
+    NODE.set(IDLE);
     ok
 }
 
@@ -404,10 +510,32 @@ mod tests {
         assert_eq!(sent[2], (5, LANES, format!("{} x", "1".repeat(64))));
     }
 
+    /// Runs task 0 and ends the run.
+    ///
+    /// # Safety
+    ///
+    /// The same as for `task`.
+    unsafe fn run(state: *mut Cluster, rep: &Reporter) -> bool {
+        // SAFETY: the caller keeps the rules of `task`, and they include the rules of `end`.
+        unsafe { task(state, 0, rep) & end(state, rep) }
+    }
+
+    #[test]
+    #[allow(clippy::needless_borrow, reason = "the calls are the same as in the generated code")]
+    fn only_sync_values_let_a_cluster_run_in_parallel() {
+        assert!((&&check(&Shared::new(String::new()))).sync());
+        assert!(!(&&check(&Shared::new(Cell::new(1)))).sync());
+        assert!(!(&&check(&Shared::new(std::rc::Rc::new(1)))).sync());
+        let shared = Shared::new(Some(1));
+        *shared.write() = None;
+        assert_eq!(*shared.read(), None);
+    }
+
     #[test]
     fn stop_and_missing_inputs_start_no_node_call() {
         fn make() -> Cluster {
-            cluster(|_, rep| {
+            let f = typed(|cmd, rep| {
+                let Cmd::Task(0) = cmd else { return matches!(cmd, Cmd::End) };
                 // SAFETY: the test gives a control that is valid during the run.
                 let node = || unsafe { &*rep.control }.node();
                 let skipped = !rep.enter(8, false) && node().is_none();
@@ -416,7 +544,8 @@ mod tests {
                     rep.time(7, std::time::Instant::now());
                 }
                 skipped && started != stop_requested() && node() == started.then_some(7)
-            })
+            });
+            cluster(f, true)
         }
         let mut sent: Vec<(u32, u32, String)> = Vec::new();
         let control = Control::default();
@@ -425,6 +554,8 @@ mod tests {
         // SAFETY: the cluster comes from `new_cluster` and is freed one time. The reporter and the
         // control are valid during each run.
         unsafe {
+            assert!(parallel(state));
+            assert!(!task(state, 1, &rep));
             assert!(run(state, &rep));
             assert_eq!(control.node(), None);
             control.set_stop(true);
@@ -441,14 +572,17 @@ mod tests {
     #[test]
     fn log_lines_go_to_the_node_that_runs() {
         fn make() -> Cluster {
-            cluster(|_, rep| {
-                log_line("INFO", &format_args!("before the first node"));
-                rep.enter(3, true);
-                for i in 0..=LOG_LINES {
-                    log_line("WARN", &format_args!("line {i}"));
+            let f = typed(|cmd, rep| {
+                if let Cmd::Task(_) = cmd {
+                    log_line("INFO", &format_args!("before the first node"));
+                    rep.enter(3, true);
+                    for i in 0..=LOG_LINES {
+                        log_line("WARN", &format_args!("line {i}"));
+                    }
                 }
                 true
-            })
+            });
+            cluster(f, false)
         }
         let mut sent: Vec<(u32, u32, String)> = Vec::new();
         let control = Control::default();
