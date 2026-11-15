@@ -20,8 +20,9 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="backdrop" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <div className="dialog about" role="dialog" aria-modal="true" aria-labelledby="about-title">
-        <img className="about-art" src="/brand/banner.png" alt="" />
-        <h2 id="about-title">Patina</h2>
+        <div className="about-art">
+          <h2 id="about-title">Patina</h2>
+        </div>
         <div className="label">{version && `Version ${version}`}</div>
         <div className="label">MIT or Apache-2.0</div>
         <div className="actions">

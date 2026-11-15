@@ -26,6 +26,8 @@ noise in the gutters. It removed islands smaller than 30 pixels.
 | `title-accent.png` | 430 x 86 | The top bar. |
 
 The artwork has no text. The application draws each name, version and label.
+The wide pieces (title accent, banner and splash) fade to the right. The page draws the name
+on the fade, with a dark text shadow, so the artwork and the name read as one mark.
 
 ## Exports
 
@@ -44,8 +46,8 @@ The artwork has no text. The application draws each name, version and label.
 ## Resolution limits
 
 - The emblem is 402 px wide, so 256 px is the largest sharp icon.
-- The splash shows at 420 px. It stays sharp up to about 166% display scale.
-- The banner shows at 384 px in the **About** dialog. It stays sharp up to about 210%.
-- The title accent shows at a height of 24 px. It stays sharp up to about 350%.
+- The splash shows at a height of 160 px. It stays sharp up to about 170% display scale.
+- The banner shows at a height of 90 px in the **About** dialog. It stays sharp up to about 210%.
+- The title accent shows at a height of 36 px. It stays sharp up to about 240%.
 - The project-file symbol has no simplified small treatment. Below 32 px it loses its detail.
 - The installer side art is 125 x 316 px. It is made smaller to fit the 164 x 312 px area.

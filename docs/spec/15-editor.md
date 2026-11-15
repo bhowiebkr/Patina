@@ -434,9 +434,9 @@ These are the fewest steps from a new project to a reopen:
 
 This is an agent decision of 2026-11-15. The owner can change it.
 
-- The start screen shows the splash artwork, the name **Patina** and the version. It has an **About** button and a **Settings** button.
-- The top bar shows the title accent and the name **Patina**. The **Help** menu at its right end has **About Patina**.
-- The **About** dialog shows the banner artwork, the name, the version and the license. **Close** or Esc closes it.
+- The start screen shows the splash artwork, with the name **Patina** and the version on its fade. It has an **About** button and a **Settings** button.
+- The top bar shows the title accent artwork, with the name **Patina** above its fading bar. The **Help** menu at its right end has **About Patina**.
+- The **About** dialog shows the banner artwork with the name on its plate, then the version and the license. **Close** or Esc closes it.
 - The artwork has no text. The page draws all names, versions and labels, so they stay sharp and can change.
 - The window, the taskbar and the executable use `icons/icon.ico`. The installer uses the banner and dialog bitmaps of `icons/` (13.1).
 

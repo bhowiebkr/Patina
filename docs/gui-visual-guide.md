@@ -11,7 +11,8 @@ concept 03 of [contact sheet 04](mockups/branding/patina-logo-contact-sheet-04.p
 [assets/branding](../assets/branding/README.md) has the extracted pieces, the icon
 sizes and the resolution limits. The artwork has no text: the application draws
 the name **Patina**. Use the aged steel and rust treatment only in branding
-artwork, never on controls. The blue faceted logo of the earlier mockups and the
+artwork, never on controls. The wide pieces fade to the right: put the name on
+the fade, never in a row beside the artwork. The blue faceted logo of the earlier mockups and the
 plain amber P of mockup 9 are historical.
 
 ## The visual reference set

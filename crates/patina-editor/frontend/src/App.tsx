@@ -438,8 +438,9 @@ export function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        <img className="brand-accent" src="/brand/title-accent.png" alt="" />
-        <b className="brand-name">Patina</b>
+        <div className="brand">
+          <b className="brand-name">Patina</b>
+        </div>
         <span className="path">
           <b>{view.name}</b> / main{fullEntry && ` / ${folderName(fullEntry)}`}
         </span>

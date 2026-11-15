@@ -62,6 +62,9 @@ and in the editor.
 
 - Branding: nobody made a real `.msi`, so the installer bitmaps and the uninstall icon were not
   seen in Windows. `project-file.ico` has no file association yet.
+- macOS CI run 43751314457 counted 2 allocations in 100 frames in the `hello` test of
+  `tests/run.rs` of `patina-cli` (0 expected). The run before passed on macOS. Windows and Linux
+  pass. The cause is not known.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The frontend test checks the widget lines. A Rust check and

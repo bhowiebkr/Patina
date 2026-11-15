@@ -42,12 +42,10 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
   return (
     <main className="start">
       <div className="start-card">
-        <img className="splash" src="/brand/splash.png" alt="" />
-        <div className="settings-head">
-          <h1 className="brand-title">
-            Patina <span className="label">{version && `Version ${version}`}</span>
-          </h1>
-          <div className="start-row">
+        <div className="hero">
+          <h1>Patina</h1>
+          <div className="label">{version && `Version ${version}`}</div>
+          <div className="hero-actions">
             <button className="btn" onClick={() => setAbout(true)}>
               About
             </button>
