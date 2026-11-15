@@ -424,8 +424,8 @@ fn broken() -> u32 {
     document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...at }));
     document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...at }));
     await until('the palette after a drag from a pin', RUN_MS, () => !!search());
-    // The show node has no output, so the list has only number.
-    await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number');
+    // The show node has no output. The output of the built-in delay is generic, so it fits.
+    await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number,delaybuilt-in');
     search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await until('the added node from the pin', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'number');
     const fed = newNode()!.getAttribute('data-id');

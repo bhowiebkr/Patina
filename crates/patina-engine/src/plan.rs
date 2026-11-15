@@ -84,7 +84,7 @@ pub struct Slot {
 }
 
 /// The `builtin` name of the delay node in a graph file (9.2).
-const DELAY: &str = "delay";
+pub(crate) const DELAY: &str = "delay";
 
 /// Crate names that a node folder cannot have, after `-` changes to `_`.
 /// Crate names of Rust and Patina, the keywords of Rust, the folder names of Cargo and the device

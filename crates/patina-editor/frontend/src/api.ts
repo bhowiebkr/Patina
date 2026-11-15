@@ -9,6 +9,8 @@ export interface NodeEntry {
   id: string;
   folder?: string;
   subgraph?: string;
+  /** The name of a built-in node, for example `delay` (9.2). */
+  builtin?: string;
   pos?: Point;
   params?: Record<string, string>;
 }
@@ -43,6 +45,10 @@ export interface NodeInfo {
   inputs: Pin[];
   outputs: Pin[];
   error: string | null;
+  /** True for a built-in node, for example the delay (9.2). */
+  builtin: boolean;
+  /** The type parameters (4.5). A pin of such a type joins a wire of any type. */
+  generics: string[];
 }
 
 export interface View {
@@ -179,7 +185,7 @@ export interface OutputText {
 
 /** One action of the user on the graph (spec 7.4). A pin is `<node ID>.<pin key>`. */
 export type Edit =
-  | { kind: 'AddNode'; id: string; folder: string; pos: Point }
+  | { kind: 'AddNode'; id: string; folder: string; builtin?: boolean; pos: Point }
   | { kind: 'RemoveNode'; id: string }
   | { kind: 'MoveNode'; id: string; pos: Point }
   | { kind: 'Connect'; from: string; to: string }
@@ -274,7 +280,7 @@ export function newId(): string {
 
 /** The folder name of a node entry, for example `number` for `nodes/number`. */
 export function folderName(node: NodeEntry): string {
-  return (node.folder ?? node.subgraph ?? '?').split('/').pop() ?? '?';
+  return (node.folder ?? node.subgraph ?? node.builtin ?? '?').split('/').pop() ?? '?';
 }
 
 /** One line for a compile error, for example `mismatched types: expected f32, found &str`. */

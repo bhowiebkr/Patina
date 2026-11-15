@@ -190,7 +190,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
   const addNode = (folder: string, x: number, y: number, end?: FreeEnd, info?: NodeInfo) => {
     const p = flow.screenToFlowPosition({ x, y });
     const id = newId();
-    const add: Edit = { kind: 'AddNode', id, folder, pos: [Math.round(p.x), Math.round(p.y)] };
+    const add: Edit = { kind: 'AddNode', id, folder, builtin: info?.builtin || undefined, pos: [Math.round(p.x), Math.round(p.y)] };
     const key = end && info && matchPin(info, end.output, end.ty);
     const pin = `${id}.${key}`;
     if (!end || !key) onEdit(add);
@@ -256,7 +256,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
           y={palette.y}
           nodes={choices}
           none={end && `No node has a pin of type ${end.ty}.`}
-          onAdd={(name) => addNode(`nodes/${name}`, palette.x, palette.y, end, choices.find((n) => n.name === name))}
+          onAdd={(n) => addNode(n.builtin ? n.name : `nodes/${n.name}`, palette.x, palette.y, end, n)}
           onClose={() => setPalette(null)}
         />
       )}

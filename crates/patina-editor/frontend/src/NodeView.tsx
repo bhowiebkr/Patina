@@ -110,11 +110,12 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
   return [run.stale || idle === 'stopped' ? 'stale' : 'ready', ''];
 }
 
-/** The node info of an entry, or null when its folder is missing. */
+/** The node info of an entry, or null when its folder or built-in node is missing. */
 export function infoOf(entry: NodeEntry, nodes: NodeInfo[]): NodeInfo | null {
-  if (!entry.folder?.startsWith('nodes/')) return null;
+  const builtin = entry.builtin !== undefined;
+  if (!builtin && !entry.folder?.startsWith('nodes/')) return null;
   const name = folderName(entry);
-  return nodes.find((n) => n.name === name) ?? null;
+  return nodes.find((n) => n.name === name && n.builtin === builtin) ?? null;
 }
 
 /** The Rust type of output `from`, "<node id>.<output key>", or undefined when its node does not read. */

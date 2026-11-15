@@ -192,10 +192,11 @@ impl Session {
             let run = Run { serial: self.serial, checked, graph: project.graph().clone(), build };
             let _ = engine.send(Job::Run(Box::new(run)));
         }
-        let (nodes, mut problems) = match project.nodes() {
+        let (mut nodes, mut problems) = match project.nodes() {
             Ok(nodes) => (nodes, problems),
             Err(e) => (Vec::new(), [e.to_string()].into_iter().chain(problems).collect()),
         };
+        nodes.extend(patina_engine::builtins());
         problems.extend(self.recovery_error.iter().map(|e| format!("recovery file: {e}")));
         View {
             serial: self.serial,

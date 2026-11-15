@@ -83,15 +83,33 @@ pub struct Pin {
     pub ty: String,
 }
 
-/// A node folder of the project, for the node list of the editor (15.2).
+/// A node folder of the project or a built-in node, for the node list of the editor (15.2).
 #[derive(Serialize, Debug)]
 pub struct NodeInfo {
-    /// The folder name in `nodes/`.
+    /// The folder name in `nodes/`, or the name of the built-in node.
     pub name: String,
     pub inputs: Vec<Pin>,
     pub outputs: Vec<Pin>,
     /// The problem of the folder when its node does not read.
     pub error: Option<String>,
+    /// True for a built-in node, for example the delay (9.2).
+    pub builtin: bool,
+    /// The type parameters (4.5). A pin of such a type joins a wire of any type.
+    pub generics: Vec<String>,
+}
+
+impl NodeInfo {
+    fn new(name: String, node: node::Node, builtin: bool) -> NodeInfo {
+        let keys = node.output_keys().into_iter();
+        let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty }).collect();
+        let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty }).collect();
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics }
+    }
+}
+
+/// The built-in nodes, for the node list of the editor (9.2).
+pub fn builtins() -> Vec<NodeInfo> {
+    vec![NodeInfo::new(plan::DELAY.to_owned(), node::delay(), true)]
 }
 
 /// A graph that passed all checks, ready to build.
@@ -269,13 +287,8 @@ impl Project {
                 continue;
             }
             nodes.push(match plan::read_node(&self.root, &name) {
-                Ok(node) => {
-                    let keys = node.output_keys().into_iter();
-                    let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty }).collect();
-                    let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty }).collect();
-                    NodeInfo { name, inputs, outputs, error: None }
-                }
-                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text) },
+                Ok(node) => NodeInfo::new(name, node, false),
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new() },
             });
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
@@ -472,7 +485,7 @@ mod tests {
         let missing = Edit::SetCode { path: "nodes/show/src/new.rs".to_owned(), text: String::new() };
         assert!(project.apply(&missing).is_err(), "a code edit does not make a file");
 
-        let edit = Edit::AddNode { id: "000000000000000a".to_owned(), folder: "nodes/number".to_owned(), pos: [1.0, 2.0] };
+        let edit = Edit::AddNode { id: "000000000000000a".to_owned(), folder: "nodes/number".to_owned(), builtin: false, pos: [1.0, 2.0] };
         project.apply(&edit).unwrap();
         assert!(project.dirty());
         project.save().unwrap();

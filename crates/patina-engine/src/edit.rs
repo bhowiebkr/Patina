@@ -15,7 +15,14 @@ pub const MAX_ROUTE_POINTS: usize = 12;
 #[derive(Deserialize, Clone, Debug)]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum Edit {
-    AddNode { id: String, folder: String, pos: [f64; 2] },
+    /// `folder` is the name of a built-in node when `builtin` is true (9.2).
+    AddNode {
+        id: String,
+        folder: String,
+        #[serde(default)]
+        builtin: bool,
+        pos: [f64; 2],
+    },
     /// Also removes the wires and the order wires of the node.
     RemoveNode { id: String },
     MoveNode { id: String, pos: [f64; 2] },
@@ -141,18 +148,21 @@ fn step(
 
 fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
     match edit {
-        Edit::AddNode { id, folder, pos } => {
+        Edit::AddNode { id, folder, builtin, pos } => {
             if !is_id(id) {
                 return Err(format!("the node ID {id:?} is not 16 lowercase hexadecimal characters"));
             }
             if graph.node.iter().any(|n| &n.id == id) {
                 return Err(format!("the graph has a node with the ID {id}"));
             }
+            if *builtin && folder != crate::plan::DELAY {
+                return Err(format!("Patina has no built-in node {folder:?} (spec 9.2)"));
+            }
             graph.node.push(NodeEntry {
                 id: id.clone(),
-                folder: Some(folder.clone()),
+                folder: (!builtin).then(|| folder.clone()),
                 subgraph: None,
-                builtin: None,
+                builtin: builtin.then(|| folder.clone()),
                 pos: Some(finite(pos)?),
                 domain: None,
                 settings: None,
@@ -275,7 +285,7 @@ mod tests {
     const C: &str = "000000000000000c";
 
     fn add(id: &str) -> Edit {
-        Edit::AddNode { id: id.to_owned(), folder: "nodes/number".to_owned(), pos: [0.0, 0.0] }
+        Edit::AddNode { id: id.to_owned(), folder: "nodes/number".to_owned(), builtin: false, pos: [0.0, 0.0] }
     }
 
     fn no_code(_: &str, _: &str) -> Result<String, String> {
@@ -327,6 +337,16 @@ mod tests {
         assert_eq!(history.graph.node.len(), 1, "a group with a bad edit changes nothing");
         let code = Edit::SetCode { path: "nodes/number/src/lib.rs".to_owned(), text: String::new() };
         assert!(history.apply(&Edit::Group { edits: vec![code] }).is_err());
+    }
+
+    #[test]
+    fn a_built_in_node_has_no_folder() {
+        let mut history = History::new(toml::from_str("format = 1").unwrap());
+        let builtin = |folder: &str| Edit::AddNode { id: A.to_owned(), folder: folder.to_owned(), builtin: true, pos: [0.0, 0.0] };
+        assert!(history.apply(&builtin("nodes/number")).is_err());
+        history.apply(&builtin("delay")).unwrap();
+        let node = &history.graph.node[0];
+        assert_eq!((node.folder.as_deref(), node.builtin.as_deref()), (None, Some("delay")));
     }
 
     #[test]

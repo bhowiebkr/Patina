@@ -193,7 +193,9 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
       e.currentTarget.blur();
     }
   };
-  const shown = info ? tab : 'parameters';
+  // A built-in node has no code folder.
+  const hasCode = info && !info.builtin;
+  const shown = hasCode ? tab : 'parameters';
   const reports = run.reports.filter((r) => r.id === entry.id);
   const logs = run.logs.filter((l) => l.id === entry.id);
   const errors = info ? nodeErrors(run, info.name) : [];
@@ -204,7 +206,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         <span className="spacer" />
         <span className={state === 'compile-error' || state === 'run-error' ? 'error-text' : 'label'}>{STATE_NAMES[state]}</span>
       </div>
-      <Tabs tab={shown} only={info ? undefined : 'parameters'} onTab={onTab} />
+      <Tabs tab={shown} only={hasCode ? undefined : 'parameters'} onTab={onTab} />
       {shown === 'parameters' && (
         <>
           <div className="section">

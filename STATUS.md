@@ -69,13 +69,14 @@ and in the editor.
 - No test makes a real cluster panic in `process`. The glue test checks the rule.
 - The editor was not run with a stateful or a generic node. It uses the same engine code as
   the CLI.
-- The editor shows a generic pin with the name of its type parameter, not in gray. The search
-  of the Add node palette does not join a wire to a generic pin.
+- The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
+  palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
+  the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.
 - Only stateful nodes can have a GUI. The value widgets, the canvas, the full size, `full_gui`,
   the audio `ui` with `#[settings]` and widget folders are not done.
 - shortcut: the engine draws all node GUIs after each run and frame, also the nodes out of view
   (4.3). Send the visible nodes from the page when graphs get large.
-- The delay runs only in the frame domain. The editor palette has no delay node.
+- The delay runs only in the frame domain.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
 - Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
   the worker pool for the first time inside the counted frames. A parallel cluster now prepares

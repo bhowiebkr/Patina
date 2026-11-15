@@ -11,7 +11,7 @@ interface Props {
   nodes: NodeInfo[];
   /** The text when `nodes` is empty. */
   none?: string;
-  onAdd: (name: string) => void;
+  onAdd: (node: NodeInfo) => void;
   onClose: () => void;
 }
 
@@ -30,15 +30,15 @@ export function AddNode({ x, y, nodes, none = 'The project has no nodes.', onAdd
     onClose();
     back?.focus();
   };
-  const add = (name: string) => {
+  const add = (node: NodeInfo) => {
     close();
-    onAdd(name);
+    onAdd(node);
   };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape' || e.key === 'Tab') close();
     else if (e.key === 'ArrowDown' && hits.length > 0) setActive((at + 1) % hits.length);
     else if (e.key === 'ArrowUp' && hits.length > 0) setActive((at - 1 + hits.length) % hits.length);
-    else if (e.key === 'Enter' && hits[at]) add(hits[at].name);
+    else if (e.key === 'Enter' && hits[at]) add(hits[at]);
     else return;
     // The keys of the palette do not go to the graph.
     e.preventDefault();
@@ -67,8 +67,9 @@ export function AddNode({ x, y, nodes, none = 'The project has no nodes.', onAdd
         />
         <div id="add-node-list" role="listbox" aria-label="Nodes">
           {hits.map((n, i) => (
-            <div key={n.name} id={`add-node-${i}`} role="option" aria-selected={i === at} onClick={() => add(n.name)}>
+            <div key={`${n.builtin} ${n.name}`} id={`add-node-${i}`} role="option" aria-selected={i === at} onClick={() => add(n)}>
               {n.name}
+              {n.builtin && <span className="hint">built-in</span>}
               {n.error && <span className="hint error-text">error</span>}
             </div>
           ))}
