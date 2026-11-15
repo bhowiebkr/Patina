@@ -63,7 +63,7 @@ A project is a folder with a stable random ID. Each node, view, custom widget, c
         lib.rs       the node code
         ui.rs        the node GUI (optional)
       tests/         tests of the node (optional)
-      assets/        files that the node reads, for example a shader (optional)
+      assets/        files that the node reads, for example a WESL shader (optional)
   views/
     timeline/        one view (15.8)
   widgets/

@@ -12,7 +12,7 @@ pub const MAX_LINES: usize = 1000;
 /// The extensions of source files: Rust, the editor frontend, shaders and scripts.
 const SOURCE_EXTENSIONS: &[&str] = &[
     "rs", "ts", "tsx", "js", "jsx", "mjs", "cjs", "svelte", "vue", "css", "scss", "html", "wgsl",
-    "glsl", "hlsl", "py", "sh", "ps1",
+    "wesl", "glsl", "hlsl", "py", "sh", "ps1",
 ];
 
 /// Folders with build output, downloads or dependencies, at any depth.

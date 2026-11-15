@@ -47,6 +47,30 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 - **Import** copies a folder from another project (6.2).
 - **Update** compares an imported folder with its origin, and copies the new version when the user confirms (6.2).
 
+**Graph view navigation:**
+
+The graph view is snappy. This is an owner decision of 2026-11-15.
+
+- Each input changes the view in the next frame. Pan, zoom, **Fit** and selection have no animation, no easing and no inertia.
+- A dragged node or route point stays under the mouse pointer.
+- The same rule applies to pan and zoom in the other canvases of the editor, for example value viewers and views.
+- The mouse wheel zooms at the mouse pointer. Wheel up zooms in. A touchpad pinch also zooms.
+- One wheel step changes the zoom by a fixed factor. A smaller touchpad step changes it by a smaller amount.
+- The zoom goes from 10% to 400%. The top bar shows the zoom as a percent.
+- The standard controls:
+
+| Input | Action |
+|---|---|
+| Middle mouse button drag | Pan |
+| Space and left drag | Pan |
+| Left drag on an empty area | Select the nodes and the connections in a box |
+| Shift and click, Ctrl and click | Add to the selection, toggle in the selection |
+| F key | Fit the selection, or the full graph when nothing is selected |
+| Delete | Delete the selection |
+| Esc | Cancel the drag, or clear the selection |
+
+The owner asked for the standard controls. The table, the zoom range and the wheel steps are an agent decision of 2026-11-15.
+
 **Run, Pause, and Bake:**
 
 - Run starts the graph. Batch nodes run one time. Frame and audio domains start their clocks. Triggers start to listen.
@@ -181,7 +205,7 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 
 **Viewport**
 
-- A viewport is a GPU surface. The code draws into it with `wgpu` and the shared GPU context (10.2), so a view can draw GPU data from nodes.
+- A viewport is a GPU surface. The code draws into it with `wgpu` and the shared GPU context (10.2), so a view can draw GPU data from nodes. Its shaders are WESL (10.1).
 - Views, full-size node GUIs, and large node GUIs can use a viewport. The node body cannot.
 - Mouse and key events on the viewport go to the code, for example to turn a 3D camera.
 - A milestone 0 prototype decides how the frames reach the editor window (19).

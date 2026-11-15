@@ -113,6 +113,15 @@ image-pipeline/
 Node code runs with your user rights. A project from another person opens read-only until you
 trust it.
 
+## Graph view
+
+The graph view moves at once, with no animation.
+
+- Turn the mouse wheel to zoom at the mouse pointer. A touchpad pinch also zooms.
+- Drag with the middle mouse button to pan. You can also hold Space and drag.
+- Drag on an empty area to select the nodes and the wires in a box.
+- Press F to fit the selection. With no selection, F fits the full graph.
+
 ## Connections
 
 A wire shows the value that it carries while the graph runs, as a node shows its state.
@@ -175,7 +184,8 @@ One graph can use more than one domain. A slow domain never stops a fast one.
 GPU support comes from crates and from `patina-sdk`, not from the engine.
 
 - CUDA through `cudarc` and NVRTC, on NVIDIA. The CUDA Toolkit is not necessary.
-- WGSL through `wgpu`, on NVIDIA, AMD, Intel and Apple.
+- WESL shaders through `wgpu`, on NVIDIA, AMD, Intel and Apple. WESL is WGSL with imports,
+  conditions and shader packages.
 - GPU data stays on the GPU between GPU nodes.
 - A shader change needs no Rust compile.
 

@@ -100,7 +100,11 @@ pub fn gain(
 | Backend | Kernel language | Use |
 |---|---|---|
 | `cudarc` + NVRTC | CUDA C++ | NVIDIA. Full CUDA speed and libraries. `cudarc` loads the CUDA driver at run time. The CUDA Toolkit is not necessary |
-| `wgpu` | WGSL | NVIDIA, AMD, Intel, and Apple. Pure Rust |
+| `wgpu` | WESL, linked to WGSL | NVIDIA, AMD, Intel, and Apple. Pure Rust |
+
+- The shader language for `wgpu` is [WESL](https://wesl-lang.dev/). WESL is a strict superset of WGSL. It adds imports between files, conditional compilation with `@if`, and shader packages. This is an owner decision of 2026-11-15.
+- The `wesl` crate links the WESL files into one WGSL module. Then `wgpu` compiles that module. A plain WGSL file is also valid WESL.
+- Code can link at build time in `build.rs`, or at run time with the linker of the `wesl` crate.
 
 The engine does not know about GPUs. Type crates and `patina-sdk` give GPU support.
 
@@ -113,5 +117,9 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
 
 ### 10.3 Shader nodes
 
-- A node can output shader source as a string. Another node compiles that source at run time: WGSL through `wgpu`, or CUDA C++ through NVRTC.
+- A node can output shader source as a string. Another node compiles that source at run time: WESL through the `wesl` linker and `wgpu`, or CUDA C++ through NVRTC.
+- Shader files have the `.wesl` extension. A node keeps its shader files in its `assets/` folder (6.2).
+- A type crate can include a WESL shader package, for example the shader functions of `GpuImage`. Node shaders import its functions with WESL `import` statements.
+- Node settings set the `@if` conditions when the linker runs. Do not make shader variants with string joins or a custom preprocessor.
+- The editor shows link and compile errors at the line of the WESL file (15.5).
 - A change of shader source does not need a Rust compile. This keeps shader editors fast.

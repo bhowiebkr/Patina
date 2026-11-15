@@ -48,7 +48,7 @@ Ask the owner. Do not decide these alone.
 6. **Layers:** clusters, the base, the slot, fuse back, and **Bake** (7). Check: one node folder with uses in two clusters. Change its output type, and change it again before the first build ends. All uses switch to the newest build, and the errors refer to the newest code. Measure the fuse time.
 7. **Subgraphs and reuse:** subgraphs, and **Import** and **Update** of folders from other projects (6.2).
 8. **Packaging.**
-9. **GPU:** shared context, GPU types, shader nodes.
+9. **GPU:** shared context, GPU types, shader nodes with WESL (10.1).
 10. **Views:** the `Graph` handle and the viewport (15.8).
 11. **Audio domain.** Check: a slow `ui` function of an audio node while audio runs. The audio domain misses no deadline, and the GUI holds no lock that the audio thread waits for (4.3).
 12. **Event domain:** async nodes and trigger nodes.
