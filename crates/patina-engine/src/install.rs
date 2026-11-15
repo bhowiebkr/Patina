@@ -28,6 +28,13 @@ const ZIG_TARGET: &str = "x86_64-windows-gnu";
 /// A retry continues with the files of the last try. `wrapper` is the program that becomes the
 /// Zig wrappers (see [`run_wrapper`]). `step` gets the name of each step.
 pub fn install(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
+    steps(folder, wrapper, step).map_err(|e| match e {
+        Error::Build(text) => Error::Install(text),
+        e => e,
+    })
+}
+
+fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
     if !cfg!(windows) {
         return Err(Error::Build("Install toolchain works only on Windows in this version".into()));
     }

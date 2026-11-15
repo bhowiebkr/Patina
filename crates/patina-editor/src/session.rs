@@ -91,6 +91,8 @@ pub struct Settings {
     /// The toolchain folder of Patina (13.3), and true when the toolchain comes from it.
     toolchain_dir: PathBuf,
     own_toolchain: bool,
+    /// True while the **Install toolchain** button runs.
+    installing: bool,
     data_dir: PathBuf,
     projects_dir: PathBuf,
     portable: bool,
@@ -282,7 +284,7 @@ pub fn settings(editor: State<'_, Editor>) -> Settings {
         Ok(t) => (Some(t.release), Some(t.cargo), t.own.is_some(), None),
         Err(e) => (None, None, false, Some(e.to_string())),
     };
-    Settings { rust, cargo, toolchain_problem, toolchain_dir: data.toolchain.clone(), own_toolchain, data_dir: data.dir.clone(), projects_dir: data.projects.clone(), portable: data.portable, trusted: data.trusted() }
+    Settings { rust, cargo, toolchain_problem, toolchain_dir: data.toolchain.clone(), own_toolchain, installing: crate::toolchain::installing(), data_dir: data.dir.clone(), projects_dir: data.projects.clone(), portable: data.portable, trusted: data.trusted() }
 }
 
 /// Takes a folder off the list of trusted projects (11). Patina asks again when it opens next.

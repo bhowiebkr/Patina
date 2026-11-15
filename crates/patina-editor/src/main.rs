@@ -11,6 +11,7 @@ mod output;
 mod session;
 #[cfg(windows)]
 mod shot;
+mod toolchain;
 
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -154,6 +155,9 @@ fn limit_check(dir: PathBuf) {
 }
 
 fn main() {
+    if let Some(code) = patina_engine::install::run_wrapper() {
+        std::process::exit(code);
+    }
     let args = parse_args().unwrap_or_else(|e| fatal(&e));
     if page_file("index.html").is_none() {
         fatal("the page is not built. Run `npm run build` in crates/patina-editor/frontend, then build the editor again.");
@@ -198,6 +202,7 @@ fn main() {
             session::check_done,
             session::page_error,
             session::capture,
+            toolchain::install_toolchain,
         ])
         .on_window_event(|window, event| {
             // The page asks **Save**, **Discard** or **Cancel**, then calls `quit` (15.10).

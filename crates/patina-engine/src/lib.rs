@@ -4,6 +4,7 @@
 mod cargo;
 mod edit;
 mod generate;
+pub mod install;
 mod load;
 mod node;
 mod plan;
@@ -34,6 +35,8 @@ pub enum Error {
     /// The code does not compile.
     Compile(Vec<Diagnostic>),
     Load(String),
+    /// An install step of the toolchain failed.
+    Install(String),
 }
 
 impl fmt::Display for Error {
@@ -51,6 +54,7 @@ impl fmt::Display for Error {
                 errors.iter().try_for_each(|e| write!(f, "\n{}", e.rendered.trim_end()))
             }
             Error::Load(text) => write!(f, "the cluster did not load: {text}"),
+            Error::Install(text) => f.write_str(text),
         }
     }
 }

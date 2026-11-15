@@ -205,6 +205,12 @@ To run the editor from a checkout:
   - The editor self-check (`--portable` on that folder) passed its 53 steps. The new project
     got `rust = "1.100.0"`, and its cluster imports `msvcrt.dll`.
   - The Zig wrappers were copies of the prototype program, not of `patina.exe`.
+- **Install toolchain** in **Settings** installs Rust and Zig with the steps of 13.2. Unit tests
+  check the read of the channel manifest and of the Zig index, the C arguments and the hash
+  check. On Windows, a test ran the last steps on the installed folder: the copies of the debug
+  `patina.exe` as Zig wrappers, the C check and the rename. Then the C fixture of the prototype
+  (`libsqlite3-sys`) built with these wrappers. No full install with the button ran, so its
+  downloads are not proven. The prototype proved the same download steps.
 - The self-check sets **Orthogonal** in the **Inspector**, finds 3 corners or more on the wire,
   clicks **Reset route**, and undoes both edits.
 - The self-check opens the **Add node** palette with Shift+A and closes it with Esc. Then it
@@ -245,8 +251,8 @@ To run the editor from a checkout:
 
 - **Add crate** has no search of crates.io and no list of versions. The self-check does not run
   `cargo add`, because CI must not need crates.io for the UI check.
-- The settings screen has no **Install toolchain** button yet (milestone 3). The self-check
-  does not click **Remove**. The data test covers the removal.
+- The self-check does not click **Install toolchain**, because CI must not download the
+  toolchain. The self-check does not click **Remove**. The data test covers the removal.
 - The check does not drag nodes. It pushes only Ctrl+S and Delete. A person did not use the
   editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.
@@ -372,8 +378,8 @@ The projects are very small, so these times do not predict real projects.
 - Only function nodes. Stateful nodes, node settings and generic nodes come at milestone 5.
   Subgraphs come at milestone 7, and async nodes at milestone 12.
 - The toolchain comes from the toolchain folder (13.3), or else from the `CARGO` variable or
-  `PATH`. Its version must be the `rust` version of `patina.toml`. The **Install toolchain**
-  button comes at milestone 3.
+  `PATH`. Its version must be the `rust` version of `patina.toml`.
+- **Install toolchain** works only on Windows. It does not install rust-analyzer yet.
 - The engine loads the library from the cargo target folder, and never unloads it. Windows
   locks the file, so one process cannot build the same project again after the load.
 - A node panic shows two messages: the default panic message of the cluster, and the report.

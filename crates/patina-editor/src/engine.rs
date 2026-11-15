@@ -140,7 +140,8 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     if build || loaded.is_none() {
         let start = Instant::now();
         let wiring = run.checked.wiring();
-        if toolchain.is_none() {
+        // After an install, the toolchain folder replaces the Rust of the system.
+        if toolchain.as_ref().is_none_or(|t| t.own.is_none() && Toolchain::installed(folder)) {
             *toolchain = Some(Toolchain::find(folder)?);
         }
         let toolchain = toolchain.as_ref().expect("the toolchain is set above");

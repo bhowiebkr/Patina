@@ -430,7 +430,7 @@ These are the fewest steps from a new project to a reopen:
 This is an agent decision of 2026-11-15. The owner can change it.
 
 - The start screen has a **Settings** button. The settings screen replaces the start screen. **Back** or Esc returns to the start screen.
-- The **Toolchain** part shows the Rust version and the path of `cargo`, or the problem that stops a build. It is the toolchain panel of 13.2. **Install toolchain** comes with milestone 3.
+- The **Toolchain** part shows the Rust version and the path of `cargo`, or the problem that stops a build. It is the toolchain panel of 13.2. When the toolchain folder has no `cargo`, the part shows **Install toolchain**, and then each install step.
 - The **Folders** part shows the data folder, with **(portable)** for the portable edition (13.3), and the folder of new projects.
 - The **Trusted projects** part lists the trusted folders (11). **Remove** takes a folder off the list. Patina asks again when that project opens.
 - Patina refuses to remove the open project from the list. The start screen has no open project, so this case does not occur from the settings screen.

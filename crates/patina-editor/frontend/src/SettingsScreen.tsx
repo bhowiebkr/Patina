@@ -1,15 +1,22 @@
 // The settings screen (spec 15.10): the toolchain, the folders and the trusted projects.
 
 import { useEffect, useState } from 'react';
-import { api, type Settings } from './api';
+import { api, onToolchain, type InstallProgress, type Settings } from './api';
+import { useEvent } from './useEvent';
 
 /** Back or Esc returns to the start screen. */
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState('');
+  const [install, setInstall] = useState<InstallProgress | null>(null);
+  const read = () => api.settings().then(setSettings, (e) => setError(String(e)));
   useEffect(() => {
-    api.settings().then(setSettings, (e) => setError(String(e)));
+    read();
   }, []);
+  useEvent(onToolchain, (progress: InstallProgress) => {
+    setInstall(progress);
+    if (progress.done && !progress.error) read();
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onBack();
     addEventListener('keydown', onKey);
@@ -23,7 +30,16 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       (e) => setError(String(e)),
     );
   };
+  const startInstall = () => {
+    setError('');
+    setInstall({ step: 'Start the install', done: false, error: null });
+    api.installToolchain().catch((e) => {
+      setInstall(null);
+      setError(String(e));
+    });
+  };
   const s = settings;
+  const installing = install ? !install.done : !!s?.installing;
   return (
     <main className="start" aria-label="Settings">
       <div className="start-card">
@@ -53,6 +69,21 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
                 {!s.ownToolchain && <span className="label"> (empty: Patina uses the Rust of the system)</span>}
               </dd>
             </dl>
+          )}
+          {s && !s.ownToolchain && (
+            <div className="settings-row">
+              <span className="label">
+                {installing ? (install?.step ?? 'Patina installs the toolchain') : 'Patina downloads Rust and Zig, about 265 MB, into the toolchain folder.'}
+              </span>
+              <button className="btn" disabled={installing} onClick={startInstall}>
+                {install?.error ? 'Retry' : 'Install toolchain'}
+              </button>
+            </div>
+          )}
+          {install?.error && (
+            <div className="error-text">
+              {install.step} failed: {install.error}
+            </div>
           )}
           {s?.toolchainProblem && <div className="error-text">{s.toolchainProblem}</div>}
         </section>

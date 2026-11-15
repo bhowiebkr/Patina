@@ -108,13 +108,18 @@ impl Toolchain {
     /// Finds the toolchain in the toolchain folder of Patina (13.3). When the folder has no cargo,
     /// it finds the Rust of the system, so a checkout of Patina builds without the folder.
     pub fn find(folder: &Path) -> Result<Toolchain, Error> {
-        let bin = folder.join("cargo").join("bin");
-        let cargo = bin.join(format!("cargo{}", std::env::consts::EXE_SUFFIX));
-        if !cargo.is_file() {
+        if !Toolchain::installed(folder) {
             return Toolchain::detect();
         }
+        let bin = folder.join("cargo").join("bin");
+        let cargo = bin.join(format!("cargo{}", std::env::consts::EXE_SUFFIX));
         let rustc = bin.join(format!("rustc{}", std::env::consts::EXE_SUFFIX));
         Toolchain { cargo, rustc, release: String::new(), own: Some(folder.to_owned()) }.with_release()
+    }
+
+    /// True when the toolchain folder has cargo.
+    pub fn installed(folder: &Path) -> bool {
+        folder.join("cargo").join("bin").join(format!("cargo{}", std::env::consts::EXE_SUFFIX)).is_file()
     }
 
     /// Finds the Rust of the system: the toolchain of the `CARGO` variable, or else of `PATH`.
@@ -169,7 +174,7 @@ impl Toolchain {
 
 /// The environment of the own toolchain: `PATH` has only the Rust tools and the system folder.
 /// On Windows, the Zig wrappers compile the C code of crates and `rust-lld` links (13.2).
-fn own_env(folder: &Path, var: impl Fn(&str) -> Option<OsString>) -> Result<Vec<(String, OsString)>, Error> {
+pub(crate) fn own_env(folder: &Path, var: impl Fn(&str) -> Option<OsString>) -> Result<Vec<(String, OsString)>, Error> {
     let mut env: Vec<(String, OsString)> = KEPT_ENV.iter().filter_map(|name| Some((name.to_string(), var(name)?))).collect();
     let cargo_home = folder.join("cargo");
     let system: Vec<PathBuf> = if cfg!(windows) {
@@ -197,7 +202,7 @@ fn own_env(folder: &Path, var: impl Fn(&str) -> Option<OsString>) -> Result<Vec<
 }
 
 /// A command that opens no console window, also when a GUI program starts it on Windows.
-fn command(program: &Path) -> Command {
+pub(crate) fn command(program: &Path) -> Command {
     #[cfg_attr(not(windows), allow(unused_mut))]
     let mut command = Command::new(program);
     #[cfg(windows)]
@@ -209,7 +214,7 @@ fn command(program: &Path) -> Command {
     command
 }
 
-fn run_text(command: &mut Command) -> Result<String, Error> {
+pub(crate) fn run_text(command: &mut Command) -> Result<String, Error> {
     let program = command.get_program().to_string_lossy().into_owned();
     let output = command.output().map_err(|e| Error::Build(format!("cannot start {program}: {e}")))?;
     if !output.status.success() {

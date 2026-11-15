@@ -88,6 +88,8 @@ export interface Settings {
   /** The toolchain folder (13.3). `ownToolchain` is false when Patina uses the Rust of the system. */
   toolchainDir: string;
   ownToolchain: boolean;
+  /** True while the **Install toolchain** button runs. */
+  installing: boolean;
   dataDir: string;
   projectsDir: string;
   portable: boolean;
@@ -182,6 +184,7 @@ export const api = {
   closeProject: () => invoke<void>('close_project'),
   trustProject: () => invoke<View>('trust_project'),
   settings: () => invoke<Settings>('settings'),
+  installToolchain: () => invoke<void>('install_toolchain'),
   /** Takes a folder off the list of trusted projects (11), and returns the new list. */
   untrustProject: (path: string) => invoke<string[]>('untrust_project', { path }),
   edit: (edit: Edit) => invoke<View>('edit', { edit }),
@@ -215,6 +218,17 @@ export const api = {
 
 export function onEngine(handler: (event: EngineEvent) => void): Promise<UnlistenFn> {
   return listen<EngineEvent>('engine', (e) => handler(e.payload));
+}
+
+/** A step of the toolchain install (13.2). The last event has `done`, and `error` when it failed. */
+export interface InstallProgress {
+  step: string;
+  done: boolean;
+  error: string | null;
+}
+
+export function onToolchain(handler: (progress: InstallProgress) => void): Promise<UnlistenFn> {
+  return listen<InstallProgress>('toolchain', (e) => handler(e.payload));
 }
 
 export function onOutput(handler: (output: OutputText) => void): Promise<UnlistenFn> {

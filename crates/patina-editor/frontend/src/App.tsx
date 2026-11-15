@@ -3,7 +3,6 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
-import type { UnlistenFn } from '@tauri-apps/api/event';
 import {
   api,
   errorText,
@@ -35,23 +34,7 @@ import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
-
-/** Listens to a Tauri event while the component is mounted. */
-function useEvent<T>(subscribe: (handler: (value: T) => void) => Promise<UnlistenFn>, handler: (value: T) => void) {
-  const latest = useRef(handler);
-  useEffect(() => {
-    latest.current = handler;
-  });
-  useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
-    let gone = false;
-    subscribe((value) => latest.current(value)).then((f) => (gone ? f() : (unlisten = f)));
-    return () => {
-      gone = true;
-      unlisten?.();
-    };
-  }, [subscribe]);
-}
+import { useEvent } from './useEvent';
 
 function typing(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));

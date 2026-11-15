@@ -244,9 +244,11 @@ To install on macOS:
 3. Start Patina. The first time, macOS blocks it, because the build is not notarized.
 4. Open **System Settings > Privacy & Security**, and click **Open Anyway**.
 
-In both editions, click **Install toolchain** the first time. Patina downloads Rust, Zig as the
-C compiler and linker, and rust-analyzer into its toolchain folder. NVRTC for CUDA nodes is
-optional.
+In both editions, open **Settings** and click **Install toolchain** the first time. Patina
+downloads Rust and Zig, the C compiler, into its toolchain folder. The download is about 265 MB.
+In this version, the button works only on Windows. Without the toolchain, Patina uses the Rust
+of your system. Later versions also install rust-analyzer, and NVRTC for CUDA nodes as an
+option.
 
 Neither edition changes your `PATH` or installs Rust for the whole system. The installed
 edition keeps the toolchain and your projects in your user folders, and they stay when you
