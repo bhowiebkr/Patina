@@ -88,6 +88,9 @@ pub struct Settings {
     rust: Option<String>,
     cargo: Option<PathBuf>,
     toolchain_problem: Option<String>,
+    /// The toolchain folder of Patina (13.3), and true when the toolchain comes from it.
+    toolchain_dir: PathBuf,
+    own_toolchain: bool,
     data_dir: PathBuf,
     projects_dir: PathBuf,
     portable: bool,
@@ -274,12 +277,12 @@ pub fn start_info(editor: State<'_, Editor>) -> StartInfo {
 
 #[tauri::command(async)]
 pub fn settings(editor: State<'_, Editor>) -> Settings {
-    let (rust, cargo, toolchain_problem) = match Toolchain::detect() {
-        Ok(t) => (Some(t.release), Some(t.cargo), None),
-        Err(e) => (None, None, Some(e.to_string())),
-    };
     let data = &editor.data;
-    Settings { rust, cargo, toolchain_problem, data_dir: data.dir.clone(), projects_dir: data.projects.clone(), portable: data.portable, trusted: data.trusted() }
+    let (rust, cargo, own_toolchain, toolchain_problem) = match Toolchain::find(&data.toolchain) {
+        Ok(t) => (Some(t.release), Some(t.cargo), t.own.is_some(), None),
+        Err(e) => (None, None, false, Some(e.to_string())),
+    };
+    Settings { rust, cargo, toolchain_problem, toolchain_dir: data.toolchain.clone(), own_toolchain, data_dir: data.dir.clone(), projects_dir: data.projects.clone(), portable: data.portable, trusted: data.trusted() }
 }
 
 /// Takes a folder off the list of trusted projects (11). Patina asks again when it opens next.
@@ -297,7 +300,7 @@ pub fn untrust_project(editor: State<'_, Editor>, path: PathBuf) -> Result<Vec<P
 pub fn new_project(editor: State<'_, Editor>, parent: PathBuf, name: String) -> Result<View, String> {
     check_project_name(&name)?;
     full_path(&parent)?;
-    let rust = Toolchain::detect().map_err(|e| e.to_string())?.release;
+    let rust = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?.release;
     let project = Project::create(&parent.join(&name), &rust).map_err(|e| e.to_string())?;
     // The user made the project, so its code is the code of the user (11).
     editor.data.trust(project.root())?;
@@ -370,7 +373,7 @@ pub fn add_crate(editor: State<'_, Editor>, node: String, spec: String) -> Resul
         Ok(session.project.root().to_owned())
     })?;
     // Cargo reads the index of crates.io, so the session stays unlocked while it runs.
-    let toolchain = Toolchain::detect().map_err(|e| e.to_string())?;
+    let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
     let text = patina_engine::add_crate(&root, &toolchain, &node, &spec)?;
     editor.change(|project| {
         if project.root() != root {

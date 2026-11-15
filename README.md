@@ -269,7 +269,8 @@ original project. A package also holds the license notices of Patina and of the 
 ## Run a project from the command line
 
 `patina-cli` builds the main graph of a project and runs it one time. It needs Rust, with the
-version that `patina.toml` gives. To run the example project from a checkout of this
+version that `patina.toml` gives. It uses the `toolchain` folder next to it. When that folder
+has no Rust, it uses the Rust of your system. To run the example project from a checkout of this
 repository:
 
 ```
@@ -318,7 +319,7 @@ not start show **Stale**. A node with a long loop can read `patina_sdk::stop_req
 return early.
 
 Click **Settings** on the start screen to see the Rust toolchain, the data folders and the
-trusted projects. Click **Remove** to take a project off the trusted list. Patina then asks
+trusted projects. When the toolchain folder is empty, Patina uses the Rust of your system. Click **Remove** to take a project off the trusted list. Patina then asks
 again before it builds the project.
 
 If Patina stops before you save, it keeps your changes. When you open the project again, click

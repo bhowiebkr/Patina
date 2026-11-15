@@ -194,6 +194,10 @@ To run the editor from a checkout:
   and read of a dock layout.
 - The editor binary holds the page files (13.1). `build.rs` embeds `frontend/dist` at compile
   time. A copy of `patina.exe` in a folder outside the checkout passed the self-check.
+- The editor and the CLI use the toolchain folder (13.3) when it has `cargo`. Its tools get the
+  clean environment of 13.2. Else Patina uses the Rust of the system, and **Settings** tells so.
+  A unit test checks the clean environment. No toolchain folder is on this computer, so no
+  build with the own toolchain ran.
 - The self-check sets **Orthogonal** in the **Inspector**, finds 3 corners or more on the wire,
   clicks **Reset route**, and undoes both edits.
 - The self-check opens the **Add node** palette with Shift+A and closes it with Esc. Then it
@@ -221,6 +225,8 @@ To run the editor from a checkout:
 - CI run 43727365197 of **Add crate** passed on `windows-latest`, `ubuntu-latest`
   and `macos-latest`.
 - CI run 43731377929 of the log lines passed on `windows-latest`, `ubuntu-latest` and
+  `macos-latest`.
+- CI run 43731942012 of the page in the binary passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 - A copy of the hello example with `log = "0.4"` in the `add` node ran in `patina-cli` on
   Windows. It wrote `INFO adding 2.5 and 4` and `WARN a warning` for the node, and no debug
@@ -356,8 +362,9 @@ The projects are very small, so these times do not predict real projects.
   and **Bake** come at milestone 6.
 - Only function nodes. Stateful nodes, node settings and generic nodes come at milestone 5.
   Subgraphs come at milestone 7, and async nodes at milestone 12.
-- The toolchain comes from the `CARGO` variable or from `PATH`, and its version must be the
-  `rust` version of `patina.toml`. The own toolchain comes at milestone 3.
+- The toolchain comes from the toolchain folder (13.3), or else from the `CARGO` variable or
+  `PATH`. Its version must be the `rust` version of `patina.toml`. The **Install toolchain**
+  button comes at milestone 3.
 - The engine loads the library from the cargo target folder, and never unloads it. Windows
   locks the file, so one process cannot build the same project again after the load.
 - A node panic shows two messages: the default panic message of the cluster, and the report.
@@ -369,7 +376,7 @@ The projects are very small, so these times do not predict real projects.
   `std::string::String` show differently.
 - The CLI runs the graph one time. The clock domains (9.1) come later.
 - These shortcuts are open in the code:
-  - The toolchain comes from `CARGO` or `PATH` (`crates/patina-engine/src/cargo.rs`).
+  - The CLI finds only the toolchain folder next to it (`crates/patina-cli/src/main.rs`).
   - One cluster with a static `std` in the `dev` profile (`crates/patina-engine/src/cargo.rs`).
   - The library loads from the target folder (`crates/patina-engine/src/lib.rs`).
   - Only function nodes (`crates/patina-engine/src/node.rs`,

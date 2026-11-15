@@ -85,6 +85,9 @@ export interface Settings {
   rust: string | null;
   cargo: string | null;
   toolchainProblem: string | null;
+  /** The toolchain folder (13.3). `ownToolchain` is false when Patina uses the Rust of the system. */
+  toolchainDir: string;
+  ownToolchain: boolean;
   dataDir: string;
   projectsDir: string;
   portable: boolean;

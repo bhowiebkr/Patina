@@ -1,5 +1,6 @@
 //! Finds the Rust toolchain and builds the cluster crate with cargo (spec 8).
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -26,6 +27,24 @@ const CLEARED_ENV: &[&str] = &[
     "MFLAGS",
     "RUSTDOCFLAGS",
 ];
+
+/// The variables that a command of the own toolchain keeps. The engine removes all the others, so
+/// no tool finds Visual Studio, a C compiler or another Rust install through them (13.2).
+#[cfg(windows)]
+const KEPT_ENV: &[&str] = &[
+    "SystemRoot",
+    "SystemDrive",
+    "windir",
+    "TEMP",
+    "TMP",
+    "ComSpec",
+    "PATHEXT",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "OS",
+];
+#[cfg(not(windows))]
+const KEPT_ENV: &[&str] = &["HOME", "USER", "LANG", "TMPDIR"];
 
 /// The manifest of the project workspace. Cargo fails on a member glob that matches no folder, so
 /// `nodes/*`, `connections/*` (6.3) and `build/clusters/*` are members only when they have a folder.
@@ -81,32 +100,100 @@ pub struct Toolchain {
     pub rustc: PathBuf,
     /// The Rust version, for example `1.94.0`.
     pub release: String,
+    /// The toolchain folder of Patina (13.3), or none for the Rust of the system.
+    pub own: Option<PathBuf>,
 }
 
 impl Toolchain {
-    /// Finds the toolchain of the `CARGO` variable, or else of `PATH`.
-    // shortcut: no own toolchain yet, the toolchain button (13.1) comes at milestone 3.
+    /// Finds the toolchain in the toolchain folder of Patina (13.3). When the folder has no cargo,
+    /// it finds the Rust of the system, so a checkout of Patina builds without the folder.
+    pub fn find(folder: &Path) -> Result<Toolchain, Error> {
+        let bin = folder.join("cargo").join("bin");
+        let cargo = bin.join(format!("cargo{}", std::env::consts::EXE_SUFFIX));
+        if !cargo.is_file() {
+            return Toolchain::detect();
+        }
+        let rustc = bin.join(format!("rustc{}", std::env::consts::EXE_SUFFIX));
+        Toolchain { cargo, rustc, release: String::new(), own: Some(folder.to_owned()) }.with_release()
+    }
+
+    /// Finds the Rust of the system: the toolchain of the `CARGO` variable, or else of `PATH`.
     pub fn detect() -> Result<Toolchain, Error> {
-        let exe = std::env::consts::EXE_SUFFIX;
         let cargo = std::env::var_os("CARGO").map_or_else(|| PathBuf::from("cargo"), PathBuf::from);
-        let rustc_name = format!("rustc{exe}");
+        let rustc_name = format!("rustc{}", std::env::consts::EXE_SUFFIX);
         let rustc = cargo
             .parent()
             .map(|dir| dir.join(&rustc_name))
             .filter(|path| path.is_file())
             .unwrap_or_else(|| PathBuf::from(&rustc_name));
-        let version = run_text(command(&rustc).arg("-vV"))?;
-        let release = version
+        Toolchain { cargo, rustc, release: String::new(), own: None }.with_release()
+    }
+
+    /// Reads the Rust version and uses the programs of the sysroot. They are not rustup proxies,
+    /// so a `rust-toolchain.toml` in the project cannot select another toolchain.
+    fn with_release(mut self) -> Result<Toolchain, Error> {
+        let version = run_text(self.command(&self.rustc)?.arg("-vV"))?;
+        self.release = version
             .lines()
             .find_map(|line| line.strip_prefix("release:"))
             .map(|value| value.trim().to_owned())
-            .ok_or_else(|| Error::Build(format!("{} -vV gave no release", rustc.display())))?;
-        // The programs in the sysroot are not rustup proxies, so a `rust-toolchain.toml` in the
-        // project cannot select another toolchain.
-        let bin = PathBuf::from(run_text(command(&rustc).args(["--print", "sysroot"]))?.trim()).join("bin");
-        let pick = |name: String, found: PathBuf| Some(bin.join(name)).filter(|p| p.is_file()).unwrap_or(found);
-        Ok(Toolchain { cargo: pick(format!("cargo{exe}"), cargo), rustc: pick(rustc_name, rustc), release })
+            .ok_or_else(|| Error::Build(format!("{} -vV gave no release", self.rustc.display())))?;
+        let sysroot = run_text(self.command(&self.rustc)?.args(["--print", "sysroot"]))?;
+        let bin = PathBuf::from(sysroot.trim()).join("bin");
+        for (file, name) in [(&mut self.cargo, "cargo"), (&mut self.rustc, "rustc")] {
+            let found = bin.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+            if found.is_file() {
+                *file = found;
+            }
+        }
+        Ok(self)
     }
+
+    /// A command of this toolchain. The own toolchain gets the environment of a clean computer
+    /// (13.2). The Rust of the system loses only the variables that change a build.
+    pub fn command(&self, program: &Path) -> Result<Command, Error> {
+        let mut command = command(program);
+        match &self.own {
+            None => {
+                for var in CLEARED_ENV {
+                    command.env_remove(var);
+                }
+            }
+            Some(folder) => {
+                command.env_clear().envs(own_env(folder, |name| std::env::var_os(name))?);
+            }
+        }
+        Ok(command)
+    }
+}
+
+/// The environment of the own toolchain: `PATH` has only the Rust tools and the system folder.
+/// On Windows, the Zig wrappers compile the C code of crates and `rust-lld` links (13.2).
+fn own_env(folder: &Path, var: impl Fn(&str) -> Option<OsString>) -> Result<Vec<(String, OsString)>, Error> {
+    let mut env: Vec<(String, OsString)> = KEPT_ENV.iter().filter_map(|name| Some((name.to_string(), var(name)?))).collect();
+    let cargo_home = folder.join("cargo");
+    let system: Vec<PathBuf> = if cfg!(windows) {
+        let root = var("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+        vec![Path::new(&root).join("System32")]
+    } else {
+        vec!["/usr/bin".into(), "/bin".into()]
+    };
+    let path = std::env::join_paths(std::iter::once(cargo_home.join("bin")).chain(system))
+        .map_err(|e| Error::Build(format!("the toolchain folder {} cannot go in PATH: {e}", folder.display())))?;
+    env.push(("PATH".to_owned(), path));
+    env.push(("RUSTUP_HOME".to_owned(), folder.join("rustup").into()));
+    env.push(("CARGO_HOME".to_owned(), cargo_home.into()));
+    if cfg!(windows) {
+        let zig = folder.join("zig");
+        for (name, file) in [("CC", "zig-cc.exe"), ("AR", "zig-ar.exe")] {
+            if zig.join(file).is_file() {
+                env.push((format!("{name}_x86_64_pc_windows_gnu"), zig.join(file).into()));
+            }
+        }
+        // GNU ld reads ANSI arguments, so it cannot open a path with CJK letters. rust-lld can.
+        env.push(("CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER".to_owned(), "rust-lld".into()));
+    }
+    Ok(env)
 }
 
 /// A command that opens no console window, also when a GUI program starts it on Windows.
@@ -140,13 +227,10 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
     write(root, "build/clusters/main/lib.rs", &generate::source(plan))?;
     write_workspace(root)?;
 
-    let mut command = command(&toolchain.cargo);
+    let mut command = toolchain.command(&toolchain.cargo)?;
     command
         .current_dir(root)
         .args(["build", "-p", generate::PACKAGE, "--message-format=json"]);
-    for var in CLEARED_ENV {
-        command.env_remove(var);
-    }
     command.env("CARGO_TARGET_DIR", root.join("build/target")).env("RUSTC", &toolchain.rustc);
     let output = command
         .output()
@@ -192,11 +276,8 @@ pub fn add_crate(root: &Path, toolchain: &Toolchain, node: &str, spec: &str) -> 
     let manifest = root.join(&relative);
     let old = std::fs::read_to_string(&manifest).map_err(|e| format!("{relative}: {e}"))?;
     write_workspace(root).map_err(|e| e.to_string())?;
-    let mut command = command(&toolchain.cargo);
+    let mut command = toolchain.command(&toolchain.cargo).map_err(|e| e.to_string())?;
     command.current_dir(root).arg("add").arg("--manifest-path").arg(&manifest).arg("--").arg(spec);
-    for var in CLEARED_ENV {
-        command.env_remove(var);
-    }
     let output = command.output().map_err(|e| format!("cannot start {}: {e}", toolchain.cargo.display()));
     let new = std::fs::read_to_string(&manifest).map_err(|e| format!("{relative}: {e}"));
     write(root, &relative, &old).map_err(|e| e.to_string())?;
@@ -309,6 +390,27 @@ mod tests {
         let error = add_crate(&root, &toolchain, "num", "patina-no-such-crate-x").unwrap_err();
         assert!(error.contains("patina-no-such-crate-x"), "{error}");
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_own_toolchain_has_a_clean_environment() {
+        let folder = std::env::temp_dir().join(format!("patina-toolchain-{}", std::process::id()));
+        let names = |folder: &Path| -> Vec<String> {
+            let env = own_env(folder, |name| Some(format!("old {name}").into())).unwrap();
+            let path = &env.iter().find(|(name, _)| name == "PATH").unwrap().1;
+            assert_eq!(std::env::split_paths(path).next(), Some(folder.join("cargo").join("bin")));
+            env.into_iter().map(|(name, _)| name).collect()
+        };
+        let first = names(&folder);
+        assert!(first.contains(&"CARGO_HOME".to_owned()) && !first.iter().any(|n| n.starts_with("CC_") || n == "RUSTFLAGS"));
+        if cfg!(windows) {
+            std::fs::create_dir_all(folder.join("zig")).unwrap();
+            std::fs::write(folder.join("zig").join("zig-cc.exe"), "").unwrap();
+            assert!(names(&folder).contains(&"CC_x86_64_pc_windows_gnu".to_owned()));
+            std::fs::remove_dir_all(&folder).unwrap();
+        }
+        // A folder with no cargo gives the Rust of the system.
+        assert_eq!(Toolchain::find(&folder).unwrap().own, None);
     }
 
     #[test]

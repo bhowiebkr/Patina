@@ -32,7 +32,12 @@ fn main() -> ExitCode {
 fn run(folder: &Path) -> Result<bool, patina_engine::Error> {
     let project = Project::open(folder)?;
     let checked = project.check()?;
-    let toolchain = Toolchain::detect()?;
+    // shortcut: only the toolchain folder next to the CLI (portable edition), change it with the installers.
+    let folder = std::env::current_exe().ok().and_then(|exe| Some(exe.parent()?.join("toolchain")));
+    let toolchain = match folder {
+        Some(folder) => Toolchain::find(&folder)?,
+        None => Toolchain::detect()?,
+    };
     eprintln!("Building with Rust {}...", toolchain.release);
     let start = Instant::now();
     let mut cluster = checked.build(&toolchain)?;

@@ -213,7 +213,7 @@ fn main() {
             output::capture(move |text, err| {
                 let _ = handle.emit("output", OutputText { text, err });
             })?;
-            let engine = engine::start(app.handle().clone());
+            let engine = engine::start(app.handle().clone(), data.toolchain.clone());
             let webview_dir = data.dir.join("webview");
             if let Some(dir) = &check {
                 limit_check(dir.clone());

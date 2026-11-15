@@ -37,12 +37,21 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         <section className="start-box" aria-label="Toolchain">
           <h2>Toolchain</h2>
           {!s && <div className="label">Reading</div>}
-          {s?.rust && (
+          {s && (
             <dl className="settings-list">
-              <dt>Rust</dt>
-              <dd>{s.rust}</dd>
-              <dt>Cargo</dt>
-              <dd>{s.cargo}</dd>
+              {s.rust && (
+                <>
+                  <dt>Rust</dt>
+                  <dd>{s.rust}</dd>
+                  <dt>Cargo</dt>
+                  <dd>{s.cargo}</dd>
+                </>
+              )}
+              <dt>Toolchain folder</dt>
+              <dd>
+                {s.toolchainDir}
+                {!s.ownToolchain && <span className="label"> (empty: Patina uses the Rust of the system)</span>}
+              </dd>
             </dl>
           )}
           {s?.toolchainProblem && <div className="error-text">{s.toolchainProblem}</div>}

@@ -1,6 +1,7 @@
 //! The engine thread. It owns the loaded cluster, which stays on one thread, and builds and runs
 //! the graph (spec 7.2, 15.10).
 
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
@@ -86,18 +87,19 @@ pub fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-pub fn start(app: AppHandle) -> (Sender<Job>, Arc<Shared>) {
+/// `toolchain` is the toolchain folder of Patina (13.3).
+pub fn start(app: AppHandle, toolchain: PathBuf) -> (Sender<Job>, Arc<Shared>) {
     let (send, jobs) = std::sync::mpsc::channel();
     let shared = Arc::new(Shared::default());
     let kept = shared.clone();
     std::thread::Builder::new()
         .name("patina-engine".to_owned())
-        .spawn(move || run_jobs(&app, &jobs, &kept))
+        .spawn(move || run_jobs(&app, &jobs, &kept, &toolchain))
         .expect("the engine thread starts");
     (send, shared)
 }
 
-fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared) {
+fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     let mut toolchain = None;
     let mut loaded = None;
     while let Ok(first) = jobs.recv() {
@@ -120,7 +122,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared) {
         if build || loaded.is_none() {
             let _ = app.emit("engine", Event::Building { serial: run.serial });
         }
-        let event = match run_one(app, &mut toolchain, &mut loaded, &run, build, shared) {
+        let event = match run_one(app, (folder, &mut toolchain), &mut loaded, &run, build, shared) {
             Ok(event) => event,
             Err(e) => {
                 lock(&shared.values).clear();
@@ -132,14 +134,14 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared) {
     }
 }
 
-fn run_one(app: &AppHandle, toolchain: &mut Option<Toolchain>, loaded: &mut Option<Loaded>, run: &Run, build: bool, shared: &Shared) -> Result<Event, Error> {
+fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &Run, build: bool, shared: &Shared) -> Result<Event, Error> {
     let mut built_ms = None;
     let mut errors = Vec::new();
     if build || loaded.is_none() {
         let start = Instant::now();
         let wiring = run.checked.wiring();
         if toolchain.is_none() {
-            *toolchain = Some(Toolchain::detect()?);
+            *toolchain = Some(Toolchain::find(folder)?);
         }
         let toolchain = toolchain.as_ref().expect("the toolchain is set above");
         match run.checked.build(toolchain) {

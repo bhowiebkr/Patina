@@ -47,6 +47,8 @@ pub struct Data {
     pub dir: PathBuf,
     /// The default parent folder of new projects.
     pub projects: PathBuf,
+    /// The toolchain folder (13.3).
+    pub toolchain: PathBuf,
     /// True when the data stays in the folder of a portable edition or of `--portable` (13.3).
     pub portable: bool,
 }
@@ -56,19 +58,20 @@ impl Data {
     /// then the folder of the user.
     pub fn find(portable: Option<PathBuf>) -> Result<Data, String> {
         let exe_dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_owned));
-        let (dir, projects, portable) = match (portable, exe_dir) {
-            (Some(dir), _) => (dir.join("data"), dir.join("projects"), true),
-            (None, Some(exe)) if exe.join("portable").is_file() => (exe.join("data"), exe.join("projects"), true),
+        let (root, projects, portable) = match (portable, exe_dir) {
+            (Some(dir), _) => (dir.clone(), dir.join("projects"), true),
+            (None, Some(exe)) if exe.join("portable").is_file() => (exe.clone(), exe.join("projects"), true),
             (None, _) => {
                 let base = dirs::data_local_dir().ok_or("the folder for local data is not known")?;
                 let name = if cfg!(target_os = "linux") { "patina" } else { "Patina" };
                 let documents = dirs::document_dir().unwrap_or_else(|| base.clone());
-                (base.join(name).join("data"), documents.join("Patina"), false)
+                (base.join(name), documents.join("Patina"), false)
             }
         };
-        let dir = std::path::absolute(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let root = std::path::absolute(&root).map_err(|e| format!("{}: {e}", root.display()))?;
+        let (dir, toolchain) = (root.join("data"), root.join("toolchain"));
         fs::create_dir_all(&dir).map_err(|e| format!("Patina cannot write to {}: {e}", dir.display()))?;
-        Ok(Data { dir, projects, portable })
+        Ok(Data { dir, projects, toolchain, portable })
     }
 
     /// The recent projects, the newest first.
