@@ -100,11 +100,12 @@ and copies them when you confirm.
 
 ```
 image-pipeline/
-  graphs/          the main graph and the reusable subgraphs
+  graphs/          the main graph and the subgraphs, with their connections
   nodes/
     curve-editor/  one node: its code, its GUI and its tests
   views/           custom panels
   widgets/         custom widgets for node GUIs and views
+  connections/     connection kinds: how the wires of each type look
   types/           data types
 ```
 
@@ -117,7 +118,9 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 
 - A bus carries one value with many signals, for example the 8 bits of a byte. The wire shows
   each signal as a lane, and a lane lights when its bit is 1. A badge shows the value as text.
-- A data type decides its lanes. A type with no lanes shows one wire and its type name.
+- The project defines how the wires of each data type look, with a connection kind. For
+  example, a bus kind sets the lanes of a byte. A type with no connection kind shows one wire
+  and its type name.
 - A wire can be curved, or straight with rounded or sharp corners. You can add bends and route
   a wire around a node. The look of a wire never changes what it connects.
 - One output can feed many inputs. Splitting or joining a value takes a node.

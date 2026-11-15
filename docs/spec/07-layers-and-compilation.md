@@ -58,7 +58,7 @@ enum Edit {
     RemoveNode(NodeId),
     Connect(Port, Port),
     Disconnect(Port, Port),
-    SetCode(PathBuf, String), // a file in a node, view, or widget folder (6.2)
+    SetCode(PathBuf, String), // a file in a node, view, widget, or connection folder (6.2)
     SetParam(NodeId, String, Value),
     Order(NodeId, NodeId),   // order wire, see 9.2
 }
@@ -74,7 +74,7 @@ enum Edit {
 - Each project locks one Rust version.
 - Each project is one Cargo workspace with one `Cargo.lock`. The lock file gives one resolved set of crate versions for all nodes.
 - Cargo can still put two incompatible versions of one crate in the build, for example `image` 0.24 and 0.25. Their types are different types. The type key check rejects a wire between them (5.1).
-- Each node, view, widget, and type folder is one crate of the workspace (6.2).
+- Each node, view, widget, connection, and type folder is one crate of the workspace (6.2).
 - Nodes can use any crate from crates.io, as source.
 - One shared crate cache serves all projects.
 
@@ -88,6 +88,7 @@ enum Edit {
 | Shared types | `std` + type crates of the project | One shared Rust library |
 | Slot | One node, compiled alone (7) | One `.dll` / `.so` / `.dylib` |
 | View | One view, compiled alone (15.8) | One `.dll` / `.so` / `.dylib` |
+| Connection kind | One connection kind, compiled alone (6.3) | One `.dll` / `.so` / `.dylib` |
 
 - A node crate is a unit of the build cache. A node never runs as its own library, except in the slot (7).
 - A cluster is a part of the graph that compiles as one unit.
@@ -107,7 +108,7 @@ Section 7 describes the base and the slot. The base builds in bake mode. The slo
 
 ### 8.5 Hot reload
 
-- Each build gets a new file name: clusters, the slot, views, and the shared types library. Windows locks loaded `.dll` files. Windows also gives an already loaded library to each later request with the same file name. Thus a new build with an old name would run the old code.
+- Each build gets a new file name: clusters, the slot, views, connection kinds, and the shared types library. Windows locks loaded `.dll` files. Windows also gives an already loaded library to each later request with the same file name. Thus a new build with an old name would run the old code.
 - The engine loads each library by its full path. It finds the libraries that a library needs only in the `build/` folder of the project. On Windows, `LoadLibraryExW` with the `LOAD_LIBRARY_SEARCH` flags limits the search path. The `build/` folder holds each library that a cluster needs, including the `std` library of the toolchain.
 - Values, node states, futures, and callbacks keep a link to the build that made them. Old builds stay loaded, so these drop with their own code.
 - A failed build never deletes or replaces a loaded file.

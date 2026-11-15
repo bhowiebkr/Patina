@@ -81,8 +81,8 @@ Later milestones:
 
 These block milestone 2, with the connections prototype of section 2.
 
-- [ ] The SDK form of a lane description (5.3): how a type gives the number, the names and the
-  order of its lanes, and the state of each lane.
+- [ ] The SDK form of a connection kind (6.3): how it names its types and gives the lanes, the
+  socket, the label and the badge. Start small. The owner expects it to change.
 - [ ] Where the controls of a wire go: **Route**, **Corners**, **Bus**, **Lock bends** and
   **Reset route** (15.9). The mockups show them in a toolbar and in a panel. The spec does not
   place them.

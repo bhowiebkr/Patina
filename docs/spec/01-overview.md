@@ -26,7 +26,7 @@ Example uses (not limits): sound effect editors, image and shader editors, autom
 | `patina-engine` | Compiles the graph in layers (7), schedules and runs it. No UI code. |
 | `patina-editor` | Tauri 2 desktop app with a web frontend. Talks to the engine through messages. |
 | `patina-cli` | Runs a project or a package from the command line. |
-| `patina-sdk` | The crate that node, view, and widget code uses: node and view macros, `Ui` API for node GUIs and views, `Graph` handle for views, viewer trait, buffer pools, shared GPU context, logging. |
+| `patina-sdk` | The crate that node, view, widget, and connection code uses: node and view macros, `Ui` API for node GUIs and views, `Graph` handle for views, viewer and connection traits, buffer pools, shared GPU context, logging. |
 
 All code is Rust, except the web frontend of the editor.
 

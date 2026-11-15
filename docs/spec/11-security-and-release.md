@@ -8,7 +8,7 @@ Build scripts and procedural macros run code at compile time. Native nodes run w
 
 - When the user opens a project from another person, Patina asks the user to trust it.
 - An untrusted project opens read-only. The user can see the graph and the code. Patina does not build or run it.
-- Until the user trusts a project, Patina starts no tool on it. The tools include the build, check and test commands, rust-analyzer, the formatter, and views. The **Code** tab shows the source with syntax colors only. rust-analyzer runs build scripts and procedural macros, so it starts only for a trusted project.
+- Until the user trusts a project, Patina starts no tool on it. The tools include the build, check and test commands, rust-analyzer, the formatter, views, and connection kinds. The **Code** tab shows the source with syntax colors only. rust-analyzer runs build scripts and procedural macros, so it starts only for a trusted project.
 - Patina reads no tool settings from an untrusted project, for example `.cargo/config.toml` or `rust-toolchain.toml`.
 - A folder that the user imports from an untrusted project stays out of the workspace members until the user trusts it (6.2).
 - Patina keeps a list of trusted project folders. A project that the user makes in Patina goes on the list.

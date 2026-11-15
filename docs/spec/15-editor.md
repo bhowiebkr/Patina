@@ -203,7 +203,7 @@ rules and examples.
 **Meaning and appearance**
 
 - A connection keeps its source, destination, type and domain information when its route or appearance changes.
-- A typed bus can show its ordered signals as lanes. A visual cable groups separate connections without joining their values.
+- A typed bus can show its ordered signals as lanes. Its connection kind (6.3) describes the lanes. A visual cable groups separate connections without joining their values.
 - Fan-out connects one source to several readers, subject to the ownership rules (4.4). Splitting, joining, merging or converting values requires explicit nodes with declared semantics.
 - A crossing is not a junction. Only an explicit connection edit changes which pins connect.
 - Types remain in type crates (5.1). The editor must not infer type compatibility from a color, lane count or cable shape.
@@ -212,7 +212,7 @@ rules and examples.
 
 A connection shows the value that it carries while the graph runs. Connections are as important as nodes for reading a running graph.
 
-- A wire of a type with lanes (5.3) shows each lane and its state. For example, a bus of 8 bits shows 8 lanes, and a lane lights when its bit is 1.
+- A wire of a type with lanes (6.3) shows each lane and its state. For example, a bus of 8 bits shows 8 lanes, and a lane lights when its bit is 1.
 - A wire with one signal shows its state too, for example a lit 1-bit wire with a value badge.
 - A bus socket shows a contact for each lane. Each contact shows the state of its lane.
 - A value badge on the wire shows the value as text, for example `0x66`. A label shows the name and the width, for example "data[7:0] / 8".
@@ -222,7 +222,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - At a far zoom, a bus shows as one line with a width badge. At a near zoom, it shows each lane.
 - A stale value (15.3) shows dim, on the wire as on the node.
 - Live values follow the viewer rules (5.3, 9.2). The editor reads them at the display rate at most (15.6), and a read never changes the run.
-- A type with no lane description shows one line and its type label. The editor does not make lanes from the size of a value or the length of a list.
+- A type with no lane description (6.3) shows one line and its type label. The editor does not make lanes from the size of a value or the length of a list.
 - How the engine reads a wire inside a fused chain (9.2) is open (18).
 
 **Appearance**

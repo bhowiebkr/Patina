@@ -153,7 +153,7 @@ signals. Bending a connection around a node does not add a dependency.
 | Order wire | An execution dependency that carries no data |
 
 The distinction is defined by the graph, not by painted geometry. A type with
-no lane description uses a normal connection and a type label. Do not invent
+no lane description (spec 6.3) uses a normal connection and a type label. Do not invent
 strands from a value's memory size or from the number of items in a list.
 
 | Appearance control | Purpose |
@@ -272,8 +272,8 @@ Use them to check that the connection model is broader than electronics.
 | Named route continuation | Paired endpoints with matching IDs and navigation between them | Optional presentation only; matching text must never create a hidden connection |
 | Request and reply pair | Two labeled lanes in one visual cable | Preserve their separate directions and types; no implicit bidirectional data wire |
 
-Additional types should describe their own values and, where supported, named
-lanes. The editor owns routing and the common interaction rules. Exact SDK
+Additional types should describe their own values. A connection kind of the
+project describes their lanes (spec 6.3). The editor owns routing and the common interaction rules. Exact SDK
 extensions remain to be designed; this guide does not choose a framework,
 serialization format or arbitrary renderer plugin mechanism.
 
