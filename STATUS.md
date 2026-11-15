@@ -29,6 +29,8 @@ and 6.4).
 - The engine gives each subgraph to the node list with its public pins and their types.
 - The engine opens a subgraph for edits, saves it to its own file and runs the main graph with
   the unsaved changes of the open subgraph. A unit test checks this.
+- The engine collapses a selection into a new subgraph and expands a use. Unit tests check the
+  public pins, the order wires, the cycle check, the ID collisions and the file.
 - A double-click on a use opens the subgraph in the editor. The public pins show as small nodes
   with their wires, and the path bar goes back to the main graph. A change of graph saves first.
 
@@ -40,7 +42,8 @@ and 6.4).
 - In an open subgraph, the public pins are read only. The editor cannot add, move or wire them
   yet. The inner nodes show no live values and no run errors, because a subgraph can have many
   uses.
-- The editor cannot collapse a selection into a subgraph or expand a use yet.
+- Ctrl+G collapses the selected nodes into a new subgraph file, with public pins for the wires
+  that cross. An undo keeps the new file. Ctrl+Shift+G expands the selected uses.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
 - The engine does not check the format of the public pin keys yet.
 

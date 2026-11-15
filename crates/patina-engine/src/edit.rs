@@ -244,7 +244,7 @@ fn find(graph: &GraphFile, id: &str) -> Result<usize, String> {
 
 /// The nodes of the cycle that a new wire from node `from` to node `to` makes (9.2), from `to`
 /// along the wires and the order wires to `from`. None when the wire makes no cycle.
-fn cycle<'a>(graph: &'a GraphFile, from: &'a str, to: &'a str) -> Option<Vec<&'a str>> {
+pub(crate) fn cycle<'a>(graph: &'a GraphFile, from: &'a str, to: &'a str) -> Option<Vec<&'a str>> {
     let links: Vec<(&str, &str)> = graph
         .wire
         .iter()
@@ -273,7 +273,7 @@ fn cycle<'a>(graph: &'a GraphFile, from: &'a str, to: &'a str) -> Option<Vec<&'a
     None
 }
 
-fn node_of(end: &str) -> &str {
+pub(crate) fn node_of(end: &str) -> &str {
     end.split_once('.').map_or(end, |(id, _)| id)
 }
 

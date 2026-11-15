@@ -460,6 +460,18 @@ pub fn open_graph(editor: State<'_, Editor>, name: String) -> Result<View, Strin
     })
 }
 
+/// Moves the selected nodes into a new subgraph (6.1).
+#[tauri::command(async)]
+pub fn collapse(editor: State<'_, Editor>, name: String, ids: Vec<String>, use_id: String) -> Result<View, String> {
+    editor.change(|project| project.collapse(&name, &ids, &use_id))
+}
+
+/// Puts the nodes of the selected subgraph uses in their place (6.1).
+#[tauri::command(async)]
+pub fn expand(editor: State<'_, Editor>, ids: Vec<String>) -> Result<View, String> {
+    editor.change(|project| project.expand(&ids))
+}
+
 #[tauri::command(async)]
 pub fn read_code(editor: State<'_, Editor>, path: String) -> Result<String, String> {
     editor.with(|session| session.project.read_code(&path))

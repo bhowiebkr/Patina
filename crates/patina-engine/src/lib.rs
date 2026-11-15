@@ -265,6 +265,45 @@ impl Project {
         Ok(())
     }
 
+    /// Moves the nodes `ids` of the open graph into the new subgraph file `graphs/<name>.toml`, with
+    /// the use `use_id` in their place, as one step of undo (6.1). An undo keeps the file.
+    pub fn collapse(&mut self, name: &str, ids: &[String], use_id: &str) -> Result<(), String> {
+        plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+        let path = graph_path(&self.root, name);
+        if name == MAIN || path.exists() {
+            return Err(format!("the graph {name} exists"));
+        }
+        let state = RandomState::new();
+        let mut count = 0u32;
+        let key = || {
+            count += 1;
+            format!("{:08x}", state.hash_one(count) as u32)
+        };
+        let (outer, inner) = subgraph::collapse(&self.history.graph, ids, use_id, name, key)?;
+        project::write(&path, &inner).map_err(|e| e.to_string())?;
+        self.history.replace(outer);
+        Ok(())
+    }
+
+    /// Puts the nodes of each subgraph use `ids` of the open graph in place of the use, as one step
+    /// of undo (6.1). The subgraph files stay.
+    pub fn expand(&mut self, ids: &[String]) -> Result<(), String> {
+        let state = RandomState::new();
+        let mut count = 0u32;
+        let mut new_id = || {
+            count += 1;
+            format!("{:016x}", state.hash_one(count))
+        };
+        let mut graph = self.history.graph.clone();
+        for id in ids {
+            let name = graph.node.iter().find(|n| &n.id == id).and_then(|n| n.subgraph.clone()).ok_or(format!("the node {id} is not a use of a subgraph"))?;
+            let inner = project::read(&graph_path(&self.root, &name), |g: &GraphFile| g.format).map_err(|e| e.to_string())?;
+            graph = subgraph::expand_use(&graph, id, &inner, &mut new_id)?;
+        }
+        self.history.replace(graph);
+        Ok(())
+    }
+
     /// Applies an edit of the user (7.4). A code edit writes its file at once, because cargo
     /// builds from the files.
     pub fn apply(&mut self, edit: &Edit) -> Result<(), String> {
@@ -736,8 +775,22 @@ mod tests {
         assert_eq!((project.graph_name(), project.graph().node.len()), ("main", 2));
         assert!(project.can_undo(), "the undo history of the main graph stays");
         let half = fs::read_to_string(root.join("graphs/half.toml")).unwrap();
-        fs::remove_dir_all(&root).unwrap();
         assert!(half.contains("000000000000000a"), "{half}");
+
+        // A collapse writes the new subgraph file. An undo keeps the file.
+        let ids = ["000000000000000a".to_owned()];
+        assert!(project.collapse("half", &ids, "00000000000000c1").is_err(), "the graph exists");
+        project.collapse("part", &ids, "00000000000000c1").unwrap();
+        assert!(project.check().unwrap().graph().node.iter().any(|n| n.id == "00000000000000c1/000000000000000a"));
+        project.expand(&["00000000000000c1".to_owned()]).unwrap();
+        assert_eq!(project.graph().node[1].id, "000000000000000a", "the expand gives the node again");
+        assert!(project.expand(&ids).is_err(), "the node is not a use");
+        project.undo().unwrap();
+        project.undo().unwrap();
+        let kept = root.join("graphs/part.toml").is_file();
+        let count = project.graph().node.len();
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!((kept, count), (true, 2));
     }
 
     #[test]

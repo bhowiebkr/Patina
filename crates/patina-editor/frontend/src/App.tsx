@@ -9,6 +9,7 @@ import {
   folderName,
   logKind,
   millis,
+  newId,
   onCloseRequested,
   onEngine,
   onOutput,
@@ -176,6 +177,18 @@ export function App() {
     },
     [act, saveAll],
   );
+
+  // Ctrl+G moves the selected nodes into a new subgraph (6.1).
+  const collapse = useCallback(
+    async (name: string, ids: string[]) => {
+      const v = await api.collapse(name, ids, newId());
+      show(v);
+      markStale(v);
+    },
+    [show, markStale],
+  );
+
+  const expandUses = useCallback((ids: string[]) => act(api.expand(ids), markStale), [act, markStale]);
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
   const pick = useCallback((at: Reveal) => {
@@ -519,7 +532,7 @@ export function App() {
               </div>
             )}
             <div className="canvas">
-              <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} />
+              <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
               {view.graphName !== 'main' && (
                 <nav className="graph-path" aria-label="Graph path">
                   <button className="btn" onClick={() => openGraph('main')}>

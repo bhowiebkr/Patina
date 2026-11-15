@@ -16,6 +16,7 @@ import {
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import { AddNode } from './AddNode';
+import { NameField } from './NameField';
 import { newId, type Edit, type NodeInfo, type Point, type View } from './api';
 import { savedViewport, saveViewport } from './Dock';
 import { NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
@@ -122,9 +123,13 @@ interface Props {
   focus: { id: string; n: number } | null;
   /** Opens a subgraph, from a double-click on a use (6.1). */
   onOpen: (name: string) => void;
+  /** Moves the nodes into a new subgraph. It fails with the problem. */
+  onCollapse: (name: string, ids: string[]) => Promise<void>;
+  /** Puts the nodes of each subgraph use in its place. */
+  onExpand: (ids: string[]) => void;
 }
 
-export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen }: Props) {
+export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand }: Props) {
   const flow = useReactFlow<GraphNode, Edge<WireData>>();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
@@ -133,6 +138,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen }: 
   // The screen point of the open Add node palette, with the pin of a wire that it ends, and the
   // last pointer point over the canvas.
   const [palette, setPalette] = useState<{ x: number; y: number; end?: FreeEnd } | null>(null);
+  const [collapsing, setCollapsing] = useState<{ ids: string[]; x: number; y: number } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport(view.graphName));
@@ -191,8 +197,15 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen }: 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target) || e.ctrlKey || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer')) return;
-      if (e.key === 'Delete' && view.trusted) {
+      if (typing(e.target) || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer')) return;
+      if (e.ctrlKey) {
+        const selected = nodes.filter((n): n is PatinaNode => !!n.selected && n.type === 'patina');
+        const uses = selected.filter((n) => n.data.entry.subgraph).map((n) => n.id);
+        if (e.key.toLowerCase() !== 'g' || !view.trusted || (e.shiftKey ? uses : selected).length === 0) return;
+        const r = document.querySelector('.react-flow')!.getBoundingClientRect();
+        if (e.shiftKey) onExpand(uses);
+        else setCollapsing({ ids: selected.map((n) => n.id), ...(pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 }) });
+      } else if (e.key === 'Delete' && view.trusted) {
         const removed = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
         const edits: Edit[] = [...removed].map((id) => ({ kind: 'RemoveNode', id }));
         for (const edge of edges) {
@@ -216,7 +229,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen }: 
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [nodes, edges, view.trusted, onEdit, flow]);
+  }, [nodes, edges, view.trusted, onEdit, onExpand, flow]);
 
   const onDragOver = (e: DragEvent) => {
     if (e.dataTransfer.types.includes(NODE_MIME) && view.trusted) {
@@ -299,6 +312,13 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen }: 
           onAdd={(n) => addNode(n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`, palette.x, palette.y, end, n)}
           onClose={() => setPalette(null)}
         />
+      )}
+      {collapsing && (
+        <div className="menu-layer">
+          <div className="menu collapse-name" role="dialog" aria-label="Collapse into a subgraph" style={{ left: Math.min(collapsing.x, innerWidth - 250), top: Math.min(collapsing.y, innerHeight - 80) }}>
+            <NameField label="Subgraph name" onMake={(name) => onCollapse(name, collapsing.ids)} onClose={() => setCollapsing(null)} />
+          </div>
+        </div>
       )}
     </WireContext.Provider>
   );

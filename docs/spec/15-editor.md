@@ -111,6 +111,8 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | Delete | Delete the selection |
 | Esc | Cancel the drag, or clear the selection |
 | Double-click on an empty area, Shift+A | Open the **Add node** palette |
+| Ctrl+G | Collapse the selected nodes into a new subgraph |
+| Ctrl+Shift+G | Expand the selected uses of subgraphs |
 | Drag from a pin into an empty area | Open the **Add node** palette for that pin |
 
 The owner asked for the standard controls. The table, the zoom range and the wheel steps are an agent decision of 2026-11-15.
@@ -401,6 +403,17 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - Only the open graph can have unsaved changes. Thus a change of graph saves all first, as Ctrl+S does. Each graph keeps its undo history while the project is open.
 - A run uses the unsaved changes of the open subgraph, as it does for the main graph.
 - Reason: one unsaved graph keeps the save, the recovery file and the close dialog simple. A user who opens a subgraph usually wants the change of the main graph to stay.
+
+**Collapse into a subgraph**
+
+This is an agent decision of 2026-11-15. The owner can change it.
+
+- Ctrl+G asks for a name and moves the selected nodes into the new file `graphs/<name>.toml` (6.1). A use of the subgraph takes their place, at the top left corner of the selection.
+- Each outer output that feeds the selection gets one public input, with a wire to each inner input that it fed. Each inner output that feeds the outer graph gets one public output. A pin takes the key of its first inner pin as its name, with `_2`, `_3` for a repeated name.
+- The wires and the order wires between the selected nodes go into the subgraph. An order wire that crosses goes to the use. The collars and the cables keep only their outer wires.
+- The editor refuses a name that has a graph, and a selection that makes a cycle through the use.
+- The change of the open graph is one undo step. An undo keeps the subgraph file, because a file write is not part of the history.
+- Ctrl+Shift+G expands each selected use: the nodes of the subgraph take its place, as one undo step. Their top left corner goes to the position of the use. An inner node keeps its ID, unless the graph has the ID. A parameter of the use goes to the inner inputs of its pin. The subgraph file stays.
 
 **Recovery file**
 
