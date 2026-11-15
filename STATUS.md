@@ -31,8 +31,8 @@ and 6.4).
 ### Known limits
 
 - The editor shows a use of a subgraph as one node with the public pins, and **Add node** lists
-  the subgraphs. The editor cannot open a subgraph, and the live values of a use do not show
-  yet. A run error of an inner node shows on the use.
+  the subgraphs. The editor cannot open a subgraph yet. The output pins of a use show the live
+  values of their inner outputs, and a run error of an inner node shows on the use.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
 - The engine does not check the format of the public pin keys yet.
 

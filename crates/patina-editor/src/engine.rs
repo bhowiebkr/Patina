@@ -141,6 +141,8 @@ struct Loaded {
     /// True after a build of the clusters failed, so the base is older than the code. Then a
     /// save does not build the slot alone.
     stale: bool,
+    /// The output pins of the subgraph uses, with the inner outputs that give their values (6.4).
+    aliases: Vec<(String, String)>,
 }
 
 impl Loaded {
@@ -265,7 +267,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
             draw(app, &mut loaded.cluster, run.serial, &shown);
             if frames {
-                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown), shared, (run.serial, fuse_at));
+                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown, &loaded.aliases), shared, (run.serial, fuse_at));
             }
         }
         last = Some(run);
@@ -318,7 +320,7 @@ fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, shown: &Shown) {
 
 /// Runs the frame domain at 60 FPS until a job comes, the user stops the run, a frame fails or
 /// the time of the fuse comes (9.1, 7.2). Returns the job that ended the run.
-fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown): (&mut Cluster, &mut Shown), shared: &Shared, (serial, fuse_at): (u64, Option<Instant>)) -> Option<Job> {
+fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): (&mut Cluster, &mut Shown, &[(String, String)]), shared: &Shared, (serial, fuse_at): (u64, Option<Instant>)) -> Option<Job> {
     let (mut clock, mut frames) = (Clock::new(clock::FRAME), 0);
     let job = loop {
         clock.wait();
@@ -341,8 +343,11 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown): (&mut Clu
         let outcome = cluster.frame(&shared.control);
         let run_ms = start.elapsed().as_secs_f64() * 1000.0;
         frames += 1;
-        let values = badges(&outcome.values);
+        let extra = alias(&outcome.values, aliases);
+        let mut values = badges(&outcome.values);
+        values.extend(badges(&extra));
         keep(&mut lock(&shared.values), &outcome.values);
+        keep(&mut lock(&shared.values), &extra);
         let ok = outcome.ok;
         // shortcut: the editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
         let (skipped, stopped, times) = (outcome.skipped.clone(), outcome.stopped.clone(), outcome.times.clone());
@@ -366,6 +371,12 @@ fn keep(kept: &mut Vec<Value>, values: &[Value]) {
             None => kept.push(value.clone()),
         }
     }
+}
+
+/// A copy of the value of each inner output for the output pin of its subgraph use (6.4).
+fn alias(values: &[Value], aliases: &[(String, String)]) -> Vec<Value> {
+    let value = |(outer, inner): &(String, String)| Some(Value { from: outer.clone(), ..values.iter().find(|v| &v.from == inner)?.clone() });
+    aliases.iter().filter_map(value).collect()
 }
 
 /// The values with the badge texts (15.9).
@@ -419,7 +430,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
                     cluster.adopt(&mut old.cluster);
                 }
                 let slot = build.slot.clone().filter(|_| cluster.slotted());
-                *loaded = Some(Loaded { cluster, wiring, slot, stale: false });
+                *loaded = Some(Loaded { cluster, wiring, slot, stale: false, aliases: run.checked.aliases().to_vec() });
             }
             // The last build that compiled keeps running only with the same wiring (7.2, 15.10).
             Err(Error::Compile(list)) if loaded.as_ref().is_some_and(|l| l.wiring == wiring) => {
@@ -445,7 +456,9 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     // A node with a bad parameter does not run, so the graph does not run (4.8).
     let outcome = params.ok.then(|| cluster.run(&shared.control));
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
-    let outcome = outcome.unwrap_or_default();
+    let mut outcome = outcome.unwrap_or_default();
+    let extra = alias(&outcome.values, &loaded.aliases);
+    outcome.values.extend(extra);
     let reports = params.reports.into_iter().chain(outcome.reports).collect();
     let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
@@ -482,5 +495,7 @@ mod tests {
         keep(&mut kept, &[value("b.out", "3"), value("c.out", "4")]);
         let texts: Vec<_> = kept.iter().map(|v| (v.from.as_str(), v.text.as_str())).collect();
         assert_eq!(texts, [("a.out", "1"), ("b.out", "3"), ("c.out", "4")]);
+        let extra = alias(&kept, &[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
+        assert_eq!((extra.len(), extra[0].from.as_str(), extra[0].text.as_str()), (1, "v.0000000a", "3"));
     }
 }

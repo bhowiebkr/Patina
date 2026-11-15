@@ -15,17 +15,21 @@ struct Use {
     nodes: Vec<String>,
 }
 
-/// Gives the graph with each use of a subgraph replaced by the nodes of the subgraph file. The
-/// collars and cables stay out, because only the editor draws them.
-pub(crate) fn flatten(root: &Path, graph: &GraphFile) -> Result<GraphFile, Vec<String>> {
+/// The output pin `<use ID>.<pin key>` of a use and the inner output that gives its value.
+pub(crate) type Alias = (String, String);
+
+/// Gives the graph with each use of a subgraph replaced by the nodes of the subgraph file, and
+/// the aliases of the output pins of the uses. The collars and cables stay out, because only the
+/// editor draws them.
+pub(crate) fn flatten(root: &Path, graph: &GraphFile) -> Result<(GraphFile, Vec<Alias>), Vec<String>> {
     let mut problems = Vec::new();
     let flat = expand(root, graph, &mut Vec::new(), &mut problems);
     if problems.is_empty() { Ok(flat) } else { Err(problems) }
 }
 
-fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mut Vec<String>) -> GraphFile {
+fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mut Vec<String>) -> (GraphFile, Vec<Alias>) {
     if graph.node.iter().all(|n| n.subgraph.is_none()) {
-        return graph.clone();
+        return (graph.clone(), Vec::new());
     }
     let mut flat = GraphFile { node: Vec::new(), wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), ..graph.clone() };
     let mut uses: HashMap<&str, Use> = HashMap::new();
@@ -57,7 +61,7 @@ fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mu
             }
         };
         stack.push(name.clone());
-        let inner = expand(root, &file, stack, problems);
+        let inner = expand(root, &file, stack, problems).0;
         stack.pop();
         let prefix = |end: &str| format!("{id}/{end}");
         let mut one = Use { inputs: HashMap::new(), outputs: HashMap::new(), nodes: Vec::new() };
@@ -131,7 +135,9 @@ fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mu
             }
         }
     }
-    flat
+    let mut aliases: Vec<Alias> = uses.iter().flat_map(|(id, one)| one.outputs.iter().map(move |(key, from)| (format!("{id}.{key}"), from.clone()))).collect();
+    aliases.sort();
+    (flat, aliases)
 }
 
 /// The subgraph files of `graphs/`, without the main graph, for the node list of the editor.
@@ -251,7 +257,9 @@ before = "00000000000000d1"
 after = "00000000000000c2"
 "#,
         );
-        let flat = flatten(&root, &main).unwrap();
+        let (flat, aliases) = flatten(&root, &main).unwrap();
+        let inner = |id: &str| format!("{id}/00000000000000a1.out");
+        assert_eq!(aliases, [("00000000000000d1.0000000b".to_owned(), inner("00000000000000d1")), ("00000000000000d2.0000000b".to_owned(), inner("00000000000000d2"))]);
         let ids: Vec<&str> = flat.node.iter().map(|n| n.id.as_str()).collect();
         assert_eq!(ids, ["00000000000000c1", "00000000000000d1/00000000000000a1", "00000000000000d2/00000000000000a1", "00000000000000c2"]);
         let wires: Vec<(&str, &str)> = flat.wire.iter().map(|w| (w.from.as_str(), w.to.as_str())).collect();

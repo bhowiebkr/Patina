@@ -129,6 +129,7 @@ pub struct Checked {
     rust: String,
     plan: plan::Plan,
     graph: project::GraphFile,
+    aliases: Vec<(String, String)>,
 }
 
 /// The files of a new project (15.10), from the hello example.
@@ -363,9 +364,9 @@ impl Project {
     /// Checks the main graph and puts its nodes in run order.
     pub fn check(&self) -> Result<Checked, Error> {
         let fail = |problems| Error::Graph(graph_path(&self.root), problems);
-        let graph = subgraph::flatten(&self.root, &self.history.graph).map_err(fail)?;
+        let (graph, aliases) = subgraph::flatten(&self.root, &self.history.graph).map_err(fail)?;
         let plan = plan::check(&self.root, &graph).map_err(fail)?;
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph })
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases })
     }
 }
 
@@ -373,6 +374,12 @@ impl Checked {
     /// The checked graph, with each use of a subgraph replaced by its nodes (6.4).
     pub fn graph(&self) -> &project::GraphFile {
         &self.graph
+    }
+
+    /// Each output pin `<use ID>.<pin key>` of a subgraph use of the main graph, with the inner
+    /// output `<use ID>/<node ID>.<key>` that gives its value (6.4).
+    pub fn aliases(&self) -> &[(String, String)] {
+        &self.aliases
     }
 
     /// Puts the node folder `name` in the slot (7.1): its uses call the slot library, and a build
