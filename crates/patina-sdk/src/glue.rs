@@ -18,7 +18,7 @@ use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 7;
+pub const ABI_VERSION: u32 = 8;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -181,8 +181,9 @@ pub enum Cmd<'a> {
     Set(u32, &'a str),
     /// Runs the task with this index (9.2). Returns false when a node failed.
     Task(u32),
-    /// Ends a run: drops each value that no node took. Returns false when a drop failed.
-    End,
+    /// Ends a run of the domain with this index (9.1): drops each value of the domain that no
+    /// node took. Returns false when a drop failed.
+    End(u32),
 }
 
 type ClusterFn = dyn Fn(Cmd<'_>, &Reporter) -> bool;
@@ -416,15 +417,15 @@ pub unsafe fn task(cluster: *const Cluster, task: u32, rep: *const Reporter) -> 
     in_run(rep, || (cluster.f)(Cmd::Task(task), rep))
 }
 
-/// The body of `patina_cluster_end`, after the last task of a run.
+/// The body of `patina_cluster_end`, after the last task of a run of domain `domain`.
 ///
 /// # Safety
 ///
 /// The same as for `task`, and no task of the cluster runs during the call.
-pub unsafe fn end(cluster: *const Cluster, rep: *const Reporter) -> bool {
+pub unsafe fn end(cluster: *const Cluster, domain: u32, rep: *const Reporter) -> bool {
     // SAFETY: the caller keeps the rules of this function.
     let (cluster, rep) = unsafe { (&*cluster, &*rep) };
-    let ok = in_run(rep, || (cluster.f)(Cmd::End, rep));
+    let ok = in_run(rep, || (cluster.f)(Cmd::End(domain), rep));
     rep.set_node(IDLE);
     NODE.set(IDLE);
     if let Some(control) = rep.control() {
@@ -517,7 +518,7 @@ mod tests {
     /// The same as for `task`.
     unsafe fn run(state: *mut Cluster, rep: &Reporter) -> bool {
         // SAFETY: the caller keeps the rules of `task`, and they include the rules of `end`.
-        unsafe { task(state, 0, rep) & end(state, rep) }
+        unsafe { task(state, 0, rep) & end(state, 0, rep) }
     }
 
     #[test]
@@ -535,7 +536,7 @@ mod tests {
     fn stop_and_missing_inputs_start_no_node_call() {
         fn make() -> Cluster {
             let f = typed(|cmd, rep| {
-                let Cmd::Task(0) = cmd else { return matches!(cmd, Cmd::End) };
+                let Cmd::Task(0) = cmd else { return matches!(cmd, Cmd::End(_)) };
                 // SAFETY: the test gives a control that is valid during the run.
                 let node = || unsafe { &*rep.control }.node();
                 let skipped = !rep.enter(8, false) && node().is_none();

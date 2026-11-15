@@ -283,6 +283,16 @@ The example adds two numbers and writes `6.5`. A node that fails or panics gives
 its ID. The nodes after it do not run, and each one gives a `skipped` message. The exit code is
 then 1.
 
+A graph with frame nodes runs its batch nodes one time. Then it runs the frame nodes at 60
+frames each second, until you push Ctrl+C. To run a number of frames and then stop, add
+`--frames <count>`:
+
+```
+cargo run -p patina-cli -- run examples/hello --frames 3
+```
+
+The run stops at the first frame in which a node fails.
+
 ## Open the editor
 
 The editor is at an early stage. It makes or opens a project, edits the main graph, runs it and

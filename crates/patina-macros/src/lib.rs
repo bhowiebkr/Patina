@@ -4,11 +4,14 @@
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 
 /// Marks the function of a node. The function gets `#[inline]`, so small nodes inline into
-/// each other inside one cluster (spec 8.3).
+/// each other inside one cluster (spec 8.3). `#[node(domain = frame)]` sets its clock domain
+/// (9.1). The engine reads the domain.
 #[proc_macro_attribute]
 pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if !attr.is_empty() {
-        return error("#[node] takes no arguments");
+    let args: Vec<String> = attr.into_iter().map(|t| t.to_string()).collect();
+    let domains = ["batch", "frame", "audio", "event"];
+    if !(args.is_empty() || args.len() == 3 && args[0] == "domain" && args[1] == "=" && domains.contains(&&*args[2])) {
+        return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`");
     }
     if !is_function(&item) {
         // shortcut: only function nodes, stateful nodes (4.2) come at milestone 5.

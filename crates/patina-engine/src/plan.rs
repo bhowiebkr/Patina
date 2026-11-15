@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 
-use crate::node::{self, Kind, Node};
+use crate::node::{self, Domain, Kind, Node};
 use crate::project::{GraphFile, is_id};
 
 /// A graph that passed all checks, in run order.
@@ -29,6 +29,7 @@ pub struct Task {
     pub inputs: u32,
     /// The tasks that wait for this task.
     pub next: Vec<usize>,
+    pub domain: Domain,
 }
 
 /// One use of a node folder (6.2).
@@ -42,6 +43,7 @@ pub struct Step {
     pub consumers: Vec<usize>,
     /// The index in `Plan::tasks`.
     pub task: usize,
+    pub domain: Domain,
 }
 
 impl Plan {
@@ -86,6 +88,8 @@ struct Entry {
     node: usize,
     /// The wired source of each input: the entry and the output index.
     wired: Vec<Option<(usize, usize)>>,
+    /// The domain that the node declares or that the user selected (9.1).
+    domain: Option<Domain>,
 }
 
 /// Checks a graph of the project at `root`. Returns all the problems that it finds.
@@ -141,8 +145,17 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
                 problems.push(format!("node {id}: {folder} has no input `{key}` for the parameter"));
             }
         }
+        let chosen = entry.domain.as_deref().map(Domain::parse).transpose().unwrap_or_else(|text| {
+            problems.push(format!("node {id}: {text}"));
+            None
+        });
+        if let (Some(chosen), Some(declared)) = (chosen, node.domain)
+            && chosen != declared
+        {
+            problems.push(format!("node {id}: {folder} declares the {} domain", declared.name()));
+        }
         let wired = vec![None; node.inputs.len()];
-        entries[index] = Some(Entry { id: id.to_owned(), node: node_index, wired });
+        entries[index] = Some(Entry { id: id.to_owned(), node: node_index, wired, domain: node.domain.or(chosen) });
     }
 
     let mut edges: Vec<(usize, usize)> = Vec::new();
@@ -194,6 +207,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             inputs: Vec::new(),
             consumers: vec![0; nodes[entries[e].node].1.output_keys().len()],
             task: 0,
+            domain: Domain::Batch,
         })
         .collect();
     let mut slots = Vec::new();
@@ -214,6 +228,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         }
     }
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
+    domains(&mut steps, &edges, |n| entries[order[n]].domain)?;
     let tasks = split(&mut steps, &edges);
     let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
@@ -346,6 +361,32 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
     }
 }
 
+/// Sets the domain of each step (9.1). A step with no domain of its own takes the domain of its
+/// inputs, or the batch domain when it has no inputs.
+fn domains(steps: &mut [Step], edges: &[(usize, usize)], own: impl Fn(usize) -> Option<Domain>) -> Result<(), Vec<String>> {
+    let mut problems = Vec::new();
+    for n in 0..steps.len() {
+        let inputs: BTreeSet<Domain> = edges.iter().filter(|e| e.1 == n).map(|e| steps[e.0].domain).collect();
+        steps[n].domain = match (own(n), inputs.first()) {
+            (Some(domain), _) => domain,
+            (None, Some(&domain)) if inputs.len() == 1 => domain,
+            (None, None) => Domain::Batch,
+            (None, Some(_)) => {
+                problems.push(format!("node {}: its inputs come from more than one domain. Select its domain", steps[n].id));
+                Domain::Batch
+            }
+        };
+    }
+    for &(from, to) in edges.iter().collect::<BTreeSet<_>>() {
+        let (a, b) = (steps[from].domain, steps[to].domain);
+        if a != b && own(to).is_some() {
+            // shortcut: no wires between domains, the latest-value wire (9.1) comes in the next slice of milestone 4.
+            problems.push(format!("node {}: a wire from the {} domain to the {} domain comes later", steps[to].id, a.name(), b.name()));
+        }
+    }
+    if problems.is_empty() { Ok(()) } else { Err(problems) }
+}
+
 /// Puts the steps into tasks (9.2). A step joins the task of its predecessor when it has exactly
 /// one predecessor, and that predecessor has exactly one successor.
 fn split(steps: &mut [Step], edges: &[(usize, usize)]) -> Vec<Task> {
@@ -361,7 +402,7 @@ fn split(steps: &mut [Step], edges: &[(usize, usize)]) -> Vec<Task> {
         steps[n].task = match chain {
             Some(&p) => steps[p].task,
             None => {
-                tasks.push(Task { steps: Vec::new(), inputs: 0, next: Vec::new() });
+                tasks.push(Task { steps: Vec::new(), inputs: 0, next: Vec::new(), domain: steps[n].domain });
                 tasks.len() - 1
             }
         };
@@ -387,7 +428,7 @@ mod tests {
 
     #[test]
     fn chains_become_one_task_and_branches_split() {
-        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), task: 0 }).collect();
+        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), task: 0, domain: Domain::Batch }).collect();
         // 0 -> 1 -> 2 is a chain. 2 feeds 3 and 4, and both feed 5. An order wire 1 -> 2 doubles a data wire.
         let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)]);
         let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
@@ -401,6 +442,7 @@ mod tests {
         let crates = [
             ("nodes/num", "node", "pub fn num(v: f64) -> f64 { v }", ""),
             ("nodes/show", "node", "pub fn show(v: &f64) {}", "[dependencies]\nlog = \"0.4\"\n"),
+            ("nodes/tick", "node(domain = frame)", "pub fn tick() -> f64 { 0.0 }", ""),
             ("connections/wide", "connection", "pub fn wide(v: &f64) -> Lanes { todo!() }", ""),
             ("connections/byte", "connection", "pub fn byte(v: &u8) -> Lanes { todo!() }", ""),
         ];
@@ -426,6 +468,16 @@ mod tests {
             ),
         );
         let cycle = check(&root, &graph("[[order]]\nbefore = \"000000000000000b\"\nafter = \"000000000000000b\"\n"));
+        // tick (frame) -> show. `more` adds to the show node.
+        let frames = |more: &str| {
+            let text = format!(
+                "format = 1\n[[node]]\nid = \"000000000000000c\"\nfolder = \"nodes/tick\"\n[[node]]\nid = \"000000000000000b\"\n\
+                 folder = \"nodes/show\"\n{more}\n[[wire]]\nfrom = \"000000000000000c.out\"\nto = \"000000000000000b.v\"\n"
+            );
+            check(&root, &toml::from_str(&text).unwrap())
+        };
+        let mixed = "[[node]]\nid = \"000000000000000a\"\nfolder = \"nodes/num\"\n[[order]]\nbefore = \"000000000000000a\"\nafter = \"000000000000000b\"";
+        let (frame, crossed, mixed) = (frames(""), frames("domain = \"batch\""), frames(mixed));
         std::fs::create_dir_all(root.join("connections/show")).unwrap();
         let named = check(&root, &graph(""));
         let num_logs = uses_log(&root, "nodes", "num");
@@ -446,5 +498,10 @@ mod tests {
         assert_eq!(bad.len(), 2, "{bad:?}");
         assert!(bad[0].contains("no such pin") && bad[1].contains("more than one wire"));
         assert!(cycle.err().unwrap()[0].contains("cycle"));
+        let frame = frame.unwrap_or_else(|p| panic!("{p:?}"));
+        let domains: Vec<Domain> = frame.steps.iter().map(|s| s.domain).chain(frame.tasks.iter().map(|t| t.domain)).collect();
+        assert_eq!(domains, [Domain::Frame; 3], "show takes the domain of its input");
+        assert!(crossed.err().unwrap()[0].contains("from the frame domain to the batch domain"));
+        assert!(mixed.err().unwrap()[0].contains("more than one domain"));
     }
 }

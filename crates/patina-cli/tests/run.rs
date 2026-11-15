@@ -38,8 +38,8 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
-fn run(project: &Path) -> (Output, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("run").arg(project).output().unwrap();
+fn run(project: &Path, more: &[&str]) -> (Output, String, String) {
+    let output = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("run").arg(project).args(more).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
     (output, stdout, stderr)
@@ -60,7 +60,7 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let manifest = "[package]\nname = \"whole\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\npatina-sdk = { workspace = true }\n";
     fs::write(kind.join("Cargo.toml"), manifest).unwrap();
     fs::write(kind.join("src/lib.rs"), KIND).unwrap();
-    let (output, stdout, stderr) = run(&project);
+    let (output, stdout, stderr) = run(&project, &[]);
     assert!(output.status.success(), "{stderr}");
     assert_eq!(stdout.trim(), "6.5");
 
@@ -71,12 +71,25 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let values = cluster.run(&Control::default()).values;
     let sum = values.iter().find(|v| v.from == "f89c6e329e8ea336.out").unwrap();
     assert_eq!(sum.lanes, Some(Lanes { bits: "00000110".to_owned(), label: "whole".to_owned() }));
+
+    // A frame node and the show node after it run at each frame, after the batch run (9.1).
+    let tick = project.join("nodes/tick");
+    fs::create_dir_all(tick.join("src")).unwrap();
+    fs::write(tick.join("Cargo.toml"), manifest.replace("whole", "tick")).unwrap();
+    fs::write(tick.join("src/lib.rs"), "#[patina_sdk::node(domain = frame)]\npub fn tick() -> f64 {\n    1.0\n}\n").unwrap();
+    let graph = project.join("graphs/main.toml");
+    let more = "\n[[node]]\nid = \"00000000000000f1\"\nfolder = \"nodes/tick\"\n\n[[node]]\nid = \"00000000000000f2\"\n\
+                folder = \"nodes/show\"\n\n[[wire]]\nfrom = \"00000000000000f1.out\"\nto = \"00000000000000f2.value\"\n";
+    fs::write(&graph, fs::read_to_string(&graph).unwrap() + more).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--frames", "3"]);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "1", "1", "1"]);
 }
 
 #[test]
 fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/projects/fail"), "fail");
-    let (output, stdout, stderr) = run(&project);
+    let (output, stdout, stderr) = run(&project, &[]);
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     assert_eq!(stdout, "", "a node after a failed node must not run");
     assert!(stderr.contains("Node fea12c51067a34d8 (fail): error: \"cannot use 1.5\""), "{stderr}");
@@ -88,7 +101,7 @@ fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {
     let graph = project.join("graphs/main.toml");
     let text = fs::read_to_string(&graph).unwrap().replace("value = \"1.5\"", "value = \"abc\"");
     fs::write(graph, text).unwrap();
-    let (output, stdout, stderr) = run(&project);
+    let (output, stdout, stderr) = run(&project, &[]);
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     assert_eq!(stdout, "");
     let expected = "Node fea12c51067a34d8 (fail): bad parameter: input `value`: \"abc\" is not a number";

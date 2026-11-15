@@ -96,11 +96,15 @@ pub fn source(plan: &Plan) -> String {
         s.push_str("            ok\n        }\n");
     }
     s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n");
-    s.push_str("        ::patina_sdk::glue::Cmd::End => {\n            let mut ok = true;\n");
-    for (n, k) in plan.held().filter(|&(n, k)| is_shared(plan, n, k)) {
-        let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
+    // A value never crosses a domain, so the end of a domain drops the values of its steps (9.1).
+    for domain in plan.tasks.iter().map(|t| t.domain).collect::<std::collections::BTreeSet<_>>() {
+        let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::End({}) => {{\n            let mut ok = true;", domain as u32);
+        for (n, k) in plan.held().filter(|&(n, k)| plan.steps[n].domain == domain && is_shared(plan, n, k)) {
+            let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
+        }
+        s.push_str("            ok\n        }\n");
     }
-    s.push_str("            ok\n        }\n    });\n    let parallel = true");
+    s.push_str("        ::patina_sdk::glue::Cmd::End(_) => true,\n    });\n    let parallel = true");
     for name in &shared {
         let _ = write!(s, " && (&&c_{name}).sync()");
     }
@@ -279,10 +283,11 @@ pub unsafe extern "C" fn patina_cluster_task(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn patina_cluster_end(
     cluster: *const ::std::ffi::c_void,
+    domain: u32,
     rep: *const ::patina_sdk::glue::Reporter,
 ) -> bool {
     // SAFETY: the engine keeps the rules of `glue::end`.
-    unsafe { ::patina_sdk::glue::end(cluster.cast(), rep) }
+    unsafe { ::patina_sdk::glue::end(cluster.cast(), domain, rep) }
 }
 
 /// # Safety

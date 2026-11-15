@@ -11,6 +11,7 @@ use patina_sdk::glue::{self, Control, Reporter};
 use serde::Serialize;
 
 use crate::Error;
+use crate::node::Domain;
 use crate::plan::Task;
 use crate::pool::{self, Work};
 use crate::project::GraphFile;
@@ -121,7 +122,7 @@ type NewFn = unsafe extern "C" fn() -> *mut c_void;
 type SetFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const Reporter) -> bool;
 type ParallelFn = unsafe extern "C" fn(*const c_void) -> bool;
 type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
-type EndFn = unsafe extern "C" fn(*const c_void, *const Reporter) -> bool;
+type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 type FreeFn = unsafe extern "C" fn(*mut c_void);
 
 /// A loaded cluster with its parameters and its node states.
@@ -133,7 +134,8 @@ pub struct Cluster {
     free: FreeFn,
     /// True when the tasks of a run can run on many threads at a time (9.2).
     parallel: bool,
-    tasks: Arc<Tasks>,
+    /// The tasks of the batch and of the frame domain (9.1).
+    domains: [Arc<Tasks>; 2],
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
     /// The node ID and the input key of each parameter slot.
@@ -154,19 +156,22 @@ unsafe extern "C" fn collect(ctx: *mut c_void, node: u32, kind: u32, text: *cons
     sink.push((node, kind, String::from_utf8_lossy(bytes).into_owned()));
 }
 
-/// The tasks of a run (9.2), and a report list for each task. The worker pool calls them.
+/// The tasks of a run of one domain (9.2), and a report list for each task. The worker pool
+/// calls them.
 struct Tasks {
     state: AtomicPtr<c_void>,
     control: AtomicPtr<Control>,
     task: TaskFn,
+    /// The cluster task index of each task.
+    ids: Vec<usize>,
     inputs: Vec<u32>,
     next: Vec<Vec<usize>>,
     sinks: Vec<Mutex<Sink>>,
     ok: AtomicBool,
 }
 
-// SAFETY: `Cluster::run` sets the state and the control before the tasks start, and keeps them
-// valid until all tasks are done. Many threads call tasks at a time only when the cluster says
+// SAFETY: `Cluster::run_domain` sets the state and the control before the tasks start, and keeps
+// them valid until all tasks are done. Many threads call tasks at a time only when the cluster says
 // that each value that it keeps is `Sync` (`patina_cluster_parallel`).
 unsafe impl Send for Tasks {}
 // SAFETY: the same as for `Send`.
@@ -182,7 +187,8 @@ impl Work for Tasks {
     }
 
     fn run(&self, task: usize) {
-        let (Some(sink), Ok(index)) = (self.sinks.get(task), u32::try_from(task)) else { return };
+        let index = self.ids.get(task).and_then(|&id| u32::try_from(id).ok());
+        let (Some(sink), Some(index)) = (self.sinks.get(task), index) else { return };
         let mut sink = lock(sink);
         let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: self.control.load(Relaxed) };
         // SAFETY: the same as for `unsafe impl Send for Tasks`. The reporter and its sink are valid
@@ -190,6 +196,22 @@ impl Work for Tasks {
         if !unsafe { (self.task)(self.state.load(Relaxed), index, &rep) } {
             self.ok.store(false, Relaxed);
         }
+    }
+}
+
+impl Tasks {
+    /// The tasks of `all` in `domain`, in the same order. A link to another domain is not a wait.
+    fn new(state: *mut c_void, task: TaskFn, all: &[Task], domain: Domain) -> Tasks {
+        let ids: Vec<usize> = (0..all.len()).filter(|&t| all[t].domain == domain).collect();
+        let next: Vec<Vec<usize>> =
+            ids.iter().map(|&t| all[t].next.iter().filter_map(|n| ids.iter().position(|i| i == n)).collect()).collect();
+        let mut inputs = vec![0; ids.len()];
+        for &n in next.iter().flatten() {
+            inputs[n] += 1;
+        }
+        let sinks = ids.iter().map(|_| Mutex::new(Sink::new())).collect();
+        let (state, control) = (AtomicPtr::new(state), AtomicPtr::new(std::ptr::null_mut()));
+        Tasks { state, control, task, ids, inputs, next, sinks, ok: AtomicBool::new(true) }
     }
 }
 
@@ -224,17 +246,9 @@ impl Cluster {
             if state.is_null() {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
-            let tasks = Arc::new(Tasks {
-                state: AtomicPtr::new(state),
-                control: AtomicPtr::new(std::ptr::null_mut()),
-                task,
-                inputs: tasks.iter().map(|t| t.inputs).collect(),
-                next: tasks.iter().map(|t| t.next.clone()).collect(),
-                sinks: tasks.iter().map(|_| Mutex::new(Sink::new())).collect(),
-                ok: AtomicBool::new(true),
-            });
+            let domains = [Domain::Batch, Domain::Frame].map(|d| Arc::new(Tasks::new(state, task, tasks, d)));
             let (parallel, has_text) = (parallel(state), vec![false; slots.len()]);
-            Cluster { state, new, set, end, free, parallel, tasks, names, slots, probes, has_text }
+            Cluster { state, new, set, end, free, parallel, domains, names, slots, probes, has_text }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -282,10 +296,24 @@ impl Cluster {
         self.call(std::ptr::null(), Sink::new(), |rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) })
     }
 
-    /// Runs the graph one time. Another thread can ask the run to stop with `control` (15.2).
-    /// The reports come in task order (9.2).
+    /// Runs the batch domain of the graph one time. Another thread can ask the run to stop with
+    /// `control` (15.2). The reports come in task order (9.2).
     pub fn run(&mut self, control: &Control) -> Outcome {
-        let tasks = &self.tasks;
+        self.run_domain(Domain::Batch, control)
+    }
+
+    /// Runs the frame domain of the graph one time: one frame (9.1).
+    pub fn frame(&mut self, control: &Control) -> Outcome {
+        self.run_domain(Domain::Frame, control)
+    }
+
+    /// True when the graph has nodes in the frame domain.
+    pub fn frames(&self) -> bool {
+        !self.domains[Domain::Frame as usize].ids.is_empty()
+    }
+
+    fn run_domain(&mut self, domain: Domain, control: &Control) -> Outcome {
+        let tasks = &self.domains[domain as usize];
         tasks.state.store(self.state, Relaxed);
         tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
         tasks.ok.store(true, Relaxed);
@@ -302,7 +330,7 @@ impl Cluster {
         let (state, end, ok) = (self.state, self.end, tasks.ok.load(Relaxed));
         // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
         // during the call.
-        let mut out = self.call(control, sink, |rep| unsafe { end(state, rep) });
+        let mut out = self.call(control, sink, |rep| unsafe { end(state, domain as u32, rep) });
         out.ok &= ok;
         out
     }

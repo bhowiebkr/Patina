@@ -27,6 +27,18 @@ Each node runs in one clock domain. The domain decides when the node runs.
 - Trigger events and commands use queues, not latest values, so a short press of a button is never lost. If such a queue is full, the node shows an error.
 - Threads: batch and frame use the worker pool. Audio uses its own high-priority thread. Event uses an async runtime (`tokio`).
 
+**Domain decisions of milestone 4.** These are agent decisions of 2026-11-15. The owner can change them.
+
+- A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. Audio and event give an error until their milestones (11 and 12).
+- The `domain` key of a node in the graph file (6.4) is the domain that the user selects. A node that declares a domain cannot have another domain in the graph file.
+- A node with no declared and no selected domain takes the domain of its data wires and order wires. A node with no wires in is in the batch domain.
+- A node with inputs from more than one domain and no selected domain is a graph error: "select its domain". The editor shows it as an error, not a warning, until it can show warnings.
+- A task (9.2) holds steps of one domain. A value never goes from one domain to another inside a task.
+- The batch domain runs one time, when the user clicks **Run**. Then the frame domain runs at each tick of a 60 FPS clock until the user clicks **Stop**. A frame that is late starts at once, and the clock skips the ticks that it missed. Frames never queue.
+- A run of the frame domain stops at the first frame in which a node fails.
+- `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process.
+- In the first slice of milestone 4, a wire between two domains is a graph error. The latest-value wire comes in a later slice of milestone 4.
+
 ### 9.2 Automatic parallelism
 
 Inside each domain, the engine finds parallel work from the dependency graph. The user gives no hints.

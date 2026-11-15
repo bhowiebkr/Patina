@@ -8,16 +8,17 @@ checks open.
 
 ## Milestone 4: automatic parallelism and the frame domain
 
-The first slice works: the engine splits a graph into tasks and runs them on a worker pool
-(9.2). It ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. It did not run on Linux or
-macOS. The frame domain, the delay node and the wires between domains come next.
+Two slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2). The
+CLI runs the frame domain at 60 FPS (9.1). Both ran on 2026-11-15 on Windows 11 Pro, with Rust
+1.94.0. CI ran the tests of the first slice on Windows, Ubuntu and macOS. The frame run in the
+editor, the delay node and the wires between domains come next.
 
 ### What works
 
 - The plan puts a step into the task of its input when the step has one input step, and that
   step has no other next step. Thus a chain of nodes is one task, and each branch is a task.
-- The cluster ABI is version 7. A cluster has one call for each task, a call that ends the run,
-  and a call that tells if its tasks can run on many threads at a time.
+- The cluster ABI is version 8. A cluster has one call for each task, a call that ends the run
+  of a domain, and a call that tells if its tasks can run on many threads at a time.
 - A value that goes from one task to another is in a shared slot with a lock. A value inside one
   task is a local value of the task. The parameters are in shared slots.
 - The cluster can run on many threads only when each shared value is `Sync`. Else all tasks run
@@ -26,22 +27,41 @@ macOS. The frame domain, the delay node and the wires between domains come next.
   one of them. A second run at the same time runs its tasks in index order on its own thread.
 - The log lines, the values and the run times come in task order, so a run gives the same
   reports each time.
+- A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. A
+  node with no domain takes the domain of its inputs. The plan reports a node with inputs from
+  two domains, and a wire between two domains.
+- The engine keeps the tasks of each domain apart. `Cluster::run` runs the batch domain, and
+  `Cluster::frame` runs one frame. The end of a domain drops the shared values of its steps.
+- `patina-cli run <folder> --frames <count>` runs the batch domain one time and then the frames
+  at 60 FPS. Without `--frames`, it runs frames until Ctrl+C. A late frame skips the missed
+  ticks.
 
 ### What was checked
 
-- `cargo test --workspace --locked` passed 62 tests on Windows. New tests:
+- `cargo test --workspace --locked` passed 63 tests on Windows. New tests:
   - The plan makes one task of a chain and splits the branches.
   - The pool starts a task only after its inputs, also with a second run inside a task.
   - Only `Sync` values let a cluster run in parallel (`Cell` and `Rc` do not).
+  - The plan gives the frame domain to the node after a frame node, and reports a wire between
+    two domains and a node with inputs from two domains.
+  - The frame clock skips the ticks that a late frame missed.
 - The CLI tests ran the hello example (3 tasks, with shared values) and the fail project (2
-  branches) through the pool. The editor self-check passed its 53 steps.
+  branches) through the pool. The hello test also added a frame node and a show node. With
+  `--frames 3`, it wrote `6.5` one time and then `1` three times.
+- A manual CLI run of 5 frames took 0.29 s with the build check. The editor self-check passed
+  its 53 steps in the first slice.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.100.0.
 
 ### Known limits
 
 - No measurement of the split or of the pool ran yet. The split rule can change after the
   measurement of a chain of small nodes and of heavy branches.
-- Each run collects the reports into a new list.
+- Each run collects the reports into a new list. Each frame thus allocates, and so does each
+  live value of a frame. The frame loop must not allocate (AGENTS.md). Change this before the
+  frame domain is measured.
+- The editor runs only the batch domain. The frame run in the editor comes next.
+- A wire between two domains is a graph error. The latest-value wire comes later in milestone 4.
+- Ctrl+C stops the CLI at once. The values that the frame domain keeps do not drop.
 
 ## Milestone 2: editor
 

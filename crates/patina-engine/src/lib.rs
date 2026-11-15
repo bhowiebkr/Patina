@@ -2,6 +2,7 @@
 //! and runs it (spec 3, 7, 8).
 
 mod cargo;
+pub mod clock;
 mod edit;
 mod generate;
 pub mod install;

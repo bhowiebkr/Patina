@@ -2,7 +2,7 @@
 //! of a connection kind from its `#[connection]` function (6.3).
 
 use quote::ToTokens;
-use syn::{Attribute, FnArg, GenericArgument, Item, Pat, PathArguments, ReturnType, Type, Visibility};
+use syn::{Attribute, FnArg, Ident, Meta, GenericArgument, Item, Pat, PathArguments, ReturnType, Type, Visibility};
 
 /// How the node function takes an input.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -32,6 +32,33 @@ pub enum Output {
     Tuple(usize),
 }
 
+/// The clock domain of a node (9.1).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum Domain {
+    Batch,
+    Frame,
+}
+
+impl Domain {
+    /// Reads a domain name, as `#[node(domain = ...)]` and the graph file write it.
+    pub fn parse(name: &str) -> Result<Domain, String> {
+        match name {
+            "batch" => Ok(Domain::Batch),
+            "frame" => Ok(Domain::Frame),
+            "audio" => Err("the audio domain comes at milestone 11".to_owned()),
+            "event" => Err("the event domain comes at milestone 12".to_owned()),
+            _ => Err(format!("{name:?} is not a domain. Use batch or frame")),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Domain::Batch => "batch",
+            Domain::Frame => "frame",
+        }
+    }
+}
+
 /// The signature of one node function.
 #[derive(Debug)]
 pub struct Node {
@@ -42,6 +69,8 @@ pub struct Node {
     pub fallible: bool,
     /// The value type of each output pin, in the order of `output_keys`.
     pub output_types: Vec<String>,
+    /// The domain of `#[node(domain = ...)]`.
+    pub domain: Option<Domain>,
 }
 
 impl Node {
@@ -70,16 +99,15 @@ pub fn parse(source: &str) -> Result<Node, String> {
             Item::Impl(i) => (&i.attrs, None),
             _ => continue,
         };
-        if !marked(attrs, "node") {
-            continue;
-        }
+        let Some(attr) = attrs.iter().find(|a| named(a, "node")) else { continue };
         // shortcut: only function nodes, stateful nodes (4.2) come at milestone 5.
         let func = func.ok_or("Patina supports only function nodes (spec 4.1) at this time")?;
-        if found.replace(func).is_some() {
+        if found.replace((attr, func)).is_some() {
             return Err("the crate has more than one #[node] function".to_owned());
         }
     }
-    let func = found.ok_or("the crate has no #[node] function")?;
+    let (attr, func) = found.ok_or("the crate has no #[node] function")?;
+    let domain = read_domain(attr)?;
     let sig = &func.sig;
     if !matches!(func.vis, Visibility::Public(_)) {
         return Err(format!("make the node function `{}` pub", sig.ident));
@@ -126,7 +154,25 @@ pub fn parse(source: &str) -> Result<Node, String> {
     };
     let (output, mut output_types) = value.map_or((Output::None, Vec::new()), shape);
     output_types.extend(mut_types);
-    Ok(Node { func: sig.ident.to_string(), inputs, output, fallible, output_types })
+    Ok(Node { func: sig.ident.to_string(), inputs, output, fallible, output_types, domain })
+}
+
+/// Reads `domain = <name>` of `#[node(...)]` (9.1).
+fn read_domain(attr: &Attribute) -> Result<Option<Domain>, String> {
+    if matches!(attr.meta, Meta::Path(_)) {
+        return Ok(None);
+    }
+    let mut domain = None;
+    attr.parse_nested_meta(|meta| {
+        if !meta.path.is_ident("domain") {
+            return Err(meta.error("#[node] takes only `domain = <name>`"));
+        }
+        let name: Ident = meta.value()?.parse()?;
+        domain = Some(Domain::parse(&name.to_string()).map_err(|e| meta.error(e))?);
+        Ok(())
+    })
+    .map_err(|e| e.to_string())?;
+    Ok(domain)
 }
 
 /// The function of a connection kind (6.3).
@@ -170,7 +216,11 @@ pub fn parse_kind(source: &str) -> Result<Kind, String> {
 
 /// True when an attribute has the name `name`, also as the last part of a path.
 fn marked(attrs: &[Attribute], name: &str) -> bool {
-    attrs.iter().any(|a| a.path().segments.last().is_some_and(|s| s.ident == name))
+    attrs.iter().any(|a| named(a, name))
+}
+
+fn named(attr: &Attribute, name: &str) -> bool {
+    attr.path().segments.last().is_some_and(|s| s.ident == name)
 }
 
 fn is_out_key(key: &str) -> bool {
@@ -238,6 +288,7 @@ mod tests {
         let node = parse("#[node] pub fn f(m: std::collections::HashMap<String, [u8; 4]>) -> &'static str { todo!() }").unwrap();
         assert_eq!(node.inputs[0].ty, "std::collections::HashMap<String, [u8; 4]>");
         assert_eq!(node.output_types, ["&'static str"]);
+        assert_eq!((node.domain, parse("#[node(domain = frame)] pub fn f() {}").unwrap().domain), (None, Some(Domain::Frame)));
 
         let fails = [
             "#[node] fn f() {}",
@@ -249,6 +300,8 @@ mod tests {
             "#[node] pub struct S;",
             "#[node] pub fn f() {} #[node] pub fn g() {}",
             "pub fn f() {}",
+            "#[node(domain = audio)] pub fn f() {}",
+            "#[node(speed = 1)] pub fn f() {}",
         ];
         for source in fails {
             assert!(parse(source).is_err(), "{source}");
