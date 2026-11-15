@@ -11,6 +11,7 @@ pub mod install;
 mod library;
 mod load;
 mod node;
+pub mod package;
 mod plan;
 mod pool;
 pub mod project;

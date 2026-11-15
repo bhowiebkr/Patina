@@ -368,7 +368,7 @@ fn inside(root: &Path, path: &Path) -> Option<String> {
 
 /// The relative paths with `/` and the bytes of the files of a folder, in sorted order. Hidden
 /// files, links and `target` folders are not part of a folder (6.2).
-fn files(dir: &Path) -> Result<Vec<(String, Vec<u8>)>, String> {
+pub(crate) fn files(dir: &Path) -> Result<Vec<(String, Vec<u8>)>, String> {
     let mut paths = Vec::new();
     crate::list_files(dir, ".", &mut paths).map_err(|e| e.to_string())?;
     paths.sort();
@@ -399,7 +399,7 @@ fn digest<'a>(files: impl Iterator<Item = (&'a String, &'a Vec<u8>)>) -> String 
     format!("sha256:{}", hasher.finalize().iter().map(|b| format!("{b:02x}")).collect::<String>())
 }
 
-fn copy(from: &Path, to: &Path) -> Result<(), String> {
+pub(crate) fn copy(from: &Path, to: &Path) -> Result<(), String> {
     write_files(to, files(from)?)
 }
 

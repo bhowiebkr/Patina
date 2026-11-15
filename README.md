@@ -293,6 +293,24 @@ cargo run -p patina-cli -- run examples/hello --frames 3
 
 The run stops at the first frame in which a node fails.
 
+## Make a package
+
+`patina-cli package` builds a project and writes a folder that runs without Rust:
+
+```
+cargo run -p patina-cli -- package examples/hello hello-pkg
+```
+
+To run the package, start the program in the folder. Give a new value to a parameter with
+`<node ID>.<input key>=<value>`:
+
+```
+hello-pkg/hello-pkg 9bc1790966687030.value=1
+```
+
+The example then writes `5`. Add `--edit` to the `package` command for a faster build with less
+optimization.
+
 ## Open the editor
 
 The editor is at an early stage. It makes or opens a project, edits the main graph, runs it and

@@ -473,3 +473,23 @@ to = \"00000000000000b4.base\"
     let frame = cluster.frame(&control);
     assert_eq!(value(frame.values.clone(), "00000000000000b2.out").as_deref(), Some("7"));
 }
+
+#[test]
+fn a_package_runs_alone_and_takes_parameters() {
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "package");
+    let out = Path::new(env!("CARGO_TARGET_TMPDIR")).join("hello-pkg");
+    if out.exists() {
+        fs::remove_dir_all(&out).unwrap();
+    }
+    let made = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("package").arg(&project).arg(&out).arg("--edit").output().unwrap();
+    assert!(made.status.success(), "{}", String::from_utf8_lossy(&made.stderr));
+    assert!(out.join("licenses/LICENSE-MIT").is_file() && out.join("project/graphs/main.toml").is_file());
+    assert!(!out.join("project/build").exists(), "the build folder stays out of the package");
+
+    let program = out.join(format!("hello-pkg{}", std::env::consts::EXE_SUFFIX));
+    let output = Command::new(&program).arg("9bc1790966687030.value=1").output().unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "5");
+    let bad = Command::new(&program).arg("nothing.value=1").output().unwrap();
+    assert!(!bad.status.success());
+}

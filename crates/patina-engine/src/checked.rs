@@ -49,7 +49,7 @@ impl Checked {
         let copies = copy_to_loaded(&self.root, "cluster-", &paths)?;
         let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();
         let slot = copy_to_loaded(&self.root, "slot-", built.slot.as_slice())?;
-        copy_runtime(&self.root, &toolchain.libdir)?;
+        copy_runtime(&self.root.join("build").join("loaded"), &toolchain.libdir)?;
         let mut cluster = Cluster::load(&libraries, slot.first().map(PathBuf::as_path), &self.plan, built.keys)?;
         cluster.common = built.common;
         cluster.base = self.base_hash();
@@ -71,7 +71,7 @@ impl Checked {
         Ok(true)
     }
 
-    fn check_rust(&self, toolchain: &Toolchain) -> Result<(), Error> {
+    pub(crate) fn check_rust(&self, toolchain: &Toolchain) -> Result<(), Error> {
         if toolchain.release == self.rust {
             return Ok(());
         }
@@ -127,11 +127,11 @@ fn copy_to_loaded(root: &Path, prefix: &str, built: &[PathBuf]) -> Result<Vec<Pa
     Ok(copies.into_iter().map(|(path, _)| path).collect())
 }
 
-/// Copies the shared runtime of the toolchain to `build/loaded/`: the `std` library and the
-/// libraries of the `bin` folder of the target. A cluster links them, and the loader finds them
-/// only there (8.5). The name of `std` holds the hash of its build, so the same name has the same
+/// Copies the shared runtime of the toolchain to `dir`, the folder of the clusters: the `std`
+/// library and the libraries of the `bin` folder of the target. A cluster links them, and the
+/// loader finds them only there (8.5). The name of `std` holds the hash of its build, so the same name has the same
 /// bytes.
-fn copy_runtime(root: &Path, libdir: &Path) -> Result<(), Error> {
+pub(crate) fn copy_runtime(dir: &Path, libdir: &Path) -> Result<(), Error> {
     let shared = |path: &Path| path.extension().is_some_and(|e| e == std::env::consts::DLL_EXTENSION);
     let entries = fs::read_dir(libdir).map_err(|e| Error::Io(libdir.to_owned(), e))?;
     let std = entries.flatten().map(|e| e.path()).find(|path| {
@@ -143,7 +143,7 @@ fn copy_runtime(root: &Path, libdir: &Path) -> Result<(), Error> {
     let bin = libdir.with_file_name("bin");
     let more = fs::read_dir(&bin).into_iter().flatten().flatten().map(|e| e.path()).filter(|path| shared(path));
     for library in std::iter::once(std).chain(more) {
-        let path = root.join("build").join("loaded").join(library.file_name().unwrap_or_default());
+        let path = dir.join(library.file_name().unwrap_or_default());
         if !path.exists() {
             write_new(&path, &fs::read(&library).map_err(|e| Error::Io(library.clone(), e))?)?;
         }
@@ -169,16 +169,16 @@ mod tests {
         fs::create_dir_all(&libdir).unwrap();
         fs::create_dir_all(&loaded).unwrap();
         fs::write(libdir.join("libstd-1.rlib"), "static").unwrap();
-        assert!(copy_runtime(&root, &libdir).is_err(), "a static std is not used");
+        assert!(copy_runtime(&loaded, &libdir).is_err(), "a static std is not used");
         let name = format!("std-1.{}", std::env::consts::DLL_EXTENSION);
         fs::write(libdir.join(&name), "shared").unwrap();
-        copy_runtime(&root, &libdir).unwrap();
+        copy_runtime(&loaded, &libdir).unwrap();
         fs::write(libdir.join(&name), "changed").unwrap();
         fs::create_dir_all(root.join("bin")).unwrap();
         let gcc = format!("libgcc-1.{}", std::env::consts::DLL_EXTENSION);
         fs::write(root.join("bin").join(&gcc), "gcc").unwrap();
         fs::write(root.join("bin").join("tool.exe"), "tool").unwrap();
-        copy_runtime(&root, &libdir).unwrap();
+        copy_runtime(&loaded, &libdir).unwrap();
         let copied = fs::read_to_string(loaded.join(&name)).unwrap();
         let more = (loaded.join(&gcc).is_file(), loaded.join("tool.exe").exists());
         fs::remove_dir_all(&root).unwrap();

@@ -161,3 +161,35 @@ A package contains:
 | Python module (`pyo3`) | Call from Python. |
 
 The editor can open a package and show the original project.
+
+### 14.1 Executable package
+
+The command `patina-cli package <project folder> <package folder> [--edit]` makes an executable
+package. The build is in bake mode, or in edit mode with `--edit`. The package folder must not
+exist or must be empty. Patina writes to a temporary folder `<name>.part` next to it and renames
+it at the end, so a failed build leaves no half package. (Agent decision, 2026-11-15. The owner
+can change it.)
+
+The package is a folder:
+
+| Item | Content |
+|---|---|
+| `<name>` (`<name>.exe` on Windows) | A copy of `patina-cli`. The name is the name of the package folder. |
+| `package.toml` | The header: `format`, `patina` (the version), `rust` and `wiring`. |
+| `lib/` | The clusters, `cluster-batch` and `cluster-frame`, and the shared Rust runtime (8.5). |
+| `project/` | The project source of item 3. |
+| `licenses/` | The notices of item 5, and a `README.txt` with the license of each crate. |
+
+- When `package.toml` is next to the program, the program runs the package and not the CLI
+  commands.
+- The arguments are `--frames <count>` and parameters `<node ID>.<input key>=<value>`. A
+  parameter replaces the value of the graph. A name that the graph does not have stops the run
+  and shows the list of parameters.
+- `wiring` is the SHA-256 hash of the wiring of the checked graph. If the project source does
+  not agree with the clusters, or another Patina version made the package, the package does not
+  run.
+- The notices of the crates of `patina-cli` come from the `licenses/crates` folder of the portable
+  zip (13.1). A runner that has no such folder gives a warning.
+
+(Agent decision, 2026-11-15. The owner can change it. One file for each package, the library,
+the Python module and the editor command are later work of milestone 8.)

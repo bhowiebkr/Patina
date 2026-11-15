@@ -1,14 +1,45 @@
 # Status
 
-The current milestone is milestone 7, subgraphs and reuse (spec section 19). Milestone 6,
-layers, ended on 2026-11-15. Milestones 2 to 6 work, with the open items in their known limits. The installers of
+The current milestone is milestone 8, packaging (spec section 19). Milestone 7, subgraphs and
+reuse, ended on 2026-11-15. Milestones 2 to 7 work, with the open items in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Milestone 8: packaging
+
+Milestone 8 started on 2026-11-15. It makes packages of a project (spec 14).
+
+### Plan
+
+1. The executable package (14.1). This part works.
+2. The **Package** command of the editor.
+3. The editor opens a package and shows the original project.
+4. The library (C API) and the Python module.
+
+### What works
+
+- `patina-cli package` builds a project and writes the package folder: the runner, the header,
+  the clusters with the Rust runtime, the project source and the license notices.
+- The program of the package runs the graph alone and takes `--frames` and parameter arguments.
+- A CLI test with the real toolchain on Windows makes a package of `examples/hello`, runs it with
+  a parameter and gets `5`. It also checks the notices, that `build/` stays out, and that a bad
+  parameter fails.
+- A unit test checks the parameter arguments, the notice file names, the version check and the
+  wiring check.
+
+### Known limits
+
+- A package is a folder, not one file.
+- The notices of the crates of the runner are only in the portable zip. A runner from a
+  checkout gives a warning.
+- The editor has no **Package** command and cannot open a package yet.
+- The library (C API) and the Python module are not done.
+- The package ran only on Windows.
+
 ## Milestone 7: subgraphs and reuse
 
-Milestone 7 started on 2026-11-15. It adds subgraphs, **Import** and **Update** (spec 6.1, 6.2
+Milestone 7 started on 2026-11-15 and ended on 2026-11-15. It adds subgraphs, **Import** and **Update** (spec 6.1, 6.2
 and 6.4).
 
 ### Plan
