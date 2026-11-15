@@ -63,6 +63,14 @@ pub fn run(work: Arc<dyn Work>) {
     state.job = None;
 }
 
+/// Starts the pool and makes room for runs of up to `tasks` tasks, so that a later run does not
+/// allocate (9.1).
+pub fn prepare(tasks: usize) {
+    let mut state = lock(&pool().state);
+    state.ready.reserve(tasks);
+    state.left.reserve(tasks);
+}
+
 fn pool() -> &'static Pool {
     let mut first = false;
     let pool = POOL.get_or_init(|| {

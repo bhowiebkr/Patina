@@ -82,6 +82,8 @@ pub struct Node {
     pub output_types: Vec<String>,
     /// The domain of `#[node(domain = ...)]`.
     pub domain: Option<Domain>,
+    /// The state struct has `pub fn ui(&mut self, ui: &mut Ui)` (4.3).
+    pub ui: bool,
 }
 
 impl Node {
@@ -118,13 +120,14 @@ pub fn parse(source: &str) -> Result<Node, String> {
     }
     let (attr, item) = found.ok_or("the crate has no #[node] function or struct")?;
     let domain = read_domain(attr)?;
-    let (sig, state, generics) = match item {
-        Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None, type_params(&func.sig.generics)?),
+    let (sig, state, generics, ui) = match item {
+        Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None, type_params(&func.sig.generics)?, false),
         Item::Fn(func) => return Err(format!("make the node function `{}` pub", func.sig.ident)),
         Item::Struct(s) if !matches!(s.vis, Visibility::Public(_)) => return Err(format!("make the node struct `{}` pub", s.ident)),
         Item::Struct(s) => {
             let generics = type_params(&s.generics)?;
-            (process(&file, s, &generics)?, Some(s.ident.to_string()), generics)
+            let (sig, ui) = process(&file, s, &generics)?;
+            (sig, Some(s.ident.to_string()), generics, ui)
         }
         _ => return Err("put #[node] on a function (spec 4.1) or a struct (spec 4.2)".to_owned()),
     };
@@ -171,7 +174,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
     if state.is_some() && !matches!(sig.inputs.first(), Some(FnArg::Receiver(_))) {
         return Err(PROCESS.to_owned());
     }
-    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain })
+    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, ui })
 }
 
 const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
@@ -181,7 +184,7 @@ pub fn delay() -> Node {
     let t = "T".to_owned();
     let input = Input { key: "value".to_owned(), pass: Pass::Take, is_str: false, ty: t.clone(), value: t.clone() };
     let (generics, output_types) = (vec![t.clone()], vec![t]);
-    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame) }
+    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame), ui: false }
 }
 
 /// The names of the type parameters. A node has no lifetime or const parameters (4.5).
@@ -207,13 +210,13 @@ fn plain(sig: &Signature, own_generics: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// Finds the `process` method of stateful node `node`, and checks its `init` method (4.2). The
-/// `impl` block names the type parameters as the struct does (4.5).
-fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> Result<&'a Signature, String> {
+/// Finds the `process` method of stateful node `node`, and checks its `init` method (4.2) and its
+/// `ui` method (4.3). The `impl` block names the type parameters as the struct does (4.5).
+fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> Result<(&'a Signature, bool), String> {
     let name = &node.ident;
     let this = if generics.is_empty() { name.to_string() } else { format!("{name}<{}>", generics.join(", ")) };
     let head = if generics.is_empty() { format!("impl {this}") } else { format!("impl<{}> {this}", generics.join(", ")) };
-    let (mut init, mut process) = (None, None);
+    let (mut init, mut process, mut ui) = (None, None, None);
     for item in &file.items {
         let Item::Impl(block) = item else { continue };
         if block.trait_.is_some() || type_text(&block.self_ty) != this {
@@ -223,6 +226,7 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
             let slot = match func.sig.ident.to_string().as_str() {
                 "init" => &mut init,
                 "process" => &mut process,
+                "ui" => &mut ui,
                 _ => continue,
             };
             if !matches!(func.vis, Visibility::Public(_)) {
@@ -237,7 +241,16 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
     if !init.inputs.is_empty() || !matches!(&init.output, ReturnType::Type(_, ty) if is_self(ty)) {
         return Err(format!("`{name}::init` takes no inputs and returns `Self`"));
     }
-    process.ok_or(format!("add `pub fn process(&mut self, ...)` to `{head}`"))
+    if let Some(ui) = ui {
+        plain(ui, false)?;
+        let is_mut = |arg: Option<&FnArg>| matches!(arg, Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some());
+        let is_ui = |arg: Option<&FnArg>| matches!(arg, Some(FnArg::Typed(t)) if { let ty = type_text(&t.ty).replace(' ', ""); ty.starts_with("&mut") && (ty == "&mutUi" || ty.ends_with("::Ui")) });
+        if ui.inputs.len() != 2 || !is_mut(ui.inputs.first()) || !is_ui(ui.inputs.get(1)) || !matches!(ui.output, ReturnType::Default) {
+            return Err(format!("`{name}::ui` takes `&mut self` and `ui: &mut Ui` (spec 4.3)"));
+        }
+    }
+    let process = process.ok_or(format!("add `pub fn process(&mut self, ...)` to `{head}`"))?;
+    Ok((process, ui.is_some()))
 }
 
 /// Reads `domain = <name>` of `#[node(...)]` (9.1).
@@ -400,6 +413,9 @@ mod tests {
         let node = parse(counter).unwrap();
         assert_eq!((node.func.as_str(), node.state.as_deref(), node.domain), ("process", Some("Counter"), Some(Domain::Frame)));
         assert_eq!((node.inputs.len(), node.inputs[0].key.as_str(), node.output_keys()), (1, "step", vec!["out".to_owned()]));
+        assert!(!node.ui);
+        let gui = counter.replace("fn other(&self) {}", "pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {}");
+        assert!(parse(&gui).unwrap().ui);
         let hold = "#[node] pub struct Hold<T, U> { v: Option<(T, U)> }\n\
                     impl<T: Clone, U> Hold<T, U> { pub fn init() -> Hold<T, U> { todo!() } }\n\
                     impl<T, U> Hold<T, U> where T: Copy { pub fn process(&mut self, x: T, y: &mut Vec<U>) -> Option<T> { todo!() } }";
@@ -421,6 +437,9 @@ mod tests {
             "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub fn process() {} }",
             "#[node] pub struct S; impl S { pub fn init() -> Self { S } fn process(&mut self) {} }",
             "#[node] pub enum E { A }",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub fn process(&mut self) {} pub fn ui(&self, ui: &mut Ui) {} }",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub fn process(&mut self) {} pub fn ui(&mut self, ui: &Ui) {} }",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub fn process(&mut self) {} fn ui(&mut self, ui: &mut Ui) {} }",
         ];
         for source in fails {
             assert!(parse(source).is_err(), "{source}");

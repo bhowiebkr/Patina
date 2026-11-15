@@ -3,9 +3,11 @@
 
 #[doc(hidden)]
 pub mod glue;
+mod ui;
 mod view;
 
 pub use patina_macros::{connection, node};
+pub use ui::{Mode, Number, Response, Ui};
 pub use view::{Lanes, Text, Viewer};
 
 /// True when the user clicked **Stop** during the run (15.2). A node that runs for a long time

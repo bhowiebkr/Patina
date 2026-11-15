@@ -129,6 +129,7 @@ pub struct Outcome {
 type VersionFn = unsafe extern "C" fn() -> u32;
 type NewFn = unsafe extern "C" fn() -> *mut c_void;
 type SetFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const Reporter) -> bool;
+type UiFn = unsafe extern "C" fn(*const c_void, u32, u32, *const u8, usize, *const Reporter) -> bool;
 type ParallelFn = unsafe extern "C" fn(*const c_void) -> bool;
 type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
@@ -139,6 +140,7 @@ pub struct Cluster {
     state: *mut c_void,
     new: NewFn,
     set: SetFn,
+    ui: UiFn,
     end: EndFn,
     free: FreeFn,
     /// True when the tasks of a run can run on many threads at a time (9.2).
@@ -283,6 +285,7 @@ impl Cluster {
             }
             let new: NewFn = symbol(&library, b"patina_cluster_new\0").map_err(missing)?;
             let set: SetFn = symbol(&library, b"patina_cluster_set\0").map_err(missing)?;
+            let ui: UiFn = symbol(&library, b"patina_cluster_ui\0").map_err(missing)?;
             let parallel: ParallelFn = symbol(&library, b"patina_cluster_parallel\0").map_err(missing)?;
             let task: TaskFn = symbol(&library, b"patina_cluster_task\0").map_err(missing)?;
             let end: EndFn = symbol(&library, b"patina_cluster_end\0").map_err(missing)?;
@@ -293,9 +296,12 @@ impl Cluster {
             }
             let domains = [Domain::Batch, Domain::Frame].map(|d| Arc::new(Tasks::new(state, task, tasks, d)));
             let (parallel, has_text) = (parallel(state), vec![false; slots.len()]);
+            if parallel {
+                pool::prepare(tasks.len());
+            }
             let (sink, out) = (Sink::default(), Outcome::default());
             let work = [f64::INFINITY; 2];
-            Cluster { state, new, set, end, free, parallel, domains, work, names, slots, probes, has_text, sink, out }
+            Cluster { state, new, set, ui, end, free, parallel, domains, work, names, slots, probes, has_text, sink, out }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -377,6 +383,22 @@ impl Cluster {
         self.work[domain as usize] = self.out.times.iter().map(|t| t.ms).sum();
     }
 
+    /// Calls the `ui` function of node `id` between two runs (4.3), in mode `mode` (0 compact,
+    /// 1 large, 2 full). `events` has a line for each user input: the widget index and the value.
+    /// Returns the widget lines, or `None` when the node has no GUI or failed (see the outcome).
+    pub fn ui(&mut self, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
+        let Some(node) = self.names.iter().position(|(n, _)| n == id).and_then(|n| u32::try_from(n).ok()) else {
+            return (None, Outcome::default());
+        };
+        let (state, ui) = (self.state, self.ui);
+        self.sink.clear();
+        // SAFETY: `state` is live, `&mut self` shows that no run is active, and `events` and the
+        // reporter are valid during the call.
+        self.call(std::ptr::null(), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
+        let tree = self.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
+        (tree, std::mem::take(&mut self.out))
+    }
+
     /// The ID of each node, by the node index of `Control::node`.
     pub fn node_ids(&self) -> impl Iterator<Item = &str> {
         self.names.iter().map(|(id, _)| id.as_str())
@@ -414,8 +436,9 @@ fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, String)], pr
                 let lanes = items.next_if(|&(i, k, _)| (i, k) == (index, glue::LANES));
                 Lanes::read(lanes.map(|(_, _, text)| text), &mut value.lanes);
             }
-            // Lanes with no value before them come only from a defective cluster.
-            glue::LANES => {}
+            // Lanes with no value before them come only from a defective cluster. `Cluster::ui`
+            // reads the widget lines.
+            glue::LANES | glue::UI => {}
             glue::TIME => {
                 // A defective cluster can send a bad text or index. Its time has no node to show on.
                 if let (Some((id, _)), Ok(ns)) = (name, text.parse::<u64>()) {

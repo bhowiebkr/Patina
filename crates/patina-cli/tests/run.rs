@@ -98,6 +98,14 @@ impl<T: Copy + Into<f64>> Tick<T> {
         self.count = (self.count + base.into()) % 10.0;
         self.count
     }
+
+    pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
+        ui.label(\"Tick\");
+        if ui.button(\"Reset\").clicked() {
+            self.count = 0.0;
+        }
+        ui.slider(\"Count\", &mut self.count, 0.0..=10.0);
+    }
 }
 ";
 
@@ -184,6 +192,13 @@ builtin = \"delay\"
     let frame = cluster.frame(&control);
     assert!(warm && ok && frame.values.iter().any(|v| v.lanes.is_some()) && !frame.times.is_empty());
     assert_eq!((boxed, ALLOCATIONS.get()), (1, 0), "one box, then the allocations of 100 frames");
+
+    // The GUI of tick (4.3): its widget lines, then a click on Reset. Mix has no GUI.
+    let tree = cluster.ui("00000000000000f1", 0, "").0.unwrap();
+    assert!(tree.starts_with("label\tTick\nbutton\tReset\nslider\tCount\t"), "{tree}");
+    let (tree, out) = cluster.ui("00000000000000f1", 0, "1 1");
+    assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t0\t0\t10"));
+    assert!(cluster.ui("00000000000000f3", 0, "").0.is_none());
 }
 
 #[test]

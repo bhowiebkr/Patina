@@ -18,7 +18,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockW
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 8;
+pub const ABI_VERSION: u32 = 9;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -37,6 +37,8 @@ pub const LANES: u32 = 7;
 pub const TIME: u32 = 8;
 /// A log line of a node (15.7). The text is the level, a space and the message.
 pub const LOG: u32 = 9;
+/// The widget lines of a call of `ui` (4.3), from `Ui::tree`.
+pub const UI: u32 = 10;
 
 /// The most log lines of one run (15.7). The cluster does not send the lines after them.
 pub const LOG_LINES: u32 = 1000;
@@ -189,6 +191,8 @@ pub enum Cmd<'a> {
     /// Ends a run of the domain with this index (9.1): drops each value of the domain that no
     /// node took. Returns false when a drop failed.
     End(u32),
+    /// Calls the `ui` function of the node with this index (4.3), with a mode and the events.
+    Ui(u32, u32, &'a str),
 }
 
 type ClusterFn = dyn Fn(Cmd<'_>, &Reporter) -> bool;
@@ -275,6 +279,22 @@ impl<T> State<T> {
     pub fn lock(&self) -> MutexGuard<'_, Option<T>> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
+}
+
+/// Calls the `ui` function of a stateful node between two runs (4.3), and sends its widget lines.
+/// A panic drops the state, as in `process` (4.7).
+pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl FnOnce(&mut T, &mut crate::Ui), cmd: (u32, &str), rep: &Reporter, node: u32) -> bool {
+    let mut st = state.lock();
+    let mut gui = crate::Ui::new(cmd.0, cmd.1);
+    let caught = catch_unwind(AssertUnwindSafe(|| {
+        ui(st.get_or_insert_with(init), &mut gui);
+        Ok(())
+    }));
+    let ok = finish_state(caught, &mut st, rep, node);
+    if ok {
+        rep.send(node, UI, gui.tree());
+    }
+    ok
 }
 
 pub fn default_value<T: Param>() -> T {
@@ -427,6 +447,20 @@ pub unsafe fn set(
         return false;
     };
     catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Set(index, text), rep))).unwrap_or(false)
+}
+
+/// The body of `patina_cluster_ui`.
+///
+/// # Safety
+///
+/// The same as for `set`, and no run of the cluster is active.
+pub unsafe fn ui(cluster: *const Cluster, node: u32, mode: u32, text: *const u8, len: usize, rep: *const Reporter) -> bool {
+    // SAFETY: the caller keeps the rules of this function.
+    let (cluster, rep, bytes) = unsafe { (&*cluster, &*rep, std::slice::from_raw_parts(text, len)) };
+    let Ok(events) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Ui(node, mode, events), rep))).unwrap_or(false)
 }
 
 /// The body of `patina_cluster_parallel`: true when the engine can run the tasks of a run on many

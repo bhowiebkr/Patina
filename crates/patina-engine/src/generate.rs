@@ -111,6 +111,18 @@ pub fn source(plan: &Plan) -> String {
         s.push_str("            ok\n        }\n");
     }
     s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n");
+    // The GUI of each node with a `ui` function (4.3). The CLI never calls it.
+    s.push_str("        ::patina_sdk::glue::Cmd::Ui(index, mode, events) => match index {\n");
+    for (n, step) in plan.steps.iter().enumerate() {
+        let (name, node) = &plan.nodes[step.node];
+        let (Some(state), true) = (&node.state, node.ui) else { continue };
+        let krate = name.replace('-', "_");
+        let _ = writeln!(
+            s,
+            "            {n} => ::patina_sdk::glue::draw(&s{n}, ::{krate}::{state}::init, |st, ui| st.ui(ui), (mode, events), rep, {n}),"
+        );
+    }
+    s.push_str("            _ => false,\n        },\n");
     // The end of a domain drops the values of its steps (9.1). A value that another domain reads
     // stays until its step runs again.
     for domain in plan.tasks.iter().map(|t| t.domain).collect::<std::collections::BTreeSet<_>>() {
@@ -308,6 +320,22 @@ pub unsafe extern "C" fn patina_cluster_set(
 ) -> bool {
     // SAFETY: the engine keeps the rules of `glue::set`.
     unsafe { ::patina_sdk::glue::set(cluster.cast(), index, text, len, rep) }
+}
+
+/// # Safety
+///
+/// The engine keeps the rules of `patina_sdk::glue::ui`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_cluster_ui(
+    cluster: *const ::std::ffi::c_void,
+    node: u32,
+    mode: u32,
+    text: *const u8,
+    len: usize,
+    rep: *const ::patina_sdk::glue::Reporter,
+) -> bool {
+    // SAFETY: the engine keeps the rules of `glue::ui`.
+    unsafe { ::patina_sdk::glue::ui(cluster.cast(), node, mode, text, len, rep) }
 }
 
 /// # Safety

@@ -60,7 +60,7 @@ fn workspace(root: &Path) -> String {
 }
 
 /// The SDK crates that a project builds with. The engine carries their source.
-const SDK_FILES: [(&str, &str); 6] = [
+const SDK_FILES: [(&str, &str); 7] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -69,6 +69,7 @@ const SDK_FILES: [(&str, &str); 6] = [
     ("build/sdk/patina-sdk/src/lib.rs", include_str!("../../patina-sdk/src/lib.rs")),
     ("build/sdk/patina-sdk/src/glue.rs", include_str!("../../patina-sdk/src/glue.rs")),
     ("build/sdk/patina-sdk/src/view.rs", include_str!("../../patina-sdk/src/view.rs")),
+    ("build/sdk/patina-sdk/src/ui.rs", include_str!("../../patina-sdk/src/ui.rs")),
     (
         "build/sdk/patina-macros/Cargo.toml",
         "[package]\nname = \"patina-macros\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\

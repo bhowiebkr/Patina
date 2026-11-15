@@ -10,7 +10,8 @@ checks open.
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
 Three slices work: stateful nodes (4.2), generic nodes (4.5) and the delay node (9.2). They
-ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. Node GUIs come next.
+ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. The engine side of node GUIs (4.3) works.
+The editor does not show node GUIs yet.
 
 ### What works
 
@@ -24,6 +25,9 @@ ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. Node GUIs come next.
 - A node function or a state struct can have type parameters. The engine gets them from the
   types of the input wires, and finds the connection kind of each output from its real type.
   A parameter that no input wire gives makes an error on the node.
+- A stateful node can have `pub fn ui(&mut self, ui: &mut Ui)`. `Cluster::ui` calls it between
+  two runs, with the user input as events, and gives the widget lines. The `Ui` has a label, a
+  button, a toggle and a slider. A panic in `ui` drops the state, as in `process`.
 - A graph can have a feedback loop in the frame domain through a delay node
   (`builtin = "delay"`). The delay gives the value of its input in the previous frame, and
   `Default::default()` in the first frame.
@@ -44,6 +48,10 @@ ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. Node GUIs come next.
 - The hello test has a loop: mix to tick to a delay, and back to mix. The CLI wrote `6.5`,
   `7.5`, `9.5` and `13.5`, so the delay gave the tick value of the previous frame. 100 frames
   made no allocation.
+- The hello test calls the `ui` of the tick node. It got the widget lines. A click event on
+  **Reset** set the count to 0. A node with no `ui` gave no lines.
+- The parser test finds `ui`, and refuses `ui(&self, ...)`, `ui: &Ui` and a private `ui`.
+- The `Ui` test reads the events of a button, a toggle and a slider, and clamps the slider.
 - The plan test orders a loop through a delay and gets its type from the other wire. It refuses
   a delay with no input wire, an unknown built-in node, and a loop of only generic nodes.
 
@@ -58,10 +66,14 @@ ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. Node GUIs come next.
   the CLI.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The search
   of the Add node palette does not join a wire to a generic pin.
+- The editor does not show node GUIs. Only stateful nodes can have a GUI. The number field, text
+  field, dropdown, the value widgets, the canvas, the sizes, `full_gui`, the audio `ui` with
+  `#[settings]` and widget folders are not done.
 - The delay runs only in the frame domain. The editor palette has no delay node.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
-- One Linux CI run counted 1 allocation in 100 frames of the hello test. The rerun passed. The
-  cause is not known.
+- Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
+  the worker pool for the first time inside the counted frames. A parallel cluster now prepares
+  the pool when it loads. CI did not run this fix yet.
 - The types go only from an output to an input. A type parameter that only an output uses
   stays unresolved, also when a wire goes from that output to a pin of a known type.
 
