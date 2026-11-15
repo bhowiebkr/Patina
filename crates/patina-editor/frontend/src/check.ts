@@ -290,6 +290,30 @@ fn broken() -> u32 {
     if (label !== 'f64') throw new Error(`the wire type label is ${label}, not f64`);
     steps.push('live value and type label on the wire');
 
+    // Below a zoom of 0.5, the nodes have no row text and the wires have no badge (15.1).
+    const scale = () => Number(/scale\(([^)]+)\)/.exec(transform() ?? '')?.[1]);
+    const nodeElements = () => document.querySelectorAll('.react-flow__node *').length;
+    const wheel = (deltaY: number) =>
+      document.querySelector('.react-flow__pane')!.dispatchEvent(new WheelEvent('wheel', { deltaY, ...at, bubbles: true, cancelable: true }));
+    const near = nodeElements();
+    let outs = 0;
+    while (scale() >= 0.5) {
+      const z = scale();
+      wheel(200);
+      outs++;
+      await until('a smaller zoom', RUN_MS, () => scale() < z);
+    }
+    await until('the simple node form', RUN_MS, () =>
+      document.querySelectorAll('.patina-row').length === 0 && !document.querySelector('.wire-value') && !document.querySelector('.wire-type'));
+    if (document.querySelectorAll('.patina-node .title').length !== 2) throw new Error('a node at a far zoom has no title');
+    steps.push(`simple nodes at a far zoom: ${near} node elements near, ${nodeElements()} far`);
+    for (; outs > 0; outs--) {
+      const z = scale();
+      wheel(-200);
+      await until('a larger zoom', RUN_MS, () => scale() > z);
+    }
+    await until('the badge after the far zoom', RUN_MS, () => badge()?.textContent === '2.5' && document.querySelectorAll('.patina-row').length > 0);
+
     // The wire draws in WebGL (15.1). Its hit area is wider than the line, and a click selects it (15.9).
     const wire = await wireColumn();
     if (!anyPixel(wire.column, gray) || anyPixel(wire.column, amber)) throw new Error('the wire is not a neutral line');

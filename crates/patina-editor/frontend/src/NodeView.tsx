@@ -1,8 +1,9 @@
 // A node of the graph: a neutral header with the state icon, and a row for each pin (spec 15.3).
 
 import { memo } from 'react';
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
 import { errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type Value, type View } from './api';
+import { FAR_ZOOM } from './gl';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -167,6 +168,8 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
   const pinTop = (i: number) => HEADER + PAD + i * ROW + ROW / 2;
+  // At a far zoom, the rows keep their size but have no text, so the page has fewer elements (15.1).
+  const far = useStore((s) => s.transform[2] < FAR_ZOOM);
   const classes = ['patina-node', state];
   if (selected) classes.push('selected');
   return (
@@ -176,7 +179,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
         <StateIcon state={state} />
       </div>
       <div className="patina-rows" style={{ height: rows * ROW + 2 * PAD }}>
-        {Array.from({ length: rows }, (_, i) => {
+        {!far && Array.from({ length: rows }, (_, i) => {
           const [input, output] = [inputs[i], outputs[i]];
           const text = input && !wired.includes(input.key) ? entry.params?.[input.key] : undefined;
           return (

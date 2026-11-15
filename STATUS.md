@@ -48,6 +48,8 @@ To run the editor from a checkout:
   that type draws as a bus of lanes, the most significant lane first, with a label such as
   `whole[7:0] / 8` (15.9). A lit lane is light, and a stale bus is dim. Below a zoom of 0.5,
   the bus is one line with the label `/ 8`. The **Inspector** shows the lanes as bits.
+- Below a zoom of 0.5, the nodes show no pin names and no parameter text, and the wires show no
+  badges and type labels (15.1). A selected wire keeps its badge.
 - Select a wire to see its ends and the full text of its value in the **Inspector**, up to 4096
   bytes (15.7). A type crate implements the `Viewer` trait of `patina-sdk` to give its own text.
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
@@ -172,7 +174,7 @@ To run the editor from a checkout:
   and read of a dock layout.
 - The self-check sets **Orthogonal** in the **Inspector**, finds 3 corners or more on the wire,
   clicks **Reset route**, and undoes both edits.
-- CI run 43722861972 of the connection kinds passed on `windows-latest`, `ubuntu-latest` and
+- CI run 43724210873 of the wire look controls passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 
 ### Known limits
@@ -191,7 +193,8 @@ To run the editor from a checkout:
   starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
-- The badges do not hide at a far zoom (15.9). Two badges can cover each other. After each run, the engine copies the text of each
+- The editor has no bench with 500 nodes, so the far zoom form was not measured for frame
+  drops. Two badges can cover each other. After each run, the engine copies the text of each
   value into a new `String`, and the badge text into a second `String`.
 - An orthogonal segment cannot move sideways (15.9). A double-click on an orthogonal or curved
   wire puts the new point on the nearest straight line through the route points. The graph has

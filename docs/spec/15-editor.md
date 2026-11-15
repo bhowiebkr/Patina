@@ -18,7 +18,8 @@ Part of the [Patina Specification](README.md).
 - If HTML/SVG becomes slow with thousands of nodes, change the graph view to a WebGL canvas.
 - The connections (15.9) draw on one WebGL2 canvas under the nodes, not as SVG edges. In the connections prototype (19), SVG dropped frames in a pan, and the WebGL layer held 60 FPS with 2 to 11 times less CPU. React Flow with this layer met the targets, so the framework is React. Svelte Flow was not measured. (Agent decision, 2026-11-15. The owner can change it. The measurements are in STATUS.md.)
 - Each connection keeps an invisible React Flow edge path on the same curve. This path gets the click, the box selection and the keyboard focus. The WebGL layer draws the visible wires and the selection band. Without WebGL2, or after a lost context, CSS shows the edge paths as SVG wires. (Agent decision, 2026-11-15. The owner can change it.)
-- At a 20% zoom, 500 HTML nodes dropped frames in the same prototype. Thus the graph view needs a simpler node form at a far zoom. Milestone 2 designs it.
+- At a 20% zoom, 500 HTML nodes dropped frames in the same prototype. Thus the graph view needs a simpler node form at a far zoom.
+- Below a zoom of 0.5, each node keeps its box, its header with the title and the state icon, its border, its pins and its message. Its rows have no pin names and no parameter text. The wires hide their value badges and type labels, except on a selected wire. A bus keeps its label "/ n" (15.9). (Agent decision, 2026-11-15. The owner can change it.)
 
 ### 15.2 Layout
 

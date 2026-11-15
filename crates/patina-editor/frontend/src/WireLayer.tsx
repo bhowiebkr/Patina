@@ -65,8 +65,10 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const d = wirePath(sourceX, sourceY, targetX, targetY, path);
   const [mx, my] = midpoint(sourceX, sourceY, targetX, targetY, path);
   const lanes = value?.lanes;
+  // At a far zoom, only a selected wire shows its badge and type label. A bus keeps its width (15.1, 15.9).
+  const near = !far || selected;
   // A bus shows its name and width in place of the type label, above its lanes.
-  const label = lanes ? (far ? `/ ${bits.length}` : laneLabel(lanes)) : data!.ty;
+  const label = lanes ? (far ? `/ ${bits.length}` : laneLabel(lanes)) : near ? data!.ty : undefined;
   const above = 12 + (lanes && !far ? ((bits.length - 1) * PITCH) / 2 : 0);
   return (
     <>
@@ -84,7 +86,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
             {label}
           </div>
         )}
-        {value !== undefined && (
+        {value !== undefined && near && (
           <div
             className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}
             style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)` }}
