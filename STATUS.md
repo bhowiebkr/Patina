@@ -54,6 +54,9 @@ To run the editor from a checkout:
 - When the saved code does not compile, the graph runs the last build that compiled. The **Code**
   tab and the status bar show **Running the last build that compiled**.
 - A close or a quit with unsaved changes asks **Save**, **Discard** or **Cancel** (15.10).
+- The unsaved graph and code go to a recovery file in `data/recovery/` (15.10). When a project
+  opens with a recovery file, a dialog asks **Restore** or **Discard**. A save, or a close after
+  the question, deletes the file.
 - **Run** builds the graph on the engine thread and runs it. While the graph runs, a parameter
   change runs it again with no build. A wiring change builds it again. A move does neither.
 - The **Output** tab shows the text that the nodes write. The **Logs** tab shows the build
@@ -77,7 +80,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 30 steps in 7.2 s:
+  off-screen and does not take the focus. It passed these 34 steps in 7.8 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -103,6 +106,10 @@ To run the editor from a checkout:
     find 1 wire with 1 route point.
   - Pause, and set the parameter to 3. Find a stale badge with `2.5`. Undo, save, and find no
     unsaved changes.
+  - Move a node and change the code in Monaco, with no save. Open the project again with no
+    close, as after a crash. Click **Restore**, and find the changed code in Monaco and the
+    unsaved dot in the top bar. Push Ctrl+S. The file on disk has the changed code. Open again:
+    no dialog, and the graph has the moved node.
   - Capture the window into `check.png`.
 - The first capture with a route showed a stale segment from the old curve. The segment lists
   did not change when the number of points changed. The fix makes new lists, and the check
@@ -121,8 +128,8 @@ To run the editor from a checkout:
   stale text `2.5`.
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
-- `cargo test --workspace --locked` passed 45 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the route points, the text of the live values with a `Viewer`, the cut of the badge
+- `cargo test --workspace --locked` passed 46 tests. The tests check the graph edits with undo
+  and redo, the layout files with a hex project ID, the recovery files, the route points, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
@@ -143,8 +150,8 @@ To run the editor from a checkout:
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
-  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1), the **Debug** tab, the
-  recovery file (15.10) and the search palette. **Stop**
+  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1), the **Debug** tab and
+  the search palette. **Stop**
   does the same as **Pause**.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
@@ -155,6 +162,11 @@ To run the editor from a checkout:
   add a route point. The editor does not warn when a wire goes under a node.
 - The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG
   wires.
+- The recovery file does not have the typing of the last 300 ms before a crash. The check did
+  not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
+  old recovery file, and its new changes do not go into the file until the user answers.
+- The recovery file came before the connection kinds of 6.3 and 15.9. The connection kinds
+  need the type crates of 5.1, and the engine does not have them yet.
 - The check did not drag a tab or a splitter with the mouse. A layout change in the last
   300 ms before the window closes with no unsaved changes is not saved.
 - A node after a node that failed keeps its old state. The engine does not report **Skipped**

@@ -180,6 +180,7 @@ fn main() {
             session::node_files,
             session::read_code,
             session::set_unsaved_code,
+            session::recover,
             session::run,
             session::pause,
             session::value,

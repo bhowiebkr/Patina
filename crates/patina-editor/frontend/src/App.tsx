@@ -21,7 +21,7 @@ import {
   type View,
 } from './api';
 import { runCheck } from './check';
-import { closeCode, reloadCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
+import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
 import { Dock, flushLayout, loadLayout, useLayoutSerial, ViewsMenu, type Panel } from './Dock';
 import { GraphView, useFit } from './GraphView';
@@ -103,6 +103,7 @@ export function App() {
   const fit = useFit();
 
   const log = useCallback((more: Line[]) => setLogs((l) => addLines(l, more)), []);
+  useEffect(() => onCodeError(setError), []);
 
   const show = useCallback((v: View) => {
     if (v.serial !== serial.current) {
@@ -251,6 +252,17 @@ export function App() {
       })
       .catch((e) => setError(String(e)));
   }, [refreshStart]);
+
+  // The answer to a recovery file (15.10). The restored code goes into the Code tab as unsaved text.
+  const recover = (restore: boolean) =>
+    api
+      .recover(restore)
+      .then(({ view: v, code }) => {
+        show(v);
+        return restoreCode(code);
+      })
+      .then((e) => e && setError(e))
+      .catch((e) => setError(String(e)));
 
   const answer = (choice: 'save' | 'discard' | 'cancel') => {
     const what = ask;
@@ -403,6 +415,22 @@ export function App() {
               </button>
               <button className="btn" onClick={() => answer('cancel')}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {view.recovery && view.trusted && (
+        <div className="backdrop">
+          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="recover-title">
+            <h2 id="recover-title">Restore the unsaved changes to {view.name}?</h2>
+            <div className="label">Patina stopped before you saved the changes.</div>
+            <div className="actions">
+              <button className="btn primary" autoFocus onClick={() => recover(true)}>
+                Restore
+              </button>
+              <button className="btn" onClick={() => recover(false)}>
+                Discard
               </button>
             </div>
           </div>

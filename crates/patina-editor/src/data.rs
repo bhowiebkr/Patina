@@ -1,8 +1,14 @@
-//! The data folder of Patina (spec 13.3): the lists of recent and trusted projects (11, 15.10) and
-//! the layout of each project (15.2).
+//! The data folder of Patina (spec 13.3): the lists of recent and trusted projects (11, 15.10), the
+//! layout of each project (15.2) and the recovery files (15.10).
 
+use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::io::ErrorKind::NotFound;
+use std::path::{Component, Path, PathBuf};
+
+use patina_engine::project::GraphFile;
+use serde::{Deserialize, Serialize};
 
 /// The number of projects in the recent list.
 const RECENT_LIMIT: usize = 10;
@@ -11,6 +17,31 @@ const TRUSTED: &str = "trusted.json";
 const LAYOUTS: &str = "layouts";
 /// A layout is a few kilobytes. A larger text is an error of the page.
 const LAYOUT_LIMIT: usize = 64 * 1024;
+const RECOVERY: &str = "recovery";
+/// The unsaved code is a few files of text. A larger text is an error of the page.
+const RECOVERY_LIMIT: usize = 16 * 1024 * 1024;
+const RECOVERY_FORMAT: u32 = 1;
+
+/// The unsaved changes of a project in a recovery file (15.10).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Recovery {
+    format: u32,
+    root: PathBuf,
+    /// The main graph when it has changes that are not saved.
+    pub graph: Option<GraphFile>,
+    /// The unsaved text of the Code tab, by path.
+    pub code: BTreeMap<String, String>,
+}
+
+/// A recovery file to write. It borrows the state of the session.
+#[derive(Serialize)]
+struct RecoveryRef<'a> {
+    format: u32,
+    root: &'a Path,
+    graph: Option<&'a GraphFile>,
+    code: &'a BTreeMap<String, String>,
+}
 
 pub struct Data {
     pub dir: PathBuf,
@@ -68,9 +99,62 @@ impl Data {
         let path = self.layout_path(id)?;
         match fs::read_to_string(&path) {
             Ok(text) => Ok(Some(text)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) if e.kind() == NotFound => Ok(None),
             Err(e) => Err(format!("{}: {e}", path.display())),
         }
+    }
+
+    /// The recovery file of the project in `root`, or none.
+    pub fn recovery(&self, root: &Path) -> Result<Option<Recovery>, String> {
+        let path = self.recovery_path(root);
+        let bad = |e: String| format!("{}: {e}", path.display());
+        let bytes = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(e) if e.kind() == NotFound => return Ok(None),
+            Err(e) => return Err(bad(e.to_string())),
+        };
+        let file: Recovery = serde_json::from_slice(&bytes).map_err(|e| bad(e.to_string()))?;
+        if file.format != RECOVERY_FORMAT {
+            return Err(bad(format!("format {} is not known", file.format)));
+        }
+        // A file of another folder with the same hash is not for this project.
+        Ok(same_path(&file.root, root).then_some(file))
+    }
+
+    /// Writes the unsaved changes of the project in `root`, or removes its recovery file when
+    /// there are none.
+    pub fn save_recovery(&self, root: &Path, graph: Option<&GraphFile>, code: &BTreeMap<String, String>) -> Result<(), String> {
+        if graph.is_none() && code.is_empty() {
+            return self.remove_recovery(root);
+        }
+        let file = RecoveryRef { format: RECOVERY_FORMAT, root, graph, code };
+        let text = serde_json::to_vec(&file).map_err(|e| e.to_string())?;
+        if text.len() > RECOVERY_LIMIT {
+            return Err(format!("the unsaved changes have more than {RECOVERY_LIMIT} bytes"));
+        }
+        let dir = self.dir.join(RECOVERY);
+        fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        write_file(&self.recovery_path(root), &text)
+    }
+
+    pub fn remove_recovery(&self, root: &Path) -> Result<(), String> {
+        let path = self.recovery_path(root);
+        match fs::remove_file(&path) {
+            Err(e) if e.kind() != NotFound => Err(format!("{}: {e}", path.display())),
+            _ => Ok(()),
+        }
+    }
+
+    /// The name is a hash of the folder, so two copies of a project have two files. FNV-1a gives
+    /// the same name in each version of Patina.
+    fn recovery_path(&self, root: &Path) -> PathBuf {
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        for part in path_key(root) {
+            for byte in part.as_encoded_bytes().iter().chain(b"/") {
+                hash = (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3);
+            }
+        }
+        self.dir.join(RECOVERY).join(format!("{hash:016x}.json"))
     }
 
     pub fn save_layout(&self, id: &str, text: &str) -> Result<(), String> {
@@ -114,9 +198,13 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 /// Windows paths do not have a case, so `C:\A` and `c:\a` are one folder.
+fn path_key(path: &Path) -> Vec<OsString> {
+    let part = |c: Component| if cfg!(windows) { c.as_os_str().to_ascii_lowercase() } else { c.as_os_str().to_owned() };
+    path.components().map(part).collect()
+}
+
 fn same_path(a: &Path, b: &Path) -> bool {
-    let key = |path: &Path| path.components().map(|c| c.as_os_str().to_ascii_lowercase()).collect::<Vec<_>>();
-    if cfg!(windows) { key(a) == key(b) } else { a == b }
+    path_key(a) == path_key(b)
 }
 
 #[cfg(test)]
@@ -163,5 +251,29 @@ mod tests {
         assert_eq!(bad_ids, [true; 5]);
         assert!(not_json.is_err() && large.is_err());
         assert_eq!(kept, after);
+    }
+
+    #[test]
+    fn a_recovery_file_belongs_to_one_folder_and_goes_with_the_last_change() {
+        let dir = std::env::temp_dir().join(format!("patina-recovery-{}", std::process::id()));
+        let data = Data::find(Some(dir.clone())).unwrap();
+        let (root, copy) = (dir.join("p"), dir.join("copy"));
+        let graph: GraphFile = toml::from_str("format = 1\n").unwrap();
+        let code = BTreeMap::from([("nodes/a/src/lib.rs".to_owned(), "fn a() {}".to_owned())]);
+        let none = data.recovery(&root).map(|r| r.is_none());
+        data.save_recovery(&root, Some(&graph), &code).unwrap();
+        let found = data.recovery(&root).unwrap().map(|r| (r.graph, r.code));
+        let other = data.recovery(&copy).map(|r| r.is_none());
+        let moved = fs::rename(data.recovery_path(&root), data.recovery_path(&copy));
+        let wrong_root = data.recovery(&copy).map(|r| r.is_none());
+        let large = data.save_recovery(&root, None, &BTreeMap::from([(String::new(), "a".repeat(RECOVERY_LIMIT))]));
+        data.save_recovery(&root, None, &code).unwrap();
+        data.save_recovery(&root, None, &BTreeMap::new()).unwrap();
+        let removed = data.recovery(&root).map(|r| r.is_none());
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!((none, other, wrong_root, removed), (Ok(true), Ok(true), Ok(true), Ok(true)));
+        assert_eq!(found, Some((Some(graph), code)));
+        assert!(moved.is_ok() && large.is_err());
+        assert_eq!(data.recovery_path(Path::new("/A/b")) == data.recovery_path(Path::new("/a/b/")), cfg!(windows));
     }
 }

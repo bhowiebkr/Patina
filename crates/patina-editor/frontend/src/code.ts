@@ -18,7 +18,7 @@ import 'monaco-editor/editor/contrib/wordOperations/browser/wordOperations';
 import 'monaco-editor/features/find/register';
 import 'monaco-editor/languages/definitions/rust/register';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
-import { api, errorText, type Diagnostic, type View } from './api';
+import { api, errorText, type Code, type Diagnostic, type View } from './api';
 
 export { monaco };
 
@@ -55,18 +55,39 @@ const buffers = new Map<string, Buffer>();
 let errors: Diagnostic[] = [];
 let unsaved: string[] = [];
 const listeners = new Set<() => void>();
+let sendTimer: ReturnType<typeof setTimeout> | undefined;
+let reportError: (e: string) => void = () => {};
 
 function changed(buffer: Buffer): boolean {
   return buffer.model.getValue() !== buffer.saved;
 }
 
-/** Finds the changed files again, and tells the page and the Rust side when the list changes. */
+/** Sets the function that shows an error of the code buffers, for example of the recovery file. */
+export function onCodeError(f: (e: string) => void) {
+  reportError = f;
+}
+
+/** Sends the unsaved text to the Rust side now, for the close question and the recovery file (15.10). */
+export function flushCode(): Promise<void> {
+  clearTimeout(sendTimer);
+  const code = Object.fromEntries(unsaved.map((path) => [path, buffers.get(path)!.model.getValue()]));
+  return api.setUnsavedCode(code).catch((e) => reportError(String(e)));
+}
+
+/** Finds the changed files again and tells the page when the list changes. */
 function update() {
   const now = [...buffers].filter(([, b]) => changed(b)).map(([path]) => path);
-  if (now.join('\n') === unsaved.join('\n')) return;
-  if ((now.length > 0) !== (unsaved.length > 0)) api.setUnsavedCode(now.length > 0).catch(() => {});
-  unsaved = now;
-  listeners.forEach((f) => f());
+  const had = unsaved.length > 0;
+  if (now.join('\n') !== unsaved.join('\n')) {
+    unsaved = now;
+    listeners.forEach((f) => f());
+  }
+  // The close question must know at once that there are unsaved changes. Typing waits for a pause.
+  if ((now.length > 0) !== had) flushCode();
+  else if (had) {
+    clearTimeout(sendTimer);
+    sendTimer = setTimeout(flushCode, 300);
+  }
 }
 
 export function subscribe(listener: () => void): () => void {
@@ -147,6 +168,19 @@ export async function reloadCode() {
     }
   }
   update();
+}
+
+/** Puts the text of a recovery file into the buffers (15.10). Returns an error, or ''. */
+export async function restoreCode(code: Code): Promise<string> {
+  const lost: string[] = [];
+  for (const [path, text] of Object.entries(code)) {
+    try {
+      (await openFile(path)).setValue(text);
+    } catch {
+      lost.push(path);
+    }
+  }
+  return lost.length === 0 ? '' : `Patina cannot open ${lost.join(', ')}. The unsaved changes of these files are lost.`;
 }
 
 /** Closes all buffers when another project opens. */

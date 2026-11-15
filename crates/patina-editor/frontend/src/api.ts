@@ -49,7 +49,12 @@ export interface View {
   canRedo: boolean;
   /** Changes when an edit, undo or redo writes a code file. */
   codeRevision: number;
+  /** True when the project has a recovery file and the user did not answer yet (15.10). */
+  recovery: boolean;
 }
+
+/** The unsaved text of the Code tab, by path. */
+export type Code = Record<string, string>;
 
 export interface Recent {
   path: string;
@@ -122,7 +127,9 @@ export const api = {
   save: () => invoke<View>('save'),
   nodeFiles: (name: string) => invoke<string[]>('node_files', { name }),
   readCode: (path: string) => invoke<string>('read_code', { path }),
-  setUnsavedCode: (unsaved: boolean) => invoke<void>('set_unsaved_code', { unsaved }),
+  setUnsavedCode: (code: Code) => invoke<void>('set_unsaved_code', { code }),
+  /** Restores or discards the changes of the recovery file (15.10). */
+  recover: (restore: boolean) => invoke<{ view: View; code: Code }>('recover', { restore }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
   /** The full text of the live value of an output after the last run (15.7), or null. */

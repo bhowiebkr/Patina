@@ -57,9 +57,17 @@ impl History {
         if next == self.graph {
             return Err("the edit changes nothing".to_owned());
         }
-        let old = std::mem::replace(&mut self.graph, next);
-        self.push(Step::Graph(old));
+        self.replace(next);
         Ok(())
+    }
+
+    /// Replaces the graph as one step of undo, for example with the graph of a recovery file
+    /// (15.10). The same graph changes nothing.
+    pub fn replace(&mut self, next: GraphFile) {
+        if next != self.graph {
+            let old = std::mem::replace(&mut self.graph, next);
+            self.push(Step::Graph(old));
+        }
     }
 
     /// Records a code edit that is written. `text` is the old text of the file.

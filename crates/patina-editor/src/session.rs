@@ -12,7 +12,7 @@ use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
 
-use crate::data::Data;
+use crate::data::{Data, Recovery};
 use crate::engine::{self, Job, Run, Values};
 
 pub struct Editor {
@@ -32,8 +32,13 @@ struct Session {
     trusted: bool,
     /// True after **Run**. Each edit then runs the graph again, with a build when it needs one.
     live: bool,
-    /// True when the Code tab has changes that are not saved (15.10).
-    unsaved_code: bool,
+    /// The unsaved text of the Code tab, by path (15.10).
+    code: BTreeMap<String, String>,
+    /// The recovery file that the user did not restore or discard yet. Until the answer, Patina
+    /// does not change the file.
+    recovery: Option<Recovery>,
+    /// The error of the last read or write of the recovery file.
+    recovery_error: Option<String>,
 }
 
 /// All that the page shows of the open project.
@@ -56,6 +61,15 @@ pub struct View {
     can_redo: bool,
     /// Changes when an edit, undo or redo writes a code file, so the page reads the file again.
     code_revision: u64,
+    /// True when the project has a recovery file and the user did not answer yet (15.10).
+    recovery: bool,
+}
+
+/// The answer to a recovery file: the view and the unsaved code for the Code tab (15.10).
+#[derive(Serialize)]
+pub struct Recovered {
+    view: View,
+    code: BTreeMap<String, String>,
 }
 
 #[derive(Serialize)]
@@ -80,7 +94,7 @@ impl Editor {
 
     /// True when the open project or the Code tab has changes that are not saved.
     pub fn dirty(&self) -> bool {
-        self.lock().as_ref().is_some_and(|s| s.unsaved_code || s.project.dirty())
+        self.lock().as_ref().is_some_and(|s| !s.code.is_empty() || s.project.dirty())
     }
 
     /// A panic in a command does not stop the editor, so the state stays in use after it.
@@ -96,10 +110,27 @@ impl Editor {
         self.data.add_recent(project.root())?;
         let trusted = self.data.is_trusted(project.root());
         let serial = self.serial.fetch_add(1, Ordering::Relaxed) + 1;
+        let (recovery, recovery_error) = match self.data.recovery(project.root()) {
+            Ok(recovery) => (recovery, None),
+            Err(e) => (None, Some(e)),
+        };
         let _ = self.engine.send(Job::Unload);
         let mut session = self.lock();
         // A project opens paused (15.10).
-        Ok(session.insert(Session { project, serial, trusted, live: false, unsaved_code: false }).view(&self.engine, None))
+        let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), recovery, recovery_error };
+        Ok(session.insert(new).view(&self.engine, None))
+    }
+
+    /// Closes the project. The user saved or discarded the changes, so the recovery file goes. A
+    /// recovery file without an answer stays for the next open.
+    fn close(&self) {
+        if let Some(session) = self.lock().take()
+            && session.recovery.is_none()
+            && let Err(e) = self.data.remove_recovery(session.project.root())
+        {
+            eprintln!("{e}");
+        }
+        let _ = self.engine.send(Job::Unload);
     }
 
     /// Applies a change to the graph or the code, then sends the graph to the engine when it is
@@ -112,6 +143,7 @@ impl Editor {
             let old = session.live.then(|| session.project.graph().clone());
             let code = session.project.code_revision();
             f(&mut session.project)?;
+            session.keep_recovery(&self.data);
             let built = (session.project.code_revision() != code).then_some(true);
             let build = old.and_then(|old| built.or(affects_run(&old, session.project.graph())));
             Ok(session.view(&self.engine, build))
@@ -120,6 +152,15 @@ impl Editor {
 }
 
 impl Session {
+    /// Writes the unsaved changes to the recovery file, or removes the file when there are none
+    /// (15.10). An error shows with the problems of the project.
+    fn keep_recovery(&mut self, data: &Data) {
+        if self.recovery.is_none() {
+            let graph = self.project.dirty().then(|| self.project.graph());
+            self.recovery_error = data.save_recovery(self.project.root(), graph, &self.code).err();
+        }
+    }
+
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
     fn view(&self, engine: &Sender<Job>, build: Option<bool>) -> View {
         let project = &self.project;
@@ -132,10 +173,11 @@ impl Session {
             let run = Run { serial: self.serial, checked, graph: project.graph().clone(), build };
             let _ = engine.send(Job::Run(Box::new(run)));
         }
-        let (nodes, problems) = match project.nodes() {
+        let (nodes, mut problems) = match project.nodes() {
             Ok(nodes) => (nodes, problems),
             Err(e) => (Vec::new(), [e.to_string()].into_iter().chain(problems).collect()),
         };
+        problems.extend(self.recovery_error.iter().map(|e| format!("recovery file: {e}")));
         View {
             serial: self.serial,
             id: project.id().to_owned(),
@@ -150,6 +192,7 @@ impl Session {
             can_undo: project.can_undo(),
             can_redo: project.can_redo(),
             code_revision: project.code_revision(),
+            recovery: self.recovery.is_some(),
         }
     }
 }
@@ -235,8 +278,7 @@ pub fn open_project(editor: State<'_, Editor>, path: PathBuf) -> Result<View, St
 
 #[tauri::command(async)]
 pub fn close_project(editor: State<'_, Editor>) {
-    *editor.lock() = None;
-    let _ = editor.engine.send(Job::Unload);
+    editor.close();
 }
 
 #[tauri::command(async)]
@@ -268,6 +310,7 @@ pub fn redo(editor: State<'_, Editor>) -> Result<View, String> {
 pub fn save(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         session.project.save().map_err(|e| e.to_string())?;
+        session.keep_recovery(&editor.data);
         Ok(session.view(&editor.engine, None))
     })
 }
@@ -278,12 +321,36 @@ pub fn node_files(editor: State<'_, Editor>, name: String) -> Result<Vec<String>
     editor.with(|session| session.project.node_files(&name).map_err(|e| e.to_string()))
 }
 
-/// The page tells when the Code tab has unsaved changes, so a close of the window asks first.
+/// The page sends the unsaved text of the Code tab, so a close of the window asks first and the
+/// recovery file has the text (15.10). Text that comes after the close of the project is old.
 #[tauri::command(async)]
-pub fn set_unsaved_code(editor: State<'_, Editor>, unsaved: bool) -> Result<(), String> {
+pub fn set_unsaved_code(editor: State<'_, Editor>, code: BTreeMap<String, String>) -> Result<(), String> {
+    let mut session = editor.lock();
+    let Some(session) = session.as_mut() else { return Ok(()) };
+    session.code = code;
+    session.keep_recovery(&editor.data);
+    session.recovery_error.clone().map_or(Ok(()), Err)
+}
+
+/// Restores or discards the changes of the recovery file (15.10). A restored graph is one step of
+/// undo. The page puts the code into the Code tab.
+#[tauri::command(async)]
+pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, String> {
     editor.with(|session| {
-        session.unsaved_code = unsaved;
-        Ok(())
+        if !session.trusted {
+            return Err("Trust the project before you restore its changes.".to_owned());
+        }
+        let file = session.recovery.take().ok_or("The project has no recovery file.")?;
+        let mut code = BTreeMap::new();
+        if restore {
+            if let Some(graph) = file.graph {
+                session.project.restore_graph(graph);
+            }
+            code = file.code;
+        }
+        session.code = code.clone();
+        session.keep_recovery(&editor.data);
+        Ok(Recovered { view: session.view(&editor.engine, None), code })
     })
 }
 
@@ -321,7 +388,6 @@ pub fn value(editor: State<'_, Editor>, from: String) -> Option<String> {
     engine::lock(&editor.values).iter().find(|v| v.from == from).map(|v| v.text.clone())
 }
 
-/// The page calls this after it asked the user about the unsaved changes.
 /// The saved layout of a project (15.2). The page checks the text.
 #[tauri::command(async)]
 pub fn layout(editor: State<'_, Editor>, id: String) -> Result<Option<String>, String> {
@@ -333,8 +399,10 @@ pub fn save_layout(editor: State<'_, Editor>, id: String, text: String) -> Resul
     editor.data.save_layout(&id, &text)
 }
 
+/// The page calls this after it asked the user about the unsaved changes.
 #[tauri::command(async)]
-pub fn quit(app: AppHandle) {
+pub fn quit(app: AppHandle, editor: State<'_, Editor>) {
+    editor.close();
     app.exit(0);
 }
 

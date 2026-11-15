@@ -2,7 +2,7 @@
 // project again in the real window, then writes the result for the Rust side.
 
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from './api';
-import { bufferOf, unsavedFiles } from './code';
+import { bufferOf, flushCode, openFile, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
 import { flushLayout, savedViewport } from './Dock';
 import { layoutText, parseLayout } from './layout';
@@ -277,6 +277,27 @@ fn broken() -> u32 {
     v = await step('undo the edit', () => api.undo());
     v = await step('save the route', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');
+
+    // The recovery file (15.10): an open after a stop of Patina restores the unsaved graph and code.
+    const [bx, by] = v.graph.node!.find((n) => n.id === B)!.pos!;
+    v = await step('change without a save', () => api.edit({ kind: 'MoveNode', id: B, pos: [bx, by + 40] }));
+    const changedGraph = JSON.stringify(v.graph);
+    const changedCode = `${original}// recovered\n`;
+    (await openFile(lib)).setValue(changedCode);
+    await flushCode();
+    v = await step('open after a stop', () => api.openProject(v.root));
+    if (!v.recovery || v.dirty) throw new Error('the open did not offer the recovery file');
+    const restore = () => [...document.querySelectorAll<HTMLButtonElement>('.dialog button')].find((b) => b.textContent === 'Restore');
+    await until('the Restore button', RUN_MS, () => restore() !== undefined);
+    restore()!.click();
+    const dirtyDot = () => document.querySelector('.topbar [title="Unsaved changes"]');
+    await until('the restored code and graph', RUN_MS, () => bufferOf(lib)?.getValue() === changedCode && !!dirtyDot() && !restore());
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
+    await until('the save of the restored changes', RUN_MS, () => !dirtyDot());
+    if ((await api.readCode(lib)) !== changedCode) throw new Error('the save did not write the restored code');
+    v = await step('open after the save', () => api.openProject(v.root));
+    if (v.recovery || JSON.stringify(v.graph) !== changedGraph) throw new Error('the save did not keep the restored graph or remove the recovery file');
+    steps.push('recovery file restored');
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');

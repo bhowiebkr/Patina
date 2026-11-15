@@ -275,6 +275,9 @@ To make your first graph:
 
 While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
 
+If Patina stops before you save, it keeps your changes. When you open the project again, click
+**Restore** to get them back, or **Discard** to delete them.
+
 The panels dock at the left, the right and the bottom of the graph:
 
 - Drag a tab to another area, or right-click the tab to move or close it.

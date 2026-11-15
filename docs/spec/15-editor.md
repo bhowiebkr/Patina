@@ -334,8 +334,22 @@ This is an agent decision of 2026-11-15 for question 9 (18). The owner can chang
 - Ctrl+S saves all changes of the project: the graph files and the code files (6.4). A saved code file starts the build of each unit that uses it (7.2, 8.2).
 - A save sends one `SetCode` edit for each changed code file (7.4). A save does not clear the undo history.
 - Reason: Cargo builds from the files on disk. Thus the build that runs always matches a saved file. Patina does not write half-typed code into the folder of the user.
-- After each change, Patina writes the unsaved changes to a recovery file in `data/` (11). A save deletes the recovery file. When a project opens with a recovery file, Patina asks the user to restore it or to discard it.
+- After each change, Patina writes the unsaved changes to a recovery file in `data/` (11). A save deletes the recovery file. When a project opens with a recovery file, Patina asks the user to restore it or to discard it. The next part gives the details.
 - When the user closes a project with unsaved changes, Patina asks: **Save**, **Discard** or **Cancel**.
+
+**Recovery file**
+
+This is an agent decision of 2026-11-15. The owner can change it.
+
+- The file is `data/recovery/<hash>.json`. The hash is the 64-bit FNV-1a hash of the path of the project folder, as 16 hex digits. On Windows, the path has no case.
+- The file holds the format version 1, the project folder, the main graph when it has unsaved changes, and the unsaved text of each code file by path. A file of more than 16 MiB is an error.
+- Patina writes the file after each graph edit, undo, redo and save. It writes the file 300 ms after the user stops typing in the **Code** tab. The first unsaved code change, and the last one that goes, write the file at once.
+- Patina writes a temporary file and then renames it, so a stop during a write does not break the old file.
+- When the project has no unsaved changes, Patina deletes the file. A close or a quit after the user saved or discarded the changes deletes it too.
+- When a project opens with a recovery file, a dialog asks **Restore** or **Discard**. Until the user answers, Patina does not change the file. A restored graph is one step of undo. The restored code goes into the **Code** tab as unsaved text, and Ctrl+S saves it.
+- Patina shows the dialog only for a trusted project (11), because a build runs the restored code.
+- Patina does not restore a file that holds another project folder or that it cannot read. A bad file shows as a problem of the project, and the next write replaces it.
+- Reason: the hash keeps each copy of a project apart, and the folder in the file catches a collision of the hash. The delay of 300 ms keeps the writes few while the user types. A crash loses only the last 300 ms of typing.
 
 **What the editor shows**
 

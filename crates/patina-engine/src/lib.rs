@@ -153,6 +153,12 @@ impl Project {
         Ok(())
     }
 
+    /// Replaces the main graph as one step of undo, for example with the graph of a recovery file
+    /// (15.10). The graph is not saved.
+    pub fn restore_graph(&mut self, graph: GraphFile) {
+        self.history.replace(graph);
+    }
+
     /// Removes the last edit. Returns false when there is no edit to remove.
     pub fn undo(&mut self) -> Result<bool, String> {
         self.step(true)
