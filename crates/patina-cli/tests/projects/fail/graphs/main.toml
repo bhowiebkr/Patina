@@ -1,0 +1,31 @@
+format = 1
+
+[[node]]
+id = "fea12c51067a34d8"
+folder = "nodes/fail"
+
+[node.params]
+value = "1.5"
+
+[[node]]
+id = "dc1095edd35b9589"
+folder = "nodes/boom"
+
+[node.params]
+text = "the boom node"
+
+[[node]]
+id = "df93472b07eaca16"
+folder = "nodes/show"
+
+[[node]]
+id = "7363866a8cd1c455"
+folder = "nodes/show"
+
+[[wire]]
+from = "fea12c51067a34d8.out"
+to = "df93472b07eaca16.value"
+
+[[wire]]
+from = "dc1095edd35b9589.out"
+to = "7363866a8cd1c455.value"

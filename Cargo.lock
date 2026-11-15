@@ -2371,6 +2371,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-cli"
+version = "0.0.0"
+dependencies = [
+ "patina-engine",
+]
+
+[[package]]
+name = "patina-engine"
+version = "0.0.0"
+dependencies = [
+ "libloading 0.8.9",
+ "patina-sdk",
+ "serde",
+ "serde_json",
+ "syn 2.0.119",
+ "toml 1.2.1+spec-1.1.0",
+]
+
+[[package]]
+name = "patina-macros"
+version = "0.0.0"
+
+[[package]]
+name = "patina-sdk"
+version = "0.0.0"
+dependencies = [
+ "patina-macros",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

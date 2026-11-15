@@ -9,9 +9,10 @@
 
 </div>
 
-> **Patina is at the design stage.** There is no code yet. This README tells what Patina will
-> be. The [specification](docs/spec/README.md) is the full design. Work starts with the risk
-> prototypes of [milestone 0](#status-and-roadmap).
+> **Patina is at an early stage.** The engine runs a simple graph from the command line. There
+> is no editor yet. This README tells what Patina will be. The
+> [specification](docs/spec/README.md) is the full design. [STATUS.md](STATUS.md) tells what
+> works now.
 
 - [What Patina is](#what-patina-is)
 - [Nodes](#nodes)
@@ -22,6 +23,7 @@
 - [GPU](#gpu)
 - [Install](#install)
 - [Packages](#packages)
+- [Run a project from the command line](#run-a-project-from-the-command-line)
 - [How it is built](#how-it-is-built)
 - [Status and roadmap](#status-and-roadmap)
 - [Documentation](#documentation)
@@ -240,6 +242,19 @@ A finished graph can become a package that runs without the editor:
 A package holds the full source of the project. The editor can open a package and show the
 original project. A package also holds the license notices of Patina and of the crates in it.
 
+## Run a project from the command line
+
+`patina-cli` builds the main graph of a project and runs it one time. It needs Rust, with the
+version that `patina.toml` gives. To run the example project from a checkout of this
+repository:
+
+```
+cargo run -p patina-cli -- run examples/hello
+```
+
+The example adds two numbers and writes `6.5`. A node that fails or panics gives a message with
+its ID, and the nodes after it do not run. The exit code is then 1.
+
 ## How it is built
 
 | Part | What it does |
@@ -253,7 +268,7 @@ All code is Rust, except the web frontend of the editor.
 
 ## Status and roadmap
 
-Milestone 0 is in progress. [STATUS.md](STATUS.md) gives the results. Each milestone gives a
+Milestone 1 is in progress. [STATUS.md](STATUS.md) gives the results. Each milestone gives a
 tool that works.
 
 0. **Risk prototypes**, proven on Windows first:

@@ -1,0 +1,18 @@
+[package]
+name = "patina-engine"
+version = "0.0.0"
+description = "Checks, compiles and runs a Patina graph (spec 3). No UI code."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+libloading = "0.8"
+patina-sdk = { path = "../patina-sdk" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+syn = { version = "2", features = ["full"] }
+toml = "1"

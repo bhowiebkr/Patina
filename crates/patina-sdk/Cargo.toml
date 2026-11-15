@@ -1,0 +1,13 @@
+[package]
+name = "patina-sdk"
+version = "0.0.0"
+description = "The crate that node code uses (spec 3)."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+patina-macros = { path = "../patina-macros" }

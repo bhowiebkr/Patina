@@ -1,6 +1,77 @@
 # Status
 
-The current milestone is milestone 0, the risk prototypes (spec section 19).
+The current milestone is milestone 1, the engine and the CLI (spec section 19). Milestone 0
+ended on 2026-11-15. Its results follow the milestone 1 section, with three owner checks open.
+
+## Milestone 1: engine and CLI
+
+Item 1 of section 19 works. `patina-cli run <project folder>` compiles the node folders of a
+project, loads the cluster and runs the main graph one time. It ran on 2026-11-15 on Windows 11
+Pro, with Rust 1.94.0 and 1.100.0. It did not run on Linux or macOS on this computer.
+
+### What works
+
+- `patina-engine` reads `patina.toml` and `graphs/main.toml` (6.4). A key that Patina does not
+  know, or a newer format, stops the read with a message.
+- It reads the pins of each node from the `#[node]` function with `syn` (4.1). Inputs by value,
+  by `&`, by `&mut` and as `&str` work. A tuple output and a `Result` output work.
+- It checks the graph and gives all the problems at one time: the IDs, the folders, the
+  parameter keys, the wire ends, two wires to one input and the cycles.
+- It sorts the nodes in run order, with the order wires (9.2). Ties keep the file order.
+- It writes the project workspace, the SDK source and one cluster crate, and builds them with
+  cargo. It writes a file only when the content changes, so a build with no change is fast.
+- It loads the cluster, checks the ABI version, sets the parameters from their text form (4.8)
+  and runs the graph. On Windows, only the folder of the library and the system folders give
+  other libraries.
+- A node that returns `Err` or panics gives a report with its ID and folder. The nodes after it
+  do not run (4.7, 15.3). A bad parameter text gives a report, and the graph does not run.
+- [examples/hello](examples/hello) adds two numbers. It uses one node folder two times.
+
+### What was checked
+
+- `cargo test --workspace --locked` passed 29 tests. Two CLI tests build and run projects in
+  the temporary folder of cargo:
+  - `hello_adds_two_numbers`: the exit code is 0, and the output is `6.5`.
+  - `failed_nodes_are_reported_and_stop_the_nodes_after_them`: the exit code is 1. The error
+    and the panic reports have the node IDs, and the output is empty. Then the parameter text
+    changes to `abc`, and the bad parameter report shows.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
+  1.100.0.
+- A manual run of `examples/hello` with the CLI wrote `6.5`.
+
+### Measurements
+
+The projects are very small, so these times do not predict real projects.
+
+| Measurement | Time |
+| --- | --- |
+| Cold build of `examples/hello`, with the SDK | 0.8 s |
+| Rebuild after a change to the SDK source | 0.6 s |
+| Build with no change | less than 0.05 s |
+| The 2 CLI tests, with the cold build of both projects | 1.2 s |
+
+### Known limits
+
+- One cluster, with a static `std`, in the `dev` profile. Clusters that share types, hot reload
+  and **Bake** come at milestone 6.
+- Only function nodes. Stateful nodes, node settings and generic nodes come at milestone 5.
+  Subgraphs come at milestone 7, and async nodes at milestone 12.
+- The toolchain comes from the `CARGO` variable or from `PATH`, and its version must be the
+  `rust` version of `patina.toml`. The own toolchain comes at milestone 3.
+- The engine loads the library from the cargo target folder, and never unloads it. Windows
+  locks the file, so one process cannot build the same project again after the load.
+- A node panic shows two messages: the default panic message of the cluster, and the report.
+- A `Result` output is found by the type name `Result` only. A type alias with another name is
+  not found, and then an `Err` is a value, not a failure.
+- The CLI runs the graph one time. The clock domains (9.1) come later.
+- These shortcuts are open in the code:
+  - The toolchain comes from `CARGO` or `PATH` (`crates/patina-engine/src/cargo.rs`).
+  - One cluster with a static `std` in the `dev` profile (`crates/patina-engine/src/cargo.rs`).
+  - The library loads from the target folder (`crates/patina-engine/src/lib.rs`).
+  - Only function nodes (`crates/patina-engine/src/node.rs`,
+    `crates/patina-macros/src/lib.rs`).
+
+## Milestone 0: risk prototypes
 
 | Prototype | Result | Platforms that ran |
 | --- | --- | --- |

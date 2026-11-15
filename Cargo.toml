@@ -1,6 +1,10 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/patina-cli",
+    "crates/patina-engine",
+    "crates/patina-macros",
+    "crates/patina-sdk",
     "prototypes/connections",
     "prototypes/viewport",
     "prototypes/hot-reload",
@@ -9,7 +13,11 @@ members = [
     "tools/repo-checks",
 ]
 # The user projects of the prototypes build alone, with their own flags and toolchains.
-exclude = ["prototypes/types-across-clusters/project", "prototypes/toolchain/fixture"]
+exclude = [
+    "examples",
+    "prototypes/types-across-clusters/project",
+    "prototypes/toolchain/fixture",
+]
 
 [workspace.package]
 edition = "2024"

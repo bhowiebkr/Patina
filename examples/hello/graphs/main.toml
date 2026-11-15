@@ -1,0 +1,39 @@
+format = 1
+
+[[node]]
+id = "9bc1790966687030"
+folder = "nodes/number"
+pos = [0.0, 0.0]
+
+[node.params]
+value = "2.5"
+
+[[node]]
+id = "69779baf026654c5"
+folder = "nodes/number"
+pos = [0.0, 120.0]
+
+[node.params]
+value = "4"
+
+[[node]]
+id = "f89c6e329e8ea336"
+folder = "nodes/add"
+pos = [240.0, 60.0]
+
+[[node]]
+id = "3b7cec82f6a4ed1a"
+folder = "nodes/show"
+pos = [480.0, 60.0]
+
+[[wire]]
+from = "9bc1790966687030.out"
+to = "f89c6e329e8ea336.a"
+
+[[wire]]
+from = "69779baf026654c5.out"
+to = "f89c6e329e8ea336.b"
+
+[[wire]]
+from = "f89c6e329e8ea336.out"
+to = "3b7cec82f6a4ed1a.value"
