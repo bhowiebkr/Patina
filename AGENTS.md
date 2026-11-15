@@ -46,7 +46,8 @@ These are the work rules for AI agents in this repository.
   are basic. Keep them building. Do not stop a change because of a gap on Linux or macOS. Write
   an issue for the gap.
 - Report what is done and checked apart from the plans and the remaining gaps. Never claim a
-  check that you did not run.
+  check that you did not run. End each report with one or two lines: what you did not do or
+  did not check, and each risk.
 - When you can, do the checks without the desktop of the person. Use `patina-cli` (spec 3) and
   `cargo test --workspace`. A graph with node GUIs also runs headless (4.3).
 - Automated checks must not take the desktop focus, the mouse or the keyboard. Keep each window
@@ -65,6 +66,40 @@ These are the work rules for AI agents in this repository.
 - Keep code and instructions short and simple. Do not commit generated builds, compiled
   clusters, the downloaded `toolchain/` folder, credentials or user projects.
 - Do not remove edits that are not part of your task. Never rewrite published Git history.
+
+## The smallest complete change
+
+Write only the code that the task needs, but never cut the parts that keep the program safe.
+These rules adapt ideas from [ponytail](https://github.com/DietrichGebert/ponytail).
+
+- Before you write code, read the code that the change touches. List each place that the
+  change must reach: the callers, the tests, the fixtures, the config and the exports.
+- Use the first option that fully works:
+  1. Does the code need to exist? Do not add features, options or flexibility that nobody
+     asked for.
+  2. Does the workspace have it, for example a helper, a type, a pattern or a shared control of
+     the GUI guide? Use it as the code around it does.
+  3. Does the Rust standard library, the operating system or the web platform have it? Use it.
+  4. Does a dependency in `Cargo.lock` or `package-lock.json` have it? Use it. Do not add a
+     dependency for a few lines of code. Each new crate adds compile time.
+  5. If not, write the minimum code that works.
+- Finish all of the change: the callers, the tests and the fixtures that the change breaks.
+- Do not add an abstraction, a wrapper, an option or code "for later" that nobody asked for.
+  Code that you remove is better than code that you add. Keep the structure, the layers and
+  the conventions of the workspace.
+- When two options have the same size, use the option that is correct at the edge cases.
+- Write a comment only for a reason that the code cannot show. Keep it to one line.
+- For a bug fix, find each caller of the function first. Fix the root cause one time, in the
+  shared code.
+- Code that you move or merge keeps its error handling and its validation. This also applies
+  to a refactor for the file length rule.
+- New logic with a branch, a loop, a parser or a security check gets one small test or an
+  assert. A trivial change needs no test.
+- Mark a shortcut that has a known limit with a comment:
+  `shortcut: <the limit>, <when to change it>`. Before a milestone ends, search for
+  `shortcut:` and record each open item in STATUS.md.
+- Never cut these items: validation at a trust boundary, error handling that prevents data
+  loss, security, accessibility, and all that the owner asked for.
 
 ## Rust code
 
