@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use patina_engine::project::{self, GraphFile, NodeEntry, ProjectFile, PublicInput, PublicOutput, Wire};
-use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain, import};
+use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain, import, package};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
@@ -332,6 +332,8 @@ pub fn new_project(editor: State<'_, Editor>, parent: PathBuf, name: String) -> 
 #[tauri::command(async)]
 pub fn open_project(editor: State<'_, Editor>, path: PathBuf) -> Result<View, String> {
     full_path(&path)?;
+    // A package opens as its original project (14.1).
+    let path = if path.join(package::HEADER).is_file() { path.join("project") } else { path };
     editor.open(Project::open(&path).map_err(|e| e.to_string())?)
 }
 

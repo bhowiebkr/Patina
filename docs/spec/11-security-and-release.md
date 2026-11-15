@@ -188,8 +188,11 @@ The package is a folder:
 - `wiring` is the SHA-256 hash of the wiring of the checked graph. If the project source does
   not agree with the clusters, or another Patina version made the package, the package does not
   run.
+- **Open project** on a package folder opens its `project/` folder, the original project. A
+  package with an edit to the wiring of its project does not run until it is made again. A package from
+  another person is untrusted, as each new project is (11).
 - The notices of the crates of `patina-cli` come from the `licenses/crates` folder of the portable
   zip (13.1). A runner that has no such folder gives a warning.
 
 (Agent decision, 2026-11-15. The owner can change it. One file for each package, the library,
-the Python module and the opening of a package in the editor are later work of milestone 8.)
+and the Python module are later work of milestone 8.)
