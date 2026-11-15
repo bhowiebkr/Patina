@@ -295,6 +295,10 @@ To make your first graph:
 6. Click the wire. The **Inspector** shows the full value.
 7. Push Ctrl+S to save the project.
 
+To make a new node, click **+** in the title of the **Nodes** group of the **Project** panel.
+Type a name and push Enter. The **Inspector** shows the code of the new node. Edit the code
+and push Ctrl+S.
+
 While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
 Click **Stop** to also end the active run: Patina starts no new node call. The nodes that did
 not start show **Stale**. A node with a long loop can read `patina_sdk::stop_requested()` and

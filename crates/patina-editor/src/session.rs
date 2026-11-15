@@ -321,6 +321,12 @@ pub fn node_files(editor: State<'_, Editor>, name: String) -> Result<Vec<String>
     editor.with(|session| session.project.node_files(&name).map_err(|e| e.to_string()))
 }
 
+/// Makes the node folder `nodes/<name>` (15.2). Undo does not remove the folder.
+#[tauri::command(async)]
+pub fn new_node(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.change(|project| project.new_node(&name))
+}
+
 /// The page sends the unsaved text of the Code tab, so a close of the window asks first and the
 /// recovery file has the text (15.10). Text that comes after the close of the project is old.
 #[tauri::command(async)]

@@ -397,6 +397,24 @@ fn broken() -> u32 {
     v = await step('undo the added node', () => api.undo());
     if (v.graph.node?.length !== 2) throw new Error('undo did not remove the added node');
     steps.push('add a node with the palette');
+
+    // New node (15.2): the + of the Nodes group asks for a name. A used name shows its problem. A
+    // new name makes the folder, and the Code tab shows its code.
+    const nameField = () => document.querySelector<HTMLInputElement>('.new-item input');
+    const enterName = (text: string) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(nameField(), text);
+      nameField()!.dispatchEvent(new Event('input', { bubbles: true }));
+      nameField()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    };
+    document.querySelector<HTMLButtonElement>('[aria-label="New node"]')!.click();
+    await until('the name field', RUN_MS, () => !!nameField());
+    enterName('Number');
+    await until('the problem of a used name', RUN_MS, () => !!document.querySelector('.new-item [role=alert]'));
+    enterName('made-node');
+    const listed = () => [...document.querySelectorAll('[aria-label=Project] .item')].some((b) => b.textContent === 'made-node');
+    const codeTab = () => document.querySelector('[aria-label=Inspector] [aria-selected=true]')?.textContent === 'Code';
+    await until('the new node folder and its code', RUN_MS, () => !nameField() && listed() && !!codeTab);
+    steps.push('make a node folder');
     v = await step('save the route', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');
 

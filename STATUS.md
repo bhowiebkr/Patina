@@ -23,6 +23,9 @@ To run the editor from a checkout:
   folder from the **Project** panel into the graph to add a node.
 - A double-click on an empty area of the graph, or Shift+A, opens the **Add node** palette
   (15.2). Type to filter the nodes, and push Enter or click a node to add it at that point.
+- The **+** button of the **Nodes** group in the **Project** panel makes a node folder (15.2).
+  Type a name and push Enter. The **Inspector** shows the code of the start node. A used or
+  reserved name shows its problem under the field.
 - The canvas has no animation. The mouse wheel zooms. The middle button, or Space and a drag,
   pans. A drag on the empty canvas selects. Shift or Ctrl adds to the selection.
 - The wires draw on one WebGL2 canvas under the nodes (15.1). A selected wire has an amber
@@ -102,7 +105,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 40 steps in 8.4 s:
+  off-screen and does not take the focus. It passed these 46 steps in 10.6 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -179,8 +182,15 @@ To run the editor from a checkout:
 - The self-check opens the **Add node** palette with Shift+A and closes it with Esc. Then it
   opens the palette with a double-click, types `SHO`, pushes Enter, finds the `show` node at the
   point of the double-click, and undoes the edit.
-- CI run 43724468916 of the far zoom form passed on `windows-latest`, `ubuntu-latest` and
-  `macos-latest`.
+- The self-check clicks **+** of the **Nodes** group and enters `Number`. The field shows the
+  problem of the used name. Then it enters `made-node`, finds `made-node` in the **Project**
+  panel and the **Code** tab of the new node in the **Inspector**.
+- The page reports each error of the window to the check, but not the browser message
+  `ResizeObserver loop`. Monaco causes this message when the **Inspector** shows a new editor.
+- The engine test makes `my-node` and reads its input pin. It refuses `My_Node`, `number`,
+  `type`, `Con`, `1a`, `a/b`, `..` and an empty name.
+- CI run 43725394671 of the **Add node** palette passed on `windows-latest`, `ubuntu-latest`
+  and `macos-latest`.
 
 ### Known limits
 
@@ -193,6 +203,8 @@ To run the editor from a checkout:
 - These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
   and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab. A drag
   from a pin into an empty area does not open the **Add node** palette yet.
+- The **Views** and **Widgets** groups have no **+** button yet. Undo does not remove a new
+  node folder (15.2).
 - The check does not test the **does not stop** message of **Stop** (15.2), because that needs
   a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
   starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.

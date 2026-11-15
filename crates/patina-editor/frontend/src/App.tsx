@@ -187,6 +187,15 @@ export function App() {
     setReveal(at);
   }, []);
 
+  /** Makes a node folder and shows its code in the Inspector (15.2). */
+  const newNode = useCallback(
+    async (name: string) => {
+      show(await api.newNode(name));
+      setInspect({ kind: 'type', name });
+    },
+    [show],
+  );
+
   const refreshStart = useCallback(() => api.startInfo().then(setStart).catch((e) => setError(String(e))), []);
 
   useEffect(() => {
@@ -351,7 +360,7 @@ export function App() {
     </button>
   );
   const panels: Record<PanelId, Panel> = {
-    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} /> },
+    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} /> },
     inspector: {
       body: (
         <Inspector

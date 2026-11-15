@@ -124,12 +124,43 @@ impl Project {
         let id = RandomState::new().hash_one(std::time::SystemTime::now());
         let project = format!("format = 1\nid = \"{id:016x}\"\nrust = \"{rust}\"\n");
         for (relative, text) in [("patina.toml", project.as_str())].into_iter().chain(NEW_FILES) {
-            let path = root.join(relative);
-            let parent = path.parent().expect("a project file is in a folder");
-            fs::create_dir_all(parent).map_err(|e| Error::Io(parent.to_owned(), e))?;
-            fs::write(&path, text).map_err(|e| Error::Io(path, e))?;
+            write_file(&root.join(relative), text)?;
         }
         Project::open(&root)
+    }
+
+    /// Makes the node folder `nodes/<name>` with a start node (15.2). No other folder of the
+    /// project can have the same crate name (6.2).
+    pub fn new_node(&self, name: &str) -> Result<(), String> {
+        plan::check_name(name)?;
+        let key = plan::name_key(name);
+        for group in ["nodes", "views", "widgets", "connections", "types"] {
+            for entry in fs::read_dir(self.root.join(group)).into_iter().flatten().flatten() {
+                let other = entry.file_name().to_string_lossy().into_owned();
+                if plan::name_key(&other) == key {
+                    return Err(format!("the folder {group}/{other} has this name"));
+                }
+            }
+        }
+        let nodes = self.root.join("nodes");
+        fs::create_dir_all(&nodes).map_err(|e| format!("{}: {e}", nodes.display()))?;
+        // create_dir fails when the folder exists, so the files of another folder stay.
+        let dir = nodes.join(name);
+        fs::create_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let manifest = format!(
+            "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+             [dependencies]\npatina-sdk = {{ workspace = true }}\n"
+        );
+        let code = format!(
+            "use patina_sdk::node;\n\n/// Gives the value of the input. Write the work of the node here.\n\
+             #[node]\npub fn {key}(value: f64) -> f64 {{\n    value\n}}\n"
+        );
+        let written = write_file(&dir.join("Cargo.toml"), &manifest).and_then(|()| write_file(&dir.join("src/lib.rs"), &code));
+        if let Err(e) = written {
+            let _ = fs::remove_dir_all(&dir);
+            return Err(e.to_string());
+        }
+        Ok(())
     }
 
     pub fn root(&self) -> &Path {
@@ -297,6 +328,12 @@ impl Checked {
     }
 }
 
+fn write_file(path: &Path, text: &str) -> Result<(), Error> {
+    let parent = path.parent().expect("a project file is in a folder");
+    fs::create_dir_all(parent).map_err(|e| Error::Io(parent.to_owned(), e))?;
+    fs::write(path, text).map_err(|e| Error::Io(path.to_owned(), e))
+}
+
 fn graph_path(root: &Path) -> PathBuf {
     root.join("graphs").join("main.toml")
 }
@@ -403,6 +440,13 @@ mod tests {
             assert!(project.read_code(bad).is_err(), "{bad}");
         }
         assert!(project.node_files("..").is_err());
+
+        project.new_node("my-node").unwrap();
+        let made = project.nodes().unwrap().into_iter().find(|n| n.name == "my-node").unwrap();
+        assert_eq!((made.error, &made.inputs[..]), (None, &[pin("value", "f64")][..]));
+        for bad in ["My_Node", "number", "type", "Con", "1a", "a/b", "..", ""] {
+            assert!(project.new_node(bad).is_err(), "{bad}");
+        }
 
         let path = "nodes/show/src/lib.rs".to_owned();
         let code = Edit::SetCode { path: path.clone(), text: "// new\n".to_owned() };

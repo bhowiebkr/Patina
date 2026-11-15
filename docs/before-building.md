@@ -99,7 +99,9 @@ These block milestone 2. The [mockup plan](mockup-plan.md) lists them too.
 - [x] How the user adds a node other than with a drag from the **Project** panel, for example
   with a search palette. Agent decision in 15.2, 2026-11-15: the **Add node** palette opens on
   a double-click on an empty area or on Shift+A.
-- [ ] How the user makes a new node, view or widget folder, and names it.
+- [x] How the user makes a new node, view or widget folder, and names it. Agent decision in
+  15.2, 2026-11-15: the **+** button of the **Nodes** group opens a name field. **Views** and
+  **Widgets** get the same button when they come.
 - [ ] How the user adds a crate to the project.
 - [x] The start screen: new project, open project and recent projects. Spec 15.10 defines it,
   and the editor has it.

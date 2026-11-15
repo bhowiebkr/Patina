@@ -301,12 +301,30 @@ select {
 }
 
 .group-title {
-  padding: 0 12px 4px;
+  min-height: 20px;
+  padding: 0 8px 4px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   color: var(--subtle);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.group-title .icon-btn {
+  width: 20px;
+  height: 20px;
+}
+
+.new-item {
+  padding: 2px 12px 4px 20px;
+}
+
+.new-item .error-text {
+  padding-top: 4px;
+  font-size: 12px;
 }
 
 .item {
@@ -358,178 +376,6 @@ select {
   flex: 1;
   position: relative;
   min-height: 0;
-}
-
-/* The dock (spec 15.2). A splitter is a 1 px line with a wider hit area. */
-.area {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  background: var(--panel);
-}
-
-.area.left,
-.area.right {
-  max-width: 40%;
-}
-
-.area.bottom {
-  max-height: 70%;
-}
-
-.area .tabs .icon-btn {
-  align-self: center;
-  margin-right: 4px;
-}
-
-.area-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.area-body > * {
-  flex: 1;
-}
-
-.splitter {
-  flex: none;
-  position: relative;
-  z-index: 5;
-  background: var(--border);
-}
-
-.splitter.vertical {
-  width: 1px;
-  cursor: col-resize;
-}
-
-.splitter.horizontal {
-  height: 1px;
-  cursor: row-resize;
-}
-
-.splitter::after {
-  content: '';
-  position: absolute;
-  inset: 0 -3px;
-}
-
-.splitter.horizontal::after {
-  inset: -3px 0;
-}
-
-.splitter:hover,
-.splitter:focus-visible {
-  background: var(--accent);
-  outline: none;
-}
-
-.drop-zone {
-  flex: none;
-  background: rgba(223, 166, 75, 0.08);
-  border: 1px dashed var(--accent);
-}
-
-.drop-zone.left,
-.drop-zone.right {
-  width: 48px;
-}
-
-.drop-zone.bottom {
-  height: 40px;
-}
-
-.menu-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-}
-
-.menu {
-  position: fixed;
-  min-width: 200px;
-  padding: 4px 0;
-  background: var(--raised);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-}
-
-.menu button {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 28px;
-  padding: 0 12px 0 30px;
-  background: none;
-  border: none;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-
-.menu button:hover:not(:disabled),
-.menu button:focus-visible {
-  background: var(--hover);
-  outline: none;
-}
-
-.menu button:disabled {
-  color: var(--disabled);
-  cursor: default;
-}
-
-.menu button[aria-checked='true']::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 9px;
-  width: 7px;
-  height: 4px;
-  border-left: 1.5px solid var(--accent);
-  border-bottom: 1.5px solid var(--accent);
-  transform: rotate(-45deg);
-}
-
-.menu hr {
-  margin: 4px 0;
-  border: none;
-  border-top: 1px solid var(--border);
-}
-
-.banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  background: #3a3220;
-  border-bottom: 1px solid var(--warning);
-}
-
-.section {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.section h3 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.param {
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
 }
 
 /* The Code tab of the Inspector (spec 15.10) */

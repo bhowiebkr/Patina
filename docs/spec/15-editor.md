@@ -78,6 +78,16 @@ This is an agent decision of 2026-11-15 for question 8 (18). The owner can chang
 - **Import** copies a folder from another project (6.2).
 - **Update** compares an imported folder with its origin, and copies the new version when the user confirms (6.2).
 
+The **+** button in the title of the **Nodes** group makes a new node folder. (Agent decision, 2026-11-15. The owner can change it.)
+
+- The button opens a name field under the title. Enter makes the folder `nodes/<name>`. Esc or a click out of the field cancels.
+- A name has 1 to 64 letters, digits, `_` and `-`, and starts with a letter. The field shows the problem of a name that does not pass, and keeps the text.
+- These names do not pass: the keywords of Rust, the crate names of Rust and Patina, the folder names of Cargo (`build`, `deps`, `examples`, `incremental`) and the device names of Windows (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`).
+- A name also does not pass when a folder in `nodes`, `views`, `widgets`, `connections` or `types` has the same crate name. The compare ignores case and reads `-` as `_`, as Cargo and Windows do.
+- The new folder has a `Cargo.toml` and a `src/lib.rs` with a start node: a `#[node]` function with the crate name, an `f64` input `value` and an `f64` output. The **Inspector** shows the new `src/lib.rs`.
+- Undo does not remove the folder. The user deletes it in the file manager.
+- An untrusted project has no **+** button. The **Views** and **Widgets** groups get the same button when views (15.8) and widgets (4.3) come.
+
 **Graph view navigation:**
 
 The graph view is snappy. This is an owner decision of 2026-11-15.

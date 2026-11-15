@@ -178,6 +178,7 @@ fn main() {
             session::redo,
             session::save,
             session::node_files,
+            session::new_node,
             session::read_code,
             session::set_unsaved_code,
             session::recover,
