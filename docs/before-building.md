@@ -64,10 +64,11 @@ Milestone 2, editor:
 
 Milestone 4, automatic parallelism and the frame domain:
 
-- [ ] **Q11, side effects while editing.** Which batch nodes run again after a parameter change.
-  How Patina prevents repeated writes to files or the network while the user drags a slider.
-- [ ] **Q12, live values in a fused chain.** How the engine shows the value of a wire between
-  two inlined nodes (9.2, 15.9). Milestones 4 and 6 can measure the cost.
+- [x] **Q11, side effects while editing.** Agent decision: a change runs all the batch nodes
+  again, and the changes during a run go into one next run. A field or a slider applies its
+  value at the end of the edit, so a drag runs the graph one time (9.1).
+- [x] **Q12, live values in a fused chain.** Agent decision: the cluster sends the text of each
+  value that a wire reads, also inside a chain. A live value cost 71 to 76 ns (15.9).
 
 Later milestones:
 

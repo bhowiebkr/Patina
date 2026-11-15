@@ -38,6 +38,7 @@ Each node runs in one clock domain. The domain decides when the node runs.
 - A run of the frame domain stops at the first frame in which a node fails.
 - `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process.
 - In the editor, **Pause**, **Stop**, a failed frame and a change that runs the graph again end the frame run. A change runs the batch domain again, and then the frames start again. The status bar shows the number of the frame, and the values and run times of the frame nodes change at each frame.
+- A change runs all the nodes of the batch domain again. The engine runs only the newest change: the changes that come during a run go into one next run. A parameter field and a slider apply their value when the user ends the edit: at Enter, at a focus change, or at the release of the slider. Thus a drag runs a node that writes a file or sends to the network one time, not at each step of the drag. A cache that runs only the changed nodes and the nodes after them can come later. This is the agent decision of 2026-11-15 for question 11 (18). The owner can change it.
 - A wire from the batch domain to the frame domain is a latest-value wire. At each frame, the frame node reads the value of the last batch run. The value stays until its node runs again in the next batch run.
 - A wire from the frame domain to the batch domain is a graph error, because the batch domain runs before the frames.
 - In milestone 4, the batch and the frame domain never run at the same time. Thus the latest value is in a shared slot with a lock that never waits. The buffer that does not lock comes with the audio domain (milestone 11).
@@ -64,8 +65,9 @@ Rules:
 
 - Inside a cluster (8.2), a chain of small nodes is one task: one call that runs the nodes in order, inlined.
 - Independent branches are separate tasks, so they can run in parallel.
-- Milestone 4 measures where to split, with a chain of small nodes and with heavy independent branches (19). Patina does not fix the cluster rules before that.
+- Milestone 4 measured the pool on 2026-11-15, on Windows with 32 cores (`measure_split` in `pool.rs`). A task boundary in a chain on one thread cost about 0.1 us. Eight separate tasks of less than 1 us cost 1 to 14 us more than one task. The calling thread woke 56 to 65 us after the last task ended. Eight separate tasks of 22 us ran 1.5 to 1.7 times faster than one task, and eight tasks of 180 us ran 2.5 to 5 times faster.
 - First rule, an agent decision of 2026-11-15 that the owner can change: a node joins the task of its predecessor when it has exactly one predecessor (by data wires and order wires), and that predecessor has exactly one successor. Else the node starts a new task.
+- Second rule, an agent decision of 2026-11-15 that the owner can change: the pool runs the tasks of a domain only when the node run times of the last run of that domain add up to 0.1 ms or more. Else the calling thread runs the tasks in index order. The first run of a domain uses the pool.
 - A value that goes from one task to another is in a lock that many readers can share. A value inside one task is a local variable of the task.
 - The engine has one worker pool for each process: one thread for each CPU core. The thread that starts the run is one of them. The pool runs one cluster run at a time. A second run at the same time runs its tasks one after another on its own thread.
 - A cluster with a value or a parameter of a type that is not `Send` or not `Sync` runs all its tasks one after another on one thread. This keeps the rules above.

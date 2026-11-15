@@ -160,4 +160,53 @@ mod tests {
             assert_eq!((done.len(), done[0], done[3]), (4, 0, 3), "{done:?}");
         }
     }
+
+    /// `n` tasks of `spins` loop steps each, in a chain or apart, or `n` x `spins` in one task.
+    struct Load {
+        inputs: Vec<u32>,
+        next: Vec<Vec<usize>>,
+        spins: u64,
+    }
+
+    impl Work for Load {
+        fn inputs(&self) -> &[u32] {
+            &self.inputs
+        }
+
+        fn next(&self, task: usize) -> &[usize] {
+            &self.next[task]
+        }
+
+        fn run(&self, _: usize) {
+            (0..self.spins).fold(0u64, |x, i| std::hint::black_box(x.wrapping_add(i)));
+        }
+    }
+
+    /// The median time of one run of `work`, in microseconds.
+    fn median(work: &Arc<Load>) -> f64 {
+        let mut times: Vec<f64> = (0..201)
+            .map(|_| {
+                let start = std::time::Instant::now();
+                run(work.clone());
+                start.elapsed().as_secs_f64() * 1e6
+            })
+            .collect();
+        times.sort_by(f64::total_cmp);
+        times[100]
+    }
+
+    /// Spec 9.2: where to split. Run with `--release --ignored --nocapture`.
+    #[test]
+    #[ignore = "a measurement, not a check"]
+    fn measure_split() {
+        let n = 8;
+        let chain = |spins| Load { inputs: (0..n).map(|t| u32::from(t > 0)).collect(), next: (0..n).map(|t| (t + 1..n).take(1).collect()).collect(), spins };
+        let apart = |spins| Load { inputs: vec![0; n], next: vec![Vec::new(); n], spins };
+        let one = |spins| Load { inputs: vec![0], next: vec![Vec::new()], spins: spins * n as u64 };
+        println!("{n} tasks, {} cores. Times in us: one task, chain of {n}, {n} apart", std::thread::available_parallelism().map_or(1, |c| c.get()));
+        for spins in [0, 100, 1_000, 10_000, 100_000, 1_000_000] {
+            let [a, b, c] = [one(spins), chain(spins), apart(spins)].map(|w| median(&Arc::new(w)));
+            println!("{spins:>9} spins: {a:>9.1} {b:>9.1} {c:>9.1}");
+        }
+    }
 }

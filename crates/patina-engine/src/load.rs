@@ -145,6 +145,8 @@ pub struct Cluster {
     parallel: bool,
     /// The tasks of the batch and of the frame domain (9.1).
     domains: [Arc<Tasks>; 2],
+    /// The sum of the node run times of the last run of each domain, in ms.
+    work: [f64; 2],
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
     /// The node ID and the input key of each parameter slot.
@@ -292,7 +294,8 @@ impl Cluster {
             let domains = [Domain::Batch, Domain::Frame].map(|d| Arc::new(Tasks::new(state, task, tasks, d)));
             let (parallel, has_text) = (parallel(state), vec![false; slots.len()]);
             let (sink, out) = (Sink::default(), Outcome::default());
-            Cluster { state, new, set, end, free, parallel, domains, names, slots, probes, has_text, sink, out }
+            let work = [f64::INFINITY; 2];
+            Cluster { state, new, set, end, free, parallel, domains, work, names, slots, probes, has_text, sink, out }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -356,7 +359,7 @@ impl Cluster {
         tasks.state.store(self.state, Relaxed);
         tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
         tasks.ok.store(true, Relaxed);
-        if self.parallel && tasks.inputs.len() > 1 {
+        if use_pool(self.parallel, tasks.inputs.len(), self.work[domain as usize]) {
             pool::run(tasks.clone());
         } else {
             (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
@@ -371,6 +374,7 @@ impl Cluster {
         // during the call.
         self.call(control, |rep| unsafe { end(state, domain as u32, rep) });
         self.out.ok &= ok;
+        self.work[domain as usize] = self.out.times.iter().map(|t| t.ms).sum();
     }
 
     /// The ID of each node, by the node index of `Control::node`.
@@ -502,9 +506,52 @@ fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
     unsafe { libloading::Library::new(path) }
 }
 
+/// Spec 9.2: the pool runs the tasks only when the nodes of the last run took 0.1 ms or more.
+/// Under that, the wake of the workers costs more time than the pool saves.
+fn use_pool(parallel: bool, tasks: usize, last_ms: f64) -> bool {
+    parallel && tasks > 1 && last_ms >= 0.1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Spec 18, question 12: the cost of a live value, from its text in the cluster to the
+    /// outcome. Run with `--release --ignored --nocapture`.
+    #[test]
+    #[ignore = "a measurement, not a check"]
+    fn measure_live_values() {
+        use std::fmt::Write;
+        let n = 1000u32;
+        let names: Vec<(String, String)> = (0..n).map(|i| (format!("n{i}"), "number".to_owned())).collect();
+        let probes: Vec<String> = (0..n).map(|i| format!("n{i}.out")).collect();
+        let (mut sink, mut out) = (Sink::default(), Outcome::default());
+        let frame = |sink: &mut Sink, out: &mut Outcome| {
+            sink.clear();
+            let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: std::ptr::null() };
+            for i in 0..n {
+                glue::send_value(&rep, i, |t| {
+                    let _ = write!(t, "{}", f64::from(i) * 0.1);
+                });
+            }
+            fill(out, true, sink, &names, &probes);
+        };
+        for _ in 0..3 {
+            frame(&mut sink, &mut out);
+        }
+        let start = std::time::Instant::now();
+        for _ in 0..100 {
+            frame(&mut sink, &mut out);
+        }
+        assert_eq!(out.values.len(), n as usize);
+        println!("{n} live values: {:.0} ns each", start.elapsed().as_secs_f64() * 1e9 / f64::from(100 * n));
+    }
+
+    #[test]
+    fn only_heavy_runs_use_the_pool() {
+        assert!(use_pool(true, 2, f64::INFINITY), "the first run");
+        assert!(!use_pool(true, 2, 0.05) && !use_pool(true, 1, 1.0) && !use_pool(false, 2, 1.0));
+    }
 
     #[test]
     fn values_go_apart_from_the_reports() {

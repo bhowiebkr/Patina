@@ -328,6 +328,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - A bus socket shows a contact for each lane. Each contact shows the state of its lane.
 - A value badge on the wire shows the value as text, for example `0x66`. A label shows the name and the width, for example "data[7:0] / 8".
 - The lanes, the contacts, the badge, and the viewers of both nodes show the same value from the same run.
+- The cluster sends the text of each value that a wire reads after its node runs, also between two nodes of one task (9.2). Milestone 4 measured 71 to 76 ns for each live value, from the text in the cluster to the outcome of the engine, with 1000 values in a `release` build on Windows (`measure_live_values` in `load.rs`). Milestone 6 measures the cost in a fused chain again. This is the agent decision of 2026-11-15 for question 12 (18). The owner can change it.
 - A lane that is off stays visible. Brightness alone never carries a meaning (15.3): the badge or a viewer shows the value as text too.
 - Lanes show in a fixed order, the most significant bit first. A route bend never changes the order.
 - At a far zoom, a bus shows as one line with a width badge. At a near zoom, it shows each lane.

@@ -12,8 +12,8 @@ Four slices work. The engine splits a graph into tasks and runs them on a worker
 The CLI and the editor run the frame domain at 60 FPS (9.1), and a frame node can read batch
 values. A frame of the engine does not allocate after the first frames. All ran on 2026-11-15 on
 Windows 11 Pro, with Rust 1.94.0. CI ran the tests of the first four slices on Windows, Ubuntu
-and macOS. The measurement of the split and of the pool comes next. The delay node moved to
-milestone 5 (9.2).
+and macOS. The pool was measured, and a small run now stays on one thread. The delay node moved
+to milestone 5 (9.2).
 
 ### What works
 
@@ -37,6 +37,8 @@ milestone 5 (9.2).
   one domain.
 - The engine keeps the tasks of each domain apart. `Cluster::run` runs the batch domain, and
   `Cluster::frame` runs one frame. The end of a domain drops the shared values of its steps.
+- The pool runs the tasks of a domain only when its nodes took 0.1 ms or more in the last run
+  (9.2). A smaller run runs its tasks in order on the calling thread.
 - After the first frames, `Cluster::frame` does not allocate. The reports of a call go into one
   text buffer, and a frame fills the lists of the last outcome again with their old texts.
 - `patina-cli run <folder> --frames <count>` runs the batch domain one time and then the frames
@@ -51,8 +53,9 @@ milestone 5 (9.2).
 
 ### What was checked
 
-- `cargo test --workspace --locked` passed 64 tests on Windows. New tests:
+- `cargo test --workspace --locked` passed 65 tests on Windows. New tests:
   - The plan makes one task of a chain and splits the branches.
+  - Only a parallel cluster with more than one task and 0.1 ms of node time uses the pool.
   - The pool starts a task only after its inputs, also with a second run inside a task.
   - Only `Sync` values let a cluster run in parallel (`Cell` and `Rc` do not).
   - The plan gives the frame domain to the node after a frame node, and to a node with batch
@@ -71,6 +74,22 @@ milestone 5 (9.2).
   the buffers. Each frame sends values with lanes and run times. The count was 0. The old code
   made 2000 allocations in the same 100 frames, thus 20 in each frame.
 - A manual CLI run of 5 frames took 0.29 s with the build check.
+- `measure_split` in `pool.rs` measured the pool in a `release` build on Windows with 32 cores.
+  It gives the median of 201 runs of 8 tasks, in us:
+
+  | Loop steps of each task | One task | Chain of 8 | 8 separate |
+  | ---: | ---: | ---: | ---: |
+  | 0 | 0.1 to 0.9 | 0.3 to 1.8 | 1.4 to 3.0 |
+  | 1,000 | 2.7 to 3.1 | 4.7 to 5.3 | 6.7 to 16.5 |
+  | 10,000 | 22.9 to 23.2 | 23.6 to 24.5 | 41.8 to 55.1 |
+  | 100,000 | 175.7 to 175.8 | 176.2 to 176.6 | 105.8 to 120.8 |
+  | 1,000,000 | 1443.6 to 1447.8 | 1445.5 to 1455.7 | 280.6 to 567.7 |
+
+  The table shows the range of 3 runs. A trace of 8 tasks of 180 us showed that all tasks
+  started in 8 to 41 us, and the calling thread woke 56 to 65 us after the last task ended.
+- `measure_live_values` in `load.rs` sent 1000 live values of `f64` through the reporter into
+  the outcome, 100 times, in a `release` build. Each value took 71 to 76 ns in 3 runs. This
+  supports the agent decision for question 12 (15.9). The decision for question 11 is in 9.1.
 - The editor self-check passed its 57 steps in 15.0 s. A new step makes the number node a frame
   node and clicks **Run**. It waits for 3 frames that write `2.5`, and for the frame number in
   the status bar. Then it clicks **Stop**. The end event counted the 3 frames, and no frame ran
@@ -83,8 +102,10 @@ milestone 5 (9.2).
 ### Known limits
 
 - No delay node yet, so a graph cannot have a feedback loop. It comes in milestone 5.
-- No measurement of the split or of the pool ran yet. The split rule can change after the
-  measurement of a chain of small nodes and of heavy branches.
+- The calling thread of a parallel run wakes about 60 us after the last task ends. Eight
+  separate tasks of 180 us thus ran only 2.5 to 5 times faster than one task, not 8 times.
+- The pool rule uses the node times of the last run. Thus, after a small run, the next run
+  stays on one thread also when it is heavy. The measurement ran only on Windows.
 - The editor copies each frame into a JSON event for the page, so the frame loop of the editor
   allocates. The frames of the engine and of the CLI do not allocate.
 - The allocation test counts only the thread of the run. In the test graph, this thread runs
