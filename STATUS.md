@@ -21,6 +21,7 @@ with WESL (spec 10).
 4. A smaller copy of a GPU image for the node GUI (10.2). This part works. The wire viewer
    of the editor shows only the text of an image.
 5. CUDA through `cudarc` and NVRTC (10.1). This part works.
+6. The WESL package `patina_gpu` with shared image functions (10.3). This part works.
 
 ### What works
 
@@ -34,6 +35,8 @@ with WESL (spec 10).
 - `patina-cuda` opens one CUDA context for each project and compiles CUDA C++ with NVRTC.
 - `GpuImage::preview` gives a copy that fits in a box. The preview node of `examples/gpu`
   shows it in its GUI.
+- Each node shader can import `patina_gpu::image`. The gradient of `examples/gpu` uses
+  `inside` from it.
 
 ### What was checked
 
@@ -41,7 +44,7 @@ with WESL (spec 10).
   gets a mean of 0.336, then 0.664 after the `invert` parameter changes the WESL feature. The
   GUI of the preview node gives an image of 64 x 16 pixels.
 - The unit tests of `patina-gpu` check the link with an import and a feature, a bad import, the
-  image read-back and a bad shader.
+  image read-back and a bad shader. They also link an import of the `patina_gpu` package.
 - A glue test checks the asset path with and without a project root.
 - On Windows 11 with an RTX 4090 and the CUDA Toolkit 12.6: the unit test of `patina-cuda`
   compiles a kernel, runs it and gets the compile log of a bad kernel. A project in the

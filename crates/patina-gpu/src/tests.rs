@@ -18,6 +18,13 @@ fn link_joins_the_imports_and_sets_the_features() {
     assert!(link(&dir.join("main.wesl"), &[]).unwrap().contains("0.5"));
     std::fs::write(dir.join("bad.wesl"), "import package::nothing::f;\n@compute @workgroup_size(1) fn main() { f(); }\n").unwrap();
     assert!(link(&dir.join("bad.wesl"), &[]).is_err());
+    let lib = "import patina_gpu::image::{luma, inside};
+               @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {
+               if inside(id, vec2u(4u)) { let v = luma(vec3f(1.0)); } }
+";
+    std::fs::write(dir.join("lib.wesl"), lib).unwrap();
+    let linked = link(&dir.join("lib.wesl"), &[]).unwrap();
+    assert!(linked.contains("0.7152") && !linked.contains("import"), "{linked}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

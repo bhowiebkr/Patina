@@ -152,6 +152,7 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
 - The `asset!("file")` macro of `patina-sdk` gives the path of a file in the `assets/` folder of the node. The engine gives the project root to each cluster when it loads (ABI 14), so the path is also correct in a package that moved. Agent decision of 2026-11-15, the owner can change it.
 - `patina_gpu::link(file, features)` links a WESL file with its `@if` features at run time. `import package::name` finds `name.wesl` in the folder of the file. `Gpu::shader` compiles the WGSL and gives the validation error as text. Agent decision of 2026-11-15, the owner can change it.
 - A type crate can include a WESL shader package, for example the shader functions of `GpuImage`. Node shaders import its functions with WESL `import` statements.
+  - `patina-gpu` has the WESL package `patina_gpu`, which `link` always adds. Its `image` module has `luma` and `inside`, for example `import patina_gpu::image::luma;`. A function of the package must be `public`. Each module is a `.wesl` file in `patina-gpu/src/shaders`. Agent decision of 2026-11-15, the owner can change it.
 - Node settings set the `@if` conditions when the linker runs. Do not make shader variants with string joins or a custom preprocessor.
 - The editor shows link and compile errors at the line of the WESL file (15.5).
   - Until the editor uses the source map of the `wesl` crate, a compile error gives the line of the linked WGSL. Agent decision of 2026-11-15, the owner can change it.

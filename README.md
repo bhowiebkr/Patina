@@ -209,7 +209,7 @@ One graph can use more than one domain. A slow domain never stops a fast one.
 
 GPU support comes from crates and from `patina-sdk`, not from the engine.
 
-- CUDA through `cudarc` and NVRTC, on NVIDIA. The CUDA Toolkit is not necessary.
+- CUDA through `cudarc` and NVRTC, on NVIDIA.
 - WESL shaders through `wgpu`, on NVIDIA, AMD, Intel and Apple. WESL is WGSL with imports,
   conditions and shader packages.
 - GPU data stays on the GPU between GPU nodes.
@@ -219,7 +219,10 @@ A node uses the GPU with the `patina-gpu` crate. Add `patina-gpu = { workspace =
 the `Cargo.toml` of the node, and set Rust 1.97.1 or later in `patina.toml`. Keep the shaders
 in the `assets/` folder of the node, and find them with `asset!("file.wesl")`. The
 `examples/gpu` project draws a gradient with a WESL shader, shows a small copy in the GUI of
-a preview node and writes its mean brightness:
+a preview node and writes its mean brightness.
+
+A shader can import the shared functions of the `patina_gpu` package, for example
+`import patina_gpu::image::luma;`. The `image` module has `luma` and `inside`. Run the example:
 
 ```
 cargo +1.100.0 run -p patina-cli -- run examples/gpu
