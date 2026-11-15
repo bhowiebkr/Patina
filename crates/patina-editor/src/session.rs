@@ -200,6 +200,7 @@ impl Session {
             Err(e) => (Vec::new(), [e.to_string()].into_iter().chain(problems).collect()),
         };
         nodes.extend(patina_engine::builtins());
+        nodes.extend(project.subgraphs());
         problems.extend(self.recovery_error.iter().map(|e| format!("recovery file: {e}")));
         View {
             serial: self.serial,

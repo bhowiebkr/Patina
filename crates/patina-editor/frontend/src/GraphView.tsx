@@ -257,7 +257,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
           y={palette.y}
           nodes={choices}
           none={end && `No node has a pin of type ${end.ty}.`}
-          onAdd={(n) => addNode(n.builtin ? n.name : `nodes/${n.name}`, palette.x, palette.y, end, n)}
+          onAdd={(n) => addNode(n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`, palette.x, palette.y, end, n)}
           onClose={() => setPalette(null)}
         />
       )}

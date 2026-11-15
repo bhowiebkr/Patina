@@ -26,11 +26,14 @@ and 6.4).
 - The CLI runs a graph with two uses of one subgraph. Each node of a use gets the ID path
   `<use ID>/<node ID>`. A parameter of a use goes to the inner inputs of its public input pin.
 - A subgraph that uses itself and a wire to a pin that the subgraph does not have give problems.
+- The engine gives each subgraph to the node list with its public pins and their types.
 
 ### Known limits
 
-- The editor does not show subgraphs yet. A graph with a use opens, but the use has no pins and
-  its live values do not show.
+- The editor shows a use of a subgraph as one node with the public pins, and **Add node** lists
+  the subgraphs. The editor cannot open a subgraph, and the live values of a use do not show
+  yet. A run error of an inner node shows on the use.
+- A public pin that ends at an input of a generic node shows the type parameter as its type.
 - The engine does not check the format of the public pin keys yet.
 
 ## Milestone 6: layers

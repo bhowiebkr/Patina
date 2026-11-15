@@ -2,9 +2,11 @@
 //! node of a use gets the ID `<use ID>/<node ID>`, so two uses of one subgraph do not share IDs.
 
 use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
 
 use crate::project::{self, GraphFile, Order, Wire};
+use crate::{NodeInfo, Pin, node, plan};
 
 /// The inner ends of the public pins of one use, and the IDs of its nodes.
 struct Use {
@@ -39,7 +41,7 @@ fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mu
             fail("a use of a subgraph has no folder, built-in node, domain or settings".to_owned());
             continue;
         }
-        if let Err(text) = crate::plan::check_name(name) {
+        if let Err(text) = plan::check_name(name) {
             fail(format!("the subgraph name {name:?}: {text}"));
             continue;
         }
@@ -132,6 +134,60 @@ fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mu
     flat
 }
 
+/// The subgraph files of `graphs/`, without the main graph, for the node list of the editor.
+pub(crate) fn infos(root: &Path) -> Vec<NodeInfo> {
+    let mut infos = Vec::new();
+    for entry in fs::read_dir(root.join("graphs")).into_iter().flatten().flatten() {
+        let path = entry.path();
+        let toml = path.extension().is_some_and(|e| e == "toml");
+        let Some(name) = path.file_stem().and_then(|s| s.to_str()).filter(|n| toml && *n != "main") else { continue };
+        let mut info = NodeInfo { name: name.to_owned(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, subgraph: true };
+        match project::read(&path, |g: &GraphFile| g.format) {
+            Ok(graph) => {
+                let stack = &mut vec![name.to_owned()];
+                // shortcut: a pin that ends at a generic input gets the name of the type parameter, change it when the editor shows subgraphs with generic nodes.
+                let mut pin = |key: &str, pin: &str, end: Option<&String>, input| Pin {
+                    key: key.to_owned(),
+                    ty: end.and_then(|end| end_type(root, &graph, end, input, stack)).unwrap_or_else(|| "?".to_owned()),
+                    name: Some(pin.to_owned()),
+                };
+                info.inputs = graph.input.iter().map(|p| pin(&p.key, &p.name, p.to.first(), true)).collect();
+                info.outputs = graph.output.iter().map(|p| pin(&p.key, &p.name, Some(&p.from), false)).collect();
+            }
+            Err(e) => info.error = Some(e.to_string()),
+        }
+        infos.push(info);
+    }
+    infos.sort_by(|a, b| a.name.cmp(&b.name));
+    infos
+}
+
+/// The Rust type of the wire end `<node ID>.<pin key>` of a graph, through the uses of subgraphs.
+fn end_type(root: &Path, graph: &GraphFile, end: &str, input: bool, stack: &mut Vec<String>) -> Option<String> {
+    let (id, key) = end.split_once('.')?;
+    let entry = graph.node.iter().find(|n| n.id == id)?;
+    let node = match (&entry.folder, &entry.builtin, &entry.subgraph) {
+        (Some(folder), None, None) => plan::read_node(root, folder.strip_prefix("nodes/")?).ok()?,
+        (None, Some(builtin), None) if builtin == plan::DELAY => node::delay(),
+        (None, None, Some(name)) if plan::check_name(name).is_ok() && !stack.contains(name) => {
+            let inner = project::read(&root.join("graphs").join(format!("{name}.toml")), |g: &GraphFile| g.format).ok()?;
+            let end = match input {
+                true => inner.input.iter().find(|p| p.key == key)?.to.first()?.clone(),
+                false => inner.output.iter().find(|p| p.key == key)?.from.clone(),
+            };
+            stack.push(name.clone());
+            let ty = end_type(root, &inner, &end, input, stack);
+            stack.pop();
+            return ty;
+        }
+        _ => return None,
+    };
+    match input {
+        true => node.inputs.into_iter().find(|i| i.key == key).map(|i| i.ty),
+        false => node.output_keys().into_iter().zip(node.output_types).find(|(k, _)| k == key).map(|(_, ty)| ty),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,7 +271,13 @@ after = "00000000000000c2"
         std::fs::write(root.join("graphs/cycle.toml"), "format = 1\n[[node]]\nid = \"00000000000000e1\"\nsubgraph = \"cycle\"\n").unwrap();
         let bad = graph("format = 1\n[[node]]\nid = \"00000000000000d1\"\nsubgraph = \"cycle\"\n[[node]]\nid = \"00000000000000d2\"\nsubgraph = \"half\"\n[[wire]]\nfrom = \"00000000000000d2.nothing\"\nto = \"00000000000000d2.0000000a\"\n");
         let problems = flatten(&root, &bad).unwrap_err();
+        // The node list shows each subgraph with its public pins. The add folder is missing here.
+        let infos = infos(&root);
         std::fs::remove_dir_all(&root).unwrap();
+        let names: Vec<&str> = infos.iter().map(|i| i.name.as_str()).collect();
+        assert_eq!(names, ["cycle", "half"]);
+        let input = &infos[1].inputs[0];
+        assert_eq!((input.key.as_str(), input.name.as_deref(), input.ty.as_str()), ("0000000a", Some("x"), "?"));
         assert!(problems.iter().any(|p| p.contains("the subgraph cycle uses itself")), "{problems:?}");
         assert!(problems.iter().any(|p| p.contains("has no output `nothing`")), "{problems:?}");
     }

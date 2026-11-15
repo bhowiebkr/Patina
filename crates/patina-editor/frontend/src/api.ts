@@ -38,6 +38,8 @@ export interface GraphFile {
 export interface Pin {
   key: string;
   ty: string;
+  /** The name of a public pin of a subgraph, whose key is random (6.4). */
+  name?: string;
 }
 
 export interface NodeInfo {
@@ -51,6 +53,8 @@ export interface NodeInfo {
   generics: string[];
   /** True when the node GUI has a full size, from `#[node(full_gui)]` (4.3). */
   full: boolean;
+  /** True for a subgraph in `graphs/` (6.1). Its name is the file name. */
+  subgraph: boolean;
 }
 
 export interface View {

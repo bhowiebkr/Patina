@@ -158,10 +158,15 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
             if *builtin && folder != crate::plan::DELAY {
                 return Err(format!("Patina has no built-in node {folder:?} (spec 9.2)"));
             }
+            // The folder `graphs/<name>` adds a use of a subgraph (6.1).
+            let subgraph = folder.strip_prefix("graphs/").filter(|_| !builtin);
+            if let Some(name) = subgraph {
+                crate::plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+            }
             graph.node.push(NodeEntry {
                 id: id.clone(),
-                folder: (!builtin).then(|| folder.clone()),
-                subgraph: None,
+                folder: (!builtin && subgraph.is_none()).then(|| folder.clone()),
+                subgraph: subgraph.map(str::to_owned),
                 builtin: builtin.then(|| folder.clone()),
                 pos: Some(finite(pos)?),
                 domain: None,
@@ -347,6 +352,10 @@ mod tests {
         history.apply(&builtin("delay")).unwrap();
         let node = &history.graph.node[0];
         assert_eq!((node.folder.as_deref(), node.builtin.as_deref()), (None, Some("delay")));
+        let use_of = |folder: &str| Edit::AddNode { id: B.to_owned(), folder: folder.to_owned(), builtin: false, pos: [0.0, 0.0] };
+        assert!(history.apply(&use_of("graphs/../main")).is_err());
+        history.apply(&use_of("graphs/half")).unwrap();
+        assert_eq!((history.graph.node[1].folder.as_deref(), history.graph.node[1].subgraph.as_deref()), (None, Some("half")));
     }
 
     #[test]

@@ -85,6 +85,9 @@ pub struct Pin {
     pub key: String,
     /// The Rust type as the code writes it. An output has the type of its value.
     pub ty: String,
+    /// The name of a public pin of a subgraph. Its key is random (6.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 /// A node folder of the project or a built-in node, for the node list of the editor (15.2).
@@ -102,14 +105,16 @@ pub struct NodeInfo {
     pub generics: Vec<String>,
     /// True when the node GUI has a full size (4.3).
     pub full: bool,
+    /// True for a subgraph in `graphs/` (6.1). Its name is the file name.
+    pub subgraph: bool,
 }
 
 impl NodeInfo {
     fn new(name: String, node: node::Node, builtin: bool) -> NodeInfo {
         let keys = node.output_keys().into_iter();
-        let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty }).collect();
-        let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty }).collect();
-        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full }
+        let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty, name: None }).collect();
+        let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty, name: None }).collect();
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, subgraph: false }
     }
 }
 
@@ -317,11 +322,16 @@ impl Project {
             }
             nodes.push(match plan::read_node(&self.root, &name) {
                 Ok(node) => NodeInfo::new(name, node, false),
-                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false },
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, subgraph: false },
             });
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(nodes)
+    }
+
+    /// The subgraphs in `graphs/` (6.1), sorted by name, with their public pins as the pins.
+    pub fn subgraphs(&self) -> Vec<NodeInfo> {
+        subgraph::infos(&self.root)
     }
 
     /// The widget folders in `widgets/` (6.2), sorted by name.
@@ -615,7 +625,7 @@ mod tests {
         let nodes = project.nodes().unwrap();
         let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, ["number", "show"]);
-        let pin = |key: &str, ty: &str| Pin { key: key.to_owned(), ty: ty.to_owned() };
+        let pin = |key: &str, ty: &str| Pin { key: key.to_owned(), ty: ty.to_owned(), name: None };
         assert_eq!((&nodes[0].inputs[..], &nodes[0].outputs[..]), (&[pin("value", "f64")][..], &[pin("out", "f64")][..]));
         assert_eq!(nodes[1].inputs, [pin("value", "&f64")]);
         assert_eq!(project.folder_files("nodes/show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);

@@ -105,16 +105,17 @@ export const STATE_NAMES: Record<NodeState, string> = {
 };
 
 export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, run: RunState): [NodeState, string] {
-  if (!info) return ['unresolved', `The folder ${entry.folder ?? entry.subgraph ?? ''} is missing.`];
+  if (!info) return ['unresolved', entry.subgraph !== undefined ? `The subgraph ${entry.subgraph} is missing.` : `The folder ${entry.folder ?? ''} is missing.`];
   if (info.error) return ['compile-error', info.error];
   const problems = nodeProblems(view.problems, entry.id);
   if (problems.length > 0) return ['compile-error', problems.join('\n')];
   if (run.phase === 'building') return ['compiling', ''];
-  const errors = nodeErrors(run, info.name);
+  const errors = info.subgraph ? [] : nodeErrors(run, info.name);
   if (errors.length > 0) return ['compile-error', errors.map((e) => `line ${e.start[0]}: ${errorText(e)}`).join('\n')];
   if (run.phase === 'failed') return ['stale', ''];
   if (run.phase !== 'ran') return ['none', ''];
-  const reports = run.reports.filter((r) => r.id === entry.id);
+  // A node of a subgraph use has the ID `<use ID>/<node ID>` (6.4).
+  const reports = run.reports.filter((r) => r.id === entry.id || r.id.startsWith(`${entry.id}/`));
   if (reports.length > 0) {
     return ['run-error', reports.map(reportText).join('\n')];
   }
@@ -123,12 +124,13 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
   return [run.stale || idle === 'stopped' ? 'stale' : 'ready', ''];
 }
 
-/** The node info of an entry, or null when its folder or built-in node is missing. */
+/** The node info of an entry, or null when its folder, subgraph or built-in node is missing. */
 export function infoOf(entry: NodeEntry, nodes: NodeInfo[]): NodeInfo | null {
+  if (entry.subgraph !== undefined) return nodes.find((n) => n.subgraph && n.name === entry.subgraph) ?? null;
   const builtin = entry.builtin !== undefined;
   if (!builtin && !entry.folder?.startsWith('nodes/')) return null;
   const name = folderName(entry);
-  return nodes.find((n) => n.name === name && n.builtin === builtin) ?? null;
+  return nodes.find((n) => n.name === name && n.builtin === builtin && !n.subgraph) ?? null;
 }
 
 /** The Rust type of output `from`, "<node id>.<output key>", or undefined when its node does not read. */
@@ -222,11 +224,11 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
           const text = input && !wired.includes(input.key) ? entry.params?.[input.key] : undefined;
           return (
             <div key={i} className="patina-row">
-              <span title={input && `${input.key}: ${input.ty}`}>
-                {input?.key}
+              <span title={input && `${input.name ?? input.key}: ${input.ty}`}>
+                {input && (input.name ?? input.key)}
                 {text !== undefined && <span className="param-text"> {text}</span>}
               </span>
-              <span title={output && `${output.key}: ${output.ty}`}>{output?.key}</span>
+              <span title={output && `${output.name ?? output.key}: ${output.ty}`}>{output && (output.name ?? output.key)}</span>
             </div>
           );
         })}
