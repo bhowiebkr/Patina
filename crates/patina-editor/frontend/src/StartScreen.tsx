@@ -1,6 +1,7 @@
 // The start screen (spec 15.10): a new project, an open project and the recent projects.
 
 import { useState, type FormEvent } from 'react';
+import { AboutDialog, useVersion } from './About';
 import { api, type StartInfo, type View } from './api';
 
 interface Props {
@@ -15,6 +16,8 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [about, setAbout] = useState(false);
+  const version = useVersion();
 
   const act = (job: Promise<View>) => {
     setBusy(true);
@@ -39,11 +42,19 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
   return (
     <main className="start">
       <div className="start-card">
+        <img className="splash" src="/brand/splash.png" alt="" />
         <div className="settings-head">
-          <img className="logo" src="/logo.png" alt="Patina" />
-          <button className="btn" onClick={onSettings}>
-            Settings
-          </button>
+          <h1 className="brand-title">
+            Patina <span className="label">{version && `Version ${version}`}</span>
+          </h1>
+          <div className="start-row">
+            <button className="btn" onClick={() => setAbout(true)}>
+              About
+            </button>
+            <button className="btn" onClick={onSettings}>
+              Settings
+            </button>
+          </div>
         </div>
         <form className="start-box" onSubmit={create}>
           <h2>New project</h2>
@@ -99,6 +110,7 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
           </div>
         </div>
       </div>
+      {about && <AboutDialog onClose={() => setAbout(false)} />}
     </main>
   );
 }

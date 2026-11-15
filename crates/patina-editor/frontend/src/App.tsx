@@ -22,6 +22,7 @@ import {
   type StartInfo,
   type View,
 } from './api';
+import { HelpMenu } from './About';
 import { runCheck } from './check';
 import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
@@ -437,7 +438,8 @@ export function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        <img className="logo" src="/logo.png" alt="Patina" />
+        <img className="brand-accent" src="/brand/title-accent.png" alt="" />
+        <b className="brand-name">Patina</b>
         <span className="path">
           <b>{view.name}</b> / main{fullEntry && ` / ${folderName(fullEntry)}`}
         </span>
@@ -483,6 +485,7 @@ export function App() {
         </button>
         <span className="sep" />
         <ViewsMenu />
+        <HelpMenu />
       </header>
       {/* The dock waits for the layout of the project, so the graph opens at its saved pan and zoom. */}
       {layoutSerial === view.serial ? (

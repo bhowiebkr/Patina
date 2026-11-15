@@ -1,0 +1,56 @@
+// The Help menu and the About dialog (spec 15.3). The artwork has no text: the page writes the
+// name, the version and the license.
+
+import { useEffect, useRef, useState } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
+import { Icon, Menu, below } from './Dock';
+
+/** The version of the editor, or an empty text until it is known. */
+export function useVersion() {
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    getVersion().then(setVersion, () => setVersion(''));
+  }, []);
+  return version;
+}
+
+/** The About dialog: the banner artwork, the name, the version and the license. */
+export function AboutDialog({ onClose }: { onClose: () => void }) {
+  const version = useVersion();
+  return (
+    <div className="backdrop" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <div className="dialog about" role="dialog" aria-modal="true" aria-labelledby="about-title">
+        <img className="about-art" src="/brand/banner.png" alt="" />
+        <h2 id="about-title">Patina</h2>
+        <div className="label">{version && `Version ${version}`}</div>
+        <div className="label">MIT or Apache-2.0</div>
+        <div className="actions">
+          <button className="btn primary" autoFocus onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The Help menu of the top bar, with **About Patina**. */
+export function HelpMenu() {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const [about, setAbout] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const closeAbout = () => {
+    setAbout(false);
+    button.current?.focus();
+  };
+  return (
+    <>
+      <button ref={button} className="btn" aria-haspopup="menu" aria-expanded={at !== null} onClick={(e) => setAt(below(e.currentTarget))}>
+        Help
+        <Icon d="m4 6 4 4 4-4" />
+      </button>
+      {at && <Menu {...at} label="Help" items={[{ label: 'About Patina', run: () => setAbout(true) }]} onClose={() => setAt(null)} />}
+      {about && <AboutDialog onClose={closeAbout} />}
+    </>
+  );
+}

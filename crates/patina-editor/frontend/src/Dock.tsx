@@ -83,16 +83,16 @@ export const useLayoutSerial = () => useSyncExternalStore(subscribe, getSerial);
 export const savedViewport = (graph: string): Viewport | undefined => state.layout.viewports[graph];
 export const saveViewport = (graph: string, v: Viewport) => changeLayout((l) => setViewport(l, graph, v));
 
-const Icon = ({ d }: { d: string }) => (
+export const Icon = ({ d }: { d: string }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
     <path d={d} />
   </svg>
 );
 
-type Item = { label: string; checked?: boolean; disabled?: boolean; run: () => void } | 'line';
+export type Item = { label: string; checked?: boolean; disabled?: boolean; run: () => void } | 'line';
 
 /** A menu at a point. Esc or a click out of it closes it, and the focus goes back to its button. */
-function Menu({ x, y, label, items, onClose }: { x: number; y: number; label: string; items: Item[]; onClose: () => void }) {
+export function Menu({ x, y, label, items, onClose }: { x: number; y: number; label: string; items: Item[]; onClose: () => void }) {
   const [back] = useState(() => document.activeElement as HTMLElement | null);
   const close = () => {
     onClose();
@@ -138,7 +138,7 @@ function Menu({ x, y, label, items, onClose }: { x: number; y: number; label: st
 }
 
 /** The menu point under an element. */
-const below = (el: HTMLElement) => {
+export const below = (el: HTMLElement) => {
   const r = el.getBoundingClientRect();
   return { x: Math.min(r.left, window.innerWidth - 200), y: r.bottom };
 };

@@ -4,12 +4,15 @@
 behave like one application. **Primary visual reference:** mockup 9.
 **Platform:** Windows first. **Updated:** 2026-11-15.
 
-![Blue faceted Patina logo and white wordmark](mockups/details/chrome/patina-logo.png)
+![Aged Dovetail Patina emblem](../assets/branding/emblem.png)
 
-The blue faceted **P** and white **PATINA** wordmark above are the logo reference.
-This is an exact crop of the existing main-editor image, matching the identity
-in the owner's clipped logo. Keep its proportions and spacing. The plain amber
-P in mockup 9 is a generated mistake.
+The **Aged Dovetail** emblem above is the logo. The owner selected it on 2026-11-15,
+concept 03 of [contact sheet 04](mockups/branding/patina-logo-contact-sheet-04.png).
+[assets/branding](../assets/branding/README.md) has the extracted pieces, the icon
+sizes and the resolution limits. The artwork has no text: the application draws
+the name **Patina**. Use the aged steel and rust treatment only in branding
+artwork, never on controls. The blue faceted logo of the earlier mockups and the
+plain amber P of mockup 9 are historical.
 
 ## The visual reference set
 
@@ -155,7 +158,7 @@ visible during visual review; they can be refined alongside the working GUI.
 6. Check the control with mouse and keyboard at the intended Windows display scale.
 7. Exercise unavailable, empty, loading, stale and error states where relevant.
    A convincing screenshot must not conceal an operation that does not work.
-8. Check the blue logo, neutral surfaces and distinction between header, focus and state.
+8. Check the Aged Dovetail branding, neutral surfaces and distinction between header, focus and state.
 9. Correct the generated artifacts called out in the matching reference section.
 10. Report what was implemented and tested separately from what is still illustrative.
 

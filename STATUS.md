@@ -31,6 +31,9 @@ and in the editor.
 - A graph can have a feedback loop in the frame domain through a delay node
   (`builtin = "delay"`). The delay gives the value of its input in the previous frame, and
   `Default::default()` in the first frame.
+- The editor uses the Aged Dovetail branding (`assets/branding`): the executable and window icon,
+  the title accent and the **Help** menu with **About Patina** in the top bar, the splash on the
+  start screen, the **About** dialog and the `.msi` bitmaps in `tauri.conf.json`.
 
 ### What was checked
 
@@ -57,6 +60,8 @@ and in the editor.
 
 ### Known limits
 
+- Branding: nobody made a real `.msi`, so the installer bitmaps and the uninstall icon were not
+  seen in Windows. `project-file.ico` has no file association yet.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The frontend test checks the widget lines. A Rust check and

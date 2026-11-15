@@ -29,7 +29,7 @@ The individual token values remain a design proposal.
 ## Proposed implementation palette
 
 Use shared tokens, not local guesses in each component. Equal RGB values keep
-the large surfaces neutral. Color remains in the blue logo, node headers,
+the large surfaces neutral. Color remains in the branding artwork, node headers,
 state and visual data. Amber is the proposed global focus/action accent, following
 the reference's selected tabs and main material action.
 
@@ -73,8 +73,8 @@ acceptable, but flat fills are the default.
 | info | #C5C5BF | Informational icon or label |
 
 Use one application accent: amber. Earlier cyan tabs, cyan primary buttons and
-blue checked boxes are historical styling. The logo stays blue; its brand color
-does not tint the surrounding interface.
+blue checked boxes are historical styling. The Aged Dovetail logo keeps its
+steel and rust colors. They do not tint the surrounding interface.
 
 Primary action buttons may use amber with dark text. Ordinary buttons stay
 neutral. **Run** can be an ordinary button with a play icon; the **Live** indicator

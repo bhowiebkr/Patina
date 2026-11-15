@@ -143,7 +143,8 @@ The **Add node** palette is the second way to add a node, after a drag from the 
 
 The [GUI visual guide](../gui-visual-guide.md) defines the palette, dimensions,
 shared controls and image-specific corrections. Use neutral charcoal surfaces,
-an amber application accent, and the blue faceted Patina logo. Mockup 9 is the
+an amber application accent, and the Aged Dovetail branding artwork of
+[assets/branding](../../assets/branding/README.md). Mockup 9 is the
 main theme reference. Do not copy the blue-tinted surfaces of earlier mockups.
 Node bodies fit their contents; their widths and heights need not match.
 
@@ -428,6 +429,16 @@ These are the fewest steps from a new project to a reopen:
 - A project opens with its graph paused. The user clicks **Run**.
 - The start screen has **New project**, **Open project** and a list of recent projects.
 - The user can type each folder, or click **Browse** to select it in the folder dialog of the platform. This is an agent decision of 2026-11-15. The owner can change it.
+
+**Branding**
+
+This is an agent decision of 2026-11-15. The owner can change it.
+
+- The start screen shows the splash artwork, the name **Patina** and the version. It has an **About** button and a **Settings** button.
+- The top bar shows the title accent and the name **Patina**. The **Help** menu at its right end has **About Patina**.
+- The **About** dialog shows the banner artwork, the name, the version and the license. **Close** or Esc closes it.
+- The artwork has no text. The page draws all names, versions and labels, so they stay sharp and can change.
+- The window, the taskbar and the executable use `icons/icon.ico`. The installer uses the banner and dialog bitmaps of `icons/` (13.1).
 
 **Settings screen**
 

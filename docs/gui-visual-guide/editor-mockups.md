@@ -33,7 +33,7 @@ Layers; Material Layers feeds Material Output. The view has no graph cable.
 
 **Correct these details:** the wear cable lands near the Verdigris row in the
 image. It must land on **Wear mask**. Restore node kind/domain icons and runtime
-labels where needed. Use the blue faceted logo. Rendered material/channel images
+labels where needed. Use the Aged Dovetail logo, not the blue logo of the image. Rendered material/channel images
 must agree with actual graph outputs; the mockup does not validate a shader.
 
 ## 1. Main editor with colored headers
@@ -64,7 +64,7 @@ previews, not a reason to enlarge every node.
 **Correct these details:** replace the obsolete edit-layer list and toggles
 with compilation **Base** and **Slot**. Remove orphan-edit concepts. The selected
 magenta node should have a light pink outline. Apply neutral surfaces instead
-of this image's blue cast. The logo remains a valid visual reference.
+of this image's blue cast. The blue logo of this image is historical.
 
 ## 3. Error view
 

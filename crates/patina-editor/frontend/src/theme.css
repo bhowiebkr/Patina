@@ -183,9 +183,13 @@ select {
   border-bottom: 1px solid var(--border);
 }
 
-.topbar .logo {
+.topbar .brand-accent {
   height: 24px;
+}
+
+.topbar .brand-name {
   margin-right: 8px;
+  font-weight: 600;
 }
 
 .topbar .path {
@@ -593,9 +597,20 @@ select {
   gap: 18px;
 }
 
-.start-card .logo {
-  height: 49px;
-  align-self: flex-start;
+.start-card .splash {
+  width: 420px;
+  max-width: 100%;
+  align-self: center;
+}
+
+.brand-title .label {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.about-art {
+  width: 100%;
 }
 
 .start-box {
