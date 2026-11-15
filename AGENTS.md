@@ -20,6 +20,7 @@ These are the work rules for AI agents in this repository.
     run.
   - Do not end a turn with only a plan or a promise. End it with work that is done.
   - Stop only for an action outside the repository that needs the approval of the owner.
+  - Write few and short messages to the owner. This uses fewer tokens.
 - Start with milestone 0 (section 19). Report the result of each prototype before you continue.
   Each result can change the design.
 - [STATUS.md](STATUS.md) is the current status: the milestone, what works, what was checked and

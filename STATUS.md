@@ -196,8 +196,15 @@ To run the editor from a checkout:
   time. A copy of `patina.exe` in a folder outside the checkout passed the self-check.
 - The editor and the CLI use the toolchain folder (13.3) when it has `cargo`. Its tools get the
   clean environment of 13.2. Else Patina uses the Rust of the system, and **Settings** tells so.
-  A unit test checks the clean environment. No toolchain folder is on this computer, so no
-  build with the own toolchain ran.
+  A unit test checks the clean environment.
+- The toolchain prototype installed Rust 1.100.0 (`x86_64-pc-windows-gnu`) and Zig 0.17.1 into
+  a toolchain folder on Windows. The install took 52 s, and the folder has 1.3 GB. The folder
+  path had a space, an accent and a CJK character. With this folder:
+  - `patina-cli run` built a copy of the hello example (`rust = "1.100.0"`) in 1.33 s and
+    wrote `6.5`. The cluster imports `msvcrt.dll`, so the gnu toolchain built it.
+  - The editor self-check (`--portable` on that folder) passed its 53 steps. The new project
+    got `rust = "1.100.0"`, and its cluster imports `msvcrt.dll`.
+  - The Zig wrappers were copies of the prototype program, not of `patina.exe`.
 - The self-check sets **Orthogonal** in the **Inspector**, finds 3 corners or more on the wire,
   clicks **Reset route**, and undoes both edits.
 - The self-check opens the **Add node** palette with Shift+A and closes it with Esc. Then it
@@ -227,6 +234,8 @@ To run the editor from a checkout:
 - CI run 43731377929 of the log lines passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 - CI run 43731942012 of the page in the binary passed on `windows-latest`, `ubuntu-latest` and
+  `macos-latest`.
+- CI run 43732552697 of the toolchain folder passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 - A copy of the hello example with `log = "0.4"` in the `add` node ran in `patina-cli` on
   Windows. It wrote `INFO adding 2.5 and 4` and `WARN a warning` for the node, and no debug
