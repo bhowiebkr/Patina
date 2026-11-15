@@ -16,10 +16,13 @@ import {
 } from '@xyflow/react';
 import { newId, type Edit, type View } from './api';
 import { NodeView, infoOf, nodeState, type PatinaNode, type RunState } from './NodeView';
+import { WireContext, WireEdge, WireLayer } from './WireLayer';
+import { WireStore } from './wires';
 
 export const NODE_MIME = 'application/patina-node';
 const FIT = { padding: 0.2, maxZoom: 1, duration: 0 };
 const NODE_TYPES = { patina: NodeView };
+const EDGE_TYPES = { wire: WireEdge };
 const PAN_BUTTONS = [1];
 const MULTI_KEYS = ['Shift', 'Control'];
 
@@ -50,7 +53,7 @@ function buildEdges(view: View, prev: Edge[]): Edge[] {
     const [source, sourceHandle] = splitPin(w.from);
     const [target, targetHandle] = splitPin(w.to);
     const id = `${w.from}>${w.to}`;
-    return { id, source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to } };
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to } };
   });
 }
 
@@ -71,6 +74,8 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   const flow = useReactFlow<PatinaNode, Edge>();
   const [nodes, setNodes] = useState<PatinaNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [wires] = useState(() => new WireStore());
+  const [glOk, setGlOk] = useState(true);
 
   useEffect(() => setNodes((prev) => buildNodes(view, run, prev)), [view, run]);
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);
@@ -144,35 +149,40 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   };
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={NODE_TYPES}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onSelectionChange={onSelectionChange}
-      onNodeDragStop={onNodeDragStop}
-      onConnect={onConnect}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      nodesDraggable={view.trusted}
-      nodesConnectable={view.trusted}
-      panOnDrag={PAN_BUTTONS}
-      selectionOnDrag
-      panActivationKeyCode="Space"
-      multiSelectionKeyCode={MULTI_KEYS}
-      selectionKeyCode={null}
-      deleteKeyCode={null}
-      zoomOnDoubleClick={false}
-      minZoom={0.1}
-      maxZoom={4}
-      fitView
-      fitViewOptions={FIT}
-      colorMode="dark"
-    >
-      <Background id="minor" variant={BackgroundVariant.Lines} gap={20} color="#202020" />
-      <Background id="major" variant={BackgroundVariant.Lines} gap={100} color="#292929" bgColor="transparent" />
-    </ReactFlow>
+    <WireContext.Provider value={wires}>
+      <ReactFlow
+        className={glOk ? undefined : 'svg-wires'}
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onSelectionChange={onSelectionChange}
+        onNodeDragStop={onNodeDragStop}
+        onConnect={onConnect}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        nodesDraggable={view.trusted}
+        nodesConnectable={view.trusted}
+        panOnDrag={PAN_BUTTONS}
+        selectionOnDrag
+        panActivationKeyCode="Space"
+        multiSelectionKeyCode={MULTI_KEYS}
+        selectionKeyCode={null}
+        deleteKeyCode={null}
+        zoomOnDoubleClick={false}
+        minZoom={0.1}
+        maxZoom={4}
+        fitView
+        fitViewOptions={FIT}
+        colorMode="dark"
+      >
+        <Background id="minor" variant={BackgroundVariant.Lines} gap={20} color="#202020" />
+        <Background id="major" variant={BackgroundVariant.Lines} gap={100} color="#292929" bgColor="transparent" />
+        <WireLayer store={wires} onReady={setGlOk} />
+      </ReactFlow>
+    </WireContext.Provider>
   );
 }
 

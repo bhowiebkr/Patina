@@ -61,12 +61,13 @@ jobs:
             prototypes/viewport/frontend/package-lock.json
             crates/patina-editor/frontend/package-lock.json
 
-      # The type check and the build of the web frontends.
+      # The type check and the build of the web frontends, and the tests of the editor page.
       - name: Frontend of the editor
         working-directory: crates/patina-editor/frontend
         run: |
           npm ci
           npm run build
+          npm test
 
       - name: Frontend of the connections prototype
         working-directory: prototypes/connections/frontend

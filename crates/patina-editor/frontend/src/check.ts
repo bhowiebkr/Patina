@@ -10,6 +10,45 @@ const RUN_MS = 20_000;
 const A = 'a000000000000001';
 const B = 'b000000000000002';
 
+/** True if a pixel of the RGBA column passes the test. */
+function anyPixel(column: Uint8Array, test: (r: number, g: number, b: number) => boolean): boolean {
+  for (let i = 0; i < column.length; i += 4) if (column[i + 3] > 128 && test(column[i], column[i + 1], column[i + 2])) return true;
+  return false;
+}
+
+const amber = (r: number, _g: number, b: number) => r - b > 80;
+const gray = (r: number, g: number, b: number) => Math.abs(r - g) < 12 && Math.abs(r - b) < 20;
+
+/** Reads a column of 16 px of the wire canvas across the middle of the first wire. */
+async function wireColumn(): Promise<{ x: number; y: number; column: Uint8Array }> {
+  const canvas = document.querySelector<HTMLCanvasElement>('.wire-layer');
+  const path = document.querySelector<SVGPathElement>('.wire-hit');
+  const pane = document.querySelector('.react-flow__pane');
+  if (!canvas || !path || !pane || document.querySelector('.svg-wires')) throw new Error('the WebGL wire layer is not active');
+  const gl = canvas.getContext('webgl2')!;
+  for (let tries = 0; tries < 5; tries++) {
+    const box = path.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    // A small zoom at the middle of the wire makes the layer draw in the next frame. This callback
+    // runs after that draw and before the frame shows, so the drawing buffer still has the wires.
+    pane.dispatchEvent(new WheelEvent('wheel', { deltaY: -1, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+    const column = await new Promise<Uint8Array>((resolve) =>
+      requestAnimationFrame(() => {
+        const rect = canvas.getBoundingClientRect();
+        const scale = canvas.width / rect.width;
+        const h = Math.round(16 * scale);
+        const top = Math.round((y - 8 - rect.top) * scale);
+        const out = new Uint8Array(h * 4);
+        gl.readPixels(Math.round((x - rect.left) * scale), canvas.height - top - h, 1, h, gl.RGBA, gl.UNSIGNED_BYTE, out);
+        resolve(out);
+      }),
+    );
+    if (anyPixel(column, () => true)) return { x, y, column };
+  }
+  throw new Error('the wire layer drew nothing at the middle of the wire');
+}
+
 export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void) {
   const steps: string[] = [];
   const events: EngineEvent[] = [];
@@ -149,6 +188,16 @@ fn broken() -> u32 {
     await result(v, from, '2.5', BUILD_MS);
     await until('two ready nodes on the canvas', RUN_MS, () => document.querySelectorAll('.patina-node.ready').length === 2);
     steps.push('ready on the canvas');
+
+    // The wire draws in WebGL (15.1). Its hit area is wider than the line, and a click selects it (15.9).
+    const wire = await wireColumn();
+    if (!anyPixel(wire.column, gray) || anyPixel(wire.column, amber)) throw new Error('the wire is not a neutral line');
+    const hit = document.elementFromPoint(wire.x, wire.y + 4);
+    if (!hit?.closest('.react-flow__edge')) throw new Error(`no wire 4 px from the line: ${hit?.getAttribute('class')}`);
+    hit.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: wire.x, clientY: wire.y + 4 }));
+    await until('the selected wire', RUN_MS, () => document.querySelector('.react-flow__edge.selected') !== null);
+    if (!anyPixel((await wireColumn()).column, amber)) throw new Error('the selected wire has no accent mark');
+    steps.push('wire drawn and selected');
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');
