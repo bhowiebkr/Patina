@@ -9,8 +9,17 @@ These are the work rules for AI agents in this repository.
 - The spec is the source of truth. If code, a mockup or an instruction does not agree with the
   spec, follow the spec or ask the owner. When the owner changes a decision, update the spec in
   the same change.
-- Do not decide an open question of section 18 alone. Ask the owner. Write the answer into the
-  spec.
+- Do not decide an open question of section 18 alone, unless the owner told you to work alone.
+  Then make an agent decision. Write the decision, the reason and the date into the spec, and
+  mark it as an agent decision that the owner can change. Otherwise, ask the owner and write the
+  answer into the spec.
+- When the owner tells you to work alone, never stop work to wait:
+  - When a task is complete, start the next item of the roadmap (section 19) or of
+    [docs/before-building.md](docs/before-building.md) in the same turn.
+  - Run long commands, for example CI or a bench, in the background. Do other work while they
+    run.
+  - Do not end a turn with only a plan or a promise. End it with work that is done.
+  - Stop only for an action outside the repository that needs the approval of the owner.
 - Start with milestone 0 (section 19). Report the result of each prototype before you continue.
   Each result can change the design.
 - [STATUS.md](STATUS.md) is the current status: the milestone, what works, what was checked and

@@ -200,6 +200,7 @@ fn print_table(runs: &[Value]) {
 }
 
 /// Reads the CPU time of this process tree and the 3D engine use of its GPU counters.
+#[cfg(windows)]
 const SAMPLER: &str = r"
 $ErrorActionPreference = 'SilentlyContinue'
 $all = Get-CimInstance Win32_Process
