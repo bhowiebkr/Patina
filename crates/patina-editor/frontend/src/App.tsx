@@ -208,10 +208,33 @@ export function App() {
 
   useEvent(onEngine, (e: EngineEvent) => {
     if (e.serial !== serial.current) return;
-    const active = e.state === 'building' || e.state === 'started';
+    const active = e.state === 'building' || e.state === 'started' || e.state === 'frame' || (e.state === 'ran' && e.frames);
     setBusy(active);
     if (!active) endStop();
     if (e.state === 'started') return;
+    if (e.state === 'frame') {
+      // The values and times of the batch nodes stay. Only the frame nodes ran.
+      setRun((r) => ({
+        ...r,
+        runMs: e.runMs,
+        ok: e.ok,
+        reports: e.reports,
+        values: new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]),
+        idle: new Map([...e.skipped.map((id) => [id, 'skipped'] as const), ...e.stopped.map((id) => [id, 'stopped'] as const)]),
+        times: new Map([...r.times, ...e.times.map((t) => [t.id, t.ms] as const)]),
+        logs: e.logs,
+        frames: r.frames + 1,
+      }));
+      const lines: Line[] = [];
+      for (const l of e.logs) lines.push({ text: `${l.folder} (${l.id}): ${l.level} ${l.text}`, kind: logKind(l.level) });
+      for (const r of e.reports) lines.push({ text: `${r.folder} (${r.id}): ${reportText(r)}`, kind: 'err' });
+      if (lines.length > 0) log(lines);
+      return;
+    }
+    if (e.state === 'ended') {
+      log([{ text: `Ran ${plural(e.frames, 'frame')}`, kind: 'info' }]);
+      return;
+    }
     if (e.state === 'building') {
       setRun((r) => ({ ...r, phase: 'building' }));
       log([{ text: 'Building the graph', kind: 'info' }]);
@@ -237,6 +260,7 @@ export function App() {
         idle,
         times: new Map(e.times.map((t) => [t.id, t.ms])),
         logs: e.logs,
+        frames: 0,
         };
       });
       const lines: Line[] = [];
@@ -344,6 +368,7 @@ export function App() {
     if (run.errors.length > 0) parts.push('Running the last build that compiled');
     else if (run.builtMs !== null) parts.push(`Built in ${seconds(run.builtMs)}`);
     parts.push(`Run ${millis(run.runMs ?? 0)}`);
+    if (run.frames > 0) parts.push(`Frame ${run.frames}`);
     if (run.reports.length > 0) parts.push(plural(run.reports.length, 'run error'));
     const idle = [...run.idle.values()];
     const skipped = idle.filter((s) => s === 'skipped').length;

@@ -71,6 +71,11 @@ impl Control {
         self.stop.store(stop, Relaxed);
     }
 
+    /// True when the user asked the runs to stop (15.2).
+    pub fn stopped(&self) -> bool {
+        self.stop.load(Relaxed)
+    }
+
     /// The index of the node that started last in the active run. None between runs.
     pub fn node(&self) -> Option<u32> {
         let node = self.node.load(Relaxed);

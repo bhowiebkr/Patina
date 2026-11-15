@@ -37,6 +37,7 @@ Each node runs in one clock domain. The domain decides when the node runs.
 - The batch domain runs one time, when the user clicks **Run**. Then the frame domain runs at each tick of a 60 FPS clock until the user clicks **Stop**. A frame that is late starts at once, and the clock skips the ticks that it missed. Frames never queue.
 - A run of the frame domain stops at the first frame in which a node fails.
 - `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process.
+- In the editor, **Pause**, **Stop**, a failed frame and a change that runs the graph again end the frame run. A change runs the batch domain again, and then the frames start again. The status bar shows the number of the frame, and the values and run times of the frame nodes change at each frame.
 - In the first slice of milestone 4, a wire between two domains is a graph error. The latest-value wire comes in a later slice of milestone 4.
 
 ### 9.2 Automatic parallelism

@@ -491,6 +491,31 @@ fn broken() -> u32 {
     if (v.recovery || JSON.stringify(v.graph) !== changedGraph) throw new Error('the save did not keep the restored graph or remove the recovery file');
     steps.push('recovery file restored');
 
+    // The frame domain (9.1): Run runs the frame node and the show node at each frame until Stop.
+    const frameCode = changedCode.replace('#[node]', '#[node(domain = frame)]');
+    if (frameCode === changedCode) throw new Error(`the frame check cannot change the code of ${lib}`);
+    v = await step('make a frame node', () => api.edit({ kind: 'SetCode', path: lib, text: frameCode }));
+    from = mark();
+    v = await step('run the frames', () => api.run());
+    const ofRun = () => events.slice(from).filter((e) => e.serial === v.serial);
+    const frameCount = () => ofRun().filter((e) => e.state === 'frame').length;
+    await until('three frames that print 2.5', BUILD_MS, () => {
+      const failed = ofRun().find((e) => e.state === 'failed' || ((e.state === 'ran' || e.state === 'frame') && !e.ok));
+      if (failed) throw new Error(`the frame run failed: ${JSON.stringify(failed)}`);
+      return frameCount() >= 3 && output.slice(outputFrom).filter((l) => l === '2.5').length >= 3;
+    });
+    await until('the frame number in the status bar', RUN_MS, () => /Frame \d+/.test(statusText()));
+    topButton('Stop')!.click();
+    let frameEnd: EngineEvent | undefined;
+    await until('the end of the frames', RUN_MS, () => (frameEnd = ofRun().find((e) => e.state === 'ended')) !== undefined);
+    const count = frameCount();
+    const end = frameEnd!;
+    if (end.state !== 'ended' || end.frames !== count) throw new Error(`the end of the frames does not count ${count} frames: ${JSON.stringify(end)}`);
+    await new Promise((r) => setTimeout(r, 100));
+    if (frameCount() !== count) throw new Error('a frame ran after Stop');
+    v = await step('undo the frame node', () => api.undo());
+    steps.push(`frames until Stop: ${count}`);
+
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');
     steps.push('screenshot');

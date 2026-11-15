@@ -156,8 +156,12 @@ export function logKind(level: string): 'err' | 'warn' | 'out' {
 export type EngineEvent =
   | { state: 'building'; serial: number }
   | { state: 'started'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
-  | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] };
+  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; frames: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
+  | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] }
+  /** One frame of the frame domain (9.1). Only the nodes of the frame domain ran. */
+  | { state: 'frame'; serial: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
+  /** The frame run ended after `frames` frames. */
+  | { state: 'ended'; serial: number; frames: number };
 
 export interface OutputText {
   text: string;

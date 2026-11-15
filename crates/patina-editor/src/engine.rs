@@ -2,10 +2,11 @@
 //! the graph (spec 7.2, 15.10).
 
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
+use patina_engine::clock::{self, Clock};
 use patina_engine::project::GraphFile;
 use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, NodeLog, NodeTime, Report, Toolchain, Value};
 use serde::Serialize;
@@ -15,6 +16,8 @@ pub enum Job {
     Run(Box<Run>),
     /// Drops the cluster, for example when the project closes.
     Unload,
+    /// Ends the frame run (9.1). **Pause** and **Stop** send it.
+    Pause,
 }
 
 /// Builds the graph when `build` is true or no cluster is loaded. Then sets the parameters and
@@ -36,12 +39,14 @@ pub enum Event {
     /// When the build failed, `errors` has its compile errors, and the last build that compiled ran.
     /// `values` has the badge text of each output that a wire reads (15.9). `skipped` and `stopped`
     /// have the IDs of the nodes that did not run (15.3, 15.2). `times` has the run time of each
-    /// node call that started, and `logs` has the log lines of the nodes (15.7).
+    /// node call that started, and `logs` has the log lines of the nodes (15.7). `frames` is true
+    /// when the frame domain runs after this run of the batch domain (9.1).
     Ran {
         serial: u64,
         built_ms: Option<f64>,
         run_ms: f64,
         ok: bool,
+        frames: bool,
         skipped: Vec<String>,
         stopped: Vec<String>,
         times: Vec<NodeTime>,
@@ -51,6 +56,20 @@ pub enum Event {
         errors: Vec<Diagnostic>,
     },
     Failed { serial: u64, text: String, errors: Vec<Diagnostic> },
+    /// The result of one frame (9.1). The fields are as in `Ran`, for the nodes of the frame domain.
+    Frame {
+        serial: u64,
+        run_ms: f64,
+        ok: bool,
+        skipped: Vec<String>,
+        stopped: Vec<String>,
+        times: Vec<NodeTime>,
+        logs: Vec<NodeLog>,
+        reports: Vec<Report>,
+        values: Vec<Value>,
+    },
+    /// The frame run ended after `frames` frames: by **Pause**, **Stop**, a new run or a failed frame.
+    Ended { serial: u64, frames: u64 },
 }
 
 /// A loaded cluster and the generated code that it was built from.
@@ -102,7 +121,8 @@ pub fn start(app: AppHandle, toolchain: PathBuf) -> (Sender<Job>, Arc<Shared>) {
 fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     let mut toolchain = None;
     let mut loaded = None;
-    while let Ok(first) = jobs.recv() {
+    let mut next = None;
+    while let Some(first) = next.take().or_else(|| jobs.recv().ok()) {
         // Only the newest run starts. A build that a skipped run asked for still happens.
         let mut newest = None;
         let mut build = false;
@@ -116,6 +136,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                     build |= run.build;
                     newest = Some(run);
                 }
+                Job::Pause => (newest, build) = (None, false),
             }
         }
         let Some(run) = newest else { continue };
@@ -130,8 +151,57 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
             }
         };
+        let frames = matches!(event, Event::Ran { frames: true, .. });
         let _ = app.emit("engine", event);
+        if let (true, Some(loaded)) = (frames, loaded.as_mut()) {
+            next = run_frames(app, jobs, &mut loaded.cluster, shared, run.serial);
+        }
     }
+}
+
+/// Runs the frame domain at 60 FPS until a job comes, the user stops the run, or a frame fails
+/// (9.1). Returns the job that ended the run.
+fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, cluster: &mut Cluster, shared: &Shared, serial: u64) -> Option<Job> {
+    let (mut clock, mut frames) = (Clock::new(clock::FRAME), 0);
+    let job = loop {
+        clock.wait();
+        match jobs.try_recv() {
+            Ok(job) => break Some(job),
+            Err(TryRecvError::Disconnected) => break None,
+            Err(TryRecvError::Empty) if shared.control.stopped() => break None,
+            Err(TryRecvError::Empty) => {}
+        }
+        let start = Instant::now();
+        let outcome = cluster.frame(&shared.control);
+        let run_ms = start.elapsed().as_secs_f64() * 1000.0;
+        frames += 1;
+        let values = badges(&outcome.values);
+        keep(&mut lock(&shared.values), outcome.values);
+        let ok = outcome.ok;
+        let (skipped, stopped, times, logs, reports) = (outcome.skipped, outcome.stopped, outcome.times, outcome.logs, outcome.reports);
+        let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
+        if !ok {
+            break None;
+        }
+    };
+    let _ = app.emit("engine", Event::Ended { serial, frames });
+    job
+}
+
+/// Puts the values of a frame in place of the old values of the same outputs. The values of the
+/// batch domain stay.
+fn keep(kept: &mut Vec<Value>, values: Vec<Value>) {
+    for value in values {
+        match kept.iter_mut().find(|v| v.from == value.from) {
+            Some(old) => *old = value,
+            None => kept.push(value),
+        }
+    }
+}
+
+/// The values with the badge texts (15.9).
+fn badges(values: &[Value]) -> Vec<Value> {
+    values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone() }).collect()
 }
 
 fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &Run, build: bool, shared: &Shared) -> Result<Event, Error> {
@@ -170,9 +240,10 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     let outcome = outcome.unwrap_or_default();
     let reports = params.reports.into_iter().chain(outcome.reports).collect();
-    let badges = outcome.values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone() }).collect();
+    let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
-    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values: badges, errors })
+    let frames = params.ok && outcome.ok && cluster.frames() && !shared.control.stopped();
+    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors })
 }
 
 /// Cuts a text for its badge at a character boundary.
@@ -195,5 +266,14 @@ mod tests {
         assert_eq!(badge(&full), full);
         // The 33rd two-byte character ends at byte 66, so the badge keeps 32 of them.
         assert_eq!(badge(&"\u{e9}".repeat(40)), format!("{}...", "\u{e9}".repeat(32)));
+    }
+
+    #[test]
+    fn a_frame_replaces_only_the_values_of_its_outputs() {
+        let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), lanes: None };
+        let mut kept = vec![value("a.out", "1"), value("b.out", "2")];
+        keep(&mut kept, vec![value("b.out", "3"), value("c.out", "4")]);
+        let texts: Vec<_> = kept.iter().map(|v| (v.from.as_str(), v.text.as_str())).collect();
+        assert_eq!(texts, [("a.out", "1"), ("b.out", "3"), ("c.out", "4")]);
     }
 }

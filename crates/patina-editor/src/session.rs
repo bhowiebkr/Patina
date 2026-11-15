@@ -448,6 +448,7 @@ pub fn run(editor: State<'_, Editor>) -> Result<View, String> {
 pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         session.live = false;
+        let _ = editor.engine.send(Job::Pause);
         Ok(session.view(&editor.engine, None))
     })
 }

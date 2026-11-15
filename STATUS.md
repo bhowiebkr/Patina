@@ -8,10 +8,10 @@ checks open.
 
 ## Milestone 4: automatic parallelism and the frame domain
 
-Two slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2). The
-CLI runs the frame domain at 60 FPS (9.1). Both ran on 2026-11-15 on Windows 11 Pro, with Rust
-1.94.0. CI ran the tests of the first slice on Windows, Ubuntu and macOS. The frame run in the
-editor, the delay node and the wires between domains come next.
+Three slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2).
+The CLI and the editor run the frame domain at 60 FPS (9.1). All ran on 2026-11-15 on Windows 11
+Pro, with Rust 1.94.0. CI ran the tests of the first two slices on Windows, Ubuntu and macOS. The
+delay node and the wires between domains come next.
 
 ### What works
 
@@ -35,21 +35,29 @@ editor, the delay node and the wires between domains come next.
 - `patina-cli run <folder> --frames <count>` runs the batch domain one time and then the frames
   at 60 FPS. Without `--frames`, it runs frames until Ctrl+C. A late frame skips the missed
   ticks.
+- In the editor, **Run** runs the batch domain and then the frames. **Pause**, **Stop**, a
+  failed frame or a change that runs the graph again ends the frames. The engine sends an event
+  for each frame. The status bar shows the frame number, and the badges and the run times of
+  the frame nodes change at each frame.
 
 ### What was checked
 
-- `cargo test --workspace --locked` passed 63 tests on Windows. New tests:
+- `cargo test --workspace --locked` passed 64 tests on Windows. New tests:
   - The plan makes one task of a chain and splits the branches.
   - The pool starts a task only after its inputs, also with a second run inside a task.
   - Only `Sync` values let a cluster run in parallel (`Cell` and `Rc` do not).
   - The plan gives the frame domain to the node after a frame node, and reports a wire between
     two domains and a node with inputs from two domains.
   - The frame clock skips the ticks that a late frame missed.
+  - A frame replaces only the live values of its outputs. The batch values stay.
 - The CLI tests ran the hello example (3 tasks, with shared values) and the fail project (2
   branches) through the pool. The hello test also added a frame node and a show node. With
   `--frames 3`, it wrote `6.5` one time and then `1` three times.
-- A manual CLI run of 5 frames took 0.29 s with the build check. The editor self-check passed
-  its 53 steps in the first slice.
+- A manual CLI run of 5 frames took 0.29 s with the build check.
+- The editor self-check passed its 57 steps in 15.0 s. A new step makes the number node a frame
+  node and clicks **Run**. It waits for 3 frames that write `2.5`, and for the frame number in
+  the status bar. Then it clicks **Stop**. The end event counted the 3 frames, and no frame ran
+  after it.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.100.0.
 
 ### Known limits
@@ -59,7 +67,8 @@ editor, the delay node and the wires between domains come next.
 - Each run collects the reports into a new list. Each frame thus allocates, and so does each
   live value of a frame. The frame loop must not allocate (AGENTS.md). Change this before the
   frame domain is measured.
-- The editor runs only the batch domain. The frame run in the editor comes next.
+- The editor sends an event to the page at each frame, also when no value changed.
+- A change while the frames run runs the batch domain again before the next frame.
 - A wire between two domains is a graph error. The latest-value wire comes later in milestone 4.
 - Ctrl+C stops the CLI at once. The values that the frame domain keeps do not drop.
 

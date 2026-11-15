@@ -29,6 +29,8 @@ export interface RunState {
   times: ReadonlyMap<string, number>;
   /** The log lines of the nodes in the last run (15.7). */
   logs: NodeLog[];
+  /** The number of frames of the frame run after the last batch run (9.1). */
+  frames: number;
 }
 
 export const NO_RUN: RunState = {
@@ -45,6 +47,7 @@ export const NO_RUN: RunState = {
   idle: new Map(),
   times: new Map(),
   logs: [],
+  frames: 0,
 };
 
 /** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
