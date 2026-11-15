@@ -1,16 +1,16 @@
 # Status
 
-The current milestone is milestone 9, the GPU (spec section 19). Milestone 8, packaging, ended
-on 2026-11-15 without the Python module, which needs a download that the owner did not approve
-yet. Milestones 2 to 8 work, with the open items in their known limits. The installers of
+The current milestone is milestone 10, views (spec section 19). Milestone 9, the GPU, ended on
+2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
+a download that the owner did not approve yet. Milestones 2 to 9 work, with the open items in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
 ## Milestone 9: the GPU
 
-Milestone 9 started on 2026-11-15. It adds the shared GPU context, GPU types and shader nodes
-with WESL (spec 10).
+Milestone 9 started on 2026-11-15 and ended on 2026-11-15. It adds the shared GPU context, GPU
+types and shader nodes with WESL (spec 10).
 
 ### Plan
 
@@ -65,6 +65,8 @@ with WESL (spec 10).
 - A project with GPU nodes needs Rust 1.97.1 or later.
 - NVRTC comes with the CUDA Toolkit, not with the driver. A package does not carry it yet.
 - CI has no NVIDIA driver, so it checks only the error path of `patina-cuda`.
+- The wire viewer of the editor shows only the text of a GPU image. It needs the image
+  `Viewer` of spec 5.3, which comes later. A node GUI can show the image now.
 - These shortcuts are open in the code:
   - A project root that is not UTF-8 goes to the clusters with lossy text
     (`crates/patina-engine/src/library.rs`).
