@@ -1,17 +1,17 @@
 # Status
 
-The current milestone is milestone 5, stateful nodes, node GUIs and generic nodes (spec section
-19). Stateful nodes work. Milestone 4 ended on 2026-11-15. Milestones 2, 3 and 4 work, with the open items in their
-known limits. The installers of
+The current milestone is milestone 6, layers (spec section 19). Milestone 5, stateful nodes,
+node GUIs and generic nodes, ended on 2026-11-15. Milestones 2 to 5 work, with the open items
+in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
-Three slices work: stateful nodes (4.2), generic nodes (4.5) and the delay node (9.2). They
-ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. Node GUIs (4.3) work in the engine
-and in the editor.
+Milestone 5 ended on 2026-11-15. Stateful nodes (4.2), generic nodes (4.5), the delay node
+(9.2) and node GUIs (4.3) work in the engine and in the editor. They ran on Windows 11 Pro,
+with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 
 ### What works
 
@@ -75,9 +75,10 @@ and in the editor.
 
 - Branding: nobody made a real `.msi`, so the installer bitmaps and the uninstall icon were not
   seen in Windows. `project-file.ico` has no file association yet.
-- macOS CI run 43751314457 counted 2 allocations in 100 frames in the `hello` test of
-  `tests/run.rs` of `patina-cli` (0 expected). The run before passed on macOS. Windows and Linux
-  pass. The cause is not known.
+- macOS CI runs 43751314457 and 43754038780 counted 2 and 1 allocations in 100 frames in the
+  `hello` test of `tests/run.rs` of `patina-cli` (0 expected). The other macOS runs passed.
+  Windows and Linux pass. NOT_ENOUGH_INFO: no Mac is available to find the cause. A hypothesis:
+  a lock of the worker pool allocates the first time this thread waits.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
@@ -103,8 +104,14 @@ and in the editor.
 - A node GUI can have a canvas with lines, rectangles, circles and text. The canvas sends the
   pointer down, the moves of a drag (one for each frame at most) and the up. A custom widget
   implements the `Widget` trait. No test runs a canvas in the editor.
-- shortcut: the engine draws all node GUIs after each run and frame, also the nodes out of view
-  (4.3). Send the visible nodes from the page when graphs get large.
+- These shortcuts are open in the code:
+  - The engine draws all node GUIs after each run and frame, also the nodes out of view (4.3,
+    `crates/patina-editor/src/engine.rs`). Send the visible nodes from the page when graphs get
+    large.
+  - The types of a generic node go only from an output to an input, so a type parameter that
+    only an output uses makes an error (`crates/patina-engine/src/plan.rs`).
+  - The **Add node** palette compares the type text, so two paths of one type do not match
+    (`crates/patina-editor/frontend/src/palette.ts`). rustc checks the types at build time.
 - The delay runs only in the frame domain.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
 - Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
