@@ -43,10 +43,10 @@ Rules:
 - A swap keeps the state of each stateful node whose code did not change. Only the edited node resets (4.2).
 - Each build gives a state key to each use of a stateful node. The new build takes the state of a node from the old build only when the node ID and the key did not change. The key is a hash of these items:
   - The toolchain: the `rustc` path, the Rust version, the host target, the library folder and the rustflags.
-  - Each unit that cargo built, except the cluster crate: the package ID, the target, the profile, the features, and the cfg values and environment variables of its build script. A unit of a node folder goes only into the key of that node.
+  - Each unit that cargo built, except the cluster crate: the package ID, the target, the debug assertions of the profile, the features, and the cfg values and environment variables of its build script. A unit of a node folder goes only into the key of that node. A unit of two cargo runs, for example of the clusters and of the slot, counts one time.
   - The files of each path package, because its version does not change when its files change.
   - The node folder name, the types of the outputs of the use and the types of its input wires. The wire types set the type parameters of a generic node (4.5).
-- The state move depends on a hypothesis: rustc gives the same layout to the same type with the same compiler, profile and cfg values. A change to a shared crate, to the features or to the toolchain resets all states. This is an agent decision of 2026-11-15. The owner can change it.
+- The state move depends on a hypothesis: rustc gives the same layout to the same type with the same compiler and cfg values. The optimization level does not change the layout, so a state moves from an edit build to a bake build. A change to a shared crate, to the features or to the toolchain resets all states. This is an agent decision of 2026-11-15. The owner can change it.
 - The state that moves keeps its links to the old build, for example a vtable. The old build stays loaded (8.5).
 - The slot takes a change only when the pins of N stay the same. If a change adds, removes, or changes a pin, the engine rebuilds each cluster that holds a use of N, as for a wiring change.
 - Each build has the revision of the code that it built. The engine never swaps in a build older than the active one, and it shows only the errors of the newest revision.
@@ -122,7 +122,10 @@ enum Edit {
 | Edit | Low, no LTO | The slot (7): fast compile of the node that the user edits |
 | Bake | Full, no LTO | The base (7) and packages: fast execution |
 
-- Bake mode uses `opt-level = 3` and `codegen-units = 1`.
+- Bake mode uses `opt-level = 3` and `codegen-units = 1`. It is the cargo profile `bake` of the project workspace, which inherits `release`.
+- Edit mode is the cargo profile `edit`, which inherits `dev`.
+- The two modes have no debug assertions. Thus `cfg(debug_assertions)` is the same in the two modes, and a state moves from one mode to the other (7.2). A `debug_assert!` in a node does not run. Agent decision of 2026-11-15. The owner can change it.
+- `patina-cli run` builds in bake mode. `--edit` makes it build in edit mode, for a fast build. The tests use `--edit`.
 - Bake mode does not use LTO. The clusters share `std` and the types library through `-C prefer-dynamic` (5.2), and rustc refuses LTO with `-C prefer-dynamic`. The milestone 0 prototype "hot reload" found this on Windows, in each form of LTO that it tried (19).
 - The compiler inlines a function across crates without LTO when the function is generic or has `#[inline]`. Thus `#[node]` marks the run function of each node `#[inline]`, so small nodes inline into each other inside one cluster. Milestone 6 measures this.
 - This is an agent decision of 2026-11-15. The owner can change it.
@@ -131,7 +134,8 @@ enum Edit {
 
 Section 7 describes the base and the slot. The base builds in bake mode. The slot builds in edit mode.
 
-- Now the base and the slot both build in the `dev` profile. Bake mode comes with the fuse back of milestone 6. This is a shortcut.
+- `Checked::build` builds the clusters in the given mode, and the slot library always in edit mode, in a second cargo run.
+- A bake build with no slot is a fuse. `Cluster::adopt` then moves the state of each use from the old clusters and the slot library (7.2).
 
 ### 8.5 Hot reload
 

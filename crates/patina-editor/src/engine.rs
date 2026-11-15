@@ -300,7 +300,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
             *toolchain = Some(Toolchain::find(folder)?);
         }
         let toolchain = toolchain.as_ref().expect("the toolchain is set above");
-        match run.checked.build(toolchain) {
+        match run.checked.build(toolchain, patina_engine::Mode::Edit) {
             Ok(mut cluster) => {
                 *lock(&shared.ids) = cluster.node_ids().map(str::to_owned).collect();
                 // The node states with the same key go on in the new cluster (7.2).

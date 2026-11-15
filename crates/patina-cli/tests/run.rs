@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use patina_engine::{Control, Lanes, Project, Toolchain};
+use patina_engine::{Control, Lanes, Mode, Project, Toolchain};
 
 /// Copies a project into the temporary folder of the tests and sets the Rust version of the
 /// toolchain. The `build/` folder stays, so a second test run builds only the changes.
@@ -41,7 +41,7 @@ fn copy_dir(from: &Path, to: &Path) {
 }
 
 fn run(project: &Path, more: &[&str]) -> (Output, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("run").arg(project).args(more).output().unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("run").arg(project).arg("--edit").args(more).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
     (output, stdout, stderr)
@@ -131,7 +131,7 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     // The cluster sends the lanes of each held value, the most significant lane first.
     let toolchain = Toolchain::detect().unwrap();
     let opened = Project::open(&project).unwrap();
-    let mut cluster = opened.check().unwrap().build(&toolchain).unwrap();
+    let mut cluster = opened.check().unwrap().build(&toolchain, Mode::Edit).unwrap();
     cluster.set_params(opened.graph());
     let values = cluster.run(&Control::default()).values;
     let sum = values.iter().find(|v| v.from == "f89c6e329e8ea336.out").unwrap();
@@ -180,7 +180,7 @@ builtin = \"delay\"
     // After the first frames, a frame does not allocate (9.1). The two frame tasks wait for each
     // other, so this thread runs both. The values, the lanes and the times are in each frame.
     let opened = Project::open(&project).unwrap();
-    let (mut cluster, control) = (opened.check().unwrap().build(&toolchain).unwrap(), Control::default());
+    let (mut cluster, control) = (opened.check().unwrap().build(&toolchain, Mode::Edit).unwrap(), Control::default());
     cluster.set_params(opened.graph());
     assert!(cluster.run(&control).ok);
     let warm = (0..10).all(|_| cluster.frame(&control).ok);
@@ -208,7 +208,7 @@ builtin = \"delay\"
     // its state key, so its count starts again.
     for (name, code, moved, count) in [("mix", MIX, 1, "7"), ("tick", TICK, 0, "0")] {
         fs::write(project.join("nodes").join(name).join("src/lib.rs"), format!("{code}// An edit.\n")).unwrap();
-        let mut new = Project::open(&project).unwrap().check().unwrap().build(&toolchain).unwrap();
+        let mut new = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Edit).unwrap();
         assert_eq!(new.adopt(&mut cluster), moved, "{name}");
         cluster = new;
         let tree = cluster.ui("00000000000000f1", 0, "").0.unwrap();
@@ -308,7 +308,7 @@ to = \"00000000000000a3.value\"
 
     // The base calls each input kind through the slot library, and the state stays in it.
     let opened = Project::open(&project).unwrap();
-    let mut cluster = slotted().build(&toolchain).unwrap();
+    let mut cluster = slotted().build(&toolchain, Mode::Edit).unwrap();
     cluster.set_params(opened.graph());
     assert_eq!(value(&mut cluster, "extra"), "4.0");
     assert_eq!(value(&mut cluster, "out"), "26.0");
@@ -319,15 +319,16 @@ to = \"00000000000000a3.value\"
     assert!(slotted().build_slot(&toolchain, &mut cluster).unwrap());
     assert_eq!(value(&mut cluster, "out"), "130.0");
 
-    // Fuse back: the fused cluster gets the state of the slot library (7.2).
-    let mut fused = Project::open(&project).unwrap().check().unwrap().build(&toolchain).unwrap();
+    // Fuse back in bake mode: the fused cluster gets the state of the slot library (7.2).
+    let mut fused = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Bake).unwrap();
     fused.set_params(opened.graph());
+    assert!(cluster.slotted() && !fused.slotted() && fused.mode() == Mode::Bake);
     assert_eq!(fused.adopt(&mut cluster), 1);
     assert_eq!(value(&mut fused, "out"), "260.0");
     assert!(!slotted().build_slot(&toolchain, &mut fused).unwrap(), "a fused cluster has no slot");
 
     // A change of the signature changes the base, so the slot alone does not build.
-    let mut cluster = slotted().build(&toolchain).unwrap();
+    let mut cluster = slotted().build(&toolchain, Mode::Edit).unwrap();
     fs::write(folder.join("src/lib.rs"), edited.replace("scale: f64", "scale: f32").replace("* scale", "* f64::from(scale)")).unwrap();
     assert!(!slotted().build_slot(&toolchain, &mut cluster).unwrap());
     assert!(Project::open(&project).unwrap().check().unwrap().with_slot("number").is_ok());

@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-pub use cargo::{Diagnostic, Toolchain, add_crate};
+pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
 pub use edit::Edit;
 pub use load::{Cluster, Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;
@@ -364,10 +364,11 @@ impl Checked {
         Ok(self)
     }
 
-    /// Builds the cluster of the graph and loads it.
-    pub fn build(&self, toolchain: &Toolchain) -> Result<Cluster, Error> {
+    /// Builds the clusters of the graph in `mode` and loads them (8.3). A bake build with no slot
+    /// is a fuse (7.2): `Cluster::adopt` then moves the states from the old clusters.
+    pub fn build(&self, toolchain: &Toolchain, mode: Mode) -> Result<Cluster, Error> {
         self.check_rust(toolchain)?;
-        let built = cargo::build(&self.root, toolchain, &self.plan)?;
+        let built = cargo::build(&self.root, toolchain, &self.plan, mode)?;
         let paths: Vec<PathBuf> = built.libraries.iter().map(|(_, path)| path.clone()).collect();
         let copies = copy_to_loaded(&self.root, "cluster-", &paths)?;
         let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();
@@ -376,6 +377,7 @@ impl Checked {
         let mut cluster = Cluster::load(&libraries, slot.first().map(PathBuf::as_path), &self.plan, built.keys)?;
         cluster.common = built.common;
         cluster.base = self.base_hash();
+        cluster.mode = mode;
         Ok(cluster)
     }
 

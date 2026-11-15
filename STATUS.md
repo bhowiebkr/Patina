@@ -65,8 +65,10 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   that a link reads the value of the other cluster and takes one value only.
 - The slot test puts a stateful node with a `&` input, a `&str`, a moved input and a `&mut`
   input in the slot. Two runs keep its state. An edit of its body builds the slot alone and
-  resets the state. A fused build takes the state from the slot library. A change of the
-  signature makes `build_slot` refuse. The glue test calls a node in a slot library.
+  resets the state. A fused build in bake mode takes the state from the slot library. A change
+  of the signature makes `build_slot` refuse. The glue test calls a node in a slot library.
+- The CI run of the slot change failed one time on Linux: a frame allocated. The time text of
+  a slow node had more digits, so the report buffer grew. The time text now has a fixed width.
 
 ### Known limits
 
@@ -75,7 +77,7 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The rpath on Linux and macOS ran only in CI. Nobody compared the bytes of two builds yet. Part
   7 of the plan compares them.
 - The state move depends on a hypothesis: rustc gives the same layout to the same type with the
-  same compiler, profile and cfg values (7.2). No test checks a state that holds a type of a
+  same compiler and cfg values, also at another optimization level (7.2). No test checks a state that holds a type of a
   dependency with changed features.
 - When a parameter loses its text, `set_params` makes all the states of all clusters again,
   and links them again.
@@ -86,7 +88,9 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The editor does not use the slot yet. Nobody measured the time of a build of the slot alone.
 - A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a
   type alias in the node folder needs a full build, because the base compares the signature
-  text. The base and the slot both use the `dev` profile (`crates/patina-engine/src/cargo.rs`).
+  text.
+- The editor builds only in edit mode. It does not fuse yet.
+- The modes have no debug assertions, so a `debug_assert!` in a node does not run (8.3).
 - A node GUI of a node in the slot calls the slot library. No test draws one.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes

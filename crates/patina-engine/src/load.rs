@@ -140,6 +140,8 @@ pub struct Cluster {
     /// A hash of the code of the clusters and of the signature of the node in the slot. A build
     /// of the slot alone is correct only while it does not change (7.1).
     pub(crate) base: u64,
+    /// The build mode of the clusters (8.3).
+    pub(crate) mode: crate::Mode,
     /// The domain of each node, by node index.
     domains: Vec<Domain>,
     /// The domain that gives, the domain that reads and the index of each link (8.2).
@@ -207,6 +209,7 @@ impl Cluster {
             slotted: (0..plan.steps.len()).map(|n| plan.in_slot(n)).collect(),
             common: 0,
             base: 0,
+            mode: crate::Mode::Edit,
             domains: plan.steps.iter().map(|s| s.domain).collect(),
             links,
             keys,
@@ -219,6 +222,16 @@ impl Cluster {
             sink,
             out: Outcome::default(),
         })
+    }
+
+    /// The build mode of the clusters (8.3). The slot library is always in edit mode.
+    pub fn mode(&self) -> crate::Mode {
+        self.mode
+    }
+
+    /// True when a node is in the slot (7.1).
+    pub fn slotted(&self) -> bool {
+        self.slot.is_some()
     }
 
     /// The cluster of the domain of node `n`.

@@ -115,11 +115,12 @@ impl Reporter {
         false
     }
 
-    /// Sends the time since `start` as the run time of node `node` (15.7). It does not allocate.
+    /// Sends the time since `start` as the run time of node `node` (15.7). It does not allocate. The
+    /// text has a fixed width, so a slow run does not make the report buffers of the engine grow.
     pub fn time(&self, node: u32, start: std::time::Instant) {
         let mut buf = [0; 39 + 3];
         let mut out = Text::new(&mut buf);
-        let _ = write!(out, "{}", start.elapsed().as_nanos());
+        let _ = write!(out, "{:020}", start.elapsed().as_nanos());
         self.send(node, TIME, out.finish());
     }
 

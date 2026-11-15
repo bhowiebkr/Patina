@@ -57,9 +57,32 @@ fn workspace(root: &Path) -> String {
         ["nodes", "widgets", "connections", "build/clusters"].into_iter().filter(used).map(|g| format!("\"{g}/*\"")).collect();
     format!(
         "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
-         members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n",
+         members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n{PROFILES}",
         members.join(", ")
     )
+}
+
+/// The build modes (8.3). Both have no debug assertions, so `cfg(debug_assertions)` and the
+/// layout of each type are the same in the two modes, and a state moves between them (7.2).
+const PROFILES: &str = "\n[profile.edit]\ninherits = \"dev\"\ndebug-assertions = false\n\n\
+                        [profile.bake]\ninherits = \"release\"\ncodegen-units = 1\n";
+
+/// The build mode of the clusters (8.3). The slot always builds in edit mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    /// A fast build with low optimization.
+    Edit,
+    /// A slow build with full optimization, for fast execution.
+    Bake,
+}
+
+impl Mode {
+    fn profile(self) -> &'static str {
+        match self {
+            Mode::Edit => "edit",
+            Mode::Bake => "bake",
+        }
+    }
 }
 
 /// The SDK crates that a project builds with. The engine carries their source.
@@ -271,9 +294,8 @@ pub struct Built {
 }
 
 /// Writes the files that Patina makes, builds the clusters in one cargo run and returns their
-/// libraries.
-// shortcut: the dev profile for all clusters. The shared types library and bake mode come later in milestone 6.
-pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<Built, Error> {
+/// libraries. The clusters build in `mode`, and the slot library in edit mode.
+pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode) -> Result<Built, Error> {
     let domains = generate::domains(plan);
     remove_old_clusters(root, &domains, plan.slot.is_some())?;
     for &domain in &domains {
@@ -285,11 +307,11 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<Built, E
         write_slot(root, plan, slot)?;
     }
     write_workspace(root)?;
-    let mut packages: Vec<String> = domains.iter().map(|&d| generate::package(d)).collect();
+    let packages: Vec<String> = domains.iter().map(|&d| generate::package(d)).collect();
+    let mut messages = run_cargo(root, toolchain, &packages, mode)?;
     if plan.slot.is_some() {
-        packages.push(slot::PACKAGE.to_owned());
+        messages.extend(run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit)?);
     }
-    let messages = run_cargo(root, toolchain, &packages)?;
     let mut libraries = Vec::new();
     let mut clusters = Vec::new();
     for domain in domains {
@@ -314,7 +336,7 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<Built, E
 pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) -> Result<(PathBuf, Vec<Option<u64>>), Error> {
     let slot = plan.slot.ok_or_else(|| Error::Build("no node is in the slot".to_owned()))?;
     write_slot(root, plan, slot)?;
-    let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()])?;
+    let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit)?;
     let (library, id) = artifact(&messages, slot::TARGET)?;
     let (_, keys) = keys(toolchain, plan, &messages, &[id], Some(common))?;
     Ok((library, keys))
@@ -325,10 +347,10 @@ fn write_slot(root: &Path, plan: &Plan, slot: usize) -> Result<(), Error> {
     write(root, "build/clusters/slot/lib.rs", &slot::source(plan, slot))
 }
 
-/// Runs one cargo build of `packages`, and gives its JSON messages.
-fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String]) -> Result<Vec<Value>, Error> {
+/// Runs one cargo build of `packages` in `mode`, and gives its JSON messages.
+fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode) -> Result<Vec<Value>, Error> {
     let mut command = toolchain.command(&toolchain.cargo)?;
-    command.current_dir(root).arg("build");
+    command.current_dir(root).arg("build").arg("--profile").arg(mode.profile());
     for package in packages {
         command.arg("-p").arg(package);
     }
@@ -410,17 +432,25 @@ fn keys(
             continue;
         }
         let mut hasher = DefaultHasher::new();
-        for key in ["package_id", "target", "profile", "features", "cfgs", "env"] {
+        for key in ["package_id", "target", "features", "cfgs", "env"] {
             m[key].to_string().hash(&mut hasher);
         }
+        // The optimization does not change the layout of a type, so a state moves from an edit
+        // build to a bake build. The debug assertions can change it through `cfg`.
+        m["profile"]["debug_assertions"].to_string().hash(&mut hasher);
         add(id, hasher.finish());
     }
     for (id, folder) in folders.iter().filter(|(id, _)| id.contains("path+file:")) {
         add(id, folder_hash(folder)?);
     }
-    // Cargo gives the units in an order that can change, so the hashes are sorted.
+    // Cargo gives the units in an order that can change, so the hashes are sorted. A unit of two
+    // cargo runs, for example of the clusters and of the slot, counts one time.
     shared.sort_unstable();
-    own.iter_mut().for_each(|units| units.sort_unstable());
+    shared.dedup();
+    own.iter_mut().for_each(|units| {
+        units.sort_unstable();
+        units.dedup();
+    });
     let common = common.unwrap_or_else(|| {
         let mut hasher = DefaultHasher::new();
         (&toolchain.rustc, &toolchain.release, &toolchain.host, &toolchain.libdir, toolchain.rustflags()).hash(&mut hasher);
