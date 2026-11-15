@@ -35,9 +35,9 @@ the next prototype (section 19).
   `x86_64-pc-windows-gnu` (13).
 - [ ] **Viewport** (15.8). A `wgpu` viewport in a Tauri panel. The result decides how the frames
   reach the window: a copy into the web view, or a native surface over the panel.
-- [ ] **Connections** (15.9). 1,000 wires, 200 of them buses of 8 to 32 lanes, with lane
-  states that change at 60 FPS. The result decides SVG wires or a canvas or WebGL layer, and
-  informs Q2.
+- [x] **Connections** (15.9). 1,000 wires, 200 of them buses of 8 to 32 lanes, with lane
+  states that change at 60 FPS. Result: a WebGL layer under the nodes, and React (15.1). The
+  owner check of a live display scale change is open (STATUS.md).
 
 ## 3. Owner decisions from section 18
 
@@ -55,7 +55,7 @@ Milestone 1, engine and CLI:
 
 Milestone 2, editor:
 
-- [ ] **Q2.** React or Svelte.
+- [x] **Q2.** React or Svelte. Agent decision: React, from the connections prototype (15.1).
 - [ ] **Q8.** The project saves the dock layout and the state of each view, or each user keeps
   their own layout.
 - [ ] **Q10.** A **Stop** or **Cancel** button next to **Pause**, and what it can promise for

@@ -1,0 +1,10 @@
+{
+  "productName": "patina-connections",
+  "version": "0.1.0",
+  "identifier": "dev.patina.prototype.connections",
+  "app": {
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": false }
+}

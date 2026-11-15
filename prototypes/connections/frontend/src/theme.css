@@ -1,0 +1,120 @@
+/* The charcoal palette of docs/gui-visual-guide.md. */
+
+:root {
+  color-scheme: dark;
+  --xy-background-color: #181818;
+  --xy-selection-background-color: rgba(223, 166, 75, 0.08);
+  --xy-selection-border: 1px dotted #dfa64b;
+  --xy-attribution-background-color: transparent;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #141414;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.patina-node {
+  position: relative;
+  box-sizing: border-box;
+  background: #262626;
+  border: 1px solid #454545;
+  border-radius: 6px;
+  color: #eeeeeb;
+}
+
+.patina-node.selected {
+  border-color: #dfa64b;
+  box-shadow: 0 0 0 1px #dfa64b;
+}
+
+.patina-node-header {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 5px 5px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.patina-pin {
+  position: absolute;
+  transform: translateY(-50%);
+  color: #b2b2ad;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.patina-pin.in {
+  left: 10px;
+}
+
+.patina-pin.out {
+  right: 10px;
+}
+
+.react-flow__node-patina .react-flow__handle {
+  width: 8px;
+  min-height: 8px;
+  background: #303030;
+  border: 1px solid #bbbbb5;
+  border-radius: 4px;
+}
+
+.lane-badge {
+  pointer-events: none;
+}
+
+.lane-badge rect {
+  fill: #202020;
+}
+
+.lane-badge text {
+  fill: #eeeeeb;
+  font: 10px Consolas, monospace;
+  text-anchor: middle;
+}
+
+.route-point {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  background: #dfa64b;
+  border: 1px solid #141414;
+  border-radius: 2px;
+  cursor: move;
+  pointer-events: all;
+}
+
+.gl-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hud {
+  padding: 4px 8px;
+  background: #202020;
+  border: 1px solid #454545;
+  border-radius: 4px;
+  color: #b2b2ad;
+  font: 12px Consolas, monospace;
+  white-space: pre;
+}
+
+.react-flow__attribution a {
+  color: #b2b2ad;
+}

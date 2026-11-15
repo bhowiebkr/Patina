@@ -9,14 +9,15 @@ Part of the [Patina Specification](README.md).
 | Part | Choice |
 |---|---|
 | Desktop shell | Tauri 2 |
-| Framework | React or Svelte (TBD) |
-| Node editor | React Flow or Svelte Flow |
+| Framework | React |
+| Node editor | React Flow, with a WebGL layer under the nodes for the connections |
 | Code editor | Monaco, connected to rust-analyzer |
 
 - Dark theme.
 - Sharp text and graphics on high-DPI screens at all zoom levels.
 - If HTML/SVG becomes slow with thousands of nodes, change the graph view to a WebGL canvas.
-- Connections with many lanes and live values (15.9) can need a canvas or WebGL layer before the nodes do. A milestone 0 prototype decides it (19).
+- The connections (15.9) draw on one WebGL2 canvas under the nodes, not as SVG edges. In the connections prototype (19), SVG dropped frames in a pan, and the WebGL layer held 60 FPS with 2 to 11 times less CPU. React Flow with this layer met the targets, so the framework is React. Svelte Flow was not measured. (Agent decision, 2026-11-15. The owner can change it. The measurements are in STATUS.md.)
+- At a 20% zoom, 500 HTML nodes dropped frames in the same prototype. Thus the graph view needs a simpler node form at a far zoom. Milestone 2 designs it.
 
 ### 15.2 Layout
 

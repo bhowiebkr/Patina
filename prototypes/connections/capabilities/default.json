@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The commands and events of the prototype window.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

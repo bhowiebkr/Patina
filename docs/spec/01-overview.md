@@ -30,6 +30,11 @@ Example uses (not limits): sound effect editors, image and shader editors, autom
 
 All code is Rust, except the web frontend of the editor.
 
+The web frontend builds with Node.js 22 or later and npm, from the `package-lock.json` of its
+folder. Only contributors need them. The portable folder and the installers contain the built
+page, so a user does not need Node.js. A contributor can use the zip edition of Node.js, which
+needs no admin rights. (Agent decision, 2026-11-15. The owner can change it.)
+
 ### 3.1 Threads
 
 - The UI and the engine run on separate threads.

@@ -8,7 +8,7 @@ The current milestone is milestone 0, the risk prototypes (spec section 19).
 | Hot reload (8.5) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
 | Toolchain (13.2) | Not started | - |
 | Viewport (15.8) | Not started | - |
-| Connections (15.9) | Not started | - |
+| Connections (15.9) | Passed, with one owner check open | Windows 11 |
 
 ## Rust types across clusters
 
@@ -151,3 +151,125 @@ numbers come from the long run. The memory is the growth of the test process.
   target, for example `x86_64-pc-windows-gnu`.
 - The cleanup of the cargo target folder is not designed yet.
 - The harness is not the engine. It shows the method, and the engine will use the same method.
+
+## Connections
+
+The code is in [prototypes/connections](prototypes/connections/README.md). It ran on 2026-11-15
+on Windows 11 Pro, with Rust 1.94.0, Tauri 2.12.5, WebView2 157, React 19.3.1 and React Flow
+12.12.1. It did not run on Linux or macOS. The computer has one 1920 x 1080 monitor at 60 Hz, a
+display scale of 125%, an RTX 4090 and an Intel UHD 770.
+
+### What was checked
+
+The bench ran these checks in an off-screen window that did not take the focus:
+
+- The graph has 500 nodes and 1,000 connections. 200 connections are buses of 8 to 32 lanes.
+  The graph has 4,376 lanes.
+- A Rust thread sent the lane states at 60 FPS as packed bits in a Tauri channel (15.6). The page
+  received all frames, with no gaps.
+- The view panned, zoomed, selected a bus each 6 frames and dragged a route point, while the
+  states changed.
+- The SVG renderer and the WebGL renderer ran all scenarios on the RTX 4090 and on the Intel
+  UHD 770.
+- Other runs stopped the feed, sent JSON events, and emulated a DPR of 1 and 2.
+- Screenshots of the two renderers showed the same wires, lanes, badges, selection and route
+  handles. At a far zoom, a bus showed as one line.
+
+### Measurements
+
+The tables come from runs of 10 s with a warmup of 1 s. The defaults are now 3 s and 0.5 s, and
+a default run gave the same result in 46 s. Work is the main-thread time of a frame. CPU is the
+CPU use of the process tree, in cores. The rows use a DPR of 1.25 and the live feed, unless the
+row gives a different value.
+
+RTX 4090:
+
+| Scenario | SVG FPS | SVG dropped | SVG work p95 | SVG CPU | WebGL FPS | WebGL dropped | WebGL work p95 | WebGL CPU |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| idle-far | 60 | 0 | 7.6 ms | 1.31 | 60 | 0 | 0.9 ms | 0.19 |
+| idle-near | 60 | 0 | 3.1 ms | 1.31 | 60 | 0 | 0.6 ms | 0.12 |
+| pan | 42.63 | 174 | 8.9 ms | 1.51 | 60 | 0 | 3.4 ms | 0.53 |
+| zoom | 53.21 | 68 | 15.5 ms | 1.51 | 57.31 | 27 | 18.3 ms | 0.92 |
+| select | 60 | 0 | 5 ms | 1.32 | 60 | 0 | 0.8 ms | 0.22 |
+| drag | 60 | 0 | 5.8 ms | 1.55 | 60 | 0 | 1.4 ms | 0.24 |
+
+Intel UHD 770 (`--low-power-gpu`):
+
+| Scenario | SVG FPS | SVG dropped | SVG work p95 | SVG CPU | WebGL FPS | WebGL dropped | WebGL work p95 | WebGL CPU |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| idle-far | 60 | 0 | 8.3 ms | 1.43 | 59.9 | 1 | 1.7 ms | 0.39 |
+| idle-near | 23.82 | 363 | 4.9 ms | 1.25 | 60 | 0 | 1.2 ms | 0.26 |
+| pan | 11.49 | 490 | 22.3 ms | 1.08 | 60 | 0 | 6 ms | 0.94 |
+| zoom | 19.2 | 408 | 32.9 ms | 1.34 | 53.89 | 61 | 24.2 ms | 1.23 |
+| select | 17.87 | 422 | 8.6 ms | 1.24 | 60 | 0 | 1.1 ms | 0.22 |
+| drag | 18.1 | 419 | 10.1 ms | 1.36 | 60 | 0 | 1.4 ms | 0.25 |
+
+Other runs on the RTX 4090. The zoom of the web view emulates the DPR, so the window keeps the
+same physical size:
+
+| Run | Scenario | FPS | Dropped | Work p95 | CPU | GPU 3D |
+| --- | --- | --- | --- | --- | --- | --- |
+| SVG, feed off | idle-near | 60 | 0 | 0.1 ms | 0 | 0% |
+| SVG, feed off | pan | 42.5 | 175 | 6.4 ms | 1.35 | 19% |
+| WebGL, feed off | idle-near | 60 | 0 | 0.1 ms | 0.03 | 0% |
+| WebGL, feed off | pan | 60 | 0 | 3.3 ms | 0.42 | 12% |
+| WebGL, JSON events | idle-near | 60 | 0 | 0.7 ms | 0.16 | 6% |
+| SVG, DPR 1 | idle-near | 60 | 0 | 4.1 ms | 1.44 | 21% |
+| SVG, DPR 1 | pan | 60 | 0 | 10 ms | 1.48 | 26% |
+| SVG, DPR 2 | idle-near | 60 | 0 | 2 ms | 1.02 | 22% |
+| SVG, DPR 2 | pan | 49.32 | 107 | 5.8 ms | 1.44 | 18% |
+| WebGL, DPR 2 | idle-near | 60 | 0 | 0.6 ms | 0.11 | 4% |
+| WebGL, DPR 2 | pan | 60 | 0 | 3.5 ms | 0.4 | 11% |
+
+- A frame of 4,376 lanes has 559 bytes. On the RTX 4090, the Rust send took 23 to 35 us at p50
+  and 104 to 164 us at p99.
+- On the RTX 4090, the latency from the Rust send to the page was 0.23 to 0.26 ms at p50 with
+  WebGL. It was 0.5 to 6.3 ms with SVG.
+- On the RTX 4090, the GPU 3D use was 3 to 18% with WebGL and 17 to 25% with SVG. On the Intel
+  UHD 770, it was 29 to 58% with each renderer.
+
+### Findings
+
+- **The WebGL layer holds 60 FPS.** It held 60 FPS on both GPUs in all scenarios, except the
+  zoom. It used 2 to 11 times less CPU than SVG. Spec 15.1 now has the WebGL layer and React,
+  as agent decisions.
+- **SVG drops frames when the view moves.** On the RTX 4090, the pan ran at 43 FPS with and
+  without the feed. Thus the SVG edges cause the cost, not the feed. On the Intel UHD 770, SVG
+  ran at 11 to 24 FPS in each scenario with a near view.
+- **The DPR changes the SVG cost.** The SVG pan held 60 FPS at a DPR of 1. It dropped frames at
+  1.25 and 2, with the same physical window size. `NOT_ENOUGH_INFO` for the cause: the bench
+  does not split the paint and the raster time.
+- **The nodes drop frames at a far zoom.** In the zoom, WebGL also dropped frames: 27 on the
+  RTX 4090 and 61 on the Intel UHD 770. At a 20% zoom, React Flow shows all 500 nodes, and the
+  page has 2,331 elements. The graph view needs a simpler node form at a far zoom (15.1).
+- **Packed bits are small and fast.** The JSON events also held 60 FPS at this size. In the
+  Tauri source, a channel sends a payload under 1 KB by `eval`, not by a fetch. Each send
+  allocates one time, because the channel takes the frame by value.
+- **A navigation from a Tauri command runs the command twice.** The navigation stops the IPC
+  request, and the IPC script of Tauri then sends the command again. Thus the page must
+  navigate itself after the command returns.
+- **An off-screen window can get the focus.** Two full runs each had one focus event, with
+  `focused(false)`. With `focusable(false)`, tao sets `WS_EX_NOACTIVATE`, and two runs had no
+  focus event. Hypothesis: Windows activated the next window when another window closed.
+- **SVG covers the badges.** In the SVG renderer, a later edge covers the badges of the edges
+  before it. The WebGL renderer draws all badges on an overlay above the wires.
+
+### Known limits
+
+- The bench ran only on Windows 11, with one monitor at 60 Hz. It did not run on Linux or macOS.
+- The zoom of the web view emulated the display scale. A live change of the Windows display
+  scale is an owner check. Open the graph view, change the scale in Windows Settings, and look
+  at the wires, the badges and the wire selection.
+- The bench moves the view through the React Flow API. The mouse path of the pan, the zoom, the
+  selection and the route drag was not measured.
+- The nodes do not move, so a node drag was not measured. A bus socket does not show a contact
+  for each lane.
+- React Flow hides an SVG edge outside the box of its two nodes. A route point outside that box
+  was not checked.
+- Svelte Flow was not measured.
+- These shortcuts are open in the code:
+  - The CPU and GPU sampler and the screenshots work only on Windows (`src/bench.rs`,
+    `src/main.rs`).
+  - The page and the reports use paths in the source tree, so the prototype runs only from a
+    checkout (`src/main.rs`, `src/bench.rs`).
+  - Each send allocates. A send with no allocation needs shared memory (`src/feed.rs`, 15.6).

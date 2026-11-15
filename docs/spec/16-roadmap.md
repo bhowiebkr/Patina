@@ -19,7 +19,7 @@ Part of the [Patina Specification](README.md).
 Ask the owner. Do not decide these alone.
 
 1. Project file format. Requirements: text-based and Git-friendly. The project folders are set (6.2). Still open: the format of the graph files in `graphs/` and of `patina.toml`, and where the parameter values and the node positions go. Also where the route points, the branch collars, and the cable groups of the connections go (15.9). Also how a connection names a pin. A subgraph must keep its connections when its public pins get a new name or a new order ([circuit graph design](../circuit-graph-design.md)).
-2. React or Svelte.
+2. React or Svelte. Decided: React, with React Flow (15.1). Agent decision from the connections prototype, 2026-11-15. The owner can change it.
 3. Default audio block size and number of audio threads.
 4. Process isolation: default on or off.
 5. Zig: does it remove the need for Xcode on macOS?

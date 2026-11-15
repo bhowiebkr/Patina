@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "prototypes/connections",
     "prototypes/hot-reload",
     "prototypes/types-across-clusters",
     "tools/repo-checks",
