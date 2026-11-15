@@ -10,8 +10,10 @@ by the milestone that it blocks. The [spec](spec/README.md) stays the source of 
 
 ## 1. Setup, before any code
 
-- [ ] **GitHub remote.** The folder is a Git repository, but it has no remote. AGENTS.md
-  expects CI, issues and pull requests.
+- [x] **GitHub remote.** The public repository is
+  [bhowiebkr/Patina](https://github.com/bhowiebkr/Patina), made on 2026-11-15.
+- [ ] **CI.** A GitHub Actions workflow that runs the clippy and test commands of AGENTS.md
+  on Windows. Until it exists, run them before each commit.
 - [x] **License.** MIT OR Apache-2.0, as the owner decided on 2026-11-15. The files are
   `LICENSE-MIT` and `LICENSE-APACHE`. The README gives the terms for contributions.
 - [ ] **A clean Windows computer for the toolchain prototype.** A standard account, with no
