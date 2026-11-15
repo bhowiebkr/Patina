@@ -2,5 +2,5 @@
 
 ## GUI work
 
-Read [the GUI visual guide](docs/gui-visual-guide.md) before you implement GUI work. Use its
-palette and image corrections, with mockup 9 as the main theme reference.
+Before GUI work, read [the GUI visual guide](docs/gui-visual-guide.md). Use its palette and
+its image corrections. Mockup 9 is the main theme reference.
