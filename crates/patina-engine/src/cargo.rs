@@ -58,7 +58,7 @@ fn workspace(root: &Path) -> String {
     format!(
         "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
          members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n\
-         patina-gpu = {{ path = \"build/sdk/patina-gpu\" }}\n{PROFILES}",
+         patina-gpu = {{ path = \"build/sdk/patina-gpu\" }}\npatina-cuda = {{ path = \"build/sdk/patina-cuda\" }}\n{PROFILES}",
         members.join(", ")
     )
 }
@@ -87,9 +87,9 @@ impl Mode {
 }
 
 /// The SDK crates that a project builds with. The engine carries their source.
-/// A node crate that uses the GPU depends on `patina-gpu` (10), so other projects do not build
-/// `wgpu`.
-const SDK_FILES: [(&str, &str); 11] = [
+/// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
+/// projects do not build `wgpu` or `cudarc`.
+const SDK_FILES: [(&str, &str); 13] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -115,6 +115,13 @@ const SDK_FILES: [(&str, &str); 11] = [
     ),
     ("build/sdk/patina-gpu/src/lib.rs", include_str!("../../patina-gpu/src/lib.rs")),
     ("build/sdk/patina-gpu/src/image.rs", include_str!("../../patina-gpu/src/image.rs")),
+    (
+        "build/sdk/patina-cuda/Cargo.toml",
+        "[package]\nname = \"patina-cuda\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
+         [dependencies]\npatina-sdk = { path = \"../patina-sdk\" }\n\
+         cudarc = { version = \"0.19\", default-features = false, features = [\"std\", \"driver\", \"nvrtc\", \"dynamic-loading\", \"cuda-12060\"] }\n",
+    ),
+    ("build/sdk/patina-cuda/src/lib.rs", include_str!("../../patina-cuda/src/lib.rs")),
 ];
 
 /// A compile error (15.5).
@@ -622,11 +629,14 @@ mod tests {
     }
 
     #[test]
-    fn the_sdk_manifest_of_patina_gpu_has_its_dependencies() {
-        let sdk = SDK_FILES.iter().find(|(path, _)| path.ends_with("patina-gpu/Cargo.toml")).unwrap().1;
-        let own = include_str!("../../patina-gpu/Cargo.toml");
-        for line in own.lines().filter(|l| l.starts_with("wgpu") || l.starts_with("wesl") || l.starts_with("rust-version")) {
-            assert!(sdk.contains(line), "{line}");
+    fn the_sdk_manifests_of_the_gpu_crates_have_their_dependencies() {
+        let gpu = include_str!("../../patina-gpu/Cargo.toml");
+        let cuda = include_str!("../../patina-cuda/Cargo.toml");
+        for (name, own) in [("patina-gpu", gpu), ("patina-cuda", cuda)] {
+            let sdk = SDK_FILES.iter().find(|(path, _)| path.ends_with(&format!("{name}/Cargo.toml"))).unwrap().1;
+            for line in own.lines().filter(|l| ["wgpu", "wesl", "cudarc", "rust-version"].iter().any(|k| l.starts_with(k))) {
+                assert!(sdk.contains(line), "{line}");
+            }
         }
     }
 

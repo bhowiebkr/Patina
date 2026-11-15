@@ -225,6 +225,10 @@ a preview node and writes its mean brightness:
 cargo +1.100.0 run -p patina-cli -- run examples/gpu
 ```
 
+A node uses CUDA with the `patina-cuda` crate. `cuda()` gives the shared context, and
+`Cuda::kernel` compiles CUDA C++ at run time. It needs the NVIDIA driver and the NVRTC library
+of the CUDA Toolkit 12.
+
 ## Install
 
 Patina will come in two editions, on GitHub Releases.

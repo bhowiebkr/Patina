@@ -20,7 +20,7 @@ with WESL (spec 10).
 3. Shader assets and the project root for each cluster (ABI 14). This part works.
 4. A smaller copy of a GPU image for the node GUI (10.2). This part works. The wire viewer
    of the editor shows only the text of an image.
-5. CUDA through `cudarc` (10.1). This part is not started.
+5. CUDA through `cudarc` and NVRTC (10.1). This part works.
 
 ### What works
 
@@ -31,6 +31,7 @@ with WESL (spec 10).
 - `GpuImage` makes a texture and reads it back to the CPU.
 - `asset!` gives the path of a node asset in a project and in a package.
 - `examples/gpu` draws a gradient with a compute shader, and a second node reads its mean.
+- `patina-cuda` opens one CUDA context for each project and compiles CUDA C++ with NVRTC.
 - `GpuImage::preview` gives a copy that fits in a box. The preview node of `examples/gpu`
   shows it in its GUI.
 
@@ -42,6 +43,10 @@ with WESL (spec 10).
 - The unit tests of `patina-gpu` check the link with an import and a feature, a bad import, the
   image read-back and a bad shader.
 - A glue test checks the asset path with and without a project root.
+- On Windows 11 with an RTX 4090 and the CUDA Toolkit 12.6: the unit test of `patina-cuda`
+  compiles a kernel, runs it and gets the compile log of a bad kernel. A project in the
+  scratch folder with a CUDA node built with the CLI and gave 12. No CLI test covers it, to
+  keep the CI time low.
 - Linux and macOS ran only in CI. CI on Linux has no GPU adapter, so the test checks only the
   build there.
 
@@ -51,6 +56,8 @@ with WESL (spec 10).
 - Each cluster links its own copy of `wgpu`. This is acceptable because the engine never
   unloads a library.
 - A project with GPU nodes needs Rust 1.97.1 or later.
+- NVRTC comes with the CUDA Toolkit, not with the driver. A package does not carry it yet.
+- CI has no NVIDIA driver, so it checks only the error path of `patina-cuda`.
 - These shortcuts are open in the code:
   - A project root that is not UTF-8 goes to the clusters with lossy text
     (`crates/patina-engine/src/library.rs`).

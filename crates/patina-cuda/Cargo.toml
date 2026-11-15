@@ -1,0 +1,15 @@
+[package]
+name = "patina-cuda"
+version = "0.0.0"
+description = "The shared CUDA context and the NVRTC compiler of node code (spec 10)."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+patina-sdk = { path = "../patina-sdk" }
+# Dynamic loading needs no CUDA Toolkit to build. The driver loads at run time (10.1).
+cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "dynamic-loading", "cuda-12060"] }
