@@ -123,6 +123,8 @@ export const api = {
   setUnsavedCode: (unsaved: boolean) => invoke<void>('set_unsaved_code', { unsaved }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
+  /** The full text of the live value of an output after the last run (15.7), or null. */
+  value: (from: string) => invoke<string | null>('value', { from }),
   quit: () => invoke<void>('quit'),
   checkDone: (result: object) => invoke<void>('check_done', { result }),
   capture: (name: string) => invoke<void>('capture', { name }),

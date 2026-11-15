@@ -1,8 +1,8 @@
 // The Inspector (spec 15.5): the parameters, the code and the logs of the selected node, in a
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
-import type { FocusEvent, KeyboardEvent } from 'react';
-import { errorText, folderName, type Edit, type View } from './api';
+import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { api, errorText, folderName, reportError, type Edit, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { STATE_NAMES, infoOf, nodeErrors, nodeState, type RunState } from './NodeView';
 import type { Inspect } from './ProjectPanel';
@@ -39,6 +39,52 @@ function Tabs({ tab, only, onTab }: { tab: InspectorTab; only?: InspectorTab; on
   );
 }
 
+/** A selected wire: its ends and the full text of its live value (15.7, 15.9). */
+function WireView({ view, run, from, to }: { view: View; run: RunState; from: string; to: string }) {
+  const [full, setFull] = useState<{ from: string; text: string | null } | null>(null);
+  useEffect(() => {
+    let current = true;
+    api.value(from).then((text) => current && setFull({ from, text }), reportError);
+    return () => {
+      current = false;
+    };
+  }, [from, run.values]);
+  const end = (key: string) => {
+    const dot = key.indexOf('.');
+    const node = view.graph.node?.find((n) => n.id === key.slice(0, dot));
+    return `${node ? folderName(node) : key.slice(0, dot)}.${key.slice(dot + 1)}`;
+  };
+  // The badge text shows until the full text arrives.
+  const text = (full?.from === from ? full.text : null) ?? run.values.get(from);
+  return (
+    <aside className="panel right" aria-label="Inspector">
+      <div className="panel-title">
+        Wire
+        <span className="spacer" />
+        {run.stale && <span className="label">Stale</span>}
+      </div>
+      <div className="section">
+        <div className="param">
+          <span className="label">From</span>
+          <span>{end(from)}</span>
+        </div>
+        <div className="param">
+          <span className="label">To</span>
+          <span>{end(to)}</span>
+        </div>
+      </div>
+      <div className="section">
+        <h3>Value</h3>
+        {text === undefined ? (
+          <div className="label">Run the graph to see the value.</div>
+        ) : (
+          <pre className={run.stale ? 'value-text stale' : 'value-text'}>{text}</pre>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSave, onPick }: Props) {
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
   const code = (name: string) => <CodeTab name={name} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} />;
@@ -51,11 +97,12 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
       </aside>
     );
   }
+  if (inspect?.kind === 'wire') return <WireView view={view} run={run} from={inspect.from} to={inspect.to} />;
   if (!entry) {
     return (
       <aside className="panel right" aria-label="Inspector">
         <div className="panel-title">Inspector</div>
-        <div className="section label">Select a node to see its parameters and code.</div>
+        <div className="section label">Select a node to see its parameters and code, or a wire to see its value.</div>
       </aside>
     );
   }

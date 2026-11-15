@@ -532,6 +532,19 @@ input {
   color: var(--error);
 }
 
+.value-text {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  font: 12px Consolas, 'Cascadia Mono', monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.value-text.stale {
+  color: var(--subtle);
+}
+
 .lines .info {
   color: var(--muted);
 }

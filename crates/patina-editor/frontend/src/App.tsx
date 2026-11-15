@@ -27,6 +27,7 @@ import { revealOf, type Reveal } from './CodeTab';
 import { GraphView, useFit } from './GraphView';
 import { Inspector, type InspectorTab } from './Inspector';
 import { NO_RUN, type RunState } from './NodeView';
+import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { StartScreen } from './StartScreen';
 
@@ -256,8 +257,12 @@ export function App() {
     else go();
   };
 
-  const onSelect = useCallback((ids: string[]) => {
-    setInspect((old) => (ids.length === 1 ? { kind: 'node', id: ids[0] } : old?.kind === 'type' ? old : null));
+  const onSelect = useCallback((ids: string[], wires: WireData[]) => {
+    setInspect((old) => {
+      if (ids.length === 1) return { kind: 'node', id: ids[0] };
+      if (ids.length === 0 && wires.length === 1) return { kind: 'wire', from: wires[0].from, to: wires[0].to };
+      return old?.kind === 'type' ? old : null;
+    });
   }, []);
 
   if (!view) {

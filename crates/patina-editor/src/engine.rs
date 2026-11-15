@@ -2,6 +2,7 @@
 //! the graph (spec 7.2, 15.10).
 
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 use patina_engine::project::GraphFile;
@@ -30,7 +31,7 @@ pub struct Run {
 pub enum Event {
     Building { serial: u64 },
     /// When the build failed, `errors` has its compile errors, and the last build that compiled ran.
-    /// `values` has the live value of each output that a wire reads (15.9).
+    /// `values` has the badge text of each output that a wire reads (15.9).
     Ran {
         serial: u64,
         built_ms: Option<f64>,
@@ -49,16 +50,30 @@ struct Loaded {
     wiring: String,
 }
 
-pub fn start(app: AppHandle) -> Sender<Job> {
-    let (send, jobs) = std::sync::mpsc::channel();
-    std::thread::Builder::new()
-        .name("patina-engine".to_owned())
-        .spawn(move || run_jobs(&app, &jobs))
-        .expect("the engine thread starts");
-    send
+/// The full texts of the live values of the last run. The **Inspector** reads them (15.7), so the
+/// event of each run carries only the short texts of the badges.
+pub type Values = Arc<Mutex<Vec<Value>>>;
+
+/// The longest text of a badge, in bytes. A longer text ends with "...".
+const BADGE_LEN: usize = 64;
+
+/// A panic in a command does not stop the editor, so the values stay in use after it.
+pub fn lock(values: &Values) -> MutexGuard<'_, Vec<Value>> {
+    values.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>) {
+pub fn start(app: AppHandle) -> (Sender<Job>, Values) {
+    let (send, jobs) = std::sync::mpsc::channel();
+    let values = Values::default();
+    let kept = values.clone();
+    std::thread::Builder::new()
+        .name("patina-engine".to_owned())
+        .spawn(move || run_jobs(&app, &jobs, &kept))
+        .expect("the engine thread starts");
+    (send, values)
+}
+
+fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, values: &Values) {
     let mut toolchain = None;
     let mut loaded = None;
     while let Ok(first) = jobs.recv() {
@@ -67,7 +82,10 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>) {
         let mut build = false;
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
-                Job::Unload => (loaded, newest, build) = (None, None, false),
+                Job::Unload => {
+                    (loaded, newest, build) = (None, None, false);
+                    lock(values).clear();
+                }
                 Job::Run(run) => {
                     build |= run.build;
                     newest = Some(run);
@@ -78,9 +96,10 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>) {
         if build || loaded.is_none() {
             let _ = app.emit("engine", Event::Building { serial: run.serial });
         }
-        let event = match run_one(&mut toolchain, &mut loaded, &run, build) {
+        let event = match run_one(&mut toolchain, &mut loaded, &run, build, values) {
             Ok(event) => event,
             Err(e) => {
+                lock(values).clear();
                 let text = e.to_string();
                 Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
             }
@@ -89,7 +108,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>) {
     }
 }
 
-fn run_one(toolchain: &mut Option<Toolchain>, loaded: &mut Option<Loaded>, run: &Run, build: bool) -> Result<Event, Error> {
+fn run_one(toolchain: &mut Option<Toolchain>, loaded: &mut Option<Loaded>, run: &Run, build: bool, values: &Values) -> Result<Event, Error> {
     let mut built_ms = None;
     let mut errors = Vec::new();
     if build || loaded.is_none() {
@@ -118,5 +137,30 @@ fn run_one(toolchain: &mut Option<Toolchain>, loaded: &mut Option<Loaded>, run: 
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     let outcome = outcome.unwrap_or_default();
     let reports = params.reports.into_iter().chain(outcome.reports).collect();
-    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, reports, values: outcome.values, errors })
+    let badges = outcome.values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text) }).collect();
+    *lock(values) = outcome.values;
+    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, reports, values: badges, errors })
+}
+
+/// Cuts a text for its badge at a character boundary.
+fn badge(text: &str) -> String {
+    if text.len() <= BADGE_LEN {
+        return text.to_owned();
+    }
+    let end = (0..=BADGE_LEN).rev().find(|&i| text.is_char_boundary(i)).unwrap_or(0);
+    format!("{}...", &text[..end])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn badges_cut_long_texts_at_a_character_boundary() {
+        assert_eq!(badge("2.5"), "2.5");
+        let full = "a".repeat(BADGE_LEN);
+        assert_eq!(badge(&full), full);
+        // The 33rd two-byte character ends at byte 66, so the badge keeps 32 of them.
+        assert_eq!(badge(&"\u{e9}".repeat(40)), format!("{}...", "\u{e9}".repeat(32)));
+    }
 }

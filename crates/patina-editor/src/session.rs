@@ -13,11 +13,12 @@ use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
 
 use crate::data::Data;
-use crate::engine::{Job, Run};
+use crate::engine::{self, Job, Run, Values};
 
 pub struct Editor {
     pub data: Data,
     pub engine: Sender<Job>,
+    values: Values,
     session: Mutex<Option<Session>>,
     /// The folder of the self-check (`--check`), or none in normal use.
     pub check: Option<PathBuf>,
@@ -71,8 +72,8 @@ pub struct Recent {
 }
 
 impl Editor {
-    pub fn new(data: Data, engine: Sender<Job>, check: Option<PathBuf>) -> Editor {
-        Editor { data, engine, session: Mutex::new(None), check, serial: AtomicU64::new(0) }
+    pub fn new(data: Data, (engine, values): (Sender<Job>, Values), check: Option<PathBuf>) -> Editor {
+        Editor { data, engine, values, session: Mutex::new(None), check, serial: AtomicU64::new(0) }
     }
 
     /// True when the open project or the Code tab has changes that are not saved.
@@ -308,6 +309,13 @@ pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
         session.live = false;
         Ok(session.view(&editor.engine, None))
     })
+}
+
+/// The full text of the live value of output `from` ("<node id>.<output key>") after the last run
+/// (15.7). A read never changes the run (9.2).
+#[tauri::command(async)]
+pub fn value(editor: State<'_, Editor>, from: String) -> Option<String> {
+    engine::lock(&editor.values).iter().find(|v| v.from == from).map(|v| v.text.clone())
 }
 
 /// The page calls this after it asked the user about the unsaved changes.

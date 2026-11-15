@@ -202,6 +202,10 @@ fn broken() -> u32 {
     await until('the selected wire', RUN_MS, () => document.querySelector('.react-flow__edge.selected') !== null);
     if (!anyPixel((await wireColumn()).column, amber)) throw new Error('the selected wire has no accent mark');
     steps.push('wire drawn and selected');
+    // The Inspector shows the full text of the selected wire (15.7), from the engine.
+    await until('the value in the Inspector', RUN_MS, () => document.querySelector('.value-text')?.textContent === '2.5');
+    if ((await api.value(`${A}.out`)) !== '2.5') throw new Error('the engine has no full text of the value');
+    steps.push('value in the inspector');
 
     // Route points (15.9): a double-click adds one, a drag moves it, and Delete on its handle
     // removes the point but keeps the wire. Undo and redo go through the engine.

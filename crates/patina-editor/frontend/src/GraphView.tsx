@@ -66,7 +66,7 @@ interface Props {
   view: View;
   run: RunState;
   onEdit: (edit: Edit) => Promise<void>;
-  onSelect: (ids: string[]) => void;
+  onSelect: (ids: string[], wires: WireData[]) => void;
   /** A request to select one node, for example from a click on a compile error. */
   focus: { id: string; n: number } | null;
 }
@@ -94,7 +94,11 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   const onEdgesChange = useCallback((changes: EdgeChange<Edge<WireData>>[]) => setEdges((e) => applyEdgeChanges(changes, e)), []);
 
   const onSelectionChange = useCallback(
-    ({ nodes: selected }: OnSelectionChangeParams) => onSelect(selected.map((n) => n.id)),
+    ({ nodes: selected, edges: wires }: OnSelectionChangeParams) =>
+      onSelect(
+        selected.map((n) => n.id),
+        wires.map((e) => e.data as WireData),
+      ),
     [onSelect],
   );
 

@@ -11,7 +11,7 @@ use std::ffi::c_void;
 use std::fmt::{self, Write as _};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-use crate::Param;
+use crate::{Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
 pub const ABI_VERSION: u32 = 2;
@@ -24,7 +24,7 @@ pub const BAD_PARAM: u32 = 3;
 pub const VALUE: u32 = 4;
 
 /// The longest text of a live value, in bytes. A longer text ends with "...".
-pub const VALUE_LEN: usize = 64;
+pub const TEXT_LEN: usize = 4096;
 
 /// The engine function that receives a report: a node index, a kind and a UTF-8 text.
 pub type ReportFn = unsafe extern "C" fn(*mut c_void, u32, u32, *const u8, usize);
@@ -101,74 +101,48 @@ pub fn drop_value<T>(value: Option<T>, rep: &Reporter, node: u32) -> bool {
     finish(caught, rep, node)
 }
 
-/// The text of a live value. It does not allocate, and a full text stops the formatting.
-pub struct Text {
-    buf: [u8; VALUE_LEN + 3],
-    len: usize,
-    cut: bool,
-}
-
-impl Text {
-    fn new() -> Text {
-        Text { buf: [0; VALUE_LEN + 3], len: 0, cut: false }
-    }
-
-    fn finish(&mut self) -> &str {
-        if self.cut {
-            self.buf[self.len..self.len + 3].copy_from_slice(b"...");
-            self.len += 3;
-            self.cut = false;
-        }
-        std::str::from_utf8(&self.buf[..self.len]).unwrap_or_default()
-    }
-}
-
-impl fmt::Write for Text {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        if self.cut {
-            return Err(fmt::Error);
-        }
-        let mut end = s.len().min(VALUE_LEN - self.len);
-        while !s.is_char_boundary(end) {
-            end -= 1;
-        }
-        self.buf[self.len..self.len + end].copy_from_slice(&s.as_bytes()[..end]);
-        self.len += end;
-        self.cut = end < s.len();
-        if self.cut { Err(fmt::Error) } else { Ok(()) }
-    }
-}
-
-/// A held value for its text. The generated code calls `(&&Probe(v)).text(out)`, so Rust uses
-/// `DebugText` when the type implements `Debug`, and `NameText` if not (5.3).
+/// A held value for its text. The generated code calls `(&&&Probe(v)).text(out)`, so Rust uses
+/// `ViewerText` when the type implements `Viewer`, then `DebugText` for `Debug`, and `NameText`
+/// if not (5.3).
 pub struct Probe<'a, T>(pub &'a T);
 
+pub trait ViewerText {
+    fn text(&self, out: &mut Text<'_>);
+}
+
+impl<T: Viewer> ViewerText for &&Probe<'_, T> {
+    fn text(&self, out: &mut Text<'_>) {
+        let _ = Viewer::text(self.0, out);
+    }
+}
+
 pub trait DebugText {
-    fn text(&self, out: &mut Text);
+    fn text(&self, out: &mut Text<'_>);
 }
 
 impl<T: fmt::Debug> DebugText for &Probe<'_, T> {
-    fn text(&self, out: &mut Text) {
+    fn text(&self, out: &mut Text<'_>) {
         let _ = write!(out, "{:?}", self.0);
     }
 }
 
 pub trait NameText {
-    fn text(&self, out: &mut Text);
+    fn text(&self, out: &mut Text<'_>);
 }
 
 impl<T> NameText for Probe<'_, T> {
-    fn text(&self, out: &mut Text) {
+    fn text(&self, out: &mut Text<'_>) {
         let _ = write!(out, "{} ({} bytes)", std::any::type_name::<T>(), size_of::<T>());
     }
 }
 
 /// Sends the text of held value `index` (15.9), with its own catch.
 // shortcut: each run formats and sends each held value, send them at the display rate (15.6) when a graph runs faster than the display.
-pub fn send_value(rep: &Reporter, index: u32, text: impl FnOnce(&mut Text)) {
-    let mut out = Text::new();
+pub fn send_value(rep: &Reporter, index: u32, text: impl FnOnce(&mut Text<'_>)) {
+    let mut buf = [0; TEXT_LEN + 3];
+    let mut out = Text::new(&mut buf);
     if catch_unwind(AssertUnwindSafe(|| text(&mut out))).is_err() {
-        out = Text::new();
+        out.clear();
         let _ = out.write_str("the text of the value panicked");
     }
     rep.send(index, VALUE, out.finish());
@@ -246,6 +220,15 @@ mod tests {
 
     struct NoDebug;
 
+    #[derive(Debug)]
+    struct Hex(u8);
+
+    impl Viewer for Hex {
+        fn text(&self, out: &mut Text<'_>) -> fmt::Result {
+            write!(out, "0x{:02x}", self.0)
+        }
+    }
+
     unsafe extern "C" fn keep(ctx: *mut c_void, node: u32, kind: u32, text: *const u8, len: usize) {
         // SAFETY: the test gives a `Vec` as the context, and a text that is valid during the call.
         let (sent, bytes) = unsafe { (&mut *ctx.cast::<Vec<(u32, u32, String)>>(), std::slice::from_raw_parts(text, len)) };
@@ -254,18 +237,20 @@ mod tests {
 
     #[test]
     #[allow(clippy::needless_borrow, reason = "the calls are the same as in the generated code")]
-    fn values_use_debug_or_the_type_name_and_stay_short() {
+    fn values_use_the_viewer_then_debug_then_the_type_name() {
         let mut sent: Vec<(u32, u32, String)> = Vec::new();
         let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep };
-        send_value(&rep, 0, |out| (&&Probe(&2.5_f64)).text(out));
-        send_value(&rep, 1, |out| (&&Probe(&NoDebug)).text(out));
-        let long = "\u{e9}".repeat(40);
-        send_value(&rep, 2, |out| (&&Probe(&long)).text(out));
-        send_value(&rep, 3, |_| panic!("no text"));
+        send_value(&rep, 0, |out| (&&&Probe(&2.5_f64)).text(out));
+        send_value(&rep, 1, |out| (&&&Probe(&NoDebug)).text(out));
+        send_value(&rep, 2, |out| (&&&Probe(&Hex(10))).text(out));
+        let long = "\u{e9}".repeat(TEXT_LEN);
+        send_value(&rep, 3, |out| (&&&Probe(&long)).text(out));
+        send_value(&rep, 4, |_| panic!("no text"));
         assert_eq!(sent[0], (0, VALUE, "2.5".to_owned()));
         assert!(sent[1].2.ends_with("NoDebug (0 bytes)"), "{}", sent[1].2);
-        // The quote and 31 two-byte characters fill 63 bytes. The next character does not fit.
-        assert_eq!(sent[2].2, format!("\"{}...", "\u{e9}".repeat(31)));
-        assert_eq!(sent[3].2, "the text of the value panicked");
+        assert_eq!(sent[2].2, "0x0a");
+        // The quote and 2047 two-byte characters fill 4095 bytes. The next character does not fit.
+        assert_eq!(sent[3].2, format!("\"{}...", "\u{e9}".repeat(TEXT_LEN / 2 - 1)));
+        assert_eq!(sent[4].2, "the text of the value panicked");
     }
 }

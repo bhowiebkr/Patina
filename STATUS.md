@@ -33,8 +33,11 @@ To run the editor from a checkout:
 - The graph file keeps the route points. Undo and redo work for each route edit. A route edit
   does not make the result of the run stale.
 - After each run, each wire shows the value that it carries in a badge (15.9). The badge shows
-  the `Debug` text of the value, or the type name and the size. A selected wire shows all of
-  the text. After an edit, the badge is stale: its text is dim and its border is dashed.
+  the `Viewer` text of the value, the `Debug` text, or the type name and the size (5.3). A
+  selected wire shows all of the badge text. After an edit, the badge is stale: its text is dim
+  and its border is dashed.
+- Select a wire to see its ends and the full text of its value in the **Inspector**, up to 4096
+  bytes (15.7). A type crate implements the `Viewer` trait of `patina-sdk` to give its own text.
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
   selection.
 - The **Inspector** has the **Parameters**, **Code** and **Logs** tabs of the selected node. A
@@ -67,7 +70,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 27 steps in 5.9 s:
+  off-screen and does not take the focus. It passed these 28 steps in 5.6 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -80,7 +83,8 @@ To run the editor from a checkout:
   - Open again. The graph is the saved graph. Run again, and find 2 ready nodes in the graph.
     Find `2.5` in the badge of the wire, not stale.
   - Read the pixels of the wire from the WebGL canvas. They are gray, with no amber. The
-    point under the wire is in the edge. Click the wire, and find the amber band.
+    point under the wire is in the edge. Click the wire, and find the amber band. Find `2.5`
+    in the **Inspector** and in the full text that the engine keeps.
   - Double-click the wire, and find 1 route handle. Drag the handle down by 60 px. After the
     edit, the handle is under the pointer and the old place of the point has no wire pixels.
   - Undo and redo the drag. Push Delete on the focused handle, and find no handle. Undo, and
@@ -98,10 +102,13 @@ To run the editor from a checkout:
   half of the length of the route, on the route point. It is now at the middle of the longest
   segment. The stale badge also showed the wire through its background, so only its text is
   dim now.
+- The capture showed the **Wire** view of the **Inspector**: `number.out`, `show.value` and the
+  stale text `2.5`.
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
-- `cargo test --workspace --locked` passed 42 tests. The tests check the graph edits with undo
-  and redo, the route points, the text of the live values, `SetCode` with undo, the compile errors with the project paths, the changes that
+- `cargo test --workspace --locked` passed 44 tests. The tests check the graph edits with undo
+  and redo, the route points, the text of the live values with a `Viewer`, the cut of the badge
+  text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
@@ -120,11 +127,13 @@ To run the editor from a checkout:
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: the dock layout (15.2), rust-analyzer in
-  Monaco (15.1), the **Debug** tab, the recovery file (15.10), the value viewers (15.2), and
-  the search palette. **Stop** does the same as **Pause**.
+  Monaco (15.1), the **Debug** tab, the recovery file (15.10) and the search palette. **Stop**
+  does the same as **Pause**.
+- The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
+  come later (5.3). The **Inspector** reads the full text one time after each run.
 - The badges have no lanes, no width badge and no tooltip, and they do not hide at a far zoom
-  (15.9). Two badges can cover each other. The engine copies the text of each value into a
-  new `String` after each run.
+  (15.9). Two badges can cover each other. After each run, the engine copies the text of each
+  value into a new `String`, and the badge text into a second `String`.
 - The route points have no **Reset route** and no orthogonal style (15.9). The keyboard cannot
   add a route point. The editor does not warn when a wire goes under a node.
 - The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG

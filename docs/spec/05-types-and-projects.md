@@ -36,6 +36,7 @@ The UI cannot show an unknown type by itself.
 - The viewer does not set how a wire shows the value. The connection kind of the type does that, for example the 8 lanes of a byte (6.3).
 - If a type has no viewer but implements `Debug`, the UI shows the `Debug` text.
 - Otherwise the UI shows the type name and size.
+- The first `Viewer` gives text only: `fn text(&self, out: &mut Text) -> fmt::Result`. `Text` does not allocate, and it stops a text at 4096 bytes. The table, the image, the plot, the waveform and the thumbnail come later. (Agent decision, 2026-11-15. The owner can change it.)
 
 ## 6. Graphs and projects
 

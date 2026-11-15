@@ -269,8 +269,9 @@ To make your first graph:
 2. Drag `number` and `show` from the **Project** panel into the graph.
 3. Drag from the output of `number` to the input of `show`.
 4. Select `number`, and type a value in the **Inspector**.
-5. Click **Run**. The **Output** tab shows the value.
-6. Push Ctrl+S to save the project.
+5. Click **Run**. The **Output** tab shows the value, and a badge on the wire shows it too.
+6. Click the wire. The **Inspector** shows the full value.
+7. Push Ctrl+S to save the project.
 
 While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
 

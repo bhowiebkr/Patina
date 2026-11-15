@@ -32,7 +32,7 @@ pub fn manifest(plan: &Plan) -> String {
 pub fn source(plan: &Plan) -> String {
     let mut s = String::from(
         "// Made by Patina. Patina writes this file again at each build.\n#![allow(unused)]\n\n\
-         use ::patina_sdk::glue::{DebugText as _, NameText as _};\n\n\
+         use ::patina_sdk::glue::{DebugText as _, NameText as _, ViewerText as _};\n\n\
          fn make() -> ::patina_sdk::glue::Cluster {\n",
     );
     for (i, slot) in plan.slots.iter().enumerate() {
@@ -147,7 +147,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
         let _ = writeln!(
             s,
             "{indent}if let ::std::option::Option::Some(v) = &n{n}_{k} {{ ::patina_sdk::glue::send_value(rep, {probe}, \
-             |out| (&&::patina_sdk::glue::Probe(v)).text(out)); }}"
+             |out| (&&&::patina_sdk::glue::Probe(v)).text(out)); }}"
         );
         *probe += 1;
     }

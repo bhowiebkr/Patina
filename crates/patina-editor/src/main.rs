@@ -182,6 +182,7 @@ fn main() {
             session::set_unsaved_code,
             session::run,
             session::pause,
+            session::value,
             session::quit,
             session::check_done,
             session::page_error,

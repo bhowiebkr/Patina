@@ -4,7 +4,11 @@ import type { DragEvent } from 'react';
 import type { View } from './api';
 import { NODE_MIME } from './GraphView';
 
-export type Inspect = { kind: 'node'; id: string } | { kind: 'type'; name: string } | null;
+export type Inspect =
+  | { kind: 'node'; id: string }
+  | { kind: 'type'; name: string }
+  | { kind: 'wire'; from: string; to: string }
+  | null;
 
 interface Props {
   view: View;

@@ -3,8 +3,10 @@
 
 #[doc(hidden)]
 pub mod glue;
+mod view;
 
 pub use patina_macros::node;
+pub use view::{Text, Viewer};
 
 /// A type that can be a parameter: an input pin with no wire (spec 4.8).
 ///
