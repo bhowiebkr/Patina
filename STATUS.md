@@ -1,19 +1,21 @@
 # Status
 
-The current milestone is milestone 4, automatic parallelism and the frame domain (spec section
-19). Milestones 2 and 3 work, with the open items in their known limits. The installers of
+The current milestone is milestone 5, stateful nodes, node GUIs and generic nodes (spec section
+19). Milestone 4 ended on 2026-11-15. Milestones 2, 3 and 4 work, with the open items in their
+known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
 ## Milestone 4: automatic parallelism and the frame domain
 
-Four slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2).
+Milestone 4 ended on 2026-11-15. The engine splits a graph into tasks and runs them on a worker
+pool (9.2).
 The CLI and the editor run the frame domain at 60 FPS (9.1), and a frame node can read batch
 values. A frame of the engine does not allocate after the first frames. All ran on 2026-11-15 on
 Windows 11 Pro, with Rust 1.94.0. CI ran the tests of the first four slices on Windows, Ubuntu
-and macOS. The pool was measured, and a small run now stays on one thread. The delay node moved
-to milestone 5 (9.2).
+and macOS. The pool was measured, and a small run stays on one thread. The delay node moved to
+milestone 5 (9.2).
 
 ### What works
 
@@ -117,6 +119,10 @@ to milestone 5 (9.2).
   The two domains do not run at the same time yet, so the lock never waits.
 - A batch value that a frame node reads stays after the frames end, until the next batch run.
 - Ctrl+C stops the CLI at once. The values that the frame domain keeps do not drop.
+- These shortcuts are open in the code:
+  - The editor copies each frame into a JSON event (`crates/patina-editor/src/engine.rs`).
+  - A latest-value wire uses a lock that never waits, because the domains do not run at the
+    same time (`crates/patina-engine/src/generate.rs`).
 
 ## Milestone 2: editor
 
