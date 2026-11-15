@@ -89,7 +89,7 @@ impl Mode {
 /// The SDK crates that a project builds with. The engine carries their source.
 /// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
 /// projects do not build `wgpu` or `cudarc`.
-const SDK_FILES: [(&str, &str); 14] = [
+const SDK_FILES: [(&str, &str); 15] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -115,6 +115,7 @@ const SDK_FILES: [(&str, &str); 14] = [
     ),
     ("build/sdk/patina-gpu/src/lib.rs", include_str!("../../patina-gpu/src/lib.rs")),
     ("build/sdk/patina-gpu/src/image.rs", include_str!("../../patina-gpu/src/image.rs")),
+    ("build/sdk/patina-gpu/src/link.rs", include_str!("../../patina-gpu/src/link.rs")),
     ("build/sdk/patina-gpu/src/shaders/image.wesl", include_str!("../../patina-gpu/src/shaders/image.wesl")),
     (
         "build/sdk/patina-cuda/Cargo.toml",

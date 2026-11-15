@@ -18,14 +18,33 @@ fn link_joins_the_imports_and_sets_the_features() {
     assert!(link(&dir.join("main.wesl"), &[]).unwrap().contains("0.5"));
     std::fs::write(dir.join("bad.wesl"), "import package::nothing::f;\n@compute @workgroup_size(1) fn main() { f(); }\n").unwrap();
     assert!(link(&dir.join("bad.wesl"), &[]).is_err());
-    let lib = "import patina_gpu::image::{luma, inside};
-               @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {
-               if inside(id, vec2u(4u)) { let v = luma(vec3f(1.0)); } }
-";
+    let lib = "import patina_gpu::image::{luma, inside};\n\
+               @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {\n\
+               if inside(id, vec2u(4u)) { let v = luma(vec3f(1.0)); } }\n";
     std::fs::write(dir.join("lib.wesl"), lib).unwrap();
     let linked = link(&dir.join("lib.wesl"), &[]).unwrap();
     assert!(linked.contains("0.7152") && !linked.contains("import"), "{linked}");
+    std::fs::write(dir.join("shade.wesl"), "// A bad shade.\nfn shade(t: f32) -> f32 { let x: u32 = t; return t; }\n").unwrap();
+    std::fs::write(dir.join("use.wesl"), "import package::shade::shade;\n@compute @workgroup_size(1) fn main() { let v = shade(1.0); }\n").unwrap();
+    let error = link(&dir.join("use.wesl"), &[]).unwrap_err();
+    assert!(error.starts_with("shade.wesl line 2, in `shade`: "), "{error}");
+    std::fs::write(dir.join("own.wesl"), "\n\n@compute @workgroup_size(1)\nfn main() { let x: u32 = 1.5; }\n").unwrap();
+    let error = link(&dir.join("own.wesl"), &[]).unwrap_err();
+    assert!(error.starts_with("own.wesl line 4, in `main`: "), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn declared_finds_the_name_of_a_top_level_declaration() {
+    use crate::link::declared;
+    assert_eq!(declared("@if(invert) fn shade(t: f32) -> vec3f {"), Some("shade"));
+    assert_eq!(declared("@compute @workgroup_size(8, 8) fn main() {"), Some("main"));
+    assert_eq!(declared("@group(0) @binding(0) var image: texture_2d<f32>;"), Some("image"));
+    assert_eq!(declared("var<private> count: u32;"), Some("count"));
+    assert_eq!(declared("public fn luma(c: vec3f) -> f32 {"), Some("luma"));
+    assert_eq!(declared("struct Light {"), Some("Light"));
+    assert_eq!(declared("    const x = 1;"), None);
+    assert_eq!(declared("import package::shade::shade;"), None);
 }
 
 #[test]

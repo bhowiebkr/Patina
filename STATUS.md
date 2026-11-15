@@ -44,7 +44,8 @@ with WESL (spec 10).
   gets a mean of 0.336, then 0.664 after the `invert` parameter changes the WESL feature. The
   GUI of the preview node gives an image of 64 x 16 pixels.
 - The unit tests of `patina-gpu` check the link with an import and a feature, a bad import, the
-  image read-back and a bad shader. They also link an import of the `patina_gpu` package.
+  image read-back and a bad shader. They also link an import of the `patina_gpu` package, and
+  get the WESL file and line of a type error in an imported file and in the main file.
 - A glue test checks the asset path with and without a project root.
 - On Windows 11 with an RTX 4090 and the CUDA Toolkit 12.6: the unit test of `patina-cuda`
   compiles a kernel, runs it and gets the compile log of a bad kernel. A project in the
@@ -55,7 +56,7 @@ with WESL (spec 10).
 
 ### Known limits
 
-- A compile error gives the line of the linked WGSL, not of the WESL file.
+- A shader error gives the WESL file and the line of the declaration, not the exact line.
 - Each cluster links its own copy of `wgpu`. This is acceptable because the engine never
   unloads a library.
 - A project with GPU nodes needs Rust 1.97.1 or later.

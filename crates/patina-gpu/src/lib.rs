@@ -4,14 +4,15 @@
 //! links its WESL files with [`link`] and compiles the WGSL with [`Gpu::shader`] (10.3).
 
 mod image;
+mod link;
 
 use std::future::Future;
-use std::path::Path;
 use std::pin::pin;
 use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Waker};
 
 pub use image::GpuImage;
+pub use link::{PACKAGE, link};
 pub use wgpu;
 
 /// The shared GPU context.
@@ -54,28 +55,6 @@ impl Gpu {
             Some(error) => Err(format!("{label}: {error}")),
             None => Ok(module),
         }
-    }
-}
-
-static IMAGE: wesl::package::StaticPackageModule =
-    wesl::package::StaticPackageModule { name: "image", source: include_str!("shaders/image.wesl"), submodules: &[] };
-static ROOT: wesl::package::StaticPackageModule = wesl::package::StaticPackageModule { name: "patina_gpu", source: "", submodules: &[&IMAGE] };
-
-/// The WESL package of Patina. A node shader imports it as `patina_gpu::image` (10.3).
-pub static PACKAGE: wesl::package::StaticPackage = wesl::package::StaticPackage { crate_name: "patina_gpu", root: &ROOT, dependencies: &[] };
-
-/// Links a WESL file and the files that it imports into one WGSL module (10.1). The features set
-/// the `@if` conditions. A feature that is not in the list is false. The error has the file
-/// and the line. The file can import the package [`PACKAGE`].
-pub fn link(file: &Path, features: &[(&str, bool)]) -> Result<String, String> {
-    let mut options = wesl::CompileOptions::default();
-    options.dependencies.push(&PACKAGE);
-    for (name, on) in features {
-        options.features.set(name, *on);
-    }
-    match wesl::Compiler::new(options).compile(file) {
-        Ok(linked) => Ok(linked.to_string()),
-        Err(e) => Err(e.to_string()),
     }
 }
 
