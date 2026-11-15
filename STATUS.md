@@ -256,6 +256,9 @@ To run the editor from a checkout:
   `ubuntu-latest` and `macos-latest`.
 - CI run 43735014784 of the package tool passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
+- CI runs 43735647411 (the message boxes) and 43736267355 (the **Package** workflow) passed on
+  `windows-latest`, `ubuntu-latest` and `macos-latest`.
+- **Package** run 43736276055 made both zips: Windows 6467080 bytes and Linux 6982897 bytes.
 - The start screen has a **Browse** button for each folder field. The self-check finds the two
   buttons, but does not click them, because the folder dialog waits for a person.
 - An error that stops the editor shows in a message box of the platform (`rfd`), except in the
