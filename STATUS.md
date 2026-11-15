@@ -7,7 +7,7 @@ The current milestone is milestone 0, the risk prototypes (spec section 19).
 | Rust types across clusters (5.1, 5.2) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
 | Hot reload (8.5) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
 | Toolchain (13.2) | Not started | - |
-| Viewport (15.8) | Not started | - |
+| Viewport (15.8) | Passed, with one owner check open | Windows 11 |
 | Connections (15.9) | Passed, with one owner check open | Windows 11 |
 
 ## Rust types across clusters
@@ -151,6 +151,145 @@ numbers come from the long run. The memory is the growth of the test process.
   target, for example `x86_64-pc-windows-gnu`.
 - The cleanup of the cargo target folder is not designed yet.
 - The harness is not the engine. It shows the method, and the engine will use the same method.
+
+## Viewport
+
+The code is in [prototypes/viewport](prototypes/viewport/README.md). It ran on 2026-11-15 on
+Windows 11 Pro, with Rust 1.94.0, Tauri 2.12.5, `wgpu` 30.0.2 and WebView2 157, in the
+`release` profile. It did not run on Linux or macOS. The computer is the computer of the
+connections prototype.
+
+### What was checked
+
+The bench ran in an off-screen window that did not take the focus. It measured three frame
+paths:
+
+- **native**: the `wgpu` surface is on the window, under a transparent WebView2.
+- **shared**: a GPU readback into WebView2 shared memory. The page draws it with WebGL2.
+- **channel**: the same readback, sent to the page through a Tauri channel.
+
+For each path, the bench dragged the camera of viewport 1 for 2 s in three scenarios: one
+viewport, two viewports, and one viewport at 1920 x 1080. Then 11 checks captured the composed
+window with `PrintWindow` and counted the scene pixels:
+
+- The **Inspector** panel and an open menu cover the scene. The scene comes back after the
+  menu closes.
+- A splitter drag and a window resize change the viewport size. On the native path, the resize
+  configured the surface again.
+- Viewport 1 hides, restores, closes, reopens, floats into its own window and docks again.
+- Keys go to a text field or to the focused viewport, never to both.
+- The viewport follows a display scale of 200% and 100%, emulated with the zoom of the web view.
+- Two viewports show the same GPU data.
+- The bench destroyed the device while the surface textures were held. The render thread made
+  a new device, and the scene came back.
+
+The final runs passed 11 of 11 checks in each path: on the RTX 4090 and the Intel UHD 770 with
+DX12, and on the RTX 4090 with Vulkan (native only). Each probe passed at its first capture.
+
+### Measurements
+
+The latency on the native path is the time from the input event of the page to the present
+call. On the copy paths, it is the time to the end of the page draw. Neither includes the
+compositor or the display. Work is the render-thread time of a frame. With DX12, it includes
+the vsync wait. CPU is the CPU use of the process tree, in cores. Bytes is the mean copy for
+each viewport frame.
+
+RTX 4090, DX12:
+
+| Path | Scenario | Viewport FPS | Page draw FPS | Latency p50 | Work p95 | Bytes | CPU | GPU 3D |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| native | one | 60 | - | 33.0 ms | 17.0 ms | 0 | 0.41 | 0.8% |
+| native | two | 120 | - | 33.1 ms | 17.0 ms | 0 | 0.18 | 3.0% |
+| native | full | 60 | - | 33.2 ms | 17.0 ms | 0 | 0.22 | 2.5% |
+| shared | one | 60 | 60 | 49.5 ms | 1.2 ms | 6.3 MB | 0.34 | 23.9% |
+| shared | two | 120 | 120 | 49.3 ms | 1.4 ms | 3.9 MB | 0.43 | 29.2% |
+| shared | full | 60 | 59.5 | 49.6 ms | 1.3 ms | 8.3 MB | 0.27 | 29.1% |
+| channel | one | 60 | 19.8 | 112.4 ms | 1.4 ms | 6.3 MB | 1.11 | 15.8% |
+| channel | two | 120 | 39.7 | 109.5 ms | 1.8 ms | 3.9 MB | 1.28 | 19.3% |
+| channel | full | 60 | 15.7 | 132.7 ms | 1.6 ms | 8.3 MB | 0.98 | 19.0% |
+
+Intel UHD 770, DX12 (`--low-power-gpu`):
+
+| Path | Scenario | Viewport FPS | Page draw FPS | Latency p50 | Work p95 | Bytes | CPU | GPU 3D |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| native | one | 60 | - | 33.0 ms | 16.9 ms | 0 | 0.35 | 20.9% |
+| native | two | 120 | - | 32.8 ms | 17.1 ms | 0 | 0.18 | 32.5% |
+| native | full | 60 | - | 33.0 ms | 17.0 ms | 0 | 0.13 | 31.7% |
+| shared | one | 60 | 60 | 49.5 ms | 1.0 ms | 6.3 MB | 0.32 | 31.9% |
+| shared | two | 120 | 120 | 49.3 ms | 1.3 ms | 3.9 MB | 0.32 | 44.1% |
+| shared | full | 60 | 60 | 49.4 ms | 1.1 ms | 8.3 MB | 0.29 | 43.2% |
+| channel | one | 60 | 20 | 99.2 ms | 1.4 ms | 6.3 MB | 0.93 | 16.3% |
+| channel | two | 120 | 39.7 | 148.8 ms | 1.9 ms | 3.9 MB | 1.50 | 24.2% |
+| channel | full | 60 | 15.2 | 132.7 ms | 1.9 ms | 8.3 MB | 1.04 | 24.2% |
+
+Vulkan, native path:
+
+| GPU | Scenario | Viewport FPS | Latency p50 | Work p95 | CPU | GPU 3D |
+| --- | --- | --- | --- | --- | --- | --- |
+| RTX 4090 | one | 60 | 33.1 ms | 1.0 ms | 0.35 | 0.5% |
+| RTX 4090 | two | 119 | 31.9 ms | 1.4 ms | 0.15 | 2.0% |
+| RTX 4090 | full | 59.6 | 17.0 ms | 1.4 ms | 0.17 | 2.5% |
+| Intel UHD 770 | one | 60 | 25.5 ms | 0.8 ms | 0.31 | 24.1% |
+| Intel UHD 770 | two | 120 | 25.3 ms | 0.9 ms | 0.27 | 28.1% |
+| Intel UHD 770 | full | 60 | 25.5 ms | 0.9 ms | 0.28 | 24.5% |
+
+- The Intel UHD 770 rows with Vulkan are from a run before the DX12 default. That run passed
+  10 of 11 checks.
+- A device loss took 152 to 337 ms from the loss to the first new frame, on both GPUs and both
+  backends.
+- The upload of a copied frame into a WebGL texture took 0.6 to 0.8 ms at p95.
+- An earlier Vulkan run on the RTX 4090, before the last fixes, gave a shared-path page draw of
+  30 to 39 FPS with one viewport, and 27.5 ms native latency.
+
+### Findings
+
+- **The native path is the best path.** It held 60 FPS for each viewport on both GPUs, with no
+  copied bytes and 0.13 to 0.41 CPU cores. Spec 15.8 now has the native path, as an agent
+  decision.
+- **Vulkan on the Intel UHD 770 did not show reliably under the web view.** In the last 4
+  native runs with Vulkan, the viewport areas of many captures stayed black for 1 s or more.
+  1 to 7 checks failed in 3 of the runs. The page areas of the same captures were correct. With
+  DX12, 4 runs on the Intel UHD 770 passed 11 of 11, each probe at its first capture. Spec 15.8
+  now uses DX12 on Windows, as an agent decision.
+- **The copy paths add latency.** The shared path had 49 to 50 ms at p50 on both GPUs, against
+  17 to 33 ms on the native path. It copied 378 to 498 MB/s. On DX12, its page drew 60 FPS.
+- **The channel is too slow.** The page drew 15 to 40 FPS, with 99 to 149 ms of latency and
+  about one CPU core. Each frame also allocates.
+- **The latency to the present call does not compare between the backends.** With DX12, it was
+  33 to 34 ms in each run, and the frame work included the vsync wait. With Vulkan, it was 17
+  to 33 ms, and a timer paced the frames, so the image can wait after the present call.
+  `NOT_ENOUGH_INFO` for the display latency: the bench does not measure the compositor.
+- **`wgpu` 30.0.2 keeps a held surface texture after a device loss.** It discards the texture
+  only on a valid device. Then the surface drop panicked on Vulkan, and a configure failed on
+  DX12. The prototype releases the texture with a drop in a caught unwind, the method of
+  gfx-rs/wgpu issue 8243.
+- **DX12 needs new surfaces after a device loss.** An old surface did not configure on the new
+  device. The render thread now makes a new surface for each window.
+- **A surface texture must drop before its surface.** Else `wgpu` panicked on DX12 when a
+  window closed during the vsync wait.
+
+### Known limits
+
+- The bench ran only on Windows 11, with one monitor at 60 Hz. It did not run on Linux or
+  macOS. The shared path, the capture and the sampler use Windows APIs.
+- The bench window is off-screen, and the checks read `PrintWindow` captures, not the screen.
+- The zoom of the web view emulated the display scale. Two monitors with different scales were
+  not checked.
+- The owner check: run `cargo run --release -p viewport -- --mode native`. Drag, resize, float
+  and dock viewport 1, and open the menu. Change the Windows display scale, and look at the
+  viewport edges.
+- A real device loss between the loss check and the present keeps the texture held. Then the
+  Vulkan surface drop panics (`src/render.rs`).
+- These shortcuts are open in the code:
+  - The texture release after a device loss uses a caught unwind (`src/render.rs`).
+  - The bench code is a copy of the connections bench (`src/bench.rs`).
+  - The CPU and GPU sampler and the probes work only on Windows (`src/bench.rs`,
+    `src/main.rs`).
+  - The page and the reports use paths in the source tree, so the prototype runs only from a
+    checkout (`src/main.rs`, `src/bench.rs`).
+  - The scene file has no WESL features, so `wgpu` reads it as WGSL (`src/gpu.rs`).
+  - The channel path allocates for each frame (`src/render.rs`).
+  - A resize of the shared path makes a new buffer (`src/shared.rs`).
 
 ## Connections
 

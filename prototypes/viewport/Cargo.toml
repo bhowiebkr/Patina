@@ -1,0 +1,25 @@
+[package]
+name = "viewport"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "Milestone 0 prototype: a wgpu viewport in a panel of a Tauri window (spec 15.8)."
+
+[dependencies]
+tauri = { version = "2.12", default-features = false, features = ["wry", "common-controls-v6", "dynamic-acl", "x11", "dbus"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# No GL and no WebGPU backends: the editor uses DX12, Vulkan or Metal, and each backend adds compile time.
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "vulkan", "wgsl"] }
+
+# The copy path uses the shared buffers of WebView2 (src/shared.rs). The bench capture uses GDI.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps", "Win32_UI_WindowsAndMessaging"] }
+
+[build-dependencies]
+tauri-build = "2.7"
+
+[lints]
+workspace = true

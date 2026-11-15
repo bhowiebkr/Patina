@@ -56,11 +56,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: prototypes/connections/frontend/package-lock.json
+          cache-dependency-path: |
+            prototypes/connections/frontend/package-lock.json
+            prototypes/viewport/frontend/package-lock.json
 
-      # The type check and the build of the web frontend of the connections prototype.
-      - name: Frontend
+      # The type check and the build of the web frontends of the prototypes.
+      - name: Frontend of the connections prototype
         working-directory: prototypes/connections/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Frontend of the viewport prototype
+        working-directory: prototypes/viewport/frontend
         run: |
           npm ci
           npm run build

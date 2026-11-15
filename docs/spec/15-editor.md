@@ -209,7 +209,12 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 - A viewport is a GPU surface. The code draws into it with `wgpu` and the shared GPU context (10.2), so a view can draw GPU data from nodes. Its shaders are WESL (10.1).
 - Views, full-size node GUIs, and large node GUIs can use a viewport. The node body cannot.
 - Mouse and key events on the viewport go to the code, for example to turn a 3D camera.
-- A milestone 0 prototype decides how the frames reach the editor window (19).
+- The frames reach the editor window on the native path. The `wgpu` surface is on the editor window, under a transparent web view. The viewport panels of the page are transparent, and the other panels are opaque, so a menu or a panel covers the scene. One render thread draws all viewports of a window in one render pass, with a scissor rectangle for each viewport. Each float window has its own surface. (Agent decision, 2026-11-15. The owner can change it. The measurements are in STATUS.md.)
+- In the viewport prototype (19), the native path held 60 FPS on the RTX 4090 and the Intel UHD 770, and copied no bytes. A copy into the web view through WebView2 shared memory added about 16 to 33 ms of input latency, and copied 6.3 to 8.3 MB for each frame. With Vulkan, its page drew only 30 to 39 FPS. A copy through a Tauri channel drew 15 to 40 FPS.
+- On Windows, the native path uses the DX12 backend of `wgpu`. On the Intel UHD 770, the Vulkan swapchain often did not show under the web view for 1 s or more. DX12 showed in each check on both GPUs. (Agent decision, 2026-11-15. The owner can change it.)
+- The shared-memory copy is the fallback, for example on a platform where a web view cannot be transparent over a GPU surface. The native path ran only on Windows (13.5).
+- The native path needs the GPU device and the editor window in one process. Process isolation (16) moves native code into a different process. Then a viewport needs a shared GPU texture or the copy path.
+- After a device loss, the render thread makes a new device, new surfaces and new GPU objects for each viewport. In the prototype, this took 150 to 340 ms.
 
 **Build**
 

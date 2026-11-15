@@ -33,8 +33,9 @@ the next prototype (section 19).
 - [ ] **Toolchain** (13.2). Zig as the C compiler, and a Patina folder at a path with spaces and
   non-ASCII characters. The result decides the Windows target, for example
   `x86_64-pc-windows-gnu` (13).
-- [ ] **Viewport** (15.8). A `wgpu` viewport in a Tauri panel. The result decides how the frames
-  reach the window: a copy into the web view, or a native surface over the panel.
+- [x] **Viewport** (15.8). A `wgpu` viewport in a Tauri panel. Result: the native path, a `wgpu`
+  surface under a transparent web view, with the DX12 backend on Windows (15.8). The owner check
+  of a visible window and a live display scale change is open (STATUS.md).
 - [x] **Connections** (15.9). 1,000 wires, 200 of them buses of 8 to 32 lanes, with lane
   states that change at 60 FPS. Result: a WebGL layer under the nodes, and React (15.1). The
   owner check of a live display scale change is open (STATUS.md).

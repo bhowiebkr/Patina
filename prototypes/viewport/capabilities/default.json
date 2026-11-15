@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The commands and events of the prototype windows.",
+  "windows": ["main", "float-*"],
+  "permissions": ["core:default"]
+}

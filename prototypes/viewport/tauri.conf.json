@@ -1,0 +1,10 @@
+{
+  "productName": "patina-viewport",
+  "version": "0.1.0",
+  "identifier": "dev.patina.prototype.viewport",
+  "app": {
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": false }
+}
