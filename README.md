@@ -289,7 +289,9 @@ To make your first graph:
 1. On the start screen, click **New project**. Give a name and click **Create**.
 2. Drag `number` and `show` from the **Project** panel into the graph. You can also
    double-click an empty area of the graph, type a part of the name and push Enter.
-3. Drag from the output of `number` to the input of `show`.
+3. Drag from the output of `number` to the input of `show`. You can also drag from a pin into
+   an empty area. The palette then shows the nodes that fit the pin, and connects the node that
+   you add.
 4. Select `number`, and type a value in the **Inspector**.
 5. Click **Run**. The **Output** tab shows the value, and a badge on the wire shows it too.
 6. Click the wire. The **Inspector** shows the full value.

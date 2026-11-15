@@ -23,6 +23,8 @@ To run the editor from a checkout:
   folder from the **Project** panel into the graph to add a node.
 - A double-click on an empty area of the graph, or Shift+A, opens the **Add node** palette
   (15.2). Type to filter the nodes, and push Enter or click a node to add it at that point.
+- A drag from a pin into an empty area opens the palette with only the nodes that fit the pin.
+  The new node gets a wire to the pin, and one undo removes the node and the wire.
 - The **+** button of the **Nodes** group in the **Project** panel makes a node folder (15.2).
   Type a name and push Enter. The **Inspector** shows the code of the start node. A used or
   reserved name shows its problem under the field.
@@ -109,7 +111,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 48 steps in 11.6 s:
+  off-screen and does not take the focus. It passed these 52 steps in 12.5 s:
   - Open **Settings**, find the Rust version and the trusted list, and capture the window into
     `settings.png`. Click **Back**.
   - New project, add 2 nodes and a wire, and set a parameter.
@@ -179,7 +181,7 @@ To run the editor from a checkout:
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  22 tests: the search of the **Add node** palette, the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
+  23 tests: the search of the **Add node** palette, the pin match of a drag from a pin, the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
   the SVG path of a route, the orthogonal paths, the sharp corners, the curve through route
   points, the segment lists, the place of the badge, and the move, close, open, resize, reset
   and read of a dock layout.
@@ -188,6 +190,9 @@ To run the editor from a checkout:
 - The self-check opens the **Add node** palette with Shift+A and closes it with Esc. Then it
   opens the palette with a double-click, types `SHO`, pushes Enter, finds the `show` node at the
   point of the double-click, and undoes the edit.
+- The self-check drags from the input of `show` to an empty area. The palette lists only
+  `number`, because `show` has no output. Enter adds `number` with a wire to the input. One undo
+  removes the node and the wire, redo gives them again, and a last undo removes them.
 - The self-check clicks **+** of the **Nodes** group and enters `Number`. The field shows the
   problem of the used name. Then it enters `made-node`, finds `made-node` in the **Project**
   panel and the **Code** tab of the new node in the **Inspector**.
@@ -220,8 +225,9 @@ To run the editor from a checkout:
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
-  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab. A drag
-  from a pin into an empty area does not open the **Add node** palette yet.
+  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
+- The palette of a drag from a pin compares the type text (15.2). Two paths of one type, for
+  example `String` and `std::string::String`, do not match.
 - The **Views** and **Widgets** groups have no **+** button yet. Undo does not remove a new
   node folder (15.2).
 - The check does not test the **does not stop** message of **Stop** (15.2), because that needs

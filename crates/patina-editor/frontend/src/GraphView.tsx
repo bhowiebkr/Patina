@@ -11,13 +11,15 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type FinalConnectionState,
   type NodeChange,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import { AddNode } from './AddNode';
-import { newId, type Edit, type Point, type View } from './api';
+import { newId, type Edit, type NodeInfo, type Point, type View } from './api';
 import { savedViewport, saveViewport } from './Dock';
 import { NodeView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type RunState } from './NodeView';
+import { matchPin } from './palette';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { WireStore } from './wires';
 
@@ -60,6 +62,13 @@ function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
   });
 }
 
+/** A wire that a drag from a pin into an empty area started: the pin, its direction and its type. */
+interface FreeEnd {
+  pin: string;
+  output: boolean;
+  ty: string;
+}
+
 function typing(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 }
@@ -79,8 +88,9 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [glOk, setGlOk] = useState(true);
-  // The screen point of the open Add node palette, and the last pointer point over the canvas.
-  const [palette, setPalette] = useState<{ x: number; y: number } | null>(null);
+  // The screen point of the open Add node palette, with the pin of a wire that it ends, and the
+  // last pointer point over the canvas.
+  const [palette, setPalette] = useState<{ x: number; y: number; end?: FreeEnd } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport('main'));
@@ -122,6 +132,21 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
     [onEdit],
   );
 
+  // A drag from a pin that ends on an empty area opens the palette at that point (15.2).
+  const onConnectEnd = useCallback(
+    (e: globalThis.MouseEvent | TouchEvent, c: FinalConnectionState) => {
+      const from = c.fromHandle;
+      if (c.isValid || !from?.id || !(e.target instanceof Element) || !e.target.classList.contains('react-flow__pane')) return;
+      const pin = `${from.nodeId}.${from.id}`;
+      const output = from.type === 'source';
+      const entry = view.graph.node?.find((n) => n.id === from.nodeId);
+      const ty = output ? outputType(view, pin) : entry && infoOf(entry, view.nodes)?.inputs.find((p) => p.key === from.id)?.ty;
+      const point = 'changedTouches' in e ? e.changedTouches[0] : e;
+      if (ty !== undefined) setPalette({ x: point.clientX, y: point.clientY, end: { pin, output, ty } });
+    },
+    [view],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing(e.target) || e.ctrlKey || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer')) return;
@@ -158,11 +183,18 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
     }
   };
 
-  /** Adds a node with its top left corner at a screen point. */
-  const addNode = (folder: string, x: number, y: number) => {
+  /** Adds a node with its top left corner at a screen point, and its wire to `end` in the same undo step. */
+  const addNode = (folder: string, x: number, y: number, end?: FreeEnd, info?: NodeInfo) => {
     const p = flow.screenToFlowPosition({ x, y });
-    onEdit({ kind: 'AddNode', id: newId(), folder, pos: [Math.round(p.x), Math.round(p.y)] });
+    const id = newId();
+    const add: Edit = { kind: 'AddNode', id, folder, pos: [Math.round(p.x), Math.round(p.y)] };
+    const key = end && info && matchPin(info, end.output, end.ty);
+    const pin = `${id}.${key}`;
+    if (!end || !key) onEdit(add);
+    else onEdit({ kind: 'Group', edits: [add, end.output ? { kind: 'Connect', from: end.pin, to: pin } : { kind: 'Connect', from: pin, to: end.pin }] });
   };
+  const end = palette?.end;
+  const choices = end ? view.nodes.filter((n) => matchPin(n, end.output, end.ty) !== undefined) : view.nodes;
 
   const onDrop = (e: DragEvent) => {
     const folder = e.dataTransfer.getData(NODE_MIME);
@@ -188,6 +220,7 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
         onSelectionChange={onSelectionChange}
         onNodeDragStop={onNodeDragStop}
         onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
         onDragOver={onDragOver}
         onDrop={onDrop}
         onDoubleClick={onDoubleClick}
@@ -214,7 +247,16 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
         <Background id="major" variant={BackgroundVariant.Lines} gap={100} color="#292929" bgColor="transparent" />
         <WireLayer store={wires} onReady={setGlOk} />
       </ReactFlow>
-      {palette && <AddNode {...palette} nodes={view.nodes} onAdd={(name) => addNode(`nodes/${name}`, palette.x, palette.y)} onClose={() => setPalette(null)} />}
+      {palette && (
+        <AddNode
+          x={palette.x}
+          y={palette.y}
+          nodes={choices}
+          none={end && `No node has a pin of type ${end.ty}.`}
+          onAdd={(name) => addNode(`nodes/${name}`, palette.x, palette.y, end, choices.find((n) => n.name === name))}
+          onClose={() => setPalette(null)}
+        />
+      )}
     </WireContext.Provider>
   );
 }

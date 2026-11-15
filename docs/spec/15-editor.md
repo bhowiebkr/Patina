@@ -110,6 +110,7 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | Delete | Delete the selection |
 | Esc | Cancel the drag, or clear the selection |
 | Double-click on an empty area, Shift+A | Open the **Add node** palette |
+| Drag from a pin into an empty area | Open the **Add node** palette for that pin |
 
 The owner asked for the standard controls. The table, the zoom range and the wheel steps are an agent decision of 2026-11-15.
 
@@ -118,6 +119,8 @@ The **Add node** palette is the second way to add a node, after a drag from the 
 - A double-click opens it at the pointer. Shift+A opens it at the pointer, or at the middle of the canvas when the pointer is not on it.
 - It has a search field and a list of the nodes of the project. The list shows each name that contains the text, with no regard to case. The names that start with the text come first.
 - The arrow keys move in the list. Enter or a click adds the node, with its top left corner at the point where the palette opened. Esc or a click out of the palette closes it.
+- A drag from a pin that ends on an empty area opens the palette at that point. The list has only the nodes with a pin that can join the pin of the drag: an input for an output, and an output for an input, of the same type. The add connects the first such pin of the new node. The new node and its wire are one undo step. (Agent decision, 2026-11-15. The owner can change it.)
+- In this match, a `&T` or `&mut T` input takes a `T`, and a `&str` input takes a `String` (5.1). The editor compares the type text, and the build does the full type check (5.2).
 - Tab does not open the palette, because Tab moves the focus between the controls.
 - An untrusted project has no palette, as it has no drag of a node.
 

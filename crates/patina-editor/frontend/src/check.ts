@@ -411,6 +411,28 @@ fn broken() -> u32 {
     if (v.graph.node?.length !== 2) throw new Error('undo did not remove the added node');
     steps.push('add a node with the palette');
 
+    // A drag from a pin into an empty area opens the palette with only the nodes that fit the pin
+    // (15.2). The new node and its wire are one undo step.
+    const pinEl = document.querySelector(`.react-flow__node[data-id="${B}"] .react-flow__handle[data-handleid="value"]`)!;
+    const pinBox = pinEl.getBoundingClientRect();
+    pinEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: pinBox.left + pinBox.width / 2, clientY: pinBox.top + pinBox.height / 2 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...at }));
+    document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...at }));
+    await until('the palette after a drag from a pin', RUN_MS, () => !!search());
+    // The show node has no output, so the list has only number.
+    await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number');
+    search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await until('the added node from the pin', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'number');
+    const fed = newNode()!.getAttribute('data-id');
+    v = await step('undo the node and its wire', () => api.undo());
+    if (v.graph.node?.length !== 2 || v.graph.wire?.[0]?.from !== `${A}.out`) throw new Error(`one undo did not remove the node and its wire: ${JSON.stringify(v.graph.wire)}`);
+    v = await step('redo the node and its wire', () => api.redo());
+    if (v.graph.wire?.length !== 1 || v.graph.wire[0].from !== `${fed}.out` || v.graph.wire[0].to !== `${B}.value`) {
+      throw new Error(`the new node does not feed the pin: ${JSON.stringify(v.graph.wire)}`);
+    }
+    v = await step('undo the node from a pin', () => api.undo());
+    steps.push('add a node from a pin');
+
     // New node (15.2): the + of the Nodes group asks for a name. A used name shows its problem. A
     // new name makes the folder, and the Code tab shows its code.
     const nameField = () => document.querySelector<HTMLInputElement>('[aria-label="Node name"]');

@@ -9,12 +9,14 @@ interface Props {
   x: number;
   y: number;
   nodes: NodeInfo[];
+  /** The text when `nodes` is empty. */
+  none?: string;
   onAdd: (name: string) => void;
   onClose: () => void;
 }
 
 /** Type to filter, the arrows to move, Enter or a click to add. Esc or a click out of it closes it. */
-export function AddNode({ x, y, nodes, onAdd, onClose }: Props) {
+export function AddNode({ x, y, nodes, none = 'The project has no nodes.', onAdd, onClose }: Props) {
   const [back] = useState(() => document.activeElement as HTMLElement | null);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -70,7 +72,7 @@ export function AddNode({ x, y, nodes, onAdd, onClose }: Props) {
               {n.error && <span className="hint error-text">error</span>}
             </div>
           ))}
-          {hits.length === 0 && <div className="empty">{nodes.length === 0 ? 'The project has no nodes.' : 'No node matches.'}</div>}
+          {hits.length === 0 && <div className="empty">{nodes.length === 0 ? none : 'No node matches.'}</div>}
         </div>
       </div>
     </div>
