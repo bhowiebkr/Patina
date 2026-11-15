@@ -5,6 +5,8 @@
 //! the reloads and drop with the code of their own build. The test measures the build times
 //! and the memory and disk use that each reload adds. Run it with `--nocapture` for the report.
 //!
+//! The default run is short: the `dev` profile with 2 node reloads and 1 types reload. Set
+//! `PATINA_FULL=1` for the measured run: more reloads, the `release` profile and the LTO check.
 //! `PATINA_NODE_RELOADS` and `PATINA_TYPE_RELOADS` set the number of reloads in each profile.
 
 #![cfg(windows)]
@@ -33,6 +35,10 @@ fn hot_reload() {
     let env = |var: &str| std::env::var(var).ok().and_then(|v| v.parse::<u32>().ok());
     let nodes = env("PATINA_NODE_RELOADS");
     let types = env("PATINA_TYPE_RELOADS");
+    if std::env::var_os("PATINA_FULL").is_none() {
+        scenario("dev", nodes.unwrap_or(2), types.unwrap_or(1));
+        return;
+    }
     scenario("dev", nodes.unwrap_or(10), types.unwrap_or(4));
     scenario("release", nodes.unwrap_or(4), types.unwrap_or(2));
     lto_check();

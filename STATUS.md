@@ -263,6 +263,10 @@ CI runs the test for each push to `main`. It passed in both profiles on 2026-11-
 `windows-latest` runner, with Rust 1.100.0, in 12.1 s. On the Linux and macOS runners, clippy
 checks the prototype, but the test has no code to run.
 
+Since 2026-11-15, the default run is short: the `dev` profile with 2 node reloads and 1 types
+reload. It ran in 3.0 s on Windows, before 13 s. `PATINA_FULL=1` gives the measured run of
+both profiles and the LTO check.
+
 ### What was checked
 
 The test `cargo test -p hot-reload` ran and passed these checks in both profiles. A long run

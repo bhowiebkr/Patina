@@ -48,9 +48,14 @@ The output shows a table for each profile. Each row is one build: the build time
 in `build/`, the size of `build/` and of the cargo target folder, the memory of the process, and
 the number of loaded clusters. A summary for each step follows the table.
 
-Two environment variables set the number of reloads in each profile:
+The default run is short, because `cargo test --workspace` runs it. It builds only the `dev`
+profile, with 2 node reloads and 1 types reload. These environment variables change the run:
 
-- `PATINA_NODE_RELOADS`: the node reloads. The default is 10 in `dev` and 4 in `release`.
-- `PATINA_TYPE_RELOADS`: the types reloads. The default is 4 in `dev` and 2 in `release`.
+- `PATINA_FULL=1`: the measured run of the prototype. It adds the `release` profile and the LTO
+  check.
+- `PATINA_NODE_RELOADS`: the node reloads. The default of the measured run is 10 in `dev` and 4
+  in `release`.
+- `PATINA_TYPE_RELOADS`: the types reloads. The default of the measured run is 4 in `dev` and 2
+  in `release`.
 
 On Linux and macOS, the test file is empty, because the loader supports only Windows.
