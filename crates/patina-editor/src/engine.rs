@@ -2,7 +2,8 @@
 //! the graph (spec 7.2, 15.10).
 
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, SendError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -25,6 +26,23 @@ pub enum Job {
     /// Fuses the clusters now: a bake build with no slot (7.2). **Bake** sends it, and the engine
     /// makes it after `FUSE_IDLE` with no change.
     Bake,
+}
+
+/// Sends jobs to the engine thread. It counts the runs that wait for a build, so the engine
+/// drops a build when a newer build waits (7.2).
+#[derive(Clone)]
+pub struct Jobs {
+    send: Sender<Job>,
+    shared: Arc<Shared>,
+}
+
+impl Jobs {
+    pub fn send(&self, job: Job) -> Result<(), SendError<Job>> {
+        if matches!(&job, Job::Run(run) if run.build) {
+            self.shared.builds.fetch_add(1, Ordering::SeqCst);
+        }
+        self.send.send(job)
+    }
 }
 
 /// The time with no change after which the engine fuses the clusters (7.2, roadmap question 7).
@@ -142,6 +160,8 @@ pub struct Shared {
     pub control: Control,
     /// The node ID of each node index of the loaded cluster.
     ids: Mutex<Vec<String>>,
+    /// The number of sent runs with a build that the engine did not take yet.
+    builds: AtomicUsize,
 }
 
 impl Shared {
@@ -161,7 +181,7 @@ pub fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 /// `toolchain` is the toolchain folder of Patina (13.3).
-pub fn start(app: AppHandle, toolchain: PathBuf) -> (Sender<Job>, Arc<Shared>) {
+pub fn start(app: AppHandle, toolchain: PathBuf) -> (Jobs, Arc<Shared>) {
     let (send, jobs) = std::sync::mpsc::channel();
     let shared = Arc::new(Shared::default());
     let kept = shared.clone();
@@ -169,7 +189,7 @@ pub fn start(app: AppHandle, toolchain: PathBuf) -> (Sender<Job>, Arc<Shared>) {
         .name("patina-engine".to_owned())
         .spawn(move || run_jobs(&app, &jobs, &kept, &toolchain))
         .expect("the engine thread starts");
-    (send, shared)
+    (Jobs { send, shared: shared.clone() }, shared)
 }
 
 fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
@@ -194,6 +214,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 }
                 Job::Run(run) => {
                     if run.build {
+                        shared.builds.fetch_sub(1, Ordering::SeqCst);
                         slot = if build && slot != run.slot { None } else { run.slot.clone() };
                         build = true;
                     }
@@ -224,7 +245,9 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
         }
         // shortcut: the fuse builds on the engine thread, so a change waits for it; build in a background thread when bake builds get slow.
         let event = match run_one(app, (folder, &mut toolchain), &mut loaded, &mut run, build.as_ref(), shared) {
-            Ok(event) => event,
+            Ok(Some(event)) => event,
+            // A newer build waits, so this build does not run and its errors do not show (7.2).
+            Ok(None) => continue,
             Err(e) => {
                 lock(&shared.values).clear();
                 let text = e.to_string();
@@ -370,7 +393,7 @@ fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, loaded: 
     built
 }
 
-fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Event, Error> {
+fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Option<Event>, Error> {
     let mut built_ms = None;
     let mut errors = Vec::new();
     if let Some(build) = build {
@@ -381,7 +404,11 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
             *toolchain = Some(Toolchain::find(folder)?);
         }
         let toolchain = toolchain.as_ref().expect("the toolchain is set above");
-        match compile(&mut run.checked, toolchain, build, loaded.as_mut()) {
+        let built = compile(&mut run.checked, toolchain, build, loaded.as_mut());
+        if shared.builds.load(Ordering::SeqCst) > 0 {
+            return Ok(None);
+        }
+        match built {
             // The slot library changed in place, and the nodes in it got new states (7.1).
             Ok(None) => {}
             Ok(Some(mut cluster)) => {
@@ -422,7 +449,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
     let frames = params.ok && outcome.ok && cluster.frames() && !shared.control.stopped();
-    Ok(Event::Ran { serial: run.serial, built_ms, fused, slot, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors })
+    Ok(Some(Event::Ran { serial: run.serial, built_ms, fused, slot, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors }))
 }
 
 /// Cuts a text for its badge at a character boundary.

@@ -21,7 +21,7 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 5. Fuse back, the bake profile and **Bake**, with the decision of the idle time (Q7). This part
    works.
 6. The **Layers** panel, the slot icon and the status bar. The slot icon and the status bar work.
-7. The check of the roadmap, with the measured fuse time.
+7. The check of the roadmap, with the measured fuse time. This part works.
 
 ### What works
 
@@ -53,6 +53,8 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   **Slot: name**, **Fused** or **Edit build**.
 - After 30 s with no change, the editor fuses the live graph in bake mode (Q7). The **Bake**
   button fuses at once.
+- When a newer build waits after a build, the editor drops the older build. It does not run
+  it, and its errors do not show (7.2).
 
 ### What was checked
 
@@ -77,8 +79,15 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   a slow node had more digits, so the report buffer grew. The time text now has a fixed width.
 - The CI run of the slot change also failed on Linux in a test of the cluster folders: the
   order of `read_dir` is different there. The test now sorts the names.
-- The editor selfcheck saves the code of a node and expects the node in the slot, with the slot
-  icon. It does not click **Bake** or wait for the fuse. The CLI slot test builds in bake mode.
+- The roadmap check: a test changes the output type of `number`, with a use in the batch
+  cluster and a use in the frame cluster, to f32. It changes the type to i32 while the first
+  build runs. After the next build, both uses give the i32 value. It ran on Windows.
+- On Windows, with the crates built before, the slot test measured 0.4 s for the build of the
+  slot alone and 0.4 s for the fuse in bake mode. The test prints the times with
+  `--nocapture`. Nobody measured a fuse with no cache.
+- The editor selfcheck saves two compile errors, the second during the build of the first. No
+  run shows the errors of the first save. It saves the code of a node and expects the node in
+  the slot, with the slot icon. It does not click **Bake** or wait for the fuse. The CLI slot test builds in bake mode.
 
 ### Known limits
 
@@ -95,7 +104,6 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.
 - Nobody ran the state move in the editor. The editor calls the same engine code as the test.
-- Nobody measured the time of a build of the slot alone.
 - The **Layers** panel (7.3) does not exist yet.
 - The fuse builds on the engine thread, so the graph does not run during a fuse
   (`crates/patina-editor/src/engine.rs`).

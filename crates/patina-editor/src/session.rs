@@ -3,7 +3,6 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
@@ -13,11 +12,11 @@ use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
 
 use crate::data::{Data, Recovery, same_path};
-use crate::engine::{self, GuiInput, Job, Run, Shared};
+use crate::engine::{self, GuiInput, Job, Jobs, Run, Shared};
 
 pub struct Editor {
     pub data: Data,
-    pub engine: Sender<Job>,
+    pub engine: Jobs,
     shared: Arc<Shared>,
     session: Mutex<Option<Session>>,
     /// The folder of the self-check (`--check`), or none in normal use.
@@ -109,7 +108,7 @@ pub struct Recent {
 }
 
 impl Editor {
-    pub fn new(data: Data, (engine, shared): (Sender<Job>, Arc<Shared>), check: Option<PathBuf>) -> Editor {
+    pub fn new(data: Data, (engine, shared): (Jobs, Arc<Shared>), check: Option<PathBuf>) -> Editor {
         Editor { data, engine, shared, session: Mutex::new(None), check, serial: AtomicU64::new(0) }
     }
 
@@ -185,7 +184,7 @@ impl Session {
 
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
     /// `slot` is the node folder of a code change, for the slot (7.1).
-    fn view(&self, engine: &Sender<Job>, build: Option<bool>, slot: Option<String>) -> View {
+    fn view(&self, engine: &Jobs, build: Option<bool>, slot: Option<String>) -> View {
         let project = &self.project;
         let (checked, problems) = match project.check() {
             Ok(checked) => (Some(checked), Vec::new()),

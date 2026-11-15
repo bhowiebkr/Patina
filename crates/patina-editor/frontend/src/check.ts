@@ -193,12 +193,20 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     const lib = 'nodes/number/src/lib.rs';
     const original = await api.readCode(lib);
     from = mark();
+    // A second save during a build drops the first build, so only the newest errors show (7.2).
+    await api.edit({ kind: 'SetCode', path: lib, text: `${original}
+fn first_error() -> u32 {
+    1.5
+}
+` });
     v = await step('break the code', () => api.edit({ kind: 'SetCode', path: lib, text: `${original}
 fn broken() -> u32 {
     "x"
 }
 ` }));
     const broken = await result(v, from, '2.5', BUILD_MS);
+    const old = events.slice(from).filter((e) => e.state === 'ran' && e.errors.some((d) => d.rendered.includes('first_error')));
+    if (old.length > 0) throw new Error('a run showed the errors of an older save');
     const error = broken.errors.find((e) => e.file === lib);
     if (!error) throw new Error(`no compile error in ${lib}: ${JSON.stringify(broken.errors)}`);
     pick(revealOf(error, Date.now())!);

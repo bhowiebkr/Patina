@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::time::Instant;
 
 use patina_engine::{Control, Lanes, Mode, Project, Toolchain};
 
@@ -321,11 +322,15 @@ to = \"00000000000000a3.value\"
     // An edit of the body builds the slot alone. The node gets a new state.
     let edited = ACC.replace("*value * scale", "*value * scale * 10.0");
     fs::write(folder.join("src/lib.rs"), &edited).unwrap();
+    let start = Instant::now();
     assert!(slotted().build_slot(&toolchain, &mut cluster).unwrap());
+    eprintln!("slot build {:.1} s", start.elapsed().as_secs_f64());
     assert_eq!(value(&mut cluster, "out"), "130.0");
 
     // Fuse back in bake mode: the fused cluster gets the state of the slot library (7.2).
+    let start = Instant::now();
     let mut fused = checked().build(&toolchain, Mode::Bake).unwrap();
+    eprintln!("fuse {:.1} s", start.elapsed().as_secs_f64());
     fused.set_params(opened.graph());
     assert!(cluster.slotted() && !fused.slotted() && fused.mode() == Mode::Bake);
     assert_eq!(fused.adopt(&mut cluster), 1);
@@ -338,4 +343,92 @@ to = \"00000000000000a3.value\"
     assert!(!slotted().build_slot(&toolchain, &mut cluster).unwrap());
     assert!(checked().set_slot(Some("number")).is_ok());
     assert!(checked().set_slot(Some("nothing")).is_err());
+}
+
+/// The check of milestone 6 (19): one node folder with a use in the batch cluster and a use in
+/// the frame cluster. Its output type changes, and changes again before the first build ends.
+#[test]
+fn a_type_change_during_a_build_reaches_all_uses() {
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "retype");
+    let manifest = fs::read_to_string(project.join("nodes/add/Cargo.toml")).unwrap();
+    for (name, code) in [("tick", TICK), ("mix", MIX)] {
+        let folder = project.join("nodes").join(name);
+        fs::create_dir_all(folder.join("src")).unwrap();
+        fs::write(folder.join("Cargo.toml"), manifest.replace("\"add\"", &format!("\"{name}\""))).unwrap();
+        fs::write(folder.join("src/lib.rs"), code).unwrap();
+    }
+    // Use b1 of number feeds mix in the batch cluster. Use b2 is in the frame domain and feeds tick.
+    let more = "
+[[node]]
+id = \"00000000000000b1\"
+folder = \"nodes/number\"
+
+[node.params]
+value = \"2.5\"
+
+[[node]]
+id = \"00000000000000b2\"
+folder = \"nodes/number\"
+domain = \"frame\"
+
+[node.params]
+value = \"2.5\"
+
+[[node]]
+id = \"00000000000000b3\"
+folder = \"nodes/mix\"
+
+[[node]]
+id = \"00000000000000b4\"
+folder = \"nodes/tick\"
+
+[[wire]]
+from = \"00000000000000b1.out\"
+to = \"00000000000000b3.a\"
+
+[[wire]]
+from = \"00000000000000b1.out\"
+to = \"00000000000000b3.b\"
+
+[[wire]]
+from = \"00000000000000b2.out\"
+to = \"00000000000000b4.base\"
+";
+    let graph = project.join("graphs/main.toml");
+    fs::write(&graph, fs::read_to_string(&graph).unwrap() + more).unwrap();
+    // The numbers feed add, which takes f64, so this test removes add and show.
+    let text = fs::read_to_string(&graph).unwrap();
+    let kept: Vec<&str> = text.split("\n[[").filter(|part| !part.contains("f89c6e329e8ea336") && !part.contains("nodes/show")).collect();
+    fs::write(&graph, kept.join("\n[[")).unwrap();
+    let toolchain = Toolchain::detect().unwrap();
+    let code = project.join("nodes/number/src/lib.rs");
+    let number = fs::read_to_string(&code).unwrap();
+    let first = number.replace("-> f64 {\n    value", "-> f32 {\n    value as f32");
+    let second = number.replace("-> f64 {\n    value", "-> i32 {\n    (value * 3.0) as i32");
+    assert!(first != number && second != number);
+
+    // The first change gives f32. The second change, to i32, comes while the first build runs.
+    // The first build can fail, because its plan has the old type.
+    fs::write(&code, &first).unwrap();
+    let checked = Project::open(&project).unwrap().check().unwrap();
+    std::thread::scope(|s| {
+        let toolchain = &toolchain;
+        let build = s.spawn(move || checked.build(toolchain, Mode::Edit).is_ok());
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        fs::write(&code, &second).unwrap();
+        assert!(!build.is_finished(), "the first build ended before the second change");
+        build.join().unwrap();
+    });
+
+    // The newest build has no errors, and both uses run the newest code.
+    let opened = Project::open(&project).unwrap();
+    let mut cluster = opened.check().unwrap().build(&toolchain, Mode::Edit).unwrap();
+    cluster.set_params(opened.graph());
+    let control = Control::default();
+    let value = |values: Vec<patina_engine::Value>, from: &str| values.into_iter().find(|v| v.from == from).map(|v| v.text);
+    let out = cluster.run(&control);
+    assert!(out.ok, "{:?}", out.reports);
+    assert_eq!(value(out.values, "00000000000000b1.out").as_deref(), Some("7"));
+    let frame = cluster.frame(&control);
+    assert_eq!(value(frame.values.clone(), "00000000000000b2.out").as_deref(), Some("7"));
 }
