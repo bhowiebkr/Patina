@@ -108,7 +108,7 @@ impl Stats {
     pub fn summary(&self) -> Value {
         let secs = self.since.elapsed().as_secs_f64().max(0.001);
         let s = &self.sum;
-        let per_copy = |v: u64| if s.copies == 0 { 0 } else { v / s.copies };
+        let per_copy = |v: u64| v.checked_div(s.copies).unwrap_or(0);
         json!({
             "adapter": self.adapter,
             "surface_format": self.surface_format,
@@ -129,7 +129,7 @@ impl Stats {
             "copy_bytes_per_frame": per_copy(s.copy_bytes),
             "copy_mb_per_s": round2(s.copy_bytes as f64 / secs / 1e6),
             "dropped": s.dropped,
-            "upload_bytes_per_frame": if self.frames == 0 { 0 } else { s.upload_bytes / self.frames },
+            "upload_bytes_per_frame": s.upload_bytes.checked_div(self.frames).unwrap_or(0),
             "keys": self.keys,
             "surfaces_configured": self.surfaces_configured,
             "device_lost": self.device_lost,

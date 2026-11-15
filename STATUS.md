@@ -6,7 +6,7 @@ The current milestone is milestone 0, the risk prototypes (spec section 19).
 | --- | --- | --- |
 | Rust types across clusters (5.1, 5.2) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
 | Hot reload (8.5) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
-| Toolchain (13.2) | Not started | - |
+| Toolchain (13.2) | Passed, with the clean computer run open | Windows 11, `x86_64-pc-windows-gnu` |
 | Viewport (15.8) | Passed, with one owner check open | Windows 11 |
 | Connections (15.9) | Passed, with one owner check open | Windows 11 |
 
@@ -54,7 +54,8 @@ The test `cargo test -p types-across-clusters` ran and passed these checks in bo
   the change. The name of the types library is a hash of its content, so the harness got a new
   name. Spec 8.5 needs this.
 - **Every library needs `VCRUNTIME140.dll`** with the MSVC target. A clean Windows does not have
-  it. This is input for the toolchain prototype (13.2).
+  it. This is input for the toolchain prototype (13.2). The gnu target of that prototype does
+  not need it.
 - **Export counts are low.** The `std` DLL has 1,401 exports. The types library has 64 in
   `dev` and 18 in `release`. The PE limit is 65,535. A large type crate was not measured.
 - **Files of each build.** Each `cdylib` and `dylib` gives a `.dll`, `.dll.lib`, `.dll.exp` and
@@ -147,10 +148,102 @@ numbers come from the long run. The memory is the growth of the test process.
 - The cleanup of old builds when a project opens (8.5) is not tested.
 - The memory of one row is noisy, because the test and the Windows loader also allocate. Use
   the totals of a long run.
-- `/Brepro` is a flag of the MSVC linker. The toolchain prototype must find the flag for its
-  target, for example `x86_64-pc-windows-gnu`.
+- `/Brepro` is a flag of the MSVC linker. With `rust-lld` on `x86_64-pc-windows-gnu`, the flag
+  is `--no-insert-timestamp` (see Toolchain). The hot reload test did not run on that target.
 - The cleanup of the cargo target folder is not designed yet.
 - The harness is not the engine. It shows the method, and the engine will use the same method.
+
+## Toolchain
+
+The code is in [prototypes/toolchain](prototypes/toolchain/README.md). It ran on 2026-11-15 on
+Windows 11 Pro, from an empty folder. It installed Rust 1.100.0 for `x86_64-pc-windows-gnu`
+and Zig 0.17.1. It did not run on a clean computer, on Linux or on macOS.
+
+### What was checked
+
+The run passed all 12 steps:
+
+- `curl.exe` downloaded `rustup-init.exe`, the channel manifest and the 4 packages of the
+  minimal profile. The SHA-256 hash of each file was correct. Rustup installed from this local
+  mirror, with `--no-modify-path`.
+- `curl.exe` downloaded Zig, the hash was correct, and `tar.exe` unpacked it.
+- The build ran offline, with a clean environment. `PATH` had only the Rust tools and
+  System32. The other variables were removed, except 10 system variables.
+- Zig compiled the C code of the local crate `cmix` and the bundled SQLite of
+  `libsqlite3-sys`: 10 `zig cc` calls and 4 `zig ar` calls.
+- `rust-lld` linked `node.dll`. It imports only Windows system DLLs and `msvcrt.dll`. It has
+  no Rich header, so the MSVC linker did not make it.
+- A new process with the clean environment loaded the library. The C function, the SQLite
+  query and 4 Rust threads gave the expected results.
+- The folder moved to a name with spaces, an e with an acute accent and a CJK letter. The
+  build and the call passed again.
+- After the run, the user `PATH` and the Rustup key in the registry had not changed.
+
+Other checks on the same toolchain:
+
+- Two clean `release` builds of `node.dll` gave different files. With
+  `-C link-arg=--no-insert-timestamp`, the two files were identical.
+- A build of the prototype with `-C target-feature=+crt-static` does not refer to
+  `VCRUNTIME140.dll` or to the UCRT DLLs. This static build ran all 12 steps with the files
+  that it holds.
+- A Zig object with `snprintf` linked with the `msvcrt` of `rust-mingw`, and gave the correct
+  text.
+
+### Measurements
+
+| Step | Time |
+| --- | --- |
+| Install Rust: downloads and rustup | 185.0 s, with a stalled download |
+| Install Zig: download and unpack | 24.4 s |
+| Download the crates | 1.9 s |
+| Cold `dev` build of the node | 5.6 s, and 2.7 s with the Zig cache |
+| Build after the move | 4.8 s |
+
+- The downloads are about 265 MB: rustc 104 MB, Zig 100 MB, rust-std 28 MB, `rustup-init`
+  15 MB, cargo 12 MB and rust-mingw 5 MB. The crates of the fixture are not included.
+- After the run, the folder held 1.4 GB: `rustup` 845 MB, `zig` 416 MB with its cache, `cargo`
+  45 MB, and the project with its target folder 82 MB.
+
+### Findings
+
+- **GNU `ld` cannot open a CJK path.** After the move, the GNU `ld` of `rust-mingw` failed:
+  "cannot open output file ... Invalid argument". It reads its arguments in the ANSI code
+  page, so the CJK letter became "?". The e with an acute accent worked, because code page 1252
+  has it. `rust-lld` passed. Spec 13.2 now uses `rust-lld`, as an agent decision.
+- **`rust-lld` needs no extra files.** rustc finds it in its own folder and uses the start
+  files and import libraries of `rust-mingw`. Cargo also uses it for build scripts, because
+  the target is the host.
+- **An allowlist firewall blocks new programs.** This computer allows outgoing connections
+  only for known programs. The new `rustup-init.exe` and `cargo.exe` failed with os error
+  10051. `curl.exe` of System32 is allowed, so the prototype downloads all toolchain files with
+  it. Spec 13.2 now says that Patina makes these downloads itself, as an agent decision.
+- **A download can stall.** In the clean run, curl stopped at 372 KB of rust-mingw for more
+  than 60 s. Then the step passed. Hypothesis: the speed limit stopped the transfer, and the
+  retry of curl downloaded the file.
+- **The C code links with `msvcrt.dll`, not the UCRT.** Windows has `msvcrt.dll` in System32.
+- **Zig adds a sanitizer in `dev` builds.** A Zig debug object had a `__ubsan` symbol. With
+  `-fno-sanitize=all`, it had none. The wrappers add this flag.
+- **A folder rename can fail one time.** In one run of the static build, the move of the
+  folder failed with "Access is denied" (os error 5). No process ran from the folder. The next
+  run passed. Hypothesis: a virus scan or the search index held a file. The engine needs a
+  retry when it renames a folder.
+- **The normal prototype build needs `VCRUNTIME140.dll`.** A clean computer does not have it.
+  The static build does not need it, and the Zig wrappers are copies of that file.
+
+### Known limits
+
+- The prototype did not run on a clean computer. This computer has Visual Studio and a Rust
+  install. The clean environment hid them, and the build did not use MSVC.
+- The prototype is for Windows only.
+- C code that needs functions of the UCRT only was not tested.
+- rust-analyzer and NVRTC (13.2, items 3 and 4) were not installed.
+- The update of an installed toolchain was not tested.
+- The fixture is a C ABI call, not a node in a graph.
+- These shortcuts are open in the code:
+  - `curl.exe` downloads all the Rust files, because the firewall can block a new
+    `rustup-init.exe` (`src/install.rs`).
+  - `PATINA_FETCH_CARGO` names a `cargo.exe` that the firewall allows, for the crate download
+    (`src/main.rs`).
 
 ## Viewport
 

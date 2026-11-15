@@ -1,0 +1,13 @@
+[package]
+name = "node"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cmix = { path = "../cmix" }
+# A crate from crates.io that builds a large C library (SQLite) with cc-rs.
+libsqlite3-sys = { version = "0.35", features = ["bundled"] }

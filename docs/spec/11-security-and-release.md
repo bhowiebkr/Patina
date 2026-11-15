@@ -48,13 +48,15 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 
 On first use, Patina installs these components into its toolchain folder (13.3):
 
-1. **Rust:** `rustup-init` with `RUSTUP_HOME` and `CARGO_HOME` inside the toolchain folder, and `--no-modify-path`.
-2. **C compiler and linker:** Many crates compile C code in build scripts. On Linux, rustc also needs `cc` as the linker driver. Preferred choice: **Zig** as a portable C compiler and linker for all three platforms (`zig cc`). Fallback: the system compiler.
+1. **Rust:** `rustup-init` with `RUSTUP_HOME` and `CARGO_HOME` inside the toolchain folder, and `--no-modify-path`. Patina downloads `rustup-init`, the channel manifest and the packages of the minimal profile, and checks the SHA-256 hash of each file. Rustup then installs from this local copy of the server (`RUSTUP_DIST_SERVER` with a `file:` URL).
+2. **C compiler and linker:** Many crates compile C code in build scripts. On Linux, rustc also needs `cc` as the linker driver. Preferred choice: **Zig** as a portable C compiler and linker for all three platforms (`zig cc`). On Windows, Zig compiles the C code, and `rust-lld` of the Rust toolchain links (see below). Fallback: the system compiler.
 3. **rust-analyzer:** for autocomplete in the code editor.
 4. **NVRTC:** optional, for CUDA nodes.
 
 - The toolchain alone builds nodes on a clean Windows computer, under a standard account: no Visual Studio, no Windows SDK, and no admin rights. Milestone 0 proves this (19).
-- The candidate Windows target is `x86_64-pc-windows-gnu`, with the linker files that rustup installs and Zig for the C code of crates. The milestone 0 prototype decides the target, and the spec records it.
+- The Windows target is `x86_64-pc-windows-gnu`. Zig compiles the C code of crates. `rust-lld` links, with the start files and import libraries of the `rust-mingw` component. Patina does not use the GNU `ld` of `rust-mingw`: it cannot open a path with letters outside the ANSI code page, for example CJK letters. This is an agent decision of 2026-11-15, after the toolchain prototype ran on the computer of the owner (STATUS.md). The run on a clean computer is still open. The owner can change it.
+- Patina starts the tools with a clean environment. `PATH` has only the Rust tools and System32, so a Visual Studio or a Rust install on the computer has no effect. Zig keeps its cache in the toolchain folder.
+- Some firewalls allow only known programs. Patina makes all the downloads of the toolchain itself, so the user allows only Patina. Cargo still downloads the crates. If its download fails, the toolchain panel names the `cargo.exe` of the toolchain folder. This is an agent decision of 2026-11-15.
 - The fallback, the system compiler, is not portable. When Patina uses it, the toolchain panel says so.
 - Crates with native dependencies, for example a C library that needs its own build system, work only when a test proves it.
 - If an install step fails, for example with no internet, Patina shows the step and a **Retry** button. A component counts as installed only after Patina checks it.
@@ -72,7 +74,7 @@ Patina/
   toolchain/
     rustup/        RUSTUP_HOME
     cargo/         CARGO_HOME + crate cache
-    zig/           C compiler and linker
+    zig/           C compiler and its cache
     cuda/          NVRTC (optional)
   projects/
     <project>/     project folders (6.2)

@@ -1,0 +1,9 @@
+# The user project of the toolchain prototype. It builds alone, with the toolchain that the
+# prototype installs (spec 13.2).
+[workspace]
+resolver = "3"
+members = ["node", "cmix"]
+
+[workspace.package]
+edition = "2024"
+publish = false

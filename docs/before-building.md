@@ -17,7 +17,8 @@ by the milestone that it blocks. The [spec](spec/README.md) stays the source of 
 - [x] **License.** MIT OR Apache-2.0, as the owner decided on 2026-11-15. The files are
   `LICENSE-MIT` and `LICENSE-APACHE`. The README gives the terms for contributions.
 - [ ] **A clean Windows computer for the toolchain prototype.** A standard account, with no
-  Visual Studio. A Hyper-V virtual machine on Windows 11 Pro is one way.
+  Visual Studio. A Hyper-V virtual machine on Windows 11 Pro is one way. Run the static build
+  of the [toolchain prototype](../prototypes/toolchain/README.md) on it.
 - [ ] **Linux and macOS runs (optional).** Milestone 0 runs there when a machine or a CI runner
   can (13.5). GitHub Actions runners can run the type and hot reload prototypes.
 
@@ -30,9 +31,10 @@ the next prototype (section 19).
   clusters, and the type key check.
 - [x] **Hot reload** (8.5). A value that outlives a reload, the memory and disk use of each
   reload, and the time of a cold build and of a rebuild.
-- [ ] **Toolchain** (13.2). Zig as the C compiler, and a Patina folder at a path with spaces and
-  non-ASCII characters. The result decides the Windows target, for example
-  `x86_64-pc-windows-gnu` (13).
+- [x] **Toolchain** (13.2). Zig as the C compiler, and a Patina folder at a path with spaces and
+  non-ASCII characters. Result: the `x86_64-pc-windows-gnu` target, Zig for C and `rust-lld`
+  as the linker (13.2). It passed on the computer of the owner. The run on a clean computer is
+  open (item 1 and STATUS.md).
 - [x] **Viewport** (15.8). A `wgpu` viewport in a Tauri panel. Result: the native path, a `wgpu`
   surface under a transparent web view, with the DX12 backend on Windows (15.8). The owner check
   of a visible window and a live display scale change is open (STATUS.md).

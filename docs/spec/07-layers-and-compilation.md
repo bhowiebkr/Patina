@@ -115,7 +115,7 @@ Section 7 describes the base and the slot. The base builds in bake mode. The slo
 
 - Each build gets a new file name: clusters, the slot, views, connection kinds, and the shared types library. Windows locks loaded `.dll` files. Windows also gives an already loaded library to each later request with the same file name. Thus a new build with an old name would run the old code.
 - The file name of a library holds a hash of the file content. A build that gives the same bytes gets the same name, so the loaded library stays in use. Thus an undo to an earlier source does not load a new copy.
-- The builds must be reproducible. With the MSVC linker, the engine links with `/Brepro`. Without it, each library holds a new time stamp and a new PDB ID. The toolchain prototype finds the flag for its target (19). This is an agent decision of 2026-11-15.
+- The builds must be reproducible. Without a flag, the linker writes a new time stamp into each library. The engine links with `--no-insert-timestamp` on the `x86_64-pc-windows-gnu` target with `rust-lld` (13.2), and with `/Brepro` on an MSVC target. The toolchain prototype and the hot reload prototype proved each flag (STATUS.md). This is an agent decision of 2026-11-15.
 - The engine loads each library by its full path. It finds the libraries that a library needs only in the `build/` folder of the project. On Windows, `LoadLibraryExW` with the `LOAD_LIBRARY_SEARCH` flags limits the search path. The `build/` folder holds each library that a cluster needs, including the `std` library of the toolchain.
 - Values, node states, futures, and callbacks keep a link to the build that made them. Old builds stay loaded, so these drop with their own code.
 - A failed build never deletes or replaces a loaded file.

@@ -5,10 +5,11 @@ members = [
     "prototypes/viewport",
     "prototypes/hot-reload",
     "prototypes/types-across-clusters",
+    "prototypes/toolchain",
     "tools/repo-checks",
 ]
-# The prototype user project builds alone, with its own flags (spec 5.2).
-exclude = ["prototypes/types-across-clusters/project"]
+# The user projects of the prototypes build alone, with their own flags and toolchains.
+exclude = ["prototypes/types-across-clusters/project", "prototypes/toolchain/fixture"]
 
 [workspace.package]
 edition = "2024"
