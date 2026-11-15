@@ -12,8 +12,8 @@ by the milestone that it blocks. The [spec](spec/README.md) stays the source of 
 
 - [ ] **GitHub remote.** The folder is a Git repository, but it has no remote. AGENTS.md
   expects CI, issues and pull requests.
-- [ ] **License.** The repository has no license file. Issues and pull requests are welcome, so
-  the repository needs a license before outside code comes in.
+- [x] **License.** MIT OR Apache-2.0, as the owner decided on 2026-11-15. The files are
+  `LICENSE-MIT` and `LICENSE-APACHE`. The README gives the terms for contributions.
 - [ ] **A clean Windows computer for the toolchain prototype.** A standard account, with no
   Visual Studio. A Hyper-V virtual machine on Windows 11 Pro is one way.
 - [ ] **Linux and macOS runs (optional).** Milestone 0 runs there when a machine or a CI runner

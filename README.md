@@ -26,6 +26,7 @@
 - [Status and roadmap](#status-and-roadmap)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
+- [License](#license)
 
 ## What Patina is
 
@@ -296,3 +297,14 @@ A source file can have 1000 lines at most. When a file gets longer, refactor it.
 
 Windows is the main platform. If you use Linux or macOS, your tests and fixes for that system
 are welcome. They are the way those builds get better.
+
+## License
+
+Patina is under two licenses. You can use it under the license that you choose:
+
+- The [MIT license](LICENSE-MIT)
+- The [Apache License 2.0](LICENSE-APACHE)
+
+A contribution that you send for inclusion in Patina is under the same two licenses, with no
+other terms. This applies unless you clearly write otherwise. The word "contribution" has the
+meaning that the Apache License 2.0 gives it.

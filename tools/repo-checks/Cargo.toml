@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "Checks for the whole repository, for example the file length limit (AGENTS.md)."
 edition.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [lints]
 workspace = true

@@ -7,6 +7,7 @@ exclude = ["prototypes/types-across-clusters/project"]
 [workspace.package]
 edition = "2024"
 publish = false
+license = "MIT OR Apache-2.0"
 
 # Each member crate sets `[lints] workspace = true` (AGENTS.md, Rust code).
 [workspace.lints.clippy]
