@@ -278,8 +278,8 @@ tool that works.
 11. Audio domain.
 12. Event domain.
 
-Some design questions are still open, for example the graph file format, and React or Svelte
-for the editor. [Section 18 of the spec](docs/spec/16-roadmap.md#18-open-questions) lists them.
+Some design questions are still open, for example the dock layout and a **Stop** button.
+[Section 18 of the spec](docs/spec/16-roadmap.md#18-open-questions) lists them.
 
 ## Documentation
 

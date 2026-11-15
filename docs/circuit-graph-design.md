@@ -114,7 +114,7 @@ routes without changing pins or execution. Avoid claiming that every graph can
 be made crossing-free or that a pathfinder will always find a valid route
 through conflicting fixed points.
 
-Route persistence still belongs to the open format/layout decisions in spec 18.
+The graph file saves the route points, collars and cables (spec 6.4).
 The type crate owns the meaning of logic bits, disconnected states and any
 explicit multi-driver resolver. Neither a bend nor a bridge grants those
 semantics to an ordinary wire.
@@ -130,8 +130,8 @@ The new screen proposes a public-port editor with:
 4. Breadcrumbs that identify the inspected instance.
 5. A stable mapping from public ports to internal endpoints.
 
-Stable port identities should survive rename and reorder. They are a proposal
-beyond the spec's existing stable node identities. Distinguish editing a shared
+Stable port identities survive rename and reorder. Spec 6.4 gives each public
+pin a stable random key. Distinguish editing a shared
 definition from inspecting an instance. A reused register must not accidentally
 share mutable state with every other instance.
 

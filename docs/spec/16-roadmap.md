@@ -18,7 +18,7 @@ Part of the [Patina Specification](README.md).
 
 Ask the owner. Do not decide these alone.
 
-1. Project file format. Requirements: text-based and Git-friendly. The project folders are set (6.2). Still open: the format of the graph files in `graphs/` and of `patina.toml`, and where the parameter values and the node positions go. Also where the route points, the branch collars, and the cable groups of the connections go (15.9). Also how a connection names a pin. A subgraph must keep its connections when its public pins get a new name or a new order ([circuit graph design](../circuit-graph-design.md)).
+1. Project file format. Decided: TOML files that Patina writes in a fixed order, with stable keys for the public pins of a subgraph (6.4). Agent decision of 2026-11-15. The owner can change it.
 2. React or Svelte. Decided: React, with React Flow (15.1). Agent decision from the connections prototype, 2026-11-15. The owner can change it.
 3. Default audio block size and number of audio threads.
 4. Process isolation: default on or off.
@@ -26,7 +26,7 @@ Ask the owner. Do not decide these alone.
 6. App mode: a layout that shows the views and the node GUIs without the graph, so a project becomes a tool for other users (15.8). Can a package include it, with its views?
 7. Fuse time: how long a node stays in the slot with no change before the engine fuses it back (7.2).
 8. Dock layout: does the project save the layout, the open views, and the state of each view, for example the camera of a 3D viewport? Or does each user keep their own layout (15.2)?
-9. First workflow: the fewest steps from a new project to two connected nodes, a run, a save, and a reopen. When does code save: at each change, or with Ctrl+S? How does the editor show unsaved code, saved code, and the build that runs (15.4)?
+9. First workflow. Decided: graph edits apply at once, code applies at Ctrl+S, and Ctrl+S saves the full project (15.10). Agent decision of 2026-11-15. The owner can change it.
 10. Stop: does the top bar need a **Stop** or **Cancel** button next to **Pause** (15.2)? What can it promise for native code, which cannot stop safely in the middle of a call?
 11. Side effects while editing: which batch nodes run again after a parameter change (9.1)? How does Patina prevent repeated writes to files or to the network while the user drags a slider?
 12. Live values in a fused chain: a chain of small nodes inlines into one call (9.2). Thus a value between two of them can exist only in registers. How does the engine show it on the wire (15.9)? It can keep a copy point on each wire that the editor shows. It can rebuild the chain with copy points when the user looks at a wire. Or it can show live values only between tasks. Milestones 4 and 6 can measure the cost.

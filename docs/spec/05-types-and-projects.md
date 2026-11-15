@@ -52,10 +52,10 @@ A project is a folder with a stable random ID. Each node, view, custom widget, c
 
 ```
 <project>/
-  patina.toml        project settings, for example the Rust version (format TBD, see 18)
+  patina.toml        project settings, for example the Rust version (6.4)
   Cargo.toml         the workspace, made by Patina
   Cargo.lock
-  graphs/            the main graph and the subgraphs, with their connections (format TBD, see 18)
+  graphs/            the main graph and the subgraphs, with their connections (6.4)
   nodes/
     curve-editor/    one node
       Cargo.toml
@@ -88,7 +88,7 @@ A project is a folder with a stable random ID. Each node, view, custom widget, c
 - This project can already have a folder with the same name but other contents. Then Patina asks the user to replace the old folder, keep it, or import the new folder with another name.
 - With another name, Patina changes the crate name in the `Cargo.toml` of the new folder. The copied folders that depend on it point to the new name with the `package` key of Cargo, so their code does not change.
 - The copy belongs to this project. A later change in the other project does not change it. Patina never links folders between projects, because a project holds all its source (2, 14), and a change in another project must not break it.
-- Patina records the source of the copy. The record holds the stable random ID of the other project, the folder name, and a hash of the contents at import. The record holds no path, so it shows no private folder names when the project is shared. The format of the record is part of question 1 (18).
+- Patina records the source of the copy. The record holds the stable random ID of the other project, the folder name, and a hash of the contents at import. The record holds no path, so it shows no private folder names when the project is shared. Section 6.4 gives the format of the record.
 - **Update** in the **Project** panel compares the copy with the folder in the other project. Patina finds the other project among the projects that the user opened before, or asks for its folder. It shows the changes on both sides, including the changes that the user made to the copy. It copies the new version only when the user confirms. If both sides changed a file, the user picks the version of that file.
 - The crate versions of the copy resolve with the `Cargo.lock` of this project (8.1).
 - Patina builds the changed folders before it applies an **Import** or an **Update**. If the build fails or the user cancels, the project stays as it was.
@@ -124,3 +124,92 @@ A connection kind can give:
 - The default look: the path style, a color family for each lane group, and the form at a far zoom.
 
 The SDK form of a connection kind is not fixed. Start with the lanes, the label and the badge. Expect changes as the editor grows.
+
+### 6.4 Project file format
+
+This is an agent decision of 2026-11-15 for question 1 (18). The owner can change it.
+
+The project files are TOML. Patina writes them, and Git can merge them. A person can edit them by hand, but Patina does not keep comments.
+
+**`patina.toml`**
+
+```toml
+format = 1
+id = "3f9c2a7d41e0b85c"     # the stable random ID of the project (6.2)
+rust = "1.94.0"             # the Rust version of the project (8.1)
+
+[imports."nodes/curve-editor"]   # the folder in this project (6.2)
+project = "9a1b4c0d2e7f6385"     # the ID of the other project
+folder = "curve-editor"          # the folder name in the other project
+hash = "sha256:<64 hex characters>"
+```
+
+- The import hash is a SHA-256 hash of the sorted relative paths and the bytes of each file in the folder. The paths use `/` on each platform.
+- An import record holds no path of the other project (6.2).
+
+**Graph files**
+
+- Each graph and each subgraph is one file in `graphs/`. The file name is the graph name. `graphs/main.toml` is the main graph.
+- A subgraph file can have public pins. Each use of the subgraph is a node with these pins (6.1).
+
+```toml
+format = 1
+
+[[node]]
+id = "5c0e9b2a7f13d846"         # the stable random ID of this use (6.1)
+folder = "nodes/curve-editor"   # or subgraph = "full-adder" for a use of graphs/full-adder.toml
+pos = [120.0, -40.0]
+domain = "audio"                # only when the user selected the domain (9.1)
+settings = "<text form>"        # only for a node with #[settings] (4.3)
+
+[node.params]
+radius = "2.5"                  # the text form of the Param trait (4.8)
+
+[[wire]]
+from = "5c0e9b2a7f13d846.out"
+to = "a01d77c3e5b9f210.image"
+style = "orthogonal"             # only when the wire overrides the graph default (15.9)
+points = [[200.0, -40.0], [200.0, 80.0]]   # the manual route points (15.9)
+
+[[order]]                        # an order wire (9.2)
+before = "5c0e9b2a7f13d846"
+after = "a01d77c3e5b9f210"
+
+[[collar]]                       # a branch collar of a fan-out (15.9)
+pos = [260.0, 80.0]
+wires = ["a01d77c3e5b9f210.image", "c7e2f0918b3d4a65.image"]
+
+[[cable]]                        # a visual cable group (15.9)
+name = "control"
+wires = ["a01d77c3e5b9f210.gain", "c7e2f0918b3d4a65.gain"]
+
+[[input]]                        # a public input pin of a subgraph
+key = "4f2a9c1e"
+name = "carry_in"
+pos = [0.0, 40.0]
+to = ["e1d4c2b7a9f03856.b"]
+
+[[output]]                       # a public output pin of a subgraph
+key = "b83d0e57"
+name = "sum"
+pos = [400.0, 40.0]
+from = "e1d4c2b7a9f03856.out"
+```
+
+**Rules**
+
+- A node ID is 16 lowercase hexadecimal characters, from a random 64-bit number. Two nodes of one graph never have the same ID.
+- A wire end is `<node ID>.<pin key>`. The pin key of an input is the name of its function parameter (4.1). The output pin key is `out`. A tuple gives `out0`, `out1` and so on. A `&mut` input gives an output with the same key (4.4). On a use of a subgraph, the pin key is the key of the public pin.
+- An input has one wire at most. Thus the `to` end names the wire, and collars and cables name wires by it.
+- A public pin of a subgraph has a key of 8 random hexadecimal characters. The key does not change when the pin gets a new name or a new order, so the connections of each use stay. The order of the `[[input]]` and `[[output]]` tables is the order of the pins.
+- A parameter value and a settings value are the text form that their type gives (4.8). The engine stores the text and does not read it, so it stays free of types (2).
+- The route points, collars and cables are in the graph file, so the project owns them. The dock layout, the camera of the graph and the selection are not in the graph file (question 8 of 18).
+- A wire to a pin that no longer exists stays in the file. The node shows an error until the user removes the wire or the pin comes back (15.5). Patina never deletes a wire without a user action.
+
+**Writing**
+
+- Patina writes UTF-8 with LF line ends. The nodes sort by ID, and the wires by their `to` end. The order, collar and cable tables sort by their first value. Each key has a fixed place.
+- A number has the shortest form that reads back as the same value. The files hold no time stamps and no paths outside the project.
+- The same project gives the same bytes at each save. Thus a change shows in Git as a small diff.
+- A file with a newer `format`, or with a key that Patina does not know, does not open. Patina shows the file and the key. It never drops data that it does not understand.
+- Patina opens an older `format`, and the next save writes the current format.

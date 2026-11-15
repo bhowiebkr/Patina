@@ -270,7 +270,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Moving a route point changes geometry only. Reconnecting an endpoint is a separate action with the normal graph checks.
 - Preserve manual route points when nodes move or resize. Recalculate only the affected unfixed sections where possible.
 - Show a routing conflict if fixed points prevent a clear path. Do not silently remove points, disconnect the graph or treat a visual obstruction as a run error.
-- Route edits support undo and redo. The storage format and ownership of saved layout remain open questions (18).
+- Route edits support undo and redo. The graph file saves the route points, the collars and the cables (6.4). The dock layout is question 8 (18).
 - The user can select a connection and trace it to its endpoints at each zoom level. Its hit area can be wider than the visible stroke.
 
 **Optional refinements**
@@ -284,3 +284,39 @@ Future connection styles must preserve the same type, endpoint, selection,
 error and routing rules. The guide lists extension cases without requiring all
 of them for version 1.
 
+
+### 15.10 Save and the first workflow
+
+This is an agent decision of 2026-11-15 for question 9 (18). The owner can change it.
+
+**Save**
+
+- A graph edit goes to the engine at once, with undo (7.4). A wiring change rebuilds its cluster (7.2). A code edit goes to the engine when the user saves it.
+- Ctrl+S saves all changes of the project: the graph files and the code files (6.4). A saved code file starts the build of each unit that uses it (7.2, 8.2).
+- A save sends one `SetCode` edit for each changed code file (7.4). A save does not clear the undo history.
+- Reason: Cargo builds from the files on disk. Thus the build that runs always matches a saved file. Patina does not write half-typed code into the folder of the user.
+- After each change, Patina writes the unsaved changes to a recovery file in `data/` (11). A save deletes the recovery file. When a project opens with a recovery file, Patina asks the user to restore it or to discard it.
+- When the user closes a project with unsaved changes, Patina asks: **Save**, **Discard** or **Cancel**.
+
+**What the editor shows**
+
+- An unsaved code file has a dot on its tab in the **Code** tab. The top bar shows a dot after the project name when the project has unsaved changes.
+- The **Code** tab shows the build state of the saved code: **Building**, **Built in 1.8 s** or **Error** (15.3).
+- If the saved code does not compile, the graph runs the last build that compiled (7.2). The **Code** tab then shows **Running the last build that compiled**.
+
+**First workflow**
+
+These are the fewest steps from a new project to a reopen:
+
+1. On the start screen, click **New project**. Select a folder and a name.
+2. Drag the `number` node folder from the **Project** panel into the graph.
+3. Drag the `show` node folder into the graph.
+4. Connect the output of `number` to the input of `show`.
+5. Click **Run**. The **Output** tab shows the value.
+6. Push Ctrl+S.
+7. Close the project. On the start screen, select it in the recent projects list.
+
+- A new project has the `number` and `show` node folders and an empty main graph. `number` has a parameter and gives its value. `show` writes its input to the **Output** tab.
+- A new project goes on the list of trusted projects (11).
+- A project opens with its graph paused. The user clicks **Run**.
+- The start screen has **New project**, **Open project** and a list of recent projects.

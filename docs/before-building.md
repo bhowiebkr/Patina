@@ -49,12 +49,10 @@ questions block.
 
 Milestone 1, engine and CLI:
 
-- [ ] **Q1, project file format.** The graph files in `graphs/`, `patina.toml`, where the
-  parameter values and the node positions go, and the import record (6.2). The CLI cannot run a
-  saved graph without it. Decide this first. It also covers the route points, branch collars
-  and cable groups of wires, and pin IDs that survive a rename of a subgraph pin (15.9).
-- [ ] **Q9, first workflow.** Save at each change or with Ctrl+S. How the editor shows unsaved
-  code, saved code and the build that runs. It affects the file format.
+- [x] **Q1, project file format.** Agent decision: TOML files that Patina writes in a fixed
+  order, with stable keys for the public pins of a subgraph (6.4).
+- [x] **Q9, first workflow.** Agent decision: graph edits apply at once, code applies at Ctrl+S,
+  and Ctrl+S saves the full project (15.10).
 
 Milestone 2, editor:
 

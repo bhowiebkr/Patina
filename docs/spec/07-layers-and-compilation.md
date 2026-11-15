@@ -25,7 +25,7 @@ Patina compiles a graph in two layers:
 
 1. The user opens the code of node N. The engine starts a background build of the base with an empty slot for N. Only the clusters that hold a use of N rebuild (8.2). The cache keeps the other clusters (8.6).
 2. Until that build is ready, the old base keeps running with the old code of N.
-3. At each code change, the engine compiles N alone in edit mode, with a target of a few seconds. It swaps the new build into the slot between two runs of the graph.
+3. At each save of the code of N (15.10), the engine compiles N alone in edit mode, with a target of a few seconds. It swaps the new build into the slot between two runs of the graph.
 4. If N does not compile, the slot keeps the last build that compiled, and the graph keeps running. The node shows the error (15.5), and its outputs keep their normal look. If N never compiled, it has no build: it shows the error, and its downstream nodes are Skipped (15.3).
 5. The engine fuses N back into the base when one of these occurs:
    - The user opens the code of another node.
