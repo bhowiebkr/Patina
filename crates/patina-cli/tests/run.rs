@@ -532,4 +532,12 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     let (output, stdout, stderr) = run(&project, &[]);
     assert!(output.status.success(), "{stderr}");
     assert!((stdout.trim().parse::<f64>().unwrap() - 0.664).abs() < 0.01, "{stdout}");
+
+    // The preview node shows a small copy of the image in its GUI (10.2).
+    let opened = Project::open(&project).unwrap();
+    let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
+    cluster.set_params(opened.graph());
+    assert!(cluster.run(&Control::default()).ok);
+    let tree = cluster.ui("4d5e6f708192a3b4", 0, "").0.unwrap();
+    assert!(tree.starts_with("image	Preview	64	16	"), "{tree}");
 }

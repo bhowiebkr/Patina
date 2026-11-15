@@ -82,6 +82,39 @@ impl GpuImage {
     }
 }
 
+impl GpuImage {
+    /// A copy that fits in `max` x `max` pixels, for a node GUI or a viewer (10.2).
+    // shortcut: it reads the full image and shrinks it on the CPU, shrink on the GPU when large images get slow.
+    pub fn preview(&self, gpu: &Gpu, max: u32) -> Result<([u32; 2], Vec<u8>), String> {
+        Ok(shrink(&self.read(gpu)?, [self.width(), self.height()], max))
+    }
+}
+
+/// Shrinks RGBA pixels to fit in `max` x `max`, with the mean of each block. It keeps the
+/// aspect ratio and does not enlarge.
+pub(crate) fn shrink(pixels: &[u8], size: [u32; 2], max: u32) -> ([u32; 2], Vec<u8>) {
+    let [w, h] = size;
+    let scale = w.max(h).div_ceil(max.max(1)).max(1);
+    let (to_w, to_h) = (w.div_ceil(scale), h.div_ceil(scale));
+    let mut out = Vec::with_capacity((to_w * to_h * 4) as usize);
+    for y in 0..to_h {
+        for x in 0..to_w {
+            let (mut sum, mut count) = ([0u32; 4], 0);
+            for sy in y * scale..((y + 1) * scale).min(h) {
+                for sx in x * scale..((x + 1) * scale).min(w) {
+                    let i = ((sy * w + sx) * 4) as usize;
+                    for (s, &p) in sum.iter_mut().zip(&pixels[i..i + 4]) {
+                        *s += u32::from(p);
+                    }
+                    count += 1;
+                }
+            }
+            out.extend(sum.map(|s| (s / count) as u8));
+        }
+    }
+    ([to_w, to_h], out)
+}
+
 impl patina_sdk::Viewer for GpuImage {
     fn text(&self, out: &mut patina_sdk::Text<'_>) -> fmt::Result {
         write!(out, "GpuImage {}x{}", self.width(), self.height())

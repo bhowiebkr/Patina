@@ -39,3 +39,13 @@ fn a_bad_shader_gives_an_error() {
     let error = gpu.shader("bad", "fn main( {").err().unwrap();
     assert!(error.starts_with("bad: "), "{error}");
 }
+
+#[test]
+fn shrink_takes_the_mean_of_each_block_and_keeps_the_ratio() {
+    let pixels: Vec<u8> = [0u8, 100, 200, 50].iter().flat_map(|&v| [v, v, v, 255]).collect();
+    let (size, out) = crate::image::shrink(&pixels, [4, 1], 2);
+    assert_eq!((size, out), ([2, 1], vec![50, 50, 50, 255, 125, 125, 125, 255]));
+    let (size, _) = crate::image::shrink(&[0; 5 * 3 * 4], [5, 3], 2);
+    assert_eq!(size, [2, 1]);
+    assert_eq!(crate::image::shrink(&pixels, [4, 1], 8).0, [4, 1]);
+}

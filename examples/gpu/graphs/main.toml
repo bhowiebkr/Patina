@@ -27,3 +27,12 @@ to = "2b3c4d5e6f708192.image"
 [[wire]]
 from = "2b3c4d5e6f708192.out"
 to = "3c4d5e6f708192a3.value"
+
+[[node]]
+id = "4d5e6f708192a3b4"
+folder = "nodes/preview"
+pos = [240.0, 160.0]
+
+[[wire]]
+from = "1a2b3c4d5e6f7081.out"
+to = "4d5e6f708192a3b4.image"

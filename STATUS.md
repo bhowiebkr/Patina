@@ -18,7 +18,8 @@ with WESL (spec 10).
 2. The `patina-gpu` crate: the shared `wgpu` device, `GpuImage` and the WESL linker. This part
    works.
 3. Shader assets and the project root for each cluster (ABI 14). This part works.
-4. A viewer that shows a smaller copy of a GPU image (10.2). This part is not started.
+4. A smaller copy of a GPU image for the node GUI (10.2). This part works. The wire viewer
+   of the editor shows only the text of an image.
 5. CUDA through `cudarc` (10.1). This part is not started.
 
 ### What works
@@ -30,11 +31,14 @@ with WESL (spec 10).
 - `GpuImage` makes a texture and reads it back to the CPU.
 - `asset!` gives the path of a node asset in a project and in a package.
 - `examples/gpu` draws a gradient with a compute shader, and a second node reads its mean.
+- `GpuImage::preview` gives a copy that fits in a box. The preview node of `examples/gpu`
+  shows it in its GUI.
 
 ### What was checked
 
 - On Windows 11 with the real toolchain, Rust 1.100.0: the CLI test builds `examples/gpu`. It
-  gets a mean of 0.336, then 0.664 after the `invert` parameter changes the WESL feature.
+  gets a mean of 0.336, then 0.664 after the `invert` parameter changes the WESL feature. The
+  GUI of the preview node gives an image of 64 x 16 pixels.
 - The unit tests of `patina-gpu` check the link with an import and a feature, a bad import, the
   image read-back and a bad shader.
 - A glue test checks the asset path with and without a project root.
@@ -50,6 +54,8 @@ with WESL (spec 10).
 - These shortcuts are open in the code:
   - A project root that is not UTF-8 goes to the clusters with lossy text
     (`crates/patina-engine/src/library.rs`).
+  - `GpuImage::preview` reads the full image and shrinks it on the CPU
+    (`crates/patina-gpu/src/image.rs`).
   - The CLI test of `examples/gpu` checks only the build when there is no adapter
     (`crates/patina-cli/tests/run.rs`).
 
