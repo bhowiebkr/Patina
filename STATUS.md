@@ -10,8 +10,8 @@ checks open.
 
 Three slices work. The engine splits a graph into tasks and runs them on a worker pool (9.2).
 The CLI and the editor run the frame domain at 60 FPS (9.1). All ran on 2026-11-15 on Windows 11
-Pro, with Rust 1.94.0. CI ran the tests of the first two slices on Windows, Ubuntu and macOS. The
-delay node and the wires between domains come next.
+Pro, with Rust 1.94.0. CI ran the tests of the three slices on Windows, Ubuntu and macOS. The
+wires between domains come next. The delay node moved to milestone 5 (9.2).
 
 ### What works
 
@@ -39,6 +39,8 @@ delay node and the wires between domains come next.
   failed frame or a change that runs the graph again ends the frames. The engine sends an event
   for each frame. The status bar shows the frame number, and the badges and the run times of
   the frame nodes change at each frame.
+- The editor refuses a connection that makes a cycle of wires or order wires, and names the
+  nodes of the cycle (9.2). The graph does not change.
 
 ### What was checked
 
@@ -50,6 +52,8 @@ delay node and the wires between domains come next.
     two domains and a node with inputs from two domains.
   - The frame clock skips the ticks that a late frame missed.
   - A frame replaces only the live values of its outputs. The batch values stay.
+  - A connection that makes a cycle gives an error with the nodes of the cycle, and the graph
+    does not change. This also applies to a wire from a node to itself.
 - The CLI tests ran the hello example (3 tasks, with shared values) and the fail project (2
   branches) through the pool. The hello test also added a frame node and a show node. With
   `--frames 3`, it wrote `6.5` one time and then `1` three times.
@@ -59,9 +63,12 @@ delay node and the wires between domains come next.
   the status bar. Then it clicks **Stop**. The end event counted the 3 frames, and no frame ran
   after it.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.100.0.
+- CI run 43741563738 of the editor frame run passed on `windows-latest`, `ubuntu-latest` and
+  `macos-latest`.
 
 ### Known limits
 
+- No delay node yet, so a graph cannot have a feedback loop. It comes in milestone 5.
 - No measurement of the split or of the pool ran yet. The split rule can change after the
   measurement of a chain of small nodes and of heavy branches.
 - Each run collects the reports into a new list. Each frame thus allocates, and so does each

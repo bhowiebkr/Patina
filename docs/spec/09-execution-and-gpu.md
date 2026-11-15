@@ -73,6 +73,7 @@ Rules:
 
 - A cycle of data wires or order wires needs a delay node. The editor refuses a connection that makes another cycle, and names the nodes of the cycle.
 - The batch and event domains have no delay nodes, so their graphs have no cycles.
+- The delay node comes in milestone 5, with the stateful nodes and the generic nodes, because it keeps a value of any type from one frame to the next. Until then, the engine refuses each cycle, and the editor refuses each connection that makes a cycle. This is an agent decision of 2026-11-15 that the owner can change.
 - A node with no inputs and no declared domain runs in the batch domain. Its domain icon shows this (15.3), and the user can change the domain.
 
 Later: start the first nodes of frame N+1 while the last nodes of frame N run.

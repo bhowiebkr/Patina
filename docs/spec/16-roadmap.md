@@ -44,7 +44,7 @@ Ask the owner. Do not decide these alone.
 2. **Editor:** Tauri shell, dock layout, Project panel, node editor, Monaco, node states, errors, value viewers (15.2), connections with route points, live values and connection kinds (15.9, 6.3).
 3. **Toolchain button and release:** the portable zip and the installers (13.1).
 4. **Automatic parallelism and the frame domain.**
-5. **Stateful nodes, node GUIs, and generic nodes:** with the full size and widget folders (4.3).
+5. **Stateful nodes, node GUIs, and generic nodes:** with the full size and widget folders (4.3), and the delay node (9.2).
 6. **Layers:** clusters, the base, the slot, fuse back, and **Bake** (7). Check: one node folder with uses in two clusters. Change its output type, and change it again before the first build ends. All uses switch to the newest build, and the errors refer to the newest code. Measure the fuse time.
 7. **Subgraphs and reuse:** subgraphs, and **Import** and **Update** of folders from other projects (6.2).
 8. **Packaging.**

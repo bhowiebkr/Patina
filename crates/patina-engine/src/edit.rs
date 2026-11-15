@@ -1,5 +1,7 @@
 //! The edits of the user and their undo history (spec 7.4).
 
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
 use serde::Deserialize;
 
 use crate::project::{Corners, GraphFile, NodeEntry, Style, Wire, is_id};
@@ -174,6 +176,9 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                     return Err(format!("the pin {end:?} has no key"));
                 }
             }
+            if let Some(ids) = cycle(graph, node_of(from), node_of(to)) {
+                return Err(format!("the wire makes a cycle through these nodes: {}", ids.join(", ")));
+            }
             graph.wire.retain(|w| &w.to != to);
             graph.wire.push(Wire { from: from.clone(), to: to.clone(), style: None, corners: None, points: Vec::new() });
         }
@@ -221,6 +226,37 @@ fn find(graph: &GraphFile, id: &str) -> Result<usize, String> {
     graph.node.iter().position(|n| n.id == id).ok_or(format!("the graph has no node {id}"))
 }
 
+/// The nodes of the cycle that a new wire from node `from` to node `to` makes (9.2), from `to`
+/// along the wires and the order wires to `from`. None when the wire makes no cycle.
+fn cycle<'a>(graph: &'a GraphFile, from: &'a str, to: &'a str) -> Option<Vec<&'a str>> {
+    let links: Vec<(&str, &str)> = graph
+        .wire
+        .iter()
+        .map(|w| (node_of(&w.from), node_of(&w.to)))
+        .chain(graph.order.iter().map(|o| (o.before.as_str(), o.after.as_str())))
+        .collect();
+    let mut back = BTreeMap::new();
+    let mut seen = BTreeSet::from([to]);
+    let mut queue = VecDeque::from([to]);
+    while let Some(node) = queue.pop_front() {
+        if node == from {
+            let mut path = vec![node];
+            while let Some(&prev) = back.get(path[path.len() - 1]) {
+                path.push(prev);
+            }
+            path.reverse();
+            return Some(path);
+        }
+        for &(a, b) in &links {
+            if a == node && seen.insert(b) {
+                back.insert(b, node);
+                queue.push_back(b);
+            }
+        }
+    }
+    None
+}
+
 fn node_of(end: &str) -> &str {
     end.split_once('.').map_or(end, |(id, _)| id)
 }
@@ -235,6 +271,7 @@ mod tests {
 
     const A: &str = "000000000000000a";
     const B: &str = "000000000000000b";
+    const C: &str = "000000000000000c";
 
     fn add(id: &str) -> Edit {
         Edit::AddNode { id: id.to_owned(), folder: "nodes/number".to_owned(), pos: [0.0, 0.0] }
@@ -254,9 +291,14 @@ mod tests {
         history.apply(&add(A)).unwrap();
         history.apply(&add(B)).unwrap();
         assert!(history.apply(&add(B)).is_err(), "two nodes cannot have one ID");
+        history.apply(&add(C)).unwrap();
         history.apply(&connect("000000000000000a.out", "000000000000000b.value")).unwrap();
-        history.apply(&connect("000000000000000b.out", "000000000000000b.value")).unwrap();
+        history.apply(&connect("000000000000000c.out", "000000000000000b.value")).unwrap();
         assert_eq!(history.graph.wire.len(), 1, "a second wire to one input replaces the first");
+        let err = history.apply(&connect("000000000000000b.out", "000000000000000c.value")).unwrap_err();
+        assert!(err.ends_with("nodes: 000000000000000c, 000000000000000b"), "{err}");
+        assert!(history.apply(&connect("000000000000000b.out", "000000000000000b.value")).is_err());
+        assert_eq!(history.graph.wire.len(), 1, "a wire that makes a cycle changes nothing");
         let param = Edit::SetParam { id: A.to_owned(), key: "value".to_owned(), text: Some("2".to_owned()) };
         history.apply(&param).unwrap();
         assert!(history.apply(&param).is_err(), "an edit that changes nothing is not kept");
@@ -265,10 +307,10 @@ mod tests {
         assert!(history.dirty());
 
         assert!(history.undo(no_code).unwrap());
-        assert_eq!(history.graph.node.len(), 2);
-        assert_eq!(history.graph.wire[0].from, "000000000000000b.out");
+        assert_eq!(history.graph.node.len(), 3);
+        assert_eq!(history.graph.wire[0].from, "000000000000000c.out");
         assert!(history.redo(no_code).unwrap());
-        assert_eq!(history.graph.node.len(), 1);
+        assert_eq!(history.graph.node.len(), 2);
         assert!(!history.redo(no_code).unwrap());
         while history.undo(no_code).unwrap() {}
         assert!(!history.dirty(), "undo of all edits gives the saved graph");
