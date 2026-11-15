@@ -3,6 +3,7 @@
 import { createContext, memo, useContext, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { api } from './api';
 import { eventLine, parseTree, type Shape, type Widget } from './gui';
+import { ColorPicker, Curve, Picture, Plot, Table, Waveform } from './ValueWidgets';
 
 interface Props {
   id: string;
@@ -188,6 +189,18 @@ function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
             );
           case 'canvas':
             return <CanvasView key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'color':
+            return <ColorPicker key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'plot':
+            return <Plot key={w.index} w={w} />;
+          case 'waveform':
+            return <Waveform key={w.index} w={w} />;
+          case 'table':
+            return <Table key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'curve':
+            return <Curve key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'image':
+            return <Picture key={w.index} w={w} />;
         }
       })}
     </div>

@@ -27,7 +27,9 @@ and in the editor.
   A parameter that no input wire gives makes an error on the node.
 - A stateful node can have `pub fn ui(&mut self, ui: &mut Ui)`. `Cluster::ui` calls it between
   two runs, with the user input as events, and gives the widget lines. The `Ui` has the basic
-  widgets: a label, a button, a toggle, a slider, a number field, a text field and a dropdown. A panic in `ui` drops the state, as in `process`.
+  widgets (a label, a button, a toggle, a slider, a number field, a text field and a dropdown)
+  and the value widgets (a color picker, a plot, a waveform, a table, a curve and an image).
+  After the events, `ui` runs one more time, so the widget lines show the new state. A panic in `ui` drops the state, as in `process`.
 - A graph can have a feedback loop in the frame domain through a delay node
   (`builtin = "delay"`). The delay gives the value of its input in the previous frame, and
   `Default::default()` in the first frame.
@@ -58,6 +60,14 @@ and in the editor.
   wire showed `3.5` instead of `2.5`.
 - The parser test finds `ui`, and refuses `ui(&self, ...)`, `ui: &Ui` and a private `ui`.
 - The `Ui` test reads the events of a button, a toggle and a slider, and clamps the slider.
+- The `Ui` test writes the lines of each value widget. A plot of 3000 values sent 1024 values
+  and kept its peak. A waveform sent 256 columns. A curve sorted its points after a move. A
+  bad event changed no value. An image with a bad size sent no pixels.
+- The frontend test reads each value widget line, and drops 5 bad lines but keeps their index.
+- The hello test moves the **Count** slider of the tick node to 7. The widget lines after the
+  event showed 7, not the old count.
+- The editor selfcheck shows the value widgets in the node body. A click on a table row
+  selected the row. The **Parameters** tab of the **Inspector** showed the large size.
 - The plan test orders a loop through a delay and gets its type from the other wire. It refuses
   a delay with no input wire, an unknown built-in node, and a loop of only generic nodes.
 
@@ -70,8 +80,9 @@ and in the editor.
   pass. The cause is not known.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
   the **Inspector**. It draws them again after each run and each frame. A change in a live
-  graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI. No check
-  uses the other widgets or the **Inspector** size in the editor.
+  graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
+  value widget, selects a table row and shows the large size in the **Inspector**. No check
+  drags a curve point or picks a color in the editor.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. Nobody opened a full size in the editor.
@@ -84,8 +95,8 @@ and in the editor.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
   palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
   the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.
-- Only stateful nodes can have a GUI. The value widgets and the audio `ui` with `#[settings]`
-  are not done.
+- Only stateful nodes can have a GUI. The audio `ui` with `#[settings]` comes with the audio
+  domain (milestone 11).
 - The **Widgets** group of the **Project** tab makes widget folders with a start widget. **Add
   crate** with a widget name adds the widget by its path. A manual check built a node that shows
   a widget folder in `patina-cli`. No editor test makes a widget.

@@ -283,11 +283,17 @@ impl<T> State<T> {
 
 /// Calls the `ui` function of a stateful node between two runs (4.3), and sends its widget lines.
 /// A panic drops the state, as in `process` (4.7).
-pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl FnOnce(&mut T, &mut crate::Ui), cmd: (u32, &str), rep: &Reporter, node: u32) -> bool {
+pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &mut crate::Ui), cmd: (u32, &str), rep: &Reporter, node: u32) -> bool {
     let mut st = state.lock();
     let mut gui = crate::Ui::new(cmd.0, cmd.1);
     let caught = catch_unwind(AssertUnwindSafe(|| {
-        ui(st.get_or_insert_with(init), &mut gui);
+        let value = st.get_or_insert_with(init);
+        ui(value, &mut gui);
+        // A widget writes its value before it applies its event, so draw again with the new state.
+        if !cmd.1.is_empty() {
+            gui = crate::Ui::new(cmd.0, "");
+            ui(value, &mut gui);
+        }
         Ok(())
     }));
     let ok = finish_state(caught, &mut st, rep, node);

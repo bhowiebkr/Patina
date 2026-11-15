@@ -4,6 +4,15 @@
 use std::fmt::Write;
 use std::ops::RangeInclusive;
 
+/// The most values of a plot line. A longer line sends the lowest and the highest value of parts.
+const MAX_PLOT: usize = 1024;
+/// The columns of a waveform.
+const WAVE_COLUMNS: usize = 256;
+/// The most points of a curve.
+const MAX_CURVE: usize = 256;
+/// The most pixels of an image, so that the widget lines stay fast to send.
+const MAX_PIXELS: u32 = 256 * 256;
+
 /// The size that the node draws its GUI in (4.3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -90,7 +99,8 @@ impl Canvas<'_> {
         for n in numbers {
             let _ = write!(self.tree, " {n}");
         }
-        let _ = write!(self.tree, " #{r:02x}{g:02x}{b:02x}");
+        self.tree.push(' ');
+        push_color(self.tree, [r, g, b]);
         if let Some(fill) = fill {
             let _ = write!(self.tree, " {}", u8::from(fill));
         }
@@ -229,6 +239,107 @@ impl Ui {
         changed(event.map(|v| *selected = v as usize))
     }
 
+    /// Shows a color picker for `color`: red, green and blue.
+    pub fn color(&mut self, text: &str, color: &mut [u8; 3]) -> Response {
+        let event = self.push("color", text).and_then(hex);
+        self.tree.push('\t');
+        push_color(&mut self.tree, *color);
+        changed(event.map(|v| *color = v))
+    }
+
+    /// Shows `values` as a line from left to right. `range` has the values at the bottom and the top.
+    pub fn plot(&mut self, text: &str, values: &[f32], range: RangeInclusive<f32>) {
+        self.push("plot", text);
+        let _ = write!(self.tree, "\t{}\t{}\t", range.start(), range.end());
+        if values.len() <= MAX_PLOT {
+            push_numbers(&mut self.tree, values.iter().copied());
+            return;
+        }
+        // The lowest and the highest value of each part, in their order, keep the peaks of the line.
+        push_numbers(
+            &mut self.tree,
+            parts(values, MAX_PLOT / 2).flat_map(|part| {
+                let low = part.iter().enumerate().min_by(|a, b| a.1.total_cmp(b.1));
+                let high = part.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1));
+                let (Some(low), Some(high)) = (low, high) else { return [f32::NAN; 2] };
+                if low.0 <= high.0 { [*low.1, *high.1] } else { [*high.1, *low.1] }
+            }),
+        );
+    }
+
+    /// Shows audio `samples` from -1 to 1. `playhead` is a position from 0 (the start) to 1 (the
+    /// end).
+    pub fn waveform(&mut self, text: &str, samples: &[f32], playhead: Option<f32>) {
+        self.push("waveform", text);
+        self.tree.push('\t');
+        if let Some(at) = playhead.filter(|v| v.is_finite()) {
+            let _ = write!(self.tree, "{}", at.clamp(0.0, 1.0));
+        }
+        self.tree.push('\t');
+        let columns = parts(samples, samples.len().min(WAVE_COLUMNS));
+        push_numbers(
+            &mut self.tree,
+            columns.flat_map(|part| [part.iter().copied().fold(f32::INFINITY, f32::min), part.iter().copied().fold(f32::NEG_INFINITY, f32::max)]),
+        );
+    }
+
+    /// Shows a table with the headings `columns` and the `cells`, row by row. `selected` is the
+    /// selected row. A click on a row selects it.
+    pub fn table<S: AsRef<str>>(&mut self, text: &str, columns: &[&str], cells: &[S], selected: &mut Option<usize>) -> Response {
+        let rows = if columns.is_empty() { 0 } else { cells.len().div_ceil(columns.len()) };
+        let event = number(self.push("table", text)).filter(|&v| v >= 0.0 && (v as usize) < rows);
+        let _ = write!(self.tree, "\t{}\t", columns.len());
+        if let Some(row) = selected {
+            let _ = write!(self.tree, "{row}");
+        }
+        for cell in columns.iter().copied().chain(cells.iter().map(AsRef::as_ref)) {
+            self.tree.push('\t');
+            push_clean(&mut self.tree, cell);
+        }
+        changed(event.map(|v| *selected = Some(v as usize)))
+    }
+
+    /// Shows a curve editor for `points`, with x and y from 0 to 1. The user can move, add and
+    /// remove points. After a change, the points are in the order of x.
+    pub fn curve(&mut self, text: &str, points: &mut Vec<[f32; 2]>) -> Response {
+        let edit = self.push("curve", text).and_then(curve_edit);
+        for [x, y] in points.iter() {
+            let _ = write!(self.tree, "\t{x} {y}");
+        }
+        let done = match edit {
+            Some(CurveEdit::Move(i, at)) if i < points.len() => {
+                points[i] = at;
+                true
+            }
+            Some(CurveEdit::Add(at)) if points.len() < MAX_CURVE => {
+                points.push(at);
+                true
+            }
+            Some(CurveEdit::Remove(i)) if i < points.len() => {
+                points.remove(i);
+                true
+            }
+            _ => false,
+        };
+        if done {
+            points.sort_by(|a, b| a[0].total_cmp(&b[0]));
+        }
+        Response { clicked: false, changed: done }
+    }
+
+    /// Shows an image of `size` pixels. `rgba` has the red, green, blue and alpha of each pixel,
+    /// row by row from the top. An image of more than 256 x 256 pixels or of a wrong length is empty.
+    pub fn image(&mut self, text: &str, size: [u32; 2], rgba: &[u8]) {
+        self.push("image", text);
+        let pixels = size[0].checked_mul(size[1]).filter(|&p| p <= MAX_PIXELS && p as usize * 4 == rgba.len());
+        if pixels.is_some() {
+            let _ = write!(self.tree, "\t{}\t{}\t", size[0], size[1]);
+            push_base64(&mut self.tree, rgba);
+        } else {
+            self.tree.push_str("\t0\t0\t");
+        }
+    }
+
     /// The widget lines, for the editor.
     pub fn tree(&self) -> &str {
         &self.tree
@@ -251,6 +362,68 @@ impl Ui {
 /// A tab or a line break in a text would break the widget lines, so it becomes a space.
 fn push_clean(tree: &mut String, text: &str) {
     tree.extend(text.chars().map(|c| if c.is_control() { ' ' } else { c }));
+}
+
+fn push_color(tree: &mut String, [r, g, b]: [u8; 3]) {
+    let _ = write!(tree, "#{r:02x}{g:02x}{b:02x}");
+}
+
+/// Reads a color event, for example `#ff8000`.
+fn hex(event: &str) -> Option<[u8; 3]> {
+    let digits = event.strip_prefix('#').filter(|d| d.len() == 6 && d.bytes().all(|b| b.is_ascii_hexdigit()))?;
+    let byte = |i: usize| u8::from_str_radix(&digits[i..i + 2], 16).ok();
+    Some([byte(0)?, byte(2)?, byte(4)?])
+}
+
+fn push_numbers(tree: &mut String, values: impl Iterator<Item = f32>) {
+    for (i, v) in values.enumerate() {
+        if i > 0 {
+            tree.push(' ');
+        }
+        let _ = write!(tree, "{v}");
+    }
+}
+
+/// Divides `values` into `n` parts of almost the same length. No part is empty when `n` is at
+/// most the length.
+fn parts(values: &[f32], n: usize) -> impl Iterator<Item = &[f32]> {
+    (0..n).map(move |i| &values[i * values.len() / n..(i + 1) * values.len() / n])
+}
+
+fn push_base64(tree: &mut String, bytes: &[u8]) {
+    const DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for chunk in bytes.chunks(3) {
+        let n = chunk.iter().enumerate().fold(0_u32, |n, (i, &b)| n | (u32::from(b) << (16 - 8 * i)));
+        for i in 0..4 {
+            tree.push(if i <= chunk.len() { char::from(DIGITS[((n >> (18 - 6 * i)) & 63) as usize]) } else { '=' });
+        }
+    }
+}
+
+/// A user edit of a curve: the index of a point and the new point.
+enum CurveEdit {
+    Move(usize, [f32; 2]),
+    Add([f32; 2]),
+    Remove(usize),
+}
+
+/// Reads a curve event: `move 1 0.5 0.25`, `add 0.5 0.25` or `remove 1`.
+fn curve_edit(event: &str) -> Option<CurveEdit> {
+    let mut words = event.split(' ');
+    let kind = words.next()?;
+    let index = if kind == "add" { 0 } else { words.next()?.parse().ok()? };
+    if kind == "remove" {
+        return Some(CurveEdit::Remove(index));
+    }
+    let mut at = [0.0; 2];
+    for n in &mut at {
+        *n = words.next()?.parse().ok().filter(|v: &f32| v.is_finite())?.clamp(0.0, 1.0);
+    }
+    match kind {
+        "move" => Some(CurveEdit::Move(index, at)),
+        "add" => Some(CurveEdit::Add(at)),
+        _ => None,
+    }
 }
 
 /// Reads a pointer event, for example `down 10 20`.
@@ -330,5 +503,35 @@ mod tests {
         assert_eq!(lines[2], "canvas\tGrid\t8\t8\tline 0 0 8 8 #010203");
         let mut ui = Ui::new(0, "0 down 1 2\n0 move 3 4\n0 up 5 6");
         assert_eq!(ui.canvas("Drag", [9.0, 9.0]).pointer(), [Pointer::Down([1.0, 2.0]), Pointer::Move([3.0, 4.0]), Pointer::Up([5.0, 6.0])]);
+    }
+
+    #[test]
+    fn value_widgets_write_their_data_and_take_their_edits() {
+        let (mut color, mut row, mut points) = ([255, 0, 16], None, vec![[0.5, 0.5], [0.0, 0.0]]);
+        let mut ui = Ui::new(0, "0 #00ff80\n2 1\n3 move 0 2 -1\n4 #zz0000\n5 9\n6 add 0.5");
+        assert!(ui.color("Tint", &mut color).changed());
+        ui.plot("Level", &[0.0, 1.5, f32::NAN], 0.0..=2.0);
+        assert!(ui.table("Notes", &["Note", "Hz"], &["A", "440", "C"], &mut row).changed());
+        assert!(ui.curve("Shape", &mut points).changed());
+        assert!(!ui.color("Bad", &mut color).changed());
+        assert!(!ui.table("Empty", &[], &["x"], &mut row).changed());
+        assert!(!ui.curve("Bad", &mut points).changed());
+        ui.waveform("Wave", &[0.0, -0.5, 1.0, f32::NAN], Some(2.0));
+        ui.image("Dot", [1, 1], &[1, 2, 3, 255]);
+        ui.image("Bad", [2, 1], &[0; 4]);
+        assert_eq!((color, row, points), ([0, 255, 128], Some(1), vec![[0.0, 0.0], [1.0, 0.0]]));
+        let lines: Vec<_> = ui.tree().lines().collect();
+        assert_eq!(lines[..6], ["color\tTint\t#ff0010", "plot\tLevel\t0\t2\t0 1.5 NaN", "table\tNotes\t2\t\tNote\tHz\tA\t440\tC", "curve\tShape\t0.5 0.5\t0 0", "color\tBad\t#00ff80", "table\tEmpty\t0\t1\tx"]);
+        assert_eq!(lines[7..], ["waveform\tWave\t1\t0 0 -0.5 -0.5 1 1 inf -inf", "image\tDot\t1\t1\tAQID/w==", "image\tBad\t0\t0\t"]);
+
+        // A long plot line keeps its peak, and a long waveform has a fixed number of columns.
+        let long: Vec<f32> = (0..3000).map(|i| if i == 1500 { 9.0 } else { 0.0 }).collect();
+        let mut ui = Ui::new(0, "");
+        ui.plot("Long", &long, 0.0..=9.0);
+        ui.waveform("Long", &long, None);
+        let lines: Vec<Vec<_>> = ui.tree().lines().map(|l| l.rsplit('\t').next().unwrap().split(' ').collect()).collect();
+        assert_eq!((lines[0].len(), lines[0].contains(&"9")), (MAX_PLOT, true));
+        assert_eq!((lines[1].len(), lines[1].contains(&"9")), (2 * WAVE_COLUMNS, true));
+        assert!(ui.tree().contains("waveform\tLong\t\t0 0"));
     }
 }

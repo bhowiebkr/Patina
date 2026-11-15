@@ -9,7 +9,13 @@ export type Widget =
   | { kind: 'number'; index: number; text: string; value: number }
   | { kind: 'text'; index: number; text: string; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
-  | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[] };
+  | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[] }
+  | { kind: 'color'; index: number; text: string; value: string }
+  | { kind: 'plot'; index: number; text: string; low: number; high: number; values: number[] }
+  | { kind: 'waveform'; index: number; text: string; playhead: number | null; columns: [number, number][] }
+  | { kind: 'table'; index: number; text: string; headings: string[]; rows: string[][]; selected: number | null }
+  | { kind: 'curve'; index: number; text: string; points: [number, number][] }
+  | { kind: 'image'; index: number; text: string; width: number; height: number; rgba: string };
 
 /** A shape on a canvas, in pixels from its top left corner. */
 export type Shape =
@@ -21,6 +27,12 @@ export type Shape =
 const COUNTS: Record<string, number> = { line: 4, rect: 4, circle: 3, text: 2 };
 // The largest canvas side in pixels, so a bad tree cannot make a huge element.
 const MAX_SIDE = 4096;
+// The limits of the value widgets. `patina_sdk::Ui` keeps to them, and a bad tree cannot pass them.
+const MAX_VALUES = 2048;
+const MAX_ROWS = 1000;
+const MAX_COLUMNS = 32;
+const MAX_POINTS = 256;
+const MAX_PIXELS = 256 * 256;
 
 /** Reads one shape field of a canvas line, or null when it is bad. */
 function parseShape(field: string): Shape | null {
@@ -35,6 +47,47 @@ function parseShape(field: string): Shape | null {
   if (kind === 'rect') return n[2] >= 0 && n[3] >= 0 ? { kind, x: n[0], y: n[1], w: n[2], h: n[3], color, fill } : null;
   if (kind === 'circle') return n[2] >= 0 ? { kind, x: n[0], y: n[1], r: n[2], color, fill } : null;
   return { kind: 'text', x: n[0], y: n[1], color, text: words.slice(count + 1).join(' ') };
+}
+
+/** The numbers of a field with spaces between them. A word that is not finite, for example `NaN`, is NaN. */
+function numbers(field: string | undefined, max: number): number[] {
+  return field ? field.split(' ', max).map(Number) : [];
+}
+
+/** Reads a value widget line, or null when it is bad. */
+function parseValue(kind: string, index: number, text: string, rest: string[]): Widget | null {
+  if (kind === 'color') return /^#[0-9a-f]{6}$/.test(rest[0] ?? '') ? { kind, index, text, value: rest[0] } : null;
+  if (kind === 'plot') {
+    const [low, high] = rest.map(Number);
+    return Number.isFinite(low) && Number.isFinite(high) ? { kind, index, text, low, high, values: numbers(rest[2], MAX_VALUES) } : null;
+  }
+  if (kind === 'waveform') {
+    const at = rest[0] ? Number(rest[0]) : null;
+    const n = numbers(rest[1], MAX_VALUES);
+    const columns = Array.from({ length: n.length >> 1 }, (_, i): [number, number] => [n[2 * i], n[2 * i + 1]]);
+    return at === null || (at >= 0 && at <= 1) ? { kind, index, text, playhead: at, columns } : null;
+  }
+  if (kind === 'table') {
+    const count = Number(rest[0]);
+    const selected = rest[1] ? Number(rest[1]) : null;
+    if (!Number.isInteger(count) || count < 0 || count > MAX_COLUMNS || (selected !== null && !Number.isInteger(selected))) return null;
+    const cells = rest.slice(2 + count, 2 + count + count * MAX_ROWS);
+    const rows = count === 0 ? [] : Array.from({ length: Math.ceil(cells.length / count) }, (_, r) => cells.slice(r * count, r * count + count));
+    return { kind, index, text, headings: rest.slice(2, 2 + count), rows, selected };
+  }
+  if (kind === 'curve') {
+    const points = rest.slice(0, MAX_POINTS).map((f) => numbers(f, 2));
+    if (!points.every((p) => p.length === 2 && p.every(Number.isFinite))) return null;
+    return { kind, index, text, points: points.map(([x, y]): [number, number] => [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)]) };
+  }
+  if (kind === 'image') {
+    const [width, height] = rest.map(Number);
+    const rgba = rest[2] ?? '';
+    const ok = Number.isInteger(width) && Number.isInteger(height) && width >= 0 && height >= 0 && width * height <= MAX_PIXELS;
+    // Base64 has 4 digits for each 3 bytes, and each pixel has 4 bytes.
+    return ok && rgba.length === 4 * Math.ceil((width * height * 4) / 3) ? { kind, index, text, width, height, rgba } : null;
+  }
+  return null;
 }
 
 /** Reads one widget from each line. A line of an unknown kind or with bad numbers keeps its index. */
@@ -52,6 +105,9 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'canvas' && value > 0 && low > 0) {
       const shapes = rest.slice(2).flatMap((f) => parseShape(f) ?? []);
       widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes });
+    } else {
+      const widget = parseValue(kind, index, text, rest);
+      if (widget) widgets.push(widget);
     }
   });
   return widgets;

@@ -71,6 +71,8 @@ impl CurveEditor {
 - User input (clicks, drags, keys) goes back to the node as events. The next call of `ui` handles them.
 - The editor finds a widget by its order in the call of `ui`. A widget that shows only sometimes changes the order of the widgets after it, so put it last. This is an agent decision of 2026-11-15 that the owner can change.
 - The editor draws the GUI of each node after each run and each frame: the node body size in the node, and the large size of the selected node in the **Inspector**. A change in a live graph runs it again. A change of a frame node applies at the next frame. A change of a batch node runs the batch domain again, without a build. A slider sends its value at the end of a drag, as in 9.1. This is an agent decision of 2026-11-15 that the owner can change.
+- A widget writes its value before it applies an event. So after the events, `ui` runs one more time without events, and the editor shows the new state at once. This is an agent decision of 2026-11-15 that the owner can change.
+- The value widgets have limits, so a large value cannot slow down the editor. A plot sends at most 1024 values: a longer plot sends the minimum and the maximum of 512 parts. A waveform sends at most 256 columns, with the minimum and the maximum of each column, and an optional playhead from 0 to 1. A curve has at most 256 points from 0 to 1, in the order of x. A drag of a curve point sends one change at the end of the drag. An image has at most 256 x 256 RGBA pixels. A table sends the row that the user selects. This is an agent decision of 2026-11-15 that the owner can change.
 - The GUI state is the node state, except in audio nodes (below). A GUI change can change the node output, so downstream nodes get the new value.
 
 **Audio nodes**

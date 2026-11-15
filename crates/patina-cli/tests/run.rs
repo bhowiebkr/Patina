@@ -193,11 +193,14 @@ builtin = \"delay\"
     assert!(warm && ok && frame.values.iter().any(|v| v.lanes.is_some()) && !frame.times.is_empty());
     assert_eq!((boxed, ALLOCATIONS.get()), (1, 0), "one box, then the allocations of 100 frames");
 
-    // The GUI of tick (4.3): its widget lines, then a click on Reset. Mix has no GUI.
+    // The GUI of tick (4.3): its widget lines, then a click on Reset. Mix has no GUI. The lines
+    // after an event show the new state.
     let tree = cluster.ui("00000000000000f1", 0, "").0.unwrap();
     assert!(tree.starts_with("label\tTick\nbutton\tReset\nslider\tCount\t"), "{tree}");
     let (tree, out) = cluster.ui("00000000000000f1", 0, "1 1");
     assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t0\t0\t10"));
+    let (tree, out) = cluster.ui("00000000000000f1", 0, "2 7");
+    assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t7\t0\t10"));
     assert!(cluster.ui("00000000000000f3", 0, "").0.is_none());
     assert_eq!(cluster.guis(), [("00000000000000f1".to_owned(), true)]);
 }

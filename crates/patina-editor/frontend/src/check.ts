@@ -12,17 +12,20 @@ const RUN_MS = 20_000;
 const A = 'a000000000000001';
 const B = 'b000000000000002';
 
-/** A stateful number node with a GUI (4.2, 4.3): its button adds 1 to the output. */
+/** A stateful number node with a GUI (4.2, 4.3): its button adds 1 to the output. It also shows each value widget. */
 const GUI_NODE = `use patina_sdk::node;
 
 #[node]
 pub struct Number {
     added: f64,
+    row: Option<usize>,
+    tint: [u8; 3],
+    points: Vec<[f32; 2]>,
 }
 
 impl Number {
     pub fn init() -> Self {
-        Number { added: 0.0 }
+        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]] }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -33,6 +36,15 @@ impl Number {
         if ui.button("Add 1").clicked() {
             self.added += 1.0;
         }
+        ui.color("Tint", &mut self.tint);
+        let wave: Vec<f32> = (0..400).map(|i| (i as f32 * 0.2).sin() * (1.0 - i as f32 / 400.0)).collect();
+        ui.plot("Wave plot", &wave[..100], -1.0..=1.0);
+        ui.waveform("Waveform", &wave, Some(0.3));
+        let added = self.added.to_string();
+        ui.table("Values", &["Name", "Value"], &["added", added.as_str(), "points", "3"], &mut self.row);
+        ui.curve("Curve", &mut self.points);
+        let pixels: Vec<u8> = (0..256_u32).flat_map(|i| [(i % 32 * 8) as u8, 96, (255 - i % 32 * 8) as u8, 255]).collect();
+        ui.image("Image", [32, 8], &pixels);
     }
 }
 `;
@@ -554,7 +566,17 @@ fn broken() -> u32 {
     guiButton()!.click();
     const clicked = await result(v, from, '3.5', RUN_MS);
     if (clicked.builtMs !== null) throw new Error('a click in a node GUI built the graph again');
+    const gui = `.react-flow__node[data-id="${A}"] .node-gui`;
+    for (const kind of ['gui-color', 'gui-chart', 'gui-table', 'gui-curve', 'gui-image']) {
+      if (!document.querySelector(`${gui} .${kind}`)) throw new Error(`the node GUI has no ${kind}`);
+    }
+    const row = () => document.querySelector<HTMLElement>(`${gui} .gui-table tbody tr:nth-child(2)`);
+    row()!.click();
+    await until('the selected row of the table', RUN_MS, () => row()?.getAttribute('aria-selected') === 'true');
     await api.capture('node-gui');
+    tab('Parameters')!.click();
+    await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);
+    await api.capture('node-gui-large');
     await step('pause', () => api.pause());
     v = await step('undo the node GUI', () => api.undo());
     steps.push('click a node GUI');
