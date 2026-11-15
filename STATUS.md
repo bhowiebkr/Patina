@@ -4,7 +4,7 @@ The current milestone is milestone 0, the risk prototypes (spec section 19).
 
 | Prototype | Result | Platforms that ran |
 | --- | --- | --- |
-| Rust types across clusters (5.1, 5.2) | Passed | Windows 11, `x86_64-pc-windows-msvc` |
+| Rust types across clusters (5.1, 5.2) | Passed | Windows 11 and CI `windows-latest`, `x86_64-pc-windows-msvc` |
 | Hot reload (8.5) | Not started | - |
 | Toolchain (13.2) | Not started | - |
 | Viewport (15.8) | Not started | - |
@@ -15,6 +15,10 @@ The current milestone is milestone 0, the risk prototypes (spec section 19).
 The code is in [prototypes/types-across-clusters](prototypes/types-across-clusters/README.md).
 It ran on 2026-11-15 with Rust 1.94.0, on Windows 11 Pro, in the `dev` and the `release`
 profile. It did not run on Linux or macOS.
+
+[CI](.github/workflows/ci.yml) runs the test for each push to `main`. It passed in both
+profiles on 2026-11-15, on the GitHub Actions `windows-latest` runner, with Rust 1.100.0. On
+the Linux and macOS runners, clippy checks the prototype, but the test has no code to run.
 
 ### What was checked
 
