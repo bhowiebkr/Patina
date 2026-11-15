@@ -392,12 +392,22 @@ This is an agent decision of 2026-11-15 for question 9 (18). The owner can chang
 - After each change, Patina writes the unsaved changes to a recovery file in `data/` (11). A save deletes the recovery file. When a project opens with a recovery file, Patina asks the user to restore it or to discard it. The next part gives the details.
 - When the user closes a project with unsaved changes, Patina asks: **Save**, **Discard** or **Cancel**.
 
+**Open a subgraph**
+
+This is an agent decision of 2026-11-15. The owner can change it.
+
+- A double-click on a use of a subgraph opens the subgraph file in the graph view (6.1). A path bar at the top left shows `main / <name>`. Its **main** button opens the main graph again.
+- The graph view shows each public pin of the subgraph as a small node with the pin name, and a wire to each inner end (6.4).
+- Only the open graph can have unsaved changes. Thus a change of graph saves all first, as Ctrl+S does. Each graph keeps its undo history while the project is open.
+- A run uses the unsaved changes of the open subgraph, as it does for the main graph.
+- Reason: one unsaved graph keeps the save, the recovery file and the close dialog simple. A user who opens a subgraph usually wants the change of the main graph to stay.
+
 **Recovery file**
 
 This is an agent decision of 2026-11-15. The owner can change it.
 
 - The file is `data/recovery/<hash>.json`. The hash is the 64-bit FNV-1a hash of the path of the project folder, as 16 hex digits. On Windows, the path has no case.
-- The file holds the format version 1, the project folder, the main graph when it has unsaved changes, and the unsaved text of each code file by path. A file of more than 16 MiB is an error.
+- The file holds the format version 1, the project folder, the open graph and its name when it has unsaved changes, and the unsaved text of each code file by path. A restore opens that graph first. A file of more than 16 MiB is an error.
 - Patina writes the file after each graph edit, undo, redo and save. It writes the file 300 ms after the user stops typing in the **Code** tab. The first unsaved code change, and the last one that goes, write the file at once.
 - Patina writes a temporary file and then renames it, so a stop during a write does not break the old file.
 - When the project has no unsaved changes, Patina deletes the file. A close or a quit after the user saved or discarded the changes deletes it too.

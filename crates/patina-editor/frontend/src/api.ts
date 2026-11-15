@@ -27,11 +27,29 @@ export interface Wire {
   points?: Point[];
 }
 
-/** The main graph, as in `graphs/main.toml` (spec 6.4). Empty lists are left out. */
+/** A public input of a subgraph and the inner inputs that it goes to (spec 6.4). */
+export interface PublicInput {
+  key: string;
+  name: string;
+  pos?: Point;
+  to?: string[];
+}
+
+/** A public output of a subgraph and the inner output that gives its value (spec 6.4). */
+export interface PublicOutput {
+  key: string;
+  name: string;
+  pos?: Point;
+  from: string;
+}
+
+/** A graph file in `graphs/` (spec 6.4). Empty lists are left out. */
 export interface GraphFile {
   format: number;
   node?: NodeEntry[];
   wire?: Wire[];
+  input?: PublicInput[];
+  output?: PublicOutput[];
 }
 
 /** An input or an output of a node, with its Rust type (spec 4.1). */
@@ -64,6 +82,8 @@ export interface View {
   root: string;
   name: string;
   graph: GraphFile;
+  /** The name of the open graph: `main` or a subgraph (6.1). */
+  graphName: string;
   nodes: NodeInfo[];
   /** The widget folders (6.2), for example `gradient-bar` for `widgets/gradient-bar`. */
   widgets: string[];
@@ -234,6 +254,8 @@ export const api = {
   setUnsavedCode: (code: Code) => invoke<void>('set_unsaved_code', { code }),
   /** Restores or discards the changes of the recovery file (15.10). */
   recover: (restore: boolean) => invoke<{ view: View; code: Code }>('recover', { restore }),
+  /** Opens the main graph or a subgraph (6.1). The open graph must have no unsaved changes. */
+  openGraph: (name: string) => invoke<View>('open_graph', { name }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
   /** Fuses the node in the slot back into the base now (7.2). */

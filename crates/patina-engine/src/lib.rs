@@ -15,6 +15,7 @@ pub mod project;
 mod subgraph;
 mod types;
 
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::hash::{BuildHasher, DefaultHasher, Hasher, RandomState};
@@ -66,13 +67,18 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-/// A project with its main graph and the undo history of the graph and the code.
+/// A project with the open graph and the undo history of the graph and the code.
 pub struct Project {
     root: PathBuf,
     /// The stable ID of `patina.toml` (5.3). The text is not checked.
     id: String,
     rust: String,
+    /// The name of the open graph: `main` or the name of a subgraph (6.1).
+    name: String,
     history: edit::History,
+    /// The saved graphs that the user opened before, with their undo history. `main` is here
+    /// while a subgraph is open.
+    parked: HashMap<String, edit::History>,
     /// The number of code writes of edits, undo and redo.
     code_revision: u64,
     /// The path of the last code write.
@@ -148,8 +154,9 @@ impl Project {
         // The path must be absolute, because cargo reads the target folder from a variable.
         let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
         let file = project::read(&root.join("patina.toml"), |f: &project::ProjectFile| f.format)?;
-        let graph = project::read(&graph_path(&root), |g: &GraphFile| g.format)?;
-        Ok(Project { root, id: file.id, rust: file.rust, history: edit::History::new(graph), code_revision: 0, last_code: None })
+        let graph = project::read(&graph_path(&root, MAIN), |g: &GraphFile| g.format)?;
+        let history = edit::History::new(graph);
+        Ok(Project { root, id: file.id, rust: file.rust, name: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
     }
 
     /// Makes a new project in a new or empty folder, with the `number` and `show` nodes and an
@@ -227,8 +234,35 @@ impl Project {
         &self.rust
     }
 
+    /// The open graph.
     pub fn graph(&self) -> &GraphFile {
         &self.history.graph
+    }
+
+    /// The name of the open graph: `main` or the name of a subgraph.
+    pub fn graph_name(&self) -> &str {
+        &self.name
+    }
+
+    /// Opens the main graph or a subgraph for edits (6.1). Only the open graph can have unsaved
+    /// changes, so the user saves before another graph opens.
+    pub fn open_graph(&mut self, name: &str) -> Result<(), String> {
+        if name == self.name {
+            return Ok(());
+        }
+        if self.history.dirty() {
+            return Err("save the graph before you open another graph".to_owned());
+        }
+        if name != MAIN {
+            plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+        }
+        let history = match self.parked.remove(name) {
+            Some(history) => history,
+            None => edit::History::new(project::read(&graph_path(&self.root, name), |g: &GraphFile| g.format).map_err(|e| e.to_string())?),
+        };
+        let old = std::mem::replace(&mut self.history, history);
+        self.parked.insert(std::mem::replace(&mut self.name, name.to_owned()), old);
+        Ok(())
     }
 
     /// Applies an edit of the user (7.4). A code edit writes its file at once, because cargo
@@ -245,7 +279,7 @@ impl Project {
         Ok(())
     }
 
-    /// Replaces the main graph as one step of undo, for example with the graph of a recovery file
+    /// Replaces the open graph as one step of undo, for example with the graph of a recovery file
     /// (15.10). The graph is not saved.
     pub fn restore_graph(&mut self, graph: GraphFile) {
         self.history.replace(graph);
@@ -299,9 +333,9 @@ impl Project {
         self.history.dirty()
     }
 
-    /// Writes the main graph to `graphs/main.toml`. The undo history stays (15.10).
+    /// Writes the open graph to its file in `graphs/`. The undo history stays (15.10).
     pub fn save(&mut self) -> Result<(), Error> {
-        project::write(&graph_path(&self.root), &self.history.graph)?;
+        project::write(&graph_path(&self.root, &self.name), &self.history.graph)?;
         self.history.mark_saved();
         Ok(())
     }
@@ -361,10 +395,13 @@ impl Project {
         fs::read_to_string(&file).map_err(|e| format!("{path}: {e}"))
     }
 
-    /// Checks the main graph and puts its nodes in run order.
+    /// Checks the main graph and puts its nodes in run order. An open subgraph adds its unsaved
+    /// changes.
     pub fn check(&self) -> Result<Checked, Error> {
-        let fail = |problems| Error::Graph(graph_path(&self.root), problems);
-        let (graph, aliases) = subgraph::flatten(&self.root, &self.history.graph).map_err(fail)?;
+        let fail = |problems| Error::Graph(graph_path(&self.root, MAIN), problems);
+        let main = self.parked.get(MAIN).map_or(&self.history.graph, |h| &h.graph);
+        let open = (self.name != MAIN).then_some((self.name.as_str(), &self.history.graph));
+        let (graph, aliases) = subgraph::flatten(&self.root, main, open).map_err(fail)?;
         let plan = plan::check(&self.root, &graph).map_err(fail)?;
         Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases })
     }
@@ -467,8 +504,11 @@ fn write_file(path: &Path, text: &str) -> Result<(), Error> {
     fs::write(path, text).map_err(|e| Error::Io(path.to_owned(), e))
 }
 
-fn graph_path(root: &Path) -> PathBuf {
-    root.join("graphs").join("main.toml")
+/// The name of the main graph file.
+const MAIN: &str = "main";
+
+fn graph_path(root: &Path, name: &str) -> PathBuf {
+    root.join("graphs").join(format!("{name}.toml"))
 }
 
 /// The start code of a widget folder. `NAME` is the type name.
@@ -676,9 +716,28 @@ mod tests {
         assert!(!project.dirty());
         let reopened = Project::open(&root).unwrap();
         let checked = reopened.check();
-        fs::remove_dir_all(&root).unwrap();
         assert_eq!(reopened.graph(), project.graph());
         assert!(checked.is_ok());
+
+        // A subgraph opens, runs with its unsaved changes and saves to its own file (6.1).
+        fs::write(root.join("graphs/half.toml"), "format = 1\n").unwrap();
+        project.apply(&Edit::AddNode { id: "00000000000000b1".to_owned(), folder: "graphs/half".to_owned(), builtin: false, pos: [0.0, 0.0] }).unwrap();
+        assert!(project.open_graph("half").is_err(), "the main graph has unsaved changes");
+        project.save().unwrap();
+        for bad in ["missing", "../patina", "half.toml", ""] {
+            assert!(project.open_graph(bad).is_err(), "{bad}");
+        }
+        project.open_graph("half").unwrap();
+        assert_eq!((project.graph_name(), project.graph().node.len()), ("half", 0));
+        project.apply(&edit).unwrap();
+        assert!(project.check().unwrap().graph().node.iter().any(|n| n.id == "00000000000000b1/000000000000000a"));
+        project.save().unwrap();
+        project.open_graph("main").unwrap();
+        assert_eq!((project.graph_name(), project.graph().node.len()), ("main", 2));
+        assert!(project.can_undo(), "the undo history of the main graph stays");
+        let half = fs::read_to_string(root.join("graphs/half.toml")).unwrap();
+        fs::remove_dir_all(&root).unwrap();
+        assert!(half.contains("000000000000000a"), "{half}");
     }
 
     #[test]

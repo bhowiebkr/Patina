@@ -169,6 +169,14 @@ export function App() {
     }
   }, [show, markStale]);
 
+  // Only the open graph can have unsaved changes, so a change of graph saves all first (6.1).
+  const openGraph = useCallback(
+    async (name: string) => {
+      if (!current.current?.dirty || (await saveAll())) act(api.openGraph(name));
+    },
+    [act, saveAll],
+  );
+
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
   const pick = useCallback((at: Reveal) => {
     const [group, name = ''] = at.path.split('/');
@@ -511,7 +519,15 @@ export function App() {
               </div>
             )}
             <div className="canvas">
-              <GraphView key={view.serial} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} />
+              <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} />
+              {view.graphName !== 'main' && (
+                <nav className="graph-path" aria-label="Graph path">
+                  <button className="btn" onClick={() => openGraph('main')}>
+                    main
+                  </button>
+                  <span>/ {view.graphName}</span>
+                </nav>
+              )}
               {fullEntry && (
                 <FullGui
                   id={fullEntry.id}

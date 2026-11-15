@@ -89,6 +89,9 @@ export interface NodeData extends Record<string, unknown> {
 
 export type PatinaNode = Node<NodeData, 'patina'>;
 
+/** A public pin of the open subgraph (6.4): an input gives a value to the inner nodes. */
+export type PortNode = Node<{ name: string; ty: string; input: boolean }, 'port'>;
+
 const HEADER = 32;
 const ROW = 24;
 const PAD = 6;
@@ -247,3 +250,15 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
 }
 
 export const NodeView = memo(NodeViewImpl);
+
+export function PortView({ data }: NodeProps<PortNode>) {
+  const { name, ty, input } = data;
+  return (
+    <div className="patina-node port" title={`${input ? 'Input' : 'Output'} ${name}: ${ty}`}>
+      <div className="patina-node-header">
+        <span className="title">{name}</span>
+      </div>
+      <Handle id="pin" type={input ? 'source' : 'target'} position={input ? Position.Right : Position.Left} isConnectable={false} style={{ top: HEADER / 2 }} />
+    </div>
+  );
+}

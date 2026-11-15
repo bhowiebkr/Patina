@@ -18,14 +18,14 @@ import {
 import { AddNode } from './AddNode';
 import { newId, type Edit, type NodeInfo, type Point, type View } from './api';
 import { savedViewport, saveViewport } from './Dock';
-import { NodeView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type RunState } from './NodeView';
+import { NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { matchPin } from './palette';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { WireStore } from './wires';
 
 export const NODE_MIME = 'application/patina-node';
 const FIT = { padding: 0.2, maxZoom: 1, duration: 0 };
-const NODE_TYPES = { patina: NodeView };
+const NODE_TYPES = { patina: NodeView, port: PortView };
 const EDGE_TYPES = { wire: WireEdge };
 const PAN_BUTTONS = [1];
 const MULTI_KEYS = ['Shift', 'Control'];
@@ -37,11 +37,36 @@ function splitPin(pin: string): [string, string] {
   return dot < 0 ? [pin, ''] : [pin.slice(0, dot), pin.slice(dot + 1)];
 }
 
+type GraphNode = PatinaNode | PortNode;
+
+/** The type of each public pin of the open subgraph, by "in:<key>" and "out:<key>". */
+function portTypes(view: View): Map<string, string> {
+  const info = view.nodes.find((n) => n.subgraph && n.name === view.graphName);
+  return new Map([...(info?.inputs ?? []).map((p) => [`in:${p.key}`, p.ty] as const), ...(info?.outputs ?? []).map((p) => [`out:${p.key}`, p.ty] as const)]);
+}
+
+/** The public pins of the open subgraph (6.4). shortcut: they are read only, change it when the editor edits public pins. */
+function buildPorts(view: View): PortNode[] {
+  const types = portTypes(view);
+  const port = (id: string, name: string, pos: Point | undefined, input: boolean): PortNode => ({
+    id,
+    type: 'port',
+    position: { x: pos?.[0] ?? 0, y: pos?.[1] ?? 0 },
+    draggable: false,
+    selectable: false,
+    connectable: false,
+    deletable: false,
+    data: { name, ty: types.get(id) ?? '?', input },
+  });
+  const inputs = (view.graph.input ?? []).map((p) => port(`in:${p.key}`, p.name, p.pos, true));
+  return [...inputs, ...(view.graph.output ?? []).map((p) => port(`out:${p.key}`, p.name, p.pos, false))];
+}
+
 /** Keeps the selection and the measured size of the nodes that stay. */
-function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, prev: PatinaNode[]): PatinaNode[] {
-  const old = new Map(prev.map((n) => [n.id, n]));
+function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, prev: GraphNode[]): GraphNode[] {
+  const old = new Map(prev.filter((n): n is PatinaNode => n.type === 'patina').map((n) => [n.id, n]));
   const wires = view.graph.wire ?? [];
-  return (view.graph.node ?? []).map((entry) => {
+  const nodes: GraphNode[] = (view.graph.node ?? []).map((entry) => {
     const info = infoOf(entry, view.nodes);
     const [state, message] = nodeState(entry, info, view, run);
     const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
@@ -52,16 +77,27 @@ function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     const before = old.get(entry.id);
     return before ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });
+  return [...nodes, ...buildPorts(view)];
 }
 
 function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
   const selected = new Set(prev.filter((e) => e.selected).map((e) => e.id));
-  return (view.graph.wire ?? []).map((w) => {
+  const types = portTypes(view);
+  const fixed = (from: string, to: string, ty: string | undefined): Edge<WireData> => {
+    const [[source, sourceHandle], [target, targetHandle]] = [splitPin(from), splitPin(to)];
+    return { id: `${from}>${to}`, type: 'wire', source, sourceHandle, target, targetHandle, selectable: false, data: { from, to, route: NO_POINTS, ty, fixed: true } };
+  };
+  const ports = [
+    ...(view.graph.input ?? []).flatMap((p) => (p.to ?? []).map((to) => fixed(`in:${p.key}.pin`, to, types.get(`in:${p.key}`)))),
+    ...(view.graph.output ?? []).map((p) => fixed(p.from, `out:${p.key}.pin`, outputType(view, p.from))),
+  ];
+  const wires = (view.graph.wire ?? []).map((w): Edge<WireData> => {
     const [source, sourceHandle] = splitPin(w.from);
     const [target, targetHandle] = splitPin(w.to);
     const id = `${w.from}>${w.to}`;
     return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from) } };
   });
+  return [...wires, ...ports];
 }
 
 /** A wire that a drag from a pin into an empty area started: the pin, its direction and its type. */
@@ -84,11 +120,13 @@ interface Props {
   onSelect: (ids: string[], wires: WireData[]) => void;
   /** A request to select one node, for example from a click on a compile error. */
   focus: { id: string; n: number } | null;
+  /** Opens a subgraph, from a double-click on a use (6.1). */
+  onOpen: (name: string) => void;
 }
 
-export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
-  const flow = useReactFlow<PatinaNode, Edge<WireData>>();
-  const [nodes, setNodes] = useState<PatinaNode[]>([]);
+export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen }: Props) {
+  const flow = useReactFlow<GraphNode, Edge<WireData>>();
+  const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [glOk, setGlOk] = useState(true);
@@ -97,7 +135,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
   const [palette, setPalette] = useState<{ x: number; y: number; end?: FreeEnd } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
-  const [viewport] = useState(() => savedViewport('main'));
+  const [viewport] = useState(() => savedViewport(view.graphName));
   const tools = useMemo(
     () => ({ store: wires, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from) }),
     [wires, onEdit, view.trusted, run],
@@ -111,7 +149,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
     setEdges((list) => list.map((x) => (x.selected ? { ...x, selected: false } : x)));
   }, [focus]);
 
-  const onNodesChange = useCallback((changes: NodeChange<PatinaNode>[]) => setNodes((n) => applyNodeChanges(changes, n)), []);
+  const onNodesChange = useCallback((changes: NodeChange<GraphNode>[]) => setNodes((n) => applyNodeChanges(changes, n)), []);
   const onEdgesChange = useCallback((changes: EdgeChange<Edge<WireData>>[]) => setEdges((e) => applyEdgeChanges(changes, e)), []);
 
   const onSelectionChange = useCallback(
@@ -124,7 +162,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
   );
 
   const onNodeDragStop = useCallback(
-    (_: unknown, __: PatinaNode, dragged: PatinaNode[]) => {
+    (_: unknown, __: GraphNode, dragged: GraphNode[]) => {
       const moves: Edit[] = dragged.map((n) => ({ kind: 'MoveNode', id: n.id, pos: [Math.round(n.position.x), Math.round(n.position.y)] }));
       if (moves.length > 0) onEdit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
     },
@@ -228,6 +266,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
         onDragOver={onDragOver}
         onDrop={onDrop}
         onDoubleClick={onDoubleClick}
+        onNodeDoubleClick={(_, n) => n.type === 'patina' && n.data.entry.subgraph && onOpen(n.data.entry.subgraph)}
         onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
         onPointerLeave={() => (pointer.current = null)}
         nodesDraggable={view.trusted}
@@ -244,7 +283,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
         fitView={!viewport}
         fitViewOptions={FIT}
         defaultViewport={viewport}
-        onMoveEnd={(_, v) => saveViewport('main', v)}
+        onMoveEnd={(_, v) => saveViewport(view.graphName, v)}
         colorMode="dark"
       >
         <Background id="minor" variant={BackgroundVariant.Lines} gap={20} color="#202020" />

@@ -16,6 +16,23 @@
   border-color: var(--control-border);
 }
 
+/* A public pin of the open subgraph (6.4). */
+.patina-node.port {
+  width: 120px;
+}
+
+/* The path of the open subgraph, with a button back to the main graph (6.1). */
+.graph-path {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
 .patina-node.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(223, 166, 75, 0.28), 0 6px 16px rgba(0, 0, 0, 0.45);

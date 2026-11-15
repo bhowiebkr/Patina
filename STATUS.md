@@ -27,12 +27,20 @@ and 6.4).
   `<use ID>/<node ID>`. A parameter of a use goes to the inner inputs of its public input pin.
 - A subgraph that uses itself and a wire to a pin that the subgraph does not have give problems.
 - The engine gives each subgraph to the node list with its public pins and their types.
+- The engine opens a subgraph for edits, saves it to its own file and runs the main graph with
+  the unsaved changes of the open subgraph. A unit test checks this.
+- A double-click on a use opens the subgraph in the editor. The public pins show as small nodes
+  with their wires, and the path bar goes back to the main graph. A change of graph saves first.
 
 ### Known limits
 
 - The editor shows a use of a subgraph as one node with the public pins, and **Add node** lists
-  the subgraphs. The editor cannot open a subgraph yet. The output pins of a use show the live
-  values of their inner outputs, and a run error of an inner node shows on the use.
+  the subgraphs. The output pins of a use show the live values of their inner outputs, and a run
+  error of an inner node shows on the use.
+- In an open subgraph, the public pins are read only. The editor cannot add, move or wire them
+  yet. The inner nodes show no live values and no run errors, because a subgraph can have many
+  uses.
+- The editor cannot collapse a selection into a subgraph or expand a use yet.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
 - The engine does not check the format of the public pin keys yet.
 

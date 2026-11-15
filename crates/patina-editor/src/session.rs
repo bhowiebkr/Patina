@@ -50,6 +50,8 @@ pub struct View {
     root: PathBuf,
     name: String,
     graph: GraphFile,
+    /// The name of the open graph: `main` or a subgraph (6.1).
+    graph_name: String,
     nodes: Vec<NodeInfo>,
     /// The widget folders (6.2).
     widgets: Vec<String>,
@@ -177,7 +179,7 @@ impl Session {
     /// (15.10). An error shows with the problems of the project.
     fn keep_recovery(&mut self, data: &Data) {
         if self.recovery.is_none() {
-            let graph = self.project.dirty().then(|| self.project.graph());
+            let graph = self.project.dirty().then(|| (self.project.graph_name(), self.project.graph()));
             self.recovery_error = data.save_recovery(self.project.root(), graph, &self.code).err();
         }
     }
@@ -208,6 +210,7 @@ impl Session {
             root: project.root().to_owned(),
             name: folder_name(project.root()),
             graph: project.graph().clone(),
+            graph_name: project.graph_name().to_owned(),
             nodes,
             widgets: project.widgets(),
             problems,
@@ -430,6 +433,10 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
         if !session.trusted {
             return Err("Trust the project before you restore its changes.".to_owned());
         }
+        let name = session.recovery.as_ref().filter(|f| f.graph.is_some()).and_then(|f| f.graph_name.clone());
+        if let (true, Some(name)) = (restore, name) {
+            session.project.open_graph(&name)?;
+        }
         let file = session.recovery.take().ok_or("The project has no recovery file.")?;
         let mut code = BTreeMap::new();
         if restore {
@@ -441,6 +448,15 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
         session.code = code.clone();
         session.keep_recovery(&editor.data);
         Ok(Recovered { view: session.view(&editor.engine, None, None), code })
+    })
+}
+
+/// Opens the main graph or a subgraph in the graph view (6.1).
+#[tauri::command(async)]
+pub fn open_graph(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.with(|session| {
+        session.project.open_graph(&name)?;
+        Ok(session.view(&editor.engine, None, None))
     })
 }
 

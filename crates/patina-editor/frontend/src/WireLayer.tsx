@@ -24,7 +24,7 @@ const HIT_WIDTH = 12;
 const HANDLE = 10;
 
 /** The ends of a wire, its route points, its look and the type of its value (spec 15.9). */
-export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string };
+export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean };
 
 export interface WireTools {
   store: WireStore;
@@ -57,7 +57,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
   const add = (e: MouseEvent) => {
-    if (!editable) return;
+    if (!editable || data!.fixed) return;
     const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
     const k = insertAt(sourceX, sourceY, targetX, targetY, route, p.x, p.y);
     void send([...route.slice(0, k), [Math.round(p.x), Math.round(p.y)], ...route.slice(k)]);

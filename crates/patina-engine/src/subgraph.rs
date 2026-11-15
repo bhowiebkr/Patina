@@ -20,14 +20,14 @@ pub(crate) type Alias = (String, String);
 
 /// Gives the graph with each use of a subgraph replaced by the nodes of the subgraph file, and
 /// the aliases of the output pins of the uses. The collars and cables stay out, because only the
-/// editor draws them.
-pub(crate) fn flatten(root: &Path, graph: &GraphFile) -> Result<(GraphFile, Vec<Alias>), Vec<String>> {
+/// editor draws them. `open` is a subgraph of the editor that replaces its file.
+pub(crate) fn flatten(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>) -> Result<(GraphFile, Vec<Alias>), Vec<String>> {
     let mut problems = Vec::new();
-    let flat = expand(root, graph, &mut Vec::new(), &mut problems);
+    let flat = expand(root, graph, open, &mut Vec::new(), &mut problems);
     if problems.is_empty() { Ok(flat) } else { Err(problems) }
 }
 
-fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mut Vec<String>) -> (GraphFile, Vec<Alias>) {
+fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stack: &mut Vec<String>, problems: &mut Vec<String>) -> (GraphFile, Vec<Alias>) {
     if graph.node.iter().all(|n| n.subgraph.is_none()) {
         return (graph.clone(), Vec::new());
     }
@@ -53,7 +53,11 @@ fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mu
             fail(format!("the subgraph {name} uses itself"));
             continue;
         }
-        let file = match project::read(&root.join("graphs").join(format!("{name}.toml")), |g: &GraphFile| g.format) {
+        let file = match open.filter(|(open, _)| open == name) {
+            Some((_, graph)) => Ok(graph.clone()),
+            None => project::read(&root.join("graphs").join(format!("{name}.toml")), |g: &GraphFile| g.format),
+        };
+        let file = match file {
             Ok(file) => file,
             Err(e) => {
                 fail(e.to_string());
@@ -61,7 +65,7 @@ fn expand(root: &Path, graph: &GraphFile, stack: &mut Vec<String>, problems: &mu
             }
         };
         stack.push(name.clone());
-        let inner = expand(root, &file, stack, problems).0;
+        let inner = expand(root, &file, open, stack, problems).0;
         stack.pop();
         let prefix = |end: &str| format!("{id}/{end}");
         let mut one = Use { inputs: HashMap::new(), outputs: HashMap::new(), nodes: Vec::new() };
@@ -257,7 +261,7 @@ before = "00000000000000d1"
 after = "00000000000000c2"
 "#,
         );
-        let (flat, aliases) = flatten(&root, &main).unwrap();
+        let (flat, aliases) = flatten(&root, &main, None).unwrap();
         let inner = |id: &str| format!("{id}/00000000000000a1.out");
         assert_eq!(aliases, [("00000000000000d1.0000000b".to_owned(), inner("00000000000000d1")), ("00000000000000d2.0000000b".to_owned(), inner("00000000000000d2"))]);
         let ids: Vec<&str> = flat.node.iter().map(|n| n.id.as_str()).collect();
@@ -278,7 +282,7 @@ after = "00000000000000c2"
         // A subgraph that uses itself and a pin that does not exist give problems.
         std::fs::write(root.join("graphs/cycle.toml"), "format = 1\n[[node]]\nid = \"00000000000000e1\"\nsubgraph = \"cycle\"\n").unwrap();
         let bad = graph("format = 1\n[[node]]\nid = \"00000000000000d1\"\nsubgraph = \"cycle\"\n[[node]]\nid = \"00000000000000d2\"\nsubgraph = \"half\"\n[[wire]]\nfrom = \"00000000000000d2.nothing\"\nto = \"00000000000000d2.0000000a\"\n");
-        let problems = flatten(&root, &bad).unwrap_err();
+        let problems = flatten(&root, &bad, None).unwrap_err();
         // The node list shows each subgraph with its public pins. The add folder is missing here.
         let infos = infos(&root);
         std::fs::remove_dir_all(&root).unwrap();

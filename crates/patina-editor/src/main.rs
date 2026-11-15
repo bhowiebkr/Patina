@@ -204,6 +204,7 @@ fn main() {
             session::read_code,
             session::set_unsaved_code,
             session::recover,
+            session::open_graph,
             session::run,
             session::pause,
             session::bake,
