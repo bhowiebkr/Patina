@@ -376,7 +376,8 @@ impl Project {
         })
     }
 
-    fn find_std(&self, name: &str) -> io::Result<PathBuf> {
+    /// Finds a `std` library of the toolchain in the sysroot.
+    pub fn find_std(&self, name: &str) -> io::Result<PathBuf> {
         let rustlib = self.toolchain.sysroot.join("lib/rustlib").join(&self.settings.target);
         [self.toolchain.sysroot.join("bin"), rustlib.join("lib")]
             .into_iter()
@@ -669,6 +670,11 @@ impl Value {
             ptr: self.0.ptr,
             key: self.0.key,
         }
+    }
+
+    /// The address of the drop function. It is in the library that made the value.
+    pub fn drop_fn_addr(&self) -> usize {
+        self.0.drop as usize
     }
 
     /// Gives the value to a `TAKE` input. The node drops it.

@@ -100,7 +100,12 @@ enum Edit {
 | Mode | Optimization | Use |
 |---|---|---|
 | Edit | Low, no LTO | The slot (7): fast compile of the node that the user edits |
-| Bake | Full, with LTO | The base (7) and packages: fast execution |
+| Bake | Full, no LTO | The base (7) and packages: fast execution |
+
+- Bake mode uses `opt-level = 3` and `codegen-units = 1`.
+- Bake mode does not use LTO. The clusters share `std` and the types library through `-C prefer-dynamic` (5.2), and rustc refuses LTO with `-C prefer-dynamic`. The milestone 0 prototype "hot reload" found this on Windows, in each form of LTO that it tried (19).
+- The compiler inlines a function across crates without LTO when the function is generic or has `#[inline]`. Thus `#[node]` marks the run function of each node `#[inline]`, so small nodes inline into each other inside one cluster. Milestone 6 measures this.
+- This is an agent decision of 2026-11-15. The owner can change it.
 
 ### 8.4 Base and slot
 
@@ -109,16 +114,19 @@ Section 7 describes the base and the slot. The base builds in bake mode. The slo
 ### 8.5 Hot reload
 
 - Each build gets a new file name: clusters, the slot, views, connection kinds, and the shared types library. Windows locks loaded `.dll` files. Windows also gives an already loaded library to each later request with the same file name. Thus a new build with an old name would run the old code.
+- The file name of a library holds a hash of the file content. A build that gives the same bytes gets the same name, so the loaded library stays in use. Thus an undo to an earlier source does not load a new copy.
+- The builds must be reproducible. With the MSVC linker, the engine links with `/Brepro`. Without it, each library holds a new time stamp and a new PDB ID. The toolchain prototype finds the flag for its target (19). This is an agent decision of 2026-11-15.
 - The engine loads each library by its full path. It finds the libraries that a library needs only in the `build/` folder of the project. On Windows, `LoadLibraryExW` with the `LOAD_LIBRARY_SEARCH` flags limits the search path. The `build/` folder holds each library that a cluster needs, including the `std` library of the toolchain.
 - Values, node states, futures, and callbacks keep a link to the build that made them. Old builds stay loaded, so these drop with their own code.
 - A failed build never deletes or replaces a loaded file.
 - When a project opens, Patina deletes the old builds in `build/`, except the loaded builds and the builds in the cache.
+- Windows refuses to delete a loaded library, but it renames one. Thus a delete during a session skips the loaded builds.
 - The engine does not unload old builds. Rust libraries do not unload safely, and macOS often does not unload them. Memory and disk use grow with each reload until a restart. Milestone 0 measures the growth (19).
 - With process isolation (see 16), the engine can restart the node process and free all old builds.
 
 ### 8.6 Cache
 
-- The engine stores each compiled cluster with a hash of its contents as the key.
+- The engine stores each compiled cluster with a hash of its inputs as the key: the node sources, the wiring, the build settings, the toolchain, and the build ID of the types library (5.1). The engine knows the key before it compiles, so a cache hit needs no compile.
 
 | Change | Compile needed? |
 |---|---|

@@ -28,7 +28,7 @@ the next prototype (section 19).
 
 - [x] **Rust types across clusters** (5.1, 5.2). `String`, `Vec` and a type with `Drop` between
   clusters, and the type key check.
-- [ ] **Hot reload** (8.5). A value that outlives a reload, the memory and disk use of each
+- [x] **Hot reload** (8.5). A value that outlives a reload, the memory and disk use of each
   reload, and the time of a cold build and of a rebuild.
 - [ ] **Toolchain** (13.2). Zig as the C compiler, and a Patina folder at a path with spaces and
   non-ASCII characters. The result decides the Windows target, for example
