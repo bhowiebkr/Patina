@@ -355,6 +355,7 @@ impl Checked {
         }
         let built = cargo::build(&self.root, toolchain, &self.plan)?;
         let library = copy_to_loaded(&self.root, &built)?;
+        copy_runtime(&self.root, &toolchain.libdir)?;
         let plan = &self.plan;
         let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
         let slots = plan.slots.iter().map(|s| (plan.steps[s.step].id.clone(), s.key.clone())).collect();
@@ -488,13 +489,44 @@ fn copy_to_loaded(root: &Path, built: &Path) -> Result<PathBuf, Error> {
     }
     // An old copy that a process has loaded does not delete on Windows. It stays until later.
     for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
-        let _ = fs::remove_file(entry.path());
+        if entry.file_name().to_string_lossy().starts_with("cluster-") {
+            let _ = fs::remove_file(entry.path());
+        }
     }
     fs::create_dir_all(&dir).map_err(|e| Error::Io(dir.clone(), e))?;
-    let temp = path.with_extension("tmp");
-    fs::write(&temp, &bytes).map_err(|e| Error::Io(temp.clone(), e))?;
-    fs::rename(&temp, &path).map_err(|e| Error::Io(path.clone(), e))?;
+    write_new(&path, &bytes)?;
     Ok(path)
+}
+
+/// Copies the shared runtime of the toolchain to `build/loaded/`: the `std` library and the
+/// libraries of the `bin` folder of the target. A cluster links them, and the loader finds them
+/// only there (8.5). The name of `std` holds the hash of its build, so the same name has the same
+/// bytes.
+fn copy_runtime(root: &Path, libdir: &Path) -> Result<(), Error> {
+    let shared = |path: &Path| path.extension().is_some_and(|e| e == std::env::consts::DLL_EXTENSION);
+    let entries = fs::read_dir(libdir).map_err(|e| Error::Io(libdir.to_owned(), e))?;
+    let std = entries.flatten().map(|e| e.path()).find(|path| {
+        let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+        (name.starts_with("std-") || name.starts_with("libstd-")) && shared(path)
+    });
+    let std = std.ok_or_else(|| Error::Build(format!("{} has no shared std library", libdir.display())))?;
+    // On the gnu target of Windows, `std` needs libgcc_s and winpthreads from here. Other targets have no library here.
+    let bin = libdir.with_file_name("bin");
+    let more = fs::read_dir(&bin).into_iter().flatten().flatten().map(|e| e.path()).filter(|path| shared(path));
+    for library in std::iter::once(std).chain(more) {
+        let path = root.join("build").join("loaded").join(library.file_name().unwrap_or_default());
+        if !path.exists() {
+            write_new(&path, &fs::read(&library).map_err(|e| Error::Io(library.clone(), e))?)?;
+        }
+    }
+    Ok(())
+}
+
+/// Writes a new file through a temporary file, so a stopped write leaves no part of a library.
+fn write_new(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    let temp = path.with_extension("tmp");
+    fs::write(&temp, bytes).map_err(|e| Error::Io(temp.clone(), e))?;
+    fs::rename(&temp, path).map_err(|e| Error::Io(path.to_owned(), e))
 }
 
 #[cfg(test)]
@@ -556,5 +588,29 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
         assert_eq!(reopened.graph(), project.graph());
         assert!(checked.is_ok());
+    }
+
+    #[test]
+    fn the_shared_runtime_is_copied_one_time() {
+        let root = std::env::temp_dir().join(format!("patina-std-{}", std::process::id()));
+        let (libdir, loaded) = (root.join("lib"), root.join("build").join("loaded"));
+        fs::create_dir_all(&libdir).unwrap();
+        fs::create_dir_all(&loaded).unwrap();
+        fs::write(libdir.join("libstd-1.rlib"), "static").unwrap();
+        assert!(copy_runtime(&root, &libdir).is_err(), "a static std is not used");
+        let name = format!("std-1.{}", std::env::consts::DLL_EXTENSION);
+        fs::write(libdir.join(&name), "shared").unwrap();
+        copy_runtime(&root, &libdir).unwrap();
+        fs::write(libdir.join(&name), "changed").unwrap();
+        fs::create_dir_all(root.join("bin")).unwrap();
+        let gcc = format!("libgcc-1.{}", std::env::consts::DLL_EXTENSION);
+        fs::write(root.join("bin").join(&gcc), "gcc").unwrap();
+        fs::write(root.join("bin").join("tool.exe"), "tool").unwrap();
+        copy_runtime(&root, &libdir).unwrap();
+        let copied = fs::read_to_string(loaded.join(&name)).unwrap();
+        let more = (loaded.join(&gcc).is_file(), loaded.join("tool.exe").exists());
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(copied, "shared", "a loaded library is not written again");
+        assert_eq!(more, (true, false), "only the libraries of bin are copied");
     }
 }

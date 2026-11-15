@@ -101,6 +101,10 @@ pub struct Toolchain {
     pub rustc: PathBuf,
     /// The Rust version, for example `1.94.0`.
     pub release: String,
+    /// The host target, for example `x86_64-pc-windows-msvc`.
+    pub host: String,
+    /// The folder of the libraries of the host target, with the shared `std` library.
+    pub libdir: PathBuf,
     /// The toolchain folder of Patina (13.3), or none for the Rust of the system.
     pub own: Option<PathBuf>,
 }
@@ -115,7 +119,8 @@ impl Toolchain {
         let bin = folder.join("cargo").join("bin");
         let cargo = bin.join(format!("cargo{}", std::env::consts::EXE_SUFFIX));
         let rustc = bin.join(format!("rustc{}", std::env::consts::EXE_SUFFIX));
-        Toolchain { cargo, rustc, release: String::new(), own: Some(folder.to_owned()) }.with_release()
+        let own = Some(folder.to_owned());
+        Toolchain { cargo, rustc, release: String::new(), host: String::new(), libdir: PathBuf::new(), own }.with_release()
     }
 
     /// True when the toolchain folder has cargo.
@@ -132,20 +137,23 @@ impl Toolchain {
             .map(|dir| dir.join(&rustc_name))
             .filter(|path| path.is_file())
             .unwrap_or_else(|| PathBuf::from(&rustc_name));
-        Toolchain { cargo, rustc, release: String::new(), own: None }.with_release()
+        Toolchain { cargo, rustc, release: String::new(), host: String::new(), libdir: PathBuf::new(), own: None }
+            .with_release()
     }
 
     /// Reads the Rust version and uses the programs of the sysroot. They are not rustup proxies,
     /// so a `rust-toolchain.toml` in the project cannot select another toolchain.
     fn with_release(mut self) -> Result<Toolchain, Error> {
         let version = run_text(self.command(&self.rustc)?.arg("-vV"))?;
-        self.release = version
-            .lines()
-            .find_map(|line| line.strip_prefix("release:"))
-            .map(|value| value.trim().to_owned())
-            .ok_or_else(|| Error::Build(format!("{} -vV gave no release", self.rustc.display())))?;
-        let sysroot = run_text(self.command(&self.rustc)?.args(["--print", "sysroot"]))?;
-        let bin = PathBuf::from(sysroot.trim()).join("bin");
+        let field = |name: &str| {
+            let value = version.lines().find_map(|line| line.strip_prefix(name)).map(|value| value.trim().to_owned());
+            value.ok_or_else(|| Error::Build(format!("{} -vV gave no {name}", self.rustc.display())))
+        };
+        self.release = field("release:")?;
+        self.host = field("host:")?;
+        let sysroot = PathBuf::from(run_text(self.command(&self.rustc)?.args(["--print", "sysroot"]))?.trim());
+        self.libdir = sysroot.join("lib").join("rustlib").join(&self.host).join("lib");
+        let bin = sysroot.join("bin");
         for (file, name) in [(&mut self.cargo, "cargo"), (&mut self.rustc, "rustc")] {
             let found = bin.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
             if found.is_file() {
@@ -170,6 +178,26 @@ impl Toolchain {
             }
         }
         Ok(command)
+    }
+
+    /// The `rustc` flags of a build. Each library links `std` as a shared library, so the clusters
+    /// and the slot use one copy of `std` (5.2). The link gives the same bytes for the same code
+    /// (8.5). On Linux and macOS, a library finds `std` in its own folder.
+    fn rustflags(&self) -> String {
+        let mut flags = vec!["-Cprefer-dynamic".to_owned()];
+        if self.host.ends_with("windows-msvc") {
+            flags.push("-Clink-arg=/Brepro".to_owned());
+        } else if let Some(folder) = self.own.as_ref().filter(|_| self.host.ends_with("windows-gnu")) {
+            // The own toolchain links with rust-lld (13.2). The flag of another linker is not known.
+            flags.push("-Clink-arg=--no-insert-timestamp".to_owned());
+            // rustc makes the import libraries of `std` with dlltool. The binutils dlltool reads ANSI arguments.
+            flags.push(format!("-Cdlltool={}", folder.join("zig").join("zig-dlltool.exe").display()));
+        } else if self.host.contains("apple") {
+            flags.push("-Clink-arg=-Wl,-rpath,@loader_path".to_owned());
+        } else if !self.host.contains("windows") {
+            flags.push("-Clink-arg=-Wl,-rpath,$ORIGIN".to_owned());
+        }
+        flags.join("\x1f")
     }
 }
 
@@ -226,8 +254,8 @@ pub(crate) fn run_text(command: &mut Command) -> Result<String, Error> {
 }
 
 /// Writes the files that Patina makes, builds the cluster and returns the path of its library.
-// shortcut: one cluster with a static std in the dev profile. Clusters, the shared types
-// library and bake mode come at milestone 6.
+// shortcut: one cluster in the dev profile. Clusters, the shared types library and bake mode
+// come at milestone 6.
 pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf, Error> {
     write(root, "build/clusters/main/Cargo.toml", &generate::manifest(plan))?;
     write(root, "build/clusters/main/lib.rs", &generate::source(plan))?;
@@ -238,6 +266,7 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
         .current_dir(root)
         .args(["build", "-p", generate::PACKAGE, "--message-format=json"]);
     command.env("CARGO_TARGET_DIR", root.join("build/target")).env("RUSTC", &toolchain.rustc);
+    command.env("CARGO_ENCODED_RUSTFLAGS", toolchain.rustflags());
     let output = command
         .output()
         .map_err(|e| Error::Build(format!("cannot start {}: {e}", toolchain.cargo.display())))?;
@@ -424,6 +453,20 @@ mod tests {
         }
         // A folder with no cargo gives the Rust of the system.
         assert_eq!(Toolchain::find(&folder).unwrap().own, None);
+    }
+
+    #[test]
+    fn each_host_gets_its_link_flags() {
+        let flags = |host: &str, own: Option<&str>| {
+            let (cargo, rustc, release, libdir) = (PathBuf::new(), PathBuf::new(), String::new(), PathBuf::new());
+            Toolchain { cargo, rustc, release, host: host.to_owned(), libdir, own: own.map(PathBuf::from) }.rustflags()
+        };
+        assert_eq!(flags("x86_64-pc-windows-msvc", None), "-Cprefer-dynamic\x1f-Clink-arg=/Brepro");
+        assert_eq!(flags("x86_64-pc-windows-gnu", None), "-Cprefer-dynamic");
+        let own = flags("x86_64-pc-windows-gnu", Some("t"));
+        assert!(own.contains("\x1f-Clink-arg=--no-insert-timestamp\x1f-Cdlltool=t") && own.ends_with("zig-dlltool.exe"), "{own}");
+        assert!(flags("x86_64-unknown-linux-gnu", None).ends_with("\x1f-Clink-arg=-Wl,-rpath,$ORIGIN"));
+        assert!(flags("aarch64-apple-darwin", None).ends_with("\x1f-Clink-arg=-Wl,-rpath,@loader_path"));
     }
 
     #[test]

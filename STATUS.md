@@ -7,6 +7,50 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Milestone 6: layers
+
+Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **Bake** (spec 7).
+
+### Plan
+
+1. A shared `std` and reproducible links. This part works.
+2. The state across swaps: the cluster gives the state of each node whose key did not change to
+   the next cluster.
+3. More than one cluster in a build, and swaps of all of them or of none.
+4. The slot: the base calls the node in edit mode through a function pointer.
+5. Fuse back, the bake profile and **Bake**, with the decision of the idle time (Q7).
+6. The **Layers** panel, the slot icon and the status bar.
+7. The check of the roadmap, with the measured fuse time.
+
+### What works
+
+- Each build links `std` as a shared library (`-C prefer-dynamic`), so all clusters use one
+  copy of `std`. The engine copies the `std` library of the toolchain to `build/loaded/`.
+- On the gnu target of Windows, `std` needs `libgcc_s_seh-1.dll` and `libwinpthread-1.dll`. The
+  engine copies them from the `bin` folder of the target to `build/loaded/` too.
+- The links are reproducible: `/Brepro` with MSVC, and `--no-insert-timestamp` with the
+  rust-lld of the own toolchain. On Linux and macOS, a cluster finds `std` in its own folder
+  through an rpath.
+- rustc makes the import libraries of `std` with dlltool. The dlltool of binutils cannot open a
+  path with CJK letters, so the own toolchain uses `zig-dlltool.exe`, a new Zig wrapper.
+
+### What was checked
+
+- The own toolchain (Rust 1.100.0, x86_64-pc-windows-gnu) built and ran `hello` in a folder
+  with a space, an accent and a CJK letter in its name. It gave 6.5. `build/loaded/` had the cluster, `std`, libgcc_s and
+  winpthreads.
+- With the own toolchain and `-C prefer-dynamic`, the build scripts of `cmix` and
+  `libsqlite3-sys` ran, and the fixture of the toolchain prototype built.
+- The link flag test checks the flags of each host. The runtime test checks that the engine
+  copies `std` and the libraries of `bin` one time.
+
+### Known limits
+
+- A toolchain folder from before this change has no `zig-dlltool.exe`, so a build fails.
+  Delete the `toolchain` folder, then install the toolchain again.
+- The rpath on Linux and macOS ran only in CI. Nobody compared the bytes of two builds yet. Part
+  7 of the plan compares them.
+
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
 Milestone 5 ended on 2026-11-15. Stateful nodes (4.2), generic nodes (4.5), the delay node
@@ -75,8 +119,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 
 - Branding: nobody made a real `.msi`, so the installer bitmaps and the uninstall icon were not
   seen in Windows. `project-file.ico` has no file association yet.
-- macOS CI runs 43751314457 and 43754038780 counted 2 and 1 allocations in 100 frames in the
-  `hello` test of `tests/run.rs` of `patina-cli` (0 expected). The other macOS runs passed.
+- macOS CI runs 43751314457, 43754038780 and 43755389510 counted 2, 1 and 2 allocations in 100
+  frames in the `hello` test of `tests/run.rs` of `patina-cli` (0 expected). The other macOS runs passed.
   Windows and Linux pass. NOT_ENOUGH_INFO: no Mac is available to find the cause. A hypothesis:
   a lock of the worker pool allocates the first time this thread waits.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
@@ -631,8 +675,8 @@ The projects are very small, so these times do not predict real projects.
 
 ### Known limits
 
-- One cluster, with a static `std`, in the `dev` profile. Clusters that share types, hot reload
-  and **Bake** come at milestone 6.
+- One cluster, in the `dev` profile. Milestone 6 links a shared `std`. Clusters that share
+  types, hot reload and **Bake** come at milestone 6.
 - Only function nodes. Stateful nodes, node settings and generic nodes come at milestone 5.
   Subgraphs come at milestone 7, and async nodes at milestone 12.
 - The toolchain comes from the toolchain folder (13.3), or else from the `CARGO` variable or

@@ -55,7 +55,7 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
         unpack_zig(&work, &downloads, step)?;
     }
     step("Copy the Zig wrappers");
-    for name in ["zig-cc.exe", "zig-ar.exe"] {
+    for name in ["zig-cc.exe", "zig-ar.exe", "zig-dlltool.exe"] {
         fs::copy(wrapper, zig.join(name)).map_err(|e| Error::Io(zig.join(name), e))?;
     }
     step("Check the toolchain");
@@ -83,6 +83,7 @@ pub fn run_wrapper() -> Option<i32> {
     let tool = match exe.file_stem()?.to_str()? {
         "zig-cc" => "cc",
         "zig-ar" => "ar",
+        "zig-dlltool" => "dlltool",
         _ => return None,
     };
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
