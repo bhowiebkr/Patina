@@ -73,9 +73,28 @@ pub struct Wire {
     pub from: String,
     pub to: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub style: Option<String>,
+    pub style: Option<Style>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corners: Option<Corners>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub points: Vec<[f64; 2]>,
+}
+
+/// The path of a wire (15.9). A wire with no style uses the graph default.
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Style {
+    Curved,
+    Orthogonal,
+    Polyline,
+}
+
+/// The corners of an orthogonal or polyline path (15.9). The default is rounded.
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Corners {
+    Rounded,
+    Sharp,
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]

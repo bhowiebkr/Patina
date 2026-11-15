@@ -330,6 +330,21 @@ fn broken() -> u32 {
     await until('no route point', RUN_MS, () => document.querySelectorAll('.route-point').length === 0);
     v = await step('undo the removal', () => api.undo());
     if (v.graph.wire?.length !== 1 || v.graph.wire[0].points?.length !== 1) throw new Error('Delete on a route point changed more than the point');
+    // The look of the wire (15.9): the Route field of the Inspector sets the style, and Reset route
+    // removes the route points. Both are edits with undo.
+    const field = (name: string) =>
+      [...document.querySelectorAll('.param')].find((p) => p.querySelector('.label')?.textContent === name)?.querySelector('select');
+    const rounded = () => (document.querySelector('.wire-hit')?.getAttribute('d')?.match(/Q/g) ?? []).length;
+    await until('the Route field', RUN_MS, () => !!field('Route') && rounded() === 1);
+    field('Route')!.value = 'orthogonal';
+    field('Route')!.dispatchEvent(new Event('change', { bubbles: true }));
+    await until('the corners of the orthogonal wire', RUN_MS, () => rounded() >= 3);
+    [...document.querySelectorAll<HTMLButtonElement>('.panel button')].find((b) => b.textContent === 'Reset route')!.click();
+    await until('no route point after Reset route', RUN_MS, () => document.querySelectorAll('.route-point').length === 0);
+    v = await step('undo Reset route', () => api.undo());
+    if (v.graph.wire?.[0]?.style !== 'orthogonal' || v.graph.wire[0].points?.length !== 1) throw new Error(`the route style or Reset route failed: ${JSON.stringify(v.graph.wire)}`);
+    v = await step('undo the route style', () => api.undo());
+    if (v.graph.wire?.[0]?.style !== undefined) throw new Error('undo did not give the graph default route');
     // While the graph is paused, an edit makes the value of the last run stale (15.3, 15.9).
     await step('pause', () => api.pause());
     v = await step('edit while paused', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '3' }));

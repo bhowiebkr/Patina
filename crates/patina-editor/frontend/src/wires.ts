@@ -1,7 +1,7 @@
 // The geometry of the connections (spec 15.9): one slot of points for each wire. The WebGL
 // layer draws the slots, and each edge of React Flow keeps an invisible hit path on the same curve.
 
-import type { Point } from './api';
+import type { Corners, Point, Style } from './api';
 
 export const MAX_POINTS = 64;
 /** x, y, nx, ny for each point. (nx, ny) is the miter normal, so two segments touch at a joint. */
@@ -10,16 +10,60 @@ const BEZIER_SEGMENTS = 32;
 /** The route points of one wire at most, as in the engine (spec 6.4). */
 export const MAX_ROUTE = 12;
 const CORNER_RADIUS = 12;
-/** 2 + MAX_ROUTE x CORNER_POINTS fits in MAX_POINTS. */
+/** 2 + MAX_ROUTE x CORNER_POINTS fits in MAX_POINTS. A path with more bends gets fewer points for each corner. */
 const CORNER_POINTS = 5;
+/** The horizontal length at both ends of an orthogonal leg that goes back. */
+const STUB = 20;
 const NO_ROUTE: readonly Point[] = [];
+
+/** The path of a wire (spec 15.9): the bends between the pins, and the corner radius or SMOOTH. */
+export interface Shape {
+  bends: readonly Point[];
+  radius: number;
+}
+/** The radius of a smooth curve through the bends. */
+export const SMOOTH = -1;
+const CURVE: Shape = { bends: NO_ROUTE, radius: SMOOTH };
+
+/**
+ * The path of a wire from its style, its corners and its route points. With no style, a wire
+ * with no points is curved, and a wire with points is a polyline.
+ */
+export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Style, corners?: Corners): Shape {
+  if (style === 'curved' || (style === undefined && route.length === 0)) return { bends: route, radius: SMOOTH };
+  const radius = corners === 'sharp' ? 0 : CORNER_RADIUS;
+  return { bends: style === 'orthogonal' ? orthogonal(sx, sy, tx, ty, route) : route, radius };
+}
+
+/**
+ * The bends of an orthogonal path: horizontal at the pins, with an elbow before each route point
+ * that is not in line. The last leg turns at the middle between the last point and the target.
+ */
+export function orthogonal(sx: number, sy: number, tx: number, ty: number, route: readonly Point[]): Point[] {
+  const bends: Point[] = [];
+  let [ax, ay] = [sx, sy];
+  for (const [px, py] of route) {
+    if (px !== ax && py !== ay) bends.push([px, ay]);
+    bends.push([px, py]);
+    [ax, ay] = [px, py];
+  }
+  if (ay === ty && tx >= ax) return bends;
+  if (tx >= ax) {
+    const mx = (ax + tx) / 2;
+    bends.push([mx, ay], [mx, ty]);
+  } else {
+    const my = (ay + ty) / 2;
+    bends.push([ax + STUB, ay], [ax + STUB, my], [tx - STUB, my], [tx - STUB, ty]);
+  }
+  return bends;
+}
 
 /** The horizontal reach of the control points of the default curve. */
 function reach(sx: number, tx: number): number {
   return Math.max(40, Math.abs(tx - sx) * 0.5);
 }
 
-/** Point k of the polyline from the source pin through the route points to the target pin. */
+/** Point k of the polyline from the source pin through the bends to the target pin. */
 function vertex(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], k: number, axis: 0 | 1): number {
   if (k === 0) return axis === 0 ? sx : sy;
   if (k > route.length) return axis === 0 ? tx : ty;
@@ -29,9 +73,8 @@ function vertex(sx: number, sy: number, tx: number, ty: number, route: readonly 
 /** x0, y0, x1, y1: the ends of the last rounded corner. */
 const cut = new Float64Array(4);
 
-/** Sets `cut` for the corner at route point k. Returns false when the corner stays sharp. */
-function corner(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], k: number): boolean {
-  if (route.length > MAX_ROUTE) return false;
+/** Sets `cut` for the corner at bend k. Returns false when the corner stays sharp. */
+function corner(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], k: number, radius: number): boolean {
   const vx = route[k - 1][0];
   const vy = route[k - 1][1];
   const ix = vx - vertex(sx, sy, tx, ty, route, k - 1, 0);
@@ -40,7 +83,7 @@ function corner(sx: number, sy: number, tx: number, ty: number, route: readonly 
   const oy = vertex(sx, sy, tx, ty, route, k + 1, 1) - vy;
   const lin = Math.hypot(ix, iy);
   const lout = Math.hypot(ox, oy);
-  const r = Math.min(CORNER_RADIUS, lin / 2, lout / 2);
+  const r = Math.min(radius, lin / 2, lout / 2);
   if (r < 0.5) return false;
   cut[0] = vx - (ix / lin) * r;
   cut[1] = vy - (iy / lin) * r;
@@ -49,24 +92,50 @@ function corner(sx: number, sy: number, tx: number, ty: number, route: readonly 
   return true;
 }
 
-/** The SVG path from a source pin to a target pin: the default curve, or the rounded route. */
-export function wirePath(sx: number, sy: number, tx: number, ty: number, route: readonly Point[] = NO_ROUTE): string {
-  if (route.length === 0) {
-    const dx = reach(sx, tx);
-    return `M${sx} ${sy}C${sx + dx} ${sy} ${tx - dx} ${ty} ${tx} ${ty}`;
+/** P0, C1, C2 and P3 (x, y each) of the last smooth segment. */
+const ctl = new Float64Array(8);
+
+/** The control offset of the smooth curve at bend k: horizontal at the pins, as the default curve, else a Catmull-Rom tangent. */
+function handle(sx: number, sy: number, tx: number, ty: number, bends: readonly Point[], k: number, axis: 0 | 1): number {
+  const last = bends.length + 1;
+  if (k === 0 || k === last) return axis === 1 ? 0 : reach(vertex(sx, sy, tx, ty, bends, k === 0 ? 0 : last - 1, 0), vertex(sx, sy, tx, ty, bends, k === 0 ? 1 : last, 0));
+  return (vertex(sx, sy, tx, ty, bends, k + 1, axis) - vertex(sx, sy, tx, ty, bends, k - 1, axis)) / 6;
+}
+
+const AXES = [0, 1] as const;
+/** Sets `ctl` for the cubic segment k of the smooth curve through the bends. */
+function smooth(sx: number, sy: number, tx: number, ty: number, bends: readonly Point[], k: number) {
+  for (const axis of AXES) {
+    const a = vertex(sx, sy, tx, ty, bends, k, axis);
+    const b = vertex(sx, sy, tx, ty, bends, k + 1, axis);
+    ctl[axis] = a;
+    ctl[2 + axis] = a + handle(sx, sy, tx, ty, bends, k, axis);
+    ctl[4 + axis] = b - handle(sx, sy, tx, ty, bends, k + 1, axis);
+    ctl[6 + axis] = b;
   }
+}
+
+/** The SVG path from a source pin to a target pin. */
+export function wirePath(sx: number, sy: number, tx: number, ty: number, shape: Shape = CURVE): string {
+  const { bends, radius } = shape;
   let d = `M${sx} ${sy}`;
-  for (let k = 1; k <= route.length; k++) {
-    const [vx, vy] = route[k - 1];
-    d += corner(sx, sy, tx, ty, route, k) ? `L${cut[0]} ${cut[1]}Q${vx} ${vy} ${cut[2]} ${cut[3]}` : `L${vx} ${vy}`;
+  if (radius === SMOOTH) {
+    for (let k = 0; k <= bends.length; k++) {
+      smooth(sx, sy, tx, ty, bends, k);
+      d += `C${ctl[2]} ${ctl[3]} ${ctl[4]} ${ctl[5]} ${ctl[6]} ${ctl[7]}`;
+    }
+    return d;
+  }
+  for (let k = 1; k <= bends.length; k++) {
+    const [vx, vy] = bends[k - 1];
+    d += corner(sx, sy, tx, ty, bends, k, radius) ? `L${cut[0]} ${cut[1]}Q${vx} ${vy} ${cut[2]} ${cut[3]}` : `L${vx} ${vy}`;
   }
   return `${d}L${tx} ${ty}`;
 }
 
-/** The place of the value badge (15.9): the middle of the default curve, or of the longest segment of the route. */
-export function midpoint(sx: number, sy: number, tx: number, ty: number, route: readonly Point[]): Point {
-  // At t = 0.5 the control points of the default curve cancel, so its middle is the middle of the ends.
-  if (route.length === 0) return [(sx + tx) / 2, (sy + ty) / 2];
+/** The place of the value badge (15.9): the middle of the longest segment of the path. */
+export function midpoint(sx: number, sy: number, tx: number, ty: number, shape: Shape): Point {
+  const route = shape.bends;
   // The middle of a segment is never on a route point, so the handles of a selected wire do not hide the badge.
   let best = 0;
   let longest = -1;
@@ -77,11 +146,15 @@ export function midpoint(sx: number, sy: number, tx: number, ty: number, route: 
       best = k;
     }
   }
+  if (shape.radius === SMOOTH) {
+    smooth(sx, sy, tx, ty, route, best);
+    return [(ctl[0] + 3 * ctl[2] + 3 * ctl[4] + ctl[6]) / 8, (ctl[1] + 3 * ctl[3] + 3 * ctl[5] + ctl[7]) / 8];
+  }
   const mid = (axis: 0 | 1) => (vertex(sx, sy, tx, ty, route, best, axis) + vertex(sx, sy, tx, ty, route, best + 1, axis)) / 2;
   return [mid(0), mid(1)];
 }
 
-/** The index in the route for a new point at (x, y): the place of the nearest segment. */
+/** The index in the route for a new point at (x, y): the place of the nearest straight segment through the route points. */
 export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number): number {
   let best = 0;
   let bestDistance = Infinity;
@@ -107,19 +180,38 @@ function put(out: Float32Array, at: number, n: number, x: number, y: number): nu
   return n + 1;
 }
 
-/** The points of the rounded route from `at`, with their normals. Returns the number of points. */
-export function routePoints(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], out: Float32Array, at: number): number {
-  // shortcut: a route of more than MAX_POINTS - 2 points (only from a file edited by hand) draws its first points; split the row when this matters.
-  const last = Math.min(route.length, MAX_POINTS - 2);
+/** The points of the path from `at`, with their normals. Returns the number of points. */
+export function wirePoints(sx: number, sy: number, tx: number, ty: number, shape: Shape, out: Float32Array, at: number): number {
+  const { bends, radius } = shape;
+  // shortcut: a path of more than MAX_POINTS - 2 bends (only from a file edited by hand) draws its first bends; split the row when this matters.
+  const last = Math.min(bends.length, MAX_POINTS - 2);
   let n = put(out, at, 0, sx, sy);
+  if (radius === SMOOTH) {
+    const steps = Math.min(BEZIER_SEGMENTS, Math.floor((MAX_POINTS - 1) / (last + 1)));
+    for (let k = 0; k <= last; k++) {
+      smooth(sx, sy, tx, ty, bends, k);
+      for (let j = 1; j <= steps; j++) {
+        const t = j / steps;
+        const u = 1 - t;
+        const a = u * u * u;
+        const b = 3 * u * u * t;
+        const c = 3 * u * t * t;
+        const d = t * t * t;
+        n = put(out, at, n, a * ctl[0] + b * ctl[2] + c * ctl[4] + d * ctl[6], a * ctl[1] + b * ctl[3] + c * ctl[5] + d * ctl[7]);
+      }
+    }
+    normals(out, at, n);
+    return n;
+  }
+  const steps = Math.min(CORNER_POINTS, Math.floor((MAX_POINTS - 2) / Math.max(1, last)));
   for (let k = 1; k <= last; k++) {
-    const [vx, vy] = route[k - 1];
-    if (!corner(sx, sy, tx, ty, route, k)) {
+    const [vx, vy] = bends[k - 1];
+    if (steps < 2 || !corner(sx, sy, tx, ty, bends, k, radius)) {
       n = put(out, at, n, vx, vy);
       continue;
     }
-    for (let j = 0; j < CORNER_POINTS; j++) {
-      const t = j / (CORNER_POINTS - 1);
+    for (let j = 0; j < steps; j++) {
+      const t = j / (steps - 1);
       const u = 1 - t;
       n = put(out, at, n, u * u * cut[0] + 2 * u * t * vx + t * t * cut[2], u * u * cut[1] + 2 * u * t * vy + t * t * cut[3]);
     }
@@ -127,22 +219,6 @@ export function routePoints(sx: number, sy: number, tx: number, ty: number, rout
   n = put(out, at, n, tx, ty);
   normals(out, at, n);
   return n;
-}
-
-/** The points of the default curve from `at`, with their normals. Returns the number of points. */
-export function bezierPoints(sx: number, sy: number, tx: number, ty: number, out: Float32Array, at: number): number {
-  const dx = reach(sx, tx);
-  for (let k = 0; k <= BEZIER_SEGMENTS; k++) {
-    const t = k / BEZIER_SEGMENTS;
-    const u = 1 - t;
-    const b = 3 * u * u * t;
-    const c = 3 * u * t * t;
-    const d = t * t * t;
-    out[at + k * STRIDE] = (u * u * u + b) * sx + c * tx + d * tx + (b - c) * dx;
-    out[at + k * STRIDE + 1] = (u * u * u + b) * sy + (c + d) * ty;
-  }
-  normals(out, at, BEZIER_SEGMENTS + 1);
-  return BEZIER_SEGMENTS + 1;
 }
 
 const dirs = new Float32Array(MAX_POINTS * 2);
@@ -239,7 +315,7 @@ export class WireStore {
     this.notify = fn;
   }
 
-  set(id: string, sx: number, sy: number, tx: number, ty: number, route: readonly Point[], selected: boolean, bits = '', stale = false) {
+  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false) {
     let slot = this.slots.get(id);
     if (slot === undefined) {
       slot = this.free.pop() ?? this.slots.size;
@@ -255,7 +331,7 @@ export class WireStore {
     this.bits[slot] = bits;
     this.stale[slot] = old;
     const at = slot * MAX_POINTS * STRIDE;
-    const n = route.length === 0 ? bezierPoints(sx, sy, tx, ty, this.points, at) : routePoints(sx, sy, tx, ty, route, this.points, at);
+    const n = wirePoints(sx, sy, tx, ty, shape, this.points, at);
     // A new number of points needs new segment lists, or the old segments read stale points.
     if (this.counts[slot] !== n) this.layout = true;
     this.counts[slot] = n;

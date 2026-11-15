@@ -30,6 +30,10 @@ To run the editor from a checkout:
   its points. Drag a handle to move its point. Delete or a double-click on a handle removes the
   point. The arrow keys move a focused handle by 10 px, or by 1 px with Shift. Esc cancels a
   drag. A route has rounded corners.
+- The **Look** section of the **Inspector** sets the look of the selected wire (15.9). **Route**
+  is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded**
+  or **Sharp**. **Reset route** removes the route points. The graph file keeps the style, and
+  each change has undo.
 - The graph file keeps the route points. Undo and redo work for each route edit. A route edit
   does not make the result of the run stale.
 - After each run, each wire shows the value that it carries in a badge (15.9). The badge shows
@@ -162,10 +166,13 @@ To run the editor from a checkout:
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  16 tests: the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
-  the SVG path of a route, the segment lists, the place of the badge, and the move, close,
-  open, resize, reset and read of a dock layout.
-- CI run 43708446577 of the first editor slice passed on `windows-latest`, `ubuntu-latest` and
+  19 tests: the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
+  the SVG path of a route, the orthogonal paths, the sharp corners, the curve through route
+  points, the segment lists, the place of the badge, and the move, close, open, resize, reset
+  and read of a dock layout.
+- The self-check sets **Orthogonal** in the **Inspector**, finds 3 corners or more on the wire,
+  clicks **Reset route**, and undoes both edits.
+- CI run 43722861972 of the connection kinds passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 
 ### Known limits
@@ -186,8 +193,11 @@ To run the editor from a checkout:
   come later (5.3). The **Inspector** reads the full text one time after each run.
 - The badges do not hide at a far zoom (15.9). Two badges can cover each other. After each run, the engine copies the text of each
   value into a new `String`, and the badge text into a second `String`.
-- The route points have no **Reset route** and no orthogonal style (15.9). The keyboard cannot
-  add a route point. The editor does not warn when a wire goes under a node.
+- An orthogonal segment cannot move sideways (15.9). A double-click on an orthogonal or curved
+  wire puts the new point on the nearest straight line through the route points. The graph has
+  no setting for the default style. **Bus**, **Lock bends** and the crossings wait for the
+  automatic router. The keyboard cannot add a route point. The editor does not warn when a wire
+  goes under a node.
 - The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG
   wires.
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did

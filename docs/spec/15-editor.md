@@ -302,6 +302,10 @@ A connection shows the value that it carries while the graph runs. Connections a
 
 - Provide curved, orthogonal and manually routed polyline paths. Keep route geometry, corner treatment and compact or ribbon display as separate choices.
 - Allow a graph default and a connection override. Changing a style does not change execution.
+- The **Inspector** shows the look of the selected wire in its **Look** section. There is no toolbar on the canvas. **Route** is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded** or **Sharp**, and a curve has no corners. **Reset route** removes the route points and keeps the style. Each change is one edit with undo. (Agent decision, 2026-11-15. The owner can change it.)
+- The graph default is fixed for now: a wire with no route points is curved, and a wire with route points is a polyline with rounded corners. A graph setting for the default comes later. (Agent decision, 2026-11-15. The owner can change it.)
+- An orthogonal wire is horizontal at its pins. It turns at a right angle before each route point that is not in line, and its last leg turns at the middle between the last point and the target. A leg that goes back leaves the pin by 20 px first. A curved wire with route points is a smooth curve through the points. (Agent decision, 2026-11-15. The owner can change it.)
+- **Bus** (compact or ribbon display), **Lock bends** and the crossing controls come with the automatic router (see the optional refinements below). (Agent decision, 2026-11-15. The owner can change it.)
 - Use neutral wires by default. A project can use named color families for signal groups. Keep type labels, direction and lane identity available.
 - Selection uses the application accent without erasing the signal colors. Keep errors and stale values distinguishable from signal state.
 - Cross-domain connections remain dashed (15.3). An order wire remains identifiable as carrying no data (9.2).
@@ -309,7 +313,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 **Routing and interaction**
 
 - Let the user add, drag and remove route points. Orthogonal segments can move sideways while keeping their endpoints connected.
-- A double-click on a connection adds a route point on the nearest segment. A selected connection shows square handles on its points. A double-click or the Delete key on a focused handle removes that point, and the arrow keys move it by 10 px, or by 1 px with Shift. Esc cancels a drag. A manual route is a polyline with rounded corners. (Agent decision, 2026-11-15. The owner can change it.)
+- A double-click on a connection adds a route point on the nearest segment. A selected connection shows square handles on its points. A double-click or the Delete key on a focused handle removes that point, and the arrow keys move it by 10 px, or by 1 px with Shift. Esc cancels a drag. With no style, a manual route is a polyline with rounded corners. (Agent decision, 2026-11-15. The owner can change it.)
 - Keep routes clear of unrelated node bodies, expanded GUIs, pins and controls. Allow room for the whole ribbon and its bends.
 - Moving a route point changes geometry only. Reconnecting an endpoint is a separate action with the normal graph checks.
 - Preserve manual route points when nodes move or resize. Recalculate only the affected unfixed sections where possible.

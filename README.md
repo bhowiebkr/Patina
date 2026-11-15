@@ -137,6 +137,8 @@ A wire shows the value that it carries while the graph runs, as a node shows its
   selected wire.
 - A wire can be curved, or straight with rounded or sharp corners. You can add bends and route
   a wire around a node. The look of a wire never changes what it connects.
+- Double-click a wire to add a bend. Select the wire to set its look in the **Look** section of
+  the **Inspector**: **Route**, **Corners** and **Reset route**.
 - One output can feed many inputs. Splitting or joining a value takes a node.
 
 To add a connection kind:

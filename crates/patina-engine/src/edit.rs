@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use crate::project::{GraphFile, NodeEntry, Wire, is_id};
+use crate::project::{Corners, GraphFile, NodeEntry, Style, Wire, is_id};
 
 /// The number of edits that undo keeps. The oldest edit goes first.
 const UNDO_LIMIT: usize = 1000;
@@ -22,6 +22,9 @@ pub enum Edit {
     Disconnect { from: String, to: String },
     /// Replaces the route points of the wire to the input `to` (15.9). An empty list removes them.
     SetRoute { to: String, points: Vec<[f64; 2]> },
+    /// Sets the path style and the corners of the wire to the input `to` (15.9). `None` uses the
+    /// graph default.
+    SetLook { to: String, style: Option<Style>, corners: Option<Corners> },
     /// `None` removes the text, so the input gets its default value (4.8).
     SetParam { id: String, key: String, text: Option<String> },
     /// Applies the edits in order as one step of undo, for example a move of many nodes.
@@ -172,7 +175,7 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                 }
             }
             graph.wire.retain(|w| &w.to != to);
-            graph.wire.push(Wire { from: from.clone(), to: to.clone(), style: None, points: Vec::new() });
+            graph.wire.push(Wire { from: from.clone(), to: to.clone(), style: None, corners: None, points: Vec::new() });
         }
         Edit::Disconnect { from, to } => {
             let count = graph.wire.len();
@@ -190,6 +193,10 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
             }
             let wire = graph.wire.iter_mut().find(|w| &w.to == to).ok_or(format!("no wire goes to {to}"))?;
             wire.points.clone_from(points);
+        }
+        Edit::SetLook { to, style, corners } => {
+            let wire = graph.wire.iter_mut().find(|w| &w.to == to).ok_or(format!("no wire goes to {to}"))?;
+            (wire.style, wire.corners) = (*style, *corners);
         }
         Edit::SetParam { id, key, text } => {
             let index = find(graph, id)?;
@@ -296,6 +303,15 @@ mod tests {
         assert!(history.apply(&route("000000000000000a.value", Vec::new())).is_err(), "no wire goes to this pin");
         assert!(history.undo(no_code).unwrap() && history.undo(no_code).unwrap());
         assert!(history.graph.wire[0].points.is_empty(), "undo removes the route points");
+
+        let look: Edit = serde_json::from_str(r#"{"kind":"SetLook","to":"000000000000000b.value","style":"orthogonal","corners":"sharp"}"#).unwrap();
+        history.apply(&look).unwrap();
+        let text = toml::to_string(&history.graph).unwrap();
+        assert!(text.contains("style = \"orthogonal\"
+corners = \"sharp\""), "{text}");
+        assert!(serde_json::from_str::<Edit>(r#"{"kind":"SetLook","to":"x","style":"zigzag"}"#).is_err());
+        assert!(history.undo(no_code).unwrap());
+        assert_eq!(history.graph.wire[0].style, None, "undo gives the graph default again");
     }
 
     #[test]

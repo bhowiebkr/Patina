@@ -2,7 +2,7 @@
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
 import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { api, errorText, folderName, laneLabel, reportError, reportText, type Edit, type View } from './api';
+import { api, errorText, folderName, laneLabel, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
 import type { Inspect } from './ProjectPanel';
@@ -39,8 +39,16 @@ function Tabs({ tab, only, onTab }: { tab: InspectorTab; only?: InspectorTab; on
   );
 }
 
-/** A selected wire: its ends and the full text of its live value (15.7, 15.9). */
-function WireView({ view, run, from, to }: { view: View; run: RunState; from: string; to: string }) {
+interface WireProps {
+  view: View;
+  run: RunState;
+  from: string;
+  to: string;
+  onEdit: (edit: Edit) => void;
+}
+
+/** A selected wire: its ends, its look and the full text of its live value (15.7, 15.9). */
+function WireView({ view, run, from, to, onEdit }: WireProps) {
   const [full, setFull] = useState<{ from: string; text: string | null } | null>(null);
   useEffect(() => {
     let current = true;
@@ -59,6 +67,11 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
   const text = (full?.from === from ? full.text : null) ?? value?.text;
   const lanes = value?.lanes;
   const stale = valueStale(run, from);
+  const wire = view.graph.wire?.find((w) => w.to === to);
+  const locked = !view.trusted || !wire;
+  const look = (style?: Style, corners?: Corners) => onEdit({ kind: 'SetLook', to, style, corners });
+  // A curve has no corners. With no style, a wire with no points is a curve.
+  const curved = wire?.style === 'curved' || (wire?.style === undefined && !wire?.points?.length);
   return (
     <aside className="panel" aria-label="Inspector">
       <div className="panel-title">
@@ -89,6 +102,39 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
         )}
       </div>
       <div className="section">
+        <h3>Look</h3>
+        <label className="param">
+          <span className="label">Route</span>
+          <select
+            className="field"
+            value={wire?.style ?? ''}
+            disabled={locked}
+            onChange={(e) => look((e.currentTarget.value || undefined) as Style | undefined, wire?.corners)}
+          >
+            <option value="">Graph default</option>
+            <option value="curved">Curved</option>
+            <option value="orthogonal">Orthogonal</option>
+            <option value="polyline">Polyline</option>
+          </select>
+        </label>
+        <label className="param">
+          <span className="label">Corners</span>
+          <select
+            className="field"
+            value={curved ? '' : (wire?.corners ?? 'rounded')}
+            disabled={locked || curved}
+            onChange={(e) => look(wire?.style, e.currentTarget.value === 'sharp' ? 'sharp' : undefined)}
+          >
+            {curved && <option value="">None</option>}
+            <option value="rounded">Rounded</option>
+            <option value="sharp">Sharp</option>
+          </select>
+        </label>
+        <button className="btn" disabled={locked || !wire?.points?.length} onClick={() => onEdit({ kind: 'SetRoute', to, points: [] })}>
+          Reset route
+        </button>
+      </div>
+      <div className="section">
         <h3>Value</h3>
         {text === undefined ? (
           <div className="label">Run the graph to see the value.</div>
@@ -112,7 +158,7 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
       </aside>
     );
   }
-  if (inspect?.kind === 'wire') return <WireView view={view} run={run} from={inspect.from} to={inspect.to} />;
+  if (inspect?.kind === 'wire') return <WireView view={view} run={run} from={inspect.from} to={inspect.to} onEdit={onEdit} />;
   if (!entry) {
     return (
       <aside className="panel" aria-label="Inspector">

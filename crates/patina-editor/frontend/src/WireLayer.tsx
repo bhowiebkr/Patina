@@ -6,6 +6,7 @@ import {
   createContext,
   useContext,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -13,17 +14,17 @@ import {
   type PointerEvent,
 } from 'react';
 import { EdgeLabelRenderer, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
-import { laneLabel, type Edit, type Point, type Value } from './api';
+import { laneLabel, type Corners, type Edit, type Point, type Style, type Value } from './api';
 import { FAR_ZOOM, GlWires, PITCH } from './gl';
-import { insertAt, midpoint, wirePath, type WireStore } from './wires';
+import { insertAt, midpoint, shape, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */
 const HIT_WIDTH = 12;
 /** The size of a route handle, in screen pixels. */
 const HANDLE = 10;
 
-/** The ends of a wire, its route points and the type of its value (spec 15.9). */
-export type WireData = { from: string; to: string; route: readonly Point[]; ty?: string };
+/** The ends of a wire, its route points, its look and the type of its value (spec 15.9). */
+export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string };
 
 export interface WireTools {
   store: WireStore;
@@ -47,9 +48,11 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const old = stale(data!.from);
   // A bus shows one line with its width at a far zoom (15.9).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
+  const { style, corners } = data!;
+  const path = useMemo(() => shape(sourceX, sourceY, targetX, targetY, route, style, corners), [sourceX, sourceY, targetX, targetY, route, style, corners]);
   useLayoutEffect(
-    () => store.set(id, sourceX, sourceY, targetX, targetY, route, !!selected, bits, old),
-    [store, id, sourceX, sourceY, targetX, targetY, route, selected, bits, old],
+    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old),
+    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old],
   );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
@@ -59,8 +62,8 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     const k = insertAt(sourceX, sourceY, targetX, targetY, route, p.x, p.y);
     void send([...route.slice(0, k), [Math.round(p.x), Math.round(p.y)], ...route.slice(k)]);
   };
-  const d = wirePath(sourceX, sourceY, targetX, targetY, route);
-  const [mx, my] = midpoint(sourceX, sourceY, targetX, targetY, route);
+  const d = wirePath(sourceX, sourceY, targetX, targetY, path);
+  const [mx, my] = midpoint(sourceX, sourceY, targetX, targetY, path);
   const lanes = value?.lanes;
   // A bus shows its name and width in place of the type label, above its lanes.
   const label = lanes ? (far ? `/ ${bits.length}` : laneLabel(lanes)) : data!.ty;

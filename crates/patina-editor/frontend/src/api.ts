@@ -13,9 +13,15 @@ export interface NodeEntry {
   params?: Record<string, string>;
 }
 
+/** The path of a wire and its corners (spec 15.9). No value uses the graph default. */
+export type Style = 'curved' | 'orthogonal' | 'polyline';
+export type Corners = 'rounded' | 'sharp';
+
 export interface Wire {
   from: string;
   to: string;
+  style?: Style;
+  corners?: Corners;
   points?: Point[];
 }
 
@@ -130,6 +136,7 @@ export type Edit =
   | { kind: 'Connect'; from: string; to: string }
   | { kind: 'Disconnect'; from: string; to: string }
   | { kind: 'SetRoute'; to: string; points: Point[] }
+  | { kind: 'SetLook'; to: string; style?: Style; corners?: Corners }
   | { kind: 'SetParam'; id: string; key: string; text: string | null }
   | { kind: 'SetCode'; path: string; text: string }
   | { kind: 'Group'; edits: Edit[] };
