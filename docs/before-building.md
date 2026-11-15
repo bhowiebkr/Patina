@@ -57,10 +57,10 @@ Milestone 1, engine and CLI:
 Milestone 2, editor:
 
 - [x] **Q2.** React or Svelte. Agent decision: React, from the connections prototype (15.1).
-- [ ] **Q8.** The project saves the dock layout and the state of each view, or each user keeps
-  their own layout.
-- [ ] **Q10.** A **Stop** or **Cancel** button next to **Pause**, and what it can promise for
-  native code.
+- [x] **Q8, dock layout.** Agent decision: each user keeps their own layout for each project,
+  in the data folder, not in the project (15.2).
+- [x] **Q10, Stop.** Agent decision: a **Stop** button next to **Pause**. It asks the nodes to
+  stop with a flag, and never kills a thread (15.2).
 
 Milestone 4, automatic parallelism and the frame domain:
 
@@ -98,7 +98,8 @@ These block milestone 2. The [mockup plan](mockup-plan.md) lists them too.
   with a search palette.
 - [ ] How the user makes a new node, view or widget folder, and names it.
 - [ ] How the user adds a crate to the project.
-- [ ] The start screen: new project, open project and recent projects.
+- [x] The start screen: new project, open project and recent projects. Spec 15.10 defines it,
+  and the editor has it.
 - [ ] The settings screen.
 - [ ] Where the large node GUI goes in the inspector. The mockup plan proposes the top, under
   the header. The spec does not say.

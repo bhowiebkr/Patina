@@ -35,8 +35,6 @@ pub struct Slot {
     pub step: usize,
     /// The key of the input.
     pub key: String,
-    /// The text form from the graph file, or `None` for the default value (4.8).
-    pub text: Option<String>,
     pub is_str: bool,
 }
 
@@ -167,8 +165,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
                     Source::Wire { step: step_of[from], output }
                 }
                 None => {
-                    let text = graph.node[e].params.get(&input.key).cloned();
-                    slots.push(Slot { step, key: input.key.clone(), text, is_str: input.is_str });
+                    slots.push(Slot { step, key: input.key.clone(), is_str: input.is_str });
                     Source::Slot(slots.len() - 1)
                 }
             };
@@ -178,7 +175,8 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     Ok(Plan { nodes, steps, slots })
 }
 
-fn read_node(root: &Path, name: &str) -> Result<Node, String> {
+/// Checks the name of a node folder. A name with a path separator or `..` does not pass.
+pub fn check_name(name: &str) -> Result<(), String> {
     let valid = name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
     if name.is_empty() || !valid || name.starts_with(|c: char| c.is_ascii_digit()) {
         return Err("a node folder name has only letters, digits, _ and -, and starts with a letter".into());
@@ -186,6 +184,11 @@ fn read_node(root: &Path, name: &str) -> Result<Node, String> {
     if RESERVED.contains(&name.replace('-', "_").as_str()) {
         return Err(format!("the name {name:?} is reserved. Rename the folder"));
     }
+    Ok(())
+}
+
+pub fn read_node(root: &Path, name: &str) -> Result<Node, String> {
+    check_name(name)?;
     let dir = root.join("nodes").join(name);
     let read = |file: &str| {
         std::fs::read_to_string(dir.join(file)).map_err(|e| format!("cannot read {file}: {e}"))

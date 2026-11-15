@@ -25,7 +25,7 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 
 | Area | Default contents |
 |---|---|
-| Top bar | Project and graph path, Live indicator, Run, Pause, Bake, undo, redo, zoom, fit, grid, Views menu |
+| Top bar | Project and graph path, Live indicator, Run, Pause, Stop, Bake, undo, redo, zoom, fit, grid, Views menu |
 | Left panel | Layers tab: the base and the slot, with build state and build time (7.3). Project tab |
 | Center | Graph view, or the full-size GUI of a node (4.3) |
 | Right panel (inspector) | Selected node: Parameters, Code, Logs tabs, and the large node GUI |
@@ -39,6 +39,17 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 - The **Views** menu opens a view (15.8) as a new tab, in the center by default.
 - The top bar and the status bar do not move.
 - The table above is the default layout. **Reset layout** in the **Views** menu returns to it.
+
+**Saved layout:**
+
+This is an agent decision of 2026-11-15 for question 8 (18). The owner can change it.
+
+- Each user keeps their own layout for each project. Patina saves it in `data/layouts/<project id>.json` of the data folder (13.3), not in the project folder.
+- The layout file holds the dock areas and their tabs, the float windows with their screen positions, the open views, and the pan and zoom of each graph.
+- A project with no layout file opens with the default layout. A project that moves to another folder keeps its layout, because the file name is the project ID (6.2).
+- The state of a view instance (15.8), for example the camera of a 3D viewport, is not saved in version 1. Each view instance starts with `init`.
+- Reason: the project folder goes into Git. A layout in it changes each time a user moves a panel, and it gives merge conflicts. Float windows also depend on the screens of each user.
+- App mode (question 6 of 18) can add a layout that the project owns. That layout is separate from the layout of each user.
 
 **Project panel:**
 
@@ -72,10 +83,17 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 
 The owner asked for the standard controls. The table, the zoom range and the wheel steps are an agent decision of 2026-11-15.
 
-**Run, Pause, and Bake:**
+**Run, Pause, Stop, and Bake:**
 
 - Run starts the graph. Batch nodes run one time. Frame and audio domains start their clocks. Triggers start to listen.
 - Pause stops the frame and audio clocks and stops new event runs. Active event runs finish.
+- Stop does all that Pause does, and it also asks the active runs to stop. This is an agent decision of 2026-11-15 for question 10 (18). The owner can change it:
+  - The engine starts no new node call. The nodes that did not run show **Stale** (15.3).
+  - An async node (4.6) drops at its next wait.
+  - Stop sets a stop flag. A node with a long loop can read it with `patina_sdk::stop_requested()`, and return early.
+  - Stop never kills a thread. Native code cannot stop safely in the middle of a call. A call that does not read the flag runs to its end.
+  - When a call runs for 2 s after Stop, the status bar shows "Node X does not stop" and the time. Only process isolation (16) can end it. Without process isolation, the user can close Patina.
+  - Run after Stop starts the graph again. Node states stay.
 - Bake fuses the node in the slot back into the base now (7.2).
 
 ### 15.3 Visual rules
@@ -270,7 +288,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Moving a route point changes geometry only. Reconnecting an endpoint is a separate action with the normal graph checks.
 - Preserve manual route points when nodes move or resize. Recalculate only the affected unfixed sections where possible.
 - Show a routing conflict if fixed points prevent a clear path. Do not silently remove points, disconnect the graph or treat a visual obstruction as a run error.
-- Route edits support undo and redo. The graph file saves the route points, the collars and the cables (6.4). The dock layout is question 8 (18).
+- Route edits support undo and redo. The graph file saves the route points, the collars and the cables (6.4). Each user keeps their own dock layout (15.2).
 - The user can select a connection and trace it to its endpoints at each zoom level. Its hit area can be wider than the visible stroke.
 
 **Optional refinements**

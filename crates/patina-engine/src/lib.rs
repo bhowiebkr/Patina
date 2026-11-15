@@ -1,6 +1,8 @@
-//! The Patina engine: reads a project, builds its graph into a cluster and runs it (spec 3, 8).
+//! The Patina engine: reads a project, edits and saves its graph, builds the graph into a cluster
+//! and runs it (spec 3, 7, 8).
 
 mod cargo;
+mod edit;
 mod generate;
 mod load;
 mod node;
@@ -8,11 +10,17 @@ mod plan;
 pub mod project;
 
 use std::fmt;
+use std::fs;
+use std::hash::{BuildHasher, DefaultHasher, Hasher, RandomState};
 use std::io;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
 pub use cargo::Toolchain;
+pub use edit::Edit;
 pub use load::{Cluster, Outcome, Report, ReportKind};
+use project::GraphFile;
 
 #[derive(Debug)]
 pub enum Error {
@@ -42,23 +50,71 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-/// A project with a checked main graph.
+/// A project with its main graph and the undo history of the graph.
 pub struct Project {
+    root: PathBuf,
+    rust: String,
+    history: edit::History,
+}
+
+/// A node folder of the project, for the node list of the editor (15.2).
+#[derive(Serialize, Debug)]
+pub struct NodeInfo {
+    /// The folder name in `nodes/`.
+    pub name: String,
+    pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
+    /// The problem of the folder when its node does not read.
+    pub error: Option<String>,
+}
+
+/// A graph that passed all checks, ready to build.
+pub struct Checked {
     root: PathBuf,
     rust: String,
     plan: plan::Plan,
 }
 
+/// The files of a new project (15.10), from the hello example.
+const NEW_FILES: [(&str, &str); 5] = [
+    ("graphs/main.toml", "format = 1\n"),
+    ("nodes/number/Cargo.toml", include_str!("../../../examples/hello/nodes/number/Cargo.toml")),
+    ("nodes/number/src/lib.rs", include_str!("../../../examples/hello/nodes/number/src/lib.rs")),
+    ("nodes/show/Cargo.toml", include_str!("../../../examples/hello/nodes/show/Cargo.toml")),
+    ("nodes/show/src/lib.rs", include_str!("../../../examples/hello/nodes/show/src/lib.rs")),
+];
+
 impl Project {
-    /// Reads `patina.toml` and `graphs/main.toml` of the project folder and checks the graph.
+    /// Reads `patina.toml` and `graphs/main.toml` of the project folder. A graph with problems
+    /// opens, so that the user can repair it. `check` finds the problems.
     pub fn open(path: &Path) -> Result<Project, Error> {
         // The path must be absolute, because cargo reads the target folder from a variable.
         let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
         let file = project::read(&root.join("patina.toml"), |f: &project::ProjectFile| f.format)?;
-        let graph_path = root.join("graphs").join("main.toml");
-        let graph = project::read(&graph_path, |g: &project::GraphFile| g.format)?;
-        let plan = plan::check(&root, &graph).map_err(|problems| Error::Graph(graph_path, problems))?;
-        Ok(Project { root, rust: file.rust, plan })
+        let graph = project::read(&graph_path(&root), |g: &GraphFile| g.format)?;
+        Ok(Project { root, rust: file.rust, history: edit::History::new(graph) })
+    }
+
+    /// Makes a new project in a new or empty folder, with the `number` and `show` nodes and an
+    /// empty main graph (15.10).
+    pub fn create(path: &Path, rust: &str) -> Result<Project, Error> {
+        let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
+        if fs::read_dir(&root).is_ok_and(|mut entries| entries.next().is_some()) {
+            return Err(Error::File(root, "the folder is not empty".to_owned()));
+        }
+        let id = RandomState::new().hash_one(std::time::SystemTime::now());
+        let project = format!("format = 1\nid = \"{id:016x}\"\nrust = \"{rust}\"\n");
+        for (relative, text) in [("patina.toml", project.as_str())].into_iter().chain(NEW_FILES) {
+            let path = root.join(relative);
+            let parent = path.parent().expect("a project file is in a folder");
+            fs::create_dir_all(parent).map_err(|e| Error::Io(parent.to_owned(), e))?;
+            fs::write(&path, text).map_err(|e| Error::Io(path, e))?;
+        }
+        Project::open(&root)
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
     }
 
     /// The Rust version that the project builds with (6.4).
@@ -66,7 +122,91 @@ impl Project {
         &self.rust
     }
 
-    /// Builds the cluster of the main graph and loads it.
+    pub fn graph(&self) -> &GraphFile {
+        &self.history.graph
+    }
+
+    /// Applies an edit of the user to the main graph (7.4).
+    pub fn apply(&mut self, edit: &Edit) -> Result<(), String> {
+        self.history.apply(edit)
+    }
+
+    /// Removes the last edit. Returns false when there is no edit to remove.
+    pub fn undo(&mut self) -> bool {
+        self.history.undo()
+    }
+
+    /// Applies the last removed edit again. Returns false when there is no such edit.
+    pub fn redo(&mut self) -> bool {
+        self.history.redo()
+    }
+
+    pub fn can_undo(&self) -> bool {
+        self.history.can_undo()
+    }
+
+    pub fn can_redo(&self) -> bool {
+        self.history.can_redo()
+    }
+
+    /// True when the graph has changes that are not saved.
+    pub fn dirty(&self) -> bool {
+        self.history.dirty()
+    }
+
+    /// Writes the main graph to `graphs/main.toml`. The undo history stays (15.10).
+    pub fn save(&mut self) -> Result<(), Error> {
+        project::write(&graph_path(&self.root), &self.history.graph)?;
+        self.history.mark_saved();
+        Ok(())
+    }
+
+    /// The node folders in `nodes/`, sorted by name.
+    pub fn nodes(&self) -> Result<Vec<NodeInfo>, Error> {
+        let dir = self.root.join("nodes");
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(Error::Io(dir, e)),
+        };
+        let mut nodes = Vec::new();
+        for entry in entries {
+            let entry = entry.map_err(|e| Error::Io(dir.clone(), e))?;
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else { continue };
+            if !entry.path().is_dir() {
+                continue;
+            }
+            nodes.push(match plan::read_node(&self.root, &name) {
+                Ok(node) => NodeInfo {
+                    inputs: node.inputs.iter().map(|i| i.key.clone()).collect(),
+                    outputs: node.output_keys(),
+                    name,
+                    error: None,
+                },
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text) },
+            });
+        }
+        nodes.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(nodes)
+    }
+
+    /// The source of the node folder `nodes/<name>`.
+    pub fn node_source(&self, name: &str) -> Result<String, Error> {
+        let path = self.root.join("nodes").join(name).join("src").join("lib.rs");
+        plan::check_name(name).map_err(|text| Error::File(path.clone(), text))?;
+        fs::read_to_string(&path).map_err(|e| Error::Io(path, e))
+    }
+
+    /// Checks the main graph and puts its nodes in run order.
+    pub fn check(&self) -> Result<Checked, Error> {
+        let plan = plan::check(&self.root, &self.history.graph)
+            .map_err(|problems| Error::Graph(graph_path(&self.root), problems))?;
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan })
+    }
+}
+
+impl Checked {
+    /// Builds the cluster of the graph and loads it.
     pub fn build(&self, toolchain: &Toolchain) -> Result<Cluster, Error> {
         if toolchain.release != self.rust {
             return Err(Error::Build(format!(
@@ -74,25 +214,68 @@ impl Project {
                 self.rust, toolchain.release
             )));
         }
-        // shortcut: loads the library from the cargo target folder, which Windows locks while it
-        // is loaded. The hash names of 8.5 come with the layers at milestone 6.
-        let library = cargo::build(&self.root, toolchain, &self.plan)?;
-        let names = self.plan.steps.iter().map(|s| (s.id.clone(), self.plan.nodes[s.node].0.clone())).collect();
-        Cluster::load(&library, names)
+        let built = cargo::build(&self.root, toolchain, &self.plan)?;
+        let library = copy_to_loaded(&self.root, &built)?;
+        let plan = &self.plan;
+        let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
+        let slots = plan.slots.iter().map(|s| (plan.steps[s.step].id.clone(), s.key.clone())).collect();
+        Cluster::load(&library, names, slots)
     }
+}
 
-    /// Sets each parameter that has a text in the graph file (4.8).
-    pub fn set_params(&self, cluster: &mut Cluster) -> Outcome {
-        let mut all = Outcome { ok: true, reports: Vec::new() };
-        for (index, slot) in self.plan.slots.iter().enumerate() {
-            let Some(text) = &slot.text else { continue };
-            let mut outcome = cluster.set(index, text);
-            for report in &mut outcome.reports {
-                report.text = format!("input `{}`: {}", slot.key, report.text);
-            }
-            all.ok &= outcome.ok;
-            all.reports.append(&mut outcome.reports);
-        }
-        all
+fn graph_path(root: &Path) -> PathBuf {
+    root.join("graphs").join("main.toml")
+}
+
+/// Copies the built library to `build/loaded/`, with a hash of its bytes in the file name (8.5).
+/// Windows locks a loaded library, so cargo cannot write the library of the next build over it.
+/// The same bytes give the same name, so the loaded library stays in use.
+fn copy_to_loaded(root: &Path, built: &Path) -> Result<PathBuf, Error> {
+    let bytes = fs::read(built).map_err(|e| Error::Io(built.to_owned(), e))?;
+    let mut hasher = DefaultHasher::new();
+    hasher.write(&bytes);
+    let dir = root.join("build").join("loaded");
+    let path = dir.join(format!("cluster-{:016x}.{}", hasher.finish(), std::env::consts::DLL_EXTENSION));
+    if path.exists() {
+        return Ok(path);
+    }
+    // An old copy that a process has loaded does not delete on Windows. It stays until later.
+    for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let _ = fs::remove_file(entry.path());
+    }
+    fs::create_dir_all(&dir).map_err(|e| Error::Io(dir.clone(), e))?;
+    let temp = path.with_extension("tmp");
+    fs::write(&temp, &bytes).map_err(|e| Error::Io(temp.clone(), e))?;
+    fs::rename(&temp, &path).map_err(|e| Error::Io(path.clone(), e))?;
+    Ok(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_new_project_lists_its_nodes_and_saves_edits() {
+        let root = std::env::temp_dir().join(format!("patina-new-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let mut project = Project::create(&root, "1.94.0").unwrap();
+        assert!(Project::create(&root, "1.94.0").is_err(), "a folder with files is not used");
+        let nodes = project.nodes().unwrap();
+        let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, ["number", "show"]);
+        assert_eq!((nodes[0].inputs.as_slice(), nodes[0].outputs.as_slice()), (&["value".to_owned()][..], &["out".to_owned()][..]));
+        assert!(project.node_source("show").unwrap().contains("println!"));
+        assert!(project.node_source("../patina.toml").is_err());
+
+        let edit = Edit::AddNode { id: "000000000000000a".to_owned(), folder: "nodes/number".to_owned(), pos: [1.0, 2.0] };
+        project.apply(&edit).unwrap();
+        assert!(project.dirty());
+        project.save().unwrap();
+        assert!(!project.dirty());
+        let reopened = Project::open(&root).unwrap();
+        let checked = reopened.check();
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(reopened.graph(), project.graph());
+        assert!(checked.is_ok());
     }
 }

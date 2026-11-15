@@ -25,9 +25,9 @@ Ask the owner. Do not decide these alone.
 5. Zig: does it remove the need for Xcode on macOS?
 6. App mode: a layout that shows the views and the node GUIs without the graph, so a project becomes a tool for other users (15.8). Can a package include it, with its views?
 7. Fuse time: how long a node stays in the slot with no change before the engine fuses it back (7.2).
-8. Dock layout: does the project save the layout, the open views, and the state of each view, for example the camera of a 3D viewport? Or does each user keep their own layout (15.2)?
+8. Dock layout. Decided: each user keeps their own layout for each project, in the data folder of the user, not in the project (15.2). Agent decision of 2026-11-15. The owner can change it.
 9. First workflow. Decided: graph edits apply at once, code applies at Ctrl+S, and Ctrl+S saves the full project (15.10). Agent decision of 2026-11-15. The owner can change it.
-10. Stop: does the top bar need a **Stop** or **Cancel** button next to **Pause** (15.2)? What can it promise for native code, which cannot stop safely in the middle of a call?
+10. Stop. Decided: the top bar has a **Stop** button next to **Pause**. Stop asks the nodes to stop, and never kills a thread (15.2). Agent decision of 2026-11-15. The owner can change it.
 11. Side effects while editing: which batch nodes run again after a parameter change (9.1)? How does Patina prevent repeated writes to files or to the network while the user drags a slider?
 12. Live values in a fused chain: a chain of small nodes inlines into one call (9.2). Thus a value between two of them can exist only in registers. How does the engine show it on the wire (15.9)? It can keep a copy point on each wire that the editor shows. It can rebuild the chain with copy points when the user looks at a wire. Or it can show live values only between tasks. Milestones 4 and 6 can measure the cost.
 13. Circuit graphs: digital logic needs feedback loops without a frame delay, for example a latch. It also needs a bus with more than one driver, and defined clock edges and steps. The engine refuses a cycle without a delay node (9.2). Does Patina support these with a simulation node that runs the circuit inside it, with a new clock domain, or not in version 1? See the [circuit graph design](../circuit-graph-design.md).

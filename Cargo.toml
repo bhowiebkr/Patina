@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/patina-cli",
+    "crates/patina-editor",
     "crates/patina-engine",
     "crates/patina-macros",
     "crates/patina-sdk",

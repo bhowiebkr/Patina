@@ -65,7 +65,7 @@ impl Toolchain {
             .map(|dir| dir.join(&rustc_name))
             .filter(|path| path.is_file())
             .unwrap_or_else(|| PathBuf::from(&rustc_name));
-        let version = run_text(Command::new(&rustc).arg("-vV"))?;
+        let version = run_text(command(&rustc).arg("-vV"))?;
         let release = version
             .lines()
             .find_map(|line| line.strip_prefix("release:"))
@@ -73,10 +73,22 @@ impl Toolchain {
             .ok_or_else(|| Error::Build(format!("{} -vV gave no release", rustc.display())))?;
         // The programs in the sysroot are not rustup proxies, so a `rust-toolchain.toml` in the
         // project cannot select another toolchain.
-        let bin = PathBuf::from(run_text(Command::new(&rustc).args(["--print", "sysroot"]))?.trim()).join("bin");
+        let bin = PathBuf::from(run_text(command(&rustc).args(["--print", "sysroot"]))?.trim()).join("bin");
         let pick = |name: String, found: PathBuf| Some(bin.join(name)).filter(|p| p.is_file()).unwrap_or(found);
         Ok(Toolchain { cargo: pick(format!("cargo{exe}"), cargo), rustc: pick(rustc_name, rustc), release })
     }
+}
+
+/// A command that opens no console window, also when a GUI program starts it on Windows.
+fn command(program: &Path) -> Command {
+    let mut command = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
 }
 
 fn run_text(command: &mut Command) -> Result<String, Error> {
@@ -100,7 +112,7 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
     write(root, "build/clusters/main/Cargo.toml", &generate::manifest(plan))?;
     write(root, "build/clusters/main/lib.rs", &generate::source(plan))?;
 
-    let mut command = Command::new(&toolchain.cargo);
+    let mut command = command(&toolchain.cargo);
     command
         .current_dir(root)
         .args(["build", "-p", generate::PACKAGE, "--message-format=json-render-diagnostics"]);

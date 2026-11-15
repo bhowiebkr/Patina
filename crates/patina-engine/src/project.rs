@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
@@ -29,71 +29,77 @@ pub struct Import {
     pub hash: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GraphFile {
     pub format: u32,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node: Vec<NodeEntry>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub wire: Vec<Wire>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub order: Vec<Order>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub collar: Vec<Collar>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cable: Vec<Cable>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub input: Vec<PublicInput>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub output: Vec<PublicOutput>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct NodeEntry {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub subgraph: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pos: Option<[f64; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub settings: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub params: BTreeMap<String, String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Wire {
     pub from: String,
     pub to: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub points: Vec<[f64; 2]>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Order {
     pub before: String,
     pub after: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Collar {
     pub pos: [f64; 2],
     pub wires: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Cable {
     pub name: String,
     pub wires: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PublicInput {
     pub key: String,
@@ -102,7 +108,7 @@ pub struct PublicInput {
     pub to: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PublicOutput {
     pub key: String,
@@ -122,6 +128,16 @@ pub fn read<T: DeserializeOwned>(path: &Path, format: impl Fn(&T) -> u32) -> Res
             format!("format {found} is not known. This Patina reads format {FORMAT}."),
         )),
     }
+}
+
+/// Writes a project file with its fields in a fixed order (6.4). The text goes to a temporary
+/// file first, so a crash during the write keeps the old file.
+pub fn write<T: Serialize>(path: &Path, value: &T) -> Result<(), Error> {
+    let text = toml::to_string(value).map_err(|e| Error::File(path.to_owned(), e.to_string()))?;
+    let temp = path.with_extension("toml.tmp");
+    let io = |e| Error::Io(path.to_owned(), e);
+    std::fs::write(&temp, text).map_err(io)?;
+    std::fs::rename(&temp, path).map_err(io)
 }
 
 /// True for a stable random ID: 16 lowercase hexadecimal characters (6.4).
@@ -145,5 +161,14 @@ mod tests {
         assert!(matches!(result, Err(Error::File(_, text)) if text.contains("format 2")));
         assert!(is_id("5c0e9b2a7f13d846"));
         assert!(!is_id("5C0E9B2A7F13D846") && !is_id("5c0e"));
+    }
+
+    #[test]
+    fn a_graph_file_writes_back_to_the_same_text() {
+        let text = include_str!("../../../examples/hello/graphs/main.toml").replace("
+", "
+");
+        let graph: GraphFile = toml::from_str(&text).unwrap();
+        assert_eq!(toml::to_string(&graph).unwrap(), text);
     }
 }

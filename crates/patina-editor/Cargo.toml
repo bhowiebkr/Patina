@@ -1,0 +1,33 @@
+[package]
+name = "patina-editor"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "The Patina editor (spec 15)."
+
+[[bin]]
+name = "patina"
+path = "src/main.rs"
+
+[dependencies]
+patina-engine = { path = "../patina-engine" }
+# The same features as the connections prototype, so that the workspace builds Tauri one time.
+tauri = { version = "2.12", default-features = false, features = ["wry", "common-controls-v6", "dynamic-acl", "x11", "dbus"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "7"
+
+# The check run takes screenshots with the DevTools protocol of WebView2 (src/shot.rs).
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+base64 = "0.23"
+
+[build-dependencies]
+tauri-build = "2.7"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+toml = "1"

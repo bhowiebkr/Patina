@@ -1,13 +1,94 @@
 # Status
 
-The current milestone is milestone 1, the engine and the CLI (spec section 19). Milestone 0
-ended on 2026-11-15. Its results follow the milestone 1 section, with three owner checks open.
+The current milestone is milestone 2, the editor (spec section 19). Milestone 1, the engine and
+the CLI, works. Milestone 0 ended on 2026-11-15, with three owner checks open.
+
+## Milestone 2: editor
+
+The first part of item 2 of section 19 works. The editor `patina` makes or opens a project,
+edits the main graph, runs it and saves it. This is the first workflow of spec 15.10. It ran on
+2026-11-15 on Windows 11 Pro, with Rust 1.94.0, Tauri 2.12.5, WebView2 157, React 19.3.1 and
+React Flow 12.12.1. It did not run on Linux or macOS.
+
+To run the editor from a checkout:
+
+1. In `crates/patina-editor/frontend`, run `npm ci` and `npm run build`.
+2. In the root folder, run `cargo run -p patina-editor`.
+
+### What works
+
+- The start screen has **New project**, **Open project** and the recent projects. A new project
+  has the `number` and `show` node folders, and goes on the list of trusted projects (11).
+- The graph shows the nodes, their pins, their parameter values and the wires. Drag a node
+  folder from the **Project** panel into the graph to add a node.
+- The canvas has no animation. The mouse wheel zooms. The middle button, or Space and a drag,
+  pans. A drag on the empty canvas selects. Shift or Ctrl adds to the selection.
+- Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
+  selection.
+- The **Inspector** shows the parameters, the state and the code of the selected node. A
+  parameter change applies when the field loses the focus.
+- Each graph change is one edit of the engine (7.4): add, remove, move, connect, disconnect, set
+  a parameter, or a group. Undo and redo work for each edit. Ctrl+S saves the project.
+- A close or a quit with unsaved changes asks **Save**, **Discard** or **Cancel** (15.10).
+- **Run** builds the graph on the engine thread and runs it. While the graph runs, a parameter
+  change runs it again with no build. A wiring change builds it again. A move does neither.
+- The **Output** tab shows the text that the nodes write. The **Logs** tab shows the build
+  time, the run time and the reports of the nodes.
+- Each node shows its state with an icon and a border: ready, compiling, compile error, run
+  error, stale or unresolved (15.3). A header color never shows a state.
+- Patina does not build a project that is not trusted. It shows a banner with **Trust
+  project**.
+- The page loads only its own files, with a content security policy. A request for a path
+  outside the page folder gets an error.
+- The data folder holds the lists of recent and trusted projects. With a `portable` file next
+  to the program, or with `--portable <folder>`, the data stays in that folder (13.3).
+
+### What was checked
+
+- `patina --check <folder>` runs the first workflow in the real window. The window is
+  off-screen and does not take the focus. It passed these 13 steps in 2.3 s:
+  - New project, add 2 nodes and a wire, and set a parameter.
+  - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
+    build. Undo, and wait for `2.5`.
+  - Save, pause and close. The recent list starts with the project.
+  - Open again. The graph is the saved graph. Run again, and find 2 ready nodes in the graph.
+  - Capture the window into `check.png`.
+- The capture showed the two nodes with the ready state, the wire, the parameter value `2.5`
+  and the **Output** tab with `2.5`. **Run** was disabled while the graph ran.
+- `cargo test --workspace --locked` passed 37 tests. The new tests check the graph edits with
+  undo and redo, the changes that need a run or a build, the project names, the recent and
+  trusted lists, the output lines and the refusal of page paths outside the page folder.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
+  1.100.0. `npm run build` passed the type check and the build of the page.
+
+### Known limits
+
+- The check does not drag nodes and does not push keys. A person did not use the editor yet.
+  The owner check: make the first workflow of 15.10 with the mouse.
+- The content security policy was not tested with a page that breaks it.
+- The capture works only on Windows. The check did not run on Linux or macOS.
+- These parts of spec 15 are not in the editor yet: the dock layout (15.2), the code editor
+  (15.6), the **Debug** tab, the recovery file (15.10), the WebGL wire layer (15.1) and the
+  search palette. **Stop** does the same as **Pause**.
+- A node after a node that failed keeps its old state. The engine does not report **Skipped**
+  yet (15.3).
+- Vite shows a warning for the `"use client"` lines of React Flow. The build is correct.
+- These shortcuts are open in the code:
+  - The user types the folder paths. The folder dialog of the platform comes at milestone 3
+    (`frontend/src/StartScreen.tsx`).
+  - The code of a node shows as read-only text (`frontend/src/Inspector.tsx`).
+  - The page is read from the source tree, so the editor runs only from a checkout
+    (`src/main.rs`).
+  - A fatal error before the window shows writes only to a console (`src/main.rs`).
+  - The capture works only on Windows (`src/session.rs`).
+  - A node after a failed node shows its old state (`frontend/src/NodeView.tsx`).
 
 ## Milestone 1: engine and CLI
 
 Item 1 of section 19 works. `patina-cli run <project folder>` compiles the node folders of a
 project, loads the cluster and runs the main graph one time. It ran on 2026-11-15 on Windows 11
-Pro, with Rust 1.94.0 and 1.100.0. It did not run on Linux or macOS on this computer.
+Pro, with Rust 1.94.0 and 1.100.0. The CLI tests also passed on the CI runners `windows-latest`,
+`ubuntu-latest` and `macos-latest`, with Rust 1.100.0.
 
 ### What works
 
@@ -38,6 +119,8 @@ Pro, with Rust 1.94.0 and 1.100.0. It did not run on Linux or macOS on this comp
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0.
 - A manual run of `examples/hello` with the CLI wrote `6.5`.
+- CI run 43704375305 of commit e0ad790 passed on `windows-latest`, `ubuntu-latest` and
+  `macos-latest`. The 2 CLI tests ran on each runner.
 
 ### Measurements
 

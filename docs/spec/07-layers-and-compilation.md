@@ -55,16 +55,19 @@ Rules:
 ```rust
 enum Edit {
     AddNode(NodeId, NodeDef),
-    RemoveNode(NodeId),
-    Connect(Port, Port),
+    RemoveNode(NodeId),      // also removes the wires of the node
+    MoveNode(NodeId, Point),
+    Connect(Port, Port),     // replaces the wire that goes to the same input
     Disconnect(Port, Port),
     SetCode(PathBuf, String), // a file in a node, view, widget, or connection folder (6.2)
     SetParam(NodeId, String, Value),
     Order(NodeId, NodeId),   // order wire, see 9.2
+    Group(Vec<Edit>),        // one step of undo, for example a move of many nodes
 }
 ```
 
 - Undo removes the last edit. Redo applies it again.
+- A move is an edit, so undo can put a node back. A move does not build or run the graph.
 - Undo and redo of a code change go through the slot, the same as other code changes.
 
 ## 8. Compilation

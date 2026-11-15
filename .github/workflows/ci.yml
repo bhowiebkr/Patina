@@ -59,8 +59,15 @@ jobs:
           cache-dependency-path: |
             prototypes/connections/frontend/package-lock.json
             prototypes/viewport/frontend/package-lock.json
+            crates/patina-editor/frontend/package-lock.json
 
-      # The type check and the build of the web frontends of the prototypes.
+      # The type check and the build of the web frontends.
+      - name: Frontend of the editor
+        working-directory: crates/patina-editor/frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Frontend of the connections prototype
         working-directory: prototypes/connections/frontend
         run: |

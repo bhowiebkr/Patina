@@ -1,14 +1,17 @@
 //! Loads a cluster library and calls it through the C ABI of `patina_sdk::glue`.
 
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::fmt;
 use std::path::Path;
 
 use patina_sdk::glue::{self, Reporter};
+use serde::Serialize;
 
 use crate::Error;
+use crate::project::GraphFile;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ReportKind {
     /// The node returned an `Err` (4.7).
     Error,
@@ -19,7 +22,7 @@ pub enum ReportKind {
 }
 
 /// A problem of one node during a call into the cluster.
-#[derive(Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Report {
     pub id: String,
     /// The node folder name.
@@ -54,11 +57,16 @@ type FreeFn = unsafe extern "C" fn(*mut c_void);
 /// A loaded cluster with its parameters and its node states.
 pub struct Cluster {
     state: *mut c_void,
+    new: NewFn,
     set: SetFn,
     run: RunFn,
     free: FreeFn,
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
+    /// The node ID and the input key of each parameter slot.
+    slots: Vec<(String, String)>,
+    /// True for each slot that got a text at the last `set_params`.
+    has_text: Vec<bool>,
 }
 
 /// The report list of one call. It is the context of the reporter.
@@ -72,7 +80,7 @@ unsafe extern "C" fn collect(ctx: *mut c_void, node: u32, kind: u32, text: *cons
 }
 
 impl Cluster {
-    pub(crate) fn load(path: &Path, names: Vec<(String, String)>) -> Result<Cluster, Error> {
+    pub(crate) fn load(path: &Path, names: Vec<(String, String)>, slots: Vec<(String, String)>) -> Result<Cluster, Error> {
         let fail = |text: String| Error::Load(format!("{}: {text}", path.display()));
         let missing = |e: libloading::Error| fail(e.to_string());
         let library = open(path).map_err(missing)?;
@@ -90,15 +98,47 @@ impl Cluster {
             if state.is_null() {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
-            Cluster { state, set, run, free, names }
+            let has_text = vec![false; slots.len()];
+            Cluster { state, new, set, run, free, names, slots, has_text }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
         Ok(cluster)
     }
 
+    /// Sets each parameter from its text in the graph (4.8). An input that lost its text gets its
+    /// default value again.
+    pub fn set_params(&mut self, graph: &GraphFile) -> Outcome {
+        let params: HashMap<&str, &BTreeMap<String, String>> =
+            graph.node.iter().map(|n| (n.id.as_str(), &n.params)).collect();
+        let texts: Vec<Option<&String>> =
+            self.slots.iter().map(|(id, key)| params.get(id.as_str()).and_then(|p| p.get(key))).collect();
+        if self.has_text.iter().zip(&texts).any(|(had, text)| *had && text.is_none()) {
+            // SAFETY: the functions came from the loaded cluster, and `self.state` is live.
+            let state = unsafe { (self.new)() };
+            if state.is_null() {
+                return Outcome { ok: false, reports: Vec::new() };
+            }
+            // SAFETY: the old state came from `patina_cluster_new` and is not used again.
+            unsafe { (self.free)(self.state) };
+            self.state = state;
+        }
+        let mut all = Outcome { ok: true, reports: Vec::new() };
+        for (slot, text) in texts.iter().enumerate() {
+            let Some(text) = text else { continue };
+            let mut outcome = self.set(slot, text);
+            for report in &mut outcome.reports {
+                report.text = format!("input `{}`: {}", self.slots[slot].1, report.text);
+            }
+            all.ok &= outcome.ok;
+            all.reports.append(&mut outcome.reports);
+        }
+        self.has_text = texts.iter().map(Option::is_some).collect();
+        all
+    }
+
     /// Sets parameter slot `slot` from its text form (4.8).
-    pub fn set(&mut self, slot: usize, text: &str) -> Outcome {
+    fn set(&mut self, slot: usize, text: &str) -> Outcome {
         let Ok(slot) = u32::try_from(slot) else {
             return Outcome { ok: false, reports: Vec::new() };
         };

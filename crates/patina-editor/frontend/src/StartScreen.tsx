@@ -1,0 +1,87 @@
+// The start screen (spec 15.10): a new project, an open project and the recent projects.
+
+import { useState, type FormEvent } from 'react';
+import { api, type StartInfo, type View } from './api';
+
+interface Props {
+  start: StartInfo;
+  onOpen: (view: View) => void;
+}
+
+export function StartScreen({ start, onOpen }: Props) {
+  const [parent, setParent] = useState(start.projectsDir);
+  const [name, setName] = useState('');
+  const [path, setPath] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const act = (job: Promise<View>) => {
+    setBusy(true);
+    setError('');
+    job.then(onOpen).catch((e) => setError(String(e))).finally(() => setBusy(false));
+  };
+  const create = (e: FormEvent) => {
+    e.preventDefault();
+    act(api.newProject(parent.trim(), name.trim()));
+  };
+  const open = (e: FormEvent) => {
+    e.preventDefault();
+    act(api.openProject(path.trim()));
+  };
+
+  // shortcut: typed folder paths; use the folder dialog of the platform at milestone 3.
+  return (
+    <main className="start">
+      <div className="start-card">
+        <img className="logo" src="/logo.png" alt="Patina" />
+        <form className="start-box" onSubmit={create}>
+          <h2>New project</h2>
+          <div className="start-row">
+            <label>
+              <span className="label">Folder</span>
+              <input className="field" value={parent} onChange={(e) => setParent(e.target.value)} spellCheck={false} />
+            </label>
+            <label>
+              <span className="label">Name</span>
+              <input className="field" value={name} onChange={(e) => setName(e.target.value)} spellCheck={false} autoFocus />
+            </label>
+            <button className="btn primary" disabled={busy || !name.trim() || !parent.trim()}>
+              Create
+            </button>
+          </div>
+        </form>
+        <form className="start-box" onSubmit={open}>
+          <h2>Open project</h2>
+          <div className="start-row">
+            <label>
+              <span className="label">Project folder</span>
+              <input className="field" value={path} onChange={(e) => setPath(e.target.value)} spellCheck={false} />
+            </label>
+            <button className="btn" disabled={busy || !path.trim()}>
+              Open
+            </button>
+          </div>
+        </form>
+        {error && <div className="error-text">{error}</div>}
+        <div className="start-box">
+          <h2>Recent projects</h2>
+          {start.recent.length === 0 && <div className="label">None</div>}
+          <div className="recent">
+            {start.recent.map((r) => (
+              <button
+                key={r.path}
+                className={r.exists ? 'item' : 'item empty'}
+                disabled={busy || !r.exists}
+                onClick={() => act(api.openProject(r.path))}
+              >
+                <span>{r.name}</span>
+                <span className="path">{r.path}</span>
+                {!r.exists && <span className="hint">Missing</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

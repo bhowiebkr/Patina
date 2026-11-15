@@ -31,12 +31,13 @@ fn main() -> ExitCode {
 /// Builds the main graph and runs it one time. Returns false when a node failed.
 fn run(folder: &Path) -> Result<bool, patina_engine::Error> {
     let project = Project::open(folder)?;
+    let checked = project.check()?;
     let toolchain = Toolchain::detect()?;
     eprintln!("Building with Rust {}...", toolchain.release);
     let start = Instant::now();
-    let mut cluster = project.build(&toolchain)?;
+    let mut cluster = checked.build(&toolchain)?;
     eprintln!("Built in {:.2} s", start.elapsed().as_secs_f64());
-    let params = project.set_params(&mut cluster);
+    let params = cluster.set_params(project.graph());
     let ok = show(&params);
     // A node with a bad parameter does not run, so the graph does not run.
     Ok(ok && show(&cluster.run()))

@@ -255,6 +255,25 @@ cargo run -p patina-cli -- run examples/hello
 The example adds two numbers and writes `6.5`. A node that fails or panics gives a message with
 its ID, and the nodes after it do not run. The exit code is then 1.
 
+## Open the editor
+
+The editor is at an early stage. It makes or opens a project, edits the main graph, runs it and
+saves it. To start it from a checkout of this repository, you need Rust and Node.js:
+
+1. In `crates/patina-editor/frontend`, run `npm ci` and then `npm run build`.
+2. In the root folder, run `cargo run -p patina-editor`.
+
+To make your first graph:
+
+1. On the start screen, click **New project**. Give a name and click **Create**.
+2. Drag `number` and `show` from the **Project** panel into the graph.
+3. Drag from the output of `number` to the input of `show`.
+4. Select `number`, and type a value in the **Inspector**.
+5. Click **Run**. The **Output** tab shows the value.
+6. Push Ctrl+S to save the project.
+
+While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
+
 ## How it is built
 
 | Part | What it does |
@@ -268,7 +287,7 @@ All code is Rust, except the web frontend of the editor.
 
 ## Status and roadmap
 
-Milestone 1 is in progress. [STATUS.md](STATUS.md) gives the results. Each milestone gives a
+Milestone 2 is in progress. [STATUS.md](STATUS.md) gives the results. Each milestone gives a
 tool that works.
 
 0. **Risk prototypes**, proven on Windows first:
@@ -293,7 +312,8 @@ tool that works.
 11. Audio domain.
 12. Event domain.
 
-Some design questions are still open, for example the dock layout and a **Stop** button.
+Some design questions are still open, for example the side effects of a change while the
+graph runs.
 [Section 18 of the spec](docs/spec/16-roadmap.md#18-open-questions) lists them.
 
 ## Documentation

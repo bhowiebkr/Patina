@@ -203,7 +203,7 @@ from = "e1d4c2b7a9f03856.out"
 - An input has one wire at most. Thus the `to` end names the wire, and collars and cables name wires by it.
 - A public pin of a subgraph has a key of 8 random hexadecimal characters. The key does not change when the pin gets a new name or a new order, so the connections of each use stay. The order of the `[[input]]` and `[[output]]` tables is the order of the pins.
 - A parameter value and a settings value are the text form that their type gives (4.8). The engine stores the text and does not read it, so it stays free of types (2).
-- The route points, collars and cables are in the graph file, so the project owns them. The dock layout, the camera of the graph and the selection are not in the graph file (question 8 of 18).
+- The route points, collars and cables are in the graph file, so the project owns them. The dock layout, the camera of the graph and the selection are not in the graph file. Each user keeps them (15.2).
 - A wire to a pin that no longer exists stays in the file. The node shows an error until the user removes the wire or the pin comes back (15.5). Patina never deletes a wire without a user action.
 
 **Writing**

@@ -1,0 +1,10 @@
+{
+  "productName": "Patina",
+  "version": "0.1.0",
+  "identifier": "dev.patina.editor",
+  "app": {
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": false }
+}
