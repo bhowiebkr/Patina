@@ -116,12 +116,14 @@ These block milestone 2. The [mockup plan](mockup-plan.md) lists them too.
 
 These affect only the look of milestone 2. See the [GUI visual guide](gui-visual-guide.md).
 
-- [ ] The selection color of the Trigger family, #E89C91, is close to the red of the error
-  border, #ED7B78. A selected trigger node can look like an error.
-- [ ] The accent #DFA64B, the selection color of the Input family #E3B869 and the warning color
-  #E5B85A look almost the same.
-- [ ] The copper of the Material family and the amber of the Input family are hard to tell
-  apart.
+- [x] The selection color of the Trigger family, #E89C91, is close to the red of the error
+  border, #ED7B78. A selected trigger node can look like an error. Agent decision in the
+  [theme](gui-visual-guide/theme.md), 2026-11-15: the Trigger selection is now #F2C4B8.
+- [x] The accent #DFA64B, the selection color of the Input family #E3B869 and the warning color
+  #E5B85A look almost the same. Agent decision, 2026-11-15: the warning is now yellow, #E6D35C.
+  The accent and the Input selection both mean selection, so they stay.
+- [x] The copper of the Material family and the amber of the Input family are hard to tell
+  apart. Agent decision, 2026-11-15: the Input header is now gold, #655219.
 
 ## 7. Not blocking
 

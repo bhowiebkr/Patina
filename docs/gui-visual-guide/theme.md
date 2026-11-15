@@ -68,7 +68,7 @@ acceptable, but flat fills are the default.
 | accent-hover | #ECC078 | Hover on the primary action |
 | accent-ink | #171511 | Text and icons on a filled amber action |
 | ready | #75C884 | Ready and successful state |
-| warning | #E5B85A | Warning state |
+| warning | #E6D35C | Warning state |
 | error | #ED7B78 | Error border, error icon and error text |
 | info | #C5C5BF | Informational icon or label |
 
@@ -84,6 +84,10 @@ Status needs an icon or text as well as color. Amber selection and an amber
 warning have different shapes and labels. A neutral slider is not a status
 meter. Plots and rendered data may use any colors needed to explain their data.
 
+The warning is yellow, not amber, so it does not look like the selection or a
+primary action. Amber selection and a yellow warning also have different shapes
+and labels.
+
 ## Node headers and local focus
 
 These families are defaults for related work. The spec allows a node author to
@@ -92,12 +96,12 @@ A header color is not a type, clock domain or execution state.
 
 | Family | Header | Selection / focus | Examples |
 |---|---|---|---|
-| Input / source | #6B4B1E | #E3B869 | Image input, camera, sample player, noise source |
+| Input / source | #655219 | #E3B869 | Image input, camera, sample player, noise source |
 | Processing | #175C59 | #79D4C8 | Filter, mixer, beam finder, mask processing |
 | Curve / logic | #71344F | #DE8FBA | Curve editor, ADSR, scoring, remapping |
 | Material | #724426 | #D9A17A | Copper base, material layers |
 | Output / action | #59366F | #B99BDF | Export, audio output, CRM action |
-| Trigger | #7A3530 | #E89C91 | Webhook or event entry |
+| Trigger | #7A3530 | #F2C4B8 | Webhook or event entry |
 | Unassigned | #454545 | #DFA64B | A node with no assigned category |
 
 Use **text** on these headers. Keep node bodies neutral. Use the lighter paired
@@ -108,6 +112,26 @@ the spec and uses the application accent for selection.
 Keep the state indicator separate from the title fill. An error retains its
 red outer border and error icon even when selected. Use a small inner selection
 mark if both states need to be visible.
+
+## Color decisions of 2026-11-15
+
+These are agent decisions. The owner can change them. The distances are CIE76
+delta E values in Lab space. A value under 10 is hard to see on a small mark.
+
+| Change | Old | New | Reason |
+|---|---|---|---|
+| Trigger selection | #E89C91 | #F2C4B8 | It was 18 from the error red #ED7B78. It is now 36, a pale rose that does not read as an error. |
+| Warning | #E5B85A | #E6D35C | It was 8 from the accent and 7 from the Input selection. It is now 24 and 21. |
+| Input / source header | #6B4B1E | #655219 | It was 10 from the Material header. The gold is now 18 from the copper. |
+
+- The accent and the Input selection stay close. Both mean selection, so the
+  user reads the same state.
+- The error keeps its red outer border and its icon. The warning keeps its icon
+  and its text. Color is never the only sign of a state.
+- Each header keeps a contrast of 6.5:1 or more with **text**. The warning has
+  a contrast of 10:1 on the node and panel surfaces.
+- The [palette image](../mockups/details/gui-palette.svg), the mockups and the
+  image requests show the old values. The tables of this file win.
 
 The listed normal text/header pairs and primary-button pair were checked
 numerically. They exceed 4.5:1 contrast. That does not validate every combination
