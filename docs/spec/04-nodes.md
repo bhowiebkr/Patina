@@ -18,7 +18,7 @@ pub fn split(text: &str) -> (String, String) { ... }
 
 - Each parameter is an input pin.
 - The return type is the output pin. A tuple gives one output pin for each element.
-- Helper functions and `use` statements are permitted.
+- The source of a node can also have helper functions and `use` statements.
 
 ### 4.2 Stateful nodes
 
@@ -177,14 +177,14 @@ pub async fn fetch(url: &str) -> Result<String, FetchError> { ... }
 - A node can return `Result<T, E>`. An `Err` stops the downstream nodes and shows on the node.
 - Builds use `panic = "unwind"`. The generated glue code wraps each call into node code in `catch_unwind`: `init`, `process`, `ui`, viewers, and drop. The catch is inside the library, so a panic never crosses the C ABI. A panic that leaves an `extern "C"` function stops the process.
 - In a fused cluster, each node call has its own catch. A panic shows as an error on the node that panicked. It does not stop the engine.
-- After a panic, the state of the node can be broken. The engine drops it, and calls `init` before the next run. If drop panics too, the engine leaks the state.
+- A panic can break the state of the node. The engine drops it, and calls `init` before the next run. If drop panics too, the engine leaks the state.
 - Limit: an abort, a stack overflow, or a native crash, for example an access violation in C code, stops the engine process. Only process isolation (16) contains these.
 
 ### 4.8 Parameters
 
 - A parameter is an input pin with no wire. Each input pin with a value type is a parameter until the user connects a wire to it. The wire then gives the value.
-- The Parameters panel shows each parameter with a control: a slider for numbers, a check box for `bool`, a text field for strings, a dropdown for an enum with `#[derive(Param)]`.
-- A type crate gives parameter support to its own types with the `Param` trait from `patina-sdk`: a default value, a control (a built-in or a custom widget), and a text form for save and undo. The engine stays free of types (2).
+- The Parameters panel shows a control for each parameter. Numbers get a slider, `bool` gets a check box, and strings get a text field. An enum with `#[derive(Param)]` gets a dropdown.
+- A type crate gives parameter support to its own types with the `Param` trait from `patina-sdk`. The trait gives a default value, a control (a built-in or a custom widget), and a text form for save and undo. The engine stays free of types (2).
 - An input whose type has no parameter support needs a wire. Until it has one, the node shows an error and does not run.
 - The format of saved values is part of question 1 (18).
 - Node code can set ranges and defaults with an attribute:

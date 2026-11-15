@@ -12,7 +12,7 @@ Patina compiles a graph in two layers:
 
 | Layer | Contents | Build mode (8.3) | Purpose |
 |---|---|---|---|
-| Base | The whole graph, except the node in the slot. Small nodes are inlined into each other | Bake | Fast execution |
+| Base | The whole graph, except the node in the slot. Small nodes inline into each other | Bake | Fast execution |
 | Slot | The node that the user edits, compiled alone | Edit | Fast iteration |
 
 - The base is the normal state. With no node in the slot, the whole graph is one optimized build.
@@ -107,11 +107,11 @@ Section 7 describes the base and the slot. The base builds in bake mode. The slo
 
 ### 8.5 Hot reload
 
-- Each build gets a new file name: clusters, the slot, views, and the shared types library. Windows locks loaded `.dll` files. Windows also gives an already loaded library to each later request with the same file name, so a new build with an old name would run the old code.
-- The engine loads each library by its full path. It finds the libraries that a library needs only in the `build/` folder of the project, with a limited search path (`LoadLibraryExW` with the `LOAD_LIBRARY_SEARCH` flags on Windows). The `build/` folder holds each library that a cluster needs, including the `std` library of the toolchain.
+- Each build gets a new file name: clusters, the slot, views, and the shared types library. Windows locks loaded `.dll` files. Windows also gives an already loaded library to each later request with the same file name. Thus a new build with an old name would run the old code.
+- The engine loads each library by its full path. It finds the libraries that a library needs only in the `build/` folder of the project. On Windows, `LoadLibraryExW` with the `LOAD_LIBRARY_SEARCH` flags limits the search path. The `build/` folder holds each library that a cluster needs, including the `std` library of the toolchain.
 - Values, node states, futures, and callbacks keep a link to the build that made them. Old builds stay loaded, so these drop with their own code.
 - A failed build never deletes or replaces a loaded file.
-- When a project opens, Patina deletes the old builds in `build/` that are not loaded and not in the cache.
+- When a project opens, Patina deletes the old builds in `build/`, except the loaded builds and the builds in the cache.
 - The engine does not unload old builds. Rust libraries do not unload safely, and macOS often does not unload them. Memory and disk use grow with each reload until a restart. Milestone 0 measures the growth (19).
 - With process isolation (see 16), the engine can restart the node process and free all old builds.
 

@@ -4,7 +4,7 @@ Part of the [Patina Specification](README.md).
 
 ## 1. Overview
 
-Patina is a visual node graph editor and engine. Each node is Rust source code. Patina compiles the whole graph to one optimized build of native machine code and runs independent nodes in parallel. When the user edits a node, Patina compiles only that node, with a target of a few seconds, and later fuses it back into the optimized build (7). Nodes can have their own interactive GUIs (4.3). Views add custom panels to the editor, for example a timeline, a 3D viewport, or a spectrum display (15.8). With both, a project can become a tool with its own editors.
+Patina is a visual node graph editor and engine. Each node is Rust source code. Patina compiles the whole graph to one optimized build of native machine code and runs independent nodes in parallel. When the user edits a node, Patina compiles only that node. The target time is a few seconds. Later, Patina fuses the node back into the optimized build (7). Nodes can have their own interactive GUIs (4.3). Views add custom panels to the editor, for example a timeline, a 3D viewport, or a spectrum display (15.8). With both, a project can become a tool with its own editors.
 
 Patina is the Rust successor to PyFlowGraph.
 
@@ -16,7 +16,7 @@ Example uses (not limits): sound effect editors, image and shader editors, autom
 2. **Open.** Nodes are source code. Each node has its own folder, and other projects can reuse it (6.2). Packages include the source. Patina does not use closed or precompiled node formats.
 3. **Fast execution.** Native code, optimized across nodes, and automatic parallelism. Real-time targets: 60 FPS for frame graphs, no dropouts for audio graphs.
 4. **Fast iteration.** A change to one node recompiles only that node. The target is a few seconds. Milestone 0 measures it (19). The rest of the graph stays optimized (7).
-5. **Portable or installed.** The user unzips a release and runs it, or installs it with the installer of the platform (13.1). macOS has only the installed edition. The portable edition makes no changes to the system. Patina downloads extra components with one button. Exceptions: see 13.4.
+5. **Portable or installed.** The user unzips a release and runs it. Or the user installs it with the installer of the platform (13.1). macOS has only the installed edition. The portable edition makes no changes to the system. Patina downloads extra components with one button. Exceptions: see 13.4.
 6. **Windows first.** Windows is the main platform. Linux and macOS get basic builds, and contributors who use them improve them (13.5).
 
 ## 3. Architecture

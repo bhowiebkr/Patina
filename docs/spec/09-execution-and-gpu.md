@@ -88,7 +88,7 @@ pub fn gain(
   - File change
   - GUI event, for example a button in a node GUI or in a view
 - Each run has an ID. Logs show the run ID.
-- If a trigger fires while a run is active, the trigger setting decides: queue the new run, run both at the same time, or skip the new run.
+- A trigger can fire while a run is active. Then the trigger setting decides: queue the new run, run both at the same time, or skip the new run.
 - A stateful node has one state. When runs overlap, they take turns at a stateful node: one run at a time calls it, in the order that the runs reach it. The other nodes of the runs still run at the same time.
 - A code swap does not stop active runs. Each run finishes with the builds that it started with. New runs use the new builds. The old state of an edited node drops after the last old run ends.
 - Later: retry rules and a run history.

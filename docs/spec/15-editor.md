@@ -99,11 +99,15 @@ Node bodies fit their contents; their widths and heights need not match.
 - The header shows the node name, the node kind, and the full path, for example "Color Grade / Exposure".
 - The header also shows the layer of the node: base or slot (7).
 - The **Code** tab shows the files of the node folder (6.2).
-- When the user opens the code of a view (15.8), a widget, or a type crate, the header shows its name, its kind, and its build state.
+- The user can open the code of a view (15.8), a widget or a type crate. Then the header shows its name, its kind and its build state.
 
 ### 15.5 Errors
 
-- A compile error shows in four places: a red underline and gutter mark on the line in the code, a red border on the node, a red line in Logs, and the error count in the status bar.
+- A compile error shows in four places:
+  - A red underline and a gutter mark on the line in the code.
+  - A red border on the node.
+  - A red line in Logs.
+  - The error count in the status bar.
 - A click on an error in Logs or the status bar selects the node and shows the line.
 
 ### 15.6 Engine-to-UI data
@@ -117,12 +121,12 @@ Node bodies fit their contents; their widths and heights need not match.
 - Value viewers on wires (see 5.3).
 - Run time for each node, shown on the node.
 - Log output for each node, through the `log` crate.
-- Debug tab: a timeline of the threads of each domain that shows which nodes ran in parallel, with the frame budget (16.7 ms at 60 FPS) and the audio block deadline.
+- Debug tab: a timeline of the threads of each domain. It shows which nodes ran in parallel, the frame budget (16.7 ms at 60 FPS) and the audio block deadline.
 - Later: breakpoints.
 
 ### 15.8 Views
 
-A view is a custom panel of the editor. Examples: a timeline, a 3D viewport for procedural generation, a 3D object that textures paint onto, a scientific plot, a spectrum display for a sound tool. Views are separate from node GUIs. With nodes and views, a project can build the editors of a tool.
+A view is a custom panel of the editor. Examples are a timeline, a 3D viewport for procedural generation, and a 3D object to paint textures on. Other examples are a scientific plot and a spectrum display for a sound tool. Views are separate from node GUIs. With nodes and views, a project can build the editors of a tool.
 
 ```rust
 #[view]
@@ -217,7 +221,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Lanes show in a fixed order, the most significant bit first. A route bend never changes the order.
 - At a far zoom, a bus shows as one line with a width badge. At a near zoom, it shows each lane.
 - A stale value (15.3) shows dim, on the wire as on the node.
-- Live values follow the viewer rules (5.3, 9.2): the editor reads them at the display rate at most (15.6), and a read never changes the run.
+- Live values follow the viewer rules (5.3, 9.2). The editor reads them at the display rate at most (15.6), and a read never changes the run.
 - A type with no lane description shows one line and its type label. The editor does not make lanes from the size of a value or the length of a list.
 - How the engine reads a wire inside a fused chain (9.2) is open (18).
 
@@ -237,7 +241,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Preserve manual route points when nodes move or resize. Recalculate only the affected unfixed sections where possible.
 - Show a routing conflict if fixed points prevent a clear path. Do not silently remove points, disconnect the graph or treat a visual obstruction as a run error.
 - Route edits support undo and redo. The storage format and ownership of saved layout remain open questions (18).
-- A connection can be selected and traced to its endpoints at different zoom levels. Its hit area need not be as thin as the visible stroke.
+- The user can select a connection and trace it to its endpoints at each zoom level. Its hit area can be wider than the visible stroke.
 
 **Optional refinements**
 

@@ -33,7 +33,7 @@ The UI cannot show an unknown type by itself.
 
 - A type crate can implement the `Viewer` trait from `patina-sdk`. A viewer gives text, a table, an image, a plot, or a waveform.
 - A viewer can also give a small thumbnail. The node body shows the thumbnail of its output, for example an image preview.
-- A viewer can also describe the lanes of its type: the number, the names, and the order of the signals in one value, and the state of each lane. A wire of that type then shows each lane and its state, for example the 8 bits of a byte (15.9).
+- A viewer can also describe the lanes of its type, which are the signals in one value. It gives the number, the names and the order of the lanes, and the state of each lane. A wire of that type then shows each lane and its state, for example the 8 bits of a byte (15.9).
 - If a type has no viewer but implements `Debug`, the UI shows the `Debug` text.
 - Otherwise the UI shows the type name and size.
 
@@ -83,10 +83,10 @@ A project is a folder with a stable random ID. Each node, view, custom widget, a
 **Import**
 
 - **Import** copies a node, view, widget, or type folder from another project into this project. It also copies the type and widget folders that the folder depends on. Before it copies, it shows each folder that it will copy, each name conflict, and each node of this project that a replaced folder changes.
-- If this project already has a folder with the same name and other contents, Patina asks the user to replace it, to keep it, or to import the new folder with another name.
+- This project can already have a folder with the same name but other contents. Then Patina asks the user to replace the old folder, keep it, or import the new folder with another name.
 - With another name, Patina changes the crate name in the `Cargo.toml` of the new folder. The copied folders that depend on it point to the new name with the `package` key of Cargo, so their code does not change.
 - The copy belongs to this project. A later change in the other project does not change it. Patina never links folders between projects, because a project holds all its source (2, 14), and a change in another project must not break it.
-- Patina records where the copy came from: the stable random ID of the other project, the folder name, and a hash of the contents at import. The record holds no path, so it shows no private folder names when the project is shared. The format of the record is part of question 1 (18).
+- Patina records the source of the copy. The record holds the stable random ID of the other project, the folder name, and a hash of the contents at import. The record holds no path, so it shows no private folder names when the project is shared. The format of the record is part of question 1 (18).
 - **Update** in the **Project** panel compares the copy with the folder in the other project. Patina finds the other project among the projects that the user opened before, or asks for its folder. It shows the changes on both sides, including the changes that the user made to the copy. It copies the new version only when the user confirms. If both sides changed a file, the user picks the version of that file.
 - The crate versions of the copy resolve with the `Cargo.lock` of this project (8.1).
 - Patina builds the changed folders before it applies an **Import** or an **Update**. If the build fails or the user cancels, the project stays as it was.

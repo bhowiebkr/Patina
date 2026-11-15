@@ -25,7 +25,7 @@ The specification is split into these files. Each file keeps its section numbers
   - **Main editor** ([../mockups/mockup-1-main-editor-colored-headers.png](../mockups/mockup-1-main-editor-colored-headers.png)): graph, inspector with code and parameters, logs.
   - **Error view** ([../mockups/mockup-3-error-view.png](../mockups/mockup-3-error-view.png)): compile error and a subgraph.
 - The mockups show the visual direction: dark theme, layout, and density. If a mockup and this spec disagree, follow this spec. Known differences:
-  - The mockups show edit layers: a layer list with on/off toggles, an orphan edit warning, "Layer: Color Grade" in the status bar, and "Layer Edit" in the inspector header. Patina has no edit layers. Its layers are compile layers: the base and the slot (7). Show them as 15.2 and 15.4 tell.
+  - The mockups show edit layers: a layer list with on/off toggles and an orphan edit warning. They also show "Layer: Color Grade" in the status bar and "Layer Edit" in the inspector header. Patina has no edit layers. Its layers are compile layers: the base and the slot (7). Show them as 15.2 and 15.4 tell.
   - The inspector header uses a Rust logo. Do not use it. Use Patina node-kind icons (15.3).
   - Labels such as "Compiled 12.8 ms" mix build status and run time. Use separate labels (15.3).
   - In the error view, the node with the error has a green dot. It must have a red border and an error icon. The inspector header must show the selected node with its path. The error line must have a mark in the code. The subgraph border must be neutral gray, and the subgraph needs a collapse button.

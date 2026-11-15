@@ -8,7 +8,7 @@ Build scripts and procedural macros run code at compile time. Native nodes run w
 
 - When the user opens a project from another person, Patina asks the user to trust it.
 - An untrusted project opens read-only. The user can see the graph and the code. Patina does not build or run it.
-- Until the user trusts a project, Patina starts no tool on it: no build, check, or test command, no rust-analyzer, no formatter, and no views. The **Code** tab shows the source with syntax colors only. rust-analyzer runs build scripts and procedural macros, so it starts only for a trusted project.
+- Until the user trusts a project, Patina starts no tool on it. The tools include the build, check and test commands, rust-analyzer, the formatter, and views. The **Code** tab shows the source with syntax colors only. rust-analyzer runs build scripts and procedural macros, so it starts only for a trusted project.
 - Patina reads no tool settings from an untrusted project, for example `.cargo/config.toml` or `rust-toolchain.toml`.
 - A folder that the user imports from an untrusted project stays out of the workspace members until the user trusts it (6.2).
 - Patina keeps a list of trusted project folders. A project that the user makes in Patina goes on the list.
@@ -34,9 +34,9 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 - **Installed:** the user runs the installer of the platform. The program goes to the program folder of the platform. The toolchain and the projects go to the folders of the user (13.3).
 - The `.msi` asks the user to install for **Just me** or for **All users**. **Just me** needs no admin rights. **All users** and the `.deb` package need admin rights.
 - The portable zip holds a file named `portable` next to the executable. When this file is there, Patina keeps all its data in its own folder. When it is not there, Patina uses the folders of the user.
-- macOS has no portable edition. macOS can start a downloaded app from a random, read-only copy (App Translocation), so an app cannot rely on files next to it. The only reliable fixes use private Apple functions or remove the download mark of macOS from the app. On macOS, Patina always uses the folders of the user, from any folder that the app is in.
+- macOS has no portable edition. macOS can start a downloaded app from a random, read-only copy (App Translocation). Thus an app cannot rely on files next to it. The only reliable fixes use private Apple functions or remove the download mark of macOS from the app. On macOS, Patina always uses the folders of the user, from any folder that the app is in.
 - On macOS, the user drags Patina.app to **Applications**. Patina also runs from other folders.
-- The macOS build has an ad-hoc signature and is not notarized (13.5). macOS blocks it the first time. The user opens **System Settings > Privacy & Security** and clicks **Open Anyway**.
+- The macOS build has an ad-hoc signature and no notarization (13.5). macOS blocks it the first time. The user opens **System Settings > Privacy & Security** and clicks **Open Anyway**.
 - No edition changes the `PATH` or installs Rust for the whole system.
 - The installers do not include the toolchain. Both editions use the **Install toolchain** button (13.2).
 - The `.msi` installs the WebView2 Runtime if it is missing, with the bootstrapper of Tauri. This needs internet.
@@ -121,7 +121,7 @@ Windows is the main platform. Linux and macOS get basic support, and contributor
 |---|---|
 | Windows | Main. The owner builds, tests, and releases on Windows. Each milestone must work on Windows. |
 | Linux | Basic. CI builds the release files and runs the tests. Contributors who use Linux test and improve them. |
-| macOS | Basic. CI builds an ad-hoc signed `.dmg` and runs the tests. The build is not notarized (13.1). Contributors who use macOS test and improve it. |
+| macOS | Basic. CI builds an ad-hoc signed `.dmg` and runs the tests. The build has no notarization (13.1). Contributors who use macOS test and improve it. |
 
 - A gap on Linux or macOS does not block a milestone or a release. Write an issue for it, so that a contributor can take it.
 - If the Linux or macOS build fails, the release leaves out the files of that platform. An issue tracks the failure.
