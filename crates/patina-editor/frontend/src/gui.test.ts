@@ -24,3 +24,21 @@ test('fields and dropdowns keep their values, and an event text stays on one lin
   ]);
   assert.equal(eventLine(1, 'x\ny'), '1 x y');
 });
+
+test('a canvas keeps its good shapes and limits its size', () => {
+  const shapes = ['line 0 0 8 8 #010203', 'rect 1 1 -2 2 #000000 1', 'circle 5 5 2.5 #ff0010 1', 'text 1 15 #000000 a  b', 'line 0 0 8 #010203', 'oval 1 1 1 #000000', 'rect 0 0 1 1 red 0'];
+  assert.deepEqual(parseTree(`canvas\tDot\t40\t99999\t${shapes.join('\t')}\ncanvas\tBad\t0\t5`), [
+    {
+      kind: 'canvas',
+      index: 0,
+      text: 'Dot',
+      width: 40,
+      height: 4096,
+      shapes: [
+        { kind: 'line', x1: 0, y1: 0, x2: 8, y2: 8, color: '#010203' },
+        { kind: 'circle', x: 5, y: 5, r: 2.5, color: '#ff0010', fill: true },
+        { kind: 'text', x: 1, y: 15, color: '#000000', text: 'a  b' },
+      ],
+    },
+  ]);
+});

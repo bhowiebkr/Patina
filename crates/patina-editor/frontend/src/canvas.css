@@ -111,6 +111,20 @@
   cursor: default;
 }
 
+.gui-canvas-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gui-canvas {
+  display: block;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  touch-action: none;
+}
+
 /* The full size of a node GUI fills the graph area (spec 4.3). */
 .full-gui {
   position: absolute;

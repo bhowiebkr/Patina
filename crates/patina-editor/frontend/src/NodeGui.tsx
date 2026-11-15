@@ -1,8 +1,8 @@
 // Draws the widget lines of a node GUI with the shared controls (spec 4.3, GUI guide controls).
 
-import { createContext, memo, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, memo, useContext, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { api } from './api';
-import { eventLine, parseTree, type Widget } from './gui';
+import { eventLine, parseTree, type Shape, type Widget } from './gui';
 
 interface Props {
   id: string;
@@ -41,6 +41,72 @@ function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>;
   );
 }
 
+function ShapeView({ s }: { s: Shape }) {
+  switch (s.kind) {
+    case 'line':
+      return <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} strokeWidth={1.5} />;
+    case 'rect':
+      return <rect x={s.x} y={s.y} width={s.w} height={s.h} stroke={s.color} fill={s.fill ? s.color : 'none'} />;
+    case 'circle':
+      return <circle cx={s.x} cy={s.y} r={s.r} stroke={s.color} fill={s.fill ? s.color : 'none'} />;
+    case 'text':
+      return (
+        <text x={s.x} y={s.y} fill={s.color} fontSize={12}>
+          {s.text}
+        </text>
+      );
+  }
+}
+
+/** A canvas sends a pointer down, the moves of a drag (one for each frame at most) and the up. */
+function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas' }>; send: (value: string) => void; disabled: boolean }) {
+  const pending = useRef<string | null>(null);
+  // The point in canvas pixels. A zoom of the graph scales the element, so divide by its size.
+  const at = (e: PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const round = (v: number) => Math.round(v * 10) / 10;
+    return `${round(((e.clientX - r.left) * w.width) / r.width)} ${round(((e.clientY - r.top) * w.height) / r.height)}`;
+  };
+  const flush = () => {
+    if (pending.current !== null) send(`move ${pending.current}`);
+    pending.current = null;
+  };
+  const down = (e: PointerEvent<SVGSVGElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    send(`down ${at(e)}`);
+  };
+  const move = (e: PointerEvent<SVGSVGElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    if (pending.current === null) requestAnimationFrame(flush);
+    pending.current = at(e);
+  };
+  const up = (e: PointerEvent<SVGSVGElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    flush();
+    send(`up ${at(e)}`);
+  };
+  return (
+    <div className="gui-canvas-row">
+      {w.text && <span className="label">{w.text}</span>}
+      <svg
+        className="gui-canvas"
+        width={w.width}
+        height={w.height}
+        viewBox={`0 0 ${w.width} ${w.height}`}
+        role="img"
+        aria-label={w.text || 'Canvas'}
+        onPointerDown={disabled ? undefined : down}
+        onPointerMove={disabled ? undefined : move}
+        onPointerUp={disabled ? undefined : up}
+      >
+        {w.shapes.map((s, i) => (
+          <ShapeView key={i} s={s} />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 /** A field that sends its value on Enter or when it loses the focus, and Esc restores it. */
 function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 'text' }>; send: (value: number | string) => void; disabled: boolean }) {
   const shown = String(w.value);
@@ -71,8 +137,13 @@ function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 't
   );
 }
 
+// The events of all node GUIs go out in order, so the down of a drag comes before its up.
+let queue = Promise.resolve();
+
 function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
-  const send = (index: number) => (value: number | string) => void api.gui(id, mode, eventLine(index, value)).catch(() => {});
+  const send = (index: number) => (value: number | string) => {
+    queue = queue.then(() => api.gui(id, mode, eventLine(index, value))).catch(() => {});
+  };
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
     <div className="node-gui nodrag nowheel" role="group" aria-label="Node controls">
@@ -115,6 +186,8 @@ function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
                 </select>
               </label>
             );
+          case 'canvas':
+            return <CanvasView key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
         }
       })}
     </div>

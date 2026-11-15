@@ -75,8 +75,11 @@ and in the editor.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
   palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
   the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.
-- Only stateful nodes can have a GUI. The value widgets, the canvas, the audio `ui` with
-  `#[settings]` and widget folders are not done.
+- Only stateful nodes can have a GUI. The value widgets, the audio `ui` with `#[settings]` and
+  widget folders are not done.
+- A node GUI can have a canvas with lines, rectangles, circles and text. The canvas sends the
+  pointer down, the moves of a drag (one for each frame at most) and the up. A custom widget
+  implements the `Widget` trait. No test runs a canvas in the editor.
 - shortcut: the engine draws all node GUIs after each run and frame, also the nodes out of view
   (4.3). Send the visible nodes from the page when graphs get large.
 - The delay runs only in the frame domain.
