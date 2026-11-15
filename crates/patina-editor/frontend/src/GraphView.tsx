@@ -46,7 +46,8 @@ function buildNodes(view: View, run: RunState, prev: PatinaNode[]): PatinaNode[]
     const [state, message] = nodeState(entry, info, view, run);
     const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
     const position = { x: entry.pos?.[0] ?? 0, y: entry.pos?.[1] ?? 0 };
-    const data = { entry, info, wired, state, message, editable: view.trusted };
+    const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
+    const data = { entry, info, wired, state, message, editable: view.trusted, time };
     const before = old.get(entry.id);
     return before ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });

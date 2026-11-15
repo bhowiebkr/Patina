@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type Value, type View } from './api';
+import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type Value, type View } from './api';
 import { FAR_ZOOM } from './gl';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
@@ -25,6 +25,8 @@ export interface RunState {
   stale: boolean;
   /** Each node that did not run in the last run, by ID (15.2, 15.3). Its values are old. */
   idle: ReadonlyMap<string, 'skipped' | 'stopped'>;
+  /** The run time of each node call in the last run, in milliseconds by node ID (15.7). */
+  times: ReadonlyMap<string, number>;
 }
 
 export const NO_RUN: RunState = {
@@ -39,6 +41,7 @@ export const NO_RUN: RunState = {
   text: '',
   stale: false,
   idle: new Map(),
+  times: new Map(),
 };
 
 /** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
@@ -58,6 +61,8 @@ export interface NodeData extends Record<string, unknown> {
   state: NodeState;
   message: string;
   editable: boolean;
+  /** The run time of the node in the last run, in milliseconds (15.7). */
+  time?: number;
 }
 
 export type PatinaNode = Node<NodeData, 'patina'>;
@@ -163,7 +168,7 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable } = data;
+  const { entry, info, wired, state, message, editable, time } = data;
   const inputs = info?.inputs ?? [];
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
@@ -194,6 +199,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
         })}
       </div>
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
+      {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
       {inputs.map(({ key }, i) => (
         <Handle key={`i-${key}`} id={key} type="target" position={Position.Left} isConnectable={editable} style={{ top: pinTop(i) }} />
       ))}

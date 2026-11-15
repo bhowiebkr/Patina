@@ -127,11 +127,17 @@ export interface Diagnostic {
   end: [number, number];
 }
 
+/** The run time of one node call (15.7). */
+export interface NodeTime {
+  id: string;
+  ms: number;
+}
+
 /** When `errors` of a run is not empty, the build failed and the last build that compiled ran. */
 export type EngineEvent =
   | { state: 'building'; serial: number }
   | { state: 'started'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
+  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] };
 
 export interface OutputText {
@@ -242,3 +248,6 @@ export function nodeProblems(problems: string[], id: string): string[] {
 
 export const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 export const millis = (ms: number) => `${ms < 10 ? ms.toFixed(2) : ms.toFixed(0)} ms`;
+const micros = (us: number) => `${us < 10 ? us.toFixed(2) : us.toFixed(0)} us`;
+/** The run time of a node (15.7): seconds from 1 s, microseconds under 1 ms. */
+export const duration = (ms: number) => (ms >= 1000 ? seconds(ms) : ms >= 1 ? millis(ms) : micros(ms * 1000));

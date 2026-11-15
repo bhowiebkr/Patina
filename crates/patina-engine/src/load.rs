@@ -72,6 +72,13 @@ impl Lanes {
     }
 }
 
+/// The run time of one node call (15.7).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct NodeTime {
+    pub id: String,
+    pub ms: f64,
+}
+
 /// The result of one call: false when a node failed or the cluster failed with no report.
 #[derive(Default)]
 pub struct Outcome {
@@ -82,6 +89,8 @@ pub struct Outcome {
     pub skipped: Vec<String>,
     /// The ID of each node that did not start, because the user clicked **Stop** (15.2).
     pub stopped: Vec<String>,
+    /// The run time of each node call that started (15.7).
+    pub times: Vec<NodeTime>,
 }
 
 type VersionFn = unsafe extern "C" fn() -> u32;
@@ -226,6 +235,13 @@ fn outcome(ok: bool, sink: Sink, names: &[(String, String)], probes: &[String]) 
             }
             continue;
         }
+        if kind == glue::TIME {
+            // A defective cluster can send a bad text or index. Its time has no node to show on.
+            if let (Some((id, _)), Ok(ns)) = (names.get(index as usize), text.parse::<u64>()) {
+                out.times.push(NodeTime { id: id.clone(), ms: ns as f64 / 1e6 });
+            }
+            continue;
+        }
         if kind == glue::LANES {
             // The lanes come after the text of the same value.
             let last = out.values.last_mut().filter(|v| probes.get(index as usize) == Some(&v.from));
@@ -292,9 +308,13 @@ mod tests {
             (0, glue::LANES, "0110 data bus".to_owned()),
             (7, glue::VALUE, "x".to_owned()),
             (0, glue::PANIC, "p".to_owned()),
+            (0, glue::TIME, "2500000".to_owned()),
+            (0, glue::TIME, "x".to_owned()),
+            (5, glue::TIME, "1".to_owned()),
         ];
         let out = outcome(false, sink, &names, &probes);
         assert!(out.skipped.is_empty() && out.stopped.is_empty());
+        assert_eq!(out.times, [NodeTime { id: "a1".to_owned(), ms: 2.5 }]);
         let idle = vec![(0, glue::SKIPPED, String::new()), (0, glue::STOPPED, String::new()), (9, glue::STOPPED, String::new())];
         let idle = outcome(true, idle, &names, &probes);
         assert_eq!((idle.skipped, idle.stopped), (vec!["a1".to_owned()], vec!["a1".to_owned()]));

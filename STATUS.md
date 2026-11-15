@@ -94,6 +94,8 @@ To run the editor from a checkout:
   error, stale, skipped or unresolved (15.3). A header color never shows a state. A node after
   a failed node shows **Skipped**. After **Stop**, only the nodes that did not start show
   **Stale**. `patina-cli` writes a `skipped` line for each skipped node.
+- After a run, each node that ran shows its run time in a footer, for example **Run 0.30 us**
+  (15.7). The cluster measures each node call and sends the time to the engine.
 - The window is a dock (15.2). The **Project**, **Inspector**, **Logs** and **Output** panels
   are tabs in the left, right and bottom areas. Drag a tab to another area, or use its
   right-click menu to move or close it. A splitter changes the size of an area, with the mouse
@@ -111,7 +113,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 52 steps in 12.5 s:
+  off-screen and does not take the focus. It passed these 53 steps in 13.6 s:
   - Open **Settings**, find the Rust version and the trusted list, and capture the window into
     `settings.png`. Click **Back**.
   - New project, add 2 nodes and a wire, and set a parameter.
@@ -136,7 +138,8 @@ To run the editor from a checkout:
   - Close. The recent list starts with the project.
   - Open again. The graph is the saved graph. **Logs** is in the right area, and the pan and
     zoom are the same. **Reset layout** moves **Logs** back and keeps the pan and zoom.
-  - Run again, and find 2 ready nodes in the graph.
+  - Run again, and find 2 ready nodes in the graph. Find a run time in the footer of each
+    node: **Run 0.30 us** for `number` and **Run 9.00 us** for `show`.
     Find `2.5` in the badge of the wire, not stale, and `f64` in its type label.
   - Read the pixels of the wire from the WebGL canvas. They are gray, with no amber. The
     point under the wire is in the edge. Click the wire, and find the amber band. Find `2.5`
@@ -175,13 +178,13 @@ To run the editor from a checkout:
 - The CLI test adds a kind to a copy of the hello example. The sum 6.5 has the lanes `00000110`
   with the label `whole`.
 - `cargo test --workspace --locked` passed 52 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the crate names of **Add crate**, the text of the live values with a `Viewer`, the cut of the badge
+  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the run time reports, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the crate names of **Add crate**, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists with a removal, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  23 tests: the search of the **Add node** palette, the pin match of a drag from a pin, the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
+  24 tests: the format of a node run time, the search of the **Add node** palette, the pin match of a drag from a pin, the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
   the SVG path of a route, the orthogonal paths, the sharp corners, the curve through route
   points, the segment lists, the place of the badge, and the move, close, open, resize, reset
   and read of a dock layout.

@@ -220,7 +220,8 @@ A crate of crates.io is a dependency of one node folder, in its `Cargo.toml` (8.
 ### 15.7 Debugging
 
 - Value viewers on wires (see 5.3). Select a wire to see the full text of its value in the **Inspector**. The engine keeps the full texts of the last run, and the run event carries only the badge texts. (Agent decision, 2026-11-15. The owner can change it.)
-- Run time for each node, shown on the node.
+- Run time for each node, shown on the node. A footer under the pins shows the time of the node call in the last run, for example **Run 0.42 ms**. A time under 1 ms shows in microseconds, for example **Run 3.20 us**. A time of 1 s or more shows in seconds. A node that did not run has no footer. (Agent decision, 2026-11-15. The owner can change it.)
+  - The cluster measures each call with `std::time::Instant`, and sends the nanoseconds to the engine as a report (C ABI version 5). The time includes the copies of the inputs and the drop of the outputs that no node reads.
 - Log output for each node, through the `log` crate.
 - Debug tab: a timeline of the threads of each domain. It shows which nodes ran in parallel, the frame budget (16.7 ms at 60 FPS) and the audio block deadline.
 - Later: breakpoints.

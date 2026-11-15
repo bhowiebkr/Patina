@@ -85,6 +85,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
     let _ = writeln!(s, "            // {}: nodes/{name}", step.id);
     let _ = writeln!(s, "            if rep.enter({n}, {ready}) {{");
     let indent = "                ";
+    let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
     let _ = writeln!(
         s,
         "{indent}ok &= ::patina_sdk::glue::finish(::std::panic::catch_unwind(\
@@ -144,6 +145,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: &mut usize) {
         }
     }
     let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), rep, {n});");
+    let _ = writeln!(s, "{indent}rep.time({n}, t);");
     for k in (0..values.len()).filter(|k| step.consumers[*k] > 0) {
         let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {
             format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, || ::{}::{}(v));", name.replace('-', "_"), kind.func)

@@ -296,6 +296,9 @@ fn broken() -> u32 {
     await result(v, from, '2.5', BUILD_MS);
     await until('two ready nodes on the canvas', RUN_MS, () => document.querySelectorAll('.patina-node.ready').length === 2);
     steps.push('ready on the canvas');
+    const timeOf = (id: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .patina-node-time`)?.textContent ?? '';
+    await until('the run time on each node', RUN_MS, () => [A, B].every((id) => /^Run \d+(\.\d+)? (us|ms|s)$/.test(timeOf(id))));
+    steps.push(`run time on the nodes: ${timeOf(A)}, ${timeOf(B)}`);
     const badge = () => document.querySelector('.wire-value');
     await until('the live value on the wire', RUN_MS, () => badge()?.textContent === '2.5');
     if (badge()!.classList.contains('stale')) throw new Error('the value of the last run is stale');

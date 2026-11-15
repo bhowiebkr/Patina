@@ -72,6 +72,7 @@ pub fn exposure(
 - A node can use any crate from crates.io.
 - A node can return a `Result`. An error shows on the node, and the nodes after it do not run.
   They show **Skipped**. A panic also shows on the node. It does not stop the engine.
+- After a run, each node that ran shows its run time at the bottom, for example **Run 0.42 ms**.
 
 A node that keeps data between runs is a struct:
 

@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 4;
+pub const ABI_VERSION: u32 = 5;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -31,6 +31,8 @@ pub const SKIPPED: u32 = 6;
 /// The lanes of a held value (6.3), after its `VALUE`. The text has one '0' or '1' for each lane,
 /// the most significant lane first, then a space and the label.
 pub const LANES: u32 = 7;
+/// The run time of a node call (15.7). The text is the nanoseconds in decimal digits.
+pub const TIME: u32 = 8;
 
 /// The longest text of a live value, in bytes. A longer text ends with "...".
 pub const TEXT_LEN: usize = 4096;
@@ -96,6 +98,14 @@ impl Reporter {
         };
         self.send(node, kind, "");
         false
+    }
+
+    /// Sends the time since `start` as the run time of node `node` (15.7). It does not allocate.
+    pub fn time(&self, node: u32, start: std::time::Instant) {
+        let mut buf = [0; 39 + 3];
+        let mut out = Text::new(&mut buf);
+        let _ = write!(out, "{}", start.elapsed().as_nanos());
+        self.send(node, TIME, out.finish());
     }
 
     fn set_node(&self, node: u32) {
@@ -365,6 +375,9 @@ mod tests {
                 let node = || unsafe { &*rep.control }.node();
                 let skipped = !rep.enter(8, false) && node().is_none();
                 let started = rep.enter(7, true);
+                if started {
+                    rep.time(7, std::time::Instant::now());
+                }
                 skipped && started != stop_requested() && node() == started.then_some(7)
             })
         }
@@ -381,6 +394,9 @@ mod tests {
             assert!(run(state, &rep));
             free(state);
         }
+        let time = sent.remove(1);
+        assert_eq!((time.0, time.1), (7, TIME));
+        assert!(time.2.parse::<u64>().is_ok(), "{}", time.2);
         assert_eq!(sent, [(8, SKIPPED, String::new()), (8, STOPPED, String::new()), (7, STOPPED, String::new())]);
         assert!(!stop_requested(), "the flag is not visible outside a run");
     }

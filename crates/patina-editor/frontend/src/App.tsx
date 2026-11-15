@@ -251,6 +251,7 @@ export function App() {
         text: '',
         stale: false,
         idle,
+        times: new Map(e.times.map((t) => [t.id, t.ms])),
         };
       });
       const lines: Line[] = [];
