@@ -291,5 +291,8 @@ Issues and pull requests are welcome, from people and from their AI agents. At t
 report about a gap or a contradiction in the spec helps as much as a report about code. Agents
 follow the rules in [AGENTS.md](AGENTS.md).
 
+A source file can have 1000 lines at most. When a file gets longer, refactor it.
+`cargo test --workspace` checks this limit.
+
 Windows is the main platform. If you use Linux or macOS, your tests and fixes for that system
 are welcome. They are the way those builds get better.

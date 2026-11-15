@@ -5,6 +5,9 @@ description = "Milestone 0 prototype: Rust types across clusters (spec 5.1, 5.2 
 edition.workspace = true
 publish.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 object = { version = "0.39", default-features = false, features = ["read_core", "pe", "std"] }
 serde_json = "1"

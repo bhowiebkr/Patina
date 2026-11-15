@@ -62,6 +62,37 @@ Working rules for AI agents in this repository.
   downloaded `toolchain/` folder, credentials or user projects.
 - Keep unrelated edits. Never rewrite published Git history.
 
+## Rust code
+
+- Design the data for the borrow checker. Split a large struct into parts that borrow
+  separately, or use indices into arenas. Do not put all state in one struct with many `impl`
+  blocks.
+- Do not clone or collect only to end a borrow. Clone only when the code needs a second value.
+- Do not move a field out of `self` with `std::mem::take` or `mem::replace` while other methods
+  run. The field is empty during those calls.
+- Do not allocate in a hot path: the audio thread, the frame loop, the scheduler and the
+  live-value path. Reuse buffers from a pool. Do not start threads for each frame or each call.
+- Keep `unsafe` at the C ABI and the loader. Write a `// SAFETY:` comment for each `unsafe`
+  block. The clippy lint `undocumented_unsafe_blocks` checks this in the workspace.
+- A test that passes does not prove good performance. Measure the time and the allocations in
+  the hot path, and report the numbers.
+
+## File length
+
+This is a hard rule: a source file must not have more than 1000 lines. Count all lines, with
+comments and blank lines.
+
+- The test in `tools/repo-checks` fails when a source file has more than 1000 lines.
+  `cargo test --workspace` runs it. It reads Rust, frontend, shader and script files, but not
+  docs, data, lock files or build output.
+- A long file shows that the code needs a refactor. Split the file by responsibility. Also look
+  at the code around it, because that code can need a refactor too.
+- Do the refactor before you add more code to the file. Do not get under the limit with long
+  lines, or by removing comments or tests.
+- Refactor at regular intervals. When a change takes a file over 800 lines, tell the owner that
+  the file is near the limit.
+- Do not raise the limit or exclude a file from the check unless the owner approves.
+
 ## Issues and pull requests
 
 Issues and pull requests are welcome, from people and from their AI agents. Patina is at the

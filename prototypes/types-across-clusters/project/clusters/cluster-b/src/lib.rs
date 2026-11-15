@@ -33,11 +33,13 @@ pub unsafe extern "C" fn patina_sink_run(
     // SAFETY: the caller promises four inputs of the pin types.
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let mut summary = SinkSummary::default();
+    // SAFETY: input 0 is the `String` of the `greeting` pin, and it lives during the call.
     if let Some(text) = unsafe { read::<String>(&args[0]) } {
         summary.seen |= abi::SEEN_GREETING;
         summary.greeting_len = sink::greeting_len(text) as u64;
         summary.greeting_ok = u8::from(text == "hello from cluster A");
     }
+    // SAFETY: input 1 is the `Vec<Point>` of the `points` pin, and the engine forgets it.
     if let Some(points) = unsafe { take::<Vec<Point>>(&args[1]) } {
         summary.seen |= abi::SEEN_POINTS;
         let (len, x, y) = sink::sum_points(points);
@@ -45,11 +47,13 @@ pub unsafe extern "C" fn patina_sink_run(
         summary.sum_x = x;
         summary.sum_y = y;
     }
+    // SAFETY: input 2 is the `Probe` of the `probe` pin, and the engine forgets it.
     if let Some(probe) = unsafe { take::<Probe>(&args[2]) } {
         summary.seen |= abi::SEEN_PROBE;
         summary.probe_label_len = sink::take_probe(probe) as u64;
         summary.live_after_probe = types::geometry::live_probes();
     }
+    // SAFETY: input 3 is the `Meters` of the `distance` pin, and the engine forgets it.
     if let Some(distance) = unsafe { take::<Meters>(&args[3]) } {
         summary.seen |= abi::SEEN_DISTANCE;
         summary.distance = sink::distance_m(distance);

@@ -1,9 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["prototypes/types-across-clusters"]
+members = ["prototypes/types-across-clusters", "tools/repo-checks"]
 # The prototype user project builds alone, with its own flags (spec 5.2).
 exclude = ["prototypes/types-across-clusters/project"]
 
 [workspace.package]
 edition = "2024"
 publish = false
+
+# Each member crate sets `[lints] workspace = true` (AGENTS.md, Rust code).
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "warn"
