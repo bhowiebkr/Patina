@@ -89,13 +89,17 @@ To run the editor from a checkout:
 - **Run** builds the graph on the engine thread and runs it. While the graph runs, a parameter
   change runs it again with no build. A wiring change builds it again. A move does neither.
 - The **Output** tab shows the text that the nodes write. The **Logs** tab shows the build
-  time, the run time and the reports of the nodes.
+  time, the run time, the log lines and the reports of the nodes.
 - Each node shows its state with an icon and a border: ready, compiling, compile error, run
   error, stale, skipped or unresolved (15.3). A header color never shows a state. A node after
   a failed node shows **Skipped**. After **Stop**, only the nodes that did not start show
   **Stale**. `patina-cli` writes a `skipped` line for each skipped node.
 - After a run, each node that ran shows its run time in a footer, for example **Run 0.30 us**
   (15.7). The cluster measures each node call and sends the time to the engine.
+- A node with the `log` crate writes log lines with `log::info!`, `log::warn!` and
+  `log::error!` (15.7). The **Logs** panel shows each line with the node folder and ID. A WARN
+  line has the warning color, and an ERROR line has the error color. The **Logs** tab of the
+  **Inspector** shows the lines of the node. `patina-cli` writes them to stderr.
 - The window is a dock (15.2). The **Project**, **Inspector**, **Logs** and **Output** panels
   are tabs in the left, right and bottom areas. Drag a tab to another area, or use its
   right-click menu to move or close it. A splitter changes the size of an area, with the mouse
@@ -113,7 +117,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 53 steps in 13.6 s:
+  off-screen and does not take the focus. It passed these 53 steps in 12.8 s:
   - Open **Settings**, find the Rust version and the trusted list, and capture the window into
     `settings.png`. Click **Back**.
   - New project, add 2 nodes and a wire, and set a parameter.
@@ -177,14 +181,14 @@ To run the editor from a checkout:
   label `whole[7:0] / 8` above the ribbon. The fake lanes were then removed.
 - The CLI test adds a kind to a copy of the hello example. The sum 6.5 has the lanes `00000110`
   with the label `whole`.
-- `cargo test --workspace --locked` passed 52 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the run time reports, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the crate names of **Add crate**, the text of the live values with a `Viewer`, the cut of the badge
+- `cargo test --workspace --locked` passed 53 tests. The tests check the graph edits with undo
+  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the run time reports, the log lines with the limit of a run, the detection of the `log` crate, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the crate names of **Add crate**, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists with a removal, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  24 tests: the format of a node run time, the search of the **Add node** palette, the pin match of a drag from a pin, the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
+  25 tests: the format of a node run time, the style of a log line, the search of the **Add node** palette, the pin match of a drag from a pin, the lane instances of a bus, the miter normals, the rounded corners of a route, the place of a new route point,
   the SVG path of a route, the orthogonal paths, the sharp corners, the curve through route
   points, the segment lists, the place of the badge, and the move, close, open, resize, reset
   and read of a dock layout.
@@ -214,6 +218,9 @@ To run the editor from a checkout:
   palette, with the long paths wrapped in the card.
 - CI run 43727365197 of **Add crate** passed on `windows-latest`, `ubuntu-latest`
   and `macos-latest`.
+- A copy of the hello example with `log = "0.4"` in the `add` node ran in `patina-cli` on
+  Windows. It wrote `INFO adding 2.5 and 4` and `WARN a warning` for the node, and no debug
+  line. The build took 1.57 s.
 
 ### Known limits
 
@@ -236,6 +243,11 @@ To run the editor from a checkout:
 - The check does not test the **does not stop** message of **Stop** (15.2), because that needs
   a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
   starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.
+- The self-check does not run a node with the `log` crate, because that needs crates.io. The
+  type check covers the log lines of the page, but no check showed them in the editor yet.
+- The log lines show only the levels Info, Warn and Error. The logger drops a record from a
+  thread that a node starts. A `log` crate with another name, or in a target table, does not
+  turn on the logger. A run shows 1000 log lines at most.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
 - The editor has no bench with 500 nodes, so the far zoom form was not measured for frame

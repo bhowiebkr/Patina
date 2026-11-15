@@ -133,11 +133,25 @@ export interface NodeTime {
   ms: number;
 }
 
+/** A log line of a node, from the `log` crate (15.7). */
+export interface NodeLog {
+  id: string;
+  folder: string;
+  /** "ERROR", "WARN" or "INFO". */
+  level: string;
+  text: string;
+}
+
+/** The line style of a log line. */
+export function logKind(level: string): 'err' | 'warn' | 'out' {
+  return level === 'ERROR' ? 'err' : level === 'WARN' ? 'warn' : 'out';
+}
+
 /** When `errors` of a run is not empty, the build failed and the last build that compiled ran. */
 export type EngineEvent =
   | { state: 'building'; serial: number }
   | { state: 'started'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
+  | { state: 'ran'; serial: number; builtMs: number | null; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] };
 
 export interface OutputText {

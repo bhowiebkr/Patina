@@ -537,6 +537,10 @@ select {
   color: var(--error);
 }
 
+.lines .warn {
+  color: var(--warning);
+}
+
 .value-text {
   margin: 0;
   max-height: 320px;

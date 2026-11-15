@@ -5,7 +5,7 @@ import type { Reveal } from './CodeTab';
 
 export interface Line {
   text: string;
-  kind: 'out' | 'err' | 'info';
+  kind: 'out' | 'err' | 'warn' | 'info';
   /** The place in the code of a compile error. A click shows it. */
   at?: Reveal;
 }

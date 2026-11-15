@@ -15,6 +15,9 @@ pub struct Plan {
     pub slots: Vec<Slot>,
     /// The connection kinds of the held values, by folder name (6.3). The name is the crate name.
     pub kinds: Vec<(String, Kind)>,
+    /// True when a crate folder of the plan has the `log` crate. The cluster then sends the log
+    /// lines of its nodes (15.7).
+    pub log: bool,
 }
 
 /// One use of a node folder (6.2).
@@ -58,7 +61,7 @@ pub struct Slot {
 /// Crate names that a node folder cannot have, after `-` changes to `_`.
 /// Crate names of Rust and Patina, the keywords of Rust, the folder names of Cargo and the device
 /// names of Windows. Cargo or Windows refuses a crate or a folder with one of these names.
-const RESERVED: &str = "std core alloc proc_macro test patina_sdk patina_macros cluster_main \
+const RESERVED: &str = "std core alloc proc_macro test patina_sdk patina_macros patina_log cluster_main \
     as async await break const continue crate dyn else enum extern false fn for gen if impl in let \
     loop match mod move mut pub ref return self static struct super trait true type unsafe use \
     where while abstract become box do final macro override priv try typeof unsized virtual yield \
@@ -196,10 +199,20 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             steps[step].inputs.push(source);
         }
     }
-    let mut plan = Plan { nodes, steps, slots, kinds };
+    let mut plan = Plan { nodes, steps, slots, kinds, log: false };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
     plan.kinds.retain(|(name, _)| used.contains(name));
+    let mut folders = plan.nodes.iter().map(|(n, _)| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
+    plan.log = folders.any(|(group, name)| uses_log(root, group, name));
     Ok(plan)
+}
+
+/// True when the crate folder `<group>/<name>` has the `log` crate in `[dependencies]` (15.7).
+// shortcut: a renamed `log` or a `log` of a target table does not count, read them when a person needs it.
+fn uses_log(root: &Path, group: &str, name: &str) -> bool {
+    let text = std::fs::read_to_string(root.join(group).join(name).join("Cargo.toml")).unwrap_or_default();
+    let manifest: toml::Table = text.parse().unwrap_or_default();
+    manifest.get("dependencies").and_then(|d| d.as_table()).is_some_and(|d| d.contains_key("log"))
 }
 
 /// Reads each connection kind in `connections/` (6.3), sorted by folder name. A kind folder with
@@ -331,16 +344,16 @@ mod tests {
     fn graph_problems_are_all_reported() {
         let root = std::env::temp_dir().join(format!("patina-plan-{}", std::process::id()));
         let crates = [
-            ("nodes/num", "node", "pub fn num(v: f64) -> f64 { v }"),
-            ("nodes/show", "node", "pub fn show(v: &f64) {}"),
-            ("connections/wide", "connection", "pub fn wide(v: &f64) -> Lanes { todo!() }"),
-            ("connections/byte", "connection", "pub fn byte(v: &u8) -> Lanes { todo!() }"),
+            ("nodes/num", "node", "pub fn num(v: f64) -> f64 { v }", ""),
+            ("nodes/show", "node", "pub fn show(v: &f64) {}", "[dependencies]\nlog = \"0.4\"\n"),
+            ("connections/wide", "connection", "pub fn wide(v: &f64) -> Lanes { todo!() }", ""),
+            ("connections/byte", "connection", "pub fn byte(v: &u8) -> Lanes { todo!() }", ""),
         ];
-        for (folder, attr, code) in crates {
+        for (folder, attr, code, more) in crates {
             let dir = root.join(folder);
             std::fs::create_dir_all(dir.join("src")).unwrap();
             let name = &folder[folder.find('/').unwrap() + 1..];
-            std::fs::write(dir.join("Cargo.toml"), format!("[package]\nname = \"{name}\"\n")).unwrap();
+            std::fs::write(dir.join("Cargo.toml"), format!("[package]\nname = \"{name}\"\n{more}")).unwrap();
             std::fs::write(dir.join("src/lib.rs"), format!("#[patina_sdk::{attr}]\n{code}")).unwrap();
         }
         let graph = |wires: &str| -> GraphFile {
@@ -360,6 +373,7 @@ mod tests {
         let cycle = check(&root, &graph("[[order]]\nbefore = \"000000000000000b\"\nafter = \"000000000000000b\"\n"));
         std::fs::create_dir_all(root.join("connections/show")).unwrap();
         let named = check(&root, &graph(""));
+        let num_logs = uses_log(&root, "nodes", "num");
         std::fs::remove_dir_all(&root).unwrap();
 
         let plan = good.unwrap_or_else(|p| panic!("{p:?}"));
@@ -370,6 +384,7 @@ mod tests {
         // Only the kind of a held value goes into the plan.
         assert_eq!(plan.kinds.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["wide"]);
         assert_eq!(plan.kind(0, 0).map(|(_, kind)| kind.func.as_str()), Some("wide"));
+        assert!(plan.log && !num_logs, "`show` has the log crate, `num` does not");
         let named = named.err().unwrap();
         assert!(named.len() == 1 && named[0].starts_with("connections/show: cannot read Cargo.toml"), "{named:?}");
         let bad = bad.err().unwrap();

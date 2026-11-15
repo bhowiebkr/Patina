@@ -44,6 +44,9 @@ fn run(folder: &Path) -> Result<bool, patina_engine::Error> {
 }
 
 fn show(outcome: &Outcome) -> bool {
+    for line in &outcome.logs {
+        eprintln!("{line}");
+    }
     for report in &outcome.reports {
         eprintln!("{report}");
     }

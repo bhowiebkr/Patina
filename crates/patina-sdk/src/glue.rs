@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 5;
+pub const ABI_VERSION: u32 = 6;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -33,6 +33,11 @@ pub const SKIPPED: u32 = 6;
 pub const LANES: u32 = 7;
 /// The run time of a node call (15.7). The text is the nanoseconds in decimal digits.
 pub const TIME: u32 = 8;
+/// A log line of a node (15.7). The text is the level, a space and the message.
+pub const LOG: u32 = 9;
+
+/// The most log lines of one run (15.7). The cluster does not send the lines after them.
+pub const LOG_LINES: u32 = 1000;
 
 /// The longest text of a live value, in bytes. A longer text ends with "...".
 pub const TEXT_LEN: usize = 4096;
@@ -87,8 +92,7 @@ impl Reporter {
     /// Records that node `node` starts, and returns true. `ready` is true when each wired input
     /// has a value. Else it reports `STOPPED` after **Stop** (15.2), or `SKIPPED` (15.3).
     pub fn enter(&self, node: u32, ready: bool) -> bool {
-        // SAFETY: the same as in `set_node`.
-        let kind = if unsafe { self.control.as_ref() }.is_some_and(|c| c.stop.load(Relaxed)) {
+        let kind = if self.control().is_some_and(|c| c.stop.load(Relaxed)) {
             STOPPED
         } else if !ready {
             SKIPPED
@@ -109,22 +113,54 @@ impl Reporter {
     }
 
     fn set_node(&self, node: u32) {
-        // SAFETY: the engine gives null or a control that is valid during the call.
-        if let Some(control) = unsafe { self.control.as_ref() } {
+        if let Some(control) = self.control() {
             control.node.store(node, Relaxed);
         }
+    }
+
+    fn control(&self) -> Option<&Control> {
+        // SAFETY: the engine gives null or a control that is valid during the call.
+        unsafe { self.control.as_ref() }
     }
 }
 
 thread_local! {
-    /// The control of the run on this thread, for `stop_requested`. Null outside a run.
-    static CONTROL: Cell<*const Control> = const { Cell::new(std::ptr::null()) };
+    /// The reporter of the run on this thread, for `stop_requested` and `log_line`. Null outside
+    /// a run.
+    static RUN: Cell<*const Reporter> = const { Cell::new(std::ptr::null()) };
+    /// The number of log lines of the run on this thread.
+    static LINES: Cell<u32> = const { Cell::new(0) };
+}
+
+/// Calls `f` with the reporter of the run on this thread. Gives None outside a run.
+fn with_run<R>(f: impl FnOnce(&Reporter) -> R) -> Option<R> {
+    // SAFETY: `run` sets the pointer only during the call, and the engine keeps the reporter
+    // valid during the call.
+    unsafe { RUN.with(Cell::get).as_ref() }.map(f)
 }
 
 pub(crate) fn stop_requested() -> bool {
-    let control = CONTROL.with(Cell::get);
-    // SAFETY: `run` sets the pointer only during the call, and the engine keeps the control valid.
-    unsafe { control.as_ref() }.is_some_and(|c| c.stop.load(Relaxed))
+    with_run(|rep| rep.control().is_some_and(|c| c.stop.load(Relaxed))).unwrap_or(false)
+}
+
+/// Sends a record of the `log` crate as a log line of the node that runs (15.7). The logger that
+/// Patina generates in a cluster calls it. It does not send a record outside a node call.
+pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
+    with_run(|rep| {
+        let Some(node) = rep.control().and_then(Control::node) else { return };
+        let lines = LINES.with(|l| l.replace(l.get().saturating_add(1)));
+        if lines > LOG_LINES {
+            return;
+        }
+        let mut buf = [0; TEXT_LEN + 3];
+        let mut out = Text::new(&mut buf);
+        let _ = if lines < LOG_LINES {
+            write!(out, "{level} {message}")
+        } else {
+            write!(out, "WARN the run has more than {LOG_LINES} log lines. Patina shows the first {LOG_LINES}")
+        };
+        rep.send(node, LOG, out.finish());
+    });
 }
 
 /// A command to a cluster.
@@ -293,9 +329,10 @@ pub unsafe fn set(
 pub unsafe fn run(cluster: *mut Cluster, rep: *const Reporter) -> bool {
     // SAFETY: the caller keeps the rules of this function.
     let (cluster, rep) = unsafe { (&mut *cluster, &*rep) };
-    let outer = CONTROL.replace(rep.control);
+    let (outer, lines) = (RUN.replace(rep), LINES.replace(0));
     let ok = catch_unwind(AssertUnwindSafe(|| cluster(Cmd::Run, rep))).unwrap_or(false);
-    CONTROL.set(outer);
+    RUN.set(outer);
+    LINES.set(lines);
     rep.set_node(IDLE);
     // The cluster has its own standard library, which does not flush its stdout at exit.
     let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -399,5 +436,36 @@ mod tests {
         assert!(time.2.parse::<u64>().is_ok(), "{}", time.2);
         assert_eq!(sent, [(8, SKIPPED, String::new()), (8, STOPPED, String::new()), (7, STOPPED, String::new())]);
         assert!(!stop_requested(), "the flag is not visible outside a run");
+    }
+
+    #[test]
+    fn log_lines_go_to_the_node_that_runs() {
+        fn make() -> Cluster {
+            cluster(|_, rep| {
+                log_line("INFO", &format_args!("before the first node"));
+                rep.enter(3, true);
+                for i in 0..=LOG_LINES {
+                    log_line("WARN", &format_args!("line {i}"));
+                }
+                true
+            })
+        }
+        let mut sent: Vec<(u32, u32, String)> = Vec::new();
+        let control = Control::default();
+        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: &raw const control };
+        let state = new_cluster(make);
+        // SAFETY: the same as in `stop_and_missing_inputs_start_no_node_call`.
+        unsafe {
+            assert!(run(state, &rep));
+            assert!(run(state, &rep));
+            free(state);
+        }
+        log_line("INFO", &format_args!("outside a run"));
+        let max = LOG_LINES as usize;
+        assert_eq!(sent.len(), 2 * (max + 1));
+        assert_eq!(sent[0], (3, LOG, "WARN line 0".to_owned()));
+        assert_eq!(sent[max - 1].2, format!("WARN line {}", max - 1));
+        assert!(sent[max].2.starts_with("WARN the run has more than"), "{}", sent[max].2);
+        assert_eq!(sent[max + 1].2, "WARN line 0", "each run counts its own lines");
     }
 }

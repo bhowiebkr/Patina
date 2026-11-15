@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type Report, type Value, type View } from './api';
+import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type NodeLog, type Report, type Value, type View } from './api';
 import { FAR_ZOOM } from './gl';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
@@ -27,6 +27,8 @@ export interface RunState {
   idle: ReadonlyMap<string, 'skipped' | 'stopped'>;
   /** The run time of each node call in the last run, in milliseconds by node ID (15.7). */
   times: ReadonlyMap<string, number>;
+  /** The log lines of the nodes in the last run (15.7). */
+  logs: NodeLog[];
 }
 
 export const NO_RUN: RunState = {
@@ -42,6 +44,7 @@ export const NO_RUN: RunState = {
   stale: false,
   idle: new Map(),
   times: new Map(),
+  logs: [],
 };
 
 /** True when the value of output `from`, "<node id>.<output key>", is from an old run. */

@@ -79,6 +79,23 @@ pub struct NodeTime {
     pub ms: f64,
 }
 
+/// A log line of a node, from the `log` crate (15.7).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct NodeLog {
+    pub id: String,
+    /// The node folder name.
+    pub folder: String,
+    /// "ERROR", "WARN" or "INFO".
+    pub level: String,
+    pub text: String,
+}
+
+impl fmt::Display for NodeLog {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Node {} ({}): {} {}", self.id, self.folder, self.level, self.text)
+    }
+}
+
 /// The result of one call: false when a node failed or the cluster failed with no report.
 #[derive(Default)]
 pub struct Outcome {
@@ -91,6 +108,8 @@ pub struct Outcome {
     pub stopped: Vec<String>,
     /// The run time of each node call that started (15.7).
     pub times: Vec<NodeTime>,
+    /// The log lines of the nodes, in the order of the run (15.7).
+    pub logs: Vec<NodeLog>,
 }
 
 type VersionFn = unsafe extern "C" fn() -> u32;
@@ -242,6 +261,13 @@ fn outcome(ok: bool, sink: Sink, names: &[(String, String)], probes: &[String]) 
             }
             continue;
         }
+        if kind == glue::LOG {
+            // A defective cluster can send a bad text or index. Its line has no node to show on.
+            if let (Some((id, folder)), Some((level, text))) = (names.get(index as usize), text.split_once(' ')) {
+                out.logs.push(NodeLog { id: id.clone(), folder: folder.clone(), level: level.to_owned(), text: text.to_owned() });
+            }
+            continue;
+        }
         if kind == glue::LANES {
             // The lanes come after the text of the same value.
             let last = out.values.last_mut().filter(|v| probes.get(index as usize) == Some(&v.from));
@@ -311,9 +337,13 @@ mod tests {
             (0, glue::TIME, "2500000".to_owned()),
             (0, glue::TIME, "x".to_owned()),
             (5, glue::TIME, "1".to_owned()),
+            (0, glue::LOG, "INFO two words".to_owned()),
+            (0, glue::LOG, "INFO".to_owned()),
+            (5, glue::LOG, "INFO x".to_owned()),
         ];
         let out = outcome(false, sink, &names, &probes);
         assert!(out.skipped.is_empty() && out.stopped.is_empty());
+        assert_eq!(out.logs.iter().map(ToString::to_string).collect::<Vec<_>>(), ["Node a1 (number): INFO two words"]);
         assert_eq!(out.times, [NodeTime { id: "a1".to_owned(), ms: 2.5 }]);
         let idle = vec![(0, glue::SKIPPED, String::new()), (0, glue::STOPPED, String::new()), (9, glue::STOPPED, String::new())];
         let idle = outcome(true, idle, &names, &probes);

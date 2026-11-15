@@ -2,7 +2,7 @@
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
 import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { api, errorText, folderName, laneLabel, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
+import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
 import type { Inspect } from './ProjectPanel';
@@ -187,6 +187,7 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
   };
   const shown = info ? tab : 'parameters';
   const reports = run.reports.filter((r) => r.id === entry.id);
+  const logs = run.logs.filter((l) => l.id === entry.id);
   const errors = info ? nodeErrors(run, info.name) : [];
   return (
     <aside className="panel" aria-label="Inspector">
@@ -234,7 +235,12 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
       {shown === 'code' && info && code(info.name)}
       {shown === 'logs' && (
         <div className="lines" role="log">
-          {reports.length + errors.length === 0 && <div className="info">No errors in the last run</div>}
+          {logs.length + reports.length + errors.length === 0 && <div className="info">No log lines or errors in the last run</div>}
+          {logs.map((l, i) => (
+            <div key={`l${i}`} className={logKind(l.level)}>
+              {l.level} {l.text}
+            </div>
+          ))}
           {errors.map((e, i) => (
             <button key={`e${i}`} className="line-link err" onClick={() => onPick(revealOf(e, Date.now())!)}>
               {e.file}:{e.start[0]}:{e.start[1]}: {errorText(e)}

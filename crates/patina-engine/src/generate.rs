@@ -29,6 +29,9 @@ pub fn manifest(plan: &Plan) -> String {
     for (name, _) in &plan.kinds {
         let _ = writeln!(text, "{name} = {{ path = \"../../../connections/{name}\" }}");
     }
+    if plan.log {
+        text.push_str("patina-log = { package = \"log\", version = \"0.4\" }\n");
+    }
     text
 }
 
@@ -38,6 +41,11 @@ pub fn source(plan: &Plan) -> String {
          use ::patina_sdk::glue::{DebugText as _, NameText as _, ViewerText as _};\n\n\
          fn make() -> ::patina_sdk::glue::Cluster {\n",
     );
+    if plan.log {
+        // A second cluster of the same library gets an error here, and the first logger stays.
+        s.push_str("    let _ = ::patina_log::set_logger(&PatinaLog);\n");
+        s.push_str("    ::patina_log::set_max_level(::patina_log::LevelFilter::Info);\n");
+    }
     for (i, slot) in plan.slots.iter().enumerate() {
         let ty = if slot.is_str { ": ::std::string::String" } else { "" };
         let id = &plan.steps[slot.step].id;
@@ -64,6 +72,9 @@ pub fn source(plan: &Plan) -> String {
     }
     s.push_str("            ok\n        }\n    })\n}\n");
     s.push_str(EXPORTS);
+    if plan.log {
+        s.push_str(LOGGER);
+    }
     s
 }
 
@@ -205,5 +216,24 @@ pub unsafe extern "C" fn patina_cluster_run(
 pub unsafe extern "C" fn patina_cluster_free(cluster: *mut ::std::ffi::c_void) {
     // SAFETY: the engine keeps the rules of `glue::free`.
     unsafe { ::patina_sdk::glue::free(cluster.cast()) }
+}
+"#;
+
+/// Sends the `log` records of the nodes to the engine (15.7).
+const LOGGER: &str = r#"
+struct PatinaLog;
+
+impl ::patina_log::Log for PatinaLog {
+    fn enabled(&self, metadata: &::patina_log::Metadata<'_>) -> bool {
+        metadata.level() <= ::patina_log::Level::Info
+    }
+
+    fn log(&self, record: &::patina_log::Record<'_>) {
+        if self.enabled(record.metadata()) {
+            ::patina_sdk::glue::log_line(record.level().as_str(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
 }
 "#;

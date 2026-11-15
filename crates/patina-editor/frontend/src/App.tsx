@@ -7,6 +7,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import {
   api,
   errorText,
+  logKind,
   millis,
   onCloseRequested,
   onEngine,
@@ -252,6 +253,7 @@ export function App() {
         stale: false,
         idle,
         times: new Map(e.times.map((t) => [t.id, t.ms])),
+        logs: e.logs,
         };
       });
       const lines: Line[] = [];
@@ -259,6 +261,7 @@ export function App() {
       else if (e.builtMs !== null) lines.push({ text: `Built in ${seconds(e.builtMs)}`, kind: 'info' });
       lines.push({ text: `Ran in ${millis(e.runMs)}`, kind: 'info' });
       if (e.stopped.length > 0) lines.push({ text: 'Stop ended the run before all nodes ran.', kind: 'info' });
+      for (const l of e.logs) lines.push({ text: `${l.folder} (${l.id}): ${l.level} ${l.text}`, kind: logKind(l.level) });
       for (const r of e.reports) lines.push({ text: `${r.folder} (${r.id}): ${reportText(r)}`, kind: 'err' });
       log(lines);
     } else {

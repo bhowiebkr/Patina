@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duration } from './api.ts';
+import { duration, logKind } from './api.ts';
 
 test('a node run time uses seconds, milliseconds or microseconds', () => {
   assert.equal(duration(2400), '2.4 s');
@@ -11,4 +11,8 @@ test('a node run time uses seconds, milliseconds or microseconds', () => {
   assert.equal(duration(1), '1.00 ms');
   assert.equal(duration(0.85), '850 us');
   assert.equal(duration(0.00042), '0.42 us');
+});
+
+test('a log line has the style of its level', () => {
+  assert.deepEqual(['ERROR', 'WARN', 'INFO', 'x'].map(logKind), ['err', 'warn', 'out', 'out']);
 });

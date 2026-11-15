@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 use patina_engine::project::GraphFile;
-use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, NodeTime, Report, Toolchain, Value};
+use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, NodeLog, NodeTime, Report, Toolchain, Value};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -35,7 +35,7 @@ pub enum Event {
     /// When the build failed, `errors` has its compile errors, and the last build that compiled ran.
     /// `values` has the badge text of each output that a wire reads (15.9). `skipped` and `stopped`
     /// have the IDs of the nodes that did not run (15.3, 15.2). `times` has the run time of each
-    /// node call that started (15.7).
+    /// node call that started, and `logs` has the log lines of the nodes (15.7).
     Ran {
         serial: u64,
         built_ms: Option<f64>,
@@ -44,6 +44,7 @@ pub enum Event {
         skipped: Vec<String>,
         stopped: Vec<String>,
         times: Vec<NodeTime>,
+        logs: Vec<NodeLog>,
         reports: Vec<Report>,
         values: Vec<Value>,
         errors: Vec<Diagnostic>,
@@ -168,7 +169,7 @@ fn run_one(app: &AppHandle, toolchain: &mut Option<Toolchain>, loaded: &mut Opti
     let reports = params.reports.into_iter().chain(outcome.reports).collect();
     let badges = outcome.values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone() }).collect();
     *lock(&shared.values) = outcome.values;
-    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, reports, values: badges, errors })
+    Ok(Event::Ran { serial: run.serial, built_ms, run_ms, ok: outcome.ok, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values: badges, errors })
 }
 
 /// Cuts a text for its badge at a character boundary.
