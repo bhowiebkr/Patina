@@ -81,6 +81,7 @@ impl Toolchain {
 
 /// A command that opens no console window, also when a GUI program starts it on Windows.
 fn command(program: &Path) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut command = Command::new(program);
     #[cfg(windows)]
     {
