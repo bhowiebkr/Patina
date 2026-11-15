@@ -239,7 +239,8 @@ All code is Rust, except the web frontend of the editor.
 
 ## Status and roadmap
 
-Nothing is built yet. Each milestone gives a tool that works.
+Milestone 0 is in progress. [STATUS.md](STATUS.md) gives the results. Each milestone gives a
+tool that works.
 
 0. **Risk prototypes**, proven on Windows first:
    - Rust types across two compiled clusters, with a shared Rust library, and type keys that

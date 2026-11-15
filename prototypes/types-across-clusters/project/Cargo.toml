@@ -1,0 +1,14 @@
+# The prototype user project (spec 6.2). The harness copies this folder, writes the generated
+# files of `patina-types`, and builds the copy with `-C prefer-dynamic`. It does not build here.
+[workspace]
+resolver = "3"
+members = [
+    "types/geometry",
+    "nodes/source",
+    "nodes/sink",
+    "clusters/cluster-a",
+    "clusters/cluster-b",
+    "patina-types",
+]
+# Two versions of one crate with the same name. Like crates from crates.io, they are not members.
+exclude = ["types/units-1", "types/units-2"]

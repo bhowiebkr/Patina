@@ -1,0 +1,13 @@
+[package]
+name = "types-across-clusters"
+version = "0.0.0"
+description = "Milestone 0 prototype: Rust types across clusters (spec 5.1, 5.2 and 19)."
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+object = { version = "0.39", default-features = false, features = ["read_core", "pe", "std"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }

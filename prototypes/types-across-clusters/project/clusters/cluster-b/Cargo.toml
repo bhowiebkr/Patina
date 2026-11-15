@@ -1,0 +1,12 @@
+[package]
+name = "cluster-b"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+sink = { path = "../../nodes/sink" }
+types = { package = "patina-types", path = "../../patina-types" }

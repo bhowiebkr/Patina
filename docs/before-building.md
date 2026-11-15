@@ -10,8 +10,8 @@ by the milestone that it blocks. The [spec](spec/README.md) stays the source of 
 
 ## 1. Setup, before any code
 
-- [ ] **Git repository and GitHub remote.** The folder is not a Git repository yet. AGENTS.md
-  expects commits, CI, issues and pull requests.
+- [ ] **GitHub remote.** The folder is a Git repository, but it has no remote. AGENTS.md
+  expects CI, issues and pull requests.
 - [ ] **License.** The repository has no license file. Issues and pull requests are welcome, so
   the repository needs a license before outside code comes in.
 - [ ] **A clean Windows computer for the toolchain prototype.** A standard account, with no
@@ -24,7 +24,7 @@ by the milestone that it blocks. The [spec](spec/README.md) stays the source of 
 These are tests, not decisions. Each result can change the design. Report each result before
 the next prototype (section 19).
 
-- [ ] **Rust types across clusters** (5.1, 5.2). `String`, `Vec` and a type with `Drop` between
+- [x] **Rust types across clusters** (5.1, 5.2). `String`, `Vec` and a type with `Drop` between
   clusters, and the type key check.
 - [ ] **Hot reload** (8.5). A value that outlives a reload, the memory and disk use of each
   reload, and the time of a cold build and of a rebuild.
@@ -118,4 +118,4 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
   covers 0006.
 - [x] Link [laser-measurement-design.md](laser-measurement-design.md) and
   [circuit-graph-design.md](circuit-graph-design.md) from the README.
-- [ ] Create `STATUS.md` with the result of the first prototype (AGENTS.md).
+- [x] Create `STATUS.md` with the result of the first prototype (AGENTS.md).
