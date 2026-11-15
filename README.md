@@ -228,7 +228,7 @@ A finished graph can become a package that runs without the editor:
 - A Python module.
 
 A package holds the full source of the project. The editor can open a package and show the
-original project.
+original project. A package also holds the license notices of Patina and of the crates in it.
 
 ## How it is built
 

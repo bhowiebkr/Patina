@@ -38,6 +38,8 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 - On macOS, the user drags Patina.app to **Applications**. Patina also runs from other folders.
 - The macOS build has an ad-hoc signature and no notarization (13.5). macOS blocks it the first time. The user opens **System Settings > Privacy & Security** and clicks **Open Anyway**.
 - No edition changes the `PATH` or installs Rust for the whole system.
+- Patina is under the MIT license or the Apache License 2.0, as the user chooses (`MIT OR Apache-2.0`). The repository has the files `LICENSE-MIT` and `LICENSE-APACHE`.
+- Each release file includes the license notices: the two Patina license files, and the license and `NOTICE` files of each crate in the build. The portable edition keeps them in a `licenses/` folder (13.3).
 - The installers do not include the toolchain. Both editions use the **Install toolchain** button (13.2).
 - The `.msi` installs the WebView2 Runtime if it is missing, with the bootstrapper of Tauri. This needs internet.
 - The portable edition checks for the WebView2 Runtime before it opens a window. If it is missing, Patina shows a Windows message with a link to the Microsoft download. The Runtime then installs for the current user.
@@ -66,6 +68,7 @@ Portable edition (Windows and Linux):
 Patina/
   patina(.exe)
   portable         marks the portable edition (13.1)
+  licenses/        the license notices (13.1)
   toolchain/
     rustup/        RUSTUP_HOME
     cargo/         CARGO_HOME + crate cache
@@ -136,6 +139,12 @@ A package contains:
 2. The baked graph.
 3. The full project source: the project folders (6.2), without `build/`.
 4. A header with the Patina version and the Rust version.
+5. The license notices: the two Patina license files (13.1), and the license and `NOTICE` files of each crate from outside the project.
+
+- The MIT license and the Apache License 2.0 require the notices in each copy. A package contains Patina code and the code of crates, so it includes the notices.
+- Patina finds the notices in the Cargo metadata and the source folder of each crate in the build.
+- If a crate from outside the project has no license and no license file, the package build shows a warning that names the crate. The build still makes the package.
+- The project source is in the package already (item 3). The user chooses the license of the project.
 
 | Package type | Use |
 |---|---|
