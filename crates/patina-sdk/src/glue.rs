@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 13;
+pub const ABI_VERSION: u32 = 14;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -509,11 +509,33 @@ fn panic_text(payload: &(dyn Any + Send)) -> String {
 /// no value and `value` is not null, it keeps `value`. It gives the value of the key, or null.
 pub type ShareFn = unsafe extern "C" fn(key: *const u8, len: usize, value: *mut c_void) -> *mut c_void;
 
-static HOST_SHARE: OnceLock<ShareFn> = OnceLock::new();
+/// The share function of the engine and the project root.
+static HOST: OnceLock<(ShareFn, String)> = OnceLock::new();
 
 /// The body of `patina_cluster_host`. The engine calls it before `patina_cluster_new`.
-pub fn set_host(share: ShareFn) {
-    let _ = HOST_SHARE.set(share);
+///
+/// # Safety
+///
+/// `root` points to `len` bytes.
+pub unsafe fn set_host(share: ShareFn, root: *const u8, len: usize) {
+    // SAFETY: the caller gives `len` bytes at `root`.
+    let root = unsafe { std::slice::from_raw_parts(root, len) };
+    let _ = HOST.set((share, String::from_utf8_lossy(root).into_owned()));
+}
+
+/// The body of `patina_sdk::asset!`. With no engine, as in a test, the file is in the crate folder.
+pub fn asset(crate_dir: &str, file: &str) -> std::path::PathBuf {
+    asset_in(HOST.get().map(|(_, root)| root.as_str()), crate_dir, file)
+}
+
+fn asset_in(root: Option<&str>, crate_dir: &str, file: &str) -> std::path::PathBuf {
+    let dir = std::path::Path::new(crate_dir);
+    let Some((root, mut parts)) = root.map(|root| (root, dir.iter().rev())) else {
+        return dir.join("assets").join(file);
+    };
+    // A node crate is in `<group>/<name>` of the project, for example `nodes/blur` (6.2).
+    let (name, group) = (parts.next().unwrap_or_default(), parts.next().unwrap_or_default());
+    std::path::Path::new(root).join(group).join(name).join("assets").join(file)
 }
 
 /// The `ShareFn` of the engine. A cluster with no engine, as in a test, uses its own copy.
@@ -535,11 +557,12 @@ pub unsafe extern "C" fn share(key: *const u8, len: usize, value: *mut c_void) -
     value
 }
 
-/// The body of `patina_sdk::shared`. The key holds the `TypeId`, which is the same in each
-/// cluster of one build and different in other builds.
+/// The body of `patina_sdk::shared`. The clusters and the slot of one project have the same
+/// toolchain and the same source, so a type has the same layout in each (7.2). The key holds the
+/// project root, so the projects of one editor process do not share.
 pub fn shared<T: Send + Sync + 'static>(make: impl FnOnce() -> T) -> &'static T {
-    let key = format!("{:?} {}", std::any::TypeId::of::<T>(), std::any::type_name::<T>());
-    let share = HOST_SHARE.get().copied().unwrap_or(share);
+    let (share, root) = HOST.get().map_or((share as ShareFn, ""), |(f, root)| (*f, root.as_str()));
+    let key = format!("{root} {} {} {}", std::any::type_name::<T>(), size_of::<T>(), align_of::<T>());
     // SAFETY: the key is valid during the calls, and a kept value is never freed.
     let value = unsafe {
         let mut value = share(key.as_ptr(), key.len(), std::ptr::null_mut());

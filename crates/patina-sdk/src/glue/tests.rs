@@ -251,3 +251,10 @@ fn shared_gives_one_value_and_makes_it_one_time() {
     assert!(std::ptr::eq(first, second));
     assert_eq!(second.0, 1);
 }
+
+#[test]
+fn an_asset_is_in_the_node_folder_of_the_project_root() {
+    let path = |root| asset_in(root, "/old/place/nodes/blur", "blur.wesl");
+    assert_eq!(path(Some("/package/project")), std::path::Path::new("/package/project/nodes/blur/assets/blur.wesl"));
+    assert_eq!(path(None), std::path::Path::new("/old/place/nodes/blur/assets/blur.wesl"));
+}

@@ -22,8 +22,11 @@ fn copy(from: &Path, name: &str) -> PathBuf {
     copy_dir(from, &to);
     let release = Toolchain::detect().unwrap().release;
     let file = to.join("patina.toml");
-    let text = fs::read_to_string(&file).unwrap().replace("rust = \"1.94.0\"", &format!("rust = \"{release}\""));
-    fs::write(file, text).unwrap();
+    let text = fs::read_to_string(&file).unwrap();
+    let text: Vec<String> =
+        text.lines().map(|l| if l.starts_with("rust = ") { format!("rust = \"{release}\"") } else { l.to_owned() }).collect();
+    fs::write(file, text.join("
+")).unwrap();
     to
 }
 
@@ -510,4 +513,23 @@ fn a_package_runs_alone_and_takes_parameters() {
         assert_eq!(patina_frame(package), -1, "hello has no frame nodes");
         patina_close(package);
     }
+}
+
+#[test]
+fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/gpu"), "gpu");
+    let (output, stdout, stderr) = run(&project, &[]);
+    if stderr.contains("no GPU adapter") {
+        return; // shortcut: CI on Linux has no adapter, so only the build is checked there.
+    }
+    assert!(output.status.success(), "{stderr}");
+    let mean: f64 = stdout.trim().parse().unwrap();
+    assert!((mean - 0.336).abs() < 0.01, "{mean}");
+
+    // The parameter sets a WESL feature, so the shader of the other branch runs.
+    let graph = project.join("graphs/main.toml");
+    fs::write(&graph, fs::read_to_string(&graph).unwrap().replace("invert = \"false\"", "invert = \"true\"")).unwrap();
+    let (output, stdout, stderr) = run(&project, &[]);
+    assert!(output.status.success(), "{stderr}");
+    assert!((stdout.trim().parse::<f64>().unwrap() - 0.664).abs() < 0.01, "{stdout}");
 }

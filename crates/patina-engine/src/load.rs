@@ -168,17 +168,19 @@ pub struct Cluster {
 
 impl Cluster {
     /// Loads the cluster of each domain and the slot library. If one fails, none stays loaded (7.2).
+    /// `root` is the project root of the nodes (10.3).
     pub(crate) fn load(
         libraries: &[(Domain, PathBuf)],
         slot: Option<&Path>,
+        root: &Path,
         plan: &Plan,
         keys: Vec<Option<u64>>,
     ) -> Result<Cluster, Error> {
         let mut loaded: [Option<Library>; 2] = [None, None];
         for &(domain, ref path) in libraries {
-            loaded[domain as usize] = Some(Library::load(path, &plan.tasks, domain)?);
+            loaded[domain as usize] = Some(Library::load(path, root, &plan.tasks, domain)?);
         }
-        let slot = slot.map(slot_library).transpose()?;
+        let slot = slot.map(|path| slot_library(path, root)).transpose()?;
         let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
         let slots: Vec<(usize, String)> = plan.slots.iter().map(|s| (s.step, s.key.clone())).collect();
         let probes = plan
@@ -249,8 +251,8 @@ impl Cluster {
 
     /// Puts the slot library at `path` in place of the active one (7.1). The nodes in the slot
     /// get new states and the state keys `keys`. On a failure, the active slot library stays.
-    pub(crate) fn swap_slot(&mut self, path: &Path, keys: Vec<Option<u64>>) -> Result<(), Error> {
-        let slot = slot_library(path)?;
+    pub(crate) fn swap_slot(&mut self, path: &Path, root: &Path, keys: Vec<Option<u64>>) -> Result<(), Error> {
+        let slot = slot_library(path, root)?;
         if !link(&self.libraries, &[], Some(&slot.1), &mut self.sink) {
             if let Some((_, old)) = &self.slot {
                 link(&self.libraries, &[], Some(old), &mut self.sink);
@@ -419,8 +421,8 @@ impl Cluster {
 }
 
 /// Loads a slot library (7.1) and makes the reference that the clusters call it with.
-fn slot_library(path: &Path) -> Result<(Library, Box<SlotRef>), Error> {
-    let library = Library::load(path, &[], Domain::Batch)?;
+fn slot_library(path: &Path, root: &Path) -> Result<(Library, Box<SlotRef>), Error> {
+    let library = Library::load(path, root, &[], Domain::Batch)?;
     let reference = Box::new(SlotRef { state: library.state, call: library.call });
     Ok((library, reference))
 }

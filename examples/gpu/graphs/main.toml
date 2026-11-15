@@ -1,0 +1,29 @@
+format = 1
+
+[[node]]
+id = "1a2b3c4d5e6f7081"
+folder = "nodes/gradient"
+pos = [0.0, 0.0]
+
+[node.params]
+width = "64"
+height = "16"
+invert = "false"
+
+[[node]]
+id = "2b3c4d5e6f708192"
+folder = "nodes/brightness"
+pos = [240.0, 0.0]
+
+[[node]]
+id = "3c4d5e6f708192a3"
+folder = "nodes/show"
+pos = [480.0, 0.0]
+
+[[wire]]
+from = "1a2b3c4d5e6f7081.out"
+to = "2b3c4d5e6f708192.image"
+
+[[wire]]
+from = "2b3c4d5e6f708192.out"
+to = "3c4d5e6f708192a3.value"

@@ -13,6 +13,15 @@ pub use view::{Lanes, Text, Viewer};
 /// One value of type `T` for the whole process, also across clusters (10.2). The first call makes
 /// the value with `make`. The value stays until the process ends. A type crate keeps the reference
 /// in its own `OnceLock`, because each call formats the key.
+/// The path of a file in the `assets/` folder of the node crate (6.2), for example a WESL
+/// shader. The engine gives the project root, so the path is also correct in a package (14.1).
+#[macro_export]
+macro_rules! asset {
+    ($file:expr) => {
+        $crate::glue::asset(env!("CARGO_MANIFEST_DIR"), $file)
+    };
+}
+
 pub fn shared<T: Send + Sync + 'static>(make: impl FnOnce() -> T) -> &'static T {
     glue::shared(make)
 }

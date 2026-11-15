@@ -50,7 +50,7 @@ impl Checked {
         let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();
         let slot = copy_to_loaded(&self.root, "slot-", built.slot.as_slice())?;
         copy_runtime(&self.root.join("build").join("loaded"), &toolchain.libdir)?;
-        let mut cluster = Cluster::load(&libraries, slot.first().map(PathBuf::as_path), &self.plan, built.keys)?;
+        let mut cluster = Cluster::load(&libraries, slot.first().map(PathBuf::as_path), &self.root, &self.plan, built.keys)?;
         cluster.common = built.common;
         cluster.base = self.base_hash();
         cluster.mode = mode;
@@ -67,7 +67,7 @@ impl Checked {
         }
         let (library, keys) = cargo::build_slot(&self.root, toolchain, &self.plan, cluster.common)?;
         let copies = copy_to_loaded(&self.root, "slot-", &[library])?;
-        cluster.swap_slot(&copies[0], keys)?;
+        cluster.swap_slot(&copies[0], &self.root, keys)?;
         Ok(true)
     }
 

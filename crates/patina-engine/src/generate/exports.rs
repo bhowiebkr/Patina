@@ -7,8 +7,9 @@ pub extern "C" fn patina_abi_version() -> u32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn patina_cluster_host(share: ::patina_sdk::glue::ShareFn) {
-    ::patina_sdk::glue::set_host(share)
+pub unsafe extern "C" fn patina_cluster_host(share: ::patina_sdk::glue::ShareFn, root: *const u8, len: usize) {
+    // SAFETY: the engine gives `len` bytes at `root`.
+    unsafe { ::patina_sdk::glue::set_host(share, root, len) }
 }
 
 #[unsafe(no_mangle)]

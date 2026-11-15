@@ -1,0 +1,18 @@
+[package]
+name = "patina-gpu"
+version = "0.0.0"
+description = "The shared GPU context, GPU types and the WESL linker of node code (spec 10)."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+# The wesl crate needs this Rust version.
+rust-version = "1.97.1"
+
+[lints]
+workspace = true
+
+[dependencies]
+patina-sdk = { path = "../patina-sdk" }
+# No GL and no WebGPU backends, as in the viewport (spec 15.8). Each backend adds compile time.
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "vulkan", "wgsl"] }
+wesl = "0.6"

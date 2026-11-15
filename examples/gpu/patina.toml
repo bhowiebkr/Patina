@@ -1,0 +1,4 @@
+format = 1
+id = "54692fa70aaa6fa6"
+# The wesl crate of patina-gpu needs Rust 1.97.1 or later (spec 10.1).
+rust = "1.100.0"

@@ -5,6 +5,7 @@ members = [
     "crates/patina-cli",
     "crates/patina-editor",
     "crates/patina-engine",
+    "crates/patina-gpu",
     "crates/patina-macros",
     "crates/patina-sdk",
     "prototypes/connections",

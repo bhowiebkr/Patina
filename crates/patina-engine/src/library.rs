@@ -17,7 +17,7 @@ type VersionFn = unsafe extern "C" fn() -> u32;
 type NewFn = unsafe extern "C" fn() -> *mut c_void;
 pub(crate) type SetFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const Reporter) -> bool;
 pub(crate) type UiFn = unsafe extern "C" fn(*const c_void, u32, u32, *const u8, usize, *const Reporter) -> bool;
-type HostFn = unsafe extern "C" fn(glue::ShareFn);
+type HostFn = unsafe extern "C" fn(glue::ShareFn, *const u8, usize);
 type ParallelFn = unsafe extern "C" fn(*const c_void) -> bool;
 type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 pub(crate) type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
@@ -49,8 +49,9 @@ pub(crate) struct Library {
 }
 
 impl Library {
-    /// Loads the cluster library of `domain` and makes its state.
-    pub fn load(path: &Path, all: &[Task], domain: Domain) -> Result<Library, Error> {
+    /// Loads the cluster library of `domain` and makes its state. The nodes find their assets in
+    /// the project `root` (10.3).
+    pub fn load(path: &Path, root: &Path, all: &[Task], domain: Domain) -> Result<Library, Error> {
         let fail = |text: String| Error::Load(format!("{}: {text}", path.display()));
         let missing = |e: libloading::Error| fail(e.to_string());
         let library = open(path).map_err(missing)?;
@@ -61,7 +62,9 @@ impl Library {
                 return Err(fail("the cluster has another ABI version. Build it again".to_owned()));
             }
             let host: HostFn = symbol(&library, b"patina_cluster_host\0").map_err(missing)?;
-            host(glue::share);
+            // shortcut: a root that is not UTF-8 changes, so its assets are not found; pass the OS bytes when a user needs it.
+            let root = root.to_string_lossy();
+            host(glue::share, root.as_ptr(), root.len());
             let new: NewFn = symbol(&library, b"patina_cluster_new\0").map_err(missing)?;
             let set: SetFn = symbol(&library, b"patina_cluster_set\0").map_err(missing)?;
             let ui: UiFn = symbol(&library, b"patina_cluster_ui\0").map_err(missing)?;

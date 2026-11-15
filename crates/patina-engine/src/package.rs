@@ -113,7 +113,7 @@ pub fn open(dir: &Path) -> Result<(Checked, Cluster), Error> {
     }
     let lib = dir.join("lib");
     let libraries: Vec<_> = generate::domains(&checked.plan).into_iter().map(|d| (d, lib.join(library_name(d)))).collect();
-    let mut cluster = Cluster::load(&libraries, None, &checked.plan, vec![None; checked.plan.steps.len()])?;
+    let mut cluster = Cluster::load(&libraries, None, &checked.root, &checked.plan, vec![None; checked.plan.steps.len()])?;
     cluster.mode = Mode::Bake;
     Ok((checked, cluster))
 }
