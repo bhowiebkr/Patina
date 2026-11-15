@@ -53,6 +53,9 @@ and in the editor.
   made no allocation.
 - The hello test calls the `ui` of the tick node. It got the widget lines. A click event on
   **Reset** set the count to 0. A node with no `ui` gave no lines.
+- The editor selfcheck makes the number node stateful, with an **Add 1** button in its `ui`.
+  The node body showed the button. A click ran the live graph again without a build, and the
+  wire showed `3.5` instead of `2.5`.
 - The parser test finds `ui`, and refuses `ui(&self, ...)`, `ui: &Ui` and a private `ui`.
 - The `Ui` test reads the events of a button, a toggle and a slider, and clamps the slider.
 - The plan test orders a loop through a delay and gets its type from the other wire. It refuses
@@ -67,9 +70,8 @@ and in the editor.
   pass. The cause is not known.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
   the **Inspector**. It draws them again after each run and each frame. A change in a live
-  graph runs the graph again (4.3). The frontend test checks the widget lines. A Rust check and
-  the frontend build passed. The editor selfcheck does not use a node GUI, and nobody clicked a
-  node GUI in the editor.
+  graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI. No check
+  uses the other widgets or the **Inspector** size in the editor.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. Nobody opened a full size in the editor.
@@ -78,8 +80,7 @@ and in the editor.
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
   not only the task of the node (9.2).
 - No test makes a real cluster panic in `process`. The glue test checks the rule.
-- The editor was not run with a stateful or a generic node. It uses the same engine code as
-  the CLI.
+- The editor was not run with a generic node. It uses the same engine code as the CLI.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
   palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
   the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.

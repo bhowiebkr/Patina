@@ -12,6 +12,31 @@ const RUN_MS = 20_000;
 const A = 'a000000000000001';
 const B = 'b000000000000002';
 
+/** A stateful number node with a GUI (4.2, 4.3): its button adds 1 to the output. */
+const GUI_NODE = `use patina_sdk::node;
+
+#[node]
+pub struct Number {
+    added: f64,
+}
+
+impl Number {
+    pub fn init() -> Self {
+        Number { added: 0.0 }
+    }
+
+    pub fn process(&mut self, value: f64) -> f64 {
+        value + self.added
+    }
+
+    pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
+        if ui.button("Add 1").clicked() {
+            self.added += 1.0;
+        }
+    }
+}
+`;
+
 /** True if a pixel of the RGBA column passes the test. */
 function anyPixel(column: Uint8Array, test: (r: number, g: number, b: number) => boolean): boolean {
   for (let i = 0; i < column.length; i += 4) if (column[i + 3] > 128 && test(column[i], column[i + 1], column[i + 2])) return true;
@@ -515,6 +540,24 @@ fn broken() -> u32 {
     if (frameCount() !== count) throw new Error('a frame ran after Stop');
     v = await step('undo the frame node', () => api.undo());
     steps.push(`frames until Stop: ${count}`);
+
+    // A node GUI (4.3): the node body shows the button of the `ui`. A click in a live graph runs
+    // the graph again with the new state, and does not build again.
+    v = await step('make a node with a GUI', () => api.edit({ kind: 'SetCode', path: lib, text: GUI_NODE }));
+    from = mark();
+    v = await step('run the node GUI', () => api.run());
+    await result(v, from, '2.5', BUILD_MS);
+    const guiButton = () =>
+      [...document.querySelectorAll<HTMLButtonElement>(`.react-flow__node[data-id="${A}"] .node-gui button`)].find((b) => b.textContent === 'Add 1');
+    await until('the button of the node GUI', RUN_MS, () => guiButton()?.disabled === false);
+    from = mark();
+    guiButton()!.click();
+    const clicked = await result(v, from, '3.5', RUN_MS);
+    if (clicked.builtMs !== null) throw new Error('a click in a node GUI built the graph again');
+    await api.capture('node-gui');
+    await step('pause', () => api.pause());
+    v = await step('undo the node GUI', () => api.undo());
+    steps.push('click a node GUI');
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');
