@@ -132,16 +132,13 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         entries.push(None);
         let id = entry.id.as_str();
         let mut fail = |text: String| problems.push(format!("node {id}: {text}"));
-        if !is_id(id) {
+        // A node of a subgraph use has the ID path `<use ID>/<node ID>` (6.4).
+        if !id.split('/').all(is_id) {
             fail("the ID must be 16 lowercase hexadecimal characters".to_owned());
             continue;
         }
         if by_id.insert(id, index).is_some() {
             fail("two nodes have this ID".to_owned());
-            continue;
-        }
-        if entry.subgraph.is_some() {
-            fail("subgraphs come at milestone 7".to_owned());
             continue;
         }
         if entry.settings.is_some() {

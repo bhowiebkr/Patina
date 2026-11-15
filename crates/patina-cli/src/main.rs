@@ -56,7 +56,7 @@ fn run(folder: &Path, frames: Option<u64>, mode: Mode) -> Result<bool, patina_en
     let start = Instant::now();
     let mut cluster = checked.build(&toolchain, mode)?;
     eprintln!("Built in {:.2} s", start.elapsed().as_secs_f64());
-    let (params, control) = (cluster.set_params(project.graph()), Control::default());
+    let (params, control) = (cluster.set_params(checked.graph()), Control::default());
     // A node with a bad parameter does not run, so the graph does not run.
     if !show(&params) || !show(&cluster.run(&control)) {
         return Ok(false);

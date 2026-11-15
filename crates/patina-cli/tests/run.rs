@@ -129,6 +129,20 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     assert!(output.status.success(), "{stderr}");
     assert_eq!(stdout.trim(), "6.5");
 
+    // Add moves into the subgraph `sum` (6.4). Use d1 adds the numbers, and use d2 adds its
+    // parameter 1 to that sum.
+    let main = project.join("graphs/main.toml");
+    let original = fs::read_to_string(&main).unwrap();
+    fs::write(project.join("graphs/sum.toml"), SUM).unwrap();
+    let start = original.find("[[node]]\nid = \"f89c").or_else(|| original.find("[[node]]\r\nid = \"f89c")).unwrap();
+    let uses = "[[node]]\nid = \"00000000000000d1\"\nsubgraph = \"sum\"\n\n[[node]]\nid = \"00000000000000d2\"\nsubgraph = \"sum\"\n\n[node.params]\n0000000b = \"1\"\n\n[[node]]\nid = \"3b7cec82f6a4ed1a\"\nfolder = \"nodes/show\"\n";
+    let wires = "[[wire]]\nfrom = \"9bc1790966687030.out\"\nto = \"00000000000000d1.0000000a\"\n[[wire]]\nfrom = \"69779baf026654c5.out\"\nto = \"00000000000000d1.0000000b\"\n[[wire]]\nfrom = \"00000000000000d1.0000000c\"\nto = \"00000000000000d2.0000000a\"\n[[wire]]\nfrom = \"00000000000000d2.0000000c\"\nto = \"3b7cec82f6a4ed1a.value\"\n";
+    fs::write(&main, format!("{}{uses}{wires}", &original[..start])).unwrap();
+    let (output, stdout, stderr) = run(&project, &[]);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(stdout.trim(), "7.5");
+    fs::write(&main, original).unwrap();
+
     // The cluster sends the lanes of each held value, the most significant lane first.
     let toolchain = Toolchain::detect().unwrap();
     let opened = Project::open(&project).unwrap();
@@ -238,6 +252,32 @@ fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {
     let expected = "Node fea12c51067a34d8 (fail): bad parameter: input `value`: \"abc\" is not a number";
     assert!(stderr.contains(expected), "{stderr}");
 }
+
+/// A subgraph with one add node and its public pins (6.4).
+const SUM: &str = "format = 1
+
+[[node]]
+id = \"00000000000000a1\"
+folder = \"nodes/add\"
+
+[[input]]
+key = \"0000000a\"
+name = \"a\"
+pos = [0.0, 0.0]
+to = [\"00000000000000a1.a\"]
+
+[[input]]
+key = \"0000000b\"
+name = \"b\"
+pos = [0.0, 40.0]
+to = [\"00000000000000a1.b\"]
+
+[[output]]
+key = \"0000000c\"
+name = \"sum\"
+pos = [200.0, 0.0]
+from = \"00000000000000a1.out\"
+";
 
 /// A stateful node with each kind of input, for the slot (7.1).
 const ACC: &str = "#[patina_sdk::node]

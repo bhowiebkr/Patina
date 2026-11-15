@@ -192,7 +192,7 @@ impl Session {
             Err(e) => (None, vec![e.to_string()]),
         };
         if let (Some(checked), Some(build), true) = (checked, build, self.live) {
-            let run = Run { serial: self.serial, checked, graph: project.graph().clone(), build, slot };
+            let run = Run { serial: self.serial, checked, build, slot };
             let _ = engine.send(Job::Run(Box::new(run)));
         }
         let (mut nodes, mut problems) = match project.nodes() {

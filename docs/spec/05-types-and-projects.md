@@ -220,6 +220,18 @@ from = "e1d4c2b7a9f03856.out"
 - The route points, collars and cables are in the graph file, so the project owns them. The dock layout, the camera of the graph and the selection are not in the graph file. Each user keeps them (15.2).
 - A wire to a pin that no longer exists stays in the file. The node shows an error until the user removes the wire or the pin comes back (15.5). Patina never deletes a wire without a user action.
 
+**Subgraph uses in a build**
+
+These rules are an agent decision of 2026-11-15. The owner can change them.
+
+- Before a check, the engine replaces each use of a subgraph with the nodes and wires of its file. A use in a subgraph file expands too.
+- A node of a use gets the ID path `<use ID>/<node ID>`, for example `5c0e9b2a7f13d846/e1d4c2b7a9f03856`. Thus two uses of one subgraph do not share IDs, and the live values and the errors find the use.
+- A use has no folder, built-in node, domain or settings. A subgraph that uses itself, directly or through another subgraph, does not pass the check.
+- A wire to a public input of a use goes to each `to` end of the pin. A wire from a public output goes from its `from` end.
+- A parameter of a use, with the key of a public input, goes to each `to` end of the pin. It replaces the parameter of the inner node.
+- An order wire to a use orders all the nodes of the use.
+- The route points, collars and cables of a subgraph file are visual only, so the build does not read them.
+
 **Writing**
 
 - Patina writes UTF-8 with LF line ends. The nodes sort by ID, and the wires by their `to` end. The order, collar and cable tables sort by their first value. Each key has a fixed place.

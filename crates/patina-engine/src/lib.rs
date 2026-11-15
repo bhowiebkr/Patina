@@ -12,6 +12,7 @@ mod node;
 mod plan;
 mod pool;
 pub mod project;
+mod subgraph;
 mod types;
 
 use std::fmt;
@@ -122,6 +123,7 @@ pub struct Checked {
     root: PathBuf,
     rust: String,
     plan: plan::Plan,
+    graph: project::GraphFile,
 }
 
 /// The files of a new project (15.10), from the hello example.
@@ -350,13 +352,19 @@ impl Project {
 
     /// Checks the main graph and puts its nodes in run order.
     pub fn check(&self) -> Result<Checked, Error> {
-        let plan = plan::check(&self.root, &self.history.graph)
-            .map_err(|problems| Error::Graph(graph_path(&self.root), problems))?;
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan })
+        let fail = |problems| Error::Graph(graph_path(&self.root), problems);
+        let graph = subgraph::flatten(&self.root, &self.history.graph).map_err(fail)?;
+        let plan = plan::check(&self.root, &graph).map_err(fail)?;
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph })
     }
 }
 
 impl Checked {
+    /// The checked graph, with each use of a subgraph replaced by its nodes (6.4).
+    pub fn graph(&self) -> &project::GraphFile {
+        &self.graph
+    }
+
     /// Puts the node folder `name` in the slot (7.1): its uses call the slot library, and a build
     /// of the slot alone builds only this node. `None` empties the slot.
     pub fn set_slot(&mut self, name: Option<&str>) -> Result<(), Error> {

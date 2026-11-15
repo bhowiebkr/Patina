@@ -1,11 +1,37 @@
 # Status
 
-The current milestone is milestone 6, layers (spec section 19). Milestone 5, stateful nodes,
-node GUIs and generic nodes, ended on 2026-11-15. Milestones 2 to 5 work, with the open items
-in their known limits. The installers of
+The current milestone is milestone 7, subgraphs and reuse (spec section 19). Milestone 6,
+layers, ended on 2026-11-15. Milestones 2 to 6 work, with the open items in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
+
+## Milestone 7: subgraphs and reuse
+
+Milestone 7 started on 2026-11-15. It adds subgraphs, **Import** and **Update** (spec 6.1, 6.2
+and 6.4).
+
+### Plan
+
+1. The engine replaces each use of a subgraph with its nodes before the check (6.4). This part
+   works.
+2. The editor shows a use as one node, opens a subgraph, collapses a selection into a subgraph
+   and expands it, and shows the live values of the public outputs.
+3. **Import**: copy the node folders and their dependencies, rename on a name conflict, record
+   the import with its hash, and build before the change applies.
+4. **Update** of an imported folder.
+
+### What works
+
+- The CLI runs a graph with two uses of one subgraph. Each node of a use gets the ID path
+  `<use ID>/<node ID>`. A parameter of a use goes to the inner inputs of its public input pin.
+- A subgraph that uses itself and a wire to a pin that the subgraph does not have give problems.
+
+### Known limits
+
+- The editor does not show subgraphs yet. A graph with a use opens, but the use has no pins and
+  its live values do not show.
+- The engine does not check the format of the public pin keys yet.
 
 ## Milestone 6: layers
 
@@ -95,8 +121,7 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 
 - A toolchain folder from before this change has no `zig-dlltool.exe`, so a build fails.
   Delete the `toolchain` folder, then install the toolchain again.
-- The rpath on Linux and macOS ran only in CI. Nobody compared the bytes of two builds yet. Part
-  7 of the plan compares them.
+- The rpath on Linux and macOS ran only in CI. Nobody compared the bytes of two builds yet.
 - The state move depends on a hypothesis: rustc gives the same layout to the same type with the
   same compiler and cfg values, also at another optimization level (7.2). No test checks a state that holds a type of a
   dependency with changed features.

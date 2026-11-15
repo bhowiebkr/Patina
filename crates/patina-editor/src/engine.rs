@@ -8,7 +8,6 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock};
-use patina_engine::project::GraphFile;
 use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog, NodeTime, Report, Toolchain, Value};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -73,7 +72,6 @@ pub struct Run {
     /// The number of the open project, so that the page ignores the result for an old project.
     pub serial: u64,
     pub checked: Checked,
-    pub graph: GraphFile,
     pub build: bool,
     /// The node folder of the code file that this change wrote, which goes into the slot (7.1).
     pub slot: Option<String>,
@@ -439,7 +437,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     let loaded = loaded.as_mut().expect("the cluster is loaded above");
     let (fused, slot) = (!loaded.needs_fuse(), loaded.slot.clone());
     let cluster = &mut loaded.cluster;
-    let params = cluster.set_params(&run.graph);
+    let params = cluster.set_params(run.checked.graph());
     if params.ok {
         let _ = app.emit("engine", Event::Started { serial: run.serial });
     }
