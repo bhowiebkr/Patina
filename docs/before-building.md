@@ -12,8 +12,8 @@ by the milestone that it blocks. The [spec](spec/README.md) stays the source of 
 
 - [x] **GitHub remote.** The public repository is
   [bhowiebkr/Patina](https://github.com/bhowiebkr/Patina), made on 2026-11-15.
-- [ ] **CI.** A GitHub Actions workflow that runs the clippy and test commands of AGENTS.md
-  on Windows. Until it exists, run them before each commit.
+- [x] **CI.** [ci.yml](../.github/workflows/ci.yml) runs the clippy and test commands of
+  AGENTS.md on Windows, Linux and macOS. Only a Windows failure fails the run (13.5).
 - [x] **License.** MIT OR Apache-2.0, as the owner decided on 2026-11-15. The files are
   `LICENSE-MIT` and `LICENSE-APACHE`. The README gives the terms for contributions.
 - [ ] **A clean Windows computer for the toolchain prototype.** A standard account, with no

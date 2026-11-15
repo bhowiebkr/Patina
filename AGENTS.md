@@ -53,10 +53,11 @@ Working rules for AI agents in this repository.
 - A milestone 0 prototype is proven on a platform only when it ran on that platform. A
   cross-target `cargo clippy` does not link, so it does not prove a prototype. Write which
   platforms ran and which did not.
-- Before a commit, run what GitHub Actions runs. Until CI exists, run
+- Before a commit, run what GitHub Actions runs in
+  [.github/workflows/ci.yml](.github/workflows/ci.yml):
   `cargo clippy --workspace --all-targets --locked -- -D warnings` and
-  `cargo test --workspace --locked`. When the editor frontend exists, also run its lint and
-  tests.
+  `cargo test --workspace --locked`. When the editor frontend exists, add its lint and tests to
+  the workflow, and run them too.
 - Do not build or run a Patina project or package from another person unless the owner trusts
   it. Build scripts and procedural macros run code at compile time (spec 11).
 - Keep code and instructions lean. Do not commit generated builds, compiled clusters, the

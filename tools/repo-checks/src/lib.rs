@@ -73,7 +73,7 @@ pub fn source_files(root: &Path) -> io::Result<Vec<SourceFile>> {
 /// Returns the files with more than `max` lines, the longest first.
 pub fn too_long(files: &[SourceFile], max: usize) -> Vec<&SourceFile> {
     let mut long: Vec<&SourceFile> = files.iter().filter(|f| f.lines > max).collect();
-    long.sort_by(|a, b| b.lines.cmp(&a.lines));
+    long.sort_by_key(|f| std::cmp::Reverse(f.lines));
     long
 }
 
