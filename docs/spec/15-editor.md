@@ -400,6 +400,9 @@ This is an agent decision of 2026-11-15. The owner can change it.
 
 - A double-click on a use of a subgraph opens the subgraph file in the graph view (6.1). A path bar at the top left shows `main / <name>`. Its **main** button opens the main graph again.
 - The graph view shows each public pin of the subgraph as a small node with the pin name, and a wire to each inner end (6.4).
+- The user edits the public pins as nodes. A drag moves a pin. A wire from a public input or to a public output connects the pin, and the editor refuses a wire between two pins. Delete removes the selected pins and pin wires. A double-click on a pin opens a field for its name.
+- The **Add node** palette of an open subgraph has the entries **Public input** and **Public output**. A new pin gets a random key. When the palette opens from a wire drag, the pin connects to that pin and takes its key as the name.
+- A removed pin also removes its wires in the subgraph. A wire of a use to a removed pin stays in the outer graph, and the check shows a problem for it.
 - Only the open graph can have unsaved changes. Thus a change of graph saves all first, as Ctrl+S does. Each graph keeps its undo history while the project is open.
 - A run uses the unsaved changes of the open subgraph, as it does for the main graph.
 - Reason: one unsaved graph keeps the save, the recovery file and the close dialog simple. A user who opens a subgraph usually wants the change of the main graph to stay.

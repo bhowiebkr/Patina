@@ -258,7 +258,7 @@ export function PortView({ data }: NodeProps<PortNode>) {
       <div className="patina-node-header">
         <span className="title">{name}</span>
       </div>
-      <Handle id="pin" type={input ? 'source' : 'target'} position={input ? Position.Right : Position.Left} isConnectable={false} style={{ top: HEADER / 2 }} />
+      <Handle id="pin" type={input ? 'source' : 'target'} position={input ? Position.Right : Position.Left} style={{ top: HEADER / 2 }} />
     </div>
   );
 }

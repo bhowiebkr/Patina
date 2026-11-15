@@ -76,7 +76,8 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
             }
         }
         for pin in &inner.output {
-            if one.outputs.insert(pin.key.clone(), prefix(&pin.from)).is_some() {
+            let from = if pin.from.is_empty() { String::new() } else { prefix(&pin.from) };
+            if one.outputs.insert(pin.key.clone(), from).is_some() {
                 fail(format!("the subgraph {name} has two outputs with the key {}", pin.key));
             }
         }
@@ -120,7 +121,11 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
         None => vec![end.to_owned()],
     };
     for wire in &graph.wire {
+        // A wire from an output of a use that is not connected inside gives no value.
         let from = source(&wire.from, problems);
+        if from.is_empty() {
+            continue;
+        }
         for to in targets(&wire.to, problems) {
             flat.wire.push(Wire { from: from.clone(), to, ..wire.clone() });
         }
@@ -140,7 +145,7 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
             }
         }
     }
-    let mut aliases: Vec<Alias> = uses.iter().flat_map(|(id, one)| one.outputs.iter().map(move |(key, from)| (format!("{id}.{key}"), from.clone()))).collect();
+    let mut aliases: Vec<Alias> = uses.iter().flat_map(|(id, one)| one.outputs.iter().filter(|(_, from)| !from.is_empty()).map(move |(key, from)| (format!("{id}.{key}"), from.clone()))).collect();
     aliases.sort();
     (flat, aliases)
 }
@@ -358,6 +363,9 @@ pub(crate) fn expand_use(graph: &GraphFile, use_id: &str, inner: &GraphFile, mut
             Some(key) => source(&key).ok_or(format!("the subgraph has no output {key}"))?,
             None => w.from.clone(),
         };
+        if from.is_empty() {
+            continue;
+        }
         let to = pin(&w.to).map_or_else(|| vec![w.to.clone()], |key| targets(&key));
         out.wire.extend(to.into_iter().map(|to| Wire { from: from.clone(), to, ..w.clone() }));
     }
@@ -485,6 +493,12 @@ after = "00000000000000c2"
         assert_eq!((flat.node[2].params["a"].as_str(), flat.node[2].params["b"].as_str()), ("7", "7"));
         assert_eq!((flat.order[0].before.as_str(), flat.order[0].after.as_str()), ("00000000000000d1/00000000000000a1", "00000000000000c2"));
 
+        // A wire from an output that is not connected inside gives no value.
+        std::fs::write(root.join("graphs/open.toml"), "format = 1\n[[output]]\nkey = \"0000000c\"\nname = \"y\"\npos = [0.0, 0.0]\n").unwrap();
+        let open = graph("format = 1\n[[node]]\nid = \"00000000000000d1\"\nsubgraph = \"open\"\n[[node]]\nid = \"00000000000000c2\"\nfolder = \"nodes/show\"\n[[wire]]\nfrom = \"00000000000000d1.0000000c\"\nto = \"00000000000000c2.value\"\n");
+        let (flat, aliases) = flatten(&root, &open, None).unwrap();
+        assert!(flat.wire.is_empty() && aliases.is_empty(), "{:?}", flat.wire);
+
         // A subgraph that uses itself and a pin that does not exist give problems.
         std::fs::write(root.join("graphs/cycle.toml"), "format = 1\n[[node]]\nid = \"00000000000000e1\"\nsubgraph = \"cycle\"\n").unwrap();
         let bad = graph("format = 1\n[[node]]\nid = \"00000000000000d1\"\nsubgraph = \"cycle\"\n[[node]]\nid = \"00000000000000d2\"\nsubgraph = \"half\"\n[[wire]]\nfrom = \"00000000000000d2.nothing\"\nto = \"00000000000000d2.0000000a\"\n");
@@ -493,7 +507,7 @@ after = "00000000000000c2"
         let infos = infos(&root);
         std::fs::remove_dir_all(&root).unwrap();
         let names: Vec<&str> = infos.iter().map(|i| i.name.as_str()).collect();
-        assert_eq!(names, ["cycle", "half"]);
+        assert_eq!(names, ["cycle", "half", "open"]);
         let input = &infos[1].inputs[0];
         assert_eq!((input.key.as_str(), input.name.as_deref(), input.ty.as_str()), ("0000000a", Some("x"), "?"));
         assert!(problems.iter().any(|p| p.contains("the subgraph cycle uses itself")), "{problems:?}");

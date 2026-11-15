@@ -136,6 +136,8 @@ pub struct PublicOutput {
     pub key: String,
     pub name: String,
     pub pos: [f64; 2],
+    /// Empty for an output that is not connected yet.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub from: String,
 }
 
@@ -160,6 +162,11 @@ pub fn write<T: Serialize>(path: &Path, value: &T) -> Result<(), Error> {
     let io = |e| Error::Io(path.to_owned(), e);
     std::fs::write(&temp, text).map_err(io)?;
     std::fs::rename(&temp, path).map_err(io)
+}
+
+/// True for the key of a public pin: 8 lowercase hexadecimal characters (6.4).
+pub fn is_key(text: &str) -> bool {
+    text.len() == 8 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// True for a stable random ID: 16 lowercase hexadecimal characters (6.4).

@@ -222,6 +222,12 @@ export type Edit =
   | { kind: 'SetLook'; to: string; style?: Style; corners?: Corners }
   | { kind: 'SetParam'; id: string; key: string; text: string | null }
   | { kind: 'SetCode'; path: string; text: string }
+  | { kind: 'AddPin'; key: string; name: string; input: boolean; pos: Point }
+  | { kind: 'RemovePin'; key: string }
+  | { kind: 'MovePin'; key: string; pos: Point }
+  | { kind: 'RenamePin'; key: string; name: string }
+  | { kind: 'ConnectPin'; key: string; end: string }
+  | { kind: 'DisconnectPin'; key: string; end: string }
   | { kind: 'Group'; edits: Edit[] };
 
 export const api = {
@@ -315,8 +321,8 @@ export function reportError(e: unknown) {
 }
 
 /** A stable random node ID: 16 lowercase hexadecimal characters (spec 6.4). */
-export function newId(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
+export function newId(size = 8): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(size));
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 

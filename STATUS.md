@@ -33,19 +33,21 @@ and 6.4).
   public pins, the order wires, the cycle check, the ID collisions and the file.
 - A double-click on a use opens the subgraph in the editor. The public pins show as small nodes
   with their wires, and the path bar goes back to the main graph. A change of graph saves first.
+- In an open subgraph, the editor adds, moves, connects, renames and removes the public pins.
+  Unit tests check the pin edits and an output with no source.
 
 ### Known limits
 
 - The editor shows a use of a subgraph as one node with the public pins, and **Add node** lists
   the subgraphs. The output pins of a use show the live values of their inner outputs, and a run
   error of an inner node shows on the use.
-- In an open subgraph, the public pins are read only. The editor cannot add, move or wire them
-  yet. The inner nodes show no live values and no run errors, because a subgraph can have many
-  uses.
+- In an open subgraph, the inner nodes show no live values and no run errors, because a
+  subgraph can have many uses.
+- A removed public pin keeps the wires of the uses to it. The check shows a problem for each.
 - Ctrl+G collapses the selected nodes into a new subgraph file, with public pins for the wires
   that cross. An undo keeps the new file. Ctrl+Shift+G expands the selected uses.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
-- The engine does not check the format of the public pin keys yet.
+- The engine checks the key of a new public pin, but not the keys in a file.
 
 ## Milestone 6: layers
 

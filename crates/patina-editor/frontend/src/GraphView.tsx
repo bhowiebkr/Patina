@@ -46,26 +46,32 @@ function portTypes(view: View): Map<string, string> {
   return new Map([...(info?.inputs ?? []).map((p) => [`in:${p.key}`, p.ty] as const), ...(info?.outputs ?? []).map((p) => [`out:${p.key}`, p.ty] as const)]);
 }
 
-/** The public pins of the open subgraph (6.4). shortcut: they are read only, change it when the editor edits public pins. */
-function buildPorts(view: View): PortNode[] {
+/** The key of the public pin "in:<key>" or "out:<key>", or null for a node. */
+function portKey(id: string): string | null {
+  return /^(in|out):/.test(id) ? id.slice(id.indexOf(':') + 1) : null;
+}
+
+/** The entries of the Add node palette that add a public pin to an open subgraph (6.4). */
+const PIN_ENTRY = { inputs: [], outputs: [], error: null, builtin: false, generics: ['?'], full: false, subgraph: false };
+const PUBLIC_INPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public input', outputs: [{ key: 'pin', ty: '?' }] };
+const PUBLIC_OUTPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public output', inputs: [{ key: 'pin', ty: '?' }] };
+
+/** The public pins of the open subgraph (6.4). The editor moves, connects, renames and removes them. */
+function buildPorts(view: View, old: Map<string, GraphNode>): PortNode[] {
   const types = portTypes(view);
-  const port = (id: string, name: string, pos: Point | undefined, input: boolean): PortNode => ({
-    id,
-    type: 'port',
-    position: { x: pos?.[0] ?? 0, y: pos?.[1] ?? 0 },
-    draggable: false,
-    selectable: false,
-    connectable: false,
-    deletable: false,
-    data: { name, ty: types.get(id) ?? '?', input },
-  });
+  const port = (id: string, name: string, pos: Point | undefined, input: boolean): PortNode => {
+    const position = { x: pos?.[0] ?? 0, y: pos?.[1] ?? 0 };
+    const data = { name, ty: types.get(id) ?? '?', input };
+    const before = old.get(id);
+    return before?.type === 'port' ? { ...before, position, data } : { id, type: 'port', position, deletable: false, data };
+  };
   const inputs = (view.graph.input ?? []).map((p) => port(`in:${p.key}`, p.name, p.pos, true));
   return [...inputs, ...(view.graph.output ?? []).map((p) => port(`out:${p.key}`, p.name, p.pos, false))];
 }
 
 /** Keeps the selection and the measured size of the nodes that stay. */
 function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, prev: GraphNode[]): GraphNode[] {
-  const old = new Map(prev.filter((n): n is PatinaNode => n.type === 'patina').map((n) => [n.id, n]));
+  const old = new Map(prev.map((n) => [n.id, n]));
   const wires = view.graph.wire ?? [];
   const nodes: GraphNode[] = (view.graph.node ?? []).map((entry) => {
     const info = infoOf(entry, view.nodes);
@@ -76,9 +82,9 @@ function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
     const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot };
     const before = old.get(entry.id);
-    return before ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
+    return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });
-  return [...nodes, ...buildPorts(view)];
+  return [...nodes, ...buildPorts(view, old)];
 }
 
 function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
@@ -86,11 +92,12 @@ function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
   const types = portTypes(view);
   const fixed = (from: string, to: string, ty: string | undefined): Edge<WireData> => {
     const [[source, sourceHandle], [target, targetHandle]] = [splitPin(from), splitPin(to)];
-    return { id: `${from}>${to}`, type: 'wire', source, sourceHandle, target, targetHandle, selectable: false, data: { from, to, route: NO_POINTS, ty, fixed: true } };
+    const id = `${from}>${to}`;
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from, to, route: NO_POINTS, ty, fixed: true } };
   };
   const ports = [
     ...(view.graph.input ?? []).flatMap((p) => (p.to ?? []).map((to) => fixed(`in:${p.key}.pin`, to, types.get(`in:${p.key}`)))),
-    ...(view.graph.output ?? []).map((p) => fixed(p.from, `out:${p.key}.pin`, outputType(view, p.from))),
+    ...(view.graph.output ?? []).filter((p) => p.from).map((p) => fixed(p.from, `out:${p.key}.pin`, outputType(view, p.from))),
   ];
   const wires = (view.graph.wire ?? []).map((w): Edge<WireData> => {
     const [source, sourceHandle] = splitPin(w.from);
@@ -139,6 +146,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   // last pointer point over the canvas.
   const [palette, setPalette] = useState<{ x: number; y: number; end?: FreeEnd } | null>(null);
   const [collapsing, setCollapsing] = useState<{ ids: string[]; x: number; y: number } | null>(null);
+  const [renaming, setRenaming] = useState<{ key: string; name: string; x: number; y: number } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport(view.graphName));
@@ -169,14 +177,25 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
 
   const onNodeDragStop = useCallback(
     (_: unknown, __: GraphNode, dragged: GraphNode[]) => {
-      const moves: Edit[] = dragged.map((n) => ({ kind: 'MoveNode', id: n.id, pos: [Math.round(n.position.x), Math.round(n.position.y)] }));
+      const moves = dragged.map((n): Edit => {
+        const pos: Point = [Math.round(n.position.x), Math.round(n.position.y)];
+        const key = portKey(n.id);
+        return key ? { kind: 'MovePin', key, pos } : { kind: 'MoveNode', id: n.id, pos };
+      });
       if (moves.length > 0) onEdit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
     },
     [onEdit],
   );
 
+  // A wire from a public input or to a public output connects the pin. A wire between two pins is refused.
   const onConnect = useCallback(
-    (c: Connection) => onEdit({ kind: 'Connect', from: `${c.source}.${c.sourceHandle}`, to: `${c.target}.${c.targetHandle}` }),
+    (c: Connection) => {
+      const [from, to, inKey, outKey] = [`${c.source}.${c.sourceHandle}`, `${c.target}.${c.targetHandle}`, portKey(c.source), portKey(c.target)];
+      if (inKey && outKey) return;
+      if (inKey) onEdit({ kind: 'ConnectPin', key: inKey, end: to });
+      else if (outKey) onEdit({ kind: 'ConnectPin', key: outKey, end: from });
+      else onEdit({ kind: 'Connect', from, to });
+    },
     [onEdit],
   );
 
@@ -187,6 +206,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
       if (c.isValid || !from?.id || !(e.target instanceof Element) || !e.target.classList.contains('react-flow__pane')) return;
       const pin = `${from.nodeId}.${from.id}`;
       const output = from.type === 'source';
+      if (portKey(from.nodeId)) return;
       const entry = view.graph.node?.find((n) => n.id === from.nodeId);
       const ty = output ? outputType(view, pin) : entry && infoOf(entry, view.nodes)?.inputs.find((p) => p.key === from.id)?.ty;
       const point = 'changedTouches' in e ? e.changedTouches[0] : e;
@@ -207,11 +227,18 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
         else setCollapsing({ ids: selected.map((n) => n.id), ...(pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 }) });
       } else if (e.key === 'Delete' && view.trusted) {
         const removed = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
-        const edits: Edit[] = [...removed].map((id) => ({ kind: 'RemoveNode', id }));
+        const edits = [...removed].map((id): Edit => {
+          const key = portKey(id);
+          return key ? { kind: 'RemovePin', key } : { kind: 'RemoveNode', id };
+        });
         for (const edge of edges) {
-          if (edge.selected && !removed.has(edge.source) && !removed.has(edge.target)) {
-            edits.push({ kind: 'Disconnect', from: edge.data!.from, to: edge.data!.to });
-          }
+          if (!edge.selected || removed.has(edge.source) || removed.has(edge.target)) continue;
+          const { from, to } = edge.data!;
+          const inKey = portKey(edge.source);
+          const outKey = portKey(edge.target);
+          if (inKey) edits.push({ kind: 'DisconnectPin', key: inKey, end: to });
+          else if (outKey) edits.push({ kind: 'DisconnectPin', key: outKey, end: from });
+          else edits.push({ kind: 'Disconnect', from, to });
         }
         if (edits.length > 0) onEdit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
       } else if (e.key === 'f' || e.key === 'F') {
@@ -248,8 +275,17 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
     if (!end || !key) onEdit(add);
     else onEdit({ kind: 'Group', edits: [add, end.output ? { kind: 'Connect', from: end.pin, to: pin } : { kind: 'Connect', from: pin, to: end.pin }] });
   };
+  /** Adds a public pin at a screen point, and its wire to `end` in the same undo step. It takes the key of the end as its name. */
+  const addPin = (input: boolean, x: number, y: number, end?: FreeEnd) => {
+    const p = flow.screenToFlowPosition({ x, y });
+    const key = newId(4);
+    const name = end ? splitPin(end.pin)[1] : input ? 'input' : 'output';
+    const add: Edit = { kind: 'AddPin', key, name, input, pos: [Math.round(p.x), Math.round(p.y)] };
+    onEdit(end ? { kind: 'Group', edits: [add, { kind: 'ConnectPin', key, end: end.pin }] } : add);
+  };
   const end = palette?.end;
-  const choices = end ? view.nodes.filter((n) => matchPin(n, end.output, end.ty) !== undefined) : view.nodes;
+  const all = view.graphName === 'main' ? view.nodes : [...view.nodes, PUBLIC_INPUT, PUBLIC_OUTPUT];
+  const choices = end ? all.filter((n) => matchPin(n, end.output, end.ty) !== undefined) : all;
 
   const onDrop = (e: DragEvent) => {
     const folder = e.dataTransfer.getData(NODE_MIME);
@@ -279,7 +315,10 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
         onDragOver={onDragOver}
         onDrop={onDrop}
         onDoubleClick={onDoubleClick}
-        onNodeDoubleClick={(_, n) => n.type === 'patina' && n.data.entry.subgraph && onOpen(n.data.entry.subgraph)}
+        onNodeDoubleClick={(e, n) => {
+          if (n.type === 'patina' && n.data.entry.subgraph) onOpen(n.data.entry.subgraph);
+          else if (n.type === 'port' && view.trusted) setRenaming({ key: portKey(n.id)!, name: n.data.name, x: e.clientX, y: e.clientY });
+        }}
         onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
         onPointerLeave={() => (pointer.current = null)}
         nodesDraggable={view.trusted}
@@ -309,7 +348,11 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
           y={palette.y}
           nodes={choices}
           none={end && `No node has a pin of type ${end.ty}.`}
-          onAdd={(n) => addNode(n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`, palette.x, palette.y, end, n)}
+          onAdd={(n) =>
+            n === PUBLIC_INPUT || n === PUBLIC_OUTPUT
+              ? addPin(n === PUBLIC_INPUT, palette.x, palette.y, end)
+              : addNode(n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`, palette.x, palette.y, end, n)
+          }
           onClose={() => setPalette(null)}
         />
       )}
@@ -317,6 +360,13 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
         <div className="menu-layer">
           <div className="menu collapse-name" role="dialog" aria-label="Collapse into a subgraph" style={{ left: Math.min(collapsing.x, innerWidth - 250), top: Math.min(collapsing.y, innerHeight - 80) }}>
             <NameField label="Subgraph name" onMake={(name) => onCollapse(name, collapsing.ids)} onClose={() => setCollapsing(null)} />
+          </div>
+        </div>
+      )}
+      {renaming && (
+        <div className="menu-layer">
+          <div className="menu collapse-name" role="dialog" aria-label="Rename the public pin" style={{ left: Math.min(renaming.x, innerWidth - 250), top: Math.min(renaming.y, innerHeight - 80) }}>
+            <NameField label="Pin name" initial={renaming.name} onMake={(name) => onEdit({ kind: 'RenamePin', key: renaming.key, name })} onClose={() => setRenaming(null)} />
           </div>
         </div>
       )}

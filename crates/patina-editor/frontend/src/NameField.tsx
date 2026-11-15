@@ -8,11 +8,13 @@ interface Props {
   /** Uses the name. It fails with the problem of the name. */
   onMake: (name: string) => Promise<void>;
   onClose: () => void;
+  /** The first text of the field. */
+  initial?: string;
 }
 
 /** Enter uses the name. Esc or a click out of the field cancels. A problem shows under the field. */
-export function NameField({ label, onMake, onClose }: Props) {
-  const [name, setName] = useState('');
+export function NameField({ label, onMake, onClose, initial = '' }: Props) {
+  const [name, setName] = useState(initial);
   const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
   const field = useRef<HTMLInputElement>(null);

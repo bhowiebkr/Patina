@@ -47,7 +47,7 @@ function typing(target: EventTarget | null): boolean {
 
 /** True when the edit changes only the drawing, so the result of the run stays current. */
 function onlyGeometry(edit: Edit): boolean {
-  return edit.kind === 'MoveNode' || edit.kind === 'SetRoute' || (edit.kind === 'Group' && edit.edits.every(onlyGeometry));
+  return edit.kind === 'MoveNode' || edit.kind === 'MovePin' || edit.kind === 'SetRoute' || (edit.kind === 'Group' && edit.edits.every(onlyGeometry));
 }
 
 /** One Logs line for each compile error. A click on a line with a place shows the code. */

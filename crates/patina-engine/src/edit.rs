@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use serde::Deserialize;
 
-use crate::project::{Corners, GraphFile, NodeEntry, Style, Wire, is_id};
+use crate::project::{Corners, GraphFile, NodeEntry, PublicInput, PublicOutput, Style, Wire, is_id, is_key};
 
 /// The number of edits that undo keeps. The oldest edit goes first.
 const UNDO_LIMIT: usize = 1000;
@@ -41,6 +41,16 @@ pub enum Edit {
     /// Replaces the text of a file in a node folder (6.2). The path is relative to the project
     /// root, for example `nodes/number/src/lib.rs`. The file must exist.
     SetCode { path: String, text: String },
+    /// Adds a public pin to the open graph (6.4). The key is 8 lowercase hexadecimal characters.
+    AddPin { key: String, name: String, input: bool, pos: [f64; 2] },
+    /// Also removes the wires of the pin in the graph.
+    RemovePin { key: String },
+    MovePin { key: String, pos: [f64; 2] },
+    RenamePin { key: String, name: String },
+    /// Connects a public input to the inner input `end`, which loses its other wire, or a public
+    /// output to the inner output `end`.
+    ConnectPin { key: String, end: String },
+    DisconnectPin { key: String, end: String },
 }
 
 /// One entry of undo or redo: a full copy of the graph, or the text of a code file, before or
@@ -179,23 +189,24 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
             graph.node.remove(index);
             graph.wire.retain(|w| node_of(&w.from) != id && node_of(&w.to) != id);
             graph.order.retain(|o| &o.before != id && &o.after != id);
+            for pin in &mut graph.input {
+                pin.to.retain(|t| node_of(t) != id);
+            }
+            for pin in graph.output.iter_mut().filter(|p| node_of(&p.from) == id) {
+                pin.from.clear();
+            }
         }
         Edit::MoveNode { id, pos } => {
             let index = find(graph, id)?;
             graph.node[index].pos = Some(finite(pos)?);
         }
         Edit::Connect { from, to } => {
-            for end in [from, to] {
-                let (id, key) = end.split_once('.').ok_or(format!("the pin {end:?} is not <node ID>.<pin key>"))?;
-                find(graph, id)?;
-                if key.is_empty() {
-                    return Err(format!("the pin {end:?} has no key"));
-                }
-            }
+            check_end(graph, from)?;
+            check_end(graph, to)?;
             if let Some(ids) = cycle(graph, node_of(from), node_of(to)) {
                 return Err(format!("the wire makes a cycle through these nodes: {}", ids.join(", ")));
             }
-            graph.wire.retain(|w| &w.to != to);
+            free_input(graph, to);
             graph.wire.push(Wire { from: from.clone(), to: to.clone(), style: None, corners: None, points: Vec::new() });
         }
         Edit::Disconnect { from, to } => {
@@ -234,8 +245,92 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         }
         // `Project::apply` writes a code edit. Only a group gets one here.
         Edit::SetCode { .. } => return Err("a group cannot hold a code edit".to_owned()),
+        Edit::AddPin { key, name, input, pos } => {
+            if !is_key(key) {
+                return Err(format!("the pin key {key:?} is not 8 lowercase hexadecimal characters"));
+            }
+            if graph.input.iter().any(|p| &p.key == key) || graph.output.iter().any(|p| &p.key == key) {
+                return Err(format!("the graph has a public pin with the key {key}"));
+            }
+            let (name, pos) = (pin_name(name)?, finite(pos)?);
+            match input {
+                true => graph.input.push(PublicInput { key: key.clone(), name, pos, to: Vec::new() }),
+                false => graph.output.push(PublicOutput { key: key.clone(), name, pos, from: String::new() }),
+            }
+        }
+        Edit::RemovePin { key } => {
+            let count = graph.input.len() + graph.output.len();
+            graph.input.retain(|p| &p.key != key);
+            graph.output.retain(|p| &p.key != key);
+            if graph.input.len() + graph.output.len() == count {
+                return Err(format!("the graph has no public pin {key}"));
+            }
+        }
+        Edit::MovePin { key, pos } => *pin_mut(graph, key)?.1 = finite(pos)?,
+        Edit::RenamePin { key, name } => *pin_mut(graph, key)?.0 = pin_name(name)?,
+        Edit::ConnectPin { key, end } => {
+            check_end(graph, end)?;
+            if let Some(pin) = graph.output.iter_mut().find(|p| &p.key == key) {
+                pin.from.clone_from(end);
+            } else {
+                let index = graph.input.iter().position(|p| &p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
+                free_input(graph, end);
+                graph.input[index].to.push(end.clone());
+            }
+        }
+        Edit::DisconnectPin { key, end } => {
+            let none = || format!("no wire goes from the public pin {key} to {end}");
+            if let Some(pin) = graph.output.iter_mut().find(|p| &p.key == key) {
+                if &pin.from != end {
+                    return Err(none());
+                }
+                pin.from.clear();
+            } else {
+                let pin = graph.input.iter_mut().find(|p| &p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
+                let count = pin.to.len();
+                pin.to.retain(|t| t != end);
+                if pin.to.len() == count {
+                    return Err(none());
+                }
+            }
+        }
     }
     Ok(())
+}
+
+/// Checks that the wire end `<node ID>.<pin key>` names a node of the graph.
+fn check_end(graph: &GraphFile, end: &str) -> Result<(), String> {
+    let (id, key) = end.split_once('.').ok_or(format!("the pin {end:?} is not <node ID>.<pin key>"))?;
+    find(graph, id)?;
+    if key.is_empty() {
+        return Err(format!("the pin {end:?} has no key"));
+    }
+    Ok(())
+}
+
+/// Removes the wire and the public input that go to the input `to`: an input has one source.
+fn free_input(graph: &mut GraphFile, to: &str) {
+    graph.wire.retain(|w| w.to != to);
+    for pin in &mut graph.input {
+        pin.to.retain(|t| t != to);
+    }
+}
+
+/// The name and the position of the public pin `key`.
+fn pin_mut<'a>(graph: &'a mut GraphFile, key: &str) -> Result<(&'a mut String, &'a mut [f64; 2]), String> {
+    if let Some(i) = graph.input.iter().position(|p| p.key == key) {
+        let pin = &mut graph.input[i];
+        return Ok((&mut pin.name, &mut pin.pos));
+    }
+    let pin = graph.output.iter_mut().find(|p| p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
+    Ok((&mut pin.name, &mut pin.pos))
+}
+
+fn pin_name(name: &str) -> Result<String, String> {
+    match name.trim().is_empty() || name.chars().count() > 64 {
+        true => Err("a pin name has 1 to 64 characters and is not blank".to_owned()),
+        false => Ok(name.to_owned()),
+    }
 }
 
 fn find(graph: &GraphFile, id: &str) -> Result<usize, String> {
@@ -342,6 +437,39 @@ mod tests {
         assert_eq!(history.graph.node.len(), 1, "a group with a bad edit changes nothing");
         let code = Edit::SetCode { path: "nodes/number/src/lib.rs".to_owned(), text: String::new() };
         assert!(history.apply(&Edit::Group { edits: vec![code] }).is_err());
+    }
+
+    #[test]
+    fn public_pins_edit_and_follow_the_nodes() {
+        let mut history = History::new(toml::from_str("format = 1").unwrap());
+        history.apply(&add(A)).unwrap();
+        history.apply(&add(B)).unwrap();
+        let pin = |key: &str, input| Edit::AddPin { key: key.to_owned(), name: "x".to_owned(), input, pos: [0.0, 0.0] };
+        let to = |key: &str, end: &str| Edit::ConnectPin { key: key.to_owned(), end: end.to_owned() };
+        let off = |key: &str, end: &str| Edit::DisconnectPin { key: key.to_owned(), end: end.to_owned() };
+        history.apply(&pin("0000000a", true)).unwrap();
+        history.apply(&pin("0000000b", false)).unwrap();
+        assert!(history.apply(&pin("0000000a", false)).is_err(), "two pins cannot have one key");
+        assert!(history.apply(&pin("0000000G", true)).is_err());
+        assert!(history.apply(&Edit::RenamePin { key: "0000000a".to_owned(), name: " ".to_owned() }).is_err());
+        history.apply(&connect("000000000000000a.out", "000000000000000b.value")).unwrap();
+        history.apply(&to("0000000a", "000000000000000b.value")).unwrap();
+        assert!(history.graph.wire.is_empty(), "the pin replaces the wire to the input");
+        history.apply(&connect("000000000000000a.out", "000000000000000b.value")).unwrap();
+        assert!(history.graph.input[0].to.is_empty(), "the wire replaces the pin");
+        history.apply(&to("0000000a", "000000000000000a.value")).unwrap();
+        history.apply(&to("0000000b", "000000000000000b.out")).unwrap();
+        assert!(history.apply(&to("0000000b", "000000000000000c.out")).is_err(), "the graph has no node c");
+        history.apply(&Edit::MovePin { key: "0000000b".to_owned(), pos: [9.0, 9.0] }).unwrap();
+        history.apply(&Edit::RemoveNode { id: B.to_owned() }).unwrap();
+        assert_eq!(history.graph.output[0].from, "", "the output of a removed node goes");
+        assert!(history.apply(&off("0000000b", "000000000000000b.out")).is_err());
+        history.apply(&off("0000000a", "000000000000000a.value")).unwrap();
+        history.apply(&Edit::RemovePin { key: "0000000a".to_owned() }).unwrap();
+        assert_eq!((history.graph.input.len(), history.graph.output[0].pos), (0, [9.0, 9.0]));
+        let text = toml::to_string(&history.graph).unwrap();
+        assert!(!text.contains("from"), "an output with no source has no from: {text}");
+        assert_eq!(toml::from_str::<GraphFile>(&text).unwrap(), history.graph);
     }
 
     #[test]

@@ -228,6 +228,7 @@ These rules are an agent decision of 2026-11-15. The owner can change them.
 - A node of a use gets the ID path `<use ID>/<node ID>`, for example `5c0e9b2a7f13d846/e1d4c2b7a9f03856`. Thus two uses of one subgraph do not share IDs, and the live values and the errors find the use.
 - A use has no folder, built-in node, domain or settings. A subgraph that uses itself, directly or through another subgraph, does not pass the check.
 - A wire to a public input of a use goes to each `to` end of the pin. A wire from a public output goes from its `from` end.
+- A public output with no `from` is not connected. A wire from it gives no value, so its input gets its default value.
 - A parameter of a use, with the key of a public input, goes to each `to` end of the pin. It replaces the parameter of the inner node.
 - An order wire to a use orders all the nodes of the use.
 - The route points, collars and cables of a subgraph file are visual only, so the build does not read them.
