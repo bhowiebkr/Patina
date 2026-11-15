@@ -408,6 +408,31 @@ select {
   flex: none;
 }
 
+.code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 8px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.code-bar .code-state {
+  border-bottom: none;
+}
+
+.code-bar .btn {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.code-tab .new-item {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
 .code-box {
   flex: 1;
   min-height: 160px;

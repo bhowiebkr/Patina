@@ -24,6 +24,8 @@ interface Props {
   onTab: (tab: InspectorTab) => void;
   onEdit: (edit: Edit) => void;
   onSave: () => void;
+  /** Adds a crate to the node folder. It fails with the problem of the crate. */
+  onAddCrate: (node: string, spec: string) => Promise<void>;
   onPick: (at: Reveal) => void;
 }
 
@@ -146,9 +148,11 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
   );
 }
 
-export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSave, onPick }: Props) {
+export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick }: Props) {
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
-  const code = (name: string) => <CodeTab name={name} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} />;
+  const code = (name: string) => (
+    <CodeTab name={name} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(name, spec)} />
+  );
   if (inspect?.kind === 'type') {
     return (
       <aside className="panel" aria-label="Inspector">

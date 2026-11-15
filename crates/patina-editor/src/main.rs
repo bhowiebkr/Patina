@@ -179,6 +179,7 @@ fn main() {
             session::save,
             session::node_files,
             session::new_node,
+            session::add_crate,
             session::read_code,
             session::set_unsaved_code,
             session::recover,

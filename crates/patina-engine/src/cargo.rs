@@ -28,11 +28,11 @@ const CLEARED_ENV: &[&str] = &[
 ];
 
 /// The manifest of the project workspace. Cargo fails on a member glob that matches no folder, so
-/// `nodes/*` and `connections/*` (6.3) are members only when they have a folder.
+/// `nodes/*`, `connections/*` (6.3) and `build/clusters/*` are members only when they have a folder.
 fn workspace(root: &Path) -> String {
     let used = |group: &&str| std::fs::read_dir(root.join(group)).into_iter().flatten().flatten().any(|e| e.path().is_dir());
     let members: Vec<String> =
-        ["nodes", "connections"].into_iter().filter(used).chain(["build/clusters"]).map(|g| format!("\"{g}/*\"")).collect();
+        ["nodes", "connections", "build/clusters"].into_iter().filter(used).map(|g| format!("\"{g}/*\"")).collect();
     format!(
         "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
          members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n",
@@ -136,12 +136,9 @@ fn run_text(command: &mut Command) -> Result<String, Error> {
 // shortcut: one cluster with a static std in the dev profile. Clusters, the shared types
 // library and bake mode come at milestone 6.
 pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf, Error> {
-    write(root, "Cargo.toml", &workspace(root))?;
-    for (path, text) in SDK_FILES {
-        write(root, path, text)?;
-    }
     write(root, "build/clusters/main/Cargo.toml", &generate::manifest(plan))?;
     write(root, "build/clusters/main/lib.rs", &generate::source(plan))?;
+    write_workspace(root)?;
 
     let mut command = command(&toolchain.cargo);
     command
@@ -175,6 +172,59 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan) -> Result<PathBuf,
         }
     }
     Err(Error::Build("cargo gave no library for the cluster".to_owned()))
+}
+
+/// Writes the manifest of the project workspace and the SDK crates.
+fn write_workspace(root: &Path) -> Result<(), Error> {
+    write(root, "Cargo.toml", &workspace(root))?;
+    for (path, text) in SDK_FILES {
+        write(root, path, text)?;
+    }
+    Ok(())
+}
+
+/// Runs `cargo add` for the node folder `nodes/<node>` and returns the new text of its `Cargo.toml`
+/// (15.4). The file keeps its old text, so the caller applies the new text as one edit with undo.
+pub fn add_crate(root: &Path, toolchain: &Toolchain, node: &str, spec: &str) -> Result<String, String> {
+    crate::plan::check_name(node)?;
+    check_crate(spec)?;
+    let relative = format!("nodes/{node}/Cargo.toml");
+    let manifest = root.join(&relative);
+    let old = std::fs::read_to_string(&manifest).map_err(|e| format!("{relative}: {e}"))?;
+    write_workspace(root).map_err(|e| e.to_string())?;
+    let mut command = command(&toolchain.cargo);
+    command.current_dir(root).arg("add").arg("--manifest-path").arg(&manifest).arg("--").arg(spec);
+    for var in CLEARED_ENV {
+        command.env_remove(var);
+    }
+    let output = command.output().map_err(|e| format!("cannot start {}: {e}", toolchain.cargo.display()));
+    let new = std::fs::read_to_string(&manifest).map_err(|e| format!("{relative}: {e}"));
+    write(root, &relative, &old).map_err(|e| e.to_string())?;
+    let output = output?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(stderr.lines().find_map(|line| line.strip_prefix("error: ")).unwrap_or(stderr.trim()).to_owned());
+    }
+    let new = new?;
+    if new == old {
+        return Err(format!("the Cargo.toml of {node} has {spec} already"));
+    }
+    Ok(new)
+}
+
+/// Checks a crate of crates.io as `name` or `name@version`. Cargo gets the text as an argument, so
+/// it cannot be an option, a path or a second crate.
+fn check_crate(spec: &str) -> Result<(), String> {
+    let (name, version) = spec.split_once('@').unwrap_or((spec, "1"));
+    let name_ok = name.len() <= 64
+        && name.starts_with(|c: char| c.is_ascii_alphabetic())
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    let version_ok = (1..=32).contains(&version.len()) && version.chars().all(|c| c.is_ascii_alphanumeric() || ".+^~=<>*-".contains(c));
+    if name_ok && version_ok {
+        Ok(())
+    } else {
+        Err("type a crate of crates.io as name or name@version, for example rand or rand@0.9".to_owned())
+    }
 }
 
 /// The errors in the JSON lines of cargo. The summary line "aborting due to ..." is not one.
@@ -235,9 +285,38 @@ mod tests {
     }
 
     #[test]
+    fn a_crate_is_a_name_and_a_version() {
+        for good in ["rand", "rand@0.9", "serde_json@=1.0.100", "a-b_c@^1.2-beta.1"] {
+            assert!(check_crate(good).is_ok(), "{good}");
+        }
+        for bad in ["", "-x", "--path=..", "../x", "a b", "rand@", "rand@0.9 x", "1rand", "@1", "a@b@c"] {
+            assert!(check_crate(bad).is_err(), "{bad}");
+        }
+    }
+
+    /// Run it with `cargo test -p patina-engine -- --ignored`. It reads the index of crates.io.
+    #[test]
+    #[ignore = "needs the network"]
+    fn cargo_adds_a_crate_to_a_node() {
+        let root = std::env::temp_dir().join(format!("patina-add-crate-{}", std::process::id()));
+        let manifest = "[package]\nname = \"num\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n";
+        write(&root, "nodes/num/Cargo.toml", manifest).unwrap();
+        write(&root, "nodes/num/src/lib.rs", "").unwrap();
+        let toolchain = Toolchain::detect().unwrap();
+        let text = add_crate(&root, &toolchain, "num", "itoa@1").unwrap();
+        assert!(text.contains("itoa = \"1"), "{text}");
+        assert_eq!(std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap(), manifest);
+        let error = add_crate(&root, &toolchain, "num", "patina-no-such-crate-x").unwrap_err();
+        assert!(error.contains("patina-no-such-crate-x"), "{error}");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn a_member_glob_needs_a_folder() {
         let root = std::env::temp_dir().join(format!("patina-members-{}", std::process::id()));
         std::fs::create_dir_all(root.join("connections")).unwrap();
+        assert!(workspace(&root).contains("members = []"));
+        std::fs::create_dir_all(root.join("build/clusters/main")).unwrap();
         assert!(workspace(&root).contains("members = [\"build/clusters/*\"]"));
         std::fs::create_dir_all(root.join("nodes/num")).unwrap();
         assert!(workspace(&root).contains("members = [\"nodes/*\", \"build/clusters/*\"]"), "an empty folder matches no member");

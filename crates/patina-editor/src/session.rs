@@ -321,6 +321,31 @@ pub fn node_files(editor: State<'_, Editor>, name: String) -> Result<Vec<String>
     editor.with(|session| session.project.node_files(&name).map_err(|e| e.to_string()))
 }
 
+/// Adds a crate of crates.io to a node with `cargo add` (15.4). The new `Cargo.toml` is one
+/// `SetCode` edit, so undo removes the crate.
+#[tauri::command(async)]
+pub fn add_crate(editor: State<'_, Editor>, node: String, spec: String) -> Result<View, String> {
+    let path = format!("nodes/{node}/Cargo.toml");
+    let root = editor.with(|session| {
+        if !session.trusted {
+            return Err("Trust the project before you change it.".to_owned());
+        }
+        if session.code.contains_key(&path) {
+            return Err("Save or undo the changes of Cargo.toml first.".to_owned());
+        }
+        Ok(session.project.root().to_owned())
+    })?;
+    // Cargo reads the index of crates.io, so the session stays unlocked while it runs.
+    let toolchain = Toolchain::detect().map_err(|e| e.to_string())?;
+    let text = patina_engine::add_crate(&root, &toolchain, &node, &spec)?;
+    editor.change(|project| {
+        if project.root() != root {
+            return Err("Another project opened while cargo ran.".to_owned());
+        }
+        project.apply(&Edit::SetCode { path, text })
+    })
+}
+
 /// Makes the node folder `nodes/<name>` (15.2). Undo does not remove the folder.
 #[tauri::command(async)]
 pub fn new_node(editor: State<'_, Editor>, name: String) -> Result<View, String> {

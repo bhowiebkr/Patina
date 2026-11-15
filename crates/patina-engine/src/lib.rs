@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-pub use cargo::{Diagnostic, Toolchain};
+pub use cargo::{Diagnostic, Toolchain, add_crate};
 pub use edit::Edit;
 pub use load::{Cluster, Lanes, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;

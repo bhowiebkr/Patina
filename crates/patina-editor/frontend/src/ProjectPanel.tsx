@@ -1,8 +1,9 @@
 // The Project panel (spec 15.4): the graphs, the nodes, the views, the widgets and the types.
 
-import { useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useState, type DragEvent } from 'react';
 import type { View } from './api';
 import { NODE_MIME } from './GraphView';
+import { NameField } from './NameField';
 
 export type Inspect =
   | { kind: 'node'; id: string }
@@ -20,43 +21,6 @@ interface Props {
 
 function Empty() {
   return <div className="item empty">None</div>;
-}
-
-/** The name field of a new node folder: Enter makes it, Esc or a click out of it cancels. */
-function NewNode({ onMake, onClose }: { onMake: (name: string) => Promise<void>; onClose: () => void }) {
-  const [name, setName] = useState('');
-  const [problem, setProblem] = useState('');
-  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') onClose();
-    else if (e.key === 'Enter') onMake(name.trim()).then(onClose, (err) => setProblem(String(err)));
-    else return;
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  return (
-    <div className="new-item">
-      <input
-        className="field"
-        aria-label="Node name"
-        aria-invalid={problem !== ''}
-        aria-describedby={problem ? 'new-node-problem' : undefined}
-        placeholder="Node name"
-        autoFocus
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value);
-          setProblem('');
-        }}
-        onKeyDown={onKey}
-        onBlur={onClose}
-      />
-      {problem && (
-        <div id="new-node-problem" className="error-text" role="alert">
-          {problem}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function ProjectPanel({ view, inspect, onInspect, onNewNode }: Props) {
@@ -82,7 +46,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode }: Props) {
             </button>
           )}
         </div>
-        {naming && <NewNode onMake={onNewNode} onClose={() => setNaming(false)} />}
+        {naming && <NameField label="Node name" onMake={onNewNode} onClose={() => setNaming(false)} />}
         {view.nodes.length === 0 && !naming && <Empty />}
         {view.nodes.map((n) => (
           <button

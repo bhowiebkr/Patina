@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { api, errorText, seconds, type Diagnostic } from './api';
 import { monaco, openFile, subscribe, unsavedFiles } from './code';
+import { NameField } from './NameField';
 import { nodeErrors, type RunState } from './NodeView';
 
 /** A request to show a line of a file. A new `n` shows the line again. */
@@ -34,9 +35,12 @@ interface Props {
   readOnly: boolean;
   reveal: Reveal | null;
   onSave: () => void;
+  /** Adds a crate of crates.io to the node. It fails with the problem of the crate. */
+  onAddCrate: (spec: string) => Promise<void>;
 }
 
-export function CodeTab({ name, run, readOnly, reveal, onSave }: Props) {
+export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Props) {
+  const [adding, setAdding] = useState(false);
   const [files, setFiles] = useState<{ name: string; list: string[] } | null>(null);
   const [path, setPath] = useState<string | null>(null);
   const [target, setTarget] = useState<Reveal | null>(null);
@@ -135,7 +139,24 @@ export function CodeTab({ name, run, readOnly, reveal, onSave }: Props) {
           </button>
         ))}
       </div>
-      <div className={bad ? 'code-state error-text' : 'code-state label'}>{state}</div>
+      <div className="code-bar">
+        <div className={bad ? 'code-state error-text' : 'code-state label'}>{state}</div>
+        {!readOnly && (
+          <button className="btn" onClick={() => setAdding(true)}>
+            Add crate
+          </button>
+        )}
+      </div>
+      {adding && (
+        <NameField
+          label="Crate name"
+          onMake={async (spec) => {
+            await onAddCrate(spec);
+            setPath(`${folder}Cargo.toml`);
+          }}
+          onClose={() => setAdding(false)}
+        />
+      )}
       <div className="code-box" ref={box} />
       {error && <div className="code-state error-text">{error}</div>}
       {mine.length > 0 && (

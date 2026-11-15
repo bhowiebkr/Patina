@@ -102,7 +102,8 @@ These block milestone 2. The [mockup plan](mockup-plan.md) lists them too.
 - [x] How the user makes a new node, view or widget folder, and names it. Agent decision in
   15.2, 2026-11-15: the **+** button of the **Nodes** group opens a name field. **Views** and
   **Widgets** get the same button when they come.
-- [ ] How the user adds a crate to the project.
+- [x] How the user adds a crate to the project. Agent decision in 15.4, 2026-11-15: a crate is
+  a dependency of one node folder. **Add crate** in the **Code** tab runs `cargo add`, with undo.
 - [x] The start screen: new project, open project and recent projects. Spec 15.10 defines it,
   and the editor has it.
 - [ ] The settings screen.

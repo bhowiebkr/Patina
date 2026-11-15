@@ -400,12 +400,13 @@ fn broken() -> u32 {
 
     // New node (15.2): the + of the Nodes group asks for a name. A used name shows its problem. A
     // new name makes the folder, and the Code tab shows its code.
-    const nameField = () => document.querySelector<HTMLInputElement>('.new-item input');
-    const enterName = (text: string) => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(nameField(), text);
-      nameField()!.dispatchEvent(new Event('input', { bubbles: true }));
-      nameField()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const nameField = () => document.querySelector<HTMLInputElement>('[aria-label="Node name"]');
+    const enterText = (field: HTMLInputElement, text: string) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, text);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     };
+    const enterName = (text: string) => enterText(nameField()!, text);
     document.querySelector<HTMLButtonElement>('[aria-label="New node"]')!.click();
     await until('the name field', RUN_MS, () => !!nameField());
     enterName('Number');
@@ -413,8 +414,19 @@ fn broken() -> u32 {
     enterName('made-node');
     const listed = () => [...document.querySelectorAll('[aria-label=Project] .item')].some((b) => b.textContent === 'made-node');
     const codeTab = () => document.querySelector('[aria-label=Inspector] [aria-selected=true]')?.textContent === 'Code';
-    await until('the new node folder and its code', RUN_MS, () => !nameField() && listed() && !!codeTab);
+    await until('the new node folder and its code', RUN_MS, () => !nameField() && listed() && codeTab());
     steps.push('make a node folder');
+
+    // Add crate (15.4): a bad crate name shows its problem before cargo runs, so no network is used.
+    const crateField = () => document.querySelector<HTMLInputElement>('[aria-label="Crate name"]');
+    [...document.querySelectorAll<HTMLButtonElement>('.code-bar .btn')].find((b) => b.textContent === 'Add crate')!.click();
+    await until('the crate field', RUN_MS, () => !!crateField());
+    enterText(crateField()!, '-x');
+    const crateProblem = () => document.querySelector('.new-item [role=alert]')?.textContent ?? '';
+    await until('the problem of a bad crate name', RUN_MS, () => crateProblem().includes('name@version'));
+    crateField()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await until('the closed crate field', RUN_MS, () => !crateField());
+    steps.push('refuse a bad crate name');
     v = await step('save the route', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');
 

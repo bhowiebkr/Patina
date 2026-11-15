@@ -185,6 +185,14 @@ The engine reports a node as skipped when a wired input has no value, because an
 - The **Code** tab shows the files of the node folder (6.2).
 - The user can open the code of a view (15.8), a widget or a type crate. Then the header shows its name, its kind and its build state.
 
+A crate of crates.io is a dependency of one node folder, in its `Cargo.toml` (8.1). (Agent decision, 2026-11-15. The owner can change it.)
+
+- The user edits `[dependencies]` in the `Cargo.toml` tab of the **Code** tab, or clicks **Add crate** above the code.
+- **Add crate** opens a field. The user types `name` or `name@version`, for example `rand` or `rand@0.9`, and pushes Enter. Esc cancels.
+- Patina runs `cargo add` of the project toolchain for the node folder. The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate. The next build downloads the crate.
+- A name has 1 to 64 letters, digits, `_` and `-`, and starts with a letter. Cargo gets the text as one argument, so it cannot be an option, a path or a second crate.
+- The field shows the problem of a bad name, of a crate that crates.io does not have, and of a crate that the node has already.
+- Patina refuses **Add crate** while the `Cargo.toml` has unsaved changes. An untrusted project has no **Add crate** button.
 ### 15.5 Errors
 
 - A compile error shows in four places:

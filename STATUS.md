@@ -26,6 +26,8 @@ To run the editor from a checkout:
 - The **+** button of the **Nodes** group in the **Project** panel makes a node folder (15.2).
   Type a name and push Enter. The **Inspector** shows the code of the start node. A used or
   reserved name shows its problem under the field.
+- **Add crate** in the **Code** tab adds a crate of crates.io to the node (15.4). Type `rand` or
+  `rand@0.9` and push Enter. Patina runs `cargo add`, and undo removes the crate.
 - The canvas has no animation. The mouse wheel zooms. The middle button, or Space and a drag,
   pans. A drag on the empty canvas selects. Shift or Ctrl adds to the selection.
 - The wires draw on one WebGL2 canvas under the nodes (15.1). A selected wire has an amber
@@ -105,7 +107,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 46 steps in 10.6 s:
+  off-screen and does not take the focus. It passed these 47 steps in 12.0 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -166,8 +168,8 @@ To run the editor from a checkout:
   label `whole[7:0] / 8` above the ribbon. The fake lanes were then removed.
 - The CLI test adds a kind to a copy of the hello example. The sum 6.5 has the lanes `00000110`
   with the label `whole`.
-- `cargo test --workspace --locked` passed 51 tests. The tests check the graph edits with undo
-  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the text of the live values with a `Viewer`, the cut of the badge
+- `cargo test --workspace --locked` passed 52 tests. The tests check the graph edits with undo
+  and redo, the layout files with a hex project ID, the recovery files, the stop flag, the skipped nodes, the pin types, the lanes of a kind, the member globs of the project workspace, the route points, the crate names of **Add crate**, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
@@ -185,15 +187,24 @@ To run the editor from a checkout:
 - The self-check clicks **+** of the **Nodes** group and enters `Number`. The field shows the
   problem of the used name. Then it enters `made-node`, finds `made-node` in the **Project**
   panel and the **Code** tab of the new node in the **Inspector**.
+- The self-check clicks **Add crate**, enters `-x`, finds the problem of the name and closes the
+  field with Esc. This step uses no network.
+- `cargo test -p patina-engine --locked -- --include-ignored crate` ran the ignored network test
+  on Windows. It adds `itoa@1` to a node of a new project in 1.93 s, and the file on disk keeps
+  its old text. A crate that crates.io does not have gives an error with its name.
+- A project that was never built has no `build/clusters` folder. The project workspace now
+  lists `build/clusters/*` only when the folder exists, because `cargo add` failed without it.
 - The page reports each error of the window to the check, but not the browser message
   `ResizeObserver loop`. Monaco causes this message when the **Inspector** shows a new editor.
 - The engine test makes `my-node` and reads its input pin. It refuses `My_Node`, `number`,
   `type`, `Con`, `1a`, `a/b`, `..` and an empty name.
-- CI run 43725394671 of the **Add node** palette passed on `windows-latest`, `ubuntu-latest`
+- CI run 43726582105 of **New node** passed on `windows-latest`, `ubuntu-latest`
   and `macos-latest`.
 
 ### Known limits
 
+- **Add crate** has no search of crates.io and no list of versions. The self-check does not run
+  `cargo add`, because CI must not need crates.io for the UI check.
 - The check does not drag nodes. It pushes only Ctrl+S and Delete. A person did not use the
   editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.

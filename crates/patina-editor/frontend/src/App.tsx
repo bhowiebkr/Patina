@@ -196,6 +196,14 @@ export function App() {
     [show],
   );
 
+  /** Adds a crate to a node with `cargo add`. Undo removes it (15.4). */
+  const addCrate = useCallback(
+    async (node: string, spec: string) => {
+      show(await api.addCrate(node, spec));
+    },
+    [show],
+  );
+
   const refreshStart = useCallback(() => api.startInfo().then(setStart).catch((e) => setError(String(e))), []);
 
   useEffect(() => {
@@ -372,6 +380,7 @@ export function App() {
           onTab={setTab}
           onEdit={edit}
           onSave={saveAll}
+          onAddCrate={addCrate}
           onPick={pick}
         />
       ),

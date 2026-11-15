@@ -154,6 +154,8 @@ export const api = {
   nodeFiles: (name: string) => invoke<string[]>('node_files', { name }),
   /** Makes the node folder `nodes/<name>` (15.2). */
   newNode: (name: string) => invoke<View>('new_node', { name }),
+  /** Adds a crate of crates.io, `name` or `name@version`, to the node folder `nodes/<node>` (15.4). */
+  addCrate: (node: string, spec: string) => invoke<View>('add_crate', { node, spec }),
   readCode: (path: string) => invoke<string>('read_code', { path }),
   setUnsavedCode: (code: Code) => invoke<void>('set_unsaved_code', { code }),
   /** Restores or discards the changes of the recovery file (15.10). */
