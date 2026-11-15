@@ -100,6 +100,41 @@
   color: var(--subtle);
 }
 
+/* A node GUI (4.3): rows of the node row height with the shared controls. */
+.node-gui {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 12px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  cursor: default;
+}
+
+.gui-row {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gui-slider {
+  flex: 1;
+  min-width: 60px;
+  accent-color: var(--subtle);
+}
+
+.gui-value {
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.gui-button {
+  align-self: flex-start;
+}
+
 .patina-node-time {
   height: 24px;
   padding: 0 10px;

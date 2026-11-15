@@ -70,6 +70,7 @@ impl CurveEditor {
 - The `ui` function runs in the node code, on the engine side. It sends a widget tree to the editor. The editor draws the widgets with the Patina theme.
 - User input (clicks, drags, keys) goes back to the node as events. The next call of `ui` handles them.
 - The editor finds a widget by its order in the call of `ui`. A widget that shows only sometimes changes the order of the widgets after it, so put it last. This is an agent decision of 2026-11-15 that the owner can change.
+- The editor draws the GUI of each node after each run and each frame: the node body size in the node, and the large size of the selected node in the **Inspector**. A change in a live graph runs it again. A change of a frame node applies at the next frame. A change of a batch node runs the batch domain again, without a build. This is an agent decision of 2026-11-15 that the owner can change.
 - The GUI state is the node state, except in audio nodes (below). A GUI change can change the node output, so downstream nodes get the new value.
 
 **Audio nodes**

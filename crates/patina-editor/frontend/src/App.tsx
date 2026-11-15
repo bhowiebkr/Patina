@@ -74,6 +74,8 @@ export function App() {
   const [settings, setSettings] = useState(false);
   const [view, setView] = useState<View | null>(null);
   const [run, setRun] = useState<RunState>(NO_RUN);
+  // The widget lines of each node GUI, by "<mode> <node id>" (4.3).
+  const [guis, setGuis] = useState<ReadonlyMap<string, string>>(new Map());
   const [output, setOutput] = useState<Line[]>([]);
   const [logs, setLogs] = useState<Line[]>([]);
   const [error, setError] = useState('');
@@ -208,6 +210,11 @@ export function App() {
 
   useEvent(onEngine, (e: EngineEvent) => {
     if (e.serial !== serial.current) return;
+    if (e.state === 'gui') {
+      setGuis((g) => new Map([...g, ...e.trees.map((t) => [`${t.mode} ${t.id}`, t.tree] as const)]));
+      if (e.reports.length > 0) log(e.reports.map((r) => ({ text: `${r.folder} (${r.id}): ${reportText(r)}`, kind: 'err' as const })));
+      return;
+    }
     const active = e.state === 'building' || e.state === 'started' || e.state === 'frame' || (e.state === 'ran' && e.frames);
     setBusy(active);
     if (!active) endStop();
@@ -237,6 +244,7 @@ export function App() {
     }
     if (e.state === 'building') {
       setRun((r) => ({ ...r, phase: 'building' }));
+      setGuis(new Map());
       log([{ text: 'Building the graph', kind: 'info' }]);
     } else if (e.state === 'ran') {
       const failed = e.errors.length > 0;
@@ -390,6 +398,7 @@ export function App() {
         <Inspector
           view={view}
           run={run}
+          guis={guis}
           inspect={inspect}
           tab={tab}
           reveal={reveal}
@@ -462,7 +471,7 @@ export function App() {
             </div>
           )}
           <div className="canvas">
-            <GraphView key={view.serial} view={view} run={run} onEdit={edit} onSelect={onSelect} focus={focus} />
+            <GraphView key={view.serial} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} />
           </div>
         </Dock>
       ) : (

@@ -151,6 +151,8 @@ pub struct Cluster {
     work: [f64; 2],
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
+    /// The ID of each node with a GUI, and true when the node is in the frame domain (4.3).
+    guis: Vec<(String, bool)>,
     /// The node ID and the input key of each parameter slot.
     slots: Vec<(String, String)>,
     /// The output of each held value, as "<node id>.<output key>" (`Plan::held`).
@@ -270,6 +272,7 @@ impl Cluster {
     pub(crate) fn load(
         path: &Path,
         names: Vec<(String, String)>,
+        guis: Vec<(String, bool)>,
         slots: Vec<(String, String)>,
         probes: Vec<String>,
         tasks: &[Task],
@@ -301,7 +304,7 @@ impl Cluster {
             }
             let (sink, out) = (Sink::default(), Outcome::default());
             let work = [f64::INFINITY; 2];
-            Cluster { state, new, set, ui, end, free, parallel, domains, work, names, slots, probes, has_text, sink, out }
+            Cluster { state, new, set, ui, end, free, parallel, domains, work, names, guis, slots, probes, has_text, sink, out }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -397,6 +400,11 @@ impl Cluster {
         self.call(std::ptr::null(), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
         let tree = self.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
         (tree, std::mem::take(&mut self.out))
+    }
+
+    /// The ID of each node with a GUI, and true when the node is in the frame domain (4.3).
+    pub fn guis(&self) -> &[(String, bool)] {
+        &self.guis
     }
 
     /// The ID of each node, by the node index of `Control::node`.

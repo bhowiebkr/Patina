@@ -13,7 +13,7 @@ use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
 
 use crate::data::{Data, Recovery, same_path};
-use crate::engine::{self, Job, Run, Shared};
+use crate::engine::{self, GuiInput, Job, Run, Shared};
 
 pub struct Editor {
     pub data: Data,
@@ -459,6 +459,16 @@ pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
 pub fn stop(editor: State<'_, Editor>) -> Result<View, String> {
     editor.shared.control.set_stop(true);
     pause(editor)
+}
+
+/// Gives user input to the GUI of node `id` in size `mode` (0 node body, 1 **Inspector**), or asks
+/// for its widget lines when `events` is empty (4.3). A change runs a live graph again.
+#[tauri::command(async)]
+pub fn gui(editor: State<'_, Editor>, id: String, mode: u32, events: String) -> Result<(), String> {
+    editor.with(|session| {
+        let _ = editor.engine.send(Job::Gui(GuiInput { id, mode, events, rerun: session.live }));
+        Ok(())
+    })
 }
 
 /// The ID of the node that runs, or that ran last in the active run. None between runs (15.2).

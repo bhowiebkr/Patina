@@ -38,7 +38,7 @@ function splitPin(pin: string): [string, string] {
 }
 
 /** Keeps the selection and the measured size of the nodes that stay. */
-function buildNodes(view: View, run: RunState, prev: PatinaNode[]): PatinaNode[] {
+function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, prev: PatinaNode[]): PatinaNode[] {
   const old = new Map(prev.map((n) => [n.id, n]));
   const wires = view.graph.wire ?? [];
   return (view.graph.node ?? []).map((entry) => {
@@ -47,7 +47,7 @@ function buildNodes(view: View, run: RunState, prev: PatinaNode[]): PatinaNode[]
     const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
     const position = { x: entry.pos?.[0] ?? 0, y: entry.pos?.[1] ?? 0 };
     const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
-    const data = { entry, info, wired, state, message, editable: view.trusted, time };
+    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`) };
     const before = old.get(entry.id);
     return before ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });
@@ -77,13 +77,15 @@ function typing(target: EventTarget | null): boolean {
 interface Props {
   view: View;
   run: RunState;
+  /** The widget lines of each node GUI, by "<mode> <node id>" (4.3). */
+  guis: ReadonlyMap<string, string>;
   onEdit: (edit: Edit) => Promise<void>;
   onSelect: (ids: string[], wires: WireData[]) => void;
   /** A request to select one node, for example from a click on a compile error. */
   focus: { id: string; n: number } | null;
 }
 
-export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
+export function GraphView({ view, run, guis, onEdit, onSelect, focus }: Props) {
   const flow = useReactFlow<PatinaNode, Edge<WireData>>();
   const [nodes, setNodes] = useState<PatinaNode[]>([]);
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
@@ -100,7 +102,7 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
     [wires, onEdit, view.trusted, run],
   );
 
-  useEffect(() => setNodes((prev) => buildNodes(view, run, prev)), [view, run]);
+  useEffect(() => setNodes((prev) => buildNodes(view, run, guis, prev)), [view, run, guis]);
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);
   useEffect(() => {
     if (!focus) return;

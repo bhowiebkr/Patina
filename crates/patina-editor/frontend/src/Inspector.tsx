@@ -5,6 +5,7 @@ import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
+import { NodeGui } from './NodeGui';
 import type { Inspect } from './ProjectPanel';
 
 export type InspectorTab = 'parameters' | 'code' | 'logs';
@@ -18,6 +19,8 @@ const TABS: [InspectorTab, string][] = [
 interface Props {
   view: View;
   run: RunState;
+  /** The widget lines of each node GUI, by "<mode> <node id>" (4.3). */
+  guis: ReadonlyMap<string, string>;
   inspect: Inspect;
   tab: InspectorTab;
   reveal: Reveal | null;
@@ -148,8 +151,13 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
   );
 }
 
-export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick }: Props) {
+export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick }: Props) {
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
+  // A node with a GUI draws it in the Inspector size after each run, once the engine knows (4.3).
+  const guiId = entry && guis.has(`0 ${entry.id}`) ? entry.id : null;
+  useEffect(() => {
+    if (guiId) api.gui(guiId, 1, '').catch(() => {});
+  }, [guiId]);
   const code = (name: string) => (
     <CodeTab name={name} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(name, spec)} />
   );
@@ -224,6 +232,12 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
               );
             })}
           </div>
+          {guiId && (
+            <div className="section">
+              <h3>Controls</h3>
+              <NodeGui id={guiId} mode={1} tree={guis.get(`1 ${guiId}`) ?? guis.get(`0 ${guiId}`) ?? ''} disabled={!view.trusted} />
+            </div>
+          )}
           <div className="section">
             <h3>State</h3>
             <div>{STATE_NAMES[state]}</div>

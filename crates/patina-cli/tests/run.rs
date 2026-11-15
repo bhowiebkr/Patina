@@ -199,6 +199,7 @@ builtin = \"delay\"
     let (tree, out) = cluster.ui("00000000000000f1", 0, "1 1");
     assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t0\t0\t10"));
     assert!(cluster.ui("00000000000000f3", 0, "").0.is_none());
+    assert_eq!(cluster.guis(), [("00000000000000f1".to_owned(), true)]);
 }
 
 #[test]

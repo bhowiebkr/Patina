@@ -325,7 +325,12 @@ impl Checked {
             .held()
             .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
             .collect();
-        Cluster::load(&library, names, slots, probes, &plan.tasks)
+        let frame = |n: usize| plan.tasks.iter().any(|t| t.domain == node::Domain::Frame && t.steps.contains(&n));
+        let guis = (plan.steps.iter().enumerate())
+            .filter(|(_, s)| plan.nodes[s.node].1.ui && plan.nodes[s.node].1.state.is_some())
+            .map(|(n, s)| (s.id.clone(), frame(n)))
+            .collect();
+        Cluster::load(&library, names, guis, slots, probes, &plan.tasks)
     }
 
     /// The generated code of the cluster. Two checks with the same wiring give the same text, so

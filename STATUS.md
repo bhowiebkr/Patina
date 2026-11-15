@@ -10,8 +10,8 @@ checks open.
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
 Three slices work: stateful nodes (4.2), generic nodes (4.5) and the delay node (9.2). They
-ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. The engine side of node GUIs (4.3) works.
-The editor does not show node GUIs yet.
+ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. Node GUIs (4.3) work in the engine
+and in the editor.
 
 ### What works
 
@@ -57,6 +57,11 @@ The editor does not show node GUIs yet.
 
 ### Known limits
 
+- The editor draws the node GUIs in the node body, and the large size of the selected node in
+  the **Inspector**. It draws them again after each run and each frame. A change in a live
+  graph runs the graph again (4.3). The frontend test checks the widget lines. A Rust check and
+  the frontend build passed. The editor selfcheck does not use a node GUI, and nobody clicked a
+  node GUI in the editor.
 - Each build makes a new cluster, so a build resets the state of all nodes. Milestone 6 keeps
   the state of each node whose code did not change (7.2).
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
@@ -66,14 +71,16 @@ The editor does not show node GUIs yet.
   the CLI.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The search
   of the Add node palette does not join a wire to a generic pin.
-- The editor does not show node GUIs. Only stateful nodes can have a GUI. The number field, text
-  field, dropdown, the value widgets, the canvas, the sizes, `full_gui`, the audio `ui` with
-  `#[settings]` and widget folders are not done.
+- Only stateful nodes can have a GUI. The number field, text field, dropdown, the value
+  widgets, the canvas, the full size, `full_gui`, the audio `ui` with `#[settings]` and widget
+  folders are not done.
+- shortcut: the engine draws all node GUIs after each run and frame, also the nodes out of view
+  (4.3). Send the visible nodes from the page when graphs get large.
 - The delay runs only in the frame domain. The editor palette has no delay node.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
 - Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
   the worker pool for the first time inside the counted frames. A parallel cluster now prepares
-  the pool when it loads. CI did not run this fix yet.
+  the pool when it loads. One CI run with this fix passed on all three platforms.
 - The types go only from an output to an input. A type parameter that only an output uses
   stays unresolved, also when a wire goes from that output to a pin of a known type.
 

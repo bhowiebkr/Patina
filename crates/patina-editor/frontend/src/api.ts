@@ -161,7 +161,16 @@ export type EngineEvent =
   /** One frame of the frame domain (9.1). Only the nodes of the frame domain ran. */
   | { state: 'frame'; serial: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
   /** The frame run ended after `frames` frames. */
-  | { state: 'ended'; serial: number; frames: number };
+  | { state: 'ended'; serial: number; frames: number }
+  /** The widget lines of node GUIs (4.3), and the problems of their `ui` calls. */
+  | { state: 'gui'; serial: number; trees: Tree[]; reports: Report[] };
+
+/** The widget lines of a node GUI: mode 0 for the node body, 1 for the Inspector (4.3). */
+export interface Tree {
+  id: string;
+  mode: number;
+  tree: string;
+}
 
 export interface OutputText {
   text: string;
@@ -209,6 +218,8 @@ export const api = {
   pause: () => invoke<View>('pause'),
   /** Pauses, and asks the active run to stop (15.2). */
   stop: () => invoke<View>('stop'),
+  /** Sends user input to a node GUI, or asks for its widget lines when `events` is empty (4.3). */
+  gui: (id: string, mode: number, events: string) => invoke<void>('gui', { id, mode, events }),
   /** The ID of the node that runs, or that ran last in the active run. Null between runs (15.2). */
   running: () => invoke<string | null>('running'),
   /** The full text of the live value of an output after the last run (15.7), or null. */

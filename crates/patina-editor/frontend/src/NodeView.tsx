@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
 import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type NodeLog, type Report, type Value, type View } from './api';
 import { FAR_ZOOM } from './gl';
+import { NodeGui } from './NodeGui';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -69,6 +70,8 @@ export interface NodeData extends Record<string, unknown> {
   editable: boolean;
   /** The run time of the node in the last run, in milliseconds (15.7). */
   time?: number;
+  /** The widget lines of the node GUI in the node body size (4.3). */
+  gui?: string;
 }
 
 export type PatinaNode = Node<NodeData, 'patina'>;
@@ -174,7 +177,7 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable, time } = data;
+  const { entry, info, wired, state, message, editable, time, gui } = data;
   const inputs = info?.inputs ?? [];
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
@@ -204,6 +207,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
           );
         })}
       </div>
+      {gui !== undefined && !far && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
       {inputs.map(({ key }, i) => (
