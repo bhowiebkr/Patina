@@ -6,6 +6,8 @@ use crate::project::{GraphFile, NodeEntry, Wire, is_id};
 
 /// The number of edits that undo keeps. The oldest edit goes first.
 const UNDO_LIMIT: usize = 1000;
+/// The route points of one wire at most (6.4).
+pub const MAX_ROUTE_POINTS: usize = 12;
 
 /// One action of the user on a graph (7.4). A pin is `<node ID>.<pin key>`.
 #[derive(Deserialize, Clone, Debug)]
@@ -18,6 +20,8 @@ pub enum Edit {
     /// Replaces the wire that goes to the same input (6.4).
     Connect { from: String, to: String },
     Disconnect { from: String, to: String },
+    /// Replaces the route points of the wire to the input `to` (15.9). An empty list removes them.
+    SetRoute { to: String, points: Vec<[f64; 2]> },
     /// `None` removes the text, so the input gets its default value (4.8).
     SetParam { id: String, key: String, text: Option<String> },
     /// Applies the edits in order as one step of undo, for example a move of many nodes.
@@ -169,6 +173,16 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                 return Err(format!("no wire goes from {from} to {to}"));
             }
         }
+        Edit::SetRoute { to, points } => {
+            if points.len() > MAX_ROUTE_POINTS {
+                return Err(format!("a wire has {MAX_ROUTE_POINTS} route points at most"));
+            }
+            for p in points {
+                finite(p)?;
+            }
+            let wire = graph.wire.iter_mut().find(|w| &w.to == to).ok_or(format!("no wire goes to {to}"))?;
+            wire.points.clone_from(points);
+        }
         Edit::SetParam { id, key, text } => {
             let index = find(graph, id)?;
             let params = &mut graph.node[index].params;
@@ -255,6 +269,25 @@ mod tests {
         assert_eq!(history.graph.node.len(), 1, "a group with a bad edit changes nothing");
         let code = Edit::SetCode { path: "nodes/number/src/lib.rs".to_owned(), text: String::new() };
         assert!(history.apply(&Edit::Group { edits: vec![code] }).is_err());
+    }
+
+    #[test]
+    fn route_points_undo_and_save() {
+        let mut history = History::new(toml::from_str("format = 1").unwrap());
+        history.apply(&add(A)).unwrap();
+        history.apply(&add(B)).unwrap();
+        history.apply(&connect("000000000000000a.out", "000000000000000b.value")).unwrap();
+        let route = |to: &str, points: Vec<[f64; 2]>| Edit::SetRoute { to: to.to_owned(), points };
+        history.apply(&route("000000000000000b.value", vec![[10.0, 20.0], [30.0, 20.0]])).unwrap();
+        let text = toml::to_string(&history.graph).unwrap();
+        assert!(text.contains("points = [[10.0, 20.0], [30.0, 20.0]]"), "{text}");
+        history.apply(&Edit::MoveNode { id: A.to_owned(), pos: [50.0, 50.0] }).unwrap();
+        assert_eq!(history.graph.wire[0].points.len(), 2, "a move keeps the route points");
+        assert!(history.apply(&route("000000000000000b.value", vec![[0.0, 0.0]; MAX_ROUTE_POINTS + 1])).is_err());
+        assert!(history.apply(&route("000000000000000b.value", vec![[f64::INFINITY, 0.0]])).is_err());
+        assert!(history.apply(&route("000000000000000a.value", Vec::new())).is_err(), "no wire goes to this pin");
+        assert!(history.undo(no_code).unwrap() && history.undo(no_code).unwrap());
+        assert!(history.graph.wire[0].points.is_empty(), "undo removes the route points");
     }
 
     #[test]

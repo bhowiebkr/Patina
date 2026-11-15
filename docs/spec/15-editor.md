@@ -285,6 +285,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 **Routing and interaction**
 
 - Let the user add, drag and remove route points. Orthogonal segments can move sideways while keeping their endpoints connected.
+- A double-click on a connection adds a route point on the nearest segment. A selected connection shows square handles on its points. A double-click or the Delete key on a focused handle removes that point, and the arrow keys move it by 10 px, or by 1 px with Shift. Esc cancels a drag. A manual route is a polyline with rounded corners. (Agent decision, 2026-11-15. The owner can change it.)
 - Keep routes clear of unrelated node bodies, expanded GUIs, pins and controls. Allow room for the whole ribbon and its bends.
 - Moving a route point changes geometry only. Reconnecting an endpoint is a separate action with the normal graph checks.
 - Preserve manual route points when nodes move or resize. Recalculate only the affected unfixed sections where possible.

@@ -26,6 +26,12 @@ To run the editor from a checkout:
 - The wires draw on one WebGL2 canvas under the nodes (15.1). A selected wire has an amber
   band. The hit area of a wire is 12 screen pixels wide at each zoom. Without WebGL2, or after
   a lost context, the wires draw as SVG.
+- A double-click on a wire adds a route point (15.9). A selected wire shows square handles on
+  its points. Drag a handle to move its point. Delete or a double-click on a handle removes the
+  point. The arrow keys move a focused handle by 10 px, or by 1 px with Shift. Esc cancels a
+  drag. A route has rounded corners.
+- The graph file keeps the route points. Undo and redo work for each route edit. A route edit
+  does not make the result of the run stale.
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
   selection.
 - The **Inspector** has the **Parameters**, **Code** and **Logs** tabs of the selected node. A
@@ -58,7 +64,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 17 steps in 4.0 s:
+  off-screen and does not take the focus. It passed these 23 steps in 4.8 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -71,31 +77,45 @@ To run the editor from a checkout:
   - Open again. The graph is the saved graph. Run again, and find 2 ready nodes in the graph.
   - Read the pixels of the wire from the WebGL canvas. They are gray, with no amber. The
     point under the wire is in the edge. Click the wire, and find the amber band.
+  - Double-click the wire, and find 1 route handle. Drag the handle down by 60 px. After the
+    edit, the handle is under the pointer and the old place of the point has no wire pixels.
+  - Undo and redo the drag. Push Delete on the focused handle, and find no handle. Undo, and
+    find 1 wire with 1 route point. Save, and find no unsaved changes.
   - Capture the window into `check.png`.
+- The first capture with a route showed a stale segment from the old curve. The segment lists
+  did not change when the number of points changed. The fix makes new lists, and the check
+  failed without the fix.
 - The capture showed the two nodes with the ready state, the wire, the parameter value `2.5`
-  and the **Output** tab with `2.5`. **Run** was disabled while the graph ran.
+  and the **Output** tab with `2.5`. **Run** was disabled while the graph ran. The selected wire
+  had one rounded corner at its amber route handle.
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
-- `cargo test --workspace --locked` passed 39 tests. The tests check the graph edits with undo
-  and redo, `SetCode` with undo, the compile errors with the project paths, the changes that
+- `cargo test --workspace --locked` passed 40 tests. The tests check the graph edits with undo
+  and redo, the route points, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  4 tests of the miter normals of the wires.
+  10 tests: the miter normals, the rounded corners of a route, the place of a new route point,
+  the SVG path of a route and the segment lists.
 - CI run 43708446577 of the first editor slice passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 
 ### Known limits
 
-- The check does not drag nodes and does not push keys. A person did not use the editor yet.
+- The check does not drag nodes. It pushes only Ctrl+S and Delete. A person did not use the
+  editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.
 - The content security policy was not tested with a page that breaks it.
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: the dock layout (15.2), rust-analyzer in
-  Monaco (15.1), the **Debug** tab, the recovery file (15.10), the route points and the value
-  badges of the wires (15.9), and the search palette. **Stop** does the same as **Pause**.
+  Monaco (15.1), the **Debug** tab, the recovery file (15.10), the value badges of the wires
+  (15.9), and the search palette. **Stop** does the same as **Pause**.
+- The route points have no **Reset route** and no orthogonal style (15.9). The keyboard cannot
+  add a route point. The editor does not warn when a wire goes under a node.
+- The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG
+  wires.
 - A node after a node that failed keeps its old state. The engine does not report **Skipped**
   yet (15.3).
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
@@ -117,6 +137,8 @@ To run the editor from a checkout:
   - A node after a failed node shows its old state (`frontend/src/NodeView.tsx`).
   - One texture row holds the points of each wire. Above `MAX_TEXTURE_SIZE` wires (2048 or
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).
+  - A route of more than 62 points draws only its first 62 points. Only a graph file that a
+    person edited has such a route (`frontend/src/wires.ts`).
 
 ## Milestone 1: engine and CLI
 

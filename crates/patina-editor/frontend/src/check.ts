@@ -19,8 +19,8 @@ function anyPixel(column: Uint8Array, test: (r: number, g: number, b: number) =>
 const amber = (r: number, _g: number, b: number) => r - b > 80;
 const gray = (r: number, g: number, b: number) => Math.abs(r - g) < 12 && Math.abs(r - b) < 20;
 
-/** Reads a column of 16 px of the wire canvas across the middle of the first wire. */
-async function wireColumn(): Promise<{ x: number; y: number; column: Uint8Array }> {
+/** Reads a column of 16 px of the wire canvas at a screen point, by default the middle of the first wire. */
+async function wireColumn(at?: { x: number; y: number }): Promise<{ x: number; y: number; column: Uint8Array }> {
   const canvas = document.querySelector<HTMLCanvasElement>('.wire-layer');
   const path = document.querySelector<SVGPathElement>('.wire-hit');
   const pane = document.querySelector('.react-flow__pane');
@@ -28,8 +28,8 @@ async function wireColumn(): Promise<{ x: number; y: number; column: Uint8Array 
   const gl = canvas.getContext('webgl2')!;
   for (let tries = 0; tries < 5; tries++) {
     const box = path.getBoundingClientRect();
-    const x = box.left + box.width / 2;
-    const y = box.top + box.height / 2;
+    const x = at?.x ?? box.left + box.width / 2;
+    const y = at?.y ?? box.top + box.height / 2;
     // A small zoom at the middle of the wire makes the layer draw in the next frame. This callback
     // runs after that draw and before the frame shows, so the drawing buffer still has the wires.
     pane.dispatchEvent(new WheelEvent('wheel', { deltaY: -1, clientX: x, clientY: y, bubbles: true, cancelable: true }));
@@ -44,7 +44,7 @@ async function wireColumn(): Promise<{ x: number; y: number; column: Uint8Array 
         resolve(out);
       }),
     );
-    if (anyPixel(column, () => true)) return { x, y, column };
+    if (at || anyPixel(column, () => true)) return { x, y, column };
   }
   throw new Error('the wire layer drew nothing at the middle of the wire');
 }
@@ -170,7 +170,7 @@ fn broken() -> u32 {
     steps.push('fix with Ctrl+S');
 
     v = await step('save', () => api.save());
-    if (v.dirty) throw new Error('the project is not dirty after a save');
+    if (v.dirty) throw new Error('the project is still dirty after a save');
     const saved = JSON.stringify(v.graph);
     await step('pause', () => api.pause());
 
@@ -198,6 +198,35 @@ fn broken() -> u32 {
     await until('the selected wire', RUN_MS, () => document.querySelector('.react-flow__edge.selected') !== null);
     if (!anyPixel((await wireColumn()).column, amber)) throw new Error('the selected wire has no accent mark');
     steps.push('wire drawn and selected');
+
+    // Route points (15.9): a double-click adds one, a drag moves it, and Delete on its handle
+    // removes the point but keeps the wire. Undo and redo go through the engine.
+    const hitPath = document.querySelector<SVGPathElement>('.wire-hit')!;
+    const line = hitPath.getBoundingClientRect();
+    hitPath.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: line.left + line.width / 2, clientY: line.top + line.height / 2 }));
+    await until('a route point', RUN_MS, () => document.querySelectorAll('.route-point').length === 1);
+    steps.push('route point added');
+    const handle = () => document.querySelector<HTMLElement>('.route-point')!;
+    const center = (b = handle().getBoundingClientRect()) => [b.left + b.width / 2, b.top + b.height / 2];
+    const [cx, cy] = center();
+    for (const [type, y] of [['pointerdown', cy], ['pointermove', cy + 60], ['pointerup', cy + 60]] as const) {
+      handle().dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: cx, clientY: y }));
+    }
+    await until('the route point under the pointer after the edit', RUN_MS, () =>
+      Math.abs(center()[1] - (cy + 60)) < 2 && !handle().classList.contains('dragging'),
+    );
+    if (anyPixel((await wireColumn({ x: cx, y: cy })).column, () => true)) throw new Error('the wire still draws at the old place of the route point');
+    steps.push('route point dragged');
+    const added = (await step('undo the drag', () => api.undo())).graph.wire?.[0]?.points;
+    const moved = (await step('redo the drag', () => api.redo())).graph.wire?.[0]?.points;
+    if (added?.length !== 1 || moved?.length !== 1 || !(moved[0][1] > added[0][1])) throw new Error(`the drag did not move the point: ${JSON.stringify([added, moved])}`);
+    handle().focus();
+    handle().dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
+    await until('no route point', RUN_MS, () => document.querySelectorAll('.route-point').length === 0);
+    v = await step('undo the removal', () => api.undo());
+    if (v.graph.wire?.length !== 1 || v.graph.wire[0].points?.length !== 1) throw new Error('Delete on a route point changed more than the point');
+    v = await step('save the route', () => api.save());
+    if (v.dirty) throw new Error('the project is still dirty after a save');
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');

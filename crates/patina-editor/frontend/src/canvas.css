@@ -1,0 +1,176 @@
+/* The graph canvas: the nodes and the connections. The colors are in theme.css. */
+
+/* Graph nodes (spec 15.3). A header color never shows a state. */
+
+.patina-node {
+  position: relative;
+  width: 200px;
+  background: var(--node);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.patina-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.patina-node.compile-error,
+.patina-node.run-error {
+  border-color: var(--error);
+}
+
+.patina-node.stale {
+  opacity: 0.55;
+}
+
+.patina-node-header {
+  height: 32px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--border);
+  border-radius: 5px 5px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.patina-node-header .title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.state-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.state-icon.compiling .dot {
+  background: var(--warning);
+  animation: blink 0.8s steps(2, jump-none) infinite;
+}
+
+@keyframes blink {
+  to {
+    opacity: 0.25;
+  }
+}
+
+.patina-rows {
+  position: relative;
+  padding: 6px 0;
+}
+
+.patina-row {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.patina-row .param-text {
+  max-width: 70px;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  line-height: 18px;
+}
+
+.patina-node-message {
+  padding: 0 10px 8px;
+  font-size: 12px;
+  color: var(--error);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.patina-node-message.muted {
+  color: var(--subtle);
+}
+
+.react-flow__node-patina .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  min-height: 10px;
+  background: var(--raised);
+  border: 1.5px solid var(--wire);
+  border-radius: 50%;
+}
+
+.patina-node.unresolved .react-flow__handle {
+  border-color: var(--disabled);
+}
+
+.react-flow__attribution a {
+  color: var(--subtle);
+}
+
+/* The connections (spec 15.9): WebGL draws the wires, and the edge paths only take the pointer. */
+
+.wire-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.wire-hit {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: var(--wire-hit, 12px);
+  stroke-linecap: round;
+  visibility: hidden;
+  pointer-events: stroke;
+}
+
+.react-flow__edge:focus-visible .wire-hit {
+  visibility: visible;
+  opacity: 0.35;
+}
+
+.wire-line {
+  display: none;
+  fill: none;
+  stroke: var(--wire);
+  stroke-width: 2;
+}
+
+.svg-wires .wire-line {
+  display: inline;
+}
+
+.svg-wires .react-flow__edge.selected .wire-line {
+  stroke: var(--accent);
+}
+
+/* The handles of the route points of the selected wire. JS scales them to a fixed screen size. */
+.route-point {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 1px solid var(--app);
+  border-radius: 2px;
+  cursor: move;
+  pointer-events: all;
+}
+
+.route-point:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}

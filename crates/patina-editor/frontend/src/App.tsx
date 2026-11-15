@@ -51,8 +51,9 @@ function typing(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 }
 
-function onlyMoves(edit: Edit): boolean {
-  return edit.kind === 'MoveNode' || (edit.kind === 'Group' && edit.edits.every(onlyMoves));
+/** True when the edit changes only the drawing, so the result of the run stays current. */
+function onlyGeometry(edit: Edit): boolean {
+  return edit.kind === 'MoveNode' || edit.kind === 'SetRoute' || (edit.kind === 'Group' && edit.edits.every(onlyGeometry));
 }
 
 /** One Logs line for each compile error. A click on a line with a place shows the code. */
@@ -136,7 +137,7 @@ export function App() {
   }, []);
 
   const edit = useCallback(
-    (e: Edit) => act(api.edit(e), onlyMoves(e) ? undefined : markStale),
+    (e: Edit) => act(api.edit(e), onlyGeometry(e) ? undefined : markStale),
     [act, markStale],
   );
   const undo = useCallback(() => act(api.undo(), markStale), [act, markStale]);

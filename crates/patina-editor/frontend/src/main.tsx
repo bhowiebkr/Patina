@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './theme.css';
+import './canvas.css';
 import { App } from './App';
 import { reportError } from './api';
 

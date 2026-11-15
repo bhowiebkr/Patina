@@ -1,20 +1,114 @@
 // The geometry of the connections (spec 15.9): one slot of points for each wire. The WebGL
 // layer draws the slots, and each edge of React Flow keeps an invisible hit path on the same curve.
 
+import type { Point } from './api';
+
 export const MAX_POINTS = 64;
 /** x, y, nx, ny for each point. (nx, ny) is the miter normal, so two segments touch at a joint. */
 export const STRIDE = 4;
 const BEZIER_SEGMENTS = 32;
+/** The route points of one wire at most, as in the engine (spec 6.4). */
+export const MAX_ROUTE = 12;
+const CORNER_RADIUS = 12;
+/** 2 + MAX_ROUTE x CORNER_POINTS fits in MAX_POINTS. */
+const CORNER_POINTS = 5;
+const NO_ROUTE: readonly Point[] = [];
 
 /** The horizontal reach of the control points of the default curve. */
 function reach(sx: number, tx: number): number {
   return Math.max(40, Math.abs(tx - sx) * 0.5);
 }
 
-/** The SVG path of the default curve from a source pin to a target pin. */
-export function wirePath(sx: number, sy: number, tx: number, ty: number): string {
-  const dx = reach(sx, tx);
-  return `M${sx} ${sy}C${sx + dx} ${sy} ${tx - dx} ${ty} ${tx} ${ty}`;
+/** Point k of the polyline from the source pin through the route points to the target pin. */
+function vertex(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], k: number, axis: 0 | 1): number {
+  if (k === 0) return axis === 0 ? sx : sy;
+  if (k > route.length) return axis === 0 ? tx : ty;
+  return route[k - 1][axis];
+}
+
+/** x0, y0, x1, y1: the ends of the last rounded corner. */
+const cut = new Float64Array(4);
+
+/** Sets `cut` for the corner at route point k. Returns false when the corner stays sharp. */
+function corner(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], k: number): boolean {
+  if (route.length > MAX_ROUTE) return false;
+  const vx = route[k - 1][0];
+  const vy = route[k - 1][1];
+  const ix = vx - vertex(sx, sy, tx, ty, route, k - 1, 0);
+  const iy = vy - vertex(sx, sy, tx, ty, route, k - 1, 1);
+  const ox = vertex(sx, sy, tx, ty, route, k + 1, 0) - vx;
+  const oy = vertex(sx, sy, tx, ty, route, k + 1, 1) - vy;
+  const lin = Math.hypot(ix, iy);
+  const lout = Math.hypot(ox, oy);
+  const r = Math.min(CORNER_RADIUS, lin / 2, lout / 2);
+  if (r < 0.5) return false;
+  cut[0] = vx - (ix / lin) * r;
+  cut[1] = vy - (iy / lin) * r;
+  cut[2] = vx + (ox / lout) * r;
+  cut[3] = vy + (oy / lout) * r;
+  return true;
+}
+
+/** The SVG path from a source pin to a target pin: the default curve, or the rounded route. */
+export function wirePath(sx: number, sy: number, tx: number, ty: number, route: readonly Point[] = NO_ROUTE): string {
+  if (route.length === 0) {
+    const dx = reach(sx, tx);
+    return `M${sx} ${sy}C${sx + dx} ${sy} ${tx - dx} ${ty} ${tx} ${ty}`;
+  }
+  let d = `M${sx} ${sy}`;
+  for (let k = 1; k <= route.length; k++) {
+    const [vx, vy] = route[k - 1];
+    d += corner(sx, sy, tx, ty, route, k) ? `L${cut[0]} ${cut[1]}Q${vx} ${vy} ${cut[2]} ${cut[3]}` : `L${vx} ${vy}`;
+  }
+  return `${d}L${tx} ${ty}`;
+}
+
+/** The index in the route for a new point at (x, y): the place of the nearest segment. */
+export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number): number {
+  let best = 0;
+  let bestDistance = Infinity;
+  for (let k = 0; k <= route.length; k++) {
+    const ax = vertex(sx, sy, tx, ty, route, k, 0);
+    const ay = vertex(sx, sy, tx, ty, route, k, 1);
+    const dx = vertex(sx, sy, tx, ty, route, k + 1, 0) - ax;
+    const dy = vertex(sx, sy, tx, ty, route, k + 1, 1) - ay;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 > 0 ? Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
+    const distance = Math.hypot(ax + t * dx - x, ay + t * dy - y);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = k;
+    }
+  }
+  return best;
+}
+
+function put(out: Float32Array, at: number, n: number, x: number, y: number): number {
+  out[at + n * STRIDE] = x;
+  out[at + n * STRIDE + 1] = y;
+  return n + 1;
+}
+
+/** The points of the rounded route from `at`, with their normals. Returns the number of points. */
+export function routePoints(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], out: Float32Array, at: number): number {
+  // shortcut: a route of more than MAX_POINTS - 2 points (only from a file edited by hand) draws its first points; split the row when this matters.
+  const last = Math.min(route.length, MAX_POINTS - 2);
+  let n = put(out, at, 0, sx, sy);
+  for (let k = 1; k <= last; k++) {
+    const [vx, vy] = route[k - 1];
+    if (!corner(sx, sy, tx, ty, route, k)) {
+      n = put(out, at, n, vx, vy);
+      continue;
+    }
+    for (let j = 0; j < CORNER_POINTS; j++) {
+      const t = j / (CORNER_POINTS - 1);
+      const u = 1 - t;
+      n = put(out, at, n, u * u * cut[0] + 2 * u * t * vx + t * t * cut[2], u * u * cut[1] + 2 * u * t * vy + t * t * cut[3]);
+    }
+  }
+  n = put(out, at, n, tx, ty);
+  normals(out, at, n);
+  return n;
 }
 
 /** The points of the default curve from `at`, with their normals. Returns the number of points. */
@@ -82,7 +176,7 @@ export class WireStore {
   /** The slots that changed since the last draw. All slots changed when `grown` is true. */
   readonly changed = new Set<number>();
   grown = true;
-  /** True when a wire was added, removed, selected or cleared since the last draw. */
+  /** True when a wire was added, removed, selected, cleared or got a new number of points since the last draw. */
   layout = true;
   private readonly slots = new Map<string, number>();
   private readonly free: number[] = [];
@@ -93,7 +187,7 @@ export class WireStore {
     this.notify = fn;
   }
 
-  set(id: string, sx: number, sy: number, tx: number, ty: number, selected: boolean) {
+  set(id: string, sx: number, sy: number, tx: number, ty: number, route: readonly Point[], selected: boolean) {
     let slot = this.slots.get(id);
     if (slot === undefined) {
       slot = this.free.pop() ?? this.slots.size;
@@ -104,7 +198,11 @@ export class WireStore {
     const sel = selected ? 1 : 0;
     if (this.selected[slot] !== sel) this.layout = true;
     this.selected[slot] = sel;
-    this.counts[slot] = bezierPoints(sx, sy, tx, ty, this.points, slot * MAX_POINTS * STRIDE);
+    const at = slot * MAX_POINTS * STRIDE;
+    const n = route.length === 0 ? bezierPoints(sx, sy, tx, ty, this.points, at) : routePoints(sx, sy, tx, ty, route, this.points, at);
+    // A new number of points needs new segment lists, or the old segments read stale points.
+    if (this.counts[slot] !== n) this.layout = true;
+    this.counts[slot] = n;
     this.changed.add(slot);
     this.notify();
   }

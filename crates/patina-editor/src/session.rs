@@ -369,6 +369,9 @@ mod tests {
         let mut moved = graph.clone();
         moved.node[0].pos = Some([500.0, 500.0]);
         assert_eq!(affects_run(&graph, &moved), None);
+        let mut routed = graph.clone();
+        routed.wire[0].points.push([40.0, 40.0]);
+        assert_eq!(affects_run(&graph, &routed), None, "a route point changes only the drawing");
         let mut param = moved.clone();
         param.node[0].params.insert("value".to_owned(), "7".to_owned());
         assert_eq!(affects_run(&moved, &param), Some(false));

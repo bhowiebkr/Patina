@@ -1,6 +1,6 @@
 // The graph canvas (spec 15.2). Navigation is snappy: no animation between two views.
 
-import { useCallback, useEffect, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -14,9 +14,9 @@ import {
   type NodeChange,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
-import { newId, type Edit, type View } from './api';
+import { newId, type Edit, type Point, type View } from './api';
 import { NodeView, infoOf, nodeState, type PatinaNode, type RunState } from './NodeView';
-import { WireContext, WireEdge, WireLayer } from './WireLayer';
+import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { WireStore } from './wires';
 
 export const NODE_MIME = 'application/patina-node';
@@ -25,6 +25,7 @@ const NODE_TYPES = { patina: NodeView };
 const EDGE_TYPES = { wire: WireEdge };
 const PAN_BUTTONS = [1];
 const MULTI_KEYS = ['Shift', 'Control'];
+const NO_POINTS: readonly Point[] = [];
 
 /** `<node ID>.<pin key>` to the node ID and the pin key. */
 function splitPin(pin: string): [string, string] {
@@ -47,13 +48,13 @@ function buildNodes(view: View, run: RunState, prev: PatinaNode[]): PatinaNode[]
   });
 }
 
-function buildEdges(view: View, prev: Edge[]): Edge[] {
+function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
   const selected = new Set(prev.filter((e) => e.selected).map((e) => e.id));
   return (view.graph.wire ?? []).map((w) => {
     const [source, sourceHandle] = splitPin(w.from);
     const [target, targetHandle] = splitPin(w.to);
     const id = `${w.from}>${w.to}`;
-    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to } };
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS } };
   });
 }
 
@@ -64,18 +65,19 @@ function typing(target: EventTarget | null): boolean {
 interface Props {
   view: View;
   run: RunState;
-  onEdit: (edit: Edit) => void;
+  onEdit: (edit: Edit) => Promise<void>;
   onSelect: (ids: string[]) => void;
   /** A request to select one node, for example from a click on a compile error. */
   focus: { id: string; n: number } | null;
 }
 
 export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
-  const flow = useReactFlow<PatinaNode, Edge>();
+  const flow = useReactFlow<PatinaNode, Edge<WireData>>();
   const [nodes, setNodes] = useState<PatinaNode[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [glOk, setGlOk] = useState(true);
+  const tools = useMemo(() => ({ store: wires, onEdit, editable: view.trusted }), [wires, onEdit, view.trusted]);
 
   useEffect(() => setNodes((prev) => buildNodes(view, run, prev)), [view, run]);
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);
@@ -86,7 +88,7 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   }, [focus]);
 
   const onNodesChange = useCallback((changes: NodeChange<PatinaNode>[]) => setNodes((n) => applyNodeChanges(changes, n)), []);
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => setEdges((e) => applyEdgeChanges(changes, e)), []);
+  const onEdgesChange = useCallback((changes: EdgeChange<Edge<WireData>>[]) => setEdges((e) => applyEdgeChanges(changes, e)), []);
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: OnSelectionChangeParams) => onSelect(selected.map((n) => n.id)),
@@ -114,8 +116,7 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
         const edits: Edit[] = [...removed].map((id) => ({ kind: 'RemoveNode', id }));
         for (const edge of edges) {
           if (edge.selected && !removed.has(edge.source) && !removed.has(edge.target)) {
-            const wire = edge.data as { from: string; to: string };
-            edits.push({ kind: 'Disconnect', from: wire.from, to: wire.to });
+            edits.push({ kind: 'Disconnect', from: edge.data!.from, to: edge.data!.to });
           }
         }
         if (edits.length > 0) onEdit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
@@ -149,7 +150,7 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   };
 
   return (
-    <WireContext.Provider value={wires}>
+    <WireContext.Provider value={tools}>
       <ReactFlow
         className={glOk ? undefined : 'svg-wires'}
         nodes={nodes}

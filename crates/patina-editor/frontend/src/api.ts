@@ -97,6 +97,7 @@ export type Edit =
   | { kind: 'MoveNode'; id: string; pos: Point }
   | { kind: 'Connect'; from: string; to: string }
   | { kind: 'Disconnect'; from: string; to: string }
+  | { kind: 'SetRoute'; to: string; points: Point[] }
   | { kind: 'SetParam'; id: string; key: string; text: string | null }
   | { kind: 'SetCode'; path: string; text: string }
   | { kind: 'Group'; edits: Edit[] };

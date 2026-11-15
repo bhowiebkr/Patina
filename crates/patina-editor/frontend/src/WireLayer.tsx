@@ -2,26 +2,140 @@
 // Each React Flow edge keeps an invisible path on the same curve for the click, the box selection
 // and the keyboard focus. Without WebGL2, CSS shows the paths of the edges instead.
 
-import { createContext, useContext, useLayoutEffect, useRef } from 'react';
-import { useStoreApi, type EdgeProps } from '@xyflow/react';
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from 'react';
+import { useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
+import type { Edit, Point } from './api';
 import { GlWires } from './gl';
-import { wirePath, type WireStore } from './wires';
+import { insertAt, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */
 const HIT_WIDTH = 12;
+/** The size of a route handle, in screen pixels. */
+const HANDLE = 10;
 
-export const WireContext = createContext<WireStore | null>(null);
+/** The ends of a wire and its route points (spec 15.9). */
+export type WireData = { from: string; to: string; route: readonly Point[] };
 
-export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected }: EdgeProps) {
-  const store = useContext(WireContext)!;
-  useLayoutEffect(() => store.set(id, sourceX, sourceY, targetX, targetY, !!selected), [store, id, sourceX, sourceY, targetX, targetY, selected]);
+export interface WireTools {
+  store: WireStore;
+  onEdit: (edit: Edit) => Promise<void>;
+  editable: boolean;
+}
+
+export const WireContext = createContext<WireTools | null>(null);
+
+export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
+  const { store, onEdit, editable } = useContext(WireContext)!;
+  const flow = useReactFlow();
+  // The route during a drag. It stays until the edit gives the new graph, so the wire does not jump back.
+  const [draft, setDraft] = useState<readonly Point[] | null>(null);
+  const route = draft ?? data!.route;
+  useLayoutEffect(
+    () => store.set(id, sourceX, sourceY, targetX, targetY, route, !!selected),
+    [store, id, sourceX, sourceY, targetX, targetY, route, selected],
+  );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
-  const d = wirePath(sourceX, sourceY, targetX, targetY);
+  const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
+  const add = (e: MouseEvent) => {
+    if (!editable) return;
+    const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const k = insertAt(sourceX, sourceY, targetX, targetY, route, p.x, p.y);
+    void send([...route.slice(0, k), [Math.round(p.x), Math.round(p.y)], ...route.slice(k)]);
+  };
+  const d = wirePath(sourceX, sourceY, targetX, targetY, route);
   return (
     <>
       <path className="wire-line" d={d} />
-      <path className="wire-hit" d={d} />
+      <path className="wire-hit" d={d} onDoubleClick={add} />
+      {selected && editable && <RouteHandles route={route} dragging={draft !== null} setDraft={setDraft} send={send} />}
     </>
+  );
+}
+
+interface HandleProps {
+  route: readonly Point[];
+  dragging: boolean;
+  setDraft: (route: readonly Point[] | null) => void;
+  send: (points: Point[]) => Promise<void>;
+}
+
+/** The square handles of the route points of the selected wire, above the nodes. */
+function RouteHandles({ route, dragging, setDraft, send }: HandleProps) {
+  const zoom = useStore((s) => s.transform[2]);
+  const flow = useReactFlow();
+  const drag = useRef<{ k: number; dx: number; dy: number; route: Point[] | null } | null>(null);
+
+  const down = (k: number, e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    drag.current = { k, dx: route[k][0] - p.x, dy: route[k][1] - p.y, route: null };
+  };
+  const move = (e: PointerEvent) => {
+    const g = drag.current;
+    if (!g) return;
+    const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const point: Point = [Math.round(p.x + g.dx), Math.round(p.y + g.dy)];
+    g.route = route.map((q, i) => (i === g.k ? point : q));
+    setDraft(g.route);
+  };
+  const up = () => {
+    const g = drag.current;
+    drag.current = null;
+    if (g?.route) void send(g.route).finally(() => setDraft(null));
+  };
+  const remove = (k: number) => void send(route.filter((_, i) => i !== k));
+  const key = (k: number, e: KeyboardEvent) => {
+    const step = e.shiftKey ? 1 : 10;
+    const by: Record<string, Point> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    if (e.key === 'Escape' && drag.current) {
+      drag.current = null;
+      setDraft(null);
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && !drag.current) {
+      remove(k);
+    } else if (by[e.key] && !drag.current) {
+      const [dx, dy] = by[e.key];
+      void send(route.map((q, i) => (i === k ? [q[0] + dx, q[1] + dy] : q)));
+    } else {
+      return;
+    }
+    // The key acts on the point only: the canvas does not also disconnect the wire or clear the selection.
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  return (
+    <ViewportPortal>
+      {route.map(([x, y], k) => (
+        <div
+          key={k}
+          className={dragging ? 'route-point nodrag nopan dragging' : 'route-point nodrag nopan'}
+          style={{ transform: `translate(${x - HANDLE / 2}px, ${y - HANDLE / 2}px) scale(${1 / zoom})` }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Route point ${k + 1}`}
+          title="Drag to move. Delete or a double-click removes the point."
+          onPointerDown={(e) => down(k, e)}
+          onPointerMove={move}
+          onPointerUp={up}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            remove(k);
+          }}
+          onKeyDown={(e) => key(k, e)}
+        />
+      ))}
+    </ViewportPortal>
   );
 }
 
