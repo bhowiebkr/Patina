@@ -16,10 +16,11 @@ Working rules for AI agents in this repository.
 - [STATUS.md](STATUS.md) is the current status: the milestone, what works, what was checked and
   the known limits. Create it with the first prototype result. Update it when a change alters
   one of them.
-- Read [docs/gui-visual-guide.md](docs/gui-visual-guide.md) before GUI work. It defines the
-  neutral charcoal palette, node sizing, shared controls, logo and image-specific corrections.
-  Mockup 9 is the main theme reference. The guide covers all current mockups; the spec defines
-  behavior. Preserve existing image names unless the owner asks for a replacement or removal.
+- Read [docs/gui-visual-guide.md](docs/gui-visual-guide.md) before GUI work. Then read the
+  files in `docs/gui-visual-guide/` that the task needs. The guide defines the neutral charcoal
+  palette, node sizing, shared controls, logo and image-specific corrections. Mockup 9 is the
+  main theme reference. The guide covers all current mockups; the spec defines behavior.
+  Preserve existing image names unless the owner asks for a replacement or removal.
 - Keep the README a user guide to the program. Put long plans and designs in their own Markdown
   files in `docs/`, as the spec is, and link them from the README.
 - Write documentation, commit messages and replies to the owner in ASD-STE100 Simplified

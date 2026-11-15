@@ -3,8 +3,8 @@
 **Status:** design proposal and image reference. No simulator or connection
 renderer was implemented by this work. **Updated:** 2026-11-14.
 
-The [illustrated GUI guide](gui-visual-guide.md#node-connections) contains the
-connection rules and routed-crossing study. Its [circuit references](gui-visual-guide.md#circuit-references)
+The [illustrated GUI guide](gui-visual-guide/connections.md) contains the
+connection rules and routed-crossing study. Its [circuit references](gui-visual-guide/circuit-mockups.md)
 include the original electronic workspaces and their ribbon variants. The owner
 accepted mockup 12's cable appearance and asked to keep original mockups 10 and
 11. The other images explore related cases.
@@ -73,7 +73,7 @@ the move/clone rules.
 
 ## Connection appearance and editing
 
-The shared [connection guide](gui-visual-guide.md#node-connections) now covers
+The shared [connection guide](gui-visual-guide/connections.md) now covers
 manual route points, moving segments, routes around nodes, crossings, selection,
 bus presentation and extension cases. [Spec 15.9](spec/15-editor.md#159-connections-and-routing)
 records the core interface rules. Keep circuit-specific rendering subject to

@@ -197,7 +197,7 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 Connections are part of the node interface. Their sockets, labels, paths and
 interaction need the same care as node bodies. A spline is one available style,
 not the definition of a connection. The
-[connection guide](../gui-visual-guide.md#node-connections) gives the visual
+[connection guide](../gui-visual-guide/connections.md) gives the visual
 rules and examples.
 
 **Meaning and appearance**
