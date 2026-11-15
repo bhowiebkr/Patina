@@ -65,8 +65,8 @@ The test `cargo test -p types-across-clusters` ran and passed these checks in bo
 
 ### Known limits
 
-- The loader supports only Windows. On Linux and macOS, the test does not run. An issue is
-  necessary for this gap.
+- The loader supports only Windows. On Linux and macOS, the test does not run.
+  [Issue 1](https://github.com/bhowiebkr/Patina/issues/1) tracks this gap.
 - The test did not run on a clean Windows computer.
 - The only generic type is `Vec<T>`. The type crates have no dependencies, so the build ID
   does not include resolved dependencies yet.
