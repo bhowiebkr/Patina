@@ -77,7 +77,8 @@ Rules:
 
 - A cycle of data wires or order wires needs a delay node. The editor refuses a connection that makes another cycle, and names the nodes of the cycle.
 - The batch and event domains have no delay nodes, so their graphs have no cycles.
-- The delay node comes in milestone 5, with the stateful nodes and the generic nodes, because it keeps a value of any type from one frame to the next. Until then, the engine refuses each cycle, and the editor refuses each connection that makes a cycle. This is an agent decision of 2026-11-15 that the owner can change.
+- Patina gives the delay node. A graph file names it with `builtin = "delay"` (6.4). It has one generic input `value: T` and one output of type `T`, with `T: Default`. In the first frame, the output is `T::default()`. At the end of each frame, the delay keeps its input for the next frame. It takes the value when it is the only reader in the domain, else it clones the value (4.4). The input wire of a delay makes no cycle. This is an agent decision of 2026-11-15 that the owner can change.
+- The delay node runs only in the frame domain. The audio delay, with one block of latency, comes with the audio domain. The editor palette has no delay node yet. This is an agent decision of 2026-11-15 that the owner can change.
 - A node with no inputs and no declared domain runs in the batch domain. Its domain icon shows this (15.3), and the user can change the domain.
 
 Later: start the first nodes of frame N+1 while the last nodes of frame N run.

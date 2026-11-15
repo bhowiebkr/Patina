@@ -257,6 +257,11 @@ impl<T> Shared<T> {
     }
 }
 
+/// The value of a delay node (9.2), with the type of its input. The first frame gives the default.
+pub fn delay_for<T: Default>(_input: &Shared<Option<T>>) -> Shared<T> {
+    Shared::new(T::default())
+}
+
 /// The state of one use of a stateful node (4.2). It is empty until the first call. Only the task
 /// of the node uses it, so a state that is `Send` lets the cluster run in parallel.
 pub struct State<T>(Mutex<Option<T>>);

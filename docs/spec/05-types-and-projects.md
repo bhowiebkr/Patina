@@ -168,7 +168,8 @@ format = 1
 
 [[node]]
 id = "5c0e9b2a7f13d846"         # the stable random ID of this use (6.1)
-folder = "nodes/curve-editor"   # or subgraph = "full-adder" for a use of graphs/full-adder.toml
+folder = "nodes/curve-editor"   # or subgraph = "full-adder" for a use of graphs/full-adder.toml,
+                                # or builtin = "delay" for the delay node (9.2)
 pos = [120.0, -40.0]
 domain = "audio"                # only when the user selected the domain (9.1)
 settings = "<text form>"        # only for a node with #[settings] (4.3)

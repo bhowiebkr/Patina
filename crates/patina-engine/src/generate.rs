@@ -21,7 +21,7 @@ pub fn manifest(plan: &Plan) -> String {
          publish = false\n\n[lib]\ncrate-type = [\"cdylib\"]\npath = \"lib.rs\"\n\n\
          [dependencies]\npatina-sdk = {{ workspace = true }}\n"
     );
-    let mut names: Vec<&str> = plan.nodes.iter().map(|(name, _)| name.as_str()).collect();
+    let mut names: Vec<&str> = plan.nodes.iter().enumerate().filter(|(i, _)| plan.delay != Some(*i)).map(|(_, (name, _))| name.as_str()).collect();
     names.sort_unstable();
     for name in names {
         let _ = writeln!(text, "{name} = {{ path = \"../../../nodes/{name}\" }}");
@@ -67,6 +67,12 @@ pub fn source(plan: &Plan) -> String {
         let _ = writeln!(s, "    let s{n} = ::patina_sdk::glue::State::new(); // {}", step.id);
         shared.push(format!("s{n}"));
     }
+    // The value of each delay for the next frame (9.2). The first frame gives `Default::default()`.
+    for (n, step) in plan.steps.iter().enumerate().filter(|&(n, _)| plan.is_delay(n)) {
+        let Source::Wire { step: from, output } = step.inputs[0] else { continue };
+        let _ = writeln!(s, "    let d{n} = ::patina_sdk::glue::delay_for(&n{from}_{output}); // {}", step.id);
+        shared.push(format!("d{n}"));
+    }
     // Rust knows these types only after the closure, so the checks for `parallel` start here.
     for name in &shared {
         let _ = writeln!(s, "    let c_{name} = ::patina_sdk::glue::check(&{name});");
@@ -85,7 +91,11 @@ pub fn source(plan: &Plan) -> String {
         probes.push(probe);
         probe += step.consumers.iter().filter(|&&c| c > 0).count();
     }
-    for (t, task) in plan.tasks.iter().enumerate() {
+    // The tasks with a delay come last, so Rust knows the type of the delay before its probe (9.2).
+    let mut order: Vec<usize> = (0..plan.tasks.len()).collect();
+    order.sort_by_key(|&t| plan.tasks[t].steps.iter().any(|&n| plan.is_delay(n)));
+    for t in order {
+        let task = &plan.tasks[t];
         let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::Task({t}) => {{\n            let mut ok = true;");
         let local: Vec<(usize, usize)> =
             plan.held().filter(|&(n, k)| plan.steps[n].task == t && !is_shared(plan, n, k)).collect();
@@ -105,6 +115,16 @@ pub fn source(plan: &Plan) -> String {
     // stays until its step runs again.
     for domain in plan.tasks.iter().map(|t| t.domain).collect::<std::collections::BTreeSet<_>>() {
         let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::End({}) => {{\n            let mut ok = true;", domain as u32);
+        // Each delay keeps its input for the next frame, before the values drop (9.2).
+        for (n, step) in plan.steps.iter().enumerate().filter(|&(n, step)| plan.is_delay(n) && step.domain == domain) {
+            let Source::Wire { step: from, output } = step.inputs[0] else { continue };
+            let value = if plan.steps[from].consumers[output] == 1 && plan.steps[from].domain == domain {
+                format!("n{from}_{output}.write().take()")
+            } else {
+                format!("::std::clone::Clone::clone(&*n{from}_{output}.read())")
+            };
+            let _ = writeln!(s, "            if let ::std::option::Option::Some(v) = {value} {{ *d{n}.write() = v; }} // {}", step.id);
+        }
         for (n, k) in plan.held().filter(|&(n, k)| plan.steps[n].domain == domain && is_shared(plan, n, k) && !is_kept(plan, n, k)) {
             let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
         }
@@ -122,11 +142,11 @@ pub fn source(plan: &Plan) -> String {
     s
 }
 
-/// True when a node of another task reads output `k` of step `n`. The value is then in a shared
-/// slot of the cluster. Else it is a local variable of its task (9.2).
+/// True when a node of another task or a delay reads output `k` of step `n`. The value is then in
+/// a shared slot of the cluster. Else it is a local variable of its task (9.2).
 fn is_shared(plan: &Plan, n: usize, k: usize) -> bool {
     let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
-    plan.steps.iter().any(|step| step.task != plan.steps[n].task && step.inputs.iter().any(reads))
+    plan.steps.iter().enumerate().any(|(m, step)| (step.task != plan.steps[n].task || plan.is_delay(m)) && step.inputs.iter().any(reads))
 }
 
 /// True when a node of another domain reads output `k` of step `n`: a latest-value wire (9.1).
@@ -153,16 +173,19 @@ fn held(plan: &Plan, n: usize, k: usize) -> [String; 3] {
 fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
     let step = &plan.steps[n];
     let (name, node) = &plan.nodes[step.node];
+    // A delay gives the value of the previous frame, so it waits for no input (9.2).
+    let delay = plan.is_delay(n);
     let wired: Vec<String> = step
         .inputs
         .iter()
+        .filter(|_| !delay)
         .filter_map(|source| match source {
             Source::Wire { step, output } => Some(format!("{}.is_some()", held(plan, *step, *output)[0])),
             Source::Slot(_) => None,
         })
         .collect();
     let ready = if wired.is_empty() { "true".to_owned() } else { wired.join(" && ") };
-    let _ = writeln!(s, "            // {}: nodes/{name}", step.id);
+    let _ = writeln!(s, "            // {}: {}", step.id, if delay { "delay (9.2)".to_owned() } else { format!("nodes/{name}") });
     for k in (0..step.consumers.len()).filter(|&k| is_kept(plan, n, k)) {
         let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
     }
@@ -188,7 +211,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
         args.push("st".to_owned());
         call = format!("::{krate}::{state}::{}", node.func);
     }
-    for (input, source) in node.inputs.iter().zip(&step.inputs) {
+    for (input, source) in node.inputs.iter().zip(&step.inputs).filter(|_| !delay) {
         let value = match (source, input.pass) {
             (Source::Slot(i), Pass::Ref) => format!("&*p{i}.read()"),
             (Source::Slot(i), _) => format!("::std::clone::Clone::clone(&*p{i}.read())"),
@@ -212,7 +235,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
             args.push(value);
         }
     }
-    let call = format!("{call}({})", args.join(", "));
+    let call = if delay { format!("::std::mem::take(&mut *d{n}.write())") } else { format!("{call}({})", args.join(", ")) };
     if node.fallible {
         let _ = writeln!(
             s,

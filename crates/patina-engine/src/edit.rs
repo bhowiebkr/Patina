@@ -152,6 +152,7 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                 id: id.clone(),
                 folder: Some(folder.clone()),
                 subgraph: None,
+                builtin: None,
                 pos: Some(finite(pos)?),
                 domain: None,
                 settings: None,

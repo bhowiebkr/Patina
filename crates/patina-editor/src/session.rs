@@ -219,8 +219,9 @@ impl Session {
 /// Some(true) when the change needs a new build, and Some(false) when only parameters changed.
 /// None when nothing that runs changed, for example a position or the points of a wire.
 fn affects_run(old: &GraphFile, new: &GraphFile) -> Option<bool> {
-    fn node(n: &NodeEntry) -> (&str, &Option<String>, &Option<String>, &Option<String>, &Option<String>) {
-        (&n.id, &n.folder, &n.subgraph, &n.domain, &n.settings)
+    type Node<'a> = (&'a str, [&'a Option<String>; 5]);
+    fn node(n: &NodeEntry) -> Node<'_> {
+        (&n.id, [&n.folder, &n.subgraph, &n.builtin, &n.domain, &n.settings])
     }
     fn wire(w: &Wire) -> (&str, &str) {
         (&w.from, &w.to)

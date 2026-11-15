@@ -21,6 +21,8 @@ pub struct Plan {
     pub log: bool,
     /// The tasks of the scheduler (9.2), in run order.
     pub tasks: Vec<Task>,
+    /// The index in `nodes` of the built-in delay node (9.2), when the graph uses it.
+    pub delay: Option<usize>,
 }
 
 /// A chain of steps that one call runs in order (9.2).
@@ -57,6 +59,11 @@ impl Plan {
         })
     }
 
+    /// True when step `n` is a delay node (9.2).
+    pub fn is_delay(&self, n: usize) -> bool {
+        self.delay == Some(self.steps[n].node)
+    }
+
     /// The connection kind of output `k` of step `n`, when a kind shows its type (6.3).
     pub fn kind(&self, n: usize, k: usize) -> Option<&(String, Kind)> {
         let ty = &self.steps[n].types[k];
@@ -75,6 +82,9 @@ pub struct Slot {
     pub key: String,
     pub is_str: bool,
 }
+
+/// The `builtin` name of the delay node in a graph file (9.2).
+const DELAY: &str = "delay";
 
 /// Crate names that a node folder cannot have, after `-` changes to `_`.
 /// Crate names of Rust and Patina, the keywords of Rust, the folder names of Cargo and the device
@@ -103,6 +113,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let mut by_name: HashMap<String, Option<usize>> = HashMap::new();
     let mut entries: Vec<Option<Entry>> = Vec::new();
     let mut by_id: HashMap<&str, usize> = HashMap::new();
+    let mut delay = None;
 
     for (index, entry) in graph.node.iter().enumerate() {
         entries.push(None);
@@ -123,25 +134,43 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         if entry.settings.is_some() {
             fail("node settings (4.3) come at milestone 5".to_owned());
         }
-        let Some(folder) = &entry.folder else {
-            fail("the node has no folder".to_owned());
-            continue;
-        };
-        let Some(name) = folder.strip_prefix("nodes/") else {
-            fail(format!("the folder {folder:?} is not in nodes/"));
-            continue;
-        };
-        let slot = by_name.entry(name.to_owned()).or_insert_with(|| match read_node(root, name) {
-            Ok(node) => {
-                nodes.push((name.to_owned(), node));
-                Some(nodes.len() - 1)
+        let node_index = match (&entry.folder, &entry.builtin) {
+            (None, Some(builtin)) if builtin == DELAY => *delay.get_or_insert_with(|| {
+                nodes.push((DELAY.to_owned(), node::delay()));
+                nodes.len() - 1
+            }),
+            (None, Some(builtin)) => {
+                fail(format!("Patina has no built-in node {builtin:?} (spec 9.2)"));
+                continue;
             }
-            Err(text) => {
-                problems.push(format!("{folder}: {text}"));
-                None
+            (Some(_), Some(_)) => {
+                fail("give the node a folder or a built-in node, not both".to_owned());
+                continue;
             }
-        });
-        let Some(node_index) = *slot else { continue };
+            (None, None) => {
+                fail("the node has no folder".to_owned());
+                continue;
+            }
+            (Some(folder), None) => {
+                let Some(name) = folder.strip_prefix("nodes/") else {
+                    fail(format!("the folder {folder:?} is not in nodes/"));
+                    continue;
+                };
+                let slot = by_name.entry(name.to_owned()).or_insert_with(|| match read_node(root, name) {
+                    Ok(node) => {
+                        nodes.push((name.to_owned(), node));
+                        Some(nodes.len() - 1)
+                    }
+                    Err(text) => {
+                        problems.push(format!("{folder}: {text}"));
+                        None
+                    }
+                });
+                let Some(node_index) = *slot else { continue };
+                node_index
+            }
+        };
+        let folder = entry.folder.as_deref().unwrap_or(DELAY);
         let node = &nodes[node_index].1;
         for key in entry.params.keys() {
             if !node.inputs.iter().any(|i| &i.key == key) {
@@ -181,7 +210,10 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         if entry.wired[input].replace((from_entry, output)).is_some() {
             problems.push(format!("the input {:?} has more than one wire", wire.to));
         }
-        edges.push((from_entry, to_entry));
+        // The delay gives the value of the previous frame, so its input wire makes no cycle (9.2).
+        if delay != Some(entry.node) {
+            edges.push((from_entry, to_entry));
+        }
     }
     for order in &graph.order {
         match (by_id.get(order.before.as_str()), by_id.get(order.after.as_str())) {
@@ -223,6 +255,9 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
                     steps[step_of[from]].consumers[output] += 1;
                     Source::Wire { step: step_of[from], output }
                 }
+                None if delay == Some(entry.node) => {
+                    return Err(vec![format!("node {}: connect a wire to the input `value` of the delay (spec 9.2)", entry.id)]);
+                }
                 None => {
                     slots.push(Slot { step, key: input.key.clone(), is_str: input.is_str });
                     Source::Slot(slots.len() - 1)
@@ -234,39 +269,66 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     resolve(&mut steps, &nodes)?;
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
     domains(&mut steps, &edges, |n| entries[order[n]].domain)?;
+    for step in steps.iter().filter(|s| delay == Some(s.node)) {
+        if let Source::Wire { step: from, .. } = step.inputs[0]
+            && !reaches(steps[from].domain, step.domain)
+        {
+            return Err(vec![format!("node {}: the delay reads the {} domain. Connect a value of the frame domain", step.id, steps[from].domain.name())]);
+        }
+    }
     let tasks = split(&mut steps, &edges);
-    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks };
+    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, delay };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
     plan.kinds.retain(|(name, _)| used.contains(name));
-    let mut folders = plan.nodes.iter().map(|(n, _)| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
+    let mut folders = plan.nodes.iter().enumerate().filter(|(i, _)| plan.delay != Some(*i)).map(|(_, (n, _))| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
     plan.log = folders.any(|(group, name)| uses_log(root, group, name));
     Ok(plan)
 }
 
-/// Sets the output types of each step, in run order. The wires give the type parameters of a
-/// generic node (4.5). The compiler then makes a copy of the node for each set of types.
+/// Sets the output types of each step. The wires give the type parameters of a generic node (4.5).
+/// The compiler then makes a copy of the node for each set of types. A delay comes before the node
+/// of its input (9.2), so a step that waits for a type goes to the next pass.
 // shortcut: the types go only from an output to an input, so a parameter that only an output uses
 // stays unresolved. Infer it from the input at the other end of the wire when a node needs it.
 fn resolve(steps: &mut [Step], nodes: &[(String, Node)]) -> Result<(), Vec<String>> {
     let mut problems = Vec::new();
-    for n in 0..steps.len() {
-        let node = &nodes[steps[n].node].1;
-        let mut bound = vec![None; node.generics.len()];
-        for (input, source) in node.inputs.iter().zip(&steps[n].inputs) {
-            if let Source::Wire { step, output } = *source
-                && let Some(actual) = steps[step].types.get(output)
-                && let Err(text) = types::unify(&input.value, actual, &node.generics, &mut bound)
-            {
-                problems.push(format!("node {}: the wires give two types: {text}", steps[n].id));
+    let mut done = vec![false; steps.len()];
+    let mut progress = true;
+    while progress {
+        progress = false;
+        for n in 0..steps.len() {
+            if done[n] {
+                continue;
             }
+            let node = &nodes[steps[n].node].1;
+            let mut bound = vec![None; node.generics.len()];
+            let (mut waits, mut conflicts) = (false, Vec::new());
+            for (input, source) in node.inputs.iter().zip(&steps[n].inputs) {
+                let Source::Wire { step, output } = *source else { continue };
+                waits |= !done[step];
+                if let Some(actual) = steps[step].types.get(output)
+                    && let Err(text) = types::unify(&input.value, actual, &node.generics, &mut bound)
+                {
+                    conflicts.push(format!("node {}: the wires give two types: {text}", steps[n].id));
+                }
+            }
+            let open: Vec<&str> = node.generics.iter().zip(&bound).filter(|(_, b)| b.is_none()).map(|(g, _)| g.as_str()).collect();
+            if waits && !open.is_empty() {
+                continue;
+            }
+            (done[n], progress) = (true, true);
+            problems.extend(conflicts);
+            if !open.is_empty() {
+                problems.push(format!("node {}: connect a wire that gives the type of {} (spec 4.5)", steps[n].id, open.join(", ")));
+                continue;
+            }
+            let bound: Vec<String> = bound.into_iter().flatten().collect();
+            steps[n].types = node.output_types.iter().map(|ty| types::substitute(ty, &node.generics, &bound)).collect();
         }
-        let open: Vec<&str> = node.generics.iter().zip(&bound).filter(|(_, b)| b.is_none()).map(|(g, _)| g.as_str()).collect();
-        if !open.is_empty() {
-            problems.push(format!("node {}: connect a wire that gives the type of {} (spec 4.5)", steps[n].id, open.join(", ")));
-            continue;
-        }
-        let bound: Vec<String> = bound.into_iter().flatten().collect();
-        steps[n].types = node.output_types.iter().map(|ty| types::substitute(ty, &node.generics, &bound)).collect();
+    }
+    for n in (0..steps.len()).filter(|&n| !done[n]) {
+        let open = nodes[steps[n].node].1.generics.join(", ");
+        problems.push(format!("node {}: connect a wire that gives the type of {open} (spec 4.5). A cycle of generic nodes gives none", steps[n].id));
     }
     if problems.is_empty() { Ok(()) } else { Err(problems) }
 }
@@ -532,6 +594,25 @@ mod tests {
         let wire = |from: &str, to: &str| format!("[[wire]]\nfrom = \"00000000000000{from}\"\nto = \"000000000000000e.{to}\"\n");
         let resolved = generic(&(wire("0d.out", "a") + &wire("0d.out", "b")));
         let (two, open) = (generic(&(wire("0d.out", "a") + &wire("0a.out", "b"))), generic(""));
+        // A delay f closes the cycle pick e -> f -> e (9.2). Num a gives the type of the cycle.
+        let delay = |more: &str| {
+            let to_f = "[[wire]]
+from = \"000000000000000e.out0\"
+to = \"000000000000000f.value\"
+";
+            generic(&format!("{}{to_f}[[node]]
+id = \"000000000000000f\"
+builtin = \"delay\"
+{more}", wire("0f.out", "b")))
+        };
+        let (looped, untyped, unknown) = (delay(&wire("0a.out", "a")), delay(&wire("0f.out", "a")), generic("[[node]]
+id = \"0000000000000010\"
+builtin = \"echo\"
+"));
+        let unwired = generic("[[node]]
+id = \"000000000000000f\"
+builtin = \"delay\"
+");
         std::fs::create_dir_all(root.join("connections/show")).unwrap();
         let named = check(&root, &graph(""));
         let num_logs = uses_log(&root, "nodes", "num");
@@ -564,6 +645,13 @@ mod tests {
         assert_eq!(resolved.kind(pick, 0).map(|(name, _)| name.as_str()), Some("byte"), "the kind of the resolved type");
         assert!(two.err().unwrap()[0].contains("the wires give two types: `T` is `u8` and `f64`"));
         assert!(open.err().unwrap()[0].contains("connect a wire that gives the type of T"));
+        let looped = looped.unwrap_or_else(|p| panic!("{p:?}"));
+        let ids: Vec<&str> = looped.steps.iter().map(|s| &s.id[14..]).collect();
+        assert_eq!(ids, ["0a", "0d", "0f", "0e"], "the delay runs before the node of its input");
+        assert!(looped.is_delay(2) && looped.steps[2].types == ["f64"] && looped.steps[3].domain == Domain::Frame);
+        assert!(untyped.err().unwrap()[0].contains("A cycle of generic nodes gives none"));
+        assert!(unknown.err().unwrap()[0].contains("no built-in node \"echo\""));
+        assert!(unwired.err().unwrap()[0].contains("connect a wire to the input `value` of the delay"));
         let latest = latest.unwrap_or_else(|p| panic!("{p:?}"));
         let parts: Vec<(Domain, &[usize])> = latest.tasks.iter().map(|t| (t.domain, &t.steps[..])).collect();
         assert_eq!(parts, [(Domain::Batch, &[0][..]), (Domain::Frame, &[1][..])], "a task holds the steps of one domain");

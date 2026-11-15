@@ -176,6 +176,14 @@ pub fn parse(source: &str) -> Result<Node, String> {
 
 const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
 
+/// The built-in delay node (9.2). Its output is the value of its input in the previous frame.
+pub fn delay() -> Node {
+    let t = "T".to_owned();
+    let input = Input { key: "value".to_owned(), pass: Pass::Take, is_str: false, ty: t.clone(), value: t.clone() };
+    let (generics, output_types) = (vec![t.clone()], vec![t]);
+    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame) }
+}
+
 /// The names of the type parameters. A node has no lifetime or const parameters (4.5).
 fn type_params(generics: &Generics) -> Result<Vec<String>, String> {
     let name = |param: &GenericParam| match param {

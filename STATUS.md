@@ -9,8 +9,8 @@ checks open.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 
-Two slices work: stateful nodes (4.2) and generic nodes (4.5). They ran on 2026-11-15 on
-Windows 11 Pro, with Rust 1.94.0. The delay node and node GUIs come next.
+Three slices work: stateful nodes (4.2), generic nodes (4.5) and the delay node (9.2). They
+ran on 2026-11-15 on Windows 11 Pro, with Rust 1.94.0. Node GUIs come next.
 
 ### What works
 
@@ -24,6 +24,9 @@ Windows 11 Pro, with Rust 1.94.0. The delay node and node GUIs come next.
 - A node function or a state struct can have type parameters. The engine gets them from the
   types of the input wires, and finds the connection kind of each output from its real type.
   A parameter that no input wire gives makes an error on the node.
+- A graph can have a feedback loop in the frame domain through a delay node
+  (`builtin = "delay"`). The delay gives the value of its input in the previous frame, and
+  `Default::default()` in the first frame.
 
 ### What was checked
 
@@ -38,6 +41,11 @@ Windows 11 Pro, with Rust 1.94.0. The delay node and node GUIs come next.
   cluster compiled them with `f64` from the wires, and the output was the same.
 - The plan test resolves `pick<T>` to `u8` and `Vec<u8>`, and finds the kind of `u8`. It refuses
   two wires that give `u8` and `f64` for `T`, and a `T` that no wire gives.
+- The hello test has a loop: mix to tick to a delay, and back to mix. The CLI wrote `6.5`,
+  `7.5`, `9.5` and `13.5`, so the delay gave the tick value of the previous frame. 100 frames
+  made no allocation.
+- The plan test orders a loop through a delay and gets its type from the other wire. It refuses
+  a delay with no input wire, an unknown built-in node, and a loop of only generic nodes.
 
 ### Known limits
 
@@ -50,6 +58,10 @@ Windows 11 Pro, with Rust 1.94.0. The delay node and node GUIs come next.
   the CLI.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The search
   of the Add node palette does not join a wire to a generic pin.
+- The delay runs only in the frame domain. The editor palette has no delay node.
+- A loop of only generic nodes and delays has no type, so the engine refuses it.
+- One Linux CI run counted 1 allocation in 100 frames of the hello test. The rerun passed. The
+  cause is not known.
 - The types go only from an output to an input. A type parameter that only an output uses
   stays unresolved, also when a wire goes from that output to a pin of a known type.
 
@@ -149,7 +161,7 @@ milestone 5 (9.2).
 
 ### Known limits
 
-- No delay node yet, so a graph cannot have a feedback loop. It comes in milestone 5.
+- No delay node yet, so a graph cannot have a feedback loop. Milestone 5 added it.
 - The calling thread of a parallel run wakes about 60 us after the last task ends. Eight
   separate tasks of 180 us thus ran only 2.5 to 5 times faster than one task, not 8 times.
 - The pool rule uses the node times of the last run. Thus, after a small run, the next run

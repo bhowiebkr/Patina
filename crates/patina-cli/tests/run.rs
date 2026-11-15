@@ -129,11 +129,12 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let sum = values.iter().find(|v| v.from == "f89c6e329e8ea336.out").unwrap();
     assert_eq!(sum.lanes, Some(Lanes { bits: "00000110".to_owned(), label: "whole".to_owned() }));
 
-    // A frame node reads batch values at each frame, after the batch run (9.1): number f0 (1) to
-    // tick f1, then mix f3 (sum 6.5 + tick) and show f2. Only tick reads f0. Tick is a stateful
-    // frame node (4.2) that adds its input to its count at each frame: 1, 2, 3. The wires give
-    // the type parameters of tick and mix (4.5). The count stays under 10, so the texts stop
-    // growing after 10 frames.
+    // A frame node reads batch values at each frame, after the batch run (9.1): number f0 (1) and
+    // delay f5 to mix f4, then tick f1, then mix f3 (sum 6.5 + tick) and show f2. Tick is a
+    // stateful frame node (4.2) that adds its input to its count at each frame. Delay f5 gives
+    // the tick of the previous frame (9.2), first 0, so the counts are 1, 3 and 7. The wires
+    // give the type parameters of tick, mix and delay (4.5). The counts stay under 10, so the
+    // texts stop growing after a few frames.
     for (name, code) in [("tick", TICK), ("mix", MIX)] {
         let folder = project.join("nodes").join(name);
         fs::create_dir_all(folder.join("src")).unwrap();
@@ -148,7 +149,16 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
         node("f1", "tick"),
         node("f3", "mix"),
         node("f2", "show"),
-        wire("00000000000000f0.out", "00000000000000f1.base"),
+        node("f4", "mix"),
+        "
+[[node]]
+id = \"00000000000000f5\"
+builtin = \"delay\"
+".to_owned(),
+        wire("00000000000000f0.out", "00000000000000f4.a"),
+        wire("00000000000000f5.out", "00000000000000f4.b"),
+        wire("00000000000000f4.out", "00000000000000f1.base"),
+        wire("00000000000000f1.out", "00000000000000f5.value"),
         wire("f89c6e329e8ea336.out", "00000000000000f3.a"),
         wire("00000000000000f1.out", "00000000000000f3.b"),
         wire("00000000000000f3.out", "00000000000000f2.value"),
@@ -157,7 +167,7 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     fs::write(&graph, fs::read_to_string(&graph).unwrap() + &more).unwrap();
     let (output, stdout, stderr) = run(&project, &["--frames", "3"]);
     assert!(output.status.success(), "{stderr}");
-    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "7.5", "8.5", "9.5"]);
+    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "7.5", "9.5", "13.5"]);
 
     // After the first frames, a frame does not allocate (9.1). The two frame tasks wait for each
     // other, so this thread runs both. The values, the lanes and the times are in each frame.
