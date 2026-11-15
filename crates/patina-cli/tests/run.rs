@@ -81,6 +81,24 @@ pub fn whole(value: &f64) -> patina_sdk::Lanes {
 }
 ";
 
+/// A stateful frame node of the test (4.2).
+const TICK: &str = "#[patina_sdk::node(domain = frame)]
+pub struct Tick {
+    count: f64,
+}
+
+impl Tick {
+    pub fn init() -> Self {
+        Tick { count: 0.0 }
+    }
+
+    pub fn process(&mut self, base: f64) -> f64 {
+        self.count = (self.count + base) % 10.0;
+        self.count
+    }
+}
+";
+
 #[test]
 fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "hello");
@@ -103,11 +121,13 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     assert_eq!(sum.lanes, Some(Lanes { bits: "00000110".to_owned(), label: "whole".to_owned() }));
 
     // A frame node reads batch values at each frame, after the batch run (9.1): number f0 (1) to
-    // tick f1 (frame, 1 + 1), then add f3 (sum 6.5 + 2) and show f2. Only tick reads f0.
+    // tick f1, then add f3 (sum 6.5 + tick) and show f2. Only tick reads f0. Tick is a stateful
+    // frame node (4.2) that adds its input to its count at each frame: 1, 2, 3.
+    // The count stays under 10, so the texts stop growing after 10 frames.
     let tick = project.join("nodes/tick");
     fs::create_dir_all(tick.join("src")).unwrap();
     fs::write(tick.join("Cargo.toml"), manifest.replace("whole", "tick")).unwrap();
-    fs::write(tick.join("src/lib.rs"), "#[patina_sdk::node(domain = frame)]\npub fn tick(base: f64) -> f64 {\n    base + 1.0\n}\n").unwrap();
+    fs::write(tick.join("src/lib.rs"), TICK).unwrap();
     let graph = project.join("graphs/main.toml");
     let node = |id: &str, folder: &str| format!("\n[[node]]\nid = \"00000000000000{id}\"\nfolder = \"nodes/{folder}\"\n");
     let wire = |from: &str, to: &str| format!("\n[[wire]]\nfrom = \"{from}\"\nto = \"{to}\"\n");
@@ -125,7 +145,7 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     fs::write(&graph, fs::read_to_string(&graph).unwrap() + &more).unwrap();
     let (output, stdout, stderr) = run(&project, &["--frames", "3"]);
     assert!(output.status.success(), "{stderr}");
-    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "8.5", "8.5", "8.5"]);
+    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "7.5", "8.5", "9.5"]);
 
     // After the first frames, a frame does not allocate (9.1). The two frame tasks wait for each
     // other, so this thread runs both. The values, the lanes and the times are in each frame.
@@ -133,7 +153,7 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let (mut cluster, control) = (opened.check().unwrap().build(&toolchain).unwrap(), Control::default());
     cluster.set_params(opened.graph());
     assert!(cluster.run(&control).ok);
-    let warm = (0..3).all(|_| cluster.frame(&control).ok);
+    let warm = (0..10).all(|_| cluster.frame(&control).ok);
     COUNTING.set(true);
     drop(std::hint::black_box(Box::new(1)));
     let boxed = ALLOCATIONS.replace(0);

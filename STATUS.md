@@ -1,11 +1,45 @@
 # Status
 
 The current milestone is milestone 5, stateful nodes, node GUIs and generic nodes (spec section
-19). Milestone 4 ended on 2026-11-15. Milestones 2, 3 and 4 work, with the open items in their
+19). Stateful nodes work. Milestone 4 ended on 2026-11-15. Milestones 2, 3 and 4 work, with the open items in their
 known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
+
+## Milestone 5: stateful nodes, node GUIs and generic nodes
+
+The first slice works: stateful nodes (4.2). It ran on 2026-11-15 on Windows 11 Pro, with Rust
+1.94.0. Generic nodes, the delay node and node GUIs come next.
+
+### What works
+
+- A node crate can have a `#[node]` struct with `pub fn init() -> Self` and
+  `pub fn process(&mut self, ...)` in an `impl` block. The pins come from `process`.
+- Each use of the node in a graph has its own state. The cluster calls `init` before the first
+  call of `process`, and keeps the state until the cluster drops.
+- A panic in `init` or `process` drops the state, so the next run calls `init` again (4.7).
+  An `Err` of `process` keeps the state.
+- The state is in a lock of its own. A state that is `Send` lets the cluster run in parallel.
+
+### What was checked
+
+- The parser test reads the pins of a stateful node from `process` in a second `impl` block.
+  It refuses 10 wrong forms, for example a private struct, no `init`, and `process(&self)`.
+- The glue test gives a stateful call an `Err` and then a panic. The `Err` kept the state, and
+  the panic dropped it. The two reports were an error and a panic.
+- The hello test has a stateful frame node that adds its input to a count at each frame. With
+  `--frames 3`, the CLI wrote `6.5`, `7.5`, `8.5` and `9.5`. Thus the state stayed between
+  frames. 100 frames with the stateful node made no allocation.
+
+### Known limits
+
+- Each build makes a new cluster, so a build resets the state of all nodes. Milestone 6 keeps
+  the state of each node whose code did not change (7.2).
+- A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
+  not only the task of the node (9.2).
+- No test makes a real cluster panic in `process`. The glue test checks the rule.
+- The editor was not run with a stateful node. It uses the same engine code as the CLI.
 
 ## Milestone 4: automatic parallelism and the frame domain
 

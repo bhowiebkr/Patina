@@ -62,6 +62,11 @@ pub fn source(plan: &Plan) -> String {
         let _ = writeln!(s, "    let n{n}_{k} = ::patina_sdk::glue::Shared::new(::std::option::Option::None);");
         shared.push(format!("n{n}_{k}"));
     }
+    // Each use of a stateful node has its own state (4.2). It drops with the cluster.
+    for (n, step) in plan.steps.iter().enumerate().filter(|(_, step)| plan.nodes[step.node].1.state.is_some()) {
+        let _ = writeln!(s, "    let s{n} = ::patina_sdk::glue::State::new(); // {}", step.id);
+        shared.push(format!("s{n}"));
+    }
     // Rust knows these types only after the closure, so the checks for `parallel` start here.
     for name in &shared {
         let _ = writeln!(s, "    let c_{name} = ::patina_sdk::glue::check(&{name});");
@@ -163,14 +168,26 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
     }
     let _ = writeln!(s, "            if rep.enter({n}, {ready}) {{");
     let indent = "                ";
+    let krate = name.replace('-', "_");
+    if node.state.is_some() {
+        let _ = writeln!(s, "{indent}let mut st = s{n}.lock();");
+    }
     let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
     let _ = writeln!(
         s,
-        "{indent}ok &= ::patina_sdk::glue::finish(::std::panic::catch_unwind(\
-         ::std::panic::AssertUnwindSafe(|| -> ::std::result::Result<(), ::std::string::String> {{"
+        "{indent}ok &= ::patina_sdk::glue::{}(::std::panic::catch_unwind(\
+         ::std::panic::AssertUnwindSafe(|| -> ::std::result::Result<(), ::std::string::String> {{",
+        if node.state.is_some() { "finish_state" } else { "finish" }
     );
     let inner = format!("{indent}    ");
     let mut args = Vec::new();
+    let mut call = format!("::{krate}::{}", node.func);
+    if let Some(state) = &node.state {
+        // A panic in `init` leaves no state, so the next run calls `init` again (4.7).
+        let _ = writeln!(s, "{inner}let st = st.get_or_insert_with(::{krate}::{state}::init);");
+        args.push("st".to_owned());
+        call = format!("::{krate}::{state}::{}", node.func);
+    }
     for (input, source) in node.inputs.iter().zip(&step.inputs) {
         let value = match (source, input.pass) {
             (Source::Slot(i), Pass::Ref) => format!("&*p{i}.read()"),
@@ -195,7 +212,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
             args.push(value);
         }
     }
-    let call = format!("::{}::{}({})", name.replace('-', "_"), node.func, args.join(", "));
+    let call = format!("{call}({})", args.join(", "));
     if node.fallible {
         let _ = writeln!(
             s,
@@ -226,7 +243,8 @@ fn step(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
             let _ = writeln!(s, "{inner}::std::mem::drop({value});");
         }
     }
-    let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), rep, {n});");
+    let state = if node.state.is_some() { "&mut *st, " } else { "" };
+    let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), {state}rep, {n});");
     let _ = writeln!(s, "{indent}rep.time({n}, t);");
     for k in (0..values.len()).filter(|k| step.consumers[*k] > 0) {
         let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {

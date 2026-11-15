@@ -38,6 +38,7 @@ impl Counter {
 ```
 
 - Pins come from the `process` signature.
+- Each use of the node in a graph has its own state. The engine calls `init` before the first call of `process`, not when it loads the build. A panic in `init` shows on the node, and the next run calls `init` again. (Agent decision, 2026-11-15. The owner can change it.)
 - `Drop` releases resources.
 - When the code of a node changes, the state of that node resets. Other nodes keep their state (7.2). State migration is a later feature.
 

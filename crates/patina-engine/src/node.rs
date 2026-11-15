@@ -1,8 +1,9 @@
-//! Reads the pins of a node from the `#[node]` function in its source (spec 4.1), and the type
-//! of a connection kind from its `#[connection]` function (6.3).
+//! Reads the pins of a node from the `#[node]` function in its source (spec 4.1), or from the
+//! `process` method of a `#[node]` struct (4.2). Reads the type of a connection kind from its
+//! `#[connection]` function (6.3).
 
 use quote::ToTokens;
-use syn::{Attribute, FnArg, Ident, Meta, GenericArgument, Item, Pat, PathArguments, ReturnType, Type, Visibility};
+use syn::{Attribute, FnArg, Ident, ImplItem, Meta, GenericArgument, Item, Pat, PathArguments, ReturnType, Signature, Type, Visibility};
 
 /// How the node function takes an input.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -62,7 +63,10 @@ impl Domain {
 /// The signature of one node function.
 #[derive(Debug)]
 pub struct Node {
+    /// The node function, or `process` for a stateful node.
     pub func: String,
+    /// The name of the state struct of a stateful node (4.2).
+    pub state: Option<String>,
     pub inputs: Vec<Input>,
     pub output: Output,
     /// The function returns a `Result`. An `Err` stops the node (4.7).
@@ -87,45 +91,44 @@ impl Node {
     }
 }
 
-/// Finds the one `#[node]` function of a node crate and reads its pins.
+/// Finds the one `#[node]` item of a node crate and reads its pins.
 pub fn parse(source: &str) -> Result<Node, String> {
     let file = syn::parse_file(source).map_err(|e| format!("the code does not parse: {e}"))?;
     let mut found = None;
     for item in &file.items {
-        let (attrs, func) = match item {
-            Item::Fn(f) => (&f.attrs, Some(f)),
-            Item::Struct(s) => (&s.attrs, None),
-            Item::Enum(e) => (&e.attrs, None),
-            Item::Impl(i) => (&i.attrs, None),
+        let attrs = match item {
+            Item::Fn(f) => &f.attrs,
+            Item::Struct(s) => &s.attrs,
+            Item::Enum(e) => &e.attrs,
+            Item::Impl(i) => &i.attrs,
             _ => continue,
         };
-        let Some(attr) = attrs.iter().find(|a| named(a, "node")) else { continue };
-        // shortcut: only function nodes, stateful nodes (4.2) come at milestone 5.
-        let func = func.ok_or("Patina supports only function nodes (spec 4.1) at this time")?;
-        if found.replace((attr, func)).is_some() {
-            return Err("the crate has more than one #[node] function".to_owned());
+        if let Some(attr) = attrs.iter().find(|a| named(a, "node"))
+            && found.replace((attr, item)).is_some()
+        {
+            return Err("the crate has more than one #[node] item".to_owned());
         }
     }
-    let (attr, func) = found.ok_or("the crate has no #[node] function")?;
+    let (attr, item) = found.ok_or("the crate has no #[node] function or struct")?;
     let domain = read_domain(attr)?;
-    let sig = &func.sig;
-    if !matches!(func.vis, Visibility::Public(_)) {
-        return Err(format!("make the node function `{}` pub", sig.ident));
-    }
-    if sig.asyncness.is_some() {
-        return Err("async nodes come at milestone 12".to_owned());
-    }
-    if !sig.generics.params.is_empty() {
-        return Err("generic nodes come at milestone 5".to_owned());
-    }
-    if sig.unsafety.is_some() || sig.variadic.is_some() || sig.abi.is_some() {
-        return Err("a node function must be a plain safe Rust function".to_owned());
-    }
+    let (sig, state) = match item {
+        Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None),
+        Item::Fn(func) => return Err(format!("make the node function `{}` pub", func.sig.ident)),
+        Item::Struct(s) if !matches!(s.vis, Visibility::Public(_)) => return Err(format!("make the node struct `{}` pub", s.ident)),
+        // shortcut: no generic nodes, they come in a later slice of milestone 5 (4.5).
+        Item::Struct(s) if !s.generics.params.is_empty() => return Err(GENERIC.to_owned()),
+        Item::Struct(s) => (process(&file, &s.ident)?, Some(s.ident.to_string())),
+        _ => return Err("put #[node] on a function (spec 4.1) or a struct (spec 4.2)".to_owned()),
+    };
+    plain(sig)?;
     let mut inputs = Vec::new();
     let mut mut_types = Vec::new();
-    for arg in &sig.inputs {
-        let FnArg::Typed(arg) = arg else {
-            return Err("a node function takes no self".to_owned());
+    for (i, arg) in sig.inputs.iter().enumerate() {
+        let arg = match arg {
+            FnArg::Typed(arg) => arg,
+            FnArg::Receiver(r) if i == 0 && state.is_some() && matches!(&*r.ty, Type::Reference(t) if t.mutability.is_some()) => continue,
+            _ if state.is_some() => return Err(PROCESS.to_owned()),
+            _ => return Err("a node function takes no self".to_owned()),
         };
         let Pat::Ident(pat) = &*arg.pat else {
             return Err("give each input of the node a plain name".to_owned());
@@ -137,7 +140,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
                 (Pass::Mut, false)
             }
             Type::Reference(r) => (Pass::Ref, matches!(&*r.elem, Type::Path(p) if p.path.is_ident("str"))),
-            Type::ImplTrait(_) => return Err("generic nodes come at milestone 5".to_owned()),
+            Type::ImplTrait(_) => return Err(GENERIC.to_owned()),
             _ => (Pass::Take, false),
         };
         if pass == Pass::Mut && is_out_key(&key) {
@@ -154,7 +157,55 @@ pub fn parse(source: &str) -> Result<Node, String> {
     };
     let (output, mut output_types) = value.map_or((Output::None, Vec::new()), shape);
     output_types.extend(mut_types);
-    Ok(Node { func: sig.ident.to_string(), inputs, output, fallible, output_types, domain })
+    if state.is_some() && !matches!(sig.inputs.first(), Some(FnArg::Receiver(_))) {
+        return Err(PROCESS.to_owned());
+    }
+    Ok(Node { func: sig.ident.to_string(), state, inputs, output, fallible, output_types, domain })
+}
+
+const GENERIC: &str = "Patina does not support generic nodes (spec 4.5) at this time";
+const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
+
+fn plain(sig: &Signature) -> Result<(), String> {
+    if sig.asyncness.is_some() {
+        return Err("async nodes come at milestone 12".to_owned());
+    }
+    if !sig.generics.params.is_empty() {
+        return Err(GENERIC.to_owned());
+    }
+    if sig.unsafety.is_some() || sig.variadic.is_some() || sig.abi.is_some() {
+        return Err(format!("`{}` must be a plain safe Rust function", sig.ident));
+    }
+    Ok(())
+}
+
+/// Finds the `process` method of stateful node `name`, and checks its `init` method (4.2).
+fn process<'a>(file: &'a syn::File, name: &Ident) -> Result<&'a Signature, String> {
+    let (mut init, mut process) = (None, None);
+    for item in &file.items {
+        let Item::Impl(block) = item else { continue };
+        if block.trait_.is_some() || !matches!(&*block.self_ty, Type::Path(p) if p.path.is_ident(name)) {
+            continue;
+        }
+        for func in block.items.iter().filter_map(|i| if let ImplItem::Fn(f) = i { Some(f) } else { None }) {
+            let slot = match func.sig.ident.to_string().as_str() {
+                "init" => &mut init,
+                "process" => &mut process,
+                _ => continue,
+            };
+            if !matches!(func.vis, Visibility::Public(_)) {
+                return Err(format!("make `{name}::{}` pub", func.sig.ident));
+            }
+            *slot = Some(&func.sig);
+        }
+    }
+    let init = init.ok_or(format!("add `pub fn init() -> Self` to `impl {name}`"))?;
+    plain(init)?;
+    let is_self = |ty: &Type| matches!(ty, Type::Path(p) if p.path.is_ident("Self") || p.path.is_ident(name));
+    if !init.inputs.is_empty() || !matches!(&init.output, ReturnType::Type(_, ty) if is_self(ty)) {
+        return Err(format!("`{name}::init` takes no inputs and returns `Self`"));
+    }
+    process.ok_or(format!("add `pub fn process(&mut self, ...)` to `impl {name}`"))
 }
 
 /// Reads `domain = <name>` of `#[node(...)]` (9.1).
@@ -297,11 +348,35 @@ mod tests {
             "#[node] pub fn f(x: impl Copy) {}",
             "#[node] pub fn f((a, b): (u8, u8)) {}",
             "#[node] pub fn f(out1: &mut u8) {}",
-            "#[node] pub struct S;",
             "#[node] pub fn f() {} #[node] pub fn g() {}",
             "pub fn f() {}",
             "#[node(domain = audio)] pub fn f() {}",
             "#[node(speed = 1)] pub fn f() {}",
+        ];
+        for source in fails {
+            assert!(parse(source).is_err(), "{source}");
+        }
+    }
+
+    #[test]
+    fn reads_the_pins_of_a_stateful_node_from_process() {
+        let counter = "#[node(domain = frame)] pub struct Counter { count: u64 }\n\
+                       impl Counter { pub fn init() -> Self { todo!() } }\n\
+                       impl Counter { pub fn process(&mut self, step: u64) -> u64 { todo!() } fn other(&self) {} }";
+        let node = parse(counter).unwrap();
+        assert_eq!((node.func.as_str(), node.state.as_deref(), node.domain), ("process", Some("Counter"), Some(Domain::Frame)));
+        assert_eq!((node.inputs.len(), node.inputs[0].key.as_str(), node.output_keys()), (1, "step", vec!["out".to_owned()]));
+        let fails = [
+            "#[node] struct S; impl S { pub fn init() -> Self { S } pub fn process(&mut self) {} }",
+            "#[node] pub struct S<T>(T);",
+            "#[node] pub struct S; impl S { pub fn process(&mut self) {} }",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } }",
+            "#[node] pub struct S; impl S { pub fn init(x: u8) -> Self { S } pub fn process(&mut self) {} }",
+            "#[node] pub struct S; impl S { pub fn init() -> u8 { 0 } pub fn process(&mut self) {} }",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub fn process(&self) {} }",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub fn process() {} }",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } fn process(&mut self) {} }",
+            "#[node] pub enum E { A }",
         ];
         for source in fails {
             assert!(parse(source).is_err(), "{source}");

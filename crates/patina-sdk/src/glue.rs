@@ -13,7 +13,7 @@ use std::fmt::{self, Write as _};
 use std::marker::PhantomData;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
-use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{Lanes, Param, Text, Viewer};
 
@@ -257,6 +257,21 @@ impl<T> Shared<T> {
     }
 }
 
+/// The state of one use of a stateful node (4.2). It is empty until the first call. Only the task
+/// of the node uses it, so a state that is `Send` lets the cluster run in parallel.
+pub struct State<T>(Mutex<Option<T>>);
+
+impl<T> State<T> {
+    #[allow(clippy::new_without_default, reason = "the generated code calls only `new`")]
+    pub fn new() -> State<T> {
+        State(Mutex::new(None))
+    }
+
+    pub fn lock(&self) -> MutexGuard<'_, Option<T>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
 pub fn default_value<T: Param>() -> T {
     T::default_value()
 }
@@ -289,6 +304,17 @@ pub fn finish(caught: std::thread::Result<Result<(), String>>, rep: &Reporter, n
             false
         }
     }
+}
+
+/// Reports the result of a call of a stateful node. A panic can break the state, so the state
+/// drops, and the next call makes a new state with `init` (spec 4.7).
+pub fn finish_state<T>(caught: std::thread::Result<Result<(), String>>, state: &mut Option<T>, rep: &Reporter, node: u32) -> bool {
+    let panicked = caught.is_err();
+    let ok = finish(caught, rep, node);
+    if panicked {
+        drop_value(state.take(), rep, node);
+    }
+    ok
 }
 
 /// Drops a value that no node took, with its own catch (spec 4.7).
@@ -502,6 +528,19 @@ mod tests {
         // The quote and 2047 two-byte characters fill 4095 bytes. The next character does not fit.
         assert_eq!(sent[3].2, format!("\"{}...", "\u{e9}".repeat(TEXT_LEN / 2 - 1)));
         assert_eq!(sent[4].2, "the text of the value panicked");
+    }
+
+    #[test]
+    fn a_panic_drops_the_state_and_an_error_keeps_it() {
+        let mut sent: Vec<(u32, u32, String)> = Vec::new();
+        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+        let state = State::new();
+        *state.lock() = Some(5);
+        assert!(!finish_state(Ok(Err("bad".to_owned())), &mut *state.lock(), &rep, 1));
+        assert_eq!(*state.lock(), Some(5));
+        assert!(!finish_state(catch_unwind(|| -> Result<(), String> { panic!("broken") }), &mut *state.lock(), &rep, 1));
+        assert_eq!(*state.lock(), None);
+        assert_eq!(sent, [(1, ERROR, "bad".to_owned()), (1, PANIC, "panic: broken".to_owned())]);
     }
 
     #[test]

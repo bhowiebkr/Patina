@@ -3,9 +3,9 @@
 
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 
-/// Marks the function of a node. The function gets `#[inline]`, so small nodes inline into
-/// each other inside one cluster (spec 8.3). `#[node(domain = frame)]` sets its clock domain
-/// (9.1). The engine reads the domain.
+/// Marks the function of a node, or the state struct of a stateful node (spec 4.2). A function
+/// gets `#[inline]`, so small nodes inline into each other inside one cluster (8.3).
+/// `#[node(domain = frame)]` sets the clock domain (9.1). The engine reads the domain.
 #[proc_macro_attribute]
 pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args: Vec<String> = attr.into_iter().map(|t| t.to_string()).collect();
@@ -13,9 +13,10 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     if !(args.is_empty() || args.len() == 3 && args[0] == "domain" && args[1] == "=" && domains.contains(&&*args[2])) {
         return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`");
     }
-    if !is_function(&item) {
-        // shortcut: only function nodes, stateful nodes (4.2) come at milestone 5.
-        return error("Patina supports only function nodes (spec 4.1) at this time");
+    match keyword(&item).as_deref() {
+        Some("fn") => {}
+        Some("struct") => return item,
+        _ => return error("put #[node] on a function (spec 4.1) or a struct (spec 4.2)"),
     }
     let mut out: TokenStream = "#[inline]".parse().expect("valid attribute");
     out.extend(item);
@@ -29,25 +30,24 @@ pub fn connection(attr: TokenStream, item: TokenStream) -> TokenStream {
     if !attr.is_empty() {
         return error("#[connection] takes no arguments");
     }
-    if !is_function(&item) {
+    if keyword(&item).as_deref() != Some("fn") {
         return error("a connection kind is a function (spec 6.3)");
     }
     item
 }
 
-/// Returns true when the item has the `fn` keyword before its body.
-fn is_function(item: &TokenStream) -> bool {
+/// The first item keyword of the item, for example `fn` or `struct`.
+fn keyword(item: &TokenStream) -> Option<String> {
     for tree in item.clone() {
         match tree {
-            TokenTree::Ident(ident) if ident.to_string() == "fn" => return true,
-            TokenTree::Ident(ident) if ["struct", "enum", "impl"].contains(&&*ident.to_string()) => {
-                return false;
+            TokenTree::Ident(ident) if ["fn", "struct", "enum", "impl", "trait", "mod"].contains(&&*ident.to_string()) => {
+                return Some(ident.to_string());
             }
-            TokenTree::Group(group) if group.delimiter() == Delimiter::Brace => return false,
+            TokenTree::Group(group) if group.delimiter() == Delimiter::Brace => return None,
             _ => {}
         }
     }
-    false
+    None
 }
 
 fn error(message: &str) -> TokenStream {
