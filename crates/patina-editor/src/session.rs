@@ -41,6 +41,8 @@ struct Session {
 #[serde(rename_all = "camelCase")]
 pub struct View {
     serial: u64,
+    /// The project ID, which names the saved layout (15.2).
+    id: String,
     root: PathBuf,
     name: String,
     graph: GraphFile,
@@ -136,6 +138,7 @@ impl Session {
         };
         View {
             serial: self.serial,
+            id: project.id().to_owned(),
             root: project.root().to_owned(),
             name: folder_name(project.root()),
             graph: project.graph().clone(),
@@ -319,6 +322,17 @@ pub fn value(editor: State<'_, Editor>, from: String) -> Option<String> {
 }
 
 /// The page calls this after it asked the user about the unsaved changes.
+/// The saved layout of a project (15.2). The page checks the text.
+#[tauri::command(async)]
+pub fn layout(editor: State<'_, Editor>, id: String) -> Result<Option<String>, String> {
+    editor.data.layout(&id)
+}
+
+#[tauri::command(async)]
+pub fn save_layout(editor: State<'_, Editor>, id: String, text: String) -> Result<(), String> {
+    editor.data.save_layout(&id, &text)
+}
+
 #[tauri::command(async)]
 pub fn quit(app: AppHandle) {
     app.exit(0);

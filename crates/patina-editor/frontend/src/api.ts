@@ -35,6 +35,8 @@ export interface NodeInfo {
 
 export interface View {
   serial: number;
+  /** The project ID, which names the saved layout (15.2). */
+  id: string;
   root: string;
   name: string;
   graph: GraphFile;
@@ -125,6 +127,9 @@ export const api = {
   pause: () => invoke<View>('pause'),
   /** The full text of the live value of an output after the last run (15.7), or null. */
   value: (from: string) => invoke<string | null>('value', { from }),
+  /** The saved layout of a project (15.2), or null. */
+  layout: (id: string) => invoke<string | null>('layout', { id }),
+  saveLayout: (id: string, text: string) => invoke<void>('save_layout', { id, text }),
   quit: () => invoke<void>('quit'),
   checkDone: (result: object) => invoke<void>('check_done', { result }),
   capture: (name: string) => invoke<void>('capture', { name }),

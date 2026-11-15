@@ -59,6 +59,8 @@ impl std::error::Error for Error {}
 /// A project with its main graph and the undo history of the graph and the code.
 pub struct Project {
     root: PathBuf,
+    /// The stable ID of `patina.toml` (5.3). The text is not checked.
+    id: String,
     rust: String,
     history: edit::History,
     /// The number of code writes of edits, undo and redo.
@@ -100,7 +102,7 @@ impl Project {
         let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
         let file = project::read(&root.join("patina.toml"), |f: &project::ProjectFile| f.format)?;
         let graph = project::read(&graph_path(&root), |g: &GraphFile| g.format)?;
-        Ok(Project { root, rust: file.rust, history: edit::History::new(graph), code_revision: 0 })
+        Ok(Project { root, id: file.id, rust: file.rust, history: edit::History::new(graph), code_revision: 0 })
     }
 
     /// Makes a new project in a new or empty folder, with the `number` and `show` nodes and an
@@ -123,6 +125,10 @@ impl Project {
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     /// The Rust version that the project builds with (6.4).

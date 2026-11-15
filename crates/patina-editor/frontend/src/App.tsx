@@ -1,5 +1,5 @@
-// The editor window (spec 15.1): the top bar, the Project panel, the graph, the Inspector, the
-// bottom panel and the status bar. The start screen shows when no project is open.
+// The editor window (spec 15.1): the top bar, the dock with the graph and the panels (15.2), and
+// the status bar. The start screen shows when no project is open.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
@@ -20,12 +20,14 @@ import {
   type StartInfo,
   type View,
 } from './api';
-import { BottomPanel, addLines, type Line } from './BottomPanel';
 import { runCheck } from './check';
 import { closeCode, reloadCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
+import { Dock, flushLayout, loadLayout, useLayoutSerial, ViewsMenu, type Panel } from './Dock';
 import { GraphView, useFit } from './GraphView';
 import { Inspector, type InspectorTab } from './Inspector';
+import type { PanelId } from './layout';
+import { addLines, Lines, type Line } from './Lines';
 import { NO_RUN, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
@@ -97,6 +99,7 @@ export function App() {
   const revision = useRef(0);
   const current = useRef<View | null>(null);
   const unsaved = useSyncExternalStore(subscribe, unsavedFiles);
+  const layoutSerial = useLayoutSerial();
   const fit = useFit();
 
   const log = useCallback((more: Line[]) => setLogs((l) => addLines(l, more)), []);
@@ -106,6 +109,7 @@ export function App() {
       // Another project: the old results do not apply.
       serial.current = v.serial;
       revision.current = v.codeRevision;
+      loadLayout(v.id, v.serial).then((e) => e && setError(e));
       closeCode();
       setRun(NO_RUN);
       setOutput([]);
@@ -237,8 +241,8 @@ export function App() {
   }, [view, saveAll, undo, redo]);
 
   const closeProject = useCallback(() => {
-    api
-      .closeProject()
+    flushLayout()
+      .then(() => api.closeProject())
       .then(() => {
         setView(null);
         closeCode();
@@ -252,7 +256,7 @@ export function App() {
     const what = ask;
     setAsk(null);
     if (choice === 'cancel' || !what) return;
-    const go = () => (what === 'quit' ? api.quit() : closeProject());
+    const go = () => (what === 'quit' ? flushLayout().then(() => api.quit()) : closeProject());
     if (choice === 'save') saveAll().then((ok) => ok && go());
     else go();
   };
@@ -284,6 +288,31 @@ export function App() {
     runText = parts.join(' - ');
   }
   const firstError = run.errors.map((e) => revealOf(e, Date.now())).find((at) => at !== null);
+  const clear = (f: () => void) => (
+    <button className="tab" onClick={f}>
+      Clear
+    </button>
+  );
+  const panels: Record<PanelId, Panel> = {
+    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} /> },
+    inspector: {
+      body: (
+        <Inspector
+          view={view}
+          run={run}
+          inspect={inspect}
+          tab={tab}
+          reveal={reveal}
+          onTab={setTab}
+          onEdit={edit}
+          onSave={saveAll}
+          onPick={pick}
+        />
+      ),
+    },
+    logs: { body: <Lines lines={logs} label="Logs" onPick={pick} />, actions: clear(() => setLogs([])) },
+    output: { body: <Lines lines={output} label="Output" onPick={pick} />, actions: clear(() => setOutput([])) },
+  };
 
   return (
     <div className="shell">
@@ -328,18 +357,13 @@ export function App() {
         <button className="btn" disabled={!live} onClick={() => act(api.pause())}>
           Stop
         </button>
+        <span className="sep" />
+        <ViewsMenu />
       </header>
-      <div className="middle">
-        <nav className="strip" aria-label="Panels">
-          <button className="icon-btn active" aria-label="Project" title="Project">
-            <Icon d="M1.5 3.5h5l1.5 2h6.5v8h-13z" />
-          </button>
-        </nav>
-        <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} />
-        <div className="work">
-          {view.trusted ? (
-            <div />
-          ) : (
+      {/* The dock waits for the layout of the project, so the graph opens at its saved pan and zoom. */}
+      {layoutSerial === view.serial ? (
+        <Dock panels={panels}>
+          {!view.trusted && (
             <div className="banner" role="alert">
               <span>This project is not trusted. Patina does not build or run its code until you trust it.</span>
               <button className="btn primary" onClick={() => act(api.trustProject())}>
@@ -348,22 +372,12 @@ export function App() {
             </div>
           )}
           <div className="canvas">
-            <GraphView view={view} run={run} onEdit={edit} onSelect={onSelect} focus={focus} />
+            <GraphView key={view.serial} view={view} run={run} onEdit={edit} onSelect={onSelect} focus={focus} />
           </div>
-          <BottomPanel output={output} logs={logs} onClear={(t) => (t === 'output' ? setOutput([]) : setLogs([]))} onPick={pick} />
-        </div>
-        <Inspector
-          view={view}
-          run={run}
-          inspect={inspect}
-          tab={tab}
-          reveal={reveal}
-          onTab={setTab}
-          onEdit={edit}
-          onSave={saveAll}
-          onPick={pick}
-        />
-      </div>
+        </Dock>
+      ) : (
+        <div className="middle" />
+      )}
       <footer className="statusbar">
         <span title={view.problems.join('\n')}>{view.problems.length === 0 ? 'Ready' : `${view.problems.length} problems`}</span>
         {runText && <span>{runText}</span>}

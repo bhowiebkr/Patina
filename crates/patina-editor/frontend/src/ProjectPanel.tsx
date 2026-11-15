@@ -26,8 +26,7 @@ export function ProjectPanel({ view, inspect, onInspect }: Props) {
     e.dataTransfer.effectAllowed = 'move';
   };
   return (
-    <aside className="panel left" aria-label="Project">
-      <div className="panel-title">Project</div>
+    <aside className="panel" aria-label="Project">
       <div className="group">
         <div className="group-title">Graphs</div>
         <button className="item active">main</button>

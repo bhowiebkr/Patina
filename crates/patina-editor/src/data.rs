@@ -1,4 +1,5 @@
-//! The data folder of Patina (spec 13.3) and its lists of recent and trusted projects (11, 15.10).
+//! The data folder of Patina (spec 13.3): the lists of recent and trusted projects (11, 15.10) and
+//! the layout of each project (15.2).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,6 +8,9 @@ use std::path::{Path, PathBuf};
 const RECENT_LIMIT: usize = 10;
 const RECENT: &str = "recent.json";
 const TRUSTED: &str = "trusted.json";
+const LAYOUTS: &str = "layouts";
+/// A layout is a few kilobytes. A larger text is an error of the page.
+const LAYOUT_LIMIT: usize = 64 * 1024;
 
 pub struct Data {
     pub dir: PathBuf,
@@ -59,6 +63,36 @@ impl Data {
         self.write_list(TRUSTED, &list)
     }
 
+    /// The saved layout of a project, or none.
+    pub fn layout(&self, id: &str) -> Result<Option<String>, String> {
+        let path = self.layout_path(id)?;
+        match fs::read_to_string(&path) {
+            Ok(text) => Ok(Some(text)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(format!("{}: {e}", path.display())),
+        }
+    }
+
+    pub fn save_layout(&self, id: &str, text: &str) -> Result<(), String> {
+        if text.len() > LAYOUT_LIMIT {
+            return Err(format!("the layout has more than {LAYOUT_LIMIT} bytes"));
+        }
+        serde_json::from_str::<serde::de::IgnoredAny>(text).map_err(|e| format!("the layout is not JSON: {e}"))?;
+        let path = self.layout_path(id)?;
+        let dir = self.dir.join(LAYOUTS);
+        fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        write_file(&path, text.as_bytes())
+    }
+
+    /// The ID comes from `patina.toml`, so it must be a safe file name. Hex digits are never a
+    /// reserved name of Windows, for example `CON`.
+    fn layout_path(&self, id: &str) -> Result<PathBuf, String> {
+        if id.is_empty() || id.len() > 64 || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(format!("Patina saves no layout for the project ID {id:?}. Use 1 to 64 hex digits."));
+        }
+        Ok(self.dir.join(LAYOUTS).join(format!("{id}.json")))
+    }
+
     /// A missing or bad list is empty. Then no project is trusted, which is the safe side.
     fn read_list(&self, name: &str) -> Vec<PathBuf> {
         let bytes = fs::read(self.dir.join(name)).unwrap_or_default();
@@ -66,13 +100,17 @@ impl Data {
     }
 
     fn write_list(&self, name: &str, list: &[PathBuf]) -> Result<(), String> {
-        let path = self.dir.join(name);
-        let temp = path.with_extension("json.tmp");
         let text = serde_json::to_vec_pretty(list).map_err(|e| e.to_string())?;
-        let io = |e: std::io::Error| format!("{}: {e}", path.display());
-        fs::write(&temp, text).map_err(io)?;
-        fs::rename(&temp, &path).map_err(io)
+        write_file(&self.dir.join(name), &text)
     }
+}
+
+/// Writes a temporary file, then renames it, so that a crash never leaves half a file.
+fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let temp = path.with_extension("json.tmp");
+    let io = |e: std::io::Error| format!("{}: {e}", path.display());
+    fs::write(&temp, bytes).map_err(io)?;
+    fs::rename(&temp, path).map_err(io)
 }
 
 /// Windows paths do not have a case, so `C:\A` and `c:\a` are one folder.
@@ -105,5 +143,25 @@ mod tests {
         assert_eq!(trusted, [path(1)]);
         assert!(same_path(Path::new("/a/b/"), Path::new("/a/b")));
         assert_eq!(same_path(Path::new("/A/b"), Path::new("/a/b")), cfg!(windows));
+    }
+
+    #[test]
+    fn layouts_need_a_hex_id_and_json() {
+        let dir = std::env::temp_dir().join(format!("patina-layout-{}", std::process::id()));
+        let data = Data::find(Some(dir.clone())).unwrap();
+        let id = "3f9c2a7d41e0b85c";
+        let before = data.layout(id);
+        data.save_layout(id, r#"{"version":1}"#).unwrap();
+        let after = data.layout(id);
+        let bad_ids = ["", "con", "../3f9c", "3f9c.json", &"a".repeat(65)].map(|bad| data.save_layout(bad, "{}").is_err());
+        let not_json = data.save_layout(id, "{");
+        let large = data.save_layout(id, &format!("\"{}\"", "a".repeat(LAYOUT_LIMIT)));
+        let kept = data.layout(id);
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(before, Ok(None));
+        assert_eq!(after, Ok(Some(r#"{"version":1}"#.to_owned())));
+        assert_eq!(bad_ids, [true; 5]);
+        assert!(not_json.is_err() && large.is_err());
+        assert_eq!(kept, after);
     }
 }

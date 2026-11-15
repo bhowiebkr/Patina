@@ -4,6 +4,8 @@
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from './api';
 import { bufferOf, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
+import { flushLayout, savedViewport } from './Dock';
+import { layoutText, parseLayout } from './layout';
 
 const BUILD_MS = 150_000;
 const RUN_MS = 20_000;
@@ -174,6 +176,31 @@ fn broken() -> u32 {
     const saved = JSON.stringify(v.graph);
     await step('pause', () => api.pause());
 
+    // The dock (15.2): the menu of a tab moves it, the keys move a splitter, and the layout and the
+    // pan and zoom of the graph come back when the project opens again.
+    const tab = (name: string) => [...document.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent === name);
+    const menuItem = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.menu button')].find((b) => b.textContent === label);
+    tab('Logs')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    await until('the menu of the tab', RUN_MS, () => menuItem('Move to the right area') !== undefined);
+    menuItem('Move to the right area')!.click();
+    await until('Logs in the right area', RUN_MS, () => !!tab('Logs')?.closest('.area.right'));
+    const splitter = () => document.querySelector<HTMLElement>('[aria-label="Size of the left area"]')!;
+    splitter().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
+    await until('a wider left area', RUN_MS, () => splitter().getAttribute('aria-valuenow') === '324');
+    const pane = document.querySelector('.react-flow__pane')!.getBoundingClientRect();
+    const was = savedViewport('main');
+    const at = { clientX: pane.left + pane.width / 2, clientY: pane.top + pane.height / 2 };
+    document.querySelector('.react-flow__pane')!.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, ...at, bubbles: true, cancelable: true }));
+    await until('the saved pan and zoom', RUN_MS, () => savedViewport('main') !== was);
+    const transform = () => document.querySelector<HTMLElement>('.react-flow__viewport')?.style.transform;
+    const zoomed = transform();
+    await flushLayout();
+    const file = parseLayout(await api.layout(v.id));
+    if (!file.areas.right.tabs.includes('logs') || file.areas.left.size !== 324 || !file.viewports.main) {
+      throw new Error(`the saved layout is not the layout of the window: ${layoutText(file)}`);
+    }
+    steps.push('dock layout saved');
+
     await api.closeProject();
     const start = await api.startInfo();
     if (start.recent[0]?.path !== v.root) throw new Error(`the recent list starts with ${start.recent[0]?.path}`);
@@ -182,6 +209,15 @@ fn broken() -> u32 {
     v = await step('open again', () => api.openProject(v.root));
     if (JSON.stringify(v.graph) !== saved) throw new Error('the graph after open is not the saved graph');
     if (!v.trusted || v.live) throw new Error('an open project is trusted and paused');
+    await until('Logs in the right area after open', RUN_MS, () => !!tab('Logs')?.closest('.area.right'));
+    if (transform() !== zoomed) throw new Error(`the pan and zoom after open are ${transform()}, not ${zoomed}`);
+    const views = [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === 'Views')!;
+    views.click();
+    await until('the Views menu', RUN_MS, () => menuItem('Reset layout') !== undefined);
+    menuItem('Reset layout')!.click();
+    await until('Logs in the bottom area after Reset layout', RUN_MS, () => !!tab('Logs')?.closest('.area.bottom'));
+    if (transform() !== zoomed) throw new Error('Reset layout changed the pan and zoom');
+    steps.push('dock layout restored and reset');
 
     from = mark();
     v = await step('run again', () => api.run());

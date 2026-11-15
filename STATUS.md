@@ -60,6 +60,13 @@ To run the editor from a checkout:
   time, the run time and the reports of the nodes.
 - Each node shows its state with an icon and a border: ready, compiling, compile error, run
   error, stale or unresolved (15.3). A header color never shows a state.
+- The window is a dock (15.2). The **Project**, **Inspector**, **Logs** and **Output** panels
+  are tabs in the left, right and bottom areas. Drag a tab to another area, or use its
+  right-click menu to move or close it. A splitter changes the size of an area, with the mouse
+  or the arrow keys.
+- The **Views** menu shows and hides each panel, and **Reset layout** gives the default layout.
+  The layout and the pan and zoom of the graph go to `data/layouts/<project id>.json`, 300 ms
+  after a change and before a close or a quit.
 - Patina does not build a project that is not trusted. It shows a banner with **Trust
   project**.
 - The page loads only its own files, with a content security policy. A request for a path
@@ -70,7 +77,7 @@ To run the editor from a checkout:
 ### What was checked
 
 - `patina --check <folder>` runs the first workflow in the real window. The window is
-  off-screen and does not take the focus. It passed these 28 steps in 5.6 s:
+  off-screen and does not take the focus. It passed these 30 steps in 7.2 s:
   - New project, add 2 nodes and a wire, and set a parameter.
   - Run, and wait for `2.5` in the output. Set the parameter to 7 and wait for `7`, with no
     build. Undo, and wait for `2.5`.
@@ -79,8 +86,13 @@ To run the editor from a checkout:
     Capture the window into `code-error.png`.
   - Undo the error in the Monaco buffer and push Ctrl+S. The build passes, the file on disk is
     the original and no file is unsaved.
-  - Save, pause and close. The recent list starts with the project.
-  - Open again. The graph is the saved graph. Run again, and find 2 ready nodes in the graph.
+  - Save and pause. Move the **Logs** tab to the right area with its menu. Push Shift and the
+    right arrow on the left splitter, and zoom the graph with the wheel. Read the layout file:
+    it has the tab, the size 324 and the pan and zoom.
+  - Close. The recent list starts with the project.
+  - Open again. The graph is the saved graph. **Logs** is in the right area, and the pan and
+    zoom are the same. **Reset layout** moves **Logs** back and keeps the pan and zoom.
+  - Run again, and find 2 ready nodes in the graph.
     Find `2.5` in the badge of the wire, not stale.
   - Read the pixels of the wire from the WebGL canvas. They are gray, with no amber. The
     point under the wire is in the edge. Click the wire, and find the amber band. Find `2.5`
@@ -102,19 +114,23 @@ To run the editor from a checkout:
   half of the length of the route, on the route point. It is now at the middle of the longest
   segment. The stale badge also showed the wire through its background, so only its text is
   dim now.
+- The capture showed the dock with the default layout: the **Project** and **Inspector** tabs
+  with a close button, the **Logs** and **Output** tabs with **Clear**, and the **Views** menu
+  button in the top bar.
 - The capture showed the **Wire** view of the **Inspector**: `number.out`, `show.value` and the
   stale text `2.5`.
 - The capture `code-error.png` showed the red node, the gutter dot and the underline on line 10,
   the error well of the **Code** tab and **1 compile error** in the status bar.
-- `cargo test --workspace --locked` passed 44 tests. The tests check the graph edits with undo
-  and redo, the route points, the text of the live values with a `Viewer`, the cut of the badge
+- `cargo test --workspace --locked` passed 45 tests. The tests check the graph edits with undo
+  and redo, the layout files with a hex project ID, the route points, the text of the live values with a `Viewer`, the cut of the badge
   text, `SetCode` with undo, the compile errors with the project paths, the changes that
   need a run or a build, the project names, the recent and trusted lists, the output lines and
   the refusal of page paths outside the page folder.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passed with Rust 1.94.0 and
   1.100.0. `npm run build` passed the type check and the build of the page. `npm test` passed
-  11 tests: the miter normals, the rounded corners of a route, the place of a new route point,
-  the SVG path of a route, the segment lists and the place of the badge.
+  15 tests: the miter normals, the rounded corners of a route, the place of a new route point,
+  the SVG path of a route, the segment lists, the place of the badge, and the move, close,
+  open, resize, reset and read of a dock layout.
 - CI run 43708446577 of the first editor slice passed on `windows-latest`, `ubuntu-latest` and
   `macos-latest`.
 
@@ -126,8 +142,9 @@ To run the editor from a checkout:
 - The content security policy was not tested with a page that breaks it.
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
-- These parts of spec 15 are not in the editor yet: the dock layout (15.2), rust-analyzer in
-  Monaco (15.1), the **Debug** tab, the recovery file (15.10) and the search palette. **Stop**
+- These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
+  and the **Layers** tab (15.2), rust-analyzer in Monaco (15.1), the **Debug** tab, the
+  recovery file (15.10) and the search palette. **Stop**
   does the same as **Pause**.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
@@ -138,6 +155,8 @@ To run the editor from a checkout:
   add a route point. The editor does not warn when a wire goes under a node.
 - The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG
   wires.
+- The check did not drag a tab or a splitter with the mouse. A layout change in the last
+  300 ms before the window closes with no unsaved changes is not saved.
 - A node after a node that failed keeps its old state. The engine does not report **Skipped**
   yet (15.3).
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size

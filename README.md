@@ -275,6 +275,14 @@ To make your first graph:
 
 While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
 
+The panels dock at the left, the right and the bottom of the graph:
+
+- Drag a tab to another area, or right-click the tab to move or close it.
+- Drag the line between an area and the graph to change the size of the area.
+- Use the **Views** menu to show or hide a panel. **Reset layout** gives the default layout.
+
+Patina keeps the layout and the pan and zoom of each project for each user.
+
 ## How it is built
 
 | Part | What it does |

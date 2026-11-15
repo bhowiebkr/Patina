@@ -183,6 +183,8 @@ fn main() {
             session::run,
             session::pause,
             session::value,
+            session::layout,
+            session::save_layout,
             session::quit,
             session::check_done,
             session::page_error,

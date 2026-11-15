@@ -15,6 +15,7 @@ import {
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import { newId, type Edit, type Point, type View } from './api';
+import { savedViewport, saveViewport } from './Dock';
 import { NodeView, infoOf, nodeState, type PatinaNode, type RunState } from './NodeView';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { WireStore } from './wires';
@@ -77,6 +78,8 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [glOk, setGlOk] = useState(true);
+  // The saved pan and zoom of the graph (15.2), or a fit when there is none.
+  const [viewport] = useState(() => savedViewport('main'));
   const tools = useMemo(
     () => ({ store: wires, onEdit, editable: view.trusted, values: run.values, stale: run.stale }),
     [wires, onEdit, view.trusted, run.values, run.stale],
@@ -117,7 +120,7 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target) || e.ctrlKey || e.altKey || e.metaKey || document.querySelector('.backdrop')) return;
+      if (typing(e.target) || e.ctrlKey || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer')) return;
       if (e.key === 'Delete' && view.trusted) {
         const removed = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
         const edits: Edit[] = [...removed].map((id) => ({ kind: 'RemoveNode', id }));
@@ -182,8 +185,10 @@ export function GraphView({ view, run, onEdit, onSelect, focus }: Props) {
         zoomOnDoubleClick={false}
         minZoom={0.1}
         maxZoom={4}
-        fitView
+        fitView={!viewport}
         fitViewOptions={FIT}
+        defaultViewport={viewport}
+        onMoveEnd={(_, v) => saveViewport('main', v)}
         colorMode="dark"
       >
         <Background id="minor" variant={BackgroundVariant.Lines} gap={20} color="#202020" />

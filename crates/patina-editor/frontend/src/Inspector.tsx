@@ -57,7 +57,7 @@ function WireView({ view, run, from, to }: { view: View; run: RunState; from: st
   // The badge text shows until the full text arrives.
   const text = (full?.from === from ? full.text : null) ?? run.values.get(from);
   return (
-    <aside className="panel right" aria-label="Inspector">
+    <aside className="panel" aria-label="Inspector">
       <div className="panel-title">
         Wire
         <span className="spacer" />
@@ -90,7 +90,7 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
   const code = (name: string) => <CodeTab name={name} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} />;
   if (inspect?.kind === 'type') {
     return (
-      <aside className="panel right" aria-label="Inspector">
+      <aside className="panel" aria-label="Inspector">
         <div className="panel-title">{inspect.name}</div>
         <Tabs tab="code" only="code" onTab={onTab} />
         {code(inspect.name)}
@@ -100,7 +100,7 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
   if (inspect?.kind === 'wire') return <WireView view={view} run={run} from={inspect.from} to={inspect.to} />;
   if (!entry) {
     return (
-      <aside className="panel right" aria-label="Inspector">
+      <aside className="panel" aria-label="Inspector">
         <div className="panel-title">Inspector</div>
         <div className="section label">Select a node to see its parameters and code, or a wire to see its value.</div>
       </aside>
@@ -124,7 +124,7 @@ export function Inspector({ view, run, inspect, tab, reveal, onTab, onEdit, onSa
   const reports = run.reports.filter((r) => r.id === entry.id);
   const errors = info ? nodeErrors(run, info.name) : [];
   return (
-    <aside className="panel right" aria-label="Inspector">
+    <aside className="panel" aria-label="Inspector">
       <div className="panel-title">
         {folderName(entry)}
         <span className="spacer" />

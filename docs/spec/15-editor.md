@@ -41,12 +41,29 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 - The top bar and the status bar do not move.
 - The table above is the default layout. **Reset layout** in the **Views** menu returns to it.
 
+**Version 1 of the dock:**
+
+This is an agent decision of 2026-11-15. The owner can change it.
+
+- The left, right and bottom areas take panels. The center holds only the graph view. Tabs in the center come with the views (15.8).
+- The panels are **Project**, **Inspector**, **Logs** and **Output**. The **Debug** tab and the **Layers** tab come later.
+- Float windows come later. In version 1, a tab cannot go out of the window.
+- A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area** and **Close**. The menu is the method for the keyboard and for screen readers.
+- An area with no tabs takes no space. During a drag, it shows as a drop zone.
+- A splitter between an area and the center changes the size of the area. An arrow key moves a focused splitter by 16 px, and Shift and an arrow key move it by 64 px. A size is 120 px to 1600 px.
+- The **Views** menu has a check mark for each panel. A click shows or hides the panel. A hidden panel opens again in its default area.
+- **Reset layout** keeps the pan and zoom of each graph.
+- Patina saves the layout 300 ms after a change, and before the project closes or Patina quits. A layout file is JSON of 64 KiB or less.
+- Patina saves a layout only for a project ID of 1 to 64 hex digits. For another ID, it shows an error and uses the default layout. Reason: the ID is a file name, so it must not be a reserved name of Windows.
+- A graph with no saved pan and zoom fits in the view when the project opens.
+- Reason: these parts give the workflow of 15.10 with the panels where the user wants them. Float windows need a second Tauri window for each panel, and the views do not exist yet.
+
 **Saved layout:**
 
 This is an agent decision of 2026-11-15 for question 8 (18). The owner can change it.
 
 - Each user keeps their own layout for each project. Patina saves it in `data/layouts/<project id>.json` of the data folder (13.3), not in the project folder.
-- The layout file holds the dock areas and their tabs, the float windows with their screen positions, the open views, and the pan and zoom of each graph.
+- The layout file holds the dock areas and their tabs, the size of each area, the float windows with their screen positions, the open views, and the pan and zoom of each graph.
 - A project with no layout file opens with the default layout. A project that moves to another folder keeps its layout, because the file name is the project ID (6.2).
 - The state of a view instance (15.8), for example the camera of a 3D viewport, is not saved in version 1. Each view instance starts with `init`.
 - Reason: the project folder goes into Git. A layout in it changes each time a user moves a panel, and it gives merge conflicts. Float windows also depend on the screens of each user.
