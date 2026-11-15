@@ -75,12 +75,14 @@ fn fatal(text: &str) -> ! {
     std::process::exit(1);
 }
 
-fn dist_dir() -> PathBuf {
-    // shortcut: the page is read from the source tree; embed it when the editor ships (spec 13).
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/frontend/dist"))
+// The files of `frontend/dist`, from build.rs. The list is empty when the page was not built.
+include!(concat!(env!("OUT_DIR"), "/page.rs"));
+
+fn page_file(path: &str) -> Option<&'static [u8]> {
+    PAGE.iter().find(|(name, _)| *name == path).map(|(_, body)| *body)
 }
 
-/// Accepts only plain relative paths, so a request cannot read outside `frontend/dist`.
+/// Accepts only plain relative paths, the names of the page files.
 fn safe_path(path: &str) -> Option<&str> {
     let path = path.strip_prefix('/').unwrap_or(path);
     let path = if path.is_empty() { "index.html" } else { path };
@@ -106,16 +108,16 @@ fn content_type(path: &str) -> &'static str {
 }
 
 fn serve(request: &Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
-    let reply = |status: StatusCode, kind: &str, body: Vec<u8>| {
+    let reply = |status: StatusCode, kind: &str, body: &'static [u8]| {
         let reply = Response::builder().status(status).header(CONTENT_TYPE, kind).header(CONTENT_SECURITY_POLICY, CSP);
-        reply.body(Cow::Owned(body)).unwrap()
+        reply.body(Cow::Borrowed(body)).unwrap()
     };
     let Some(path) = safe_path(request.uri().path()) else {
-        return reply(StatusCode::FORBIDDEN, "text/plain", Vec::new());
+        return reply(StatusCode::FORBIDDEN, "text/plain", &[]);
     };
-    match std::fs::read(dist_dir().join(path)) {
-        Ok(body) => reply(StatusCode::OK, content_type(path), body),
-        Err(_) => reply(StatusCode::NOT_FOUND, "text/plain", Vec::new()),
+    match page_file(path) {
+        Some(body) => reply(StatusCode::OK, content_type(path), body),
+        None => reply(StatusCode::NOT_FOUND, "text/plain", &[]),
     }
 }
 
@@ -153,8 +155,8 @@ fn limit_check(dir: PathBuf) {
 
 fn main() {
     let args = parse_args().unwrap_or_else(|e| fatal(&e));
-    if !dist_dir().join("index.html").is_file() {
-        fatal("the page is not built. Run `npm run build` in crates/patina-editor/frontend.");
+    if page_file("index.html").is_none() {
+        fatal("the page is not built. Run `npm run build` in crates/patina-editor/frontend, then build the editor again.");
     }
     if let Some(dir) = &args.check {
         // A new project folder each time, so the check never writes over a project.

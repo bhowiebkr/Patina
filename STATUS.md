@@ -192,6 +192,8 @@ To run the editor from a checkout:
   the SVG path of a route, the orthogonal paths, the sharp corners, the curve through route
   points, the segment lists, the place of the badge, and the move, close, open, resize, reset
   and read of a dock layout.
+- The editor binary holds the page files (13.1). `build.rs` embeds `frontend/dist` at compile
+  time. A copy of `patina.exe` in a folder outside the checkout passed the self-check.
 - The self-check sets **Orthogonal** in the **Inspector**, finds 3 corners or more on the wire,
   clicks **Reset route**, and undoes both edits.
 - The self-check opens the **Add node** palette with Shift+A and closes it with Esc. Then it
@@ -218,6 +220,8 @@ To run the editor from a checkout:
   palette, with the long paths wrapped in the card.
 - CI run 43727365197 of **Add crate** passed on `windows-latest`, `ubuntu-latest`
   and `macos-latest`.
+- CI run 43731377929 of the log lines passed on `windows-latest`, `ubuntu-latest` and
+  `macos-latest`.
 - A copy of the hello example with `log = "0.4"` in the `add` node ran in `patina-cli` on
   Windows. It wrote `INFO adding 2.5 and 4` and `WARN a warning` for the node, and no debug
   line. The build took 1.57 s.
@@ -285,8 +289,6 @@ To run the editor from a checkout:
     the start time gets slow (`frontend/src/code.ts`).
   - The **Code** tab forgets the cursor and the scroll position when it closes
     (`frontend/src/CodeTab.tsx`).
-  - The page is read from the source tree, so the editor runs only from a checkout
-    (`src/main.rs`).
   - A fatal error before the window shows writes only to a console (`src/main.rs`).
   - The capture works only on Windows (`src/session.rs`).
   - One texture row holds the points of each wire. Above `MAX_TEXTURE_SIZE` wires (2048 or

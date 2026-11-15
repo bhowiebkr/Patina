@@ -288,6 +288,9 @@ saves it. To start it from a checkout of this repository, you need Rust and Node
 1. In `crates/patina-editor/frontend`, run `npm ci` and then `npm run build`.
 2. In the root folder, run `cargo run -p patina-editor`.
 
+The editor binary holds the page. After a change to the page, run `npm run build` again, then
+build the editor again.
+
 To make your first graph:
 
 1. On the start screen, click **New project**. Give a name and click **Create**.
