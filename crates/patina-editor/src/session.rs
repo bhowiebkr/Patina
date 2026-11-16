@@ -535,7 +535,7 @@ pub struct ViewFrame {
 #[tauri::command(async)]
 pub fn view_ui(editor: State<'_, Editor>, name: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
     let (root, graph) = editor.with(|session| match session.trusted {
-        true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &selected))),
+        true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &engine::lock(&editor.shared.reports), &selected))),
         false => Err("Trust the project before you open a view.".to_owned()),
     })?;
     let (reply, answer) = std::sync::mpsc::channel();

@@ -545,7 +545,7 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     // The scene view shows a viewport. Without a window, it reads the wheel and draws nothing (15.8).
     let library = opened.build_view(&Toolchain::detect().unwrap(), "scene").unwrap();
     let mut view = patina_engine::view::View::load(&library, &project).unwrap();
-    let tree = view.ui(0, "0 wheel 100", &patina_engine::view::snapshot(opened.graph(), &[], &[])).unwrap().tree;
+    let tree = view.ui(0, "0 wheel 100", &patina_engine::view::snapshot(opened.graph(), &[], &[], &[])).unwrap().tree;
     assert!(tree.starts_with("viewport	Scene	320
 label	") && tree.contains("40 %"), "{tree}");
 }
@@ -582,7 +582,7 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     opened.new_view("panel").unwrap();
     fs::write(project.join("views/panel/src/lib.rs"), VIEW).unwrap();
     let library = opened.build_view(&Toolchain::detect().unwrap(), "panel").unwrap();
-    let graph = snapshot(opened.graph(), &[], &[]);
+    let graph = snapshot(opened.graph(), &[], &[], &[]);
     let mut view = View::load(&library, &project).unwrap();
     let frame = view.ui(0, "", &graph).unwrap();
     assert_eq!(frame.tree, "label\t4 nodes, Some(\"2.5\"), 0 clicks\nbutton\tSet");

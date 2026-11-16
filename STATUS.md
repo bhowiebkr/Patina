@@ -33,7 +33,8 @@ change the graph (spec 15.8).
   makes a view folder. The **View** panel shows the widgets of the open view.
 - A view reads the wires. It sets parameters, adds and removes nodes, and connects and
   disconnects wires. The writes of one call go through the edit path as one step of undo.
-- A view reads the selected nodes and selects nodes in the graph view.
+- A view reads the selected nodes and selects nodes in the graph view. It reads the node
+  errors of the last run or frame.
 - A save of the code of a view builds only the view again.
 - `Ui::viewport` and `patina_gpu::ViewportSurface` draw a viewport into the editor window under
   the transparent page, on Windows. The `scene` view of `examples/gpu` colors its viewport with

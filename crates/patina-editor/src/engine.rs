@@ -166,6 +166,8 @@ pub struct Shared {
     /// The full texts of the live values of the last run. The **Inspector** reads them (15.7), so
     /// the event of each run carries only the short texts of the badges.
     pub values: Mutex<Vec<Value>>,
+    /// The node errors of the last run or frame. A view reads them (15.8).
+    pub reports: Mutex<Vec<Report>>,
     /// The stop flag and the node that runs (15.2).
     pub control: Control,
     /// The node ID of each node index of the loaded cluster.
@@ -223,6 +225,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                     (loaded, newest, build, last, fuse_at) = (None, None, false, None, None);
                     views = Views::default();
                     lock(&shared.values).clear();
+                    lock(&shared.reports).clear();
                 }
                 Job::Run(run) => {
                     if run.build {
@@ -268,6 +271,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             Ok(None) => continue,
             Err(e) => {
                 lock(&shared.values).clear();
+                lock(&shared.reports).clear();
                 let text = e.to_string();
                 Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
             }
@@ -367,6 +371,7 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): 
         values.extend(badges(&extra));
         keep(&mut lock(&shared.values), &outcome.values);
         keep(&mut lock(&shared.values), &extra);
+        lock(&shared.reports).clone_from(&outcome.reports);
         let ok = outcome.ok;
         // shortcut: the editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
         let (skipped, stopped, times) = (outcome.skipped.clone(), outcome.stopped.clone(), outcome.times.clone());
@@ -495,7 +500,8 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     let mut outcome = outcome.unwrap_or_default();
     let extra = alias(&outcome.values, &loaded.aliases);
     outcome.values.extend(extra);
-    let reports = params.reports.into_iter().chain(outcome.reports).collect();
+    let reports: Vec<Report> = params.reports.into_iter().chain(outcome.reports).collect();
+    lock(&shared.reports).clone_from(&reports);
     let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
     let frames = params.ok && outcome.ok && cluster.frames() && !shared.control.stopped();

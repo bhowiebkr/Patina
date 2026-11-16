@@ -9,12 +9,13 @@ use std::str::FromStr;
 /// editor, so undo removes it.
 ///
 /// ```
-/// let mut graph = patina_sdk::Graph::new("node\tclock\tclock\nout\tclock\tframe\t42\nparam\tclock\trate\t60\nwire\tclock.frame\tshow.value\nselected\tclock");
+/// let mut graph = patina_sdk::Graph::new("node\tclock\tclock\nout\tclock\tframe\t42\nparam\tclock\trate\t60\nwire\tclock.frame\tshow.value\nselected\tclock\nerror\tshow\tno value");
 /// assert_eq!(graph.nodes().collect::<Vec<_>>(), ["clock"]);
 /// assert_eq!(graph.output::<u64>("clock", "frame"), Some(42));
 /// assert_eq!(graph.param("clock", "rate"), Some("60"));
 /// assert_eq!(graph.wires().collect::<Vec<_>>(), [("clock.frame", "show.value")]);
 /// assert_eq!(graph.selected().collect::<Vec<_>>(), ["clock"]);
+/// assert_eq!((graph.error("show"), graph.error("clock")), (Some("no value"), None));
 /// graph.set_param("clock", "rate", 30);
 /// let id = graph.add_node("nodes/show", [10.0, 20.5]);
 /// graph.connect("clock.frame", &format!("{id}.value"));
@@ -30,7 +31,8 @@ use std::str::FromStr;
 /// ```
 pub struct Graph {
     /// One line for each item, with tabs between the fields: `node <id> <folder>`,
-    /// `param <id> <key> <text>`, `out <id> <output> <text>`, `wire <from> <to>` and `selected <id>`.
+    /// `param <id> <key> <text>`, `out <id> <output> <text>`, `wire <from> <to>`, `selected <id>` and
+    /// `error <id> <text>`.
     lines: String,
     /// One line for each write: `set <id> <key> <text>`, `add <id> <folder> <x> <y>`,
     /// `remove <id>`, `connect <from> <to>`, `disconnect <from> <to>` and `select <id>...`.
@@ -73,6 +75,12 @@ impl Graph {
     /// Each wire of the open graph, as `(from, to)`: from `<node>.<output>` to `<node>.<input>` (6.4).
     pub fn wires(&self) -> impl Iterator<Item = (&str, &str)> {
         self.items("wire").map(|[from, to, _]| (from, to))
+    }
+
+    /// The error of node `id` in the last run (4.7), for example the text of its `Err`. None when
+    /// the node had no error.
+    pub fn error(&self, id: &str) -> Option<&str> {
+        self.items("error").find(|[n, _, _]| *n == id).map(|[_, text, _]| text)
     }
 
     /// The ID of each selected node of the graph view.

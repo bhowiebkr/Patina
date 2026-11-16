@@ -332,8 +332,9 @@ change it.)
 - The engine builds a view in edit mode on its first `ui` call. It copies the library to
   `build/loaded/view.<name>.<hash>`, with the Rust runtime, as for the clusters (8.5).
 - The `Graph` handle is a copy of the open graph as text lines: the nodes, the parameters, the
-  wires and the live values of the last run. The read functions are `nodes`, `folder`, `param`,
-  `wires`, `output_text` and `output`.
+  wires, the live values and the node errors of the last run, and the selected nodes. The read
+  functions are `nodes`, `folder`, `param`, `wires`, `output_text`, `output`, `error` and
+  `selected`.
 - The write functions are `set_param`, `add_node`, `remove_node`, `connect` and `disconnect`.
   They become the edits `SetParam`, `AddNode`, `RemoveNode`, `Connect` and `Disconnect` (7.4).
 - The editor applies the writes of one `ui` call as one `Group` edit, so one undo removes them.
@@ -367,7 +368,7 @@ The limits of version 1:
 - One instance of each view, in one panel. No float window.
 - No typed outputs through type crates (rule 3). A view reads the text of an output.
 - No trigger (9.4), because the event domain does not exist yet. No subgraph edits and no reads
-  of node states or errors.
+  of node states.
 - One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node
   GUIs. No key events on the viewport.
 - No bake build of a view.

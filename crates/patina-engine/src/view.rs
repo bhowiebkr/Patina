@@ -7,7 +7,7 @@ use patina_sdk::glue::{self, Reporter};
 
 use crate::Edit;
 use crate::library::{Sink, collect, open, symbol};
-use crate::load::Value;
+use crate::load::{Report, Value};
 use crate::project::GraphFile;
 
 type VersionFn = unsafe extern "C" fn() -> u32;
@@ -116,8 +116,9 @@ impl Drop for View {
 }
 
 /// The graph lines that a view reads (`patina_sdk::Graph`): the nodes, the parameters and the wires
-/// of `graph`, the live values of the last run and the `selected` nodes of the graph view.
-pub fn snapshot(graph: &GraphFile, values: &[Value], selected: &[String]) -> String {
+/// of `graph`, the live values and the node errors of the last run, and the `selected` nodes of the
+/// graph view.
+pub fn snapshot(graph: &GraphFile, values: &[Value], reports: &[Report], selected: &[String]) -> String {
     let clean = |text: &str| text.chars().map(|c| if c.is_control() { ' ' } else { c }).collect::<String>();
     let mut lines = String::new();
     for node in &graph.node {
@@ -133,6 +134,9 @@ pub fn snapshot(graph: &GraphFile, values: &[Value], selected: &[String]) -> Str
     for value in values {
         let Some((id, key)) = value.from.split_once('.') else { continue };
         lines.push_str(&format!("out\t{id}\t{key}\t{}\n", clean(&value.text)));
+    }
+    for report in reports {
+        lines.push_str(&format!("error\t{}\t{}\n", clean(&report.id), clean(&report.text)));
     }
     for id in selected {
         lines.push_str(&format!("selected\t{}\n", clean(id)));
@@ -171,8 +175,9 @@ mod tests {
         graph.node[0].params.insert("text".to_owned(), "x\ty".to_owned());
         graph.wire = toml::from_str::<GraphFile>("format = 1\n[[wire]]\nfrom = \"a.out\"\nto = \"b.in\"\n").unwrap().wire;
         let values = [Value { from: "a.out".to_owned(), text: "2.0".to_owned(), lanes: None }];
-        let lines = "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nwire\ta.out\tb.in\nout\ta\tout\t2.0\nselected\ta\n";
-        assert_eq!(snapshot(&graph, &values, &["a".to_owned()]), lines);
+        let lines = "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nwire\ta.out\tb.in\nout\ta\tout\t2.0\nerror\ta\tbad\nselected\ta\n";
+        let reports = [Report { id: "a".to_owned(), text: "bad".to_owned(), ..Report::default() }];
+        assert_eq!(snapshot(&graph, &values, &reports, &["a".to_owned()]), lines);
         assert_eq!(select("select\ta\tb"), Some(vec!["a".to_owned(), "b".to_owned()]));
         assert_eq!(select("select"), Some(Vec::new()));
         assert_eq!(select("selected\ta"), None);
