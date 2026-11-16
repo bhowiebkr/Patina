@@ -64,6 +64,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   each node call was a closure, and rustc checks all closures of one function together. Now
   the cluster calls each node through `glue::run` with a tuple of its arguments (4.1, 4.7). The
   same build took 43 s, with the SDK. `patina-cli run` gave the 1400 values of the emulator.
+- On Linux and macOS, rustc crashed in the DWARF debug info of the large frame cluster
+  (CI run 43803351311). The clusters now build with no debug info in edit mode (8.3). The
+  frame cluster rebuild of the CPU went from 22.2 s to 19.9 s on Windows.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first

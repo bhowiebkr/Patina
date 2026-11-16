@@ -126,6 +126,7 @@ enum Edit {
 
 - Bake mode uses `opt-level = 3` and `codegen-units = 1`. It is the cargo profile `bake` of the project workspace, which inherits `release`.
 - Edit mode is the cargo profile `edit`, which inherits `dev`.
+- The cluster crates build with no debug info in edit mode. The DWARF debug info of a large cluster function overflows the stack of LLVM on Linux and macOS. Node crates keep their debug info. Agent decision of 2026-11-15. The owner can change it.
 - The two modes have no debug assertions. Thus `cfg(debug_assertions)` is the same in the two modes, and a state moves from one mode to the other (7.2). A `debug_assert!` in a node does not run. Agent decision of 2026-11-15. The owner can change it.
 - `patina-cli run` builds in bake mode. `--edit` makes it build in edit mode, for a fast build. The tests use `--edit`.
 - Bake mode does not use LTO. The clusters share `std` and the types library through `-C prefer-dynamic` (5.2), and rustc refuses LTO with `-C prefer-dynamic`. The milestone 0 prototype "hot reload" found this on Windows, in each form of LTO that it tried (19).

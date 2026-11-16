@@ -55,11 +55,21 @@ fn workspace(root: &Path) -> String {
     let used = |group: &&str| std::fs::read_dir(root.join(group)).into_iter().flatten().flatten().any(|e| e.path().is_dir());
     let members: Vec<String> =
         ["nodes", "views", "widgets", "connections", "build/clusters"].into_iter().filter(used).map(|g| format!("\"{g}/*\"")).collect();
+    // The debug info of a large cluster function overflows the stack of LLVM on macOS.
+    let mut clusters: Vec<String> = std::fs::read_dir(root.join("build/clusters"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .map(|e| format!("\n[profile.edit.package.cluster-{}]\ndebug = false\n", e.file_name().to_string_lossy()))
+        .collect();
+    clusters.sort();
     format!(
         "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
          members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n\
-         patina-gpu = {{ path = \"build/sdk/patina-gpu\" }}\npatina-cuda = {{ path = \"build/sdk/patina-cuda\" }}\n{PROFILES}",
-        members.join(", ")
+         patina-gpu = {{ path = \"build/sdk/patina-gpu\" }}\npatina-cuda = {{ path = \"build/sdk/patina-cuda\" }}\n{PROFILES}{}",
+        members.join(", "),
+        clusters.concat()
     )
 }
 
@@ -727,6 +737,7 @@ mod tests {
         assert!(workspace(&root).contains("members = []"));
         std::fs::create_dir_all(root.join("build/clusters/main")).unwrap();
         assert!(workspace(&root).contains("members = [\"build/clusters/*\"]"));
+        assert!(workspace(&root).ends_with("\n[profile.edit.package.cluster-main]\ndebug = false\n"));
         std::fs::create_dir_all(root.join("nodes/num")).unwrap();
         assert!(workspace(&root).contains("members = [\"nodes/*\", \"build/clusters/*\"]"), "an empty folder matches no member");
         std::fs::create_dir_all(root.join("connections/byte")).unwrap();
