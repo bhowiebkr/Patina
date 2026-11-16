@@ -24,7 +24,9 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     const serial = v.serial;
     const end = Date.now() + LIMIT_MS;
     const ofRun = () => events.filter((e) => e.serial === serial);
-    while (ofRun().filter((e) => e.state === 'frame').length < FRAMES) {
+    // A project without frames runs one time, so its 'ran' event ends the wait.
+    const done = () => ofRun().some((e) => e.state === 'ran' && !e.frames) || ofRun().filter((e) => e.state === 'frame').length >= FRAMES;
+    while (!done()) {
       const failed = ofRun().find((e) => e.state === 'failed' || ((e.state === 'ran' || e.state === 'frame') && !e.ok));
       if (failed) throw new Error(`the run failed: ${JSON.stringify(failed)}`);
       if (Date.now() > end) throw new Error(`no ${FRAMES} frames after ${LIMIT_MS} ms`);

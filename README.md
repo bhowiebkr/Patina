@@ -523,6 +523,9 @@ graph runs.
 
 ## Documentation
 
+- Examples: [hello](examples/hello/README.md), the smallest project.
+  [computer](examples/computer/README.md), an 8-bit computer of NAND gates.
+  [gpu](examples/gpu/README.md), WESL shaders on the GPU.
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
 - [Mockups](docs/mockups/): the visual direction of the editor.
