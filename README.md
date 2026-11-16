@@ -298,6 +298,8 @@ To start the portable edition:
 1. Unzip the file.
 2. Start `patina`.
 
+The `projects` folder of the portable edition has the example projects, for example `computer`.
+
 To install on Windows:
 
 1. Run the `.msi` file.

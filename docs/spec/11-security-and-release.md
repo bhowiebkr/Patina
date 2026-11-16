@@ -40,7 +40,7 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 - No edition changes the `PATH` or installs Rust for the whole system.
 - Patina is under the MIT license or the Apache License 2.0, as the user chooses (`MIT OR Apache-2.0`). The repository has the files `LICENSE-MIT` and `LICENSE-APACHE`.
 - Each release file includes the license notices: the two Patina license files, and the license and `NOTICE` files of each crate in the build. The portable edition keeps them in a `licenses/` folder (13.3).
-- `cargo run -p package` makes the portable zip (`tools/package`). It builds the page and the release programs `patina` and `patina-cli`. It copies the notice files of each crate and npm package in the build, without the dev-dependencies, and lists the license of each package in `licenses/README.txt`. The list marks a package that has no license file. On Windows, `tar.exe` of System32 writes the zip. On Linux, the `zip` program writes it. The **Package** workflow of GitHub Actions runs the tool on Windows and Linux when a person starts it or pushes a tag `v*`. The zips are artifacts of the run. This is an agent decision of 2026-11-15. The owner can change it.
+- `cargo run -p package` makes the portable zip (`tools/package`). It builds the page and the release programs `patina` and `patina-cli`. It copies the notice files of each crate and npm package in the build, without the dev-dependencies, and lists the license of each package in `licenses/README.txt`. The list marks a package that has no license file. It copies the example projects of `examples/`, without their `build/` folders, to `projects/`. This is an agent decision of 2026-11-15. The owner can change it. On Windows, `tar.exe` of System32 writes the zip. On Linux, the `zip` program writes it. The **Package** workflow of GitHub Actions runs the tool on Windows and Linux when a person starts it or pushes a tag `v*`. The zips are artifacts of the run. This is an agent decision of 2026-11-15. The owner can change it.
 - The installers do not include the toolchain. Both editions use the **Install toolchain** button (13.2).
 - The `.msi` uses the Aged Dovetail artwork: `icons/wix-banner.bmp` at the top of its dialogs and `icons/wix-dialog.bmp` on its first and last pages. **Apps > Installed apps** shows the icon of the executable for the uninstall. This is an agent decision of 2026-11-15. The owner can change it.
 - The `.msi` installs the WebView2 Runtime if it is missing, with the bootstrapper of Tauri. This needs internet.
@@ -82,7 +82,7 @@ Patina/
     zig/           C compiler and its cache
     cuda/          NVRTC (optional)
   projects/
-    <project>/     project folders (6.2)
+    <project>/     project folders (6.2). The zip has the example projects here.
   data/            settings, logs, the WebView2 data, and recovery files
 ```
 

@@ -1,7 +1,7 @@
 //! Makes the portable zip of Patina (spec 13.1 and 13.3). Run `cargo run -p package`.
 //!
 //! The tool builds the page and the release programs, collects the license notices of each crate
-//! and npm package in the build, and writes `target/package/patina-<version>-<os>-<arch>.zip`.
+//! and npm package in the build, copies the example projects to `projects/`, and writes `target/package/patina-<version>-<os>-<arch>.zip`.
 
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -62,6 +62,7 @@ fn run() -> Result<()> {
     let library = format!("{}patina_capi{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX);
     copy(&root.join("target").join("release").join(&library), &folder.join(&library))?;
     write(&folder.join("portable"), PORTABLE)?;
+    copy_tree(&root.join("examples"), &folder.join("projects"))?;
     for name in ["LICENSE-MIT", "LICENSE-APACHE"] {
         copy(&root.join(name), &licenses.join(name))?;
     }
@@ -222,6 +223,23 @@ fn output(command: &mut Command) -> Result<String> {
         return Err(format!("{name} failed: {}", String::from_utf8_lossy(&out.stderr)));
     }
     String::from_utf8(out.stdout).map_err(|e| format!("{name}: {e}"))
+}
+
+/// Copies the example projects without their build output.
+fn copy_tree(from: &Path, to: &Path) -> Result<()> {
+    make_dir(to)?;
+    for entry in fs::read_dir(from).map_err(|e| format!("{}: {e}", from.display()))? {
+        let entry = entry.map_err(|e| format!("{}: {e}", from.display()))?;
+        let (path, name) = (entry.path(), entry.file_name());
+        if path.is_dir() {
+            if name != "build" && name != "target" {
+                copy_tree(&path, &to.join(&name))?;
+            }
+        } else {
+            copy(&path, &to.join(&name))?;
+        }
+    }
+    Ok(())
 }
 
 fn make_dir(dir: &Path) -> Result<()> {
