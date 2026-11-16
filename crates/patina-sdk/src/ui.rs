@@ -77,6 +77,17 @@ pub struct Viewport {
     pub pointer: Vec<Pointer>,
     /// The wheel movement since the last call of `ui`, in pixels of the page. Down is positive.
     pub wheel: f32,
+    /// The key inputs since the last call of `ui`, while the viewport has the focus. A click gives
+    /// the focus. When the viewport loses the focus, each held key comes up.
+    pub keys: Vec<Key>,
+}
+
+/// A key input of a viewport. The name is the physical key of the web `KeyboardEvent.code`, for
+/// example `KeyW`, `Space` or `ArrowLeft`, so it does not change with the keyboard layout.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Key {
+    Down(String),
+    Up(String),
 }
 
 /// A drawing area of a node GUI (4.3). The draw calls add shapes in pixels from the top left
@@ -218,6 +229,10 @@ impl Ui {
                 viewport.wheel += d;
             } else if let Some(p) = pointer(event) {
                 viewport.pointer.push(p);
+            } else if let Some(name) = event.strip_prefix("key down ").filter(|n| !n.is_empty()) {
+                viewport.keys.push(Key::Down(name.to_owned()));
+            } else if let Some(name) = event.strip_prefix("key up ").filter(|n| !n.is_empty()) {
+                viewport.keys.push(Key::Up(name.to_owned()));
             }
         }
         viewport
@@ -555,10 +570,11 @@ mod tests {
 
     #[test]
     fn a_viewport_reads_its_place_and_input() {
-        let mut ui = Ui::new(0, "0 place 7 800 600 10 20 300 200\n0 down 1 2\n0 wheel 40\n0 wheel -15\n0 place 7 900 600 0 0 1\n0 wheel x\n1 place 9 1 1 0 0 1 1");
+        let mut ui = Ui::new(0, "0 place 7 800 600 10 20 300 200\n0 down 1 2\n0 wheel 40\n0 key down KeyW\n0 key up \n0 wheel -15\n0 key up KeyW\n0 place 7 900 600 0 0 1\n0 wheel x\n1 place 9 1 1 0 0 1 1");
         let viewport = ui.viewport("Scene", 240.0);
         assert_eq!((viewport.window, viewport.window_size, viewport.rect), (7, [800, 600], [10, 20, 300, 200]));
         assert_eq!((viewport.pointer, viewport.wheel), (vec![Pointer::Down([1.0, 2.0])], 25.0));
+        assert_eq!(viewport.keys, [Key::Down("KeyW".into()), Key::Up("KeyW".into())]);
         assert_eq!(ui.tree(), "viewport\tScene\t240");
         assert_eq!(Ui::new(0, "").viewport("Empty", 1.0), Viewport::default());
     }

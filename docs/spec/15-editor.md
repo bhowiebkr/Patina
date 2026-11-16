@@ -361,6 +361,9 @@ change it.)
   the viewport.
 - The shared GPU context loads the view library before its first call, so a view uses the same
   device as the nodes. On Windows, the context uses only DX12.
+- A click gives the focus to the viewport. While it has the focus, each key down and key up goes
+  to the view as the physical key name, for example `KeyW`. Tab moves the focus out, and then
+  each held key comes up. A held key does not repeat.
 - A node GUI shows a note in place of a viewport. On Linux and macOS, a view shows the note too.
 
 The limits of version 1:
@@ -370,7 +373,7 @@ The limits of version 1:
 - No trigger (9.4), because the event domain does not exist yet. No subgraph edits and no reads
   of node states.
 - One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node
-  GUIs. No key events on the viewport.
+  GUIs.
 - No bake build of a view.
 
 ### 15.9 Connections and routing

@@ -545,9 +545,9 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     // The scene view shows a viewport. Without a window, it reads the wheel and draws nothing (15.8).
     let library = opened.build_view(&Toolchain::detect().unwrap(), "scene").unwrap();
     let mut view = patina_engine::view::View::load(&library, &project).unwrap();
-    let tree = view.ui(0, "0 wheel 100", &patina_engine::view::snapshot(opened.graph(), &[], &[], &[])).unwrap().tree;
+    let tree = view.ui(0, "0 wheel 100\n0 key down ArrowDown", &patina_engine::view::snapshot(opened.graph(), &[], &[], &[])).unwrap().tree;
     assert!(tree.starts_with("viewport	Scene	320
-label	") && tree.contains("40 %"), "{tree}");
+label	") && tree.contains("30 %"), "{tree}");
 }
 
 const VIEW: &str = "use patina_sdk::{Graph, Ui, view};

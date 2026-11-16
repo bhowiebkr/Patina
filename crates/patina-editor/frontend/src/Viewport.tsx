@@ -1,8 +1,8 @@
 // The viewport widget (spec 15.8). The view draws into the window under the page, so the page is
-// transparent over the area. Each frame sends the place of the area. The pointer and the wheel go
-// to the view too. The sizes are in physical pixels.
+// transparent over the area. Each frame sends the place of the area. The pointer, the wheel and the
+// keys go to the view too. The sizes are in physical pixels.
 
-import { useEffect, useRef, type PointerEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import type { Widget } from './gui';
 
 /** The class on the page root that makes the parents of a viewport transparent (canvas.css). */
@@ -16,6 +16,7 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const out = useRef(send);
   out.current = send;
+  const held = useRef(new Set<string>());
 
   useEffect(() => {
     const area = ref.current;
@@ -54,6 +55,19 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
     return `${Math.round((e.clientX - r.left) * devicePixelRatio)} ${Math.round((e.clientY - r.top) * devicePixelRatio)}`;
   };
   const drag = (e: PointerEvent<HTMLDivElement>) => e.currentTarget.hasPointerCapture(e.pointerId);
+  // Tab keeps its job, so the focus can leave the viewport.
+  const key = (down: boolean) => (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Tab' || (down && e.repeat)) return;
+    e.preventDefault();
+    if (down === held.current.has(e.code)) return;
+    if (down) held.current.add(e.code);
+    else held.current.delete(e.code);
+    send(`key ${down ? 'down' : 'up'} ${e.code}`);
+  };
+  const release = () => {
+    for (const code of held.current) send(`key up ${code}`);
+    held.current.clear();
+  };
   return (
     <div className="gui-canvas-row">
       {w.text && <span className="label">{w.text}</span>}
@@ -61,13 +75,18 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
         ref={ref}
         className="gui-viewport"
         style={{ height: w.height }}
-        role="img"
+        role="application"
         aria-label={w.text || 'Viewport'}
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={disabled ? undefined : key(true)}
+        onKeyUp={disabled ? undefined : key(false)}
+        onBlur={release}
         onPointerDown={
           disabled
             ? undefined
             : (e) => {
                 e.currentTarget.setPointerCapture(e.pointerId);
+                e.currentTarget.focus();
                 send(`down ${at(e)}`);
               }
         }

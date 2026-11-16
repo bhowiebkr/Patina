@@ -1,7 +1,8 @@
 use patina_gpu::ViewportSurface;
-use patina_sdk::{Graph, Pointer, Ui, view};
+use patina_sdk::{Graph, Key, Pointer, Ui, view};
 
-/// A viewport that the pointer colors (15.8). A drag sets the color, and the wheel sets the light.
+/// A viewport that the pointer colors (15.8). A drag sets the color. The wheel and the up and down
+/// arrows set the light.
 #[view]
 pub struct Scene {
     surface: ViewportSurface,
@@ -24,9 +25,16 @@ impl Scene {
             }
         }
         self.light = (self.light - viewport.wheel as f64 / 1000.0).clamp(0.0, 1.0);
+        for key in &viewport.keys {
+            match key {
+                Key::Down(name) if name == "ArrowUp" => self.light = (self.light + 0.1).min(1.0),
+                Key::Down(name) if name == "ArrowDown" => self.light = (self.light - 0.1).max(0.0),
+                _ => {}
+            }
+        }
         let [r, g, b] = [self.color[0], self.color[1], 1.0 - self.color[0]].map(|c| c * self.light);
         self.error = self.surface.draw(&viewport, patina_gpu::wgpu::Color { r, g, b, a: 1.0 }, |_, _| {}).err().unwrap_or_default();
-        ui.label(&format!("Drag to change the color. Turn the wheel to change the light: {:.0} %.", self.light * 100.0));
+        ui.label(&format!("Drag to change the color. Turn the wheel or push the up and down arrows to change the light: {:.0} %.", self.light * 100.0));
         if !self.error.is_empty() {
             ui.label(&self.error);
         }
