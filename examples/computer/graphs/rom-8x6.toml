@@ -1,0 +1,985 @@
+format = 1
+
+[[node]]
+id = "691c4ab98a245b9f"
+folder = "nodes/switch"
+pos = [0.0, 0.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "a0a0a60dfc6a2e56"
+folder = "nodes/switch"
+pos = [0.0, 100.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "359b399c250ff60e"
+folder = "nodes/switch"
+pos = [0.0, 200.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "4e331066ac2a6a3b"
+folder = "nodes/switch"
+pos = [0.0, 300.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "3db2597d2988dcc6"
+folder = "nodes/switch"
+pos = [0.0, 400.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "8c4bda59e4f2d82f"
+folder = "nodes/switch"
+pos = [0.0, 500.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "a000482c3d70c39f"
+folder = "nodes/switch"
+pos = [0.0, 600.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "3f2006b3120bdbae"
+folder = "nodes/switch"
+pos = [0.0, 700.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "f8ce5a3dc83f0d46"
+subgraph = "mux"
+pos = [240.0, 0.0]
+
+[[node]]
+id = "2c94d61aee5eb91b"
+subgraph = "mux"
+pos = [240.0, 100.0]
+
+[[node]]
+id = "5c81fcf2d24ca236"
+subgraph = "mux"
+pos = [240.0, 200.0]
+
+[[node]]
+id = "7ffc17a533ab9726"
+subgraph = "mux"
+pos = [240.0, 300.0]
+
+[[node]]
+id = "3061f316658a83ea"
+subgraph = "mux"
+pos = [480.0, 0.0]
+
+[[node]]
+id = "8e8f40705b0924a0"
+subgraph = "mux"
+pos = [480.0, 100.0]
+
+[[node]]
+id = "aa05e46b60eb7860"
+subgraph = "mux"
+pos = [720.0, 0.0]
+
+[[node]]
+id = "7b6419017f38e9c7"
+folder = "nodes/switch"
+pos = [0.0, 800.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "52ec616ed9b9c347"
+folder = "nodes/switch"
+pos = [0.0, 900.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "50d44c2a8be3bee1"
+folder = "nodes/switch"
+pos = [0.0, 1000.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "30d19d42dcc10b93"
+folder = "nodes/switch"
+pos = [0.0, 1100.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "52a13b177f76c7fd"
+folder = "nodes/switch"
+pos = [0.0, 1200.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "fd4fe26ed15d9b36"
+folder = "nodes/switch"
+pos = [0.0, 1300.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "f817d50804c72ecb"
+folder = "nodes/switch"
+pos = [0.0, 1400.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "0e1c48ad584c1925"
+folder = "nodes/switch"
+pos = [0.0, 1500.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "0b74277127403d82"
+subgraph = "mux"
+pos = [240.0, 400.0]
+
+[[node]]
+id = "aae81302a87d1ae0"
+subgraph = "mux"
+pos = [240.0, 500.0]
+
+[[node]]
+id = "1ed172254cbdc3fc"
+subgraph = "mux"
+pos = [240.0, 600.0]
+
+[[node]]
+id = "fe3cac2d240b31d4"
+subgraph = "mux"
+pos = [240.0, 700.0]
+
+[[node]]
+id = "d9f9cba2ccd7cef2"
+subgraph = "mux"
+pos = [480.0, 200.0]
+
+[[node]]
+id = "29df2e54f216fc17"
+subgraph = "mux"
+pos = [480.0, 300.0]
+
+[[node]]
+id = "3bd7437e7ca716df"
+subgraph = "mux"
+pos = [720.0, 100.0]
+
+[[node]]
+id = "b72ca14af34fe834"
+folder = "nodes/switch"
+pos = [0.0, 1600.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "120af0442e2622ca"
+folder = "nodes/switch"
+pos = [0.0, 1700.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "e74d413927e0af4a"
+folder = "nodes/switch"
+pos = [0.0, 1800.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "9c9efcd1de8c2556"
+folder = "nodes/switch"
+pos = [0.0, 1900.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "b5964bb1299f72f8"
+folder = "nodes/switch"
+pos = [0.0, 2000.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "cc612e07a1a0064a"
+folder = "nodes/switch"
+pos = [0.0, 2100.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "261ac9e6459ce76e"
+folder = "nodes/switch"
+pos = [0.0, 2200.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "5e7cc5709471f9fb"
+folder = "nodes/switch"
+pos = [0.0, 2300.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "72d1a60e363854af"
+subgraph = "mux"
+pos = [240.0, 800.0]
+
+[[node]]
+id = "2075a0ed5040ce22"
+subgraph = "mux"
+pos = [240.0, 900.0]
+
+[[node]]
+id = "a5c65307e1757041"
+subgraph = "mux"
+pos = [240.0, 1000.0]
+
+[[node]]
+id = "5b75ddcfd3069999"
+subgraph = "mux"
+pos = [240.0, 1100.0]
+
+[[node]]
+id = "303e4b72310cfbf8"
+subgraph = "mux"
+pos = [480.0, 400.0]
+
+[[node]]
+id = "84aa83510eb007d5"
+subgraph = "mux"
+pos = [480.0, 500.0]
+
+[[node]]
+id = "6bbafa7da87d5510"
+subgraph = "mux"
+pos = [720.0, 200.0]
+
+[[node]]
+id = "71b2ec75c2e5ecf1"
+folder = "nodes/switch"
+pos = [0.0, 2400.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "e0a8500866ae00da"
+folder = "nodes/switch"
+pos = [0.0, 2500.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "756992fff94d9a47"
+folder = "nodes/switch"
+pos = [0.0, 2600.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "b832e7c843ca5d66"
+folder = "nodes/switch"
+pos = [0.0, 2700.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "364aa8531b503b28"
+folder = "nodes/switch"
+pos = [0.0, 2800.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "8b861790e32015da"
+folder = "nodes/switch"
+pos = [0.0, 2900.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "763ad5dc2169e591"
+folder = "nodes/switch"
+pos = [0.0, 3000.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "7301068be49adc1e"
+folder = "nodes/switch"
+pos = [0.0, 3100.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "5052a3a1d013932d"
+subgraph = "mux"
+pos = [240.0, 1200.0]
+
+[[node]]
+id = "18671cf94bcacf20"
+subgraph = "mux"
+pos = [240.0, 1300.0]
+
+[[node]]
+id = "9cef90c279f613b2"
+subgraph = "mux"
+pos = [240.0, 1400.0]
+
+[[node]]
+id = "c3fb8949ce6af3a4"
+subgraph = "mux"
+pos = [240.0, 1500.0]
+
+[[node]]
+id = "fe65ee18faa390f4"
+subgraph = "mux"
+pos = [480.0, 600.0]
+
+[[node]]
+id = "3d2e4b8c6bdf384e"
+subgraph = "mux"
+pos = [480.0, 700.0]
+
+[[node]]
+id = "56bd4a60a27db69b"
+subgraph = "mux"
+pos = [720.0, 300.0]
+
+[[node]]
+id = "88acc32b5d8e57e1"
+folder = "nodes/switch"
+pos = [0.0, 3200.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "e4ad9aee9f689440"
+folder = "nodes/switch"
+pos = [0.0, 3300.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "063c900880984ad9"
+folder = "nodes/switch"
+pos = [0.0, 3400.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "dce717111295a7d1"
+folder = "nodes/switch"
+pos = [0.0, 3500.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "4c078d01ec108e60"
+folder = "nodes/switch"
+pos = [0.0, 3600.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "78f97358b53fba7e"
+folder = "nodes/switch"
+pos = [0.0, 3700.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "cc2c082ff9f24879"
+folder = "nodes/switch"
+pos = [0.0, 3800.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "ccf27860bb03ca60"
+folder = "nodes/switch"
+pos = [0.0, 3900.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "5e564b1945fd7b36"
+subgraph = "mux"
+pos = [240.0, 1600.0]
+
+[[node]]
+id = "f4a6d66f57b255bc"
+subgraph = "mux"
+pos = [240.0, 1700.0]
+
+[[node]]
+id = "7503ee892b1bac2e"
+subgraph = "mux"
+pos = [240.0, 1800.0]
+
+[[node]]
+id = "cda0cd6f01e40503"
+subgraph = "mux"
+pos = [240.0, 1900.0]
+
+[[node]]
+id = "64d94678f251c4c2"
+subgraph = "mux"
+pos = [480.0, 800.0]
+
+[[node]]
+id = "364ec835a436078a"
+subgraph = "mux"
+pos = [480.0, 900.0]
+
+[[node]]
+id = "e1811f98732087fd"
+subgraph = "mux"
+pos = [720.0, 400.0]
+
+[[node]]
+id = "4b0f11647c911599"
+folder = "nodes/switch"
+pos = [0.0, 4000.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "9487a6d4161dde42"
+folder = "nodes/switch"
+pos = [0.0, 4100.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "b6c05c39cf1fa4d7"
+folder = "nodes/switch"
+pos = [0.0, 4200.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "05bf329a2101be64"
+folder = "nodes/switch"
+pos = [0.0, 4300.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "e8a2438794c8e3be"
+folder = "nodes/switch"
+pos = [0.0, 4400.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "1c3ef95660e05fdf"
+folder = "nodes/switch"
+pos = [0.0, 4500.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "3a5931ab188ae0fb"
+folder = "nodes/switch"
+pos = [0.0, 4600.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "ec26b624d469bf25"
+folder = "nodes/switch"
+pos = [0.0, 4700.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "74929ceba9bae572"
+subgraph = "mux"
+pos = [240.0, 2000.0]
+
+[[node]]
+id = "ad782d52d8097297"
+subgraph = "mux"
+pos = [240.0, 2100.0]
+
+[[node]]
+id = "5c40ea74b65b8b24"
+subgraph = "mux"
+pos = [240.0, 2200.0]
+
+[[node]]
+id = "d080dbb7f64b00ab"
+subgraph = "mux"
+pos = [240.0, 2300.0]
+
+[[node]]
+id = "79371a6df29cb3e3"
+subgraph = "mux"
+pos = [480.0, 1000.0]
+
+[[node]]
+id = "b748f26d7aa53cda"
+subgraph = "mux"
+pos = [480.0, 1100.0]
+
+[[node]]
+id = "89ea1d40cf77ef77"
+subgraph = "mux"
+pos = [720.0, 500.0]
+
+[[wire]]
+from = "691c4ab98a245b9f.out"
+to = "f8ce5a3dc83f0d46.987c7f5a"
+
+[[wire]]
+from = "a0a0a60dfc6a2e56.out"
+to = "f8ce5a3dc83f0d46.36ab6f8b"
+
+[[wire]]
+from = "359b399c250ff60e.out"
+to = "2c94d61aee5eb91b.987c7f5a"
+
+[[wire]]
+from = "4e331066ac2a6a3b.out"
+to = "2c94d61aee5eb91b.36ab6f8b"
+
+[[wire]]
+from = "3db2597d2988dcc6.out"
+to = "5c81fcf2d24ca236.987c7f5a"
+
+[[wire]]
+from = "8c4bda59e4f2d82f.out"
+to = "5c81fcf2d24ca236.36ab6f8b"
+
+[[wire]]
+from = "a000482c3d70c39f.out"
+to = "7ffc17a533ab9726.987c7f5a"
+
+[[wire]]
+from = "3f2006b3120bdbae.out"
+to = "7ffc17a533ab9726.36ab6f8b"
+
+[[wire]]
+from = "f8ce5a3dc83f0d46.93be95a4"
+to = "3061f316658a83ea.987c7f5a"
+
+[[wire]]
+from = "2c94d61aee5eb91b.93be95a4"
+to = "3061f316658a83ea.36ab6f8b"
+
+[[wire]]
+from = "5c81fcf2d24ca236.93be95a4"
+to = "8e8f40705b0924a0.987c7f5a"
+
+[[wire]]
+from = "7ffc17a533ab9726.93be95a4"
+to = "8e8f40705b0924a0.36ab6f8b"
+
+[[wire]]
+from = "3061f316658a83ea.93be95a4"
+to = "aa05e46b60eb7860.987c7f5a"
+
+[[wire]]
+from = "8e8f40705b0924a0.93be95a4"
+to = "aa05e46b60eb7860.36ab6f8b"
+
+[[wire]]
+from = "7b6419017f38e9c7.out"
+to = "0b74277127403d82.987c7f5a"
+
+[[wire]]
+from = "52ec616ed9b9c347.out"
+to = "0b74277127403d82.36ab6f8b"
+
+[[wire]]
+from = "50d44c2a8be3bee1.out"
+to = "aae81302a87d1ae0.987c7f5a"
+
+[[wire]]
+from = "30d19d42dcc10b93.out"
+to = "aae81302a87d1ae0.36ab6f8b"
+
+[[wire]]
+from = "52a13b177f76c7fd.out"
+to = "1ed172254cbdc3fc.987c7f5a"
+
+[[wire]]
+from = "fd4fe26ed15d9b36.out"
+to = "1ed172254cbdc3fc.36ab6f8b"
+
+[[wire]]
+from = "f817d50804c72ecb.out"
+to = "fe3cac2d240b31d4.987c7f5a"
+
+[[wire]]
+from = "0e1c48ad584c1925.out"
+to = "fe3cac2d240b31d4.36ab6f8b"
+
+[[wire]]
+from = "0b74277127403d82.93be95a4"
+to = "d9f9cba2ccd7cef2.987c7f5a"
+
+[[wire]]
+from = "aae81302a87d1ae0.93be95a4"
+to = "d9f9cba2ccd7cef2.36ab6f8b"
+
+[[wire]]
+from = "1ed172254cbdc3fc.93be95a4"
+to = "29df2e54f216fc17.987c7f5a"
+
+[[wire]]
+from = "fe3cac2d240b31d4.93be95a4"
+to = "29df2e54f216fc17.36ab6f8b"
+
+[[wire]]
+from = "d9f9cba2ccd7cef2.93be95a4"
+to = "3bd7437e7ca716df.987c7f5a"
+
+[[wire]]
+from = "29df2e54f216fc17.93be95a4"
+to = "3bd7437e7ca716df.36ab6f8b"
+
+[[wire]]
+from = "b72ca14af34fe834.out"
+to = "72d1a60e363854af.987c7f5a"
+
+[[wire]]
+from = "120af0442e2622ca.out"
+to = "72d1a60e363854af.36ab6f8b"
+
+[[wire]]
+from = "e74d413927e0af4a.out"
+to = "2075a0ed5040ce22.987c7f5a"
+
+[[wire]]
+from = "9c9efcd1de8c2556.out"
+to = "2075a0ed5040ce22.36ab6f8b"
+
+[[wire]]
+from = "b5964bb1299f72f8.out"
+to = "a5c65307e1757041.987c7f5a"
+
+[[wire]]
+from = "cc612e07a1a0064a.out"
+to = "a5c65307e1757041.36ab6f8b"
+
+[[wire]]
+from = "261ac9e6459ce76e.out"
+to = "5b75ddcfd3069999.987c7f5a"
+
+[[wire]]
+from = "5e7cc5709471f9fb.out"
+to = "5b75ddcfd3069999.36ab6f8b"
+
+[[wire]]
+from = "72d1a60e363854af.93be95a4"
+to = "303e4b72310cfbf8.987c7f5a"
+
+[[wire]]
+from = "2075a0ed5040ce22.93be95a4"
+to = "303e4b72310cfbf8.36ab6f8b"
+
+[[wire]]
+from = "a5c65307e1757041.93be95a4"
+to = "84aa83510eb007d5.987c7f5a"
+
+[[wire]]
+from = "5b75ddcfd3069999.93be95a4"
+to = "84aa83510eb007d5.36ab6f8b"
+
+[[wire]]
+from = "303e4b72310cfbf8.93be95a4"
+to = "6bbafa7da87d5510.987c7f5a"
+
+[[wire]]
+from = "84aa83510eb007d5.93be95a4"
+to = "6bbafa7da87d5510.36ab6f8b"
+
+[[wire]]
+from = "71b2ec75c2e5ecf1.out"
+to = "5052a3a1d013932d.987c7f5a"
+
+[[wire]]
+from = "e0a8500866ae00da.out"
+to = "5052a3a1d013932d.36ab6f8b"
+
+[[wire]]
+from = "756992fff94d9a47.out"
+to = "18671cf94bcacf20.987c7f5a"
+
+[[wire]]
+from = "b832e7c843ca5d66.out"
+to = "18671cf94bcacf20.36ab6f8b"
+
+[[wire]]
+from = "364aa8531b503b28.out"
+to = "9cef90c279f613b2.987c7f5a"
+
+[[wire]]
+from = "8b861790e32015da.out"
+to = "9cef90c279f613b2.36ab6f8b"
+
+[[wire]]
+from = "763ad5dc2169e591.out"
+to = "c3fb8949ce6af3a4.987c7f5a"
+
+[[wire]]
+from = "7301068be49adc1e.out"
+to = "c3fb8949ce6af3a4.36ab6f8b"
+
+[[wire]]
+from = "5052a3a1d013932d.93be95a4"
+to = "fe65ee18faa390f4.987c7f5a"
+
+[[wire]]
+from = "18671cf94bcacf20.93be95a4"
+to = "fe65ee18faa390f4.36ab6f8b"
+
+[[wire]]
+from = "9cef90c279f613b2.93be95a4"
+to = "3d2e4b8c6bdf384e.987c7f5a"
+
+[[wire]]
+from = "c3fb8949ce6af3a4.93be95a4"
+to = "3d2e4b8c6bdf384e.36ab6f8b"
+
+[[wire]]
+from = "fe65ee18faa390f4.93be95a4"
+to = "56bd4a60a27db69b.987c7f5a"
+
+[[wire]]
+from = "3d2e4b8c6bdf384e.93be95a4"
+to = "56bd4a60a27db69b.36ab6f8b"
+
+[[wire]]
+from = "88acc32b5d8e57e1.out"
+to = "5e564b1945fd7b36.987c7f5a"
+
+[[wire]]
+from = "e4ad9aee9f689440.out"
+to = "5e564b1945fd7b36.36ab6f8b"
+
+[[wire]]
+from = "063c900880984ad9.out"
+to = "f4a6d66f57b255bc.987c7f5a"
+
+[[wire]]
+from = "dce717111295a7d1.out"
+to = "f4a6d66f57b255bc.36ab6f8b"
+
+[[wire]]
+from = "4c078d01ec108e60.out"
+to = "7503ee892b1bac2e.987c7f5a"
+
+[[wire]]
+from = "78f97358b53fba7e.out"
+to = "7503ee892b1bac2e.36ab6f8b"
+
+[[wire]]
+from = "cc2c082ff9f24879.out"
+to = "cda0cd6f01e40503.987c7f5a"
+
+[[wire]]
+from = "ccf27860bb03ca60.out"
+to = "cda0cd6f01e40503.36ab6f8b"
+
+[[wire]]
+from = "5e564b1945fd7b36.93be95a4"
+to = "64d94678f251c4c2.987c7f5a"
+
+[[wire]]
+from = "f4a6d66f57b255bc.93be95a4"
+to = "64d94678f251c4c2.36ab6f8b"
+
+[[wire]]
+from = "7503ee892b1bac2e.93be95a4"
+to = "364ec835a436078a.987c7f5a"
+
+[[wire]]
+from = "cda0cd6f01e40503.93be95a4"
+to = "364ec835a436078a.36ab6f8b"
+
+[[wire]]
+from = "64d94678f251c4c2.93be95a4"
+to = "e1811f98732087fd.987c7f5a"
+
+[[wire]]
+from = "364ec835a436078a.93be95a4"
+to = "e1811f98732087fd.36ab6f8b"
+
+[[wire]]
+from = "4b0f11647c911599.out"
+to = "74929ceba9bae572.987c7f5a"
+
+[[wire]]
+from = "9487a6d4161dde42.out"
+to = "74929ceba9bae572.36ab6f8b"
+
+[[wire]]
+from = "b6c05c39cf1fa4d7.out"
+to = "ad782d52d8097297.987c7f5a"
+
+[[wire]]
+from = "05bf329a2101be64.out"
+to = "ad782d52d8097297.36ab6f8b"
+
+[[wire]]
+from = "e8a2438794c8e3be.out"
+to = "5c40ea74b65b8b24.987c7f5a"
+
+[[wire]]
+from = "1c3ef95660e05fdf.out"
+to = "5c40ea74b65b8b24.36ab6f8b"
+
+[[wire]]
+from = "3a5931ab188ae0fb.out"
+to = "d080dbb7f64b00ab.987c7f5a"
+
+[[wire]]
+from = "ec26b624d469bf25.out"
+to = "d080dbb7f64b00ab.36ab6f8b"
+
+[[wire]]
+from = "74929ceba9bae572.93be95a4"
+to = "79371a6df29cb3e3.987c7f5a"
+
+[[wire]]
+from = "ad782d52d8097297.93be95a4"
+to = "79371a6df29cb3e3.36ab6f8b"
+
+[[wire]]
+from = "5c40ea74b65b8b24.93be95a4"
+to = "b748f26d7aa53cda.987c7f5a"
+
+[[wire]]
+from = "d080dbb7f64b00ab.93be95a4"
+to = "b748f26d7aa53cda.36ab6f8b"
+
+[[wire]]
+from = "79371a6df29cb3e3.93be95a4"
+to = "89ea1d40cf77ef77.987c7f5a"
+
+[[wire]]
+from = "b748f26d7aa53cda.93be95a4"
+to = "89ea1d40cf77ef77.36ab6f8b"
+
+[[input]]
+key = "781ba396"
+name = "a0"
+pos = [-240.0, 0.0]
+to = ["f8ce5a3dc83f0d46.dcc47589", "2c94d61aee5eb91b.dcc47589", "5c81fcf2d24ca236.dcc47589", "7ffc17a533ab9726.dcc47589", "0b74277127403d82.dcc47589", "aae81302a87d1ae0.dcc47589", "1ed172254cbdc3fc.dcc47589", "fe3cac2d240b31d4.dcc47589", "72d1a60e363854af.dcc47589", "2075a0ed5040ce22.dcc47589", "a5c65307e1757041.dcc47589", "5b75ddcfd3069999.dcc47589", "5052a3a1d013932d.dcc47589", "18671cf94bcacf20.dcc47589", "9cef90c279f613b2.dcc47589", "c3fb8949ce6af3a4.dcc47589", "5e564b1945fd7b36.dcc47589", "f4a6d66f57b255bc.dcc47589", "7503ee892b1bac2e.dcc47589", "cda0cd6f01e40503.dcc47589", "74929ceba9bae572.dcc47589", "ad782d52d8097297.dcc47589", "5c40ea74b65b8b24.dcc47589", "d080dbb7f64b00ab.dcc47589"]
+
+[[input]]
+key = "48a43c52"
+name = "a1"
+pos = [-240.0, 100.0]
+to = ["3061f316658a83ea.dcc47589", "8e8f40705b0924a0.dcc47589", "d9f9cba2ccd7cef2.dcc47589", "29df2e54f216fc17.dcc47589", "303e4b72310cfbf8.dcc47589", "84aa83510eb007d5.dcc47589", "fe65ee18faa390f4.dcc47589", "3d2e4b8c6bdf384e.dcc47589", "64d94678f251c4c2.dcc47589", "364ec835a436078a.dcc47589", "79371a6df29cb3e3.dcc47589", "b748f26d7aa53cda.dcc47589"]
+
+[[input]]
+key = "f3545f1d"
+name = "a2"
+pos = [-240.0, 200.0]
+to = ["aa05e46b60eb7860.dcc47589", "3bd7437e7ca716df.dcc47589", "6bbafa7da87d5510.dcc47589", "56bd4a60a27db69b.dcc47589", "e1811f98732087fd.dcc47589", "89ea1d40cf77ef77.dcc47589"]
+
+[[output]]
+key = "1096a267"
+name = "i0"
+pos = [960.0, 0.0]
+from = "aa05e46b60eb7860.93be95a4"
+
+[[output]]
+key = "5e212670"
+name = "i1"
+pos = [960.0, 100.0]
+from = "3bd7437e7ca716df.93be95a4"
+
+[[output]]
+key = "71728095"
+name = "i2"
+pos = [960.0, 200.0]
+from = "6bbafa7da87d5510.93be95a4"
+
+[[output]]
+key = "1760bc8e"
+name = "i3"
+pos = [960.0, 300.0]
+from = "56bd4a60a27db69b.93be95a4"
+
+[[output]]
+key = "a2026c70"
+name = "i4"
+pos = [960.0, 400.0]
+from = "e1811f98732087fd.93be95a4"
+
+[[output]]
+key = "65c35174"
+name = "i5"
+pos = [960.0, 500.0]
+from = "89ea1d40cf77ef77.93be95a4"
