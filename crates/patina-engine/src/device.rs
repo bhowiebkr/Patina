@@ -1,11 +1,14 @@
 //! The output of the audio domain to the default audio device (spec 9.3).
 
+use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering::Acquire, Ordering::Relaxed, Ordering::Release};
 use std::thread::sleep;
 use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+
+use crate::clock::{self, Clock};
 
 /// The samples that wait for the device: 8 blocks, about 43 ms at 48 kHz.
 const QUEUE: usize = 2048;
@@ -104,6 +107,77 @@ impl Device {
         }
         // shortcut: a fixed wait for the buffer of the device, read its latency if a sound gets cut.
         sleep(Duration::from_millis(50));
+    }
+}
+
+/// Paces the blocks of the audio domain: the timer until a node plays, then the device (9.3).
+pub struct Pace {
+    clock: Clock,
+    device: Option<Device>,
+    opened: bool,
+}
+
+impl Default for Pace {
+    fn default() -> Pace {
+        Pace { clock: Clock::new(clock::BLOCK), device: None, opened: false }
+    }
+}
+
+impl Pace {
+    /// Waits for the time of the next block. With a device, `play` waits instead.
+    pub fn wait(&mut self) {
+        if self.device.is_none() {
+            self.clock.wait();
+        }
+    }
+
+    /// Sends the sound of a block to the device, and opens the device at the first sound.
+    /// Returns a notice when the device opens, is not there or stops.
+    pub fn play(&mut self, sound: Option<&[f32]>) -> Option<Notice> {
+        let sound = sound?;
+        let mut notice = None;
+        if !self.opened {
+            self.opened = true;
+            self.device = Device::open(clock::SAMPLE_RATE);
+            notice = Some(if self.device.is_some() { Notice::Playing } else { Notice::NoDevice });
+        }
+        if self.device.as_ref().is_some_and(|d| !d.play(sound)) {
+            (self.device, self.clock) = (None, Clock::new(clock::BLOCK));
+            notice = Some(Notice::Stopped);
+        }
+        notice
+    }
+
+    /// Waits until the device played its queue.
+    pub fn drain(self) {
+        if let Some(device) = self.device {
+            device.drain();
+        }
+    }
+}
+
+/// A change of the audio device that the user sees (9.3).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Notice {
+    Playing,
+    NoDevice,
+    Stopped,
+}
+
+impl Notice {
+    /// True when the sound does not play.
+    pub fn warning(self) -> bool {
+        self != Notice::Playing
+    }
+}
+
+impl fmt::Display for Notice {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Notice::Playing => write!(f, "Playing the sound on the default audio device"),
+            Notice::NoDevice => write!(f, "no audio device takes {} Hz, so the sound does not play", clock::SAMPLE_RATE),
+            Notice::Stopped => write!(f, "the audio device stopped"),
+        }
     }
 }
 

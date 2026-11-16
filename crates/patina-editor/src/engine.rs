@@ -7,8 +7,9 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, SendError, Sender, TryRecvErro
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use patina_engine::clock::{self, Clock};
-use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog, NodeTime, Report, Toolchain, Value, package};
+use patina_engine::clock::{self, Clock, frame_due};
+use patina_engine::device::{Notice, Pace};
+use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog, NodeTime, Outcome, Report, Toolchain, Value, package};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -105,7 +106,8 @@ pub enum Event {
     /// `values` has the badge text of each output that a wire reads (15.9). `skipped` and `stopped`
     /// have the IDs of the nodes that did not run (15.3, 15.2). `times` has the run time of each
     /// node call that started, and `logs` has the log lines of the nodes (15.7). `frames` is true
-    /// when the frame domain runs after this run of the batch domain (9.1). `fused` is true for
+    /// when the frame domain or the audio domain runs after this run of the batch domain (9.1,
+    /// 9.3). `fused` is true for
     /// clusters in bake mode with no slot, and `slot` has the node folder in the slot (7.3).
     /// `slot_only` is true when the build made only the slot library.
     Ran {
@@ -126,7 +128,8 @@ pub enum Event {
         errors: Vec<Diagnostic>,
     },
     Failed { serial: u64, text: String, errors: Vec<Diagnostic> },
-    /// The result of one frame (9.1). The fields are as in `Ran`, for the nodes of the frame domain.
+    /// The result of one frame (9.1). The fields are as in `Ran`, for the nodes of the frame domain
+    /// and for the blocks of the audio domain since the last frame (9.3).
     Frame {
         serial: u64,
         run_ms: f64,
@@ -263,7 +266,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             }
         }
         if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-            frame(app, (&mut loaded.cluster, &shown, &loaded.aliases), shared, serial);
+            frame(app, (&mut loaded.cluster, &shown, &loaded.aliases), shared, serial, &mut no_blocks());
             let _ = app.emit("engine", Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -354,12 +357,18 @@ fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, shown: &Shown) {
     }
 }
 
-/// Runs the frame domain at 60 FPS until a job comes, the user stops the run, a frame fails or
-/// the time of the fuse comes (9.1, 7.2). Returns the job that ended the run.
+/// Runs the frame domain at 60 FPS and the audio domain at each block (9.3) until a job comes,
+/// the user stops the run, a frame or a block fails or the time of the fuse comes (9.1, 7.2).
+/// Returns the job that ended the run.
 fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): (&mut Cluster, &mut Shown, &[(String, String)]), (views, folder, toolchain): (&mut Views, &Path, &mut Option<Toolchain>), shared: &Shared, (serial, fuse_at): (u64, Option<Instant>)) -> Option<Job> {
-    let (mut clock, mut frames) = (Clock::new(clock::FRAME), 0);
+    // shortcut: the blocks run on the engine thread between the frames, so a slow frame or node GUI makes them late; split the cluster (`Cluster::split`) when the views and the node GUIs can use its frame part.
+    let mut clock = (!cluster.blocks()).then(|| Clock::new(clock::FRAME));
+    let (mut pace, mut blocks, mut frames, mut block) = (Pace::default(), no_blocks(), 0, 0);
     let job = loop {
-        clock.wait();
+        match &mut clock {
+            Some(clock) => clock.wait(),
+            None => pace.wait(),
+        }
         if fuse_at.is_some_and(|at| Instant::now() >= at) {
             break Some(Job::Bake);
         }
@@ -382,33 +391,69 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): 
             Err(TryRecvError::Empty) if shared.control.stopped() => break None,
             Err(TryRecvError::Empty) => {}
         }
-        frames += 1;
-        if !frame(app, (&mut *cluster, &*shown, aliases), shared, serial) {
-            break None;
+        if clock.is_none() {
+            gather(&mut blocks, cluster.block(&shared.control));
+            block += 1;
+            blocks.logs.extend(pace.play(cluster.sound().map(|s| s.as_slice())).map(device_log));
+        }
+        // A failed block ends the run at once, with a frame that shows its results.
+        if clock.is_some() || !blocks.ok || frame_due(frames, block) {
+            frames += 1;
+            if !frame(app, (&mut *cluster, &*shown, aliases), shared, serial, &mut blocks) {
+                break None;
+            }
         }
     };
     let _ = app.emit("engine", Event::Ended { serial, frames });
     job
 }
 
-/// Runs one frame, and sends its values and the node GUIs. Returns false when the frame failed.
-fn frame(app: &AppHandle, (cluster, shown, aliases): (&mut Cluster, &Shown, &[(String, String)]), shared: &Shared, serial: u64) -> bool {
+/// Runs one frame, and sends its values, the results of `blocks` and the node GUIs. Then
+/// empties `blocks`. Returns false when the frame or a block failed.
+fn frame(app: &AppHandle, (cluster, shown, aliases): (&mut Cluster, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Outcome) -> bool {
     let start = Instant::now();
     let outcome = cluster.frame(&shared.control);
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
-    let extra = alias(&outcome.values, aliases);
-    let mut values = badges(&outcome.values);
-    values.extend(badges(&extra));
-    keep(&mut lock(&shared.values), &outcome.values);
-    keep(&mut lock(&shared.values), &extra);
-    lock(&shared.reports).clone_from(&outcome.reports);
-    let ok = outcome.ok;
-    // shortcut: the editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
-    let (skipped, stopped, times) = (outcome.skipped.clone(), outcome.stopped.clone(), outcome.times.clone());
-    let (logs, reports) = (outcome.logs.clone(), outcome.reports.clone());
+    // shortcut: the editor copies each frame and its blocks into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
+    let mut values: Vec<Value> = outcome.values.iter().chain(&blocks.values).cloned().collect();
+    let extra = alias(&values, aliases);
+    values.extend(extra);
+    keep(&mut lock(&shared.values), &values);
+    let reports: Vec<Report> = outcome.reports.iter().chain(&blocks.reports).cloned().collect();
+    lock(&shared.reports).clone_from(&reports);
+    let ok = outcome.ok && blocks.ok;
+    let both = |a: &[String], b: &[String]| a.iter().chain(b).cloned().collect();
+    let (skipped, stopped) = (both(&outcome.skipped, &blocks.skipped), both(&outcome.stopped, &blocks.stopped));
+    let times = outcome.times.iter().chain(&blocks.times).cloned().collect();
+    let logs = outcome.logs.iter().chain(&blocks.logs).cloned().collect();
+    *blocks = no_blocks();
+    let values = badges(&values);
     let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
     draw(app, cluster, serial, shown);
     ok
+}
+
+/// The results of no block.
+fn no_blocks() -> Outcome {
+    Outcome { ok: true, ..Outcome::default() }
+}
+
+/// Adds the results of one block to the results of the blocks since the last frame. The run
+/// times and the nodes that did not run are those of the last block.
+fn gather(blocks: &mut Outcome, block: &Outcome) {
+    blocks.ok &= block.ok;
+    keep(&mut blocks.values, &block.values);
+    blocks.reports.extend_from_slice(&block.reports);
+    blocks.logs.extend_from_slice(&block.logs);
+    blocks.skipped.clone_from(&block.skipped);
+    blocks.stopped.clone_from(&block.stopped);
+    blocks.times.clone_from(&block.times);
+}
+
+/// A log line for a change of the audio device (9.3).
+fn device_log(notice: Notice) -> NodeLog {
+    let level = if notice.warning() { "WARN" } else { "INFO" };
+    NodeLog { id: "audio device".to_owned(), folder: "Patina".to_owned(), level: level.to_owned(), text: notice.to_string() }
 }
 
 /// Puts the values of a frame in place of the old values of the same outputs. The values of the
@@ -530,7 +575,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     lock(&shared.reports).clone_from(&reports);
     let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
-    let frames = params.ok && outcome.ok && cluster.frames() && !shared.control.stopped();
+    let frames = params.ok && outcome.ok && (cluster.frames() || cluster.blocks()) && !shared.control.stopped();
     Ok(Some(Event::Ran { serial: run.serial, built_ms, slot_only, fused, slot, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors }))
 }
 
@@ -565,5 +610,22 @@ mod tests {
         assert_eq!(texts, [("a.out", "1"), ("b.out", "3"), ("c.out", "4")]);
         let extra = alias(&kept, &[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
         assert_eq!((extra.len(), extra[0].from.as_str(), extra[0].text.as_str()), (1, "v.0000000a", "3"));
+    }
+
+    #[test]
+    fn the_blocks_since_a_frame_keep_all_problems_and_the_last_values() {
+        let value = |text: &str| Value { from: "t.out".to_owned(), text: text.to_owned(), lanes: None };
+        let block = |ok: bool, text: &str, ms: f64| Outcome {
+            ok,
+            values: vec![value(text)],
+            reports: (!ok).then(Report::default).into_iter().collect(),
+            times: vec![NodeTime { id: "t".to_owned(), ms }],
+            ..Outcome::default()
+        };
+        let mut blocks = no_blocks();
+        gather(&mut blocks, &block(false, "1", 1.0));
+        gather(&mut blocks, &block(true, "2", 2.0));
+        assert!(!blocks.ok && blocks.reports.len() == 1 && blocks.values.len() == 1);
+        assert_eq!((blocks.values[0].text.as_str(), blocks.times[0].ms), ("2", 2.0));
     }
 }

@@ -1,6 +1,5 @@
 //! Runs a Patina project or a package from the command line (spec 3 and 14).
 
-mod device;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -8,8 +7,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::Instant;
 
-use device::Device;
-use patina_engine::clock::{self, Clock};
+use patina_engine::clock::{self, Clock, frame_due};
+use patina_engine::device::{Notice, Pace};
 use patina_engine::project::GraphFile;
 use patina_engine::{Audio, Cluster, Control, Mode, Outcome, Project, Toolchain, package};
 
@@ -186,7 +185,7 @@ fn frames(mut frame: impl FnMut() -> bool, count: Option<u64>, stop: &AtomicBool
 /// Runs `count` audio blocks, or blocks until `stop`, on the audio thread. Returns false when a
 /// node failed.
 fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
-    let (control, mut pace) = (Control::default(), Pace::new());
+    let (control, mut pace) = (Control::default(), Pace::default());
     for block in 0..count.unwrap_or(u64::MAX) {
         if block > 0 {
             pace.wait();
@@ -197,7 +196,7 @@ fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
         if !show(audio.block(&control)) {
             return false;
         }
-        pace.play(audio.sound().map(|s| s.as_slice()));
+        notice(pace.play(audio.sound().map(|s| s.as_slice())));
     }
     pace.drain();
     true
@@ -207,7 +206,7 @@ fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
 /// thread (9.3). A frame runs before the first block that starts at or after its time. Returns
 /// false when a node failed.
 fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool) -> bool {
-    let (control, mut pace) = (Control::default(), Pace::new());
+    let (control, mut pace) = (Control::default(), Pace::default());
     let limit = if has_frames { counts.frames.unwrap_or(u64::MAX) } else { 0 };
     let mut frame = 0;
     for block in 0..counts.blocks.unwrap_or(u64::MAX) {
@@ -227,59 +226,19 @@ fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool) -> bool {
         if !show(cluster.block(&control)) {
             return false;
         }
-        pace.play(cluster.sound().map(|s| s.as_slice()));
+        notice(pace.play(cluster.sound().map(|s| s.as_slice())));
     }
     pace.drain();
     let rest = counts.frames.filter(|_| has_frames).map_or(0, |count| count - frame);
     frames(|| show(cluster.frame(&control)), Some(rest), &AtomicBool::new(false))
 }
 
-/// True when frame `frame` starts at or before the start of audio block `block`.
-fn frame_due(frame: u64, block: u64) -> bool {
-    u128::from(frame) * clock::FRAME.as_nanos() <= u128::from(block) * clock::BLOCK.as_nanos()
-}
-
-/// Paces the blocks: the timer until a node plays, then the audio device (9.3).
-struct Pace {
-    clock: Clock,
-    device: Option<Device>,
-    opened: bool,
-}
-
-impl Pace {
-    fn new() -> Pace {
-        Pace { clock: Clock::new(clock::BLOCK), device: None, opened: false }
-    }
-
-    /// Waits for the time of the next block. With a device, `play` waits instead.
-    fn wait(&mut self) {
-        if self.device.is_none() {
-            self.clock.wait();
-        }
-    }
-
-    /// Sends the sound of a block to the device. Opens the device at the first sound.
-    fn play(&mut self, sound: Option<&[f32]>) {
-        let Some(sound) = sound else { return };
-        if !self.opened {
-            self.opened = true;
-            self.device = Device::open(clock::SAMPLE_RATE);
-            match self.device {
-                Some(_) => eprintln!("Playing the sound on the default audio device"),
-                None => eprintln!("warning: no audio device takes {} Hz, so the sound does not play", clock::SAMPLE_RATE),
-            }
-        }
-        if self.device.as_ref().is_some_and(|d| !d.play(sound)) {
-            eprintln!("warning: the audio device stopped");
-            (self.device, self.clock) = (None, Clock::new(clock::BLOCK));
-        }
-    }
-
-    /// Waits until the device played its queue.
-    fn drain(self) {
-        if let Some(device) = self.device {
-            device.drain();
-        }
+/// Shows a change of the audio device.
+fn notice(notice: Option<Notice>) {
+    match notice {
+        Some(n) if n.warning() => eprintln!("warning: {n}"),
+        Some(n) => eprintln!("{n}"),
+        None => {}
     }
 }
 
@@ -322,10 +281,5 @@ mod tests {
         for bad in ["package p", "package p out --frames 3", "package p out --blocks 3", "package p --edit out"] {
             assert_eq!(parse(&args(bad)), None, "{bad}");
         }
-    }
-
-    #[test]
-    fn a_frame_runs_before_the_first_block_after_its_time() {
-        assert!(frame_due(0, 0) && frame_due(1, 4) && !frame_due(1, 3) && frame_due(2, 7) && !frame_due(2, 6));
     }
 }

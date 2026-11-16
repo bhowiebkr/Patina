@@ -37,9 +37,20 @@ impl Clock {
     }
 }
 
+/// True when frame `frame` starts at or before the start of audio block `block`. A run with
+/// blocks and frames on one thread runs a frame before the first block after its time (9.3).
+pub fn frame_due(frame: u64, block: u64) -> bool {
+    u128::from(frame) * FRAME.as_nanos() <= u128::from(block) * BLOCK.as_nanos()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_frame_runs_before_the_first_block_after_its_time() {
+        assert!(frame_due(0, 0) && frame_due(1, 4) && !frame_due(1, 3) && frame_due(2, 7) && !frame_due(2, 6));
+    }
 
     #[test]
     fn a_late_frame_skips_the_missed_ticks() {

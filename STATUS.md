@@ -1,6 +1,6 @@
 # Status
 
-The current work is milestone 11, the audio domain. It continued on 2026-11-16 with its step 4.
+The current work is milestone 11, the audio domain. Its step 5 was done on 2026-11-16.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
 complete since 2026-11-16. Milestone 10, views,
 ended on 2026-11-15. Milestone 9, the GPU, ended on 2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
@@ -167,7 +167,9 @@ at each block of samples (spec 9.3).
 4. Done on 2026-11-16: the audio thread, apart from the frames (`Cluster::split`). The node GUIs
    of audio nodes are deferred (step 3), so the milestone check uses a slow frame node: it does
    not make a block late.
-5. The editor runs the audio domain with the frames. **Stop** stops it.
+5. Done on 2026-11-16: the editor runs the audio domain with the frames. **Stop** stops it.
+   The blocks run on the engine thread between the frames, because the views and the node GUIs
+   need all of the cluster. The device code moved from `patina-cli` to `patina-engine`.
 
 ### Checked
 
@@ -190,12 +192,21 @@ at each block of samples (spec 9.3).
 - On Windows 11, a manual run of a node that plays silence opened the default device. 1500
   blocks took 8.009 s on the device clock (8.000 s expected). This run was silent.
 - CI does not open a device: no test graph plays in the CLI.
+- On Windows 11, the editor selfcheck makes the node of the hello example an audio node and
+  runs it. The blocks print with the frames, the status bar shows the frame number, and no block
+  or frame runs after **Stop**. The node does not play, so no device opened.
+- A unit test of the editor checks that the blocks since a frame keep all problems and the last
+  value of each output.
 
 ### Known limits
 
 - These shortcuts are open in the code:
-  - `device.rs` of `patina-cli`: a fixed wait of 50 ms for the buffer of the device at the end.
-- `patina-capi` and the editor do not run audio blocks yet.
+  - `device.rs` of `patina-engine`: a fixed wait of 50 ms for the buffer of the device at the end.
+  - `engine.rs` of `patina-editor`: the blocks run on the engine thread between the frames, so a
+    slow frame or node GUI makes them late. Split the cluster when the views and the node GUIs
+    can use its frame part.
+- `patina-capi` does not run audio blocks yet.
+- No check played a sound in the editor. The editor uses the same device code as the CLI.
 - When an audio node keeps a value that is not `Sync`, the blocks run on the thread of the
   frames. A slow frame then makes the blocks late. The device queue of 43 ms hides a short delay
   only.

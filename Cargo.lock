@@ -2762,7 +2762,6 @@ dependencies = [
 name = "patina-cli"
 version = "0.0.0"
 dependencies = [
- "cpal",
  "patina-capi",
  "patina-engine",
 ]
@@ -2795,6 +2794,7 @@ dependencies = [
 name = "patina-engine"
 version = "0.0.0"
 dependencies = [
+ "cpal",
  "libloading 0.8.9",
  "patina-sdk",
  "quote",

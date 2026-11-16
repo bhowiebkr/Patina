@@ -11,7 +11,6 @@ workspace = true
 
 [dependencies]
 patina-engine = { path = "../patina-engine" }
-cpal = "0.17.3"
 
 [dev-dependencies]
 patina-capi = { path = "../patina-capi" }

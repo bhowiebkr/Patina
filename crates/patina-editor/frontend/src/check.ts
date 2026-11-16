@@ -609,6 +609,30 @@ fn broken() -> u32 {
     v = await step('undo the frame node', () => api.undo());
     steps.push(`frames until Stop: ${count}`);
 
+    // The audio domain (9.3): Run runs the blocks with the frames until Stop. The node does not
+    // call `audio::play`, so no sound plays.
+    v = await step('make an audio node', () => api.edit({ kind: 'SetCode', path: lib, text: changedCode.replace('#[node]', '#[node(domain = audio)]') }));
+    from = mark();
+    v = await step('run the blocks', () => api.run());
+    await until('three frames of blocks that print 2.5', BUILD_MS, () => {
+      const failed = ofRun().find((e) => e.state === 'failed' || ((e.state === 'ran' || e.state === 'frame') && !e.ok));
+      if (failed) throw new Error(`the audio run failed: ${JSON.stringify(failed)}`);
+      return frameCount() >= 3 && output.slice(outputFrom).filter((l) => l === '2.5').length >= 9;
+    });
+    await until('the frame number of the blocks in the status bar', RUN_MS, () => /Frame \d+/.test(statusText()));
+    topButton('Stop')!.click();
+    let audioEnd: EngineEvent | undefined;
+    await until('the end of the blocks', RUN_MS, () => (audioEnd = ofRun().find((e) => e.state === 'ended')) !== undefined);
+    const audioFrames = frameCount();
+    // The output pipe can bring the last lines after the end event.
+    await new Promise((r) => setTimeout(r, 150));
+    const blocks = output.slice(outputFrom).filter((l) => l === '2.5').length;
+    if (audioEnd?.state !== 'ended' || audioEnd.frames !== audioFrames) throw new Error(`the end of the blocks does not count ${audioFrames} frames: ${JSON.stringify(audioEnd)}`);
+    await new Promise((r) => setTimeout(r, 100));
+    if (frameCount() !== audioFrames || output.slice(outputFrom).filter((l) => l === '2.5').length !== blocks) throw new Error('a block ran after Stop');
+    v = await step('undo the audio node', () => api.undo());
+    steps.push(`blocks until Stop: ${blocks} in ${audioFrames} frames`);
+
     // A node GUI (4.3): the node body shows the button of the `ui`. A click in a live graph runs
     // the graph again with the new state, and does not build again.
     v = await step('make a node with a GUI', () => api.edit({ kind: 'SetCode', path: lib, text: GUI_NODE }));

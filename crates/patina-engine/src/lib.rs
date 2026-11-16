@@ -4,6 +4,7 @@
 mod cargo;
 mod checked;
 pub mod clock;
+pub mod device;
 mod edit;
 mod folders;
 mod generate;

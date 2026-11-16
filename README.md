@@ -407,6 +407,7 @@ A graph with audio nodes also runs blocks of 256 audio samples, 187.5 blocks eac
 blocks run on their own thread, at the same time as the frames. To run a number of blocks and
 then stop, add `--blocks <count>`. The frames then run until the blocks are done, and the
 blocks run until the frames of `--frames` are done.
+In the editor, **Run** runs the blocks with the frames until **Stop**.
 When a node plays sound, the CLI opens the default audio device. The device then sets the pace
 of the blocks. A node plays a block with `patina_sdk::audio::play(&block)`.
 
