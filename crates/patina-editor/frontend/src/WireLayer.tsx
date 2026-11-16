@@ -5,6 +5,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -98,14 +99,29 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
-  const add = (e: MouseEvent) => {
+  const insert = (x: number, y: number) => {
     if (!editable || data!.fixed) return;
+    const k = insertAt(sourceX, sourceY, targetX, targetY, route, x, y);
+    void send([...route.slice(0, k), [Math.round(x), Math.round(y)], ...route.slice(k)]);
+  };
+  const add = (e: MouseEvent) => {
     const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    const k = insertAt(sourceX, sourceY, targetX, targetY, route, p.x, p.y);
-    void send([...route.slice(0, k), [Math.round(p.x), Math.round(p.y)], ...route.slice(k)]);
+    insert(p.x, p.y);
   };
   const d = wirePath(sourceX, sourceY, targetX, targetY, path);
   const [mx, my, fit] = anchor(sourceX, sourceY, targetX, targetY, path);
+  // + or Insert on the focused wire adds a route point at its middle: the keyboard double-click (15.9).
+  const hitRef = useRef<SVGPathElement>(null);
+  useEffect(() => {
+    const g = hitRef.current?.closest<SVGGElement>('.react-flow__edge');
+    const key = (e: globalThis.KeyboardEvent) => {
+      if (e.target !== g || (e.key !== '+' && e.key !== 'Insert')) return;
+      e.preventDefault();
+      insert(mx, my);
+    };
+    g?.addEventListener('keydown', key);
+    return () => g?.removeEventListener('keydown', key);
+  });
   const n = bits.length;
   const ribbon = n > 1;
   // At a far zoom, only a selected wire shows its badge and type label. A bus keeps its width (15.1, 15.9).
@@ -149,7 +165,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     <>
       {/* shortcut: the SVG fallback draws a bus as one line; draw its lanes when a GPU without WebGL2 matters. */}
       <path className="wire-line" d={d} />
-      <path className="wire-hit" d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
+      <path ref={hitRef} className="wire-hit" d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
       <EdgeLabelRenderer>
         {tip && (
           <div className="lane-tip" style={{ transform: `translate(${tip.x}px, ${tip.y}px) translate(12px, calc(-100% - 8px))` }}>

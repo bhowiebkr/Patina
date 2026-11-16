@@ -933,7 +933,8 @@ To run the editor from a checkout:
 - A double-click on a wire adds a route point (15.9). A selected wire shows square handles on
   its points. Drag a handle to move its point. Delete or a double-click on a handle removes the
   point. The arrow keys move a focused handle by 10 px, or by 1 px with Shift. Esc cancels a
-  drag. A route has rounded corners.
+  drag. A route has rounded corners. The + or Insert key on a focused wire adds a route point
+  at its middle. The selfcheck presses + on the wire and checks the new point and its undo.
 - The **Look** section of the **Inspector** sets the look of the selected wire (15.9). **Route**
   is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded**
   or **Sharp**. **Reset route** removes the route points. The graph file keeps the style, and
@@ -1201,7 +1202,7 @@ To run the editor from a checkout:
 - An orthogonal segment cannot move sideways (15.9). A double-click on an orthogonal or curved
   wire puts the new point on the nearest straight line through the route points. The graph has
   no setting for the default style. **Bus**, **Lock bends** and the crossing bridges are not
-  made. The keyboard cannot add a route point. A wire with a fixed style can go under a node.
+  made. A wire with a fixed style can go under a node.
 - The automatic route and **Arrange** have no undo of a route change, because a route is not
   saved. The route changes when a node moves, and the wires of a large graph can jump.
   **Arrange** puts all nodes of a layer in one column, so a wide layer makes a tall column, for

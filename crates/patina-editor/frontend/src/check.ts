@@ -348,6 +348,15 @@ fn broken() -> u32 {
     await until('no route point', RUN_MS, () => document.querySelectorAll('.route-point').length === 0);
     v = await step('undo the removal', () => api.undo());
     if (v.graph.wire?.length !== 1 || v.graph.wire[0].points?.length !== 1) throw new Error('Delete on a route point changed more than the point');
+    // The keyboard adds a route point too: + on the focused wire adds one at its middle.
+    await until('the route point after the undo', RUN_MS, () => document.querySelectorAll('.route-point').length === 1);
+    const edge = document.querySelector<SVGGElement>('.react-flow__edge-wire')!;
+    edge.focus();
+    edge.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true, cancelable: true }));
+    await until('a second route point from the keyboard', RUN_MS, () => document.querySelectorAll('.route-point').length === 2);
+    v = await step('undo the route point of the keyboard', () => api.undo());
+    if (v.graph.wire?.[0]?.points?.length !== 1) throw new Error('undo did not remove the route point of the keyboard');
+    steps.push('route point added from the keyboard');
     // The look of the wire (15.9): the Route field of the Inspector sets the style, and Reset route
     // removes the route points. Both are edits with undo.
     const field = (name: string) =>

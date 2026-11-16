@@ -144,7 +144,8 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 - By default, a wire goes around the nodes with straight lines and right angles. The wires of
   one output share a trunk. A wire can also be curved, orthogonal or a polyline with your bends.
   The look of a wire never changes what it connects.
-- Double-click a wire to add a bend. A default wire goes through each bend. Select the wire to
+- Double-click a wire to add a bend. With the keyboard, move the focus to a wire with Tab and
+  push + or Insert. A default wire goes through each bend. Select the wire to
   set its look in the **Look** section of the **Inspector**: **Route**, **Corners** and **Reset
   route**.
 - Press Shift+L to arrange the selected nodes in columns, with the signal from left to right.
