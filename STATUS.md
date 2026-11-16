@@ -689,7 +689,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   A parameter that no input wire gives makes an error on the node.
 - A stateful node can have `pub fn ui(&mut self, ui: &mut Ui)`. `Cluster::ui` calls it between
   two runs, with the user input as events, and gives the widget lines. The `Ui` has the basic
-  widgets (a label, a button, a toggle, a slider, a number field, a text field and a dropdown)
+  widgets (a label, a button, a toggle, a slider, a number field with an optional unit and step
+  buttons, a text field, a dropdown, tabs and a section that opens and closes)
   and the value widgets (a color picker, a plot, a waveform, a table, a curve and an image).
   After the events, `ui` runs one more time, so the widget lines show the new state. A panic in `ui` drops the state, as in `process`.
 - A graph can have a feedback loop in the frame domain through a delay node
@@ -726,6 +727,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   and kept its peak. A waveform sent 256 columns. A curve sorted its points after a move. A
   bad event changed no value. An image with a bad size sent no pixels.
 - The frontend test reads each value widget line, and drops 5 bad lines but keeps their index.
+- The `Ui` test writes the lines of a unit, tabs and two sections. The closed section kept an
+  empty line for its hidden widget, so the button after it kept its index. The frontend test
+  puts the widgets into their sections, ignores an extra end line and stops at 8 levels.
 - The hello test moves the **Count** slider of the tick node to 7. The widget lines after the
   event showed 7, not the old count.
 - The editor selfcheck shows the value widgets in the node body. A click on a table row
@@ -744,7 +748,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
-  value widget, selects a table row and shows the large size in the **Inspector**. No check
+  value widget, selects a table row, steps a number field, selects a tab, opens a section and
+  shows the large size in the **Inspector**. No check
   drags a curve point or picks a color in the editor.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The

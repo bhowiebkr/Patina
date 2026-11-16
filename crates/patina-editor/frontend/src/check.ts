@@ -566,6 +566,13 @@ fn broken() -> u32 {
     const row = () => document.querySelector<HTMLElement>(`${gui} .gui-table tbody tr:nth-child(2)`);
     row()!.click();
     await until('the selected row of the table', RUN_MS, () => row()?.getAttribute('aria-selected') === 'true');
+    document.querySelector<HTMLButtonElement>(`${gui} button[aria-label="Increase Gain"]`)!.click();
+    await until('the stepped number field', RUN_MS, () => document.querySelector<HTMLInputElement>(`${gui} input.gui-field`)?.value === '2');
+    const shapeTab = () => [...document.querySelectorAll<HTMLElement>(`${gui} [role="tab"]`)].find((t) => t.textContent === 'Shape');
+    shapeTab()!.click();
+    await until('the selected tab', RUN_MS, () => shapeTab()?.getAttribute('aria-selected') === 'true');
+    document.querySelector<HTMLButtonElement>(`${gui} .gui-section-head`)!.click();
+    await until('the open section', RUN_MS, () => document.querySelector(`${gui} .gui-section-body`)?.textContent === 'Hidden detail');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

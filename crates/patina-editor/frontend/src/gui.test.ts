@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { eventLine, nodeWidth, parseTree } from './gui.ts';
+import { eventLine, nest, nodeWidth, parseTree, stepped } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
   const tree = 'label\tTick\nwheel\tX\nbutton\tReset\ntoggle\tOn\t1\nslider\tCount\t2.5\t0\t10\nslider\tBad\tx\t0\t1';
@@ -18,11 +18,45 @@ test('each widget line gives a widget, and a bad line keeps its index', () => {
 test('fields and dropdowns keep their values, and an event text stays on one line', () => {
   const tree = 'number\tCount\t3\ntext\tName\ta b\ndropdown\tWave\t1\tSine\tSaw\nnumber\tBad\tx';
   assert.deepEqual(parseTree(tree), [
-    { kind: 'number', index: 0, text: 'Count', value: 3 },
+    { kind: 'number', index: 0, text: 'Count', value: 3, step: 0, unit: '' },
     { kind: 'text', index: 1, text: 'Name', value: 'a b' },
     { kind: 'dropdown', index: 2, text: 'Wave', selected: 1, options: ['Sine', 'Saw'] },
   ]);
   assert.equal(eventLine(1, 'x\ny'), '1 x y');
+});
+
+test('a unit, tabs and sections keep their values, and an end line closes the last section', () => {
+  const tree = 'number\tGain\t1.5\t0.5\tdB\nnumber\tBad step\t2\t-1\nsection\tMore\t1\ntabs\tPages\t0\tA\tB\nsection\tShut\t0\n\nend\t\nend\t\nend\t\nlabel\tAfter';
+  const widgets = parseTree(tree);
+  assert.deepEqual(widgets.slice(0, 2), [
+    { kind: 'number', index: 0, text: 'Gain', value: 1.5, step: 0.5, unit: 'dB' },
+    { kind: 'number', index: 1, text: 'Bad step', value: 2, step: 0, unit: '' },
+  ]);
+  const [, , more, after] = nest(widgets);
+  assert.deepEqual(more, {
+    kind: 'section',
+    index: 2,
+    text: 'More',
+    open: true,
+    items: [
+      { kind: 'tabs', index: 3, text: 'Pages', selected: 0, options: ['A', 'B'] },
+      { kind: 'section', index: 4, text: 'Shut', open: false, items: [] },
+    ],
+  });
+  // The empty line of a hidden widget in the closed section keeps its index.
+  assert.deepEqual(after, { kind: 'label', index: 9, text: 'After' });
+  assert.equal(stepped(0.1, 0.1, 2), 0.3);
+  assert.equal(stepped(3, 0.5, -1), 2.5);
+});
+
+test('a section deeper than the limit shows its widgets in its parent', () => {
+  const tree = [...Array.from({ length: 10 }, (_, i) => `section\tS${i}\t1`), 'label\tDeep', ...Array.from({ length: 10 }, () => 'end\t'), 'label\tTop'].join('\n');
+  const blocks = nest(parseTree(tree));
+  assert.equal(blocks.length, 2);
+  let depth = 0;
+  for (let b = blocks[0]; b.kind === 'section'; b = b.items[0]) depth++;
+  assert.equal(depth, 8);
+  assert.deepEqual(blocks[1], { kind: 'label', index: 21, text: 'Top' });
 });
 
 test('value widgets read their data, and a bad line keeps its index', () => {

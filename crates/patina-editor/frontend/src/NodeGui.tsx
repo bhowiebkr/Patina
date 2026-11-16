@@ -1,8 +1,8 @@
 // Draws the widget lines of a node GUI with the shared controls (spec 4.3, GUI guide controls).
 
-import { createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from './api';
-import { eventLine, parseTree, type Shape, type Widget } from './gui';
+import { eventLine, nest, parseTree, stepped, type Block, type Shape, type Widget } from './gui';
 import { ColorPicker, Curve, Picture, Plot, Table, Waveform } from './ValueWidgets';
 import { ViewportView } from './Viewport';
 
@@ -116,7 +116,8 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
   );
 }
 
-/** A field that sends its value on Enter or when it loses the focus, and Esc restores it. */
+/** A field that sends its value on Enter or when it loses the focus, and Esc restores it. A number
+ * field with a step also has step buttons, and the up and down arrows step it. */
 function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 'text' }>; send: (value: number | string) => void; disabled: boolean }) {
   const shown = String(w.value);
   const [draft, setDraft] = useState<string | null>(null);
@@ -126,6 +127,11 @@ function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 't
     if (draft === shown) return;
     if (w.kind === 'text') send(draft);
     else if (draft.trim() !== '' && Number.isFinite(Number(draft))) send(Number(draft));
+  };
+  const step = w.kind === 'number' ? w.step : 0;
+  const by = (count: number) => {
+    setDraft(null);
+    if (w.kind === 'number') send(stepped(w.value, w.step, count));
   };
   return (
     <label className="gui-row">
@@ -140,9 +146,58 @@ function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 't
         onKeyDown={(e) => {
           if (e.key === 'Enter') commit();
           else if (e.key === 'Escape') setDraft(null);
+          else if (step && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            by(e.key === 'ArrowUp' ? 1 : -1);
+          }
         }}
       />
+      {w.kind === 'number' && w.unit && <span className="gui-unit">{w.unit}</span>}
+      {step > 0 && (
+        <span className="gui-steps">
+          <button className="icon-btn gui-step" aria-label={`Decrease ${w.text}`} title={`-${step}`} disabled={disabled} onClick={() => by(-1)}>
+            <Icon d="M3 6h6" />
+          </button>
+          <button className="icon-btn gui-step" aria-label={`Increase ${w.text}`} title={`+${step}`} disabled={disabled} onClick={() => by(1)}>
+            <Icon d="M3 6h6M6 3v6" />
+          </button>
+        </span>
+      )}
     </label>
+  );
+}
+
+const Icon = ({ d }: { d: string }) => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <path d={d} />
+  </svg>
+);
+
+/** A row of tabs (controls guide). The node shows the widgets of the selected tab after it. */
+function Tabs({ w, send, disabled }: { w: Extract<Widget, { kind: 'tabs' }>; send: (value: number) => void; disabled: boolean }) {
+  return (
+    <div className="tabs gui-tabs" role="tablist" aria-label={w.text || 'Tabs'}>
+      {w.options.map((o, i) => (
+        <button key={i} role="tab" aria-selected={i === w.selected} className={i === w.selected ? 'tab active' : 'tab'} disabled={disabled} onClick={() => i !== w.selected && send(i)}>
+          {o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A section that the user opens and closes. The node keeps the state, so a click sends it. */
+function Section({ w, send, disabled, children }: { w: Extract<Widget, { kind: 'section' }>; send: (value: number) => void; disabled: boolean; children: ReactNode }) {
+  return (
+    <div className="gui-section">
+      <button className="gui-section-head" aria-expanded={w.open} disabled={disabled} onClick={() => send(w.open ? 0 : 1)}>
+        <svg className="chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <path d="M3.5 2 6.5 5l-3 3" />
+        </svg>
+        <span>{w.text}</span>
+      </button>
+      {w.open && <div className="gui-section-body">{children}</div>}
+    </div>
   );
 }
 
@@ -171,7 +226,7 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
     <div className="node-gui nodrag nowheel" role="group" aria-label={label}>
-      {parseTree(tree).map((w) => {
+      {nest(parseTree(tree)).map(function draw(w: Block): ReactNode {
         switch (w.kind) {
           case 'label':
             return (
@@ -197,6 +252,14 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
           case 'number':
           case 'text':
             return <Field key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'tabs':
+            return <Tabs key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'section':
+            return (
+              <Section key={w.index} w={w} send={send(w.index)} disabled={disabled}>
+                {w.items.map(draw)}
+              </Section>
+            );
           case 'dropdown':
             return (
               <label key={w.index} className="gui-row">

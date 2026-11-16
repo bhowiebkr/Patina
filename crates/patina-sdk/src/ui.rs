@@ -271,6 +271,14 @@ impl Ui {
         changed(event.map(|v| *value = T::from_f64(v)))
     }
 
+    /// Shows a field for the number `value` with its `unit`, and two buttons that change it by `step`.
+    pub fn number_unit<T: Number>(&mut self, text: &str, value: &mut T, step: T, unit: &str) -> Response {
+        let event = number(self.push("number", text));
+        let _ = write!(self.tree, "\t{}\t{}\t", value.to_f64(), step.to_f64().abs());
+        push_clean(&mut self.tree, unit);
+        changed(event.map(|v| *value = T::from_f64(v)))
+    }
+
     /// Shows a field for the text `value` on one line.
     pub fn text_field(&mut self, text: &str, value: &mut String) -> Response {
         let event = self.push("text", text).map(str::to_owned);
@@ -281,7 +289,34 @@ impl Ui {
 
     /// Shows a list of `options`. `selected` is the index of the selected option.
     pub fn dropdown(&mut self, text: &str, selected: &mut usize, options: &[&str]) -> Response {
-        let event = number(self.push("dropdown", text)).filter(|&v| v >= 0.0 && (v as usize) < options.len());
+        self.choice("dropdown", text, selected, options)
+    }
+
+    /// Shows a row of `tabs` with the name `text`. `selected` is the index of the selected tab. The
+    /// node shows the widgets of the selected tab after the row.
+    pub fn tabs(&mut self, text: &str, selected: &mut usize, tabs: &[&str]) -> Response {
+        self.choice("tabs", text, selected, tabs)
+    }
+
+    /// Shows a section that the user opens and closes. The widgets of `add` show in the open section.
+    /// The node keeps `open`, so the state saves with the node. `add` also runs when the section is
+    /// closed, so the widgets after the section keep their order.
+    pub fn section(&mut self, text: &str, open: &mut bool, add: impl FnOnce(&mut Ui)) -> Response {
+        let event = number(self.push("section", text)).map(|v| *open = v != 0.0);
+        let _ = write!(self.tree, "\t{}", u8::from(*open));
+        let (start, first) = (self.tree.len(), self.next);
+        add(self);
+        if !*open {
+            // An empty line keeps the index of each hidden widget.
+            self.tree.truncate(start);
+            self.tree.extend((first..self.next).map(|_| '\n'));
+        }
+        self.push("end", "");
+        changed(event)
+    }
+
+    fn choice(&mut self, kind: &str, text: &str, selected: &mut usize, options: &[&str]) -> Response {
+        let event = number(self.push(kind, text)).filter(|&v| v >= 0.0 && (v as usize) < options.len());
         let _ = write!(self.tree, "\t{selected}");
         for option in options {
             self.tree.push('\t');
@@ -540,6 +575,24 @@ mod tests {
         assert!(!ui.number("Bad", &mut count).changed());
         assert_eq!((count, name.as_str(), pick), (7, "new name", 0));
         assert_eq!(ui.tree(), "number\tCount\t1\ntext\tName\ta\ndropdown\tWave\t0\tSine\tSaw\nnumber\tBad\t7");
+    }
+
+    #[test]
+    fn units_tabs_and_sections_write_their_lines() {
+        let (mut gain, mut tab, mut open, mut shut) = (1.5_f32, 0, false, true);
+        // Index 2 opens the first section, so its label is index 3 and its end is 4. Index 5 closes the next one.
+        let mut ui = Ui::new(0, "0 -3\n1 1\n2 1\n5 0\n8 1");
+        assert!(ui.number_unit("Gain", &mut gain, -0.5, "d\tB").changed());
+        assert!(ui.tabs("Pages", &mut tab, &["Main", "More"]).changed());
+        let mut inner = false;
+        assert!(ui.section("More", &mut open, |ui| ui.label("in")).changed());
+        ui.section("Shut", &mut shut, |ui| {
+            ui.toggle("hidden", &mut inner);
+        });
+        assert!(ui.button("After").clicked());
+        assert_eq!((gain, tab, open, shut), (-3.0, 1, true, false));
+        let lines: Vec<&str> = ui.tree().lines().collect();
+        assert_eq!(lines, ["number\tGain\t1.5\t0.5\td B", "tabs\tPages\t0\tMain\tMore", "section\tMore\t1", "label\tin", "end\t", "section\tShut\t0", "", "end\t", "button\tAfter"]);
     }
 
     #[test]

@@ -6,9 +6,12 @@ export type Widget =
   | { kind: 'button'; index: number; text: string }
   | { kind: 'toggle'; index: number; text: string; on: boolean }
   | { kind: 'slider'; index: number; text: string; value: number; low: number; high: number }
-  | { kind: 'number'; index: number; text: string; value: number }
+  | { kind: 'number'; index: number; text: string; value: number; step: number; unit: string }
   | { kind: 'text'; index: number; text: string; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
+  | { kind: 'tabs'; index: number; text: string; selected: number; options: string[] }
+  | { kind: 'section'; index: number; text: string; open: boolean }
+  | { kind: 'end'; index: number; text: string }
   | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[] }
   | { kind: 'viewport'; index: number; text: string; height: number }
   | { kind: 'color'; index: number; text: string; value: string }
@@ -34,6 +37,8 @@ const MAX_ROWS = 1000;
 const MAX_COLUMNS = 32;
 const MAX_POINTS = 256;
 const MAX_PIXELS = 256 * 256;
+// The deepest section in a section. A deeper section shows its widgets in its parent.
+const MAX_DEPTH = 8;
 
 /** Reads one shape field of a canvas line, or null when it is bad. */
 function parseShape(field: string): Shape | null {
@@ -115,9 +120,11 @@ export function parseTree(tree: string): Widget[] {
     if (kind === 'label' || kind === 'button') widgets.push({ kind, index, text });
     else if (kind === 'toggle' && Number.isFinite(value)) widgets.push({ kind, index, text, on: value !== 0 });
     else if (kind === 'slider' && [value, low, high].every(Number.isFinite) && low <= high) widgets.push({ kind, index, text, value, low, high });
-    else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value });
+    else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value, step: low > 0 && Number.isFinite(low) ? low : 0, unit: rest[2] ?? '' });
     else if (kind === 'text') widgets.push({ kind, index, text, value: rest[0] ?? '' });
-    else if (kind === 'dropdown' && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });
+    else if ((kind === 'dropdown' || kind === 'tabs') && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });
+    else if (kind === 'section' && Number.isFinite(value)) widgets.push({ kind, index, text, open: value !== 0 });
+    else if (kind === 'end') widgets.push({ kind, index, text });
     else if (kind === 'canvas' && value > 0 && low > 0) {
       const shapes = rest.slice(2).flatMap((f) => parseShape(f) ?? []);
       widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes });
@@ -128,6 +135,33 @@ export function parseTree(tree: string): Widget[] {
     }
   });
   return widgets;
+}
+
+/** A widget, or a section with the widgets up to its end line. */
+export type Block = Exclude<Widget, { kind: 'section' | 'end' }> | (Extract<Widget, { kind: 'section' }> & { items: Block[] });
+
+/** Puts the widgets of each section into it. An end line without a section does nothing. */
+export function nest(widgets: Widget[]): Block[] {
+  const root: Block[] = [];
+  const stack = [root];
+  for (const w of widgets) {
+    const top = stack[stack.length - 1];
+    if (w.kind === 'end') {
+      if (stack.length > 1) stack.pop();
+    } else if (w.kind !== 'section') top.push(w);
+    else if (stack.length > MAX_DEPTH) stack.push(top);
+    else {
+      const section = { ...w, items: [] };
+      top.push(section);
+      stack.push(section.items);
+    }
+  }
+  return root;
+}
+
+/** `value` plus `count` steps. The rounding to 12 digits removes the float error, so 0.1 + 0.2 is 0.3. */
+export function stepped(value: number, step: number, count: number): number {
+  return Number((value + step * count).toPrecision(12));
 }
 
 /** The event line of a user input to widget `index`. A line break in a text becomes a space. */
