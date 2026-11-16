@@ -434,14 +434,7 @@ fn keys(
         if clusters.contains(&id) || (m["reason"] != "compiler-artifact" && m["reason"] != "build-script-executed") {
             continue;
         }
-        let mut hasher = DefaultHasher::new();
-        for key in ["package_id", "target", "features", "cfgs", "env"] {
-            m[key].to_string().hash(&mut hasher);
-        }
-        // The optimization does not change the layout of a type, so a state moves from an edit
-        // build to a bake build. The debug assertions can change it through `cfg`.
-        m["profile"]["debug_assertions"].to_string().hash(&mut hasher);
-        add(id, hasher.finish());
+        add(id, unit_hash(m));
     }
     for (id, folder) in folders.iter().filter(|(id, _)| id.contains("path+file:")) {
         add(id, folder_hash(folder)?);
@@ -474,6 +467,18 @@ fn keys(
         keys[n] = Some(hasher.finish());
     }
     Ok((common, keys))
+}
+
+/// A hash of the parts of a build unit that can change the layout of a type (7.2).
+fn unit_hash(m: &Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    for key in ["package_id", "target", "features", "cfgs", "env"] {
+        m[key].to_string().hash(&mut hasher);
+    }
+    // The optimization does not change the layout of a type, so a state moves from an edit
+    // build to a bake build. The debug assertions can change it through `cfg`.
+    m["profile"]["debug_assertions"].to_string().hash(&mut hasher);
+    hasher.finish()
 }
 
 /// A hash of the paths and the bytes of the files of a crate folder.
@@ -623,6 +628,18 @@ mod tests {
                 assert!(sdk.contains(line), "{line}");
             }
         }
+    }
+
+    #[test]
+    fn a_feature_change_gives_a_new_state_key() {
+        let unit = |features: &[&str], opt: u32, debug: bool| {
+            let profile = json!({ "opt_level": opt.to_string(), "debug_assertions": debug });
+            unit_hash(&json!({ "reason": "compiler-artifact", "package_id": "dep 1.0", "features": features, "profile": profile }))
+        };
+        let edit = unit(&["std"], 0, false);
+        assert_eq!(edit, unit(&["std"], 3, false), "a bake build keeps the states");
+        assert_ne!(edit, unit(&["std", "extra"], 0, false), "a feature can change a layout");
+        assert_ne!(edit, unit(&["std"], 0, true), "debug assertions can change a layout");
     }
 
     #[test]
