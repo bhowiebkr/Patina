@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock, frame_due};
-use patina_engine::device::Pace;
+use patina_engine::device::{Pace, raise_priority};
 use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Remote, Report, Toolchain, Value, package};
 use serde::{Deserialize, Serialize};
 
@@ -523,6 +523,7 @@ fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
 /// results to the frames in `out`, and never waits for the lock while the blocks run (4.3). It
 /// does not allocate after the first blocks.
 fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Blocks>) {
+    raise_priority();
     // Each thread has its own control: the control keeps the node that runs (15.2).
     let (control, mut pace, mut blocks) = (Control::default(), Pace::default(), Blocks::default());
     while !stop.load(Ordering::Relaxed) && !shared.control.stopped() {

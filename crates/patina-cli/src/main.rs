@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::time::Instant;
 
 use patina_engine::clock::{self, Clock, frame_due};
-use patina_engine::device::{Notice, Pace};
+use patina_engine::device::{Notice, Pace, raise_priority};
 use patina_engine::project::GraphFile;
 use patina_engine::{Audio, Cluster, Control, EventRun, Mode, Outcome, Project, Toolchain, package};
 
@@ -217,6 +217,7 @@ fn frames(mut frame: impl FnMut() -> bool, count: Option<u64>, stop: &AtomicBool
 /// Runs `count` audio blocks, or blocks until `stop`, on the audio thread. Returns false when a
 /// node failed.
 fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
+    raise_priority();
     let (control, mut pace) = (Control::default(), Pace::default());
     for block in 0..count.unwrap_or(u64::MAX) {
         if block > 0 {

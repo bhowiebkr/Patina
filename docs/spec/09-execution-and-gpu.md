@@ -26,6 +26,7 @@ Each node runs in one clock domain. The domain decides when the node runs.
 - Each queue has a fixed size. A full queue never makes the frame or the audio domain wait. For a stream, the oldest item drops, and the wire shows how many items dropped.
 - Trigger events and commands use queues, not latest values, so a short press of a button is never lost. If such a queue is full, the node shows an error.
 - Threads: batch and frame use the worker pool. Audio uses its own high-priority thread. Event uses an async runtime (`tokio`).
+- On Windows, the audio thread has the priority `THREAD_PRIORITY_HIGHEST`, not `THREAD_PRIORITY_TIME_CRITICAL`. A node that does not end then cannot block the threads of the desktop on a computer with few cores. On Linux and macOS, the audio thread keeps the normal priority. When the audio domain cannot have its own thread, its blocks run on the frame thread with the normal priority (9.3). (Agent decision, 2026-11-16. The owner can change it.)
 
 **Domain decisions of milestone 4.** These are agent decisions of 2026-11-15. The owner can change them.
 

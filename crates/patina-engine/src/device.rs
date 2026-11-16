@@ -156,6 +156,26 @@ impl Pace {
     }
 }
 
+/// Gives the calling thread a high priority, for the audio thread (9.2). Returns false when the
+/// system refuses it.
+#[cfg(windows)]
+pub fn raise_priority() -> bool {
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetCurrentThread() -> *mut std::ffi::c_void;
+        fn SetThreadPriority(thread: *mut std::ffi::c_void, priority: i32) -> i32;
+    }
+    const THREAD_PRIORITY_HIGHEST: i32 = 2;
+    // SAFETY: the pseudo handle of the current thread is always valid on this thread.
+    unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST) != 0 }
+}
+
+// shortcut: only Windows raises the priority, Linux needs CAP_SYS_NICE or rtkit; add it when a user there hears gaps.
+#[cfg(not(windows))]
+pub fn raise_priority() -> bool {
+    false
+}
+
 /// A change of the audio device that the user sees (9.3).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Notice {
@@ -184,6 +204,11 @@ impl fmt::Display for Notice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_audio_thread_gets_a_high_priority_on_windows() {
+        assert_eq!(std::thread::spawn(raise_priority).join().unwrap(), cfg!(windows));
+    }
 
     #[test]
     fn the_ring_keeps_the_order_refuses_an_overflow_and_gives_silence_when_empty() {

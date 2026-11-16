@@ -347,7 +347,8 @@ check used a slow `ui` function of a frame node while the audio thread ran.
 - When an audio node keeps a value that is not `Sync`, the blocks run on the thread of the
   frames. A slow frame then makes the blocks late. The device queue of 43 ms hides a short delay
   only.
-- The audio thread has the normal priority of the operating system, not a real-time priority.
+- On Windows, the audio thread has the priority `THREAD_PRIORITY_HIGHEST` (fixed 2026-11-16). A
+  unit test checks it. On Linux and macOS, it has the normal priority.
 - The device must take 48 kHz f32 samples. There is no resampler. On Windows, cpal 0.17 lists
   each rate in f32 for the default device, because it opens the stream with AUTOCONVERTPCM: a check
   on 2026-11-16 found 48 kHz f32 on a Windows 11 computer. A device on Linux or macOS
