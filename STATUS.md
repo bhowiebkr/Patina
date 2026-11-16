@@ -169,6 +169,8 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
    The **Fire** button of a `trigger` node fires it. The selfcheck has a step for it.
 4. Done on 2026-11-16: a view fires a `trigger` node with `Graph::fire`. The limit of a code
    swap during a run is in the known limits.
+5. Done on 2026-11-16: the editor shows and edits order wires (9.2), so an async node with no
+   inputs can get its trigger in the editor.
 
 ### Checked
 
@@ -198,6 +200,12 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
 - The same CLI test sends a `POST` to a wrong path, which got 404, then a `POST` with the body
   `hello`, which got 202 and a run with `hello`. A port in use gives an error before a run.
 - Unit tests check the scan of a file and of a folder, and the status code of each bad request.
+- An engine unit test checks the order-wire edits: a second wire, a wire to the same node, a
+  missing node, a cycle with its node names, a bad removal, undo, and the removal of a node.
+- The editor selfcheck drags from the order socket of one node to the order socket of another.
+  The order wire showed, Delete removed it, and two undos removed it again. 88 steps passed.
+- A screenshot of the hello example with one order wire showed the dotted line between the
+  two hollow diamonds.
 - The test machine has no network for the tests, so the local test run used
   `CARGO_NET_OFFLINE=true`. The `tokio` crate came from the cargo cache.
 
@@ -221,8 +229,6 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
   node does not draw.
 - The **Fire** button in a subgraph fires nothing, because the engine looks for the ID of the
   node in the main graph. A report names the problem. `Graph::fire` has the same limit.
-- The editor has no edit for an order wire, so an async node with no inputs cannot get its
-  trigger in the editor. Edit the graph file.
 - The first build of a project with an async node needs `tokio` from crates.io or the cargo
   cache.
 

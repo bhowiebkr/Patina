@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use serde::Deserialize;
 
-use crate::project::{Corners, GraphFile, NodeEntry, PublicInput, PublicOutput, Style, Wire, is_id, is_key};
+use crate::project::{Corners, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Style, Wire, is_id, is_key};
 
 /// The number of edits that undo keeps. The oldest edit goes first.
 const UNDO_LIMIT: usize = 1000;
@@ -29,6 +29,9 @@ pub enum Edit {
     /// Replaces the wire that goes to the same input (6.4).
     Connect { from: String, to: String },
     Disconnect { from: String, to: String },
+    /// Adds an order wire: node `before` runs before node `after`. It carries no data (9.2).
+    ConnectOrder { before: String, after: String },
+    DisconnectOrder { before: String, after: String },
     /// Replaces the route points of the wire to the input `to` (15.9). An empty list removes them.
     SetRoute { to: String, points: Vec<[f64; 2]> },
     /// Sets the path style and the corners of the wire to the input `to` (15.9). `None` uses the
@@ -217,6 +220,24 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
             graph.wire.retain(|w| !(&w.from == from && &w.to == to));
             if graph.wire.len() == count {
                 return Err(format!("no wire goes from {from} to {to}"));
+            }
+        }
+        Edit::ConnectOrder { before, after } => {
+            find(graph, before)?;
+            find(graph, after)?;
+            if graph.order.iter().any(|o| &o.before == before && &o.after == after) {
+                return Err(format!("an order wire already goes from {before} to {after}"));
+            }
+            if let Some(ids) = cycle(graph, before, after) {
+                return Err(format!("the order wire makes a cycle through these nodes: {}", ids.join(", ")));
+            }
+            graph.order.push(Order { before: before.clone(), after: after.clone() });
+        }
+        Edit::DisconnectOrder { before, after } => {
+            let count = graph.order.len();
+            graph.order.retain(|o| !(&o.before == before && &o.after == after));
+            if graph.order.len() == count {
+                return Err(format!("no order wire goes from {before} to {after}"));
             }
         }
         Edit::SetRoute { to, points } => {
@@ -448,6 +469,29 @@ mod tests {
         assert_eq!(history.graph.node.len(), 1, "a group with a bad edit changes nothing");
         let code = Edit::SetCode { path: "nodes/number/src/lib.rs".to_owned(), text: String::new() };
         assert!(history.apply(&Edit::Group { edits: vec![code] }).is_err());
+    }
+
+    #[test]
+    fn order_wires_edit() {
+        let mut history = History::new(toml::from_str("format = 1").unwrap());
+        history.apply(&add(A)).unwrap();
+        history.apply(&add(B)).unwrap();
+        let on = |before: &str, after: &str| Edit::ConnectOrder { before: before.to_owned(), after: after.to_owned() };
+        let off = |before: &str, after: &str| Edit::DisconnectOrder { before: before.to_owned(), after: after.to_owned() };
+        history.apply(&on(A, B)).unwrap();
+        assert!(history.apply(&on(A, B)).is_err(), "no second order wire between the same nodes");
+        assert!(history.apply(&on(A, A)).is_err(), "no order wire from a node to itself");
+        assert!(history.apply(&on(A, C)).is_err(), "no order wire to a node that does not exist");
+        let err = history.apply(&on(B, A)).unwrap_err();
+        assert!(err.ends_with("nodes: 000000000000000a, 000000000000000b"), "{err}");
+        assert!(history.apply(&connect("000000000000000b.out", "000000000000000a.value")).is_err(), "a wire sees the order wires");
+        assert!(history.apply(&off(B, A)).is_err());
+        history.apply(&off(A, B)).unwrap();
+        assert!(history.graph.order.is_empty());
+        assert!(history.undo(no_code).unwrap());
+        assert_eq!(history.graph.order, [Order { before: A.to_owned(), after: B.to_owned() }]);
+        history.apply(&Edit::RemoveNode { id: B.to_owned() }).unwrap();
+        assert!(history.graph.order.is_empty(), "the order wires of a removed node go too");
     }
 
     #[test]

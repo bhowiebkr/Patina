@@ -150,6 +150,10 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 - Press Shift+L to arrange the selected nodes in columns, with the signal from left to right.
   With fewer than two nodes selected, Shift+L arranges the full graph.
 - One output can feed many inputs. Splitting or joining a value takes a node.
+- An order wire carries no data. It makes one node run before another node, for example for
+  two writes to one file. Drag from the hollow diamond at the right of a node header to the
+  diamond at the left of the other node header. The order wire shows as a dotted line. Select it
+  and push Delete to remove it.
 
 To add a connection kind:
 
@@ -423,6 +427,8 @@ The CLI runs the event runs before the frames and the blocks.
 In the editor, **Run** starts the triggers, and the event runs go on with the frames and the
 blocks until **Pause** or **Stop**. A `trigger` node does not fire at the start. Click the
 **Fire** button in its header to fire it.
+An async node with no inputs gets its runs from an order wire from its trigger (see
+[Connections](#connections)).
 
 ## Make a package
 

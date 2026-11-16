@@ -30,6 +30,12 @@ export interface Wire {
   name?: string;
 }
 
+/** An order wire: node `before` runs before node `after`. It carries no data (spec 9.2). */
+export interface Order {
+  before: string;
+  after: string;
+}
+
 /** A public input of a subgraph and the inner inputs that it goes to (spec 6.4). */
 export interface PublicInput {
   key: string;
@@ -51,6 +57,7 @@ export interface GraphFile {
   format: number;
   node?: NodeEntry[];
   wire?: Wire[];
+  order?: Order[];
   input?: PublicInput[];
   output?: PublicOutput[];
 }
@@ -247,6 +254,8 @@ export type Edit =
   | { kind: 'MoveNode'; id: string; pos: Point }
   | { kind: 'Connect'; from: string; to: string }
   | { kind: 'Disconnect'; from: string; to: string }
+  | { kind: 'ConnectOrder'; before: string; after: string }
+  | { kind: 'DisconnectOrder'; before: string; after: string }
   | { kind: 'SetRoute'; to: string; points: Point[] }
   | { kind: 'SetLook'; to: string; style?: Style; corners?: Corners }
   | { kind: 'NameWire'; to: string; name: string | null }

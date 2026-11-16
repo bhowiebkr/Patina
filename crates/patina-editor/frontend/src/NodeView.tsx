@@ -130,6 +130,9 @@ export const NodeEdit = createContext<(edit: Edit) => void>(() => {});
 /** Fires a `trigger` node of the live run (9.4). Null while the graph is paused. */
 export const FireTrigger = createContext<((id: string) => void) | null>(null);
 
+/** The handle ID of the order sockets in the header of a node (9.2). No pin key starts with "@". */
+export const ORDER = '@order';
+
 const HEADER = 32;
 const ROW = 24;
 const PAD = 6;
@@ -322,6 +325,8 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
       {outputs.map((pin, i) => (
         <PinHandle key={`o-${pin.key}`} pin={pin} output editable={editable} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
       ))}
+      <Handle id={ORDER} type="target" position={Position.Left} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Order wire from a node that runs before this node" />
+      <Handle id={ORDER} type="source" position={Position.Right} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Drag to a node that must run after this node" />
     </div>
   );
 }

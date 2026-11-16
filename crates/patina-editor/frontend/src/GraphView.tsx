@@ -22,9 +22,9 @@ import { NameField } from './NameField';
 import { newId, type Edit, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
 import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
 import { savedViewport, saveViewport } from './Dock';
-import { NodeEdit, NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
+import { NodeEdit, NodeView, ORDER, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { matchPin } from './palette';
-import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
+import { OrderEdge, WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { Labels } from './labels';
 import { Router } from './route';
 import { WireStore } from './wires';
@@ -32,7 +32,7 @@ import { WireStore } from './wires';
 export const NODE_MIME = 'application/patina-node';
 const FIT = { padding: 0.2, maxZoom: 1, duration: 0 };
 const NODE_TYPES = { patina: NodeView, port: PortView };
-const EDGE_TYPES = { wire: WireEdge };
+const EDGE_TYPES = { wire: WireEdge, order: OrderEdge };
 const PAN_BUTTONS = [1];
 const MULTI_KEYS = ['Shift', 'Control'];
 const NO_POINTS: readonly Point[] = [];
@@ -105,7 +105,7 @@ function arrangeEdits(nodes: GraphNode[], edges: Edge<WireData>[], flow: ReactFl
   });
   const links = edges.flatMap((e): Link[] =>
     ids.has(e.source) && ids.has(e.target)
-      ? [{ from: e.source, fy: pinY(e.source, e.sourceHandle, 'source'), to: e.target, ty: pinY(e.target, e.targetHandle, 'target'), net: e.data!.from }]
+      ? [{ from: e.source, fy: pinY(e.source, e.sourceHandle, 'source'), to: e.target, ty: pinY(e.target, e.targetHandle, 'target'), net: e.data?.from ?? e.id }]
       : [],
   );
   const at = arrange(boxes, links);
@@ -181,7 +181,12 @@ function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
     const id = `${w.from}>${w.to}`;
     return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from), name: w.name, bus: bus(w.from, w.to, w.name) } };
   });
-  return [...wires, ...ports];
+  // An order wire has no data, so the Inspector does not show it.
+  const orders = (view.graph.order ?? []).map((o): Edge<WireData> => {
+    const id = `order:${o.before}>${o.after}`;
+    return { id, type: 'order', source: o.before, sourceHandle: ORDER, target: o.after, targetHandle: ORDER, selected: selected.has(id) };
+  });
+  return [...wires, ...ports, ...orders];
 }
 
 /** A wire that a drag from a pin into an empty area started: the pin, its direction and its type. */
@@ -189,6 +194,11 @@ interface FreeEnd {
   pin: string;
   output: boolean;
   ty: string;
+}
+
+/** An order socket connects only to an order socket (9.2). */
+function orderMatch(c: Edge | Connection): boolean {
+  return (c.sourceHandle === ORDER) === (c.targetHandle === ORDER);
 }
 
 function typing(target: EventTarget | null): boolean {
@@ -262,7 +272,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
     ({ nodes: selected, edges: wires }: OnSelectionChangeParams) =>
       onSelect(
         selected.map((n) => n.id),
-        wires.map((e) => e.data as WireData),
+        wires.flatMap((e) => (e.data ? [e.data as WireData] : [])),
       ),
     [onSelect],
   );
@@ -284,7 +294,8 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
     (c: Connection) => {
       const [from, to, inKey, outKey] = [`${c.source}.${c.sourceHandle}`, `${c.target}.${c.targetHandle}`, portKey(c.source), portKey(c.target)];
       if (inKey && outKey) return;
-      if (inKey) onEdit({ kind: 'ConnectPin', key: inKey, end: to });
+      if (c.sourceHandle === ORDER) onEdit({ kind: 'ConnectOrder', before: c.source, after: c.target });
+      else if (inKey) onEdit({ kind: 'ConnectPin', key: inKey, end: to });
       else if (outKey) onEdit({ kind: 'ConnectPin', key: outKey, end: from });
       else onEdit({ kind: 'Connect', from, to });
     },
@@ -295,7 +306,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   const onConnectEnd = useCallback(
     (e: globalThis.MouseEvent | TouchEvent, c: FinalConnectionState) => {
       const from = c.fromHandle;
-      if (c.isValid || !from?.id || !(e.target instanceof Element) || !e.target.classList.contains('react-flow__pane')) return;
+      if (c.isValid || !from?.id || from.id === ORDER || !(e.target instanceof Element) || !e.target.classList.contains('react-flow__pane')) return;
       const pin = `${from.nodeId}.${from.id}`;
       const output = from.type === 'source';
       if (portKey(from.nodeId)) return;
@@ -325,6 +336,10 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
         });
         for (const edge of edges) {
           if (!edge.selected || removed.has(edge.source) || removed.has(edge.target)) continue;
+          if (edge.type === 'order') {
+            edits.push({ kind: 'DisconnectOrder', before: edge.source, after: edge.target });
+            continue;
+          }
           const { from, to } = edge.data!;
           const inKey = portKey(edge.source);
           const outKey = portKey(edge.target);
@@ -408,6 +423,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
           onSelectionChange={onSelectionChange}
           onNodeDragStop={onNodeDragStop}
           onConnect={onConnect}
+          isValidConnection={orderMatch}
           onConnectEnd={onConnectEnd}
           onDragOver={onDragOver}
           onDrop={onDrop}

@@ -479,6 +479,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Use neutral wires by default. A project can use named color families for signal groups. Keep type labels, direction and lane identity available.
 - Selection uses the application accent without erasing the signal colors. Keep errors and stale values distinguishable from signal state.
 - Cross-domain connections remain dashed (15.3). An order wire remains identifiable as carrying no data (9.2).
+- An order wire is a dotted line between two order sockets. Each node has a hollow diamond socket at each end of its header. A drag from the right socket of node A to the left socket of node B adds an order wire: A runs before B. An order socket connects only to an order socket. Delete removes a selected order wire. Each change is an edit with undo, and the editor refuses an order wire that makes a cycle (9.2). (Agent decision, 2026-11-16. The owner can change it.)
 
 **Routing and interaction**
 

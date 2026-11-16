@@ -528,6 +528,28 @@ fn broken() -> u32 {
     v = await step('undo the node from a pin', () => api.undo());
     steps.push('add a node from a pin');
 
+    // Order wires (9.2): a drag from the order socket of A to the order socket of B connects them,
+    // and Delete on the selected order wire removes it. Both are edits with undo.
+    const orderPin = (id: string, side: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .react-flow__handle.${side}[data-handleid="@order"]`)!;
+    const mid = (el: Element, b = el.getBoundingClientRect()) => ({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    orderPin(A, 'source').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ...mid(orderPin(A, 'source')) }));
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...mid(orderPin(B, 'target')) }));
+    orderPin(B, 'target').dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...mid(orderPin(B, 'target')) }));
+    await until('the order wire after a drag between the order sockets', RUN_MS, () => document.querySelector('.react-flow__edge-order') !== null);
+    const orderHit = document.querySelector('.react-flow__edge-order .wire-hit')!;
+    orderHit.dispatchEvent(new MouseEvent('click', { bubbles: true, ...mid(orderHit) }));
+    await until('the selected order wire', RUN_MS, () => document.querySelector('.react-flow__edge-order.selected') !== null);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    await until('no order wire after Delete', RUN_MS, () => document.querySelector('.react-flow__edge-order') === null);
+    v = await step('undo the removal of the order wire', () => api.undo());
+    if (v.graph.order?.length !== 1 || v.graph.order[0].before !== A || v.graph.order[0].after !== B || v.graph.wire?.length !== 1) {
+      throw new Error(`Delete changed more than the order wire: ${JSON.stringify([v.graph.order, v.graph.wire])}`);
+    }
+    v = await step('undo the order wire', () => api.undo());
+    if (v.graph.order?.length) throw new Error('undo did not remove the order wire');
+    steps.push('order wire connected and removed');
+
     // New node (15.2): the + of the Nodes group asks for a name. A used name shows its problem. A
     // new name makes the folder, and the Code tab shows its code.
     const nameField = () => document.querySelector<HTMLInputElement>('[aria-label="Node name"]');

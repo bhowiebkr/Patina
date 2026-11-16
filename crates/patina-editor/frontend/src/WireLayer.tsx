@@ -14,7 +14,7 @@ import {
   type MouseEvent,
   type PointerEvent,
 } from 'react';
-import { EdgeLabelRenderer, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
+import { EdgeLabelRenderer, getBezierPath, Position, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
 import type { Corners, Edit, KindInfo, Point, Style, Value } from './api';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
@@ -46,6 +46,17 @@ export interface WireTools {
 }
 
 export const WireContext = createContext<WireTools | null>(null);
+
+/** An order wire (9.2): a dotted SVG line that carries no data, between the headers of two nodes. */
+export function OrderEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
+  const [path] = getBezierPath({ sourceX, sourceY, sourcePosition: Position.Right, targetX, targetY, targetPosition: Position.Left });
+  return (
+    <>
+      <path className="order-line" d={path} />
+      <path className="wire-hit" d={path} />
+    </>
+  );
+}
 
 export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
   const { store, router, labels, onEdit, editable, values, stale, kinds } = useContext(WireContext)!;
