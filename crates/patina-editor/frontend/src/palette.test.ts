@@ -42,6 +42,15 @@ test('a pin matches the wire type, with no reference and with String for &str', 
   assert.equal(matchPin(delay, false, 'f64'), 'out');
 });
 
+test('a pin type matches with no regard to module paths and spaces', () => {
+  const say = { inputs: [{ key: 'text', ty: 'std::string::String' }, { key: 'list', ty: 'Vec< ::std::string::String >' }], outputs: [], generics: [] };
+  assert.equal(matchPin(say, true, 'String'), 'text');
+  assert.equal(matchPin(say, true, '&str'), 'text');
+  assert.equal(matchPin(say, true, 'Vec<String>'), 'list');
+  assert.equal(matchPin(say, true, 'Vec<u8>'), undefined);
+  assert.equal(matchPin(say, true, 'Strings'), undefined, 'only a full name matches');
+});
+
 test('a delay output has the type of its input wire, also through a loop of delays', () => {
   const add = { inputs: [], outputs: [{ key: 'out', ty: 'f64' }], generics: [] };
   const delay = { inputs: [{ key: 'value', ty: 'T' }], outputs: [{ key: 'out', ty: 'T' }], generics: ['T'] };

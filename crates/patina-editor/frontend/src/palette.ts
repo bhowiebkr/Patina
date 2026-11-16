@@ -16,6 +16,11 @@ export function wireType(ty: string): string {
   return base === 'str' ? 'String' : base;
 }
 
+/** The wire type with no spaces and no module paths, so `Vec<std::string::String>` is `Vec<String>`. */
+function typeKey(ty: string): string {
+  return wireType(ty).replace(/\s+/g, '').replace(/(\b\w+)?::/g, '');
+}
+
 interface Pins {
   inputs: readonly { key: string; ty: string }[];
   outputs: readonly { key: string; ty: string }[];
@@ -27,8 +32,8 @@ interface Pins {
  * `output`. A pin whose type is a type parameter of the node joins all types (4.5).
  */
 export function matchPin(node: Pins, output: boolean, ty: string): string | undefined {
-  // shortcut: compares the type text, so two paths of one type do not match; rustc checks at build time.
-  const fits = (pinTy: string) => node.generics.includes(pinTy) || wireType(pinTy) === wireType(ty);
+  // shortcut: drops the module paths, so two types of one name in two modules match; rustc checks at build time.
+  const fits = (pinTy: string) => node.generics.includes(pinTy) || typeKey(pinTy) === typeKey(ty);
   return (output ? node.inputs : node.outputs).find((p) => fits(p.ty))?.key;
 }
 

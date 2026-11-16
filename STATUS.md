@@ -769,8 +769,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
     large.
   - The types of a generic node go only from an output to an input, so a type parameter that
     only an output uses makes an error (`crates/patina-engine/src/plan.rs`).
-  - The **Add node** palette compares the type text, so two paths of one type do not match
-    (`crates/patina-editor/frontend/src/palette.ts`). rustc checks the types at build time.
+  - The **Add node** palette compares the type text with no module paths, so two types of one
+    name in two modules match (`crates/patina-editor/frontend/src/palette.ts`). rustc checks the
+    types at build time.
 - The delay runs only in the frame domain.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
 - Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
@@ -1187,8 +1188,8 @@ To run the editor from a checkout:
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - These parts of spec 15 are not in the editor yet: view tabs in the center
   (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
-- The palette of a drag from a pin compares the type text (15.2). Two paths of one type, for
-  example `String` and `std::string::String`, do not match.
+- The palette of a drag from a pin compares the type text with no module paths (15.2). A type
+  alias does not match its type, and two types of one name in two modules match.
 - Undo does not remove a new node, widget or view folder (15.2).
 - The check does not test the **does not stop** message of **Stop** (15.2), because that needs
   a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
