@@ -611,6 +611,9 @@ and 6.4).
   of its `Cargo.toml`. A temporary test with the real toolchain on Windows imported a node and
   built it, put back an update that did not compile, and built a good update. The test is not
   in the repository. The two dialogs did not run in the window yet.
+- An import record of `patina.toml` with a bad key or folder name gives an error at **Update**.
+  Before, a key with no group stopped the program (fixed 2026-11-16). The test
+  `a_bad_import_record_gives_an_error` checks it.
 
 ## Milestone 6: layers
 

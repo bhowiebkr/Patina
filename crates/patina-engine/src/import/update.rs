@@ -7,9 +7,10 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Applied, absolute, digest, file_hashes, files, hash, inside, manifest, member, move_folder, path_deps, read_project, remove, renamed_manifest,
+    Applied, absolute, check_folder, digest, file_hashes, files, hash, inside, manifest, member, move_folder, path_deps, read_project, remove, renamed_manifest,
     undo_moves, users, work, write_files,
 };
+use crate::plan::check_name;
 use crate::project::{self, ProjectFile};
 use crate::{Project, Toolchain};
 
@@ -135,7 +136,7 @@ fn compare(root: &Path, other: &Path, folder: &str) -> Result<Compare, String> {
     if record.project != source.id {
         return Err(format!("{folder} did not come from this project"));
     }
-    let (group, _) = folder.split_once('/').expect("a record names group/name");
+    let group = record_group(folder, &record)?;
     let from = format!("{group}/{}", record.folder);
     let dir = other.join(&from);
     if !dir.join("Cargo.toml").is_file() {
@@ -144,7 +145,7 @@ fn compare(root: &Path, other: &Path, folder: &str) -> Result<Compare, String> {
     // The folders of this project with the copies of the other project, by their folder there.
     let mut renames = BTreeMap::new();
     for (key, r) in file.imports.iter().filter(|(_, r)| r.project == record.project) {
-        let (g, _) = key.split_once('/').expect("a record names group/name");
+        let g = record_group(key, r)?;
         renames.insert(format!("{g}/{}", r.folder), key.clone());
     }
     renames.insert(from.clone(), folder.to_owned());
@@ -191,6 +192,13 @@ fn compare(root: &Path, other: &Path, folder: &str) -> Result<Compare, String> {
     Ok(Compare { file, record, theirs, ours, changes, other_hash, their_files })
 }
 
+/// The group of the import record `key`, after a check of its names. A person can edit
+/// patina.toml, so a bad record must give an error and no path outside the project.
+fn record_group<'a>(key: &'a str, record: &project::Import) -> Result<&'a str, String> {
+    check_folder(key).and_then(|()| check_name(&record.folder)).map_err(|e| format!("patina.toml: the import record {key}: {e}"))?;
+    Ok(key.split_once('/').map_or(key, |(group, _)| group))
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::{Choice, apply};
@@ -206,6 +214,33 @@ mod tests {
 
     fn manifest(name: &str, deps: &str) -> String {
         format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[dependencies]\n{deps}")
+    }
+
+    #[test]
+    fn a_bad_import_record_gives_an_error() {
+        let base = std::env::temp_dir().join(format!("patina-update-bad-{}", std::process::id()));
+        let (root, other) = (base.join("this"), base.join("other"));
+        let _ = fs::remove_dir_all(&base);
+        let record = |key: &str, folder: &str| format!("[imports.\"{key}\"]
+project = \"aaaaaaaaaaaaaaaa\"
+folder = \"{folder}\"
+hash = \"x\"
+");
+        write(&other, &[("patina.toml", "format = 1
+id = \"aaaaaaaaaaaaaaaa\"
+rust = \"1.94.0\"
+")]);
+        let project = format!("format = 1
+id = \"bbbbbbbbbbbbbbbb\"
+rust = \"1.94.0\"
+
+{}{}", record("blur", "blur"), record("nodes/up", "../up"));
+        write(&root, &[("patina.toml", &project)]);
+        for key in ["blur", "nodes/up"] {
+            let e = changes(&root, &other, key).unwrap_err();
+            assert!(e.contains(&format!("the import record {key}:")), "{e}");
+        }
+        fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]
