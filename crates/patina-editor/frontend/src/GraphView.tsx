@@ -46,6 +46,11 @@ function portTypes(view: View): Map<string, string> {
   return new Map([...(info?.inputs ?? []).map((p) => [`in:${p.key}`, p.ty] as const), ...(info?.outputs ?? []).map((p) => [`out:${p.key}`, p.ty] as const)]);
 }
 
+/** What an AddNode edit names: a built-in node, a subgraph or a node folder. */
+function nodeSource(n: NodeInfo): string {
+  return n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`;
+}
+
 /** The key of the public pin "in:<key>" or "out:<key>", or null for a node. */
 function portKey(id: string): string | null {
   return /^(in|out):/.test(id) ? id.slice(id.indexOf(':') + 1) : null;
@@ -57,11 +62,14 @@ const PUBLIC_INPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public input', outputs: [{
 const PUBLIC_OUTPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public output', inputs: [{ key: 'pin', ty: '?' }] };
 
 /** The public pins of the open subgraph (6.4). The editor moves, connects, renames and removes them. */
-function buildPorts(view: View, old: Map<string, GraphNode>): PortNode[] {
+function buildPorts(view: View, run: RunState, old: Map<string, GraphNode>): PortNode[] {
   const types = portTypes(view);
   const port = (id: string, name: string, pos: Point | undefined, input: boolean): PortNode => {
     const position = { x: pos?.[0] ?? 0, y: pos?.[1] ?? 0 };
-    const data = { name, ty: types.get(id) ?? '?', input };
+    const key = id.slice(id.indexOf(':') + 1);
+    // An input shows its test value, and an output shows the value of the use (15.9).
+    const value = input ? view.test?.[key] : run.values.get(`${id}.pin`)?.text;
+    const data = { name, ty: types.get(id) ?? '?', input, value, testing: view.test != null };
     const before = old.get(id);
     return before?.type === 'port' ? { ...before, position, data } : { id, type: 'port', position, deletable: false, data };
   };
@@ -84,7 +92,7 @@ function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     const before = old.get(entry.id);
     return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });
-  return [...nodes, ...buildPorts(view, old)];
+  return [...nodes, ...buildPorts(view, run, old)];
 }
 
 function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
@@ -291,10 +299,10 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   const choices = end ? all.filter((n) => matchPin(n, end.output, end.ty) !== undefined) : all;
 
   const onDrop = (e: DragEvent) => {
-    const folder = e.dataTransfer.getData(NODE_MIME);
-    if (!folder || !view.trusted) return;
+    const info = view.nodes.find((n) => n.name === e.dataTransfer.getData(NODE_MIME));
+    if (!info || !view.trusted) return;
     e.preventDefault();
-    addNode(folder, e.clientX, e.clientY);
+    addNode(nodeSource(info), e.clientX, e.clientY, undefined, info);
   };
 
   const onDoubleClick = (e: MouseEvent) => {
@@ -355,7 +363,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
             onAdd={(n) =>
               n === PUBLIC_INPUT || n === PUBLIC_OUTPUT
                 ? addPin(n === PUBLIC_INPUT, palette.x, palette.y, end)
-                : addNode(n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`, palette.x, palette.y, end, n)
+                : addNode(nodeSource(n), palette.x, palette.y, end, n)
             }
             onClose={() => setPalette(null)}
           />

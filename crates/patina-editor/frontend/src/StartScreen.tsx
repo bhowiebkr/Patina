@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { AboutDialog, useVersion } from './About';
 import { api, type StartInfo, type View } from './api';
+import { StartBackdrop } from './StartBackdrop';
 
 interface Props {
   start: StartInfo;
@@ -41,6 +42,7 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
 
   return (
     <main className="start">
+      <StartBackdrop />
       <div className="start-card">
         <div className="hero">
           <h1>Patina</h1>

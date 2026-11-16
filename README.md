@@ -251,6 +251,10 @@ cargo run -p patina-cli -- run examples/computer --frames 16
 
 In the editor, a 1-bit wire is lit when it is true. Run the project and double-click a use of a
 subgraph, for example the `cpu` node. The subgraph opens with the live values of that use.
+To test a subgraph alone, open it and click **Test** in the path bar. Click the switch at the left
+of an input to toggle it. The lamp at the right of an output shows its value. Click **End test**
+to return. The **Graphs** group of the **Project** panel lists the subgraphs. Click one to open
+it, or drag it into the graph to add a use.
 A `switch` node shows a check box in its **on** row. Click it to set the bit. Two `display` nodes
 show the count and the OUT register of the CPU as hex digits on 7 segments.
 

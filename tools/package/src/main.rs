@@ -2,6 +2,8 @@
 //!
 //! The tool builds the page and the release programs, collects the license notices of each crate
 //! and npm package in the build, copies the example projects to `projects/`, and writes `target/package/patina-<version>-<os>-<arch>.zip`.
+//! Then it updates the programs in `target/package/Patina`. That folder keeps its data, its
+//! toolchain and its projects, so a person can run Patina from it.
 
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -49,7 +51,8 @@ fn run() -> Result<()> {
     tool(&mut build)?;
 
     let out = root.join("target").join("package");
-    let folder = out.join("Patina");
+    let stage = out.join("stage");
+    let folder = stage.join("Patina");
     if folder.exists() {
         fs::remove_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     }
@@ -113,11 +116,40 @@ fn run() -> Result<()> {
     if cfg!(windows) {
         let system = std::env::var_os("SystemRoot").map_or(PathBuf::from(r"C:\Windows"), PathBuf::from);
         let mut tar = Command::new(system.join(r"System32\tar.exe"));
-        tool(tar.arg("-a").arg("-cf").arg(&zip).arg("-C").arg(&out).arg("Patina"))?;
+        tool(tar.arg("-a").arg("-cf").arg(&zip).arg("-C").arg(&stage).arg("Patina"))?;
     } else {
-        tool(Command::new("zip").arg("-qr").arg(&zip).arg("Patina").current_dir(&out))?;
+        tool(Command::new("zip").arg("-qr").arg(&zip).arg("Patina").current_dir(&stage))?;
     }
     println!("{}", zip.display());
+    update(&folder, &out.join("Patina")).map_err(|e| format!("{e}. Close Patina in target/package/Patina, then run the tool again."))
+}
+
+/// Puts the new programs and licenses in the folder that a person runs. The data and the toolchain
+/// stay, and an example project is copied only when the folder does not have it (13.3).
+fn update(from: &Path, to: &Path) -> Result<()> {
+    make_dir(to)?;
+    for entry in fs::read_dir(from).map_err(|e| format!("{}: {e}", from.display()))? {
+        let entry = entry.map_err(|e| format!("{}: {e}", from.display()))?;
+        let (path, name) = (entry.path(), entry.file_name());
+        let dest = to.join(&name);
+        if name == "projects" {
+            make_dir(&dest)?;
+            for project in fs::read_dir(&path).map_err(|e| format!("{}: {e}", path.display()))? {
+                let project = project.map_err(|e| format!("{}: {e}", path.display()))?;
+                let target = dest.join(project.file_name());
+                if !target.exists() {
+                    copy_tree(&project.path(), &target)?;
+                }
+            }
+        } else if path.is_dir() {
+            if dest.exists() {
+                fs::remove_dir_all(&dest).map_err(|e| format!("{}: {e}", dest.display()))?;
+            }
+            copy_tree(&path, &dest)?;
+        } else {
+            copy(&path, &dest)?;
+        }
+    }
     Ok(())
 }
 
@@ -225,7 +257,7 @@ fn output(command: &mut Command) -> Result<String> {
     String::from_utf8(out.stdout).map_err(|e| format!("{name}: {e}"))
 }
 
-/// Copies the example projects without their build output.
+/// Copies a folder without its build output.
 fn copy_tree(from: &Path, to: &Path) -> Result<()> {
     make_dir(to)?;
     for entry in fs::read_dir(from).map_err(|e| format!("{}: {e}", from.display()))? {

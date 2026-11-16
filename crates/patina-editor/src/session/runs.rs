@@ -1,5 +1,7 @@
 //! The commands of the run, the node GUIs and the views (15.2, 4.3, 15.8).
 
+use std::collections::BTreeMap;
+
 use patina_engine::Edit;
 use serde::Serialize;
 use tauri::{State, WebviewWindow};
@@ -19,6 +21,23 @@ pub fn run(editor: State<'_, Editor>) -> Result<View, String> {
         editor.shared.control.set_stop(false);
         session.live = true;
         Ok(session.view(&editor.engine, Some(true), None))
+    })
+}
+
+/// Runs the open subgraph alone, with `inputs` for its public inputs, and keeps it live. No
+/// `inputs` ends the test, and the main graph runs again (15.9).
+#[tauri::command(async)]
+pub fn test(editor: State<'_, Editor>, inputs: Option<BTreeMap<String, String>>) -> Result<View, String> {
+    editor.with(|session| {
+        if !session.trusted {
+            return Err("Trust the project before you run it (11).".to_owned());
+        }
+        // A new use needs a build. A change of an input value changes only the parameters.
+        let build = session.test.is_some() != inputs.is_some();
+        session.test = inputs;
+        editor.shared.control.set_stop(false);
+        session.live = true;
+        Ok(session.view(&editor.engine, Some(build), None))
     })
 }
 

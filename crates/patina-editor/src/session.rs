@@ -45,6 +45,8 @@ struct Session {
     live: bool,
     /// The unsaved text of the Code tab, by path (15.10).
     code: BTreeMap<String, String>,
+    /// The values of the public inputs while the open subgraph runs alone (15.9).
+    test: Option<BTreeMap<String, String>>,
     /// The recovery file that the user did not restore or discard yet. Until the answer, Patina
     /// does not change the file.
     recovery: Option<Recovery>,
@@ -82,6 +84,8 @@ pub struct View {
     code_revision: u64,
     /// True when the project has a recovery file and the user did not answer yet (15.10).
     recovery: bool,
+    /// The values of the public inputs while the open subgraph runs alone, or none (15.9).
+    test: Option<BTreeMap<String, String>>,
 }
 
 /// The answer to a recovery file: the view and the unsaved code for the Code tab (15.10).
@@ -197,7 +201,7 @@ impl Editor {
         let _ = self.engine.send(Job::Unload);
         let mut session = self.lock();
         // A project opens paused (15.10).
-        let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), recovery, recovery_error };
+        let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error };
         Ok(session.insert(new).view(&self.engine, None, None))
     }
 
@@ -252,7 +256,11 @@ impl Session {
     /// `slot` is the node folder of a code change, for the slot (7.1).
     fn view(&self, engine: &Jobs, build: Option<bool>, slot: Option<String>) -> View {
         let project = &self.project;
-        let (checked, problems) = match project.check() {
+        let checked = match &self.test {
+            Some(inputs) => project.check_test(inputs),
+            None => project.check(),
+        };
+        let (checked, problems) = match checked {
             Ok(checked) => (Some(checked), Vec::new()),
             Err(Error::Graph(_, problems)) => (None, problems),
             Err(e) => (None, vec![e.to_string()]),
@@ -287,6 +295,7 @@ impl Session {
             can_redo: project.can_redo(),
             code_revision: project.code_revision(),
             recovery: self.recovery.is_some(),
+            test: self.test.clone(),
         }
     }
 }
@@ -540,7 +549,9 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
 pub fn open_graph(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.with(|session| {
         session.project.open_graph(&name)?;
-        Ok(session.view(&editor.engine, None, None))
+        // The test of a subgraph ends, so the main graph runs again (15.9).
+        let build = session.test.take().map(|_| true);
+        Ok(session.view(&editor.engine, build, None))
     })
 }
 

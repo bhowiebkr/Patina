@@ -35,7 +35,10 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
    count to the segments of its hex digit.
 8. Done: a second display shows the OUT register of the CPU.
 9. Done: a zero flag and a JZ instruction, with opcode 7. The new program uses all 8 opcodes.
-10. Next: an 8-bit data path, so the CPU counts past 15.
+10. Done: the **Test** button of an open subgraph runs it alone. Switches toggle its `bool`
+    inputs and lamps show its outputs. The **Graphs** group of the **Project** panel lists the
+    subgraphs. A click opens one, and a drag adds a use.
+11. Next: an 8-bit data path, so the CPU counts past 15.
 
 ### Checked
 
@@ -51,6 +54,10 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first
   use. On `examples/computer`, it wrote 18 screenshots in about 25 s. They show the lit wires
   in the subgraphs and the lamps of the readouts at a near zoom.
+- A unit test runs one use of an open subgraph alone with the input parameters. The editor
+  self-check passes. No test clicks a switch of the **Test** mode.
+- The package tool keeps `data/` of `target/package/Patina`, so the recent projects stay. The
+  tool did not run after this change.
 - The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
 - A `patina --shot` screenshot shows the check box in the row of each `switch` node. No test
   clicks it.

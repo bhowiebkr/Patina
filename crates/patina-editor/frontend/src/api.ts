@@ -102,6 +102,8 @@ export interface View {
   codeRevision: number;
   /** True when the project has a recovery file and the user did not answer yet (15.10). */
   recovery: boolean;
+  /** The values of the public inputs while the open subgraph runs alone, or null (15.9). */
+  test: Record<string, string> | null;
 }
 
 /** The unsaved text of the Code tab, by path. */
@@ -324,6 +326,8 @@ export const api = {
   expand: (ids: string[]) => invoke<View>('expand', { ids }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
+  /** Runs the open subgraph alone with these public input values. Null ends the test (15.9). */
+  test: (inputs: Record<string, string> | null) => invoke<View>('test', { inputs }),
   /** Fuses the node in the slot back into the base now (7.2). */
   bake: () => invoke<View>('bake'),
   /** Pauses, and asks the active run to stop (15.2). */

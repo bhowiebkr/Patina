@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, onToolchain, type InstallProgress, type Settings } from './api';
 import { useEvent } from './useEvent';
+import { StartBackdrop } from './StartBackdrop';
 
 /** Back or Esc returns to the start screen. */
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
@@ -42,6 +43,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const installing = install ? !install.done : !!s?.installing;
   return (
     <main className="start" aria-label="Settings">
+      <StartBackdrop />
       <div className="start-card">
         <div className="settings-head">
           <h1>Settings</h1>

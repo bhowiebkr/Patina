@@ -178,6 +178,7 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     // The check does not click Browse: the folder dialog of the platform would wait for a person.
     const browse = () => [...document.querySelectorAll('button')].filter((b) => b.textContent === 'Browse').length;
     await until('the start screen with two Browse buttons', RUN_MS, () => !!button('Settings') && browse() === 2);
+    await api.capture('start');
     steps.push('settings screen');
 
     let v = await step('new project', () => api.newProject(dir, 'check'));

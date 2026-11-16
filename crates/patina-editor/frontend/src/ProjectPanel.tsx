@@ -29,6 +29,8 @@ interface Props {
   onPackage: () => void;
   /** Opens the Update dialog for an imported folder (6.2). */
   onUpdate: (folder: string) => void;
+  /** Opens the main graph or a subgraph (6.1). */
+  onOpen: (name: string) => void;
 }
 
 function Empty() {
@@ -45,18 +47,32 @@ function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget, onNewView, onImport, onUpdate, onPackage }: Props) {
+export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget, onNewView, onImport, onUpdate, onPackage, onOpen }: Props) {
   const [naming, setNaming] = useState<'node' | 'widget' | 'view' | null>(null);
   const close = () => setNaming(null);
   const startDrag = (e: DragEvent, name: string) => {
-    e.dataTransfer.setData(NODE_MIME, `nodes/${name}`);
+    e.dataTransfer.setData(NODE_MIME, name);
     e.dataTransfer.effectAllowed = 'move';
   };
+  const subgraphs = view.nodes.filter((n) => n.subgraph);
+  const nodes = view.nodes.filter((n) => !n.subgraph);
   return (
     <aside className="panel" aria-label="Project">
       <div className="group">
         <div className="group-title">Graphs</div>
-        <button className="item active">main</button>
+        {[{ name: 'main', error: null }, ...subgraphs].map((n) => (
+          <button
+            key={n.name}
+            className={view.graphName === n.name ? 'item active' : 'item'}
+            draggable={view.trusted && n.name !== 'main'}
+            onDragStart={(e) => startDrag(e, n.name)}
+            onClick={() => onOpen(n.name)}
+            title={n.name === 'main' ? 'Open the main graph' : 'Open the subgraph, or drag it to the graph to add a use'}
+          >
+            {n.name}
+            {n.error && <span className="hint error-text">error</span>}
+          </button>
+        ))}
       </div>
       <div className="group">
         <div className="group-title">
@@ -64,8 +80,8 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget,
           {view.trusted && <NewButton label="New node" onClick={() => setNaming('node')} />}
         </div>
         {naming === 'node' && <NameField label="Node name" onMake={onNewNode} onClose={close} />}
-        {view.nodes.length === 0 && naming !== 'node' && <Empty />}
-        {view.nodes.map((n) => (
+        {nodes.length === 0 && naming !== 'node' && <Empty />}
+        {nodes.map((n) => (
           <button
             key={n.name}
             className={inspect?.kind === 'type' && inspect.name === n.name ? 'item active' : 'item'}

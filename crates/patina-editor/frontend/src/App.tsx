@@ -22,7 +22,7 @@ import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { useProjectActions } from './ProjectActions';
 import { StatusBar, useRun } from './RunStatus';
-import { scopeRun } from './NodeView';
+import { PortTest, scopeRun, TEST_USE } from './NodeView';
 import { ViewPanel } from './ViewPanel';
 import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
@@ -142,7 +142,21 @@ export function App() {
     },
     [act, saveAll],
   );
-  const scoped = useMemo(() => scopeRun(run, view?.graphName === 'main' ? '' : scope), [run, scope, view?.graphName]);
+  const testing = view?.test != null;
+  const scoped = useMemo(() => scopeRun(run, view?.graphName === 'main' ? '' : testing ? TEST_USE : scope), [run, scope, view?.graphName, testing]);
+
+  // The subgraph runs alone. Each bool public input starts off, and a click switches it (15.9).
+  const startTest = useCallback(() => {
+    const info = current.current?.nodes.find((n) => n.subgraph && n.name === current.current?.graphName);
+    act(api.test(Object.fromEntries((info?.inputs ?? []).filter((p) => p.ty === 'bool').map((p) => [p.key, 'false']))));
+  }, [act]);
+  const switchInput = useCallback(
+    (key: string) => {
+      const inputs = current.current?.test;
+      if (inputs) act(api.test({ ...inputs, [key]: inputs[key] === 'true' ? 'false' : 'true' }));
+    },
+    [act],
+  );
 
   // Ctrl+G moves the selected nodes into a new subgraph (6.1).
   const collapse = useCallback(
@@ -283,6 +297,7 @@ export function App() {
           onImport={actions.pickImport}
           onUpdate={actions.pickUpdate}
           onPackage={actions.makePackage}
+          onOpen={openGraph}
         />
       ),
     },
@@ -380,13 +395,24 @@ export function App() {
               </div>
             )}
             <div className="canvas">
-              <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
+              <PortTest.Provider value={switchInput}>
+                <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
+              </PortTest.Provider>
               {view.graphName !== 'main' && (
                 <nav className="graph-path" aria-label="Graph path">
                   <button className="btn" onClick={() => openGraph('main')}>
                     main
                   </button>
                   <span>/ {view.graphName}</span>
+                  <button
+                    className={testing ? 'btn primary' : 'btn'}
+                    aria-pressed={testing}
+                    disabled={!view.trusted}
+                    onClick={() => (testing ? act(api.test(null)) : startTest())}
+                    title={testing ? 'End the test. The main graph runs again.' : 'Run this subgraph alone. Click an input switch to change it.'}
+                  >
+                    {testing ? 'End test' : 'Test'}
+                  </button>
                 </nav>
               )}
               {fullEntry && (

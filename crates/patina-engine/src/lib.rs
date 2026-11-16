@@ -20,7 +20,7 @@ mod subgraph;
 mod types;
 pub mod view;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs;
 use std::hash::{BuildHasher, RandomState};
@@ -439,10 +439,27 @@ impl Project {
         let plan = plan::check(&self.root, &graph).map_err(fail)?;
         Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases })
     }
+
+    /// Checks one use of the open subgraph alone, with `params` for its public inputs (15.9). The
+    /// use has the ID [`TEST`]. With the main graph open, it checks the main graph.
+    pub fn check_test(&self, params: &BTreeMap<String, String>) -> Result<Checked, Error> {
+        if self.name == MAIN {
+            return self.check();
+        }
+        let fail = |problems| Error::Graph(graph_path(&self.root, &self.name), problems);
+        let test = project::NodeEntry { id: TEST.to_owned(), folder: None, subgraph: Some(self.name.clone()), builtin: None, pos: None, domain: None, settings: None, params: params.clone() };
+        let root = GraphFile { format: self.history.graph.format, node: vec![test], wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
+        let (graph, aliases) = subgraph::flatten(&self.root, &root, Some((&self.name, &self.history.graph))).map_err(fail)?;
+        let plan = plan::check(&self.root, &graph).map_err(fail)?;
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases })
+    }
 }
 
 /// The name of the main graph file.
 const MAIN: &str = "main";
+
+/// The ID of the use that runs the open subgraph alone (15.9).
+pub const TEST: &str = "7e57000000000000";
 
 fn graph_path(root: &Path, name: &str) -> PathBuf {
     root.join("graphs").join(format!("{name}.toml"))
@@ -541,5 +558,35 @@ mod tests {
         let count = project.graph().node.len();
         fs::remove_dir_all(&root).unwrap();
         assert_eq!((kept, count), (true, 2));
+    }
+
+    #[test]
+    fn a_test_runs_one_use_of_the_open_subgraph_with_the_input_params() {
+        let root = std::env::temp_dir().join(format!("patina-test-use-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let mut project = Project::create(&root, "1.94.0").unwrap();
+        let half = "format = 1
+[[node]]
+id = \"00000000000000a1\"
+folder = \"nodes/number\"
+[[input]]
+key = \"x\"
+name = \"x\"
+pos = [0.0, 0.0]
+to = [\"00000000000000a1.value\"]
+[[output]]
+key = \"y\"
+name = \"y\"
+pos = [0.0, 0.0]
+from = \"00000000000000a1.out\"
+";
+        fs::write(root.join("graphs/half.toml"), half).unwrap();
+        let params = BTreeMap::from([("x".to_owned(), "7".to_owned())]);
+        assert!(project.check_test(&params).unwrap().graph.node.is_empty(), "the main graph has no use");
+        project.open_graph("half").unwrap();
+        let checked = project.check_test(&params).unwrap();
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!((checked.graph.node[0].id.as_str(), checked.graph.node[0].params["value"].as_str()), ("7e57000000000000/00000000000000a1", "7"));
+        assert_eq!(checked.aliases, [("7e57000000000000.y".to_owned(), "7e57000000000000/00000000000000a1.out".to_owned())]);
     }
 }

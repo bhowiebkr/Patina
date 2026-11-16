@@ -69,6 +69,10 @@ export function scopeRun(run: RunState, scope: string): RunState {
   const p = `${scope}/`;
   const inner = <T,>(map: ReadonlyMap<string, T>) => [...map].filter(([k]) => k.startsWith(p)).map(([k, v]) => [k.slice(p.length), v] as const);
   const values = new Map(inner(run.values).map(([k, v]) => [k, { ...v, from: k }]));
+  // The outputs of the use go to the public output pins, as "out:<key>.pin".
+  for (const [k, v] of run.values) {
+    if (k.startsWith(`${scope}.`)) values.set(`out:${k.slice(scope.length + 1)}.pin`, { ...v, from: `out:${k.slice(scope.length + 1)}.pin` });
+  }
   return { ...run, values, idle: new Map(inner(run.idle)) };
 }
 
@@ -99,7 +103,13 @@ export interface NodeData extends Record<string, unknown> {
 export type PatinaNode = Node<NodeData, 'patina'>;
 
 /** A public pin of the open subgraph (6.4): an input gives a value to the inner nodes. */
-export type PortNode = Node<{ name: string; ty: string; input: boolean }, 'port'>;
+export type PortNode = Node<{ name: string; ty: string; input: boolean; value?: string; testing: boolean }, 'port'>;
+
+/** The ID of the use that runs the open subgraph alone. It is `TEST` in patina-engine (15.9). */
+export const TEST_USE = '7e57000000000000';
+
+/** Switches the public input with this key while the subgraph runs alone (15.9). */
+export const PortTest = createContext<((key: string) => void) | null>(null);
 
 /** Applies an edit from a control in a node body, for example a check box of a `bool` input. */
 export const NodeEdit = createContext<(edit: Edit) => void>(() => {});
@@ -278,13 +288,27 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
 
 export const NodeView = memo(NodeViewImpl);
 
-export function PortView({ data }: NodeProps<PortNode>) {
-  const { name, ty, input } = data;
+export function PortView({ id, data }: NodeProps<PortNode>) {
+  const { name, ty, input, value, testing } = data;
+  const toggle = useContext(PortTest);
+  const bit = value === 'true' || value === 'false';
+  const on = value === 'true';
   return (
     <div className="patina-node port" title={`${input ? 'Input' : 'Output'} ${name}: ${ty}`}>
       <div className="patina-node-header">
         <span className="title">{name}</span>
+        {value !== undefined && !bit && <span className="port-value">{value}</span>}
       </div>
+      {input && testing && bit && (
+        <button
+          className={`port-switch nodrag${on ? ' on' : ''}`}
+          aria-pressed={on}
+          aria-label={`Switch ${name}`}
+          title={`${name} is ${on ? 'on' : 'off'}. Click to switch it.`}
+          onClick={() => toggle?.(id.slice(id.indexOf(':') + 1))}
+        />
+      )}
+      {!input && bit && <span className={`port-lamp${on ? ' on' : ''}`} role="img" aria-label={`${name} is ${on ? 'on' : 'off'}`} />}
       <Handle id="pin" type={input ? 'source' : 'target'} position={input ? Position.Right : Position.Left} style={{ top: HEADER / 2 }} />
     </div>
   );

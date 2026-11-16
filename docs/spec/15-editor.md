@@ -75,6 +75,7 @@ This is an agent decision of 2026-11-15 for question 8 (18). The owner can chang
 
 - The **Project** tab lists the folders of the project (6.2) in groups: **Graphs**, **Nodes**, **Views**, **Widgets**, and **Types**.
 - The user drags a node folder into the graph to add a node.
+- The **Graphs** group lists **main** and each subgraph. A click opens the graph. The user drags a subgraph into the open graph to add a use of it (6.1). The **Nodes** group lists only node folders. This is an agent decision of 2026-11-15. The owner can change it.
 - A click on a view, widget, or type folder opens its code in the inspector.
 - **Import** copies a folder from another project (6.2).
 - **Update** compares an imported folder with its origin, and copies the new version when the user confirms (6.2).
@@ -491,6 +492,8 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - Only the open graph can have unsaved changes. Thus a change of graph saves all first, as Ctrl+S does. Each graph keeps its undo history while the project is open.
 - A run uses the unsaved changes of the open subgraph, as it does for the main graph.
 - A subgraph that opens with a double-click on a use shows the live values of that use: the lit wires, the value badges and the node GUIs. A public input pin shows the value of the wire to the use. A subgraph that opens from the **Project** panel shows no live values, because it has no use. This is an agent decision of 2026-11-15. The owner can change it.
+- The path bar of an open subgraph has a **Test** button. It runs one use of the subgraph alone, with the ID `7e57000000000000`, in place of the main graph. Each public input with a `bool` type starts as `false`. Patina shows a switch at the left of each such input node, and a lamp at the right of each output node with a `bool` value. A click on a switch toggles the input and runs the subgraph again. Other inputs and outputs show their value next to the pin. **End test** or a change of graph returns to the main graph. An untrusted project has no test. This is an agent decision of 2026-11-15. The owner can change it.
+- Reason: the user of a gate subgraph, for example a full adder, must see its truth table before a use. A test needs no outer graph and no change of the files.
 - Reason: one unsaved graph keeps the save, the recovery file and the close dialog simple. A user who opens a subgraph usually wants the change of the main graph to stay.
 
 **Collapse into a subgraph**
@@ -540,6 +543,7 @@ These are the fewest steps from a new project to a reopen:
 - A new project goes on the list of trusted projects (11).
 - A project opens with its graph paused. The user clicks **Run**.
 - The start screen has **New project**, **Open project** and a list of recent projects.
+- The start screen and the settings screen are at the vertical center of the window. Behind their panels, a picture of a node network with lit wires shows through frosted glass. The picture is only for the look. It has no motion when the platform asks for reduced motion. This is an agent decision of 2026-11-15. The owner can change it.
 - The user can type each folder, or click **Browse** to select it in the folder dialog of the platform. This is an agent decision of 2026-11-15. The owner can change it.
 
 **Branding**
