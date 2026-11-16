@@ -1,6 +1,7 @@
 //! Subgraphs (spec 6.1, 6.4): each use of a subgraph becomes the nodes and wires of its file. A
 //! node of a use gets the ID `<use ID>/<node ID>`, so two uses of one subgraph do not share IDs.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -172,14 +173,19 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
 }
 
 /// The subgraph files of `graphs/`, without the main graph, for the node list of the editor.
-pub(crate) fn infos(root: &Path) -> Vec<NodeInfo> {
+/// The `open` subgraph gives its pins from its edits, which are not saved yet.
+pub(crate) fn infos(root: &Path, open: Option<(&str, &GraphFile)>) -> Vec<NodeInfo> {
     let mut infos = Vec::new();
     for entry in fs::read_dir(root.join("graphs")).into_iter().flatten().flatten() {
         let path = entry.path();
         let toml = path.extension().is_some_and(|e| e == "toml");
         let Some(name) = path.file_stem().and_then(|s| s.to_str()).filter(|n| toml && *n != "main") else { continue };
         let mut info = NodeInfo { name: name.to_owned(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, color: None, subgraph: true, kind: "subgraph" };
-        match project::read(&path, |g: &GraphFile| g.format) {
+        let read = match open {
+            Some((open, graph)) if open == name => Ok(Cow::Borrowed(graph)),
+            _ => project::read(&path, |g: &GraphFile| g.format).map(Cow::Owned),
+        };
+        match read {
             Ok(graph) => {
                 let stack = &mut vec![name.to_owned()];
                 let mut generics = Vec::new();
@@ -580,7 +586,7 @@ to = \"f1.0000000e\"
         let problems = flatten(&root, &bad, None).unwrap_err();
         std::fs::remove_file(root.join("graphs/dotted.toml")).unwrap();
         // The node list shows each subgraph with its public pins. The add folder is missing here.
-        let infos = infos(&root);
+        let infos = infos(&root, None);
         std::fs::remove_dir_all(&root).unwrap();
         let names: Vec<&str> = infos.iter().map(|i| i.name.as_str()).collect();
         assert_eq!(names, ["cycle", "half", "open"]);
@@ -638,8 +644,14 @@ to = [\"00000000000000a2.a\"]
 ";
         std::fs::write(root.join("graphs/both.toml"), format!("format = 1
 {pins}")).unwrap();
-        let infos = infos(&root);
+        // The open subgraph gives its pins from its edits, not from its file.
+        let mut open = graph(&std::fs::read_to_string(root.join("graphs/both.toml")).unwrap());
+        open.input.pop();
+        let edited = infos(&root, Some(("both", &open)));
+        let infos = infos(&root, None);
         std::fs::remove_dir_all(&root).unwrap();
+        let pins: Vec<(&str, &str)> = edited[0].inputs.iter().map(|p| (p.key.as_str(), p.ty.as_str())).collect();
+        assert_eq!(pins, [("0000000a", "bool")]);
         let types: Vec<&str> = infos[0].inputs.iter().map(|p| p.ty.as_str()).collect();
         assert_eq!((types, &infos[0].generics[..]), (vec!["bool", "T"], &["T".to_owned()][..]));
         // A delay output takes the type of its input wire. An output of a generic node stays generic.

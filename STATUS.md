@@ -130,7 +130,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   use. On `examples/computer`, it wrote 18 screenshots in about 25 s. They show the lit wires
   in the subgraphs and the lamps of the readouts at a near zoom.
 - A unit test runs one use of an open subgraph alone with the input parameters. The editor
-  self-check passes. No test clicks a switch of the **Test** mode.
+  self-check moves a node into a subgraph, adds a `bool` input, clicks **Test** and clicks the
+  switch of the input. The output of the subgraph shows the new value.
 - The package tool keeps `data/` of `target/package/Patina`, so the recent projects stay. The
   tool did not run after this change.
 - The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
@@ -514,7 +515,11 @@ and 6.4).
 - The CLI runs a graph with two uses of one subgraph. Each node of a use gets the ID path
   `<use ID>/<node ID>`. A parameter of a use goes to the inner inputs of its public input pin.
 - A subgraph that uses itself and a wire to a pin that the subgraph does not have give problems.
-- The engine gives each subgraph to the node list with its public pins and their types.
+- The engine gives each subgraph to the node list with its public pins and their types. The open
+  subgraph gives the pins of its unsaved edits, so **Test** finds a new `bool` input (fixed
+  2026-11-16).
+- In the Test mode, each public output of the subgraph sends its value, also when no wire
+  inside reads it (fixed 2026-11-16).
 - The engine opens a subgraph for edits, saves it to its own file and runs the main graph with
   the unsaved changes of the open subgraph. A unit test checks this.
 - The engine collapses a selection into a new subgraph and expands a use. Unit tests check the
@@ -798,7 +803,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   domain (milestone 11).
 - The **Widgets** group of the **Project** tab makes widget folders with a start widget. **Add
   crate** with a widget name adds the widget by its path. A manual check built a node that shows
-  a widget folder in `patina-cli`. No editor test makes a widget.
+  a widget folder in `patina-cli`. The editor self-check makes a widget folder, but does not
+  build a node that shows it.
 - A node GUI can have a canvas with lines, rectangles, circles and text. The canvas sends the
   pointer down, the moves of a drag (one for each frame at most) and the up. A custom widget
   implements the `Widget` trait. The editor selfcheck clicks a canvas, and the node draws a dot

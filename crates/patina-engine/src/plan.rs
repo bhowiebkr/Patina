@@ -57,6 +57,16 @@ pub struct Step {
 }
 
 impl Plan {
+    /// Makes the output `from`, "<step ID>.<output key>", send its value with no wire, as the
+    /// public output of a test does (15.9). A wire count of 1 with no reader moves no value.
+    pub(crate) fn probe(&mut self, from: &str) {
+        let Some((id, key)) = from.rsplit_once('.') else { return };
+        let Some(step) = self.steps.iter_mut().find(|s| s.id == id) else { return };
+        if let Some(k) = self.nodes[step.node].1.output_keys().iter().position(|o| o == key) {
+            step.consumers[k] = step.consumers[k].max(1);
+        }
+    }
+
     /// Each output that a wire reads, as a step index and an output index, in run order.
     pub fn held(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.steps.iter().enumerate().flat_map(|(n, step)| {

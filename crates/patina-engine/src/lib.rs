@@ -443,9 +443,10 @@ impl Project {
         kinds.into_iter().map(|(_, k)| KindInfo { ty: k.ty, lanes: k.lanes, label: k.label, color: k.color }).collect()
     }
 
-    /// The subgraphs in `graphs/` (6.1), sorted by name, with their public pins as the pins.
+    /// The subgraphs in `graphs/` (6.1), sorted by name, with their public pins as the pins. The
+    /// open subgraph gives the pins of its edits.
     pub fn subgraphs(&self) -> Vec<NodeInfo> {
-        subgraph::infos(&self.root)
+        subgraph::infos(&self.root, Some((&self.name, &self.history.graph)))
     }
 
     /// The widget folders in `widgets/` (6.2), sorted by name.
@@ -538,7 +539,11 @@ impl Project {
         let test = project::NodeEntry { id: TEST.to_owned(), folder: None, subgraph: Some(self.name.clone()), builtin: None, pos: None, domain: None, settings: None, params: params.clone() };
         let root = GraphFile { format: self.history.graph.format, node: vec![test], wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
         let (graph, aliases) = subgraph::flatten(&self.root, &root, Some((&self.name, &self.history.graph))).map_err(fail)?;
-        let plan = plan::check(&self.root, &graph).map_err(fail)?;
+        let mut plan = plan::check(&self.root, &graph).map_err(fail)?;
+        // The cluster sends only the values of outputs with a wire, and a public output has none here.
+        for (_, inner) in &aliases {
+            plan.probe(inner);
+        }
         Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases })
     }
 }
@@ -703,5 +708,6 @@ from = \"00000000000000a1.out\"
         fs::remove_dir_all(&root).unwrap();
         assert_eq!((checked.graph.node[0].id.as_str(), checked.graph.node[0].params["value"].as_str()), ("7e57000000000000/00000000000000a1", "7"));
         assert_eq!(checked.aliases, [("7e57000000000000.0000000b".to_owned(), "7e57000000000000/00000000000000a1.out".to_owned())]);
+        assert_eq!(checked.plan.steps[0].consumers, [1], "the public output sends its value");
     }
 }

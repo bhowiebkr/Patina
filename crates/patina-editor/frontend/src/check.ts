@@ -321,7 +321,9 @@ fn broken() -> u32 {
     await step('pause', () => api.pause());
     v = await step('edit while paused', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '3' }));
     edited(v);
-    await until('the stale value on the wire', RUN_MS, () => badge()?.classList.contains('stale') === true && badge()?.textContent === '2.5');
+    await until('the stale value on the wire', RUN_MS, () => badge()?.classList.contains('stale') === true && badge()?.textContent === '2.5').catch((e: Error) => {
+      throw new Error(`${e.message} (badges ${[...document.querySelectorAll('.wire-value')].map((b) => `${b.textContent}:${b.className}`).join()})`);
+    });
     v = await step('undo the edit', () => api.undo());
 
     // The Add node palette (15.2): Shift+A opens it and Esc closes it. A double-click on an empty
@@ -354,8 +356,11 @@ fn broken() -> u32 {
     document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...at }));
     document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...at }));
     await until('the palette after a drag from a pin', RUN_MS, () => !!search());
-    // The show node has no output. The output of the built-in delay is generic, so it fits.
-    await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number,delaybuilt-in');
+    // The show node has no output. The output of the built-in delay is generic, so it fits. The
+    // subgraph of the Test mode step has an f64 output.
+    await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number,switch_checksubgraph,delaybuilt-in').catch((e: Error) => {
+      throw new Error(`${e.message} (options ${options().join()})`);
+    });
     search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await until('the added node from the pin', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'number');
     const fed = newNode()!.getAttribute('data-id');
@@ -403,8 +408,8 @@ fn broken() -> u32 {
     const codeTab = () => document.querySelector('[aria-label=Inspector] [aria-selected=true]')?.textContent === 'Code';
     await until('the new node folder and its code', RUN_MS, () => !nameField() && listed() && codeTab());
     steps.push('make a node folder');
-    // New connection and New type (15.4): the same + makes a connection kind and a type crate.
-    for (const [one, name] of [['connection', 'made-bus'], ['type', 'made-type']]) {
+    // New widget, New connection and New type (15.4): the same + makes a widget, a connection kind and a type crate.
+    for (const [one, name] of [['widget', 'made-widget'], ['connection', 'made-bus'], ['type', 'made-type']]) {
       const field = () => document.querySelector<HTMLInputElement>(`[aria-label="${one[0].toUpperCase()}${one.slice(1)} name"]`);
       document.querySelector<HTMLButtonElement>(`[aria-label="New ${one}"]`)!.click();
       await until(`the ${one} name field`, RUN_MS, () => !!field());
@@ -412,7 +417,7 @@ fn broken() -> u32 {
       const shown = () => [...document.querySelectorAll('[aria-label=Project] .item')].some((b) => b.textContent === name);
       await until(`the new ${one} folder and its code`, RUN_MS, () => !field() && shown() && codeTab());
     }
-    steps.push('make a connection and a type folder');
+    steps.push('make a widget, a connection and a type folder');
 
     // Add crate (15.4): a bad crate name shows its problem before cargo runs, so no network is used.
     const crateField = () => document.querySelector<HTMLInputElement>('[aria-label="Crate, widget or type name"]');

@@ -190,6 +190,41 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   v = await step('undo the Inspector check box', () => api.undo());
   v = await step('undo the switch', () => api.undo());
   if (v.graph.node?.find((n) => n.id === A)?.params?.double !== undefined) throw new Error('undo did not remove the switch value');
+  // The Test mode runs a subgraph alone. A click on the switch of a bool public input sets it (15.9).
+  const use = 'f12e000000000002';
+  v = await step('move the switch node into a subgraph', () => api.collapse('switch_check', [A], use));
+  const pathButton = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === text);
+  await until('the use of the switch subgraph', RUN_MS, () => !!document.querySelector(`.react-flow__node[data-id="${use}"] .open-subgraph`));
+  document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${use}"] .open-subgraph`)!.click();
+  await until('the switch subgraph in the path bar', BUILD_MS, () => document.querySelector('.graph-path [aria-current="page"]')?.textContent === '/ switch_check');
+  v = await step('add a bool input to the subgraph', () =>
+    api.edit({
+      kind: 'Group',
+      edits: [
+        { kind: 'AddPin', key: '0000000d', name: 'double', input: true, pos: [-300, 0] },
+        { kind: 'ConnectPin', key: '0000000d', end: `${A}.double` },
+      ],
+    }),
+  );
+  const portSwitch = () => document.querySelector<HTMLButtonElement>('.port-switch[aria-label="Switch double"]');
+  const portValue = () => [...document.querySelectorAll('.patina-node.port .port-value')].map((p) => p.textContent).join();
+  pathButton('Test')!.click();
+  await until('the test run with the input off', BUILD_MS, () => portSwitch()?.getAttribute('aria-pressed') === 'false' && portValue() === '2.5').catch((e: Error) => {
+    throw new Error(`${e.message} (ports ${portValue()}, switch ${portSwitch()?.getAttribute('aria-pressed')})`);
+  });
+  portSwitch()!.click();
+  await until('the test run with the input on', BUILD_MS, () => portSwitch()?.getAttribute('aria-pressed') === 'true' && portValue() === '5.0');
+  pathButton('End test')!.click();
+  await until('the end of the test', RUN_MS, () => !!pathButton('Test') && !portSwitch());
+  v = await step('undo the bool input of the subgraph', () => api.undo());
+  pathButton('main')!.click();
+  await until('the main graph after the test', BUILD_MS, () => document.querySelector('.graph-path') === null);
+  v = await step('undo the switch subgraph', () => api.undo());
+  if (!v.graph.node?.some((n) => n.id === A)) throw new Error('undo did not put the switch node back');
+  await until('the main run after the test', BUILD_MS, () => values().join() === '2.5').catch((e: Error) => {
+    throw new Error(`${e.message} (values ${values().join()}, problems ${v.problems.join(' | ')})`);
+  });
+  steps.push('a subgraph run alone in the Test mode, with a click on the switch of its bool input');
   v = await step('undo the switch node', () => api.undo());
   steps.push('a bool input set with the switch in the node and the Inspector check box');
   return v;
