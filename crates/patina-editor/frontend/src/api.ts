@@ -402,6 +402,7 @@ export const api = {
   /** The saved layout of a project (15.2), or null. */
   layout: (id: string) => invoke<string | null>('layout', { id }),
   saveLayout: (id: string, text: string) => invoke<void>('save_layout', { id, text }),
+  layoutPending: (pending: boolean) => invoke<void>('layout_pending', { pending }),
   quit: () => invoke<void>('quit'),
   checkDone: (result: object) => invoke<void>('check_done', { result }),
   capture: (name: string) => invoke<void>('capture', { name }),
@@ -431,8 +432,9 @@ export function outputLines(text: string): string[] {
   return text.replace(/\r?\n$/, '').split(/\r?\n/);
 }
 
-export function onCloseRequested(handler: (value: null) => void): Promise<UnlistenFn> {
-  return listen('close-requested', () => handler(null));
+/** The window wants to close. `ask` is true when the project has unsaved changes. */
+export function onCloseRequested(handler: (ask: boolean) => void): Promise<UnlistenFn> {
+  return listen<boolean>('close-requested', (e) => handler(e.payload));
 }
 
 export function reportError(e: unknown) {

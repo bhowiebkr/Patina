@@ -78,6 +78,7 @@ export function changeLayout(f: (layout: Layout) => Layout) {
     if (state.layout.views[slot] && state.layout.views[slot] !== layout.views[slot]) api.closeView(slot).catch(reportError);
   }
   set({ ...state, layout });
+  if (timer === undefined) api.layoutPending(true).catch(reportError);
   clearTimeout(timer);
   timer = setTimeout(flushLayout, SAVE_MS);
 }
@@ -88,6 +89,8 @@ export async function flushLayout() {
   clearTimeout(timer);
   timer = undefined;
   if (state.id) await api.saveLayout(state.id, layoutText(state.layout)).catch(reportError);
+  // A change during the save started a new wait.
+  if (timer === undefined) await api.layoutPending(false).catch(reportError);
 }
 
 /**

@@ -265,6 +265,7 @@ fn main() {
             session::value,
             session::layout,
             session::save_layout,
+            session::layout_pending,
             session::quit,
             session::check_done,
             session::page_error,
@@ -283,12 +284,15 @@ fn main() {
             if let WindowEvent::Destroyed = event {
                 window.app_handle().exit(0);
             }
-            // The page asks **Save**, **Discard** or **Cancel**, then calls `quit` (15.10).
-            if let WindowEvent::CloseRequested { api, .. } = event
-                && window.state::<Editor>().dirty()
-            {
-                api.prevent_close();
-                let _ = window.emit("close-requested", ());
+            // The page saves the layout, asks **Save**, **Discard** or **Cancel** when `ask`, then
+            // calls `quit` (15.2, 15.10).
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                let editor = window.state::<Editor>();
+                let ask = editor.dirty();
+                if ask || editor.layout_pending.load(std::sync::atomic::Ordering::Relaxed) {
+                    api.prevent_close();
+                    let _ = window.emit("close-requested", ask);
+                }
             }
         })
         .setup(move |app| {

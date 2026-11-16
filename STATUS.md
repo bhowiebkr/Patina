@@ -1133,6 +1133,10 @@ To run the editor from a checkout:
 - The **Views** menu shows and hides each panel, and **Reset layout** gives the default layout.
   The layout and the pan and zoom of the graph go to `data/layouts/<project id>.json`, 300 ms
   after a change and before a close or a quit.
+- A close of the window waits for a layout change that is not saved yet, also when the project
+  has no unsaved changes (fixed 2026-11-16). A check on a hidden desktop set the save delay to
+  60 s, folded the left area and sent `WM_CLOSE` to the window. The editor exited with code 0,
+  and the layout file had the fold.
 - Patina does not build a project that is not trusted. It shows a banner with **Trust
   project**.
 - The page loads only its own files, with a content security policy. A request for a path
@@ -1353,8 +1357,7 @@ To run the editor from a checkout:
 - The self-check makes a connection kind with **New connection**, but no value of the self-check
   uses it. The lanes ran in the CLI test, and the look
   had one manual check with fake lanes in the page. No check zoomed a bus out below 0.5.
-- The check did not drag a tab or a splitter with the mouse. A layout change in the last
-  300 ms before the window closes with no unsaved changes is not saved.
+- The check did not drag a tab or a splitter with the mouse.
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
   of the page script. The build is correct.
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,

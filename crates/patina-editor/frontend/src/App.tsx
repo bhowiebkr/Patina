@@ -215,7 +215,7 @@ export function App() {
 
   useEffect(() => showErrors(run.errors), [run.errors]);
 
-  useEvent(onCloseRequested, () => setAsk('quit'));
+  useEvent(onCloseRequested, (ask) => (ask ? setAsk('quit') : flushLayout().then(() => api.quit())));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

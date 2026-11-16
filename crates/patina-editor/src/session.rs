@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
@@ -35,6 +35,8 @@ pub struct Editor {
     serial: AtomicU64,
     /// The labels of the float windows that close. Their views get no more jobs (15.8).
     closing: Mutex<Vec<String>>,
+    /// True while a layout change of the page waits for its save (15.2).
+    pub layout_pending: AtomicBool,
 }
 
 struct Session {
@@ -141,7 +143,7 @@ pub struct Recent {
 
 impl Editor {
     pub fn new(data: Data, engine: Host, check: Option<PathBuf>, shot: Option<PathBuf>) -> Editor {
-        Editor { data, engine, session: Mutex::new(None), check, shot, serial: AtomicU64::new(0), closing: Mutex::default() }
+        Editor { data, engine, session: Mutex::new(None), check, shot, serial: AtomicU64::new(0), closing: Mutex::default(), layout_pending: AtomicBool::new(false) }
     }
 
     /// True when the open project or the Code tab has changes that are not saved.
@@ -620,7 +622,14 @@ pub fn save_layout(editor: State<'_, Editor>, id: String, text: String) -> Resul
     editor.data.save_layout(&id, &text)
 }
 
-/// The page calls this after it asked the user about the unsaved changes.
+/// The page calls this when a layout change waits for its save, and after the save. A close of
+/// the window then waits for the save (15.2).
+#[tauri::command]
+pub fn layout_pending(editor: State<'_, Editor>, pending: bool) {
+    editor.layout_pending.store(pending, Ordering::Relaxed);
+}
+
+/// The page calls this after it saved the layout and asked the user about the unsaved changes.
 #[tauri::command(async)]
 pub fn quit(app: AppHandle, editor: State<'_, Editor>) {
     editor.close();
