@@ -3,9 +3,10 @@
 use std::ffi::c_void;
 use std::path::Path;
 
-use patina_sdk::glue::{self, Reporter};
+use patina_sdk::glue::{self, Reader, Reporter};
 
 use crate::Edit;
+use crate::load::Cluster;
 use crate::library::{Sink, collect, open, symbol};
 use crate::load::{Report, Value};
 use crate::project::GraphFile;
@@ -13,7 +14,7 @@ use crate::project::GraphFile;
 type VersionFn = unsafe extern "C" fn() -> u32;
 type HostFn = unsafe extern "C" fn(glue::ShareFn, *const u8, usize);
 type NewFn = unsafe extern "C" fn() -> *mut c_void;
-type UiFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const u8, usize, *const Reporter) -> bool;
+type UiFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const u8, usize, *const Reporter, *const Reader) -> bool;
 type FreeFn = unsafe extern "C" fn(*mut c_void);
 
 /// One instance of a view: the functions of its library and its state. Each instance has its own
@@ -66,8 +67,9 @@ impl View {
     }
 
     /// Calls `ui` in mode `mode` with the user input `events` and the graph lines of `snapshot`.
-    /// After an error, the next call makes a new state.
-    pub fn ui(&mut self, mode: u32, events: &str, graph: &str) -> Result<Frame, String> {
+    /// `Graph::value` reads the typed outputs of `cluster` (15.8 rule 3). After an error, the next
+    /// call makes a new state.
+    pub fn ui(&mut self, mode: u32, events: &str, graph: &str, cluster: Option<&mut Cluster>) -> Result<Frame, String> {
         if self.state.is_null() {
             // SAFETY: the function came from the loaded view.
             self.state = unsafe { (self.new)() };
@@ -77,9 +79,11 @@ impl View {
         }
         self.sink.clear();
         let rep = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control: std::ptr::null() };
-        // SAFETY: the state came from `new` of this library and is live. The texts and the reporter
-        // are valid during the call.
-        let ok = unsafe { (self.ui)(self.state, mode, events.as_ptr(), events.len(), graph.as_ptr(), graph.len(), &rep) };
+        let reader = cluster.map(|cluster| Reader { ctx: std::ptr::from_mut(cluster).cast(), read });
+        let reader = reader.as_ref().map_or(std::ptr::null(), std::ptr::from_ref);
+        // SAFETY: the state came from `new` of this library and is live. The texts, the reporter
+        // and the reader are valid during the call, and the `&mut Cluster` shows that no run is active.
+        let ok = unsafe { (self.ui)(self.state, mode, events.as_ptr(), events.len(), graph.as_ptr(), graph.len(), &rep, reader) };
         let mut frame = Frame::default();
         let mut error = None;
         for (_, kind, text) in self.sink.iter() {
@@ -106,6 +110,17 @@ impl View {
             // SAFETY: `state` came from `new` of this library and is not used again.
             unsafe { (self.free)(state) }
         }
+    }
+}
+
+/// The `Reader` function of a view: `Cluster::read` of the cluster in `ctx`.
+unsafe extern "C" fn read(ctx: *mut c_void, id: *const u8, id_len: usize, key: *const u8, key_len: usize) -> *const c_void {
+    // SAFETY: `View::ui` gives the `&mut Cluster` as `ctx` for the call of `ui`, and the view gives
+    // valid texts.
+    let (cluster, id, key) = unsafe { (&mut *ctx.cast::<Cluster>(), std::slice::from_raw_parts(id, id_len), std::slice::from_raw_parts(key, key_len)) };
+    match (std::str::from_utf8(id), std::str::from_utf8(key)) {
+        (Ok(id), Ok(key)) => cluster.read(id, key),
+        _ => std::ptr::null(),
     }
 }
 

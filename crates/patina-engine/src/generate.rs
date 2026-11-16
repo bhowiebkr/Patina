@@ -98,7 +98,8 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     let mut s = String::from(
         "// Made by Patina. Patina writes this file again at each build.\n#![allow(unused)]\n\n\
          use ::patina_sdk::glue::{DebugText as _, NameText as _, ViewerText as _};\n\
-         use ::patina_sdk::glue::{NotSyncCheck as _, SyncCheck as _};\n\n\
+         use ::patina_sdk::glue::{NotSyncCheck as _, SyncCheck as _};\n\
+         use ::patina_sdk::glue::{CloneKeep as _, NoKeep as _};\n\n\
          fn make() -> ::patina_sdk::glue::Cluster {\n",
     );
     if plan.log {
@@ -156,6 +157,8 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     for name in &shared {
         let _ = writeln!(s, "    let c_{name} = ::patina_sdk::glue::check(&{name});");
     }
+    let held: usize = plan.steps.iter().map(|step| step.consumers.iter().filter(|&&c| c > 0).count()).sum();
+    let _ = writeln!(s, "    let keeps = ::patina_sdk::glue::Keeps::new({held});");
     s.push_str(
         "    let f = ::patina_sdk::glue::typed(move |cmd, rep| match cmd {\n        \
          ::patina_sdk::glue::Cmd::Set(index, text) => match index {\n",
@@ -196,6 +199,7 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     s.push_str("            _ => false,\n        },\n");
     s.push_str(if slotted { "        ::patina_sdk::glue::Cmd::Slot(p) => slot.set(p),\n" } else { "        ::patina_sdk::glue::Cmd::Slot(_) => true,\n" });
     s.push_str("        ::patina_sdk::glue::Cmd::Call(..) => false,\n");
+    s.push_str("        ::patina_sdk::glue::Cmd::Read(index, out) => { *out = keeps.read(index); true }\n");
     // The states move from an old cluster to a new cluster when their keys did not change (7.2).
     s.push_str("        ::patina_sdk::glue::Cmd::Take(index, out) => match index {\n");
     for n in &stateful {
@@ -488,7 +492,7 @@ fn probes(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
         let _ = writeln!(
             s,
             "{indent}if let ::std::option::Option::Some(v) = {}.as_ref() {{ ::patina_sdk::glue::send_value(rep, {probe}, \
-             |out| (&&&::patina_sdk::glue::Probe(v)).text(out));{lanes} }}",
+             |out| (&&&::patina_sdk::glue::Probe(v)).text(out));{lanes} (&&::patina_sdk::glue::Probe(v)).keep(&keeps, {probe}); }}",
             held(plan, n, k)[0]
         );
         probe += 1;

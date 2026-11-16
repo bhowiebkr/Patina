@@ -25,7 +25,7 @@ use tauri::http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE};
 use tauri::http::{Request, Response, StatusCode};
 #[cfg(not(windows))]
 use tauri::window::Color;
-use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry};
+use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
 
 use data::Data;
 use session::Editor;
@@ -160,7 +160,7 @@ fn window<'a>(app: &'a AppHandle, label: &str, url: Url, webview_dir: PathBuf, c
 /// The native handle of the editor window, for a viewport (15.8).
 #[cfg(windows)]
 #[tauri::command]
-fn window_handle(window: WebviewWindow) -> u64 {
+fn window_handle(window: tauri::WebviewWindow) -> u64 {
     window.hwnd().map_or(0, |hwnd| hwnd.0 as usize as u64)
 }
 

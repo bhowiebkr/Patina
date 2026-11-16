@@ -4,6 +4,8 @@ use std::fmt::Display;
 use std::hash::{BuildHasher, RandomState};
 use std::str::FromStr;
 
+use crate::glue::Reader;
+
 /// The access of a view to the graph (15.8). The engine gives a copy of the graph and of the live
 /// values before each call of `ui`. A write applies on the next run, through the edit path of the
 /// editor, so undo removes it.
@@ -37,12 +39,19 @@ pub struct Graph {
     /// One line for each write: `set <id> <key> <text>`, `add <id> <folder> <x> <y>`,
     /// `remove <id>`, `connect <from> <to>`, `disconnect <from> <to>` and `select <id>...`.
     edits: Vec<String>,
+    /// The engine side of `value`, during a call of `ui`.
+    reader: Option<Reader>,
 }
 
 impl Graph {
     /// A handle on the copy `lines` of the graph. The engine makes this text.
     pub fn new(lines: &str) -> Graph {
-        Graph { lines: lines.to_owned(), edits: Vec::new() }
+        Graph { lines: lines.to_owned(), edits: Vec::new(), reader: None }
+    }
+
+    /// A handle that also reads the typed outputs, for `glue::view_ui`.
+    pub(crate) fn with_reader(lines: &str, reader: Option<Reader>) -> Graph {
+        Graph { reader, ..Graph::new(lines) }
     }
 
     /// The ID of each node of the open graph, in the order of the graph file.
@@ -64,6 +73,16 @@ impl Graph {
     /// It is the `Debug` text or the `Viewer` text of the value (5.3).
     pub fn output_text(&self, id: &str, key: &str) -> Option<&str> {
         self.find("out", id, key)
+    }
+
+    /// The live value of the output `key` of node `id` after the last run, as its type `T` from
+    /// the type crate of the output (15.8 rule 3). `T` must have `Clone` and `Send`. None when
+    /// the type is not `T`, when the output has no wire, and before the second run after the
+    /// first call: the first call asks the engine to keep a copy of the value.
+    pub fn value<T: 'static>(&self, id: &str, key: &str) -> Option<&T> {
+        // SAFETY: the reader comes from `view_ui` and is valid during the call of `ui`, and the
+        // result borrows `self`, which lives only during that call.
+        self.reader.and_then(|reader| unsafe { reader.value(id, key) })
     }
 
     /// The live value of an output, read from its text. Use it for numbers and `bool`. The text of

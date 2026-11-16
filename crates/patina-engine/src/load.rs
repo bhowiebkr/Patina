@@ -365,6 +365,23 @@ impl Cluster {
         (tree, std::mem::take(&mut self.out))
     }
 
+    /// The kept copy of output `key` of node `id` for a view (15.8 rule 3), as a pointer to a
+    /// `Box<dyn Any + Send>`, or null. The first read of an output only asks the cluster to keep
+    /// copies. The pointer is valid until the next run.
+    pub fn read(&mut self, id: &str, key: &str) -> *const c_void {
+        let is = |probe: &String| probe.strip_prefix(id).and_then(|rest| rest.strip_prefix('.')) == Some(key);
+        let (Some(index), Some(n)) = (self.probes.iter().position(is), self.names.iter().position(|(n, _)| n == id)) else {
+            return std::ptr::null();
+        };
+        let (Some(library), Ok(index)) = (self.library(n), u32::try_from(index)) else { return std::ptr::null() };
+        // A sink of its own, so the outcome of the last run stays.
+        let mut sink = Sink::default();
+        let rep = Reporter { ctx: (&raw mut sink).cast(), report: collect, control: std::ptr::null() };
+        // SAFETY: the state is live, `&mut self` shows that no run is active, and the reporter is
+        // valid during the call.
+        unsafe { (library.read)(library.state, index, &rep) }
+    }
+
     /// The ID of each node with a GUI, and true when the node is in the frame domain (4.3).
     pub fn guis(&self) -> &[(String, bool)] {
         &self.guis

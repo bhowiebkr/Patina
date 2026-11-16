@@ -38,6 +38,8 @@ pub(crate) struct Library {
     pub put: PutFn,
     pub export: TakeFn,
     pub import: PutFn,
+    /// Gives the kept copy of a held value for a view (15.8).
+    pub read: TakeFn,
     /// Gives a base the slot library (7.1).
     pub slot: SlotFn,
     /// Calls a node of a slot library (7.1).
@@ -76,6 +78,7 @@ impl Library {
             let put: PutFn = symbol(&library, b"patina_cluster_put\0").map_err(missing)?;
             let export: TakeFn = symbol(&library, b"patina_cluster_export\0").map_err(missing)?;
             let import: PutFn = symbol(&library, b"patina_cluster_import\0").map_err(missing)?;
+            let read: TakeFn = symbol(&library, b"patina_cluster_read\0").map_err(missing)?;
             let slot: SlotFn = symbol(&library, b"patina_cluster_slot\0").map_err(missing)?;
             let call: CallFn = symbol(&library, b"patina_cluster_call\0").map_err(missing)?;
             let state = new();
@@ -83,7 +86,7 @@ impl Library {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
             let tasks = Arc::new(Tasks::new(state, task, all, domain));
-            Library { state, new, set, ui, end, free, take, put, export, import, slot, call, parallel: parallel(state), tasks }
+            Library { state, new, set, ui, end, free, take, put, export, import, read, slot, call, parallel: parallel(state), tasks }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);

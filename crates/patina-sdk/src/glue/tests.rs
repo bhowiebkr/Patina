@@ -258,3 +258,20 @@ fn an_asset_is_in_the_node_folder_of_the_project_root() {
     assert_eq!(path(Some("/package/project")), std::path::Path::new("/package/project/nodes/blur/assets/blur.wesl"));
     assert_eq!(path(None), std::path::Path::new("/old/place/nodes/blur/assets/blur.wesl"));
 }
+
+#[test]
+#[allow(clippy::needless_borrow, reason = "the calls are the same as in the generated code")]
+fn a_view_reads_a_kept_copy_after_it_asked_for_it() {
+    let keeps = Keeps::new(2);
+    // SAFETY: a non-null pointer of `read` points to a live copy until the next `keep`.
+    let copy = |index| unsafe { keeps.read(index).cast::<Box<dyn std::any::Any + Send>>().as_ref() };
+    (&&Probe(&vec![1_u8])).keep(&keeps, 0);
+    assert!(copy(0).is_none(), "the first read only asks for copies");
+    assert!(copy(0).is_none(), "no copy before the next run");
+    (&&Probe(&vec![1_u8, 2])).keep(&keeps, 0);
+    (&&Probe(&NoDebug)).keep(&keeps, 1);
+    assert_eq!(copy(0).and_then(|c| c.downcast_ref::<Vec<u8>>()), Some(&vec![1, 2]));
+    assert!(copy(0).unwrap().downcast_ref::<String>().is_none(), "another type gives none");
+    assert!(copy(1).is_none() && copy(1).is_none(), "a type without Clone has no copy");
+    assert!(copy(9).is_none());
+}

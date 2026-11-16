@@ -249,7 +249,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Package { root, out, reply } => {
                     let _ = reply.send(make_package(folder, &mut toolchain, &root, &out));
                 }
-                Job::View(input) => views.ui(folder, &mut toolchain, *input),
+                Job::View(input) => views.ui(folder, &mut toolchain, *input, loaded.as_mut().map(|l| &mut l.cluster)),
                 Job::CloseView(name) => views.close(&name),
                 Job::DropView(instance, reply) => {
                     views.drop_instance(&instance);
@@ -361,7 +361,7 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): 
                 }
             }
             // A view reads the live values, so the frames go on.
-            Ok(Job::View(input)) => views.ui(folder, toolchain, *input),
+            Ok(Job::View(input)) => views.ui(folder, toolchain, *input, Some(&mut *cluster)),
             Ok(Job::CloseView(name)) => views.close(&name),
             Ok(Job::DropView(instance, reply)) => {
                 views.drop_instance(&instance);

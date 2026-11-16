@@ -79,9 +79,9 @@ pub unsafe extern \"C\" fn patina_view_host(share: ::patina_sdk::glue::ShareFn, 
 pub extern \"C\" fn patina_view_new() -> *mut ::core::ffi::c_void { ::patina_sdk::glue::view_new(NAME::init) }
 #[doc(hidden)]
 #[unsafe(no_mangle)]
-pub unsafe extern \"C\" fn patina_view_ui(view: *mut ::core::ffi::c_void, mode: u32, events: *const u8, len: usize, graph: *const u8, graph_len: usize, rep: *const ::patina_sdk::glue::Reporter) -> bool {
+pub unsafe extern \"C\" fn patina_view_ui(view: *mut ::core::ffi::c_void, mode: u32, events: *const u8, len: usize, graph: *const u8, graph_len: usize, rep: *const ::patina_sdk::glue::Reporter, reader: *const ::patina_sdk::glue::Reader) -> bool {
     // SAFETY: the engine keeps the rules of `view_ui`.
-    unsafe { ::patina_sdk::glue::view_ui(view, mode, (events, len), (graph, graph_len), rep, NAME::ui) }
+    unsafe { ::patina_sdk::glue::view_ui(view, mode, (events, len), (graph, graph_len), rep, reader, NAME::ui) }
 }
 #[doc(hidden)]
 #[unsafe(no_mangle)]

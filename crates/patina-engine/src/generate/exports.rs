@@ -98,6 +98,19 @@ pub unsafe extern "C" fn patina_cluster_take(
 
 /// # Safety
 ///
+/// The engine keeps the rules of `patina_sdk::glue::read`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_cluster_read(
+    cluster: *const ::std::ffi::c_void,
+    index: u32,
+    rep: *const ::patina_sdk::glue::Reporter,
+) -> *mut ::std::ffi::c_void {
+    // SAFETY: the engine keeps the rules of `glue::read`.
+    unsafe { ::patina_sdk::glue::read(cluster.cast(), index, rep) }
+}
+
+/// # Safety
+///
 /// The engine keeps the rules of `patina_sdk::glue::put`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn patina_cluster_put(

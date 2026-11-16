@@ -4,7 +4,7 @@
 use std::ffi::c_void;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-use super::{EDIT, Reporter, UI, finish};
+use super::{EDIT, Reader, Reporter, UI, finish};
 use crate::{Graph, Ui};
 
 /// The body of `patina_view_new`: a new state from `init` as a raw box, or null when `init`
@@ -20,21 +20,23 @@ pub fn view_new<T>(init: impl FnOnce() -> T) -> *mut c_void {
 /// # Safety
 ///
 /// `view` comes from `view_new` of the same `T` and is not freed. `events` and `graph` point to
-/// that many bytes, and `rep` to a valid reporter, during the call.
+/// that many bytes, and `rep` to a valid reporter, during the call. `reader` is null or valid
+/// during the call, and no run is active.
 pub unsafe fn view_ui<T>(
     view: *mut c_void,
     mode: u32,
     events: (*const u8, usize),
     graph: (*const u8, usize),
     rep: *const Reporter,
+    reader: *const Reader,
     ui: impl Fn(&mut T, &mut Ui, &mut Graph),
 ) -> bool {
     // SAFETY: the caller keeps the rules of this function.
-    let (view, rep, events, lines) = unsafe {
-        (&mut *view.cast::<T>(), &*rep, std::slice::from_raw_parts(events.0, events.1), std::slice::from_raw_parts(graph.0, graph.1))
+    let (view, rep, events, lines, reader) = unsafe {
+        (&mut *view.cast::<T>(), &*rep, std::slice::from_raw_parts(events.0, events.1), std::slice::from_raw_parts(graph.0, graph.1), reader.as_ref().copied())
     };
     let (Ok(events), Ok(lines)) = (std::str::from_utf8(events), std::str::from_utf8(lines)) else { return false };
-    let mut graph = Graph::new(lines);
+    let mut graph = Graph::with_reader(lines, reader);
     let mut gui = Ui::new(mode, events);
     let caught = catch_unwind(AssertUnwindSafe(|| {
         ui(view, &mut gui, &mut graph);

@@ -299,6 +299,13 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 1. A view reads values between runs, or gets a copy, as viewers do. A view never stops a clock domain.
 2. Writes and edits from a view take the same path as the edits of the user. They apply on the next run of the clock domain, and undo removes them.
 3. To read a typed output, a view uses the type crate of the output. The type key check applies (5.1).
+   `graph.value::<T>(id, key)` gives the value of the last run as a `&T`, or none. The type
+   must have `Clone` and `Send`. The cluster keeps a copy of each held value that a view read
+   one time, at the end of its node, with `clone_from`. The first read gives none, and the next
+   runs keep the copy. The `Any` type ID is the type check, because the clusters and the views
+   of a project link one build of each type crate (5.2). A view reads only an output with a
+   wire. (Agent decision, 2026-11-15. The owner can change it. Reason: a copy costs only for
+   the outputs that a view reads, and a clone keeps the run free of locks on the value.)
 4. The CLI and packages do not run views. A graph with views still runs headless. See also 18.
 5. Views are native code. Section 11 applies to them.
 
@@ -378,7 +385,8 @@ change it.)
 The limits of version 1:
 
 - Up to four view instances at a time, each in a dock panel or a float window.
-- No typed outputs through type crates (rule 3). A view reads the text of an output.
+- A view reads the typed value only of an output with a wire. A rebuild of the cluster
+  stops the copies until the next read.
 - No trigger (9.4), because the event domain does not exist yet. No subgraph edits and no reads
   of node states.
 - One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node
