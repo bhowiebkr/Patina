@@ -1,14 +1,17 @@
 // The dock layout of the editor window (spec 15.2): the tabs of each dock area, the size of each
 // area and the pan and zoom of each graph. These are pure functions, so `npm test` runs them.
 
-export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output', 'view'] as const;
+/** The panels of the view instances (15.8). Each slot shows one instance of a view. */
+export const VIEW_SLOTS = ['view', 'view2', 'view3', 'view4'] as const;
+export type ViewSlot = (typeof VIEW_SLOTS)[number];
+export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output', ...VIEW_SLOTS] as const;
 export type PanelId = (typeof PANELS)[number];
 export const AREAS = ['left', 'right', 'bottom'] as const;
 export type AreaId = (typeof AREAS)[number];
 
-export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output', view: 'View' };
+export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output', view: 'View', view2: 'View 2', view3: 'View 3', view4: 'View 4' };
 /** The area of each panel in the default layout. A closed panel opens there again. */
-const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', view: 'right' };
+const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', view: 'right', view2: 'right', view3: 'right', view4: 'right' };
 
 export const MIN_SIZE = 120;
 export const MAX_SIZE = 1600;
@@ -34,6 +37,8 @@ export interface Layout {
   areas: Record<AreaId, Area>;
   /** The pan and zoom of each graph, by the graph name. */
   viewports: Record<string, Viewport>;
+  /** The view folder of each open view slot, for example `views/scene`. */
+  views: Partial<Record<ViewSlot, string>>;
 }
 
 /** The layout of the table of spec 15.2. */
@@ -45,6 +50,7 @@ export function defaultLayout(): Layout {
       bottom: { tabs: ['logs', 'output'], active: 'output', size: 200 },
     },
     viewports: {},
+    views: {},
   };
 }
 
@@ -54,8 +60,34 @@ export function areaOf(layout: Layout, panel: PanelId): AreaId | null {
 
 const withArea = (layout: Layout, id: AreaId, area: Area): Layout => ({ ...layout, areas: { ...layout.areas, [id]: area } });
 
-/** Removes the tab of the panel. The next tab of the area becomes active. */
+const isSlot = (v: unknown): v is ViewSlot => VIEW_SLOTS.includes(v as ViewSlot);
+
+/** Closes the panel. A closed view slot drops its view instance. */
 export function closePanel(layout: Layout, panel: PanelId): Layout {
+  const out = removeTab(layout, panel);
+  if (!isSlot(panel) || !(panel in out.views)) return out;
+  const views = { ...out.views };
+  delete views[panel];
+  return { ...out, views };
+}
+
+/** Opens a new instance of view `name` in the first closed view slot. All slots open: no change. */
+export function openView(layout: Layout, name: string): Layout {
+  const slot = VIEW_SLOTS.find((s) => !areaOf(layout, s));
+  return slot ? openPanel({ ...layout, views: { ...layout.views, [slot]: name } }, slot) : layout;
+}
+
+/** The tab title of a view slot: the view name, with the number of the instance from the second. */
+export function viewTitle(layout: Layout, slot: ViewSlot): string {
+  const name = layout.views[slot];
+  if (!name) return TITLES[slot];
+  const n = VIEW_SLOTS.slice(0, VIEW_SLOTS.indexOf(slot) + 1).filter((s) => layout.views[s] === name).length;
+  const short = name.replace(/^views\//, '');
+  return n > 1 ? `${short} ${n}` : short;
+}
+
+/** Removes the tab of the panel. The next tab of the area becomes active. */
+function removeTab(layout: Layout, panel: PanelId): Layout {
   const id = areaOf(layout, panel);
   if (!id) return layout;
   const area = layout.areas[id];
@@ -68,7 +100,7 @@ export function closePanel(layout: Layout, panel: PanelId): Layout {
 /** Moves the tab of the panel before the tab `before`, or to the end of the area. */
 export function movePanel(layout: Layout, panel: PanelId, to: AreaId, before?: PanelId): Layout {
   if (before === panel) return layout;
-  const out = closePanel(layout, panel);
+  const out = removeTab(layout, panel);
   const area = out.areas[to];
   const tabs = [...area.tabs];
   const at = before ? tabs.indexOf(before) : -1;
@@ -132,6 +164,9 @@ export function parseLayout(text: string | null): Layout {
     if (isRaw(v) && finite(v.x) && finite(v.y) && finite(v.zoom) && v.zoom >= MIN_ZOOM && v.zoom <= MAX_ZOOM) {
       layout.viewports[graph] = { x: v.x, y: v.y, zoom: v.zoom };
     }
+  }
+  for (const [slot, name] of Object.entries(isRaw(raw.views) ? raw.views : {})) {
+    if (isSlot(slot) && typeof name === 'string' && seen.has(slot)) layout.views[slot] = name;
   }
   return layout;
 }

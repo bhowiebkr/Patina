@@ -639,6 +639,13 @@ fn broken() -> u32 {
     v = await step('undo the view write', () => api.undo());
     if (v.graph.node?.find((n) => n.id === A)?.params?.value === '5') throw new Error('undo did not remove the write of the view');
     steps.push('a view sets a parameter');
+    button('Views')!.click();
+    await until('the Views menu again', RUN_MS, () => !!item());
+    item()!.click();
+    const second = () => [...document.querySelectorAll('[role="tab"]')].find((t) => t.textContent === 'panel 2');
+    await until('the tab of a second instance', RUN_MS, () => !!second());
+    await until('the widgets of the second instance', BUILD_MS, () => viewText().startsWith('value '));
+    steps.push('a second instance of a view');
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');

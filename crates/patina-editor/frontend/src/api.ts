@@ -282,10 +282,11 @@ export const api = {
    * Gives the user input `events` to view `name` and gets its widget lines (15.8). The first call
    * builds the view. `view` is the new project when the view wrote to the graph.
    */
-  viewUi: (name: string, events: string, selected: string[]) =>
-    invoke<{ tree: string; view: View | null; select: string[] | null }>('view_ui', { name, events, selected }),
+  viewUi: (name: string, instance: string, events: string, selected: string[]) =>
+    invoke<{ tree: string; view: View | null; select: string[] | null }>('view_ui', { name, instance, events, selected }),
   /** Drops a view, so the next call builds it again. */
-  closeView: (name: string) => invoke<void>('close_view', { name }),
+  /** Drops the view instance of a dock slot. */
+  closeView: (instance: string) => invoke<void>('close_view', { instance }),
   /** The native handle of the editor window for a viewport, or 0 where a viewport cannot draw. */
   windowHandle: () => invoke<number>('window_handle'),
   /**

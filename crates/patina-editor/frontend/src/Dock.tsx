@@ -13,16 +13,20 @@ import {
   MIN_SIZE,
   movePanel,
   openPanel,
+  openView,
   PANELS,
   parseLayout,
   resetLayout,
   resizeArea,
   setViewport,
   TITLES,
+  VIEW_SLOTS,
+  viewTitle,
   type AreaId,
   type Layout,
   type PanelId,
   type Viewport,
+  type ViewSlot,
 } from './layout';
 
 /** A change waits this long before it goes to the file, so that a drag saves one time. */
@@ -50,6 +54,10 @@ function set(next: typeof state) {
 export function changeLayout(f: (layout: Layout) => Layout) {
   const layout = f(state.layout);
   if (layout === state.layout) return;
+  // A closed or replaced slot drops its view instance, so the next instance starts with `init`.
+  for (const slot of VIEW_SLOTS) {
+    if (state.layout.views[slot] && state.layout.views[slot] !== layout.views[slot]) api.closeView(slot).catch(reportError);
+  }
   set({ ...state, layout });
   clearTimeout(timer);
   timer = setTimeout(flushLayout, SAVE_MS);
@@ -145,18 +153,20 @@ export const below = (el: HTMLElement) => {
 
 /** The Views menu of the top bar: show or hide each panel, and Reset layout (15.2). */
 /** The Views menu (15.2, 15.8): the panels, the views of the project and Reset layout. */
-export function ViewsMenu({ views, open, onOpen }: { views: string[]; open: string | null; onOpen: (name: string) => void }) {
+export function ViewsMenu({ views }: { views: string[] }) {
   const layout = useSyncExternalStore(subscribe, getLayout);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
-  const shown = areaOf(layout, 'view') !== null;
-  const items: Item[] = PANELS.filter((p) => p !== 'view').map((p) => ({
+  const full = VIEW_SLOTS.every((s) => areaOf(layout, s));
+  const items: Item[] = PANELS.filter((p) => !VIEW_SLOTS.includes(p as ViewSlot)).map((p) => ({
     label: TITLES[p],
     checked: areaOf(layout, p) !== null,
     run: () => changeLayout((l) => (areaOf(l, p) ? closePanel(l, p) : openPanel(l, p))),
   }));
   if (views.length > 0) items.push('line');
   for (const name of views) {
-    items.push({ label: name, checked: shown && open === name, run: () => (onOpen(name), changeLayout((l) => openPanel(l, 'view'))) });
+    // Each click opens a new instance (15.8).
+    const open = VIEW_SLOTS.some((s) => layout.views[s] === name && areaOf(layout, s));
+    items.push({ label: name, checked: open, disabled: full, run: () => changeLayout((l) => openView(l, name)) });
   }
   items.push('line', { label: 'Reset layout', run: () => changeLayout(resetLayout) });
   return (
@@ -208,6 +218,8 @@ function Splitter({ area, size }: { area: AreaId; size: number }) {
 
 export interface Panel {
   body: ReactNode;
+  /** The tab title. The default is the title of the panel. */
+  title?: string;
   /** The buttons of the panel in the tab row, for example Clear. */
   actions?: ReactNode;
 }
@@ -277,7 +289,7 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
             onDragEnd={() => onDrag(false)}
             onDrop={(e) => drop(e, t)}
           >
-            {TITLES[t]}
+            {panels[t].title ?? TITLES[t]}
           </button>
         ))}
         <span className="spacer" />
@@ -297,15 +309,19 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
 }
 
 interface DockProps {
-  panels: Record<PanelId, Panel>;
+  panels: Record<Exclude<PanelId, ViewSlot>, Panel>;
+  /** The body of a view slot that shows view `name`, or no view. */
+  view: (slot: ViewSlot, name: string | null) => ReactNode;
   /** The center: the graph view. */
   children: ReactNode;
 }
 
 /** The icon strip, the dock areas, the splitters and the center. */
-export function Dock({ panels, children }: DockProps) {
+export function Dock({ panels: fixed, view, children }: DockProps) {
   const layout = useSyncExternalStore(subscribe, getLayout);
   const [dragging, setDragging] = useState(false);
+  const slots = Object.fromEntries(VIEW_SLOTS.map((s) => [s, { title: viewTitle(layout, s), body: view(s, layout.views[s] ?? null) }]));
+  const panels = { ...fixed, ...slots } as Record<PanelId, Panel>;
   const area = (id: AreaId) => <DockArea id={id} layout={layout} panels={panels} dragging={dragging} onDrag={setDragging} />;
   const split = (id: AreaId) => layout.areas[id].tabs.length > 0 && <Splitter area={id} size={layout.areas[id].size} />;
   const project = areaOf(layout, 'project');

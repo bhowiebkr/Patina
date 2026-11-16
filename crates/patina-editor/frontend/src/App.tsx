@@ -30,7 +30,7 @@ import { revealOf, type Reveal } from './CodeTab';
 import { Dock, flushLayout, loadLayout, useLayoutSerial, ViewsMenu, type Panel } from './Dock';
 import { GraphView, useFit } from './GraphView';
 import { Inspector, type InspectorTab } from './Inspector';
-import type { PanelId } from './layout';
+import type { PanelId, ViewSlot } from './layout';
 import { addLines, Lines, type Line } from './Lines';
 import { ExpandGui, FullGui } from './NodeGui';
 import { LayersPanel } from './LayersPanel';
@@ -91,7 +91,6 @@ export function App() {
   const [updating, setUpdating] = useState<{ other: string; folder: string } | null>(null);
   const [inspect, setInspect] = useState<Inspect>(null);
   /** The view of the View panel (15.8). */
-  const [openView, setOpenView] = useState<string | null>(null);
   const [ask, setAsk] = useState<'close' | 'quit' | null>(null);
   const [tab, setTab] = useState<InspectorTab>('parameters');
   const [reveal, setReveal] = useState<Reveal | null>(null);
@@ -490,7 +489,7 @@ export function App() {
       Clear
     </button>
   );
-  const panels: Record<PanelId, Panel> = {
+  const panels: Record<Exclude<PanelId, ViewSlot>, Panel> = {
     layers: { body: <LayersPanel run={run} /> },
     project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onNewView={newView} onImport={pickImport} onUpdate={pickUpdate} onPackage={makePackage} /> },
     inspector: {
@@ -512,8 +511,11 @@ export function App() {
     },
     logs: { body: <Lines lines={logs} label="Logs" onPick={pick} />, actions: clear(() => setLogs([])) },
     output: { body: <Lines lines={output} label="Output" onPick={pick} />, actions: clear(() => setOutput([])) },
-    view: { body: <ViewPanel name={openView && view.views.includes(openView) ? openView : null} revision={view.codeRevision} trusted={view.trusted} onView={show} selected={selected} onSelect={selectNodes} /> },
   };
+
+  const viewPanel = (slot: ViewSlot, name: string | null) => (
+    <ViewPanel name={name && view.views.includes(name) ? name : null} instance={slot} revision={view.codeRevision} trusted={view.trusted} onView={show} selected={selected} onSelect={selectNodes} />
+  );
 
   return (
     <div className="shell">
@@ -568,13 +570,13 @@ export function App() {
           Bake
         </button>
         <span className="sep" />
-        <ViewsMenu views={view.views} open={openView} onOpen={setOpenView} />
+        <ViewsMenu views={view.views} />
         <HelpMenu />
       </header>
       {/* The dock waits for the layout of the project, so the graph opens at its saved pan and zoom. */}
       {layoutSerial === view.serial ? (
         <ExpandGui.Provider value={expand}>
-          <Dock panels={panels}>
+          <Dock panels={panels} view={viewPanel}>
             {!view.trusted && (
               <div className="banner" role="alert">
                 <span>This project is not trusted. Patina does not build or run its code until you trust it.</span>

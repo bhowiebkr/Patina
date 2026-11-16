@@ -8,6 +8,8 @@ import { GuiWidgets } from './NodeGui';
 interface Props {
   /** The view folder `views/<name>`, or null when no view is open. */
   name: string | null;
+  /** The dock slot of the panel. Each slot has its own instance of the view. */
+  instance: string;
   /** The code revision of the project. A code change builds the view again. */
   revision: number;
   trusted: boolean;
@@ -19,7 +21,7 @@ interface Props {
   onSelect: (ids: string[]) => void;
 }
 
-export function ViewPanel({ name, revision, trusted, onView, selected, onSelect }: Props) {
+export function ViewPanel({ name, instance, revision, trusted, onView, selected, onSelect }: Props) {
   const [tree, setTree] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -43,7 +45,7 @@ export function ViewPanel({ name, revision, trusted, onView, selected, onSelect 
     setError(null);
     const ask = () => {
       const lines = events.current.splice(0).join('\n');
-      api.viewUi(name, lines, selected.current).then(
+      api.viewUi(name, instance, lines, selected.current).then(
         (f) => {
           if (!live) return;
           setTree(f.tree);
@@ -60,7 +62,7 @@ export function ViewPanel({ name, revision, trusted, onView, selected, onSelect 
       live = false;
       cancelAnimationFrame(frame);
     };
-  }, [name, revision, trusted, attempt, selected]);
+  }, [name, instance, revision, trusted, attempt, selected]);
 
   let body;
   if (!name) body = <div className="item empty">Open a view from the Views menu.</div>;

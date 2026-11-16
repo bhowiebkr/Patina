@@ -46,13 +46,13 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 
 This is an agent decision of 2026-11-15. The owner can change it.
 
-- The left, right and bottom areas take panels. The center holds only the graph view. In version 1 of views, the **View** panel opens in the right area (15.8). Tabs in the center come later.
+- The left, right and bottom areas take panels. The center holds only the graph view. In version 1 of views, a view panel opens in the right area (15.8). Tabs in the center come later.
 - The panels are **Layers**, **Project**, **Inspector**, **Logs** and **Output**. The **Debug** tab comes later. The left area has the **Layers** tab and the **Project** tab, and **Project** is active at the start.
 - Float windows come later. In version 1, a tab cannot go out of the window.
 - A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area** and **Close**. The menu is the method for the keyboard and for screen readers.
 - An area with no tabs takes no space. During a drag, it shows as a drop zone.
 - A splitter between an area and the center changes the size of the area. An arrow key moves a focused splitter by 16 px, and Shift and an arrow key move it by 64 px. A size is 120 px to 1600 px.
-- The **Views** menu has a check mark for each panel. A click shows or hides the panel. A hidden panel opens again in its default area.
+- The **Views** menu has a check mark for each panel. A click shows or hides the panel. A hidden panel opens again in its default area. A view of the project has a check mark while an instance of it is open. A click on it opens a new instance (15.8).
 - **Reset layout** keeps the pan and zoom of each graph.
 - Patina saves the layout 300 ms after a change, and before the project closes or Patina quits. A layout file is JSON of 64 KiB or less.
 - Patina saves a layout only for a project ID of 1 to 64 hex digits. For another ID, it shows an error and uses the default layout. Reason: the ID is a file name, so it must not be a reserved name of Windows.
@@ -365,10 +365,18 @@ change it.)
   to the view as the physical key name, for example `KeyW`. Tab moves the focus out, and then
   each held key comes up. A held key does not repeat.
 - A node GUI shows a note in place of a viewport. On Linux and macOS, a view shows the note too.
+- The editor has four view panels. Each click on a view in the **Views** menu opens a new
+  instance in a closed view panel. The tab shows the view name, and a number from the second
+  instance, for example **scene 2**. The layout file keeps the view of each open panel.
+- A close of the panel drops its instance, so the next instance starts with `init`. A hidden
+  tab keeps its instance but does not call `ui`.
+- Reason: four panels keep the dock layout a fixed list of panels. Four instances cover the
+  usual cases, for example a 3D view from two sides. (Agent decision, 2026-11-15. The owner can
+  change it.)
 
 The limits of version 1:
 
-- One instance of each view, in one panel. No float window.
+- Up to four view instances at a time, each in a dock panel. No float window.
 - No typed outputs through type crates (rule 3). A view reads the text of an output.
 - No trigger (9.4), because the event domain does not exist yet. No subgraph edits and no reads
   of node states.

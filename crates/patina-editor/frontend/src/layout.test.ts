@@ -10,11 +10,28 @@ import {
   MIN_SIZE,
   movePanel,
   openPanel,
+  openView,
   parseLayout,
   resetLayout,
   resizeArea,
   setViewport,
+  viewTitle,
 } from './layout.ts';
+
+test('each view instance opens in a free slot and a close drops it', () => {
+  let l = openView(openView(defaultLayout(), 'views/scene'), 'views/scene');
+  assert.deepEqual(l.areas.right.tabs, ['inspector', 'view', 'view2']);
+  assert.deepEqual([viewTitle(l, 'view'), viewTitle(l, 'view2'), viewTitle(l, 'view3')], ['scene', 'scene 2', 'View 3']);
+  l = movePanel(l, 'view2', 'bottom');
+  assert.equal(l.views.view2, 'views/scene');
+  l = closePanel(l, 'view');
+  assert.deepEqual(l.views, { view2: 'views/scene' });
+  assert.deepEqual(parseLayout(layoutText(l)).views, { view2: 'views/scene' });
+  assert.deepEqual(parseLayout(JSON.stringify({ version: 1, areas: {}, views: { view: 'views/a', bad: 'x' } })).views, {});
+  l = openView(openView(openView(openView(l, 'a'), 'b'), 'c'), 'd');
+  assert.deepEqual(Object.keys(l.views).sort(), ['view', 'view2', 'view3', 'view4']);
+  assert.equal(l.views.view2, 'views/scene');
+});
 
 test('a tab moves before another tab and becomes active', () => {
   const l = movePanel(defaultLayout(), 'logs', 'right', 'inspector');

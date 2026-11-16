@@ -16,7 +16,8 @@ change the graph (spec 15.8).
 
 1. Version 1 of views: the `#[view]` ABI, the `Graph` handle, the build of a view and the
    **View** panel. This part works.
-2. More instances of a view, and float windows.
+2. More instances of a view, and float windows. Up to four instances in dock panels work.
+   Float windows do not.
 3. More edits from a view: add a node, connect a wire, start a trigger and select nodes. Add,
    remove, connect, disconnect and select work. Trigger waits for the event domain (9.4).
 4. Typed outputs through type crates (15.8 rule 3).
@@ -49,12 +50,14 @@ change the graph (spec 15.8).
   builds the `scene` view and reads its viewport line and the wheel. The sdk and gpu tests read
   the place events and skip a draw before the place.
 - The editor self-check on Windows: it makes a view, opens it from the **Views** menu, clicks
-  **Set**, sees the new value and undoes the write.
+  **Set**, sees the new value and undoes the write. Then it opens a second instance, **panel 2**.
+- `npm test`: the layout opens view instances in free panels, keeps the view of a moved panel and
+  drops the view of a closed panel.
 - CI builds and tests on Windows, Linux and macOS.
 
 ### Known limits
 
-- The limits of version 1 are in spec 15.8: one instance, no float window, text outputs only,
+- The limits of version 1 are in spec 15.8: four instances, no float window, text outputs only,
   no trigger, one viewport on Windows only, and no bake build.
 - Nobody looked at a viewport in the editor yet. The self-check keeps its window hidden, so it
   cannot show the surface. The colors, the resize and the scroll clip need a check on screen.

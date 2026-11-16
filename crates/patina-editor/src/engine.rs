@@ -30,9 +30,11 @@ pub enum Job {
     /// Makes a package of the saved project `root` in `out` (14.1). `reply` gets the warnings.
     Package { root: PathBuf, out: PathBuf, reply: Sender<Result<Vec<String>, String>> },
     /// User input to a view (15.8). The first input builds the view.
-    View(ViewInput),
+    View(Box<ViewInput>),
     /// Drops a view, so the next input builds it again.
     CloseView(String),
+    /// Drops one view instance, by its dock slot.
+    DropView(String),
 }
 
 /// Sends jobs to the engine thread. It counts the runs that wait for a build, so the engine
@@ -247,8 +249,9 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Package { root, out, reply } => {
                     let _ = reply.send(make_package(folder, &mut toolchain, &root, &out));
                 }
-                Job::View(input) => views.ui(folder, &mut toolchain, input),
+                Job::View(input) => views.ui(folder, &mut toolchain, *input),
                 Job::CloseView(name) => views.close(&name),
+                Job::DropView(instance) => views.drop_instance(&instance),
             }
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -355,8 +358,9 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): 
                 }
             }
             // A view reads the live values, so the frames go on.
-            Ok(Job::View(input)) => views.ui(folder, toolchain, input),
+            Ok(Job::View(input)) => views.ui(folder, toolchain, *input),
             Ok(Job::CloseView(name)) => views.close(&name),
+            Ok(Job::DropView(instance)) => views.drop_instance(&instance),
             Ok(job) => break Some(job),
             Err(TryRecvError::Disconnected) => break None,
             Err(TryRecvError::Empty) if shared.control.stopped() => break None,
