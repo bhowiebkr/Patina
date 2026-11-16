@@ -192,7 +192,7 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
   - `patina-gpu` has the WESL package `patina_gpu`, which `link` always adds. Its `image` module has `luma` and `inside`, for example `import patina_gpu::image::luma;`. A function of the package must be `public`. Each module is a `.wesl` file in `patina-gpu/src/shaders`. Agent decision of 2026-11-15, the owner can change it.
 - Node settings set the `@if` conditions when the linker runs. Do not make shader variants with string joins or a custom preprocessor.
 - The editor shows link and compile errors at the line of the WESL file (15.5).
-  - `link` validates the linked WGSL with `naga`. An error gives the WESL file and the line of the declaration that has the error, for example "shade.wesl line 2, in `shade`: ...". The `wesl` source map has no spans, so the error does not give the exact line in the declaration. Agent decision of 2026-11-15, the owner can change it.
+  - `link` validates the linked WGSL with `naga`. An error gives the WESL file, the line and the declaration, for example "shade.wesl line 7, in `shade`: ...". The `wesl` source map has no spans, but each statement in the linked syntax tree keeps its span. The error gives the line of the statement in a function. It gives the line of the declaration when no statement matches the WGSL line, for example in the header or in a global. Agent decision of 2026-11-15, changed 2026-11-16. The owner can change it.
 - A change of shader source does not need a Rust compile. This keeps shader editors fast.
 
 ### 10.4 Later: GPU fusion

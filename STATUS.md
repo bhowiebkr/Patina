@@ -472,7 +472,9 @@ types and shader nodes with WESL (spec 10).
 
 ### Known limits
 
-- A shader error gives the WESL file and the line of the declaration, not the exact line.
+- A shader error gives the line of the statement in the WESL file (fixed 2026-11-16). An error
+  in a function header or in a global gives the line of the declaration. The link tests check
+  an imported file and two equal lines.
 - Each cluster links its own copy of `wgpu`. This is acceptable because the engine never
   unloads a library.
 - A project with GPU nodes needs Rust 1.97.1 or later.
