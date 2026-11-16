@@ -226,6 +226,7 @@ impl Shared {
 
     /// Gives the ID of the node that runs on the engine thread to `f`, for a crash handler. It
     /// never waits for a lock and never allocates.
+    #[cfg(windows)]
     pub fn try_running(&self, f: impl FnOnce(&str)) {
         if let (Some(node), Ok(ids)) = (self.control.node(), self.ids.try_lock())
             && let Some(id) = ids.get(node as usize)
