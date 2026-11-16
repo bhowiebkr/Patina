@@ -25,6 +25,7 @@ import { savedViewport, saveViewport } from './Dock';
 import { NodeEdit, NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { matchPin } from './palette';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
+import { Labels } from './labels';
 import { Router } from './route';
 import { WireStore } from './wires';
 
@@ -219,6 +220,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [router] = useState(() => new Router());
+  const [labels] = useState(() => new Labels());
   const [hover] = useState(() => new HoverStore());
   const [glOk, setGlOk] = useState(true);
   // The screen point of the open Add node palette, with the pin of a wire that it ends, and the
@@ -230,8 +232,8 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport(view.graphName));
   const tools = useMemo(
-    () => ({ store: wires, router, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from), kinds: view.kinds }),
-    [wires, router, onEdit, view.trusted, run, view.kinds],
+    () => ({ store: wires, router, labels, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from), kinds: view.kinds }),
+    [wires, router, labels, onEdit, view.trusted, run, view.kinds],
   );
   // The node bodies that the automatic routes go around (15.9).
   useLayoutEffect(() => {
@@ -239,8 +241,10 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
       const { width, height } = n.measured ?? {};
       return width && height ? [{ l: n.position.x, t: n.position.y, r: n.position.x + width, b: n.position.y + height }] : [];
     };
-    router.setObstacles(nodes.flatMap(body));
-  }, [nodes, router]);
+    const rects = nodes.flatMap(body);
+    router.setObstacles(rects);
+    labels.setObstacles(rects);
+  }, [nodes, router, labels]);
 
   useEffect(() => setNodes((prev) => buildNodes(view, run, guis, prev)), [view, run, guis]);
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);

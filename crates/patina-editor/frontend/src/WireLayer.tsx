@@ -18,6 +18,7 @@ import { EdgeLabelRenderer, useReactFlow, useStore, useStoreApi, ViewportPortal,
 import type { Corners, Edit, KindInfo, Point, Style, Value } from './api';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
+import type { Labels } from './labels';
 import type { Router } from './route';
 import { anchor, insertAt, shape, wirePath, type WireStore } from './wires';
 
@@ -33,6 +34,8 @@ export interface WireTools {
   store: WireStore;
   /** The automatic routes of the wires with the graph default look (15.9). */
   router: Router;
+  /** The wire labels that something covers (15.9). */
+  labels: Labels;
   onEdit: (edit: Edit) => Promise<void>;
   editable: boolean;
   /** Each live value by output (15.9), and true when it is from an old run. */
@@ -45,7 +48,7 @@ export interface WireTools {
 export const WireContext = createContext<WireTools | null>(null);
 
 export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
-  const { store, router, onEdit, editable, values, stale, kinds } = useContext(WireContext)!;
+  const { store, router, labels, onEdit, editable, values, stale, kinds } = useContext(WireContext)!;
   const hover = useContext(HoverContext);
   const flow = useReactFlow();
   // The route during a drag. It stays until the edit gives the new graph, so the wire does not jump back.
@@ -103,6 +106,20 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const room = selected ? Infinity : fit;
   const label = room < 24 ? undefined : ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? (data!.name ?? data!.ty) : undefined;
   const above = 12 + (ribbon && !far ? ((n - 1) * PITCH) / 2 : 0);
+  const badge = value !== undefined && near ? value.text : undefined;
+  // A badge cuts its text to the room of the label, but keeps room for a short value.
+  const badgeRoom = selected ? undefined : Math.max(fit, 32);
+  const named = data!.name !== undefined;
+  // The boxes of the label and the badge, from the Consolas sizes of canvas.css.
+  useLayoutEffect(() => {
+    const w = label === undefined ? 0 : Math.min(room, label.length * 5.5);
+    const bw = badge === undefined ? 0 : Math.min(badgeRoom ?? Infinity, badge.length * 6.05 + 12);
+    const box = label === undefined ? null : { l: mx - w / 2, t: my - above - 13, r: mx + w / 2, b: my - above };
+    const badgeBox = badge === undefined ? null : { l: mx - bw / 2, t: my - 9, r: mx + bw / 2, b: my + 9 };
+    labels.set(id, box, badgeBox, selected ? -1 : ribbon ? 0 : named ? 1 : 2);
+  }, [labels, id, label, badge, badgeRoom, room, mx, my, above, selected, ribbon, named]);
+  useLayoutEffect(() => () => labels.remove(id), [labels, id]);
+  const covered = useSyncExternalStore(labels.subscribe, () => labels.hidden(id));
   // The lane under the pointer (15.9). The hit area covers the full ribbon.
   const leave = () => {
     if (hover.get()?.wire === id) hover.set(null);
@@ -128,7 +145,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
           </div>
         )}
         {/* The type label or the bus label is above the badge (15.9). */}
-        {label && (
+        {label && !covered && (
           <div
             className={`wire-type${data!.name ? ' named' : ''}${selected ? ' selected' : ''}`}
             title={data!.ty}
@@ -137,12 +154,12 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
             {label}
           </div>
         )}
-        {value !== undefined && near && (
+        {badge !== undefined && (
           <div
             className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}
-            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)` }}
+            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)`, maxWidth: badgeRoom }}
           >
-            {value.text}
+            {badge}
           </div>
         )}
       </EdgeLabelRenderer>

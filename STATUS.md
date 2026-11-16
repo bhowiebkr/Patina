@@ -85,6 +85,11 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 24. Done: connection work in the editor (15.2). The **Project** panel has the groups
     **Connections** and **Types**, each with a **+** button and a start crate. A click opens
     the code in the **Inspector**. **Add crate** adds a type folder by its path.
+25. Done: each example has a `README.md` with images from `patina --shot`. The `computer` and
+    `gpu` READMEs are first versions.
+26. Done: a value badge cuts its text to the room between the nodes, as the label does, but
+    keeps at least 32 px. Before, a long badge on a short wire covered the pin names. The
+    `hello` and `gpu` graphs now have the column gap of **Arrange**.
 
 ### Checked
 
@@ -820,7 +825,8 @@ To run the editor from a checkout:
   and its border is dashed.
 - Each wire shows the Rust type of its value in a small label above the badge (15.9), for
   example `f64`. A pin shows its type in a tooltip. The **Inspector** shows the type of the
-  selected wire.
+  selected wire. A label hides when a node body, the badge of another wire or a label of a
+  higher rank covers it. A selected wire always shows its label.
 - A project can have connection kinds in `connections/<name>/` (6.3). A `#[connection]`
   function takes the value of a type and gives its lanes and a label. After a run, a wire of
   that type draws as a bus of lanes, the most significant lane first, with a label such as

@@ -19,12 +19,12 @@ value = "4"
 [[node]]
 id = "f89c6e329e8ea336"
 folder = "nodes/add"
-pos = [240.0, 60.0]
+pos = [280.0, 60.0]
 
 [[node]]
 id = "3b7cec82f6a4ed1a"
 folder = "nodes/show"
-pos = [480.0, 60.0]
+pos = [560.0, 60.0]
 
 [[wire]]
 from = "9bc1790966687030.out"

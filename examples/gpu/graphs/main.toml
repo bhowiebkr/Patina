@@ -13,12 +13,12 @@ invert = "false"
 [[node]]
 id = "2b3c4d5e6f708192"
 folder = "nodes/brightness"
-pos = [240.0, 0.0]
+pos = [280.0, 0.0]
 
 [[node]]
 id = "3c4d5e6f708192a3"
 folder = "nodes/show"
-pos = [480.0, 0.0]
+pos = [560.0, 0.0]
 
 [[wire]]
 from = "1a2b3c4d5e6f7081.out"
@@ -31,7 +31,7 @@ to = "3c4d5e6f708192a3.value"
 [[node]]
 id = "4d5e6f708192a3b4"
 folder = "nodes/preview"
-pos = [240.0, 160.0]
+pos = [280.0, 160.0]
 
 [[wire]]
 from = "1a2b3c4d5e6f7081.out"

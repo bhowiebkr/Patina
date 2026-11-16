@@ -6,7 +6,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test src/api.test.ts src/wires.test.ts src/bus.test.ts src/layout.test.ts src/palette.test.ts src/gui.test.ts src/layers.test.ts src/backdrop.test.ts src/route.test.ts src/arrange.test.ts"
+    "test": "node --test src/api.test.ts src/wires.test.ts src/bus.test.ts src/layout.test.ts src/palette.test.ts src/gui.test.ts src/layers.test.ts src/backdrop.test.ts src/route.test.ts src/arrange.test.ts src/labels.test.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
