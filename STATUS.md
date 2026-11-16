@@ -74,7 +74,7 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     leads fan in from the contacts to the lanes of the ribbon. A pointer on a lane or a contact
     marks the lane along the wire and at the two sockets, with a tooltip such as
     `ctrl[15] HLT = 1`. The **Inspector** gives a wire a **Name**. The example `byte` kind is
-    green. A public pin of such a kind in an open subgraph is a bus socket too.
+    green. A public pin of such a kind in an open subgraph is a bus socket too. A short S-bend of a ribbon is two flat arcs, so no lane folds back.
 22. Done: a segment bus with named lanes. The `segments` type crate keeps segments a to g in
     one value. It is the first type crate of the example (5.1). The `segment-bus` kind draws it
     as a copper ribbon of 7 lanes with the names a to g. A `seg-join` node in `hex-7seg` joins

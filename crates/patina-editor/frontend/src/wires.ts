@@ -95,6 +95,51 @@ function corner(sx: number, sy: number, tx: number, ty: number, route: readonly 
   return true;
 }
 
+/** A, C1, M, C2 and B (x, y each) of the last S-bend: two quadratic curves that join at M. */
+const jog = new Float64Array(10);
+
+/**
+ * Sets `jog` when bends k and k + 1 make an S-bend with a leg too short for two corners of the
+ * radius. Two arcs of one larger radius then join at the middle of that leg, so the inner lane
+ * of a wide ribbon does not fold. At a leg of two radii, the arcs are the two corners.
+ */
+function sbend(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], k: number, radius: number): boolean {
+  if (k >= route.length) return false;
+  const [px, py] = route[k - 1];
+  const [qx, qy] = route[k];
+  const ix = px - vertex(sx, sy, tx, ty, route, k - 1, 0);
+  const iy = py - vertex(sx, sy, tx, ty, route, k - 1, 1);
+  const ox = vertex(sx, sy, tx, ty, route, k + 2, 0) - qx;
+  const oy = vertex(sx, sy, tx, ty, route, k + 2, 1) - qy;
+  const lin = Math.hypot(ix, iy);
+  const lout = Math.hypot(ox, oy);
+  const mid = Math.hypot(qx - px, qy - py);
+  if (lin < 1e-6 || lout < 1e-6 || mid < 1e-6) return false;
+  const ux = ix / lin;
+  const uy = iy / lin;
+  // Only an S: the leg out of the second bend goes the same way as the leg into the first.
+  if ((ux * ox + uy * oy) / lout < 1 - 1e-6) return false;
+  const h = Math.min(radius, lin / 2, lout / 2);
+  if (h < 0.5 || mid >= 2 * h) return false;
+  // M is the middle of the short leg. Each arc has tangents of length t, so C1 = A + t u and |C1 - M| = t.
+  const mx = (qx - px) / 2;
+  const my = (qy - py) / 2;
+  const along = h + mx * ux + my * uy;
+  if (along < 0.5) return false;
+  const t = (along * along + mx * mx + my * my - (along - h) * (along - h)) / (2 * along);
+  jog[0] = px - ux * h;
+  jog[1] = py - uy * h;
+  jog[2] = px + ux * (t - h);
+  jog[3] = py + uy * (t - h);
+  jog[4] = px + mx;
+  jog[5] = py + my;
+  jog[6] = qx + ux * (h - t);
+  jog[7] = qy + uy * (h - t);
+  jog[8] = qx + ux * h;
+  jog[9] = qy + uy * h;
+  return true;
+}
+
 /** P0, C1, C2 and P3 (x, y each) of the last smooth segment. */
 const ctl = new Float64Array(8);
 
@@ -130,6 +175,11 @@ export function wirePath(sx: number, sy: number, tx: number, ty: number, shape: 
     return d;
   }
   for (let k = 1; k <= bends.length; k++) {
+    if (sbend(sx, sy, tx, ty, bends, k, radius)) {
+      d += `L${jog[0]} ${jog[1]}Q${jog[2]} ${jog[3]} ${jog[4]} ${jog[5]}Q${jog[6]} ${jog[7]} ${jog[8]} ${jog[9]}`;
+      k++;
+      continue;
+    }
     const [vx, vy] = bends[k - 1];
     d += corner(sx, sy, tx, ty, bends, k, radius) ? `L${cut[0]} ${cut[1]}Q${vx} ${vy} ${cut[2]} ${cut[3]}` : `L${vx} ${vy}`;
   }
@@ -208,19 +258,31 @@ export function wirePoints(sx: number, sy: number, tx: number, ty: number, shape
   }
   const steps = Math.min(CORNER_POINTS, Math.floor((MAX_POINTS - 2) / Math.max(1, last)));
   for (let k = 1; k <= last; k++) {
+    if (steps >= 2 && k < last && sbend(sx, sy, tx, ty, bends, k, radius)) {
+      n = quad(out, at, n, steps, 0, jog[0], jog[1], jog[2], jog[3], jog[4], jog[5]);
+      n = quad(out, at, n, steps, 1, jog[4], jog[5], jog[6], jog[7], jog[8], jog[9]);
+      k++;
+      continue;
+    }
     const [vx, vy] = bends[k - 1];
     if (steps < 2 || !corner(sx, sy, tx, ty, bends, k, radius)) {
       n = put(out, at, n, vx, vy);
       continue;
     }
-    for (let j = 0; j < steps; j++) {
-      const t = j / (steps - 1);
-      const u = 1 - t;
-      n = put(out, at, n, u * u * cut[0] + 2 * u * t * vx + t * t * cut[2], u * u * cut[1] + 2 * u * t * vy + t * t * cut[3]);
-    }
+    n = quad(out, at, n, steps, 0, cut[0], cut[1], vx, vy, cut[2], cut[3]);
   }
   n = put(out, at, n, tx, ty);
   normals(out, at, n);
+  return n;
+}
+
+/** Puts the points `from` to `steps - 1` of the quadratic curve from (x0, y0) by (cx, cy) to (x1, y1). */
+function quad(out: Float32Array, at: number, n: number, steps: number, from: number, x0: number, y0: number, cx: number, cy: number, x1: number, y1: number): number {
+  for (let j = from; j < steps; j++) {
+    const t = j / (steps - 1);
+    const u = 1 - t;
+    n = put(out, at, n, u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1);
+  }
   return n;
 }
 

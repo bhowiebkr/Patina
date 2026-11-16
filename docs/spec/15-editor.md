@@ -455,6 +455,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Provide curved, orthogonal and manually routed polyline paths. Keep route geometry, corner treatment and compact or ribbon display as separate choices.
 - Allow a graph default and a connection override. Changing a style does not change execution.
 - The **Inspector** shows the look of the selected wire in its **Look** section. There is no toolbar on the canvas. **Route** is **Automatic** (the graph default), **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded** or **Sharp**, and a curve has no corners. **Reset route** removes the route points and keeps the style. Each change is one edit with undo. (Agent decision, 2026-11-15. The owner can change it.)
+- A rounded corner of a bus has a radius of half the ribbon width plus 10 px, so the inner lane does not fold. An S-bend with a leg shorter than two radii is two flat arcs that meet at the middle of the leg. (Agent decision, 2026-11-16. The owner can change it.)
 - The graph default is the automatic route: an orthogonal wire that goes around the node bodies. A graph setting for the default comes later. (Agent decision, 2026-11-16. It replaces the curved default of 2026-11-15. The owner can change it.)
 - The automatic route:
   - It keeps 6 px or more from each node body and finds a path with few bends (A* on a sparse grid around the bodies).

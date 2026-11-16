@@ -68,6 +68,18 @@ test('a short segment makes a smaller corner', () => {
   for (const [x, y] of route([50, 0], [50, 4]).slice(0, -1)) assert.ok(x >= 0 && x <= 52 + 1e-5 && y >= -1e-5 && y <= 4 + 1e-5, `${x}, ${y}`);
 });
 
+test('a short S-bend of a wide ribbon makes two flat arcs, so no lane folds back', () => {
+  const s = shape(0, 0, 200, 6, [], 'orthogonal', undefined, 40);
+  const out = new Float32Array(MAX_POINTS * STRIDE);
+  const n = wirePoints(0, 0, 200, 6, s, out, 0);
+  for (const side of [-20, 20]) {
+    for (let k = 1; k < n; k++) assert.ok(out[k * STRIDE] + out[k * STRIDE + 2] * side >= out[(k - 1) * STRIDE] + out[(k - 1) * STRIDE + 2] * side - 1e-3, `side ${side}, point ${k}`);
+  }
+  near([[out[(n - 1) * STRIDE], out[(n - 1) * STRIDE + 1]]], [[200, 6]]);
+  assert.ok(wirePath(0, 0, 200, 6, s).startsWith('M0 0L70 0Q'), 'the SVG path has the same arcs');
+  assert.equal(path(100, 40, [], 'orthogonal').length, 2 + 2 * 12, 'a long leg keeps two corners');
+});
+
 test('the largest route fits in a row, and a longer route gets fewer points for each corner', () => {
   const zigzag = (n: number) => Array.from({ length: n }, (_, k): [number, number] => [k * 8, k % 2 ? 20 : 0]);
   assert.ok(route(...zigzag(MAX_ROUTE)).length <= MAX_POINTS);
