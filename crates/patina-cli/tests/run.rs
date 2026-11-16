@@ -670,3 +670,14 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     assert!(sum().contains("clicks, None"));
     assert!(sum().contains("clicks, Some(6.5)"));
 }
+
+#[test]
+fn the_computer_example_counts_and_adds_with_nand_gates() {
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer");
+    let (output, stdout, stderr) = run(&project, &["--frames", "16"]);
+    assert!(output.status.success(), "{stderr}");
+    // Each frame is one clock step: readout A shows the count, and readout B the count plus 3.
+    // With b = 0011, the four full adders get all 8 input vectors.
+    let expected: Vec<String> = (0..16).flat_map(|n| [n, (n + 3) % 16]).map(|n: u8| format!("{n:04b} {n}")).collect();
+    assert_eq!(stdout.lines().collect::<Vec<_>>(), expected);
+}

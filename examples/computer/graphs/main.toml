@@ -1,0 +1,121 @@
+format = 1
+
+[[node]]
+id = "d5094f57d323d619"
+subgraph = "counter-4"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "b687f8f8f0ecb58d"
+folder = "nodes/switch"
+pos = [0.0, 100.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "bc3c2ba9a195e4a0"
+folder = "nodes/switch"
+pos = [0.0, 200.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "fc3d7c9dec099e92"
+folder = "nodes/switch"
+pos = [0.0, 300.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "987c7f5adcc47589"
+folder = "nodes/switch"
+pos = [0.0, 400.0]
+
+[node.params]
+on = "false"
+
+[[node]]
+id = "93be95a436ab6f8b"
+subgraph = "adder-4"
+pos = [240.0, 0.0]
+
+[[node]]
+id = "f6123f740f86e213"
+folder = "nodes/readout"
+pos = [480.0, 0.0]
+
+[[node]]
+id = "6653a48cddc309e1"
+folder = "nodes/readout"
+pos = [480.0, 100.0]
+
+[[wire]]
+from = "d5094f57d323d619.f6bc0840"
+to = "f6123f740f86e213.b0"
+
+[[wire]]
+from = "d5094f57d323d619.f6bc0840"
+to = "93be95a436ab6f8b.44be6e56"
+
+[[wire]]
+from = "b687f8f8f0ecb58d.out"
+to = "93be95a436ab6f8b.002175a2"
+
+[[wire]]
+from = "93be95a436ab6f8b.ed1ff052"
+to = "6653a48cddc309e1.b0"
+
+[[wire]]
+from = "d5094f57d323d619.f6f4f8a5"
+to = "f6123f740f86e213.b1"
+
+[[wire]]
+from = "d5094f57d323d619.f6f4f8a5"
+to = "93be95a436ab6f8b.b88f5374"
+
+[[wire]]
+from = "bc3c2ba9a195e4a0.out"
+to = "93be95a436ab6f8b.edb0af1f"
+
+[[wire]]
+from = "93be95a436ab6f8b.5cfeeec0"
+to = "6653a48cddc309e1.b1"
+
+[[wire]]
+from = "d5094f57d323d619.095c6111"
+to = "f6123f740f86e213.b2"
+
+[[wire]]
+from = "d5094f57d323d619.095c6111"
+to = "93be95a436ab6f8b.9eda28d5"
+
+[[wire]]
+from = "fc3d7c9dec099e92.out"
+to = "93be95a436ab6f8b.b0434d4b"
+
+[[wire]]
+from = "93be95a436ab6f8b.23cf175d"
+to = "6653a48cddc309e1.b2"
+
+[[wire]]
+from = "d5094f57d323d619.ab784846"
+to = "f6123f740f86e213.b3"
+
+[[wire]]
+from = "d5094f57d323d619.ab784846"
+to = "93be95a436ab6f8b.06d0ab61"
+
+[[wire]]
+from = "987c7f5adcc47589.out"
+to = "93be95a436ab6f8b.eb88b835"
+
+[[wire]]
+from = "93be95a436ab6f8b.777d8973"
+to = "6653a48cddc309e1.b3"
+
+[[order]]
+before = "f6123f740f86e213"
+after = "6653a48cddc309e1"

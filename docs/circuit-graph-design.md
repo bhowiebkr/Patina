@@ -184,9 +184,25 @@ possible design, not a selected engine change. A generic scheduler extension
 would be a larger decision. Preserve the current cycle checks until a deliberate
 spec change is approved.
 
+## The version 1 model
+
+Question 13 of spec 18 is decided as an agent decision of 2026-11-15. Version 1 uses a synchronous
+model and no engine change:
+
+- One frame is one clock step. All gates settle in the frame, in the order of the wires.
+- A `delay` node is a D flip-flop. It gives in each frame the value of its input in the frame before.
+- A cycle needs a delay. A latch of two NAND gates without a delay stays refused (spec 9.2).
+- A wire has one driver. A shared bus uses an explicit multiplexer.
+
+The `examples/computer` project has one Rust node for the gate, `nand`. The gates `not`, `and`,
+`or` and `xor` are subgraphs of NAND gates. The half adder, the full adder, the 4-bit adder and
+the 4-bit counter are subgraphs of these subgraphs. The CLI test runs 16 frames. Readout A shows
+the count, and readout B the count plus 3. So the four full adders get all 8 input vectors.
+
 ## Checks for a future implementation
 
-These are proposed acceptance checks; they have **not** run.
+These are proposed acceptance checks. The full-adder vectors and the headless run are checked
+by the CLI test of `examples/computer`. The other checks have **not** run.
 
 - Reuse a full-adder definition multiple times. Rename/reorder a public port.
   Verify connections and independent instance state survive.

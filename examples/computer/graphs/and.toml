@@ -1,0 +1,33 @@
+format = 1
+
+[[node]]
+id = "e4e91cd182aae246"
+folder = "nodes/nand"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "0db4cd36c8953fe6"
+subgraph = "not"
+pos = [240.0, 0.0]
+
+[[wire]]
+from = "e4e91cd182aae246.out"
+to = "0db4cd36c8953fe6.5ade65ce"
+
+[[input]]
+key = "665555f1"
+name = "a"
+pos = [-240.0, 0.0]
+to = ["e4e91cd182aae246.a"]
+
+[[input]]
+key = "072eae79"
+name = "b"
+pos = [-240.0, 100.0]
+to = ["e4e91cd182aae246.b"]
+
+[[output]]
+key = "72b5072c"
+name = "out"
+pos = [480.0, 0.0]
+from = "0db4cd36c8953fe6.7ff633ef"

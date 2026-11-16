@@ -1,0 +1,58 @@
+format = 1
+
+[[node]]
+id = "91e3afa186d5bae3"
+subgraph = "half-adder"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "497e847739625976"
+subgraph = "half-adder"
+pos = [240.0, 0.0]
+
+[[node]]
+id = "9187a97d7d87a75c"
+subgraph = "or"
+pos = [480.0, 0.0]
+
+[[wire]]
+from = "91e3afa186d5bae3.301a2640"
+to = "497e847739625976.9131f68f"
+
+[[wire]]
+from = "91e3afa186d5bae3.d84ec94f"
+to = "9187a97d7d87a75c.37c6cc47"
+
+[[wire]]
+from = "497e847739625976.d84ec94f"
+to = "9187a97d7d87a75c.3fbd40e4"
+
+[[input]]
+key = "47486110"
+name = "a"
+pos = [-240.0, 0.0]
+to = ["91e3afa186d5bae3.9131f68f"]
+
+[[input]]
+key = "27379ee4"
+name = "b"
+pos = [-240.0, 100.0]
+to = ["91e3afa186d5bae3.1e8b06d1"]
+
+[[input]]
+key = "1395fdff"
+name = "carry in"
+pos = [-240.0, 200.0]
+to = ["497e847739625976.1e8b06d1"]
+
+[[output]]
+key = "fc3b813e"
+name = "sum"
+pos = [720.0, 0.0]
+from = "497e847739625976.301a2640"
+
+[[output]]
+key = "3273375a"
+name = "carry out"
+pos = [720.0, 100.0]
+from = "9187a97d7d87a75c.67d0fbe0"

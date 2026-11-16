@@ -30,7 +30,7 @@ Ask the owner. Do not decide these alone.
 10. Stop. Decided: the top bar has a **Stop** button next to **Pause**. Stop asks the nodes to stop, and never kills a thread (15.2). Agent decision of 2026-11-15. The owner can change it.
 11. Side effects while editing: which batch nodes run again after a parameter change (9.1)? How does Patina prevent repeated writes to files or to the network while the user drags a slider? Decided: a change runs all the batch nodes again, and the engine merges the changes that come during a run into one next run. A parameter field and a slider apply their value when the user ends the edit, so a drag runs the graph one time (9.1). Agent decision of 2026-11-15. The owner can change it.
 12. Live values in a fused chain: a chain of small nodes inlines into one call (9.2). Thus a value between two of them can exist only in registers. How does the engine show it on the wire (15.9)? It can keep a copy point on each wire that the editor shows. It can rebuild the chain with copy points when the user looks at a wire. Or it can show live values only between tasks. Milestones 4 and 6 can measure the cost. Decided: a copy point on each wire. The cluster sends the text of each value that a wire reads after its node runs, also inside a chain (15.9). Agent decision of 2026-11-15. The owner can change it.
-13. Circuit graphs: digital logic needs feedback loops without a frame delay, for example a latch. It also needs a bus with more than one driver, and defined clock edges and steps. The engine refuses a cycle without a delay node (9.2). Does Patina support these with a simulation node that runs the circuit inside it, with a new clock domain, or not in version 1? See the [circuit graph design](../circuit-graph-design.md).
+13. Circuit graphs: digital logic needs feedback loops without a frame delay, for example a latch. It also needs a bus with more than one driver, and defined clock edges and steps. The engine refuses a cycle without a delay node (9.2). Does Patina support these with a simulation node that runs the circuit inside it, with a new clock domain, or not in version 1? See the [circuit graph design](../circuit-graph-design.md). Decided for version 1: a synchronous model without an engine change. One frame is one clock step. A `delay` node is a D flip-flop, so a register is a delay and a counter is a loop through delays. A cycle without a delay, for example a latch of two NAND gates, stays refused (9.2). A wire has one driver, so a shared bus uses an explicit multiplexer. A simulation node with its own propagation can come later. The `examples/computer` project shows the model. Agent decision of 2026-11-15. The owner can change it.
 
 ## 19. Milestones
 
@@ -50,7 +50,7 @@ Ask the owner. Do not decide these alone.
 8. **Packaging.**
 9. **GPU:** shared context, GPU types, shader nodes with WESL (10.1).
 10. **Views:** the `Graph` handle and the viewport (15.8).
-11. **Audio domain.** Check: a slow `ui` function of an audio node while audio runs. The audio domain misses no deadline, and the GUI holds no lock that the audio thread waits for (4.3).
+11. **Audio domain.** Paused after step 2 on 2026-11-15: the owner put the circuit graphs first (question 13). Check: a slow `ui` function of an audio node while audio runs. The audio domain misses no deadline, and the GUI holds no lock that the audio thread waits for (4.3).
 12. **Event domain:** async nodes and trigger nodes.
 
 Each milestone gives a tool that works.

@@ -1,11 +1,31 @@
 # Status
 
-The current milestone is milestone 11, the audio domain (spec section 19). Milestone 10, views,
+The current work is the circuit graphs of question 13 (spec section 18): build a computer from
+NAND gates. The owner put this work first on 2026-11-15. Milestone 11, the audio domain, is
+paused after its step 2. Milestone 10, views,
 ended on 2026-11-15. Milestone 9, the GPU, ended on 2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
 a download that the owner did not approve yet. Milestones 2 to 10 work, with the open items in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
+
+## Circuit graphs
+
+The model is synchronous: one frame is one clock step, and a delay node is a D flip-flop (spec
+18, question 13). The model needs no engine change.
+
+### Plan
+
+1. Done: `examples/computer`. The gates, the adders and a 4-bit counter are subgraphs of one
+   `nand` node. A `readout` node shows 4 bits as lamps in its GUI.
+2. A register with a load input, a multiplexer, and a small memory.
+3. A small CPU: a program counter, an instruction register and an ALU.
+
+### Checked
+
+- On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 16 frames. Readout
+  A shows the count 0 to 15, and readout B the count plus 3, modulo 16.
+- The GUI of the readout node was not looked at in the editor.
 
 ## Milestone 11: the audio domain
 
@@ -18,7 +38,7 @@ at each block of samples (spec 9.3).
    latest-value wires without a lock. The CLI runs the blocks on a timer, between the frames.
 2. Done: audio output to the default device with `cpal`. A node plays a block with
    `patina_sdk::audio::play`. The timer stays when there is no device.
-3. Node GUIs of audio nodes: settings, messages and display values (4.3).
+3. Deferred by the owner on 2026-11-15: node GUIs of audio nodes (4.3).
 4. The audio thread, apart from the frames. The milestone check: a slow `ui` of an audio node
    does not make a block late.
 5. The editor runs the audio domain with the frames. **Stop** stops it.

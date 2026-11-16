@@ -1,0 +1,121 @@
+format = 1
+
+[[node]]
+id = "2b8e27d7337ff02e"
+folder = "nodes/switch"
+pos = [0.0, 0.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "3f2d1c238b37761f"
+builtin = "delay"
+pos = [480.0, 0.0]
+
+[[node]]
+id = "ef86dc2557a79b93"
+builtin = "delay"
+pos = [480.0, 100.0]
+
+[[node]]
+id = "3de03997df5bc8ba"
+builtin = "delay"
+pos = [480.0, 200.0]
+
+[[node]]
+id = "2eeebe4df7ab7e20"
+builtin = "delay"
+pos = [480.0, 300.0]
+
+[[node]]
+id = "d2e0e0a15a05b769"
+subgraph = "half-adder"
+pos = [240.0, 0.0]
+
+[[node]]
+id = "acf9a11c76f4c17e"
+subgraph = "half-adder"
+pos = [240.0, 100.0]
+
+[[node]]
+id = "5d85349a8f6ec1e4"
+subgraph = "half-adder"
+pos = [240.0, 200.0]
+
+[[node]]
+id = "b3748e4c7ceb8cd3"
+subgraph = "half-adder"
+pos = [240.0, 300.0]
+
+[[wire]]
+from = "2b8e27d7337ff02e.out"
+to = "d2e0e0a15a05b769.1e8b06d1"
+
+[[wire]]
+from = "3f2d1c238b37761f.out"
+to = "d2e0e0a15a05b769.9131f68f"
+
+[[wire]]
+from = "d2e0e0a15a05b769.301a2640"
+to = "3f2d1c238b37761f.value"
+
+[[wire]]
+from = "ef86dc2557a79b93.out"
+to = "acf9a11c76f4c17e.9131f68f"
+
+[[wire]]
+from = "acf9a11c76f4c17e.301a2640"
+to = "ef86dc2557a79b93.value"
+
+[[wire]]
+from = "d2e0e0a15a05b769.d84ec94f"
+to = "acf9a11c76f4c17e.1e8b06d1"
+
+[[wire]]
+from = "3de03997df5bc8ba.out"
+to = "5d85349a8f6ec1e4.9131f68f"
+
+[[wire]]
+from = "5d85349a8f6ec1e4.301a2640"
+to = "3de03997df5bc8ba.value"
+
+[[wire]]
+from = "acf9a11c76f4c17e.d84ec94f"
+to = "5d85349a8f6ec1e4.1e8b06d1"
+
+[[wire]]
+from = "2eeebe4df7ab7e20.out"
+to = "b3748e4c7ceb8cd3.9131f68f"
+
+[[wire]]
+from = "b3748e4c7ceb8cd3.301a2640"
+to = "2eeebe4df7ab7e20.value"
+
+[[wire]]
+from = "5d85349a8f6ec1e4.d84ec94f"
+to = "b3748e4c7ceb8cd3.1e8b06d1"
+
+[[output]]
+key = "f6bc0840"
+name = "q0"
+pos = [720.0, 0.0]
+from = "3f2d1c238b37761f.out"
+
+[[output]]
+key = "f6f4f8a5"
+name = "q1"
+pos = [720.0, 100.0]
+from = "ef86dc2557a79b93.out"
+
+[[output]]
+key = "095c6111"
+name = "q2"
+pos = [720.0, 200.0]
+from = "3de03997df5bc8ba.out"
+
+[[output]]
+key = "ab784846"
+name = "q3"
+pos = [720.0, 300.0]
+from = "2eeebe4df7ab7e20.out"

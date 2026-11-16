@@ -77,6 +77,8 @@ impl CurveEditor {
 
 **Audio nodes**
 
+The owner deferred the GUI of audio nodes on 2026-11-15: the settings, the messages and the display values below. The design stays for a later milestone. Until then, an audio node has no `ui` function.
+
 The audio thread has a hard deadline (9.3). So the `ui` function of an audio node never runs on the audio thread, and it never gets the node state:
 
 ```rust

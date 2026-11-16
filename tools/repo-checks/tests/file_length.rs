@@ -46,6 +46,8 @@ fn the_check_finds_a_long_file_and_skips_build_output() {
     write("web/node_modules/dep/index.js", MAX_LINES + 1);
     write(".git/hook.sh", MAX_LINES + 1);
     write("toolchain/lib.rs", MAX_LINES + 1);
+    write("example/patina.toml", 1);
+    write("example/build/clusters/main/lib.rs", MAX_LINES + 1);
 
     let files = source_files(&root).unwrap();
     let mut found: Vec<String> = too_long(&files, MAX_LINES)

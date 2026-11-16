@@ -238,6 +238,20 @@ A node uses CUDA with the `patina-cuda` crate. `cuda()` gives the shared context
 `Cuda::kernel` compiles CUDA C++ at run time. It needs the NVIDIA driver and the NVRTC library
 of the CUDA Toolkit 12.
 
+## Logic circuits
+
+A graph can be a digital circuit. The `examples/computer` project has one node for the gate,
+`nand`. The other gates, the adders and a 4-bit counter are subgraphs of NAND gates. Each frame
+is one clock step. A `delay` node keeps a bit for one step, as a flip-flop does. A loop in the
+circuit needs a delay. Run the example:
+
+```
+cargo run -p patina-cli -- run examples/computer --frames 16
+```
+
+Each frame writes the count and the count plus 3, for example `0101 5` and `1000 8`. In the
+editor, the two `readout` nodes show the bits as lamps.
+
 ## Install
 
 Patina will come in two editions, on GitHub Releases.

@@ -1,0 +1,17 @@
+# Made by Patina. Patina writes this file again at each build.
+[workspace]
+resolver = "3"
+members = ["nodes/*", "build/clusters/*"]
+
+[workspace.dependencies]
+patina-sdk = { path = "build/sdk/patina-sdk" }
+patina-gpu = { path = "build/sdk/patina-gpu" }
+patina-cuda = { path = "build/sdk/patina-cuda" }
+
+[profile.edit]
+inherits = "dev"
+debug-assertions = false
+
+[profile.bake]
+inherits = "release"
+codegen-units = 1

@@ -40,7 +40,7 @@ pub fn repo_root() -> PathBuf {
 }
 
 /// Finds each source file below `root` and counts its lines.
-/// Hidden folders and the skipped folders are not read.
+/// Hidden folders, the skipped folders and the `build` folder of a Patina project are not read.
 pub fn source_files(root: &Path) -> io::Result<Vec<SourceFile>> {
     let mut files = Vec::new();
     let mut folders = vec![root.to_path_buf()];
@@ -54,7 +54,8 @@ pub fn source_files(root: &Path) -> io::Result<Vec<SourceFile>> {
                 let at_root = folder == root;
                 let skipped = name.starts_with('.')
                     || SKIPPED_FOLDERS.contains(&name.as_ref())
-                    || (at_root && SKIPPED_ROOT_FOLDERS.contains(&name.as_ref()));
+                    || (at_root && SKIPPED_ROOT_FOLDERS.contains(&name.as_ref()))
+                    || (name == "build" && folder.join("patina.toml").is_file());
                 if !skipped {
                     folders.push(path);
                 }

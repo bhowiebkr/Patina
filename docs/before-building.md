@@ -77,8 +77,9 @@ Later milestones:
 - [ ] **Q4, process isolation on or off by default.** An optional target (16).
 - [ ] **Q5, Zig and Xcode on macOS.** A test on macOS can answer it.
 - [ ] **Q6, app mode.** Milestones 8 and 10, packaging and views.
-- [ ] **Q13, circuit graphs.** Feedback without a frame delay, buses with more than one driver,
-  and clock edges. A simulation node, a new clock domain, or not in version 1. See the
+- [x] **Q13, circuit graphs.** Agent decision of 2026-11-15: a synchronous model. One frame is
+  one clock step, a delay is a D flip-flop, a cycle needs a delay, and a bus uses a multiplexer.
+  `examples/computer` counts and adds with NAND gates. See the
   [circuit graph design](circuit-graph-design.md).
 
 ## 4. Connections
