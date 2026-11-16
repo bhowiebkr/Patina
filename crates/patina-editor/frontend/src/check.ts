@@ -169,8 +169,8 @@ fn broken() -> u32 {
     steps.push('the Code tab keeps the cursor');
 
     // The fixed code also panics at 13 (15.3), and waits while the value is 99 until the user
-    // clicks Stop (15.2). It crashes at 66, overflows its stack at 55, does not stop at 77 and
-    // prints without a pause at 88 until Stop (16.1).
+    // clicks Stop (15.2). It crashes at 66, overflows its stack at 55, allocates 1 TB at 44, does
+    // not stop at 77 and prints without a pause at 88 until Stop (16.1).
     const stoppable = original.replace(/    value\r?\n\}/, `    assert!(value != 13.0, "the check panics at 13");
     if value == 66.0 {
         unsafe { (8usize as *mut u8).write_volatile(1) }
@@ -181,6 +181,9 @@ fn broken() -> u32 {
             if n > 0.0 { deep(n + 1.0) + a[1] } else { a[0] }
         }
         return deep(value);
+    }
+    if value == 44.0 {
+        std::hint::black_box(vec![1u8; 1 << 40]);
     }
     while value == 77.0 {
         std::thread::sleep(std::time::Duration::from_millis(5));

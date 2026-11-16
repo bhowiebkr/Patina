@@ -40,7 +40,8 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   made the editor use more than 2 GB and stop.
 - On Windows, the node process runs in a job object (spec 16.1). The processes that it started
   end with it and with the editor. The job limits the memory to three quarters of the physical
-  memory, so a node that leaks memory ends its node process, not the editor.
+  memory, so a node that leaks memory ends its node process, not the editor. The failure text
+  then names the limit.
 
 ### What was checked
 
@@ -62,6 +63,8 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - `cargo test -p patina-engine`: the remote names the node of an active event run. The hidden
   selfcheck fires a trigger with an event node that does not stop. The second **Stop** ends it.
   Then an event node writes to a bad address, and the crash text names the node.
+- The hidden selfcheck on Windows: a node allocates 1 TB. The failure text names the memory limit,
+  and the undo runs in a new node process.
 - Linux and macOS did not run.
 
 ### Known limits
@@ -73,7 +76,6 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - A crash outside a run shows on the serial of the last run or open.
 - Node code that nests deeper than about 1000 levels still overflows the parse stack in a debug
   build. A child process for the parse is the full fix.
-- When the memory limit stops a node, **Output** shows only the allocation error, not the limit.
 - On Linux and macOS, the processes that a node starts do not end with the node process, and the
   memory has no limit.
 

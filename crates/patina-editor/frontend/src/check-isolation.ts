@@ -50,6 +50,20 @@ export async function checkIsolation({ step, until, mark, result, events, steps 
   }
   steps.push('a crash ends only the node process');
 
+  // The value 44 allocates more than the memory limit of the job, which is only on Windows.
+  if (windows) {
+    v = await step('pause before the memory limit', () => api.pause());
+    v = await step('a value over the memory limit', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '44' }));
+    from = mark();
+    v = await step('run a node over the memory limit', () => api.run());
+    const lost = await failure(v, from);
+    if (!/The memory limit of the node process is \d+ MB\./.test(lost.text)) throw new Error(`the failure text has no memory limit: ${lost.text}`);
+    from = mark();
+    v = await step('undo the value over the memory limit', () => api.undo());
+    await result(v, from, '2.5', BUILD_MS);
+    steps.push('a node over the memory limit names the limit');
+  }
+
   const runningA = async () => {
     const waitEnd = Date.now() + RUN_MS;
     while ((await api.running()) !== A) {

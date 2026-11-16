@@ -263,7 +263,13 @@ impl Host {
         let mut child = command.spawn()?;
         // The node process starts no process before its first job, so a job after the start is in time.
         #[cfg(windows)]
-        let job = job::Job::new(&child, job::memory_limit()).inspect_err(|e| eprintln!("patina: the node process has no job object: {e}")).ok();
+        let limit = job::memory_limit();
+        #[cfg(not(windows))]
+        let limit = None;
+        #[cfg(windows)]
+        let job = job::Job::new(&child, limit).inspect_err(|e| eprintln!("patina: the node process has no job object: {e}")).ok();
+        #[cfg(windows)]
+        let limit = limit.filter(|_| job.is_some());
         let stdin = child.stdin.take().expect("the standard input is piped");
         let stdout = child.stdout.take().expect("the standard output is piped");
         let stderr = child.stderr.take().expect("the standard error is piped");
@@ -294,7 +300,8 @@ impl Host {
             let status = lock(&read_child).wait();
             if !read_killed.load(Ordering::SeqCst) {
                 let serial = lock(&inner.state).serial;
-                fail(&inner, serial, &exit_text(status), &lock(&tail));
+                let tail = lock(&tail);
+                fail(&inner, serial, &exit_text(status, &tail, limit), &tail);
             }
         })?;
         Ok(Proc {
@@ -352,9 +359,15 @@ fn fail(inner: &Inner, serial: u64, text: &str, tail: &str) {
     let _ = inner.app.emit("engine", Event::Lost { serial, text });
 }
 
-fn exit_text(status: std::io::Result<ExitStatus>) -> String {
+/// The text of an end without a request. When the last error text `tail` shows a failed
+/// allocation, it also names the memory `limit` of the job (16.1).
+fn exit_text(status: std::io::Result<ExitStatus>, tail: &str, limit: Option<usize>) -> String {
     let status = status.map_or_else(|e| e.to_string(), |status| status.to_string());
-    format!("The node process stopped without a request ({status}). The node states and the live values are lost. The next run starts a new node process.")
+    let text = format!("The node process stopped without a request ({status}). The node states and the live values are lost. The next run starts a new node process.");
+    match limit {
+        Some(limit) if tail.contains("memory allocation of") => format!("{text} The memory limit of the node process is {} MB.", limit >> 20),
+        _ => text,
+    }
 }
 
 /// Adds `text` to the last error text, and keeps only its last `TAIL` bytes.
@@ -376,6 +389,14 @@ mod tests {
     use super::*;
     use crate::engine::GuiInput;
     use crate::views::ViewReply;
+
+    #[test]
+    fn a_failed_allocation_names_the_memory_limit() {
+        let oom = "memory allocation of 268435456 bytes failed\n";
+        assert!(exit_text(Err(std::io::ErrorKind::Other.into()), oom, Some(1 << 30)).ends_with(" is 1024 MB."));
+        assert!(!exit_text(Err(std::io::ErrorKind::Other.into()), oom, None).contains("MB"));
+        assert!(!exit_text(Err(std::io::ErrorKind::Other.into()), "panicked", Some(1 << 30)).contains("MB"));
+    }
 
     #[test]
     fn messages_cross_the_pipe() {
