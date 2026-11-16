@@ -326,8 +326,9 @@ change it.)
 
 - A view folder is a crate with `crate-type = ["cdylib"]`. **New view** in the **Project** panel
   makes the folder with a start view.
-- `#[view]` writes four exports: `patina_abi_version`, `patina_view_new`, `patina_view_ui` and
-  `patina_view_free`. The writes of the view use the report kind `EDIT`. The ABI version stays 14.
+- `#[view]` writes five exports: `patina_abi_version`, `patina_view_host`, `patina_view_new`,
+  `patina_view_ui` and `patina_view_free`. `patina_view_host` takes the shared GPU context and
+  the project folder before the first call. The writes of the view use the report kind `EDIT`. The ABI version stays 14.
 - The engine builds a view in edit mode on its first `ui` call. It copies the library to
   `build/loaded/view.<name>.<hash>`, with the Rust runtime, as for the clusters (8.5).
 - The `Graph` handle is a copy of the open graph as text lines: the nodes, the parameters, the
@@ -343,13 +344,30 @@ change it.)
   one in the panel. The panel asks for the widget lines at the display rate while it shows.
 - A save of the code of a view drops the loaded view and does not build the clusters. The next
   `ui` call builds the view again. After a panic, the next call makes a new state.
+- `Ui::viewport` shows a viewport and returns its place and input: the window handle, the
+  window size, the area, the pointer and the wheel, in physical pixels. The page sends the place
+  at each display frame.
+- The view keeps a `patina_gpu::ViewportSurface` in its state and calls `draw` in its `ui` call,
+  on the engine thread. Thus there is no render thread and no scissor in version 1. A window
+  has one surface, so it shows one viewport.
+- `draw` renders into a texture of the area size and copies it into the window surface at the
+  area. The rest of the window clears to the page color #141414. The surface uses Mailbox when
+  it can, so `draw` does not wait for the display. There is no depth buffer yet.
+- On Windows, the editor window is transparent. While a viewport shows, the page root and each
+  parent of the viewport are transparent. Thus the **View** panel shows the page color around
+  the viewport.
+- The shared GPU context loads the view library before its first call, so a view uses the same
+  device as the nodes. On Windows, the context uses only DX12.
+- A node GUI shows a note in place of a viewport. On Linux and macOS, a view shows the note too.
 
 The limits of version 1:
 
 - One instance of each view, in one panel. No float window.
 - No typed outputs through type crates (rule 3). A view reads the text of an output.
 - No trigger (9.4), no selection, no subgraph edits and no reads of node states or errors.
-- No viewport, and no bake build of a view.
+- One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node
+  GUIs. No key events on the viewport.
+- No bake build of a view.
 
 ### 15.9 Connections and routing
 

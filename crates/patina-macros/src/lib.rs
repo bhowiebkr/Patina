@@ -70,6 +70,12 @@ const VIEW_EXPORTS: &str = "
 pub extern \"C\" fn patina_abi_version() -> u32 { ::patina_sdk::glue::ABI_VERSION }
 #[doc(hidden)]
 #[unsafe(no_mangle)]
+pub unsafe extern \"C\" fn patina_view_host(share: ::patina_sdk::glue::ShareFn, root: *const u8, len: usize) {
+    // SAFETY: the engine gives `len` bytes at `root`.
+    unsafe { ::patina_sdk::glue::set_host(share, root, len) }
+}
+#[doc(hidden)]
+#[unsafe(no_mangle)]
 pub extern \"C\" fn patina_view_new() -> *mut ::core::ffi::c_void { ::patina_sdk::glue::view_new(NAME::init) }
 #[doc(hidden)]
 #[unsafe(no_mangle)]

@@ -51,6 +51,13 @@ test('value widgets read their data, and a bad line keeps its index', () => {
   ]);
 });
 
+test('a viewport has a height in the limits', () => {
+  assert.deepEqual(parseTree('viewport\tScene\t99999\nviewport\tBad\t0\nviewport\t\t240'), [
+    { kind: 'viewport', index: 0, text: 'Scene', height: 4096 },
+    { kind: 'viewport', index: 2, text: '', height: 240 },
+  ]);
+});
+
 test('a canvas keeps its good shapes and limits its size', () => {
   const shapes = ['line 0 0 8 8 #010203', 'rect 1 1 -2 2 #000000 1', 'circle 5 5 2.5 #ff0010 1', 'text 1 15 #000000 a  b', 'line 0 0 8 #010203', 'oval 1 1 1 #000000', 'rect 0 0 1 1 red 0'];
   assert.deepEqual(parseTree(`canvas\tDot\t40\t99999\t${shapes.join('\t')}\ncanvas\tBad\t0\t5`), [

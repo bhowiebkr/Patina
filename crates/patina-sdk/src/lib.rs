@@ -9,7 +9,7 @@ mod view;
 
 pub use graph::Graph;
 pub use patina_macros::{connection, node, view};
-pub use ui::{Canvas, Mode, Number, Pointer, Response, Ui, Widget};
+pub use ui::{Canvas, Mode, Number, Pointer, Response, Ui, Viewport, Widget};
 pub use view::{Lanes, Text, Viewer};
 
 /// One value of type `T` for the whole process, also across clusters (10.2). The first call makes

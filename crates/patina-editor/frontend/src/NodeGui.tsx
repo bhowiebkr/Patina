@@ -4,6 +4,7 @@ import { createContext, memo, useContext, useEffect, useRef, useState, type CSSP
 import { api } from './api';
 import { eventLine, parseTree, type Shape, type Widget } from './gui';
 import { ColorPicker, Curve, Picture, Plot, Table, Waveform } from './ValueWidgets';
+import { ViewportView } from './Viewport';
 
 interface Props {
   id: string;
@@ -150,8 +151,17 @@ function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
   return <GuiWidgets tree={tree} disabled={disabled} label="Node controls" send={send} />;
 }
 
+interface WidgetsProps {
+  tree: string;
+  disabled: boolean;
+  label: string;
+  send: (line: string) => void;
+  /** The native window handle for a viewport. Only a view gives it in version 1 (15.8). */
+  window?: number;
+}
+
 /** Draws widget lines. `send` gets the event line of each user input. A view uses it too (15.8). */
-export function GuiWidgets({ tree, disabled, label, send: sendLine }: { tree: string; disabled: boolean; label: string; send: (line: string) => void }) {
+export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsProps) {
   const send = (index: number) => (value: number | string) => sendLine(eventLine(index, value));
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
@@ -197,6 +207,8 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine }: { tree: st
             );
           case 'canvas':
             return <CanvasView key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'viewport':
+            return <ViewportView key={w.index} w={w} send={send(w.index)} disabled={disabled} window={window} />;
           case 'color':
             return <ColorPicker key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'plot':

@@ -19,9 +19,15 @@ export function ViewPanel({ name, revision, trusted, onView }: Props) {
   const [tree, setTree] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [handle, setHandle] = useState(0);
   const events = useRef<string[]>([]);
   const show = useRef(onView);
   show.current = onView;
+
+  useEffect(() => {
+    // Without the handle, a viewport shows a note in place of the scene.
+    api.windowHandle().then(setHandle, () => {});
+  }, []);
 
   useEffect(() => {
     if (!name || !trusted) return;
@@ -64,7 +70,7 @@ export function ViewPanel({ name, revision, trusted, onView }: Props) {
       </>
     );
   else if (tree === null) body = <div className="item empty">Building the view</div>;
-  else body = <GuiWidgets tree={tree} disabled={false} label="View controls" send={(line) => events.current.push(line)} />;
+  else body = <GuiWidgets tree={tree} disabled={false} label="View controls" send={(line) => events.current.push(line)} window={handle} />;
   return (
     <aside className="panel" aria-label="View">
       {name && <div className="panel-title">{name}</div>}

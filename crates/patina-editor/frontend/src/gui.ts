@@ -10,6 +10,7 @@ export type Widget =
   | { kind: 'text'; index: number; text: string; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[] }
+  | { kind: 'viewport'; index: number; text: string; height: number }
   | { kind: 'color'; index: number; text: string; value: string }
   | { kind: 'plot'; index: number; text: string; low: number; high: number; values: number[] }
   | { kind: 'waveform'; index: number; text: string; playhead: number | null; columns: [number, number][] }
@@ -105,7 +106,8 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'canvas' && value > 0 && low > 0) {
       const shapes = rest.slice(2).flatMap((f) => parseShape(f) ?? []);
       widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes });
-    } else {
+    } else if (kind === 'viewport' && value > 0) widgets.push({ kind, index, text, height: Math.min(value, MAX_SIDE) });
+    else {
       const widget = parseValue(kind, index, text, rest);
       if (widget) widgets.push(widget);
     }

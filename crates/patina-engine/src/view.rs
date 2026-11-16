@@ -11,6 +11,7 @@ use crate::load::Value;
 use crate::project::GraphFile;
 
 type VersionFn = unsafe extern "C" fn() -> u32;
+type HostFn = unsafe extern "C" fn(glue::ShareFn, *const u8, usize);
 type NewFn = unsafe extern "C" fn() -> *mut c_void;
 type UiFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const u8, usize, *const Reporter) -> bool;
 type FreeFn = unsafe extern "C" fn(*mut c_void);
@@ -35,9 +36,10 @@ pub struct Frame {
 }
 
 impl View {
-    /// Loads the view library at `path` from `Project::build_view`. The state is made on the first
-    /// call of `ui`.
-    pub fn load(path: &Path) -> Result<View, String> {
+    /// Loads the view library at `path` from `Project::build_view`. The view shares the values of
+    /// `patina_sdk::shared` with the clusters of the project `root`, for example the GPU context
+    /// (10.2). The state is made on the first call of `ui`.
+    pub fn load(path: &Path, root: &Path) -> Result<View, String> {
         let fail = |text: String| format!("{}: {text}", path.display());
         let library = open(path).map_err(|e| fail(e.to_string()))?;
         let missing = |e: libloading::Error| fail(e.to_string());
@@ -47,6 +49,10 @@ impl View {
             if version() != glue::ABI_VERSION {
                 return Err(fail("the view has another ABI version. Build it again".to_owned()));
             }
+            let host: HostFn = symbol(&library, b"patina_view_host\0").map_err(missing)?;
+            // The same root text as for the clusters (library.rs), so the keys of shared values match.
+            let root = root.to_string_lossy();
+            host(glue::share, root.as_ptr(), root.len());
             let new: NewFn = symbol(&library, b"patina_view_new\0").map_err(missing)?;
             let ui: UiFn = symbol(&library, b"patina_view_ui\0").map_err(missing)?;
             let free: FreeFn = symbol(&library, b"patina_view_free\0").map_err(missing)?;

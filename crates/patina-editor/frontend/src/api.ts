@@ -285,6 +285,8 @@ export const api = {
   viewUi: (name: string, events: string) => invoke<{ tree: string; view: View | null }>('view_ui', { name, events }),
   /** Drops a view, so the next call builds it again. */
   closeView: (name: string) => invoke<void>('close_view', { name }),
+  /** The native handle of the editor window for a viewport, or 0 where a viewport cannot draw. */
+  windowHandle: () => invoke<number>('window_handle'),
   /**
    * Adds a crate of crates.io, `name` or `name@version`, or a widget folder of the project to a
    * node or widget folder, for example `nodes/number` (15.4).

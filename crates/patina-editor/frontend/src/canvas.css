@@ -153,6 +153,19 @@
   gap: 4px;
 }
 
+/* A viewport (15.8). The view draws under the page, so the area and its parents go transparent. */
+.gui-viewport {
+  width: 100%;
+  background: var(--field);
+  touch-action: none;
+}
+
+html.native-viewport,
+html.native-viewport :has(.gui-viewport),
+html.native-viewport .gui-viewport {
+  background: transparent;
+}
+
 .gui-canvas {
   display: block;
   background: var(--field);

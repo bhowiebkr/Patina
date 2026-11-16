@@ -62,6 +62,23 @@ pub enum Pointer {
     Up([f32; 2]),
 }
 
+/// The place and the input of a viewport (15.8). A view draws into it with
+/// `patina_gpu::ViewportSurface`. The sizes are in physical pixels.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Viewport {
+    /// The native handle of the editor window, a `HWND` on Windows. 0 until the editor shows the
+    /// viewport.
+    pub window: u64,
+    /// The width and the height of the window.
+    pub window_size: [u32; 2],
+    /// The area of the viewport in the window: x, y, width and height.
+    pub rect: [u32; 4],
+    /// The pointer inputs since the last call of `ui`, from the top left corner of the area.
+    pub pointer: Vec<Pointer>,
+    /// The wheel movement since the last call of `ui`, in pixels of the page. Down is positive.
+    pub wheel: f32,
+}
+
 /// A drawing area of a node GUI (4.3). The draw calls add shapes in pixels from the top left
 /// corner. A color is red, green and blue.
 pub struct Canvas<'a> {
@@ -185,6 +202,25 @@ impl Ui {
         let _ = write!(self.tree, "\t{}\t{}", size[0], size[1]);
         let pointer = self.events.iter().filter(|(i, _)| *i == index).filter_map(|(_, v)| pointer(v)).collect();
         Canvas { tree: &mut self.tree, pointer }
+    }
+
+    /// Shows a viewport of `height` pixels and the full width (15.8). In version 1, the editor
+    /// shows it only in a view.
+    pub fn viewport(&mut self, text: &str, height: f32) -> Viewport {
+        let index = self.next;
+        self.push("viewport", text);
+        let _ = write!(self.tree, "\t{height}");
+        let mut viewport = Viewport::default();
+        for (_, event) in self.events.iter().filter(|(i, _)| *i == index) {
+            if let Some((window, [ww, wh, x, y, w, h])) = event.strip_prefix("place ").and_then(place) {
+                (viewport.window, viewport.window_size, viewport.rect) = (window, [ww, wh], [x, y, w, h]);
+            } else if let Some(d) = event.strip_prefix("wheel ").and_then(|d| d.parse().ok()).filter(|d: &f32| d.is_finite()) {
+                viewport.wheel += d;
+            } else if let Some(p) = pointer(event) {
+                viewport.pointer.push(p);
+            }
+        }
+        viewport
     }
 
     /// Shows a text.
@@ -426,6 +462,18 @@ fn curve_edit(event: &str) -> Option<CurveEdit> {
     }
 }
 
+/// Reads a place event of a viewport: the window, its size and the area, for example
+/// `place 7 800 600 10 20 300 200` without the first word.
+fn place(event: &str) -> Option<(u64, [u32; 6])> {
+    let mut words = event.split(' ');
+    let window = words.next()?.parse().ok()?;
+    let mut numbers = [0; 6];
+    for n in &mut numbers {
+        *n = words.next()?.parse().ok()?;
+    }
+    words.next().is_none().then_some((window, numbers))
+}
+
 /// Reads a pointer event, for example `down 10 20`.
 fn pointer(event: &str) -> Option<Pointer> {
     let mut words = event.split(' ');
@@ -503,6 +551,16 @@ mod tests {
         assert_eq!(lines[2], "canvas\tGrid\t8\t8\tline 0 0 8 8 #010203");
         let mut ui = Ui::new(0, "0 down 1 2\n0 move 3 4\n0 up 5 6");
         assert_eq!(ui.canvas("Drag", [9.0, 9.0]).pointer(), [Pointer::Down([1.0, 2.0]), Pointer::Move([3.0, 4.0]), Pointer::Up([5.0, 6.0])]);
+    }
+
+    #[test]
+    fn a_viewport_reads_its_place_and_input() {
+        let mut ui = Ui::new(0, "0 place 7 800 600 10 20 300 200\n0 down 1 2\n0 wheel 40\n0 wheel -15\n0 place 7 900 600 0 0 1\n0 wheel x\n1 place 9 1 1 0 0 1 1");
+        let viewport = ui.viewport("Scene", 240.0);
+        assert_eq!((viewport.window, viewport.window_size, viewport.rect), (7, [800, 600], [10, 20, 300, 200]));
+        assert_eq!((viewport.pointer, viewport.wheel), (vec![Pointer::Down([1.0, 2.0])], 25.0));
+        assert_eq!(ui.tree(), "viewport\tScene\t240");
+        assert_eq!(Ui::new(0, "").viewport("Empty", 1.0), Viewport::default());
     }
 
     #[test]

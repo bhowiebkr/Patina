@@ -174,6 +174,9 @@ tool.
   later.
 - To make a view, click **+** in the **Views** group of the **Project** panel. Write the view in
   the **Code** tab. A save builds the view again.
+- A view can show a viewport with `ui.viewport` and draw into it with `wgpu`, through
+  `patina_gpu::ViewportSurface`. The `scene` view of `examples/gpu` is an example. On Linux and
+  macOS, a viewport does not show yet.
 
 ## Layers
 

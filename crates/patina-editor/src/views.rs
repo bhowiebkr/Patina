@@ -34,7 +34,7 @@ impl Views {
                 let toolchain = find_toolchain(folder, toolchain).map_err(|e| e.to_string())?;
                 let project = Project::open(&input.root).map_err(|e| e.to_string())?;
                 let library = project.build_view(toolchain, &input.name).map_err(|e| e.to_string())?;
-                self.0.push((input.name.clone(), View::load(&library)?));
+                self.0.push((input.name.clone(), View::load(&library, &input.root)?));
                 self.0.len() - 1
             }
         };

@@ -537,9 +537,17 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     let opened = Project::open(&project).unwrap();
     let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
     cluster.set_params(opened.graph());
-    assert!(cluster.run(&Control::default()).ok);
+    let outcome = cluster.run(&Control::default());
+    assert!(outcome.ok, "{:?}", outcome.reports);
     let tree = cluster.ui("4d5e6f708192a3b4", 0, "").0.unwrap();
     assert!(tree.starts_with("image	Preview	64	16	"), "{tree}");
+
+    // The scene view shows a viewport. Without a window, it reads the wheel and draws nothing (15.8).
+    let library = opened.build_view(&Toolchain::detect().unwrap(), "scene").unwrap();
+    let mut view = patina_engine::view::View::load(&library, &project).unwrap();
+    let tree = view.ui(0, "0 wheel 100", &patina_engine::view::snapshot(opened.graph(), &[])).unwrap().tree;
+    assert!(tree.starts_with("viewport	Scene	320
+label	") && tree.contains("40 %"), "{tree}");
 }
 
 const VIEW: &str = "use patina_sdk::{Graph, Ui, view};
@@ -574,7 +582,7 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     fs::write(project.join("views/panel/src/lib.rs"), VIEW).unwrap();
     let library = opened.build_view(&Toolchain::detect().unwrap(), "panel").unwrap();
     let graph = snapshot(opened.graph(), &[]);
-    let mut view = View::load(&library).unwrap();
+    let mut view = View::load(&library, &project).unwrap();
     let frame = view.ui(0, "", &graph).unwrap();
     assert_eq!(frame.tree, "label\t4 nodes, Some(\"2.5\"), 0 clicks\nbutton\tSet");
     assert!(frame.edits.is_empty());
@@ -586,5 +594,5 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     assert_eq!((id.as_str(), key.as_str(), text.as_str()), ("9bc1790966687030", "value", "5"));
 
     // Each instance has its own state.
-    assert!(View::load(&library).unwrap().ui(0, "", &graph).unwrap().tree.contains("0 clicks"));
+    assert!(View::load(&library, &project).unwrap().ui(0, "", &graph).unwrap().tree.contains("0 clicks"));
 }

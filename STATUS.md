@@ -20,7 +20,8 @@ change the graph (spec 15.8).
 3. More edits from a view: add a node, connect a wire, start a trigger and select nodes. Add,
    remove, connect and disconnect work. Trigger and select do not.
 4. Typed outputs through type crates (15.8 rule 3).
-5. A viewport in a view (15.8), on the native path of the viewport prototype.
+5. A viewport in a view (15.8), on the native path of the viewport prototype. Version 1
+   works on Windows. A render thread and more viewports in a window do not.
 
 ### What works
 
@@ -33,12 +34,18 @@ change the graph (spec 15.8).
 - A view reads the wires. It sets parameters, adds and removes nodes, and connects and
   disconnects wires. The writes of one call go through the edit path as one step of undo.
 - A save of the code of a view builds only the view again.
+- `Ui::viewport` and `patina_gpu::ViewportSurface` draw a viewport into the editor window under
+  the transparent page, on Windows. The `scene` view of `examples/gpu` colors its viewport with
+  the pointer and the wheel.
 
 ### What was checked
 
 - `cargo test --workspace` on Windows: the test
   `a_view_reads_the_graph_and_sets_a_parameter` builds a view, reads the graph, clicks a button
   and gets the edit. A second instance has its own state.
+- `cargo test --workspace` on Windows: `the_gpu_example_draws_a_gradient_with_a_wesl_shader`
+  builds the `scene` view and reads its viewport line and the wheel. The sdk and gpu tests read
+  the place events and skip a draw before the place.
 - The editor self-check on Windows: it makes a view, opens it from the **Views** menu, clicks
   **Set**, sees the new value and undoes the write.
 - CI builds and tests on Windows, Linux and macOS.
@@ -46,7 +53,13 @@ change the graph (spec 15.8).
 ### Known limits
 
 - The limits of version 1 are in spec 15.8: one instance, no float window, text outputs only,
-  no trigger, no selection, no viewport and no bake build.
+  no trigger, no selection, one viewport on Windows only, and no bake build.
+- Nobody looked at a viewport in the editor yet. The self-check keeps its window hidden, so it
+  cannot show the surface. The colors, the resize and the scroll clip need a check on screen.
+- A viewport draws in the `ui` call on the engine thread, so a slow run delays its frames.
+- On 2026-11-15, the in-process run of `the_gpu_example_draws_a_gradient_with_a_wesl_shader`
+  failed one time in a parallel test run. Four more parallel runs passed. The assert now shows
+  the node reports, so the next failure gives the cause.
 - The first open of a view builds it on the engine thread. A frame run waits for this build.
 - The view did not run on Linux or macOS. Only CI built it there.
 

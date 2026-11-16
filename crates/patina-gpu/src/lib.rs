@@ -5,6 +5,7 @@
 
 mod image;
 mod link;
+mod viewport;
 
 use std::future::Future;
 use std::pin::pin;
@@ -13,10 +14,12 @@ use std::task::{Context, Poll, Waker};
 
 pub use image::GpuImage;
 pub use link::{PACKAGE, link, link_source};
+pub use viewport::ViewportSurface;
 pub use wgpu;
 
 /// The shared GPU context.
 pub struct Gpu {
+    pub instance: wgpu::Instance,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -33,7 +36,12 @@ pub fn gpu() -> Result<&'static Gpu, String> {
 }
 
 fn open() -> Result<Gpu, String> {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());
+    let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+    // The viewport surface under the web view needs DX12 on Windows (15.8).
+    if cfg!(windows) {
+        desc.backends = wgpu::Backends::DX12;
+    }
+    let instance = wgpu::Instance::new(desc.with_env());
     let fast = wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() };
     let soft = wgpu::RequestAdapterOptions { force_fallback_adapter: true, ..Default::default() };
     let adapter = block_on(instance.request_adapter(&fast))
@@ -42,7 +50,7 @@ fn open() -> Result<Gpu, String> {
     let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).map_err(|e| e.to_string())?;
     // The default handler stops the process. Each call that can fail uses an error scope.
     device.on_uncaptured_error(Arc::new(|error| eprintln!("Patina: GPU error: {error}")));
-    Ok(Gpu { adapter, device, queue })
+    Ok(Gpu { instance, adapter, device, queue })
 }
 
 impl Gpu {

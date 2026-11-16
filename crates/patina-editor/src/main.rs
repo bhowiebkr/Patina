@@ -22,6 +22,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE};
 use tauri::http::{Request, Response, StatusCode};
+#[cfg(not(windows))]
 use tauri::window::Color;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
@@ -132,8 +133,12 @@ fn build_window(app: &AppHandle, webview_dir: PathBuf, check: bool) -> tauri::Re
     let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::CustomProtocol(url))
         .title("Patina")
         .data_directory(webview_dir)
-        .inner_size(1440.0, 900.0)
-        .background_color(Color(0x14, 0x14, 0x14, 0xff));
+        .inner_size(1440.0, 900.0);
+    // A viewport draws on the window under the web view, so the web view is transparent (15.8).
+    #[cfg(windows)]
+    let builder = builder.transparent(true);
+    #[cfg(not(windows))]
+    let builder = builder.background_color(Color(0x14, 0x14, 0x14, 0xff));
     let builder = if check {
         // Off-screen and not focused: the check must not take the desktop (AGENTS.md).
         builder
@@ -147,6 +152,20 @@ fn build_window(app: &AppHandle, webview_dir: PathBuf, check: bool) -> tauri::Re
         builder.maximized(true)
     };
     builder.build()
+}
+
+/// The native handle of the editor window, for a viewport (15.8).
+#[cfg(windows)]
+#[tauri::command]
+fn window_handle(window: WebviewWindow) -> u64 {
+    window.hwnd().map_or(0, |hwnd| hwnd.0 as usize as u64)
+}
+
+/// 0, because a viewport draws only on Windows in this version (15.8).
+#[cfg(not(windows))]
+#[tauri::command]
+fn window_handle() -> u64 {
+    0
 }
 
 /// Writes a failed result and stops the editor when the self-check takes too long.
@@ -204,6 +223,7 @@ fn main() {
             session::new_view,
             session::view_ui,
             session::close_view,
+            window_handle,
             session::add_crate,
             session::import_folders,
             session::import_plan,
