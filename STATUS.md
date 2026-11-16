@@ -43,17 +43,24 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     one line, and nothing draws outside the node (4.3).
 12. Done: the **Step** button runs one frame of the paused graph, as the clock step of a
     breadboard computer. The start screen network is blurred and fills large screens.
-13. Next: an 8-bit data path, so the CPU counts past 15.
+13. Done: an 8-bit data path. A, OUT and the RAM words have 8 bits, the PC has 4 bits and the
+    ROM keeps 16 instructions. ADD adds the RAM word at address k. The program writes the
+    Fibonacci numbers to OUT, and a third display shows the high hex digit of OUT.
+14. Next: an LED bar node, and a subgraph that writes the hex digit of OUT as ASCII to the LCD.
 
 ### Checked
 
-- On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 24 frames. Readout
+- On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 140 frames. Readout
   A shows the count modulo 16, and readout B the count plus 3, modulo 16. Readout C shows the
   accumulator: 0, 5, 10, 15, 4 and so on. Readout D shows the memory: 0 for 4 steps, then the
-  accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. The
-  test compares them with a small emulator of the 7 instructions. The program
-  takes each conditional jump and skips it, and reads a stored word from the RAM. The first display gives the
-  segments of the 16 hex digits, and the second the segments of OUT. The test took 12.2 s.
+  accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the 8-bit CPU.
+  The test compares them with a small emulator of the 8 instructions. OUT shows 1, 1, 2, 3, 5 to
+  233, then 0, 1, 1 after the carry. The first display gives the
+  segments of the 16 hex digits. The second and third displays give the two hex digits of OUT.
+- The 8-bit CPU has 1751 NAND gates. A clean build of its clusters took about 150 s, because
+  each node call was a closure, and rustc checks all closures of one function together. Now
+  the cluster calls each node through `glue::run` with a tuple of its arguments (4.1, 4.7). The
+  same build took 43 s, with the SDK. `patina-cli run` gave the 1400 values of the emulator.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first

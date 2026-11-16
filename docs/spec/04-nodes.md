@@ -17,6 +17,7 @@ pub fn split(text: &str) -> (String, String) { ... }
 ```
 
 - Each parameter is an input pin.
+- A node function has at most 16 parameters, with the `&mut self` of `process` (4.2). The fused cluster calls each node through a tuple of its arguments, with no closure, so a large graph builds fast. (Agent decision, 2026-11-15. The owner can change it.)
 - The return type is the output pin. A tuple gives one output pin for each element.
 - The source of a node can also have helper functions and `use` statements.
 

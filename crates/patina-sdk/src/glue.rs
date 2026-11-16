@@ -15,7 +15,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::{Lanes, Param, Text, Viewer};
+use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
 pub const ABI_VERSION: u32 = 16;
@@ -416,6 +416,12 @@ pub fn set_param<T: Param>(slot: &mut T, text: &str, rep: &Reporter, node: u32) 
     }
 }
 
+/// Calls node code with a catch (4.7). The `dyn` makes one copy of the catch for all nodes, so
+/// a graph of many nodes builds fast.
+pub fn catch(call: &mut dyn FnMut() -> Result<(), String>) -> std::thread::Result<Result<(), String>> {
+    catch_unwind(AssertUnwindSafe(call))
+}
+
 /// Reports the result of one node call. An `Err` holds the `Debug` text of the node error.
 pub fn finish(caught: std::thread::Result<Result<(), String>>, rep: &Reporter, node: u32) -> bool {
     match caught {
@@ -450,65 +456,6 @@ pub fn drop_value<T>(value: Option<T>, rep: &Reporter, node: u32) -> bool {
         Ok(())
     }));
     finish(caught, rep, node)
-}
-
-/// A held value for its text. The generated code calls `(&&&Probe(v)).text(out)`, so Rust uses
-/// `ViewerText` when the type implements `Viewer`, then `DebugText` for `Debug`, and `NameText`
-/// if not (5.3).
-pub struct Probe<'a, T>(pub &'a T);
-
-pub trait ViewerText {
-    fn text(&self, out: &mut Text<'_>);
-}
-
-impl<T: Viewer> ViewerText for &&Probe<'_, T> {
-    fn text(&self, out: &mut Text<'_>) {
-        let _ = Viewer::text(self.0, out);
-    }
-}
-
-pub trait DebugText {
-    fn text(&self, out: &mut Text<'_>);
-}
-
-impl<T: fmt::Debug> DebugText for &Probe<'_, T> {
-    fn text(&self, out: &mut Text<'_>) {
-        let _ = write!(out, "{:?}", self.0);
-    }
-}
-
-pub trait NameText {
-    fn text(&self, out: &mut Text<'_>);
-}
-
-impl<T> NameText for Probe<'_, T> {
-    fn text(&self, out: &mut Text<'_>) {
-        let _ = write!(out, "{} ({} bytes)", std::any::type_name::<T>(), size_of::<T>());
-    }
-}
-
-/// Sends the text of held value `index` (15.9), with its own catch.
-// shortcut: each run formats and sends each held value, send them at the display rate (15.6) when a graph runs faster than the display.
-pub fn send_value(rep: &Reporter, index: u32, text: impl FnOnce(&mut Text<'_>)) {
-    let mut buf = [0; TEXT_LEN + 3];
-    let mut out = Text::new(&mut buf);
-    if catch_unwind(AssertUnwindSafe(|| text(&mut out))).is_err() {
-        out.clear();
-        let _ = out.write_str("the text of the value panicked");
-    }
-    rep.send(index, VALUE, out.finish());
-}
-
-/// Sends the lanes of held value `index` (6.3), with its own catch. A panic sends no lanes.
-pub fn send_lanes(rep: &Reporter, index: u32, lanes: impl FnOnce() -> Lanes) {
-    let Ok(lanes) = catch_unwind(AssertUnwindSafe(lanes)) else { return };
-    let mut buf = [0; 64 + 1 + 64 + 3];
-    let mut out = Text::new(&mut buf);
-    for i in (0..lanes.count).rev() {
-        let _ = out.write_char(if lanes.bits >> i & 1 == 1 { '1' } else { '0' });
-    }
-    let _ = write!(out, " {}", lanes.label);
-    rep.send(index, LANES, out.finish());
 }
 
 fn panic_text(payload: &(dyn Any + Send)) -> String {
@@ -777,10 +724,14 @@ pub unsafe fn free(cluster: *mut Cluster) {
     }
 }
 
+mod call;
+pub use call::*;
 mod keep;
 pub use keep::*;
 mod latest;
 pub use latest::*;
+mod probe;
+pub use probe::*;
 mod slot;
 pub use slot::*;
 mod view;

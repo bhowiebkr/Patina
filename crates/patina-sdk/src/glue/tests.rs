@@ -1,4 +1,5 @@
 use super::*;
+use crate::{Lanes, Viewer};
 
 struct NoDebug;
 
@@ -22,12 +23,12 @@ unsafe extern "C" fn keep(ctx: *mut c_void, node: u32, kind: u32, text: *const u
 fn values_use_the_viewer_then_debug_then_the_type_name() {
     let mut sent: Vec<(u32, u32, String)> = Vec::new();
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
-    send_value(&rep, 0, |out| (&&&Probe(&2.5_f64)).text(out));
-    send_value(&rep, 1, |out| (&&&Probe(&NoDebug)).text(out));
-    send_value(&rep, 2, |out| (&&&Probe(&Hex(10))).text(out));
+    send_value(&rep, 0, &2.5_f64, (&&&Probe(&2.5_f64)).text_fn());
+    send_value(&rep, 1, &NoDebug, (&&&Probe(&NoDebug)).text_fn());
+    send_value(&rep, 2, &Hex(10), (&&&Probe(&Hex(10))).text_fn());
     let long = "\u{e9}".repeat(TEXT_LEN);
-    send_value(&rep, 3, |out| (&&&Probe(&long)).text(out));
-    send_value(&rep, 4, |_| panic!("no text"));
+    send_value(&rep, 3, &long, (&&&Probe(&long)).text_fn());
+    send_value(&rep, 4, &(), |_, _| panic!("no text"));
     assert_eq!(sent[0], (0, VALUE, "2.5".to_owned()));
     assert!(sent[1].2.ends_with("NoDebug (0 bytes)"), "{}", sent[1].2);
     assert_eq!(sent[2].2, "0x0a");
@@ -47,6 +48,43 @@ fn a_panic_drops_the_state_and_an_error_keeps_it() {
     assert!(!finish_state(catch_unwind(|| -> Result<(), String> { panic!("broken") }), &mut *state.lock(), &rep, 1));
     assert_eq!(*state.lock(), None);
     assert_eq!(sent, [(1, ERROR, "bad".to_owned()), (1, PANIC, "panic: broken".to_owned())]);
+}
+
+#[test]
+fn node_calls_catch_errors_and_panics_with_the_copies_in_the_catch() {
+    struct Bad;
+    impl Clone for Bad {
+        fn clone(&self) -> Bad {
+            panic!("clone")
+        }
+    }
+    fn add(a: &u8, b: u8, c: String, d: &mut Vec<u8>) -> u8 {
+        d.push(a + b);
+        a + b + c.len() as u8
+    }
+    fn number(text: String) -> Result<u8, std::num::ParseIntError> {
+        text.parse()
+    }
+    fn bump(state: &mut u8, by: u8) -> u8 {
+        assert!(by > 0, "zero");
+        *state += by;
+        *state
+    }
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+    let (mut ok, mut held) = (true, None);
+    let r = super::run(add, (&1, Take(2), Cloned(&"xy".to_owned()), Hold(&mut held, Take(Vec::new()))));
+    assert_eq!((done(r, &rep, 0, &mut ok), held, ok), (Some(5), Some(vec![3]), true));
+    assert_eq!(done(try_run(number, (Cloned(&"x".to_owned()),)), &rep, 1, &mut ok), None);
+    assert_eq!(done(super::run(drop::<Bad>, (Cloned(&Bad),)), &rep, 2, &mut ok), None);
+    assert!(!ok);
+    let (mut ok, mut state) = (true, None);
+    assert_eq!(done_state(super::run(bump, (Init(&mut state, || 10), Take(1))), &mut state, &rep, 3, &mut ok), Some(11));
+    assert_eq!((state, ok), (Some(11), true));
+    assert_eq!(done_state(super::run(bump, (Init(&mut state, || 10), Take(0))), &mut state, &rep, 3, &mut ok), None);
+    assert_eq!((state, ok), (None, false));
+    let errors: Vec<_> = sent.iter().map(|(node, kind, text)| (*node, *kind, text.as_str())).collect();
+    assert_eq!(errors, [(1, ERROR, "ParseIntError { kind: InvalidDigit }"), (2, PANIC, "panic: clone"), (3, PANIC, "panic: zero")]);
 }
 
 #[test]
@@ -91,10 +129,10 @@ fn a_state_moves_to_a_new_cluster() {
 fn lanes_send_the_bits_msb_first_and_the_label() {
     let mut sent: Vec<(u32, u32, String)> = Vec::new();
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
-    send_lanes(&rep, 2, || Lanes::bits(4, 0b0110).label("a b"));
-    send_lanes(&rep, 3, || Lanes::bits(0, 1));
-    send_lanes(&rep, 4, || panic!("no lanes"));
-    send_lanes(&rep, 5, || Lanes::bits(99, u64::MAX).label("x"));
+    send_lanes(&rep, 2, &0b0110, |v| Lanes::bits(4, *v).label("a b"));
+    send_lanes(&rep, 3, &1, |v| Lanes::bits(0, *v));
+    send_lanes(&rep, 4, &(), |_| panic!("no lanes"));
+    send_lanes(&rep, 5, &u64::MAX, |v| Lanes::bits(99, *v).label("x"));
     assert_eq!(sent[..2], [(2, LANES, "0110 a b".to_owned()), (3, LANES, "1 ".to_owned())]);
     assert_eq!(sent[2], (5, LANES, format!("{} x", "1".repeat(64))));
 }

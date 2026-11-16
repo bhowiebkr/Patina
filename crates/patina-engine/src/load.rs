@@ -604,8 +604,8 @@ mod tests {
             sink.clear();
             let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: std::ptr::null() };
             for i in 0..n {
-                glue::send_value(&rep, i, |t| {
-                    let _ = write!(t, "{}", f64::from(i) * 0.1);
+                glue::send_value(&rep, i, &(f64::from(i) * 0.1), |v, t| {
+                    let _ = write!(t, "{v}");
                 });
             }
             fill(out, true, sink, &names, &probes);

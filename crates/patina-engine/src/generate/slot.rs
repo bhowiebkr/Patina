@@ -21,7 +21,7 @@ pub(super) fn call(s: &mut String, plan: &Plan, n: usize) {
     let indent = "                ";
     let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
     let (mut args, mut pointers) = (Vec::new(), Vec::new());
-    for (j, (input, value)) in node.inputs.iter().zip(super::inputs(plan, n)).enumerate() {
+    for (j, (input, value)) in node.inputs.iter().zip(super::inputs(plan, n, false)).enumerate() {
         match input.pass {
             Pass::Ref => {
                 pointers.push(format!("::patina_sdk::glue::arg({value})"));
@@ -104,8 +104,8 @@ pub fn source(plan: &Plan, slot: usize) -> String {
         }
         let _ = writeln!(
             s,
-            "                ::patina_sdk::glue::{}(::std::panic::catch_unwind(\
-             ::std::panic::AssertUnwindSafe(|| -> ::std::result::Result<(), ::std::string::String> {{",
+            "                ::patina_sdk::glue::{}(::patina_sdk::glue::catch(\
+             &mut || -> ::std::result::Result<(), ::std::string::String> {{",
             if node.state.is_some() { "finish_state" } else { "finish" }
         );
         let inner = "                    ";
@@ -141,7 +141,7 @@ pub fn source(plan: &Plan, slot: usize) -> String {
         let _ = writeln!(s, "{inner}// SAFETY: the last argument is the `Option` of the result (generate/slot.rs).");
         let _ = writeln!(s, "{inner}unsafe {{ ::patina_sdk::glue::put_result(args[{count}], r) }};");
         let state = if node.state.is_some() { "&mut *st, " } else { "" };
-        let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n                }})), {state}rep, {n})\n            }}");
+        let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n                }}), {state}rep, {n})\n            }}");
     }
     s.push_str("            _ => false,\n        },\n        ::patina_sdk::glue::Cmd::Ui(index, mode, events) => match index {\n");
     super::ui_arms(&mut s, plan, &stateful);

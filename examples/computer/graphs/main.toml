@@ -75,14 +75,6 @@ subgraph = "cpu"
 pos = [0.0, 1860.0]
 
 [[node]]
-id = "c827198c2427936d"
-folder = "nodes/switch"
-pos = [0.0, 2400.0]
-
-[node.params]
-on = "false"
-
-[[node]]
 id = "9bfefb001a1ae7a9"
 folder = "nodes/readout"
 pos = [300.0, 0.0]
@@ -350,7 +342,7 @@ from = "a1ab1827b8780af9.2aee4b3c"
 to = "94a519f494e21966.b3"
 
 [[wire]]
-from = "c827198c2427936d.out"
+from = "a3efcc2ce595017a.17a92216"
 to = "763cb88852418f5d.b3"
 
 [[wire]]
@@ -515,7 +507,7 @@ after = "ba4fbf2be96592c8"
 
 [[order]]
 before = "ba4fbf2be96592c8"
-after = "d415f2b47c52f4e8"
+after = "d72d0630056e81d1"
 
 [[node]]
 id = "1cd0a5c11d15b1a7"
@@ -542,3 +534,93 @@ to = "1cd0a5c11d15b1a7.d2"
 [[wire]]
 from = "a3efcc2ce595017a.30556757"
 to = "1cd0a5c11d15b1a7.d3"
+
+[[node]]
+id = "3be1bbc4818ab673"
+subgraph = "hex-7seg"
+pos = [300.0, 3420.0]
+
+[[node]]
+id = "d72d0630056e81d1"
+folder = "nodes/display"
+pos = [600.0, 3110.0]
+
+[[wire]]
+from = "a3efcc2ce595017a.57ab7663"
+to = "531d9271f2ea833f.b4"
+
+[[wire]]
+from = "a3efcc2ce595017a.488b8fa6"
+to = "fdda7fd6865424b1.b4"
+
+[[wire]]
+from = "a3efcc2ce595017a.488b8fa6"
+to = "3be1bbc4818ab673.2e8b5c4e"
+
+[[wire]]
+from = "a3efcc2ce595017a.edd28cef"
+to = "531d9271f2ea833f.b5"
+
+[[wire]]
+from = "a3efcc2ce595017a.5fbc79ba"
+to = "fdda7fd6865424b1.b5"
+
+[[wire]]
+from = "a3efcc2ce595017a.5fbc79ba"
+to = "3be1bbc4818ab673.6cbfc8fc"
+
+[[wire]]
+from = "a3efcc2ce595017a.e1fc1b93"
+to = "531d9271f2ea833f.b6"
+
+[[wire]]
+from = "a3efcc2ce595017a.2b1b8661"
+to = "fdda7fd6865424b1.b6"
+
+[[wire]]
+from = "a3efcc2ce595017a.2b1b8661"
+to = "3be1bbc4818ab673.b4baf19e"
+
+[[wire]]
+from = "a3efcc2ce595017a.3d116d60"
+to = "531d9271f2ea833f.b7"
+
+[[wire]]
+from = "a3efcc2ce595017a.8d314c02"
+to = "fdda7fd6865424b1.b7"
+
+[[wire]]
+from = "a3efcc2ce595017a.8d314c02"
+to = "3be1bbc4818ab673.76ccaf24"
+
+[[wire]]
+from = "3be1bbc4818ab673.416c04a5"
+to = "d72d0630056e81d1.a"
+
+[[wire]]
+from = "3be1bbc4818ab673.f23fd070"
+to = "d72d0630056e81d1.b"
+
+[[wire]]
+from = "3be1bbc4818ab673.e6d81467"
+to = "d72d0630056e81d1.c"
+
+[[wire]]
+from = "3be1bbc4818ab673.b8852500"
+to = "d72d0630056e81d1.d"
+
+[[wire]]
+from = "3be1bbc4818ab673.fb614519"
+to = "d72d0630056e81d1.e"
+
+[[wire]]
+from = "3be1bbc4818ab673.25f20984"
+to = "d72d0630056e81d1.f"
+
+[[wire]]
+from = "3be1bbc4818ab673.7677cc81"
+to = "d72d0630056e81d1.g"
+
+[[order]]
+before = "d72d0630056e81d1"
+after = "d415f2b47c52f4e8"

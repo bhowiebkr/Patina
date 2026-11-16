@@ -196,7 +196,7 @@ model and no engine change:
 
 The `examples/computer` project has one Rust node for the gate, `nand`. The gates `not`, `and`,
 `or` and `xor` are subgraphs of NAND gates. The half adder, the full adder, the 4-bit adder and
-the 4-bit counter are subgraphs of these subgraphs. The CLI test runs 16 frames. Readout A shows
+the 4-bit counter are subgraphs of these subgraphs. The CLI test runs 140 frames. Readout A shows
 the count, and readout B the count plus 3. So the four full adders get all 8 input vectors.
 
 ## Checks for a future implementation

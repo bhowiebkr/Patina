@@ -1,0 +1,125 @@
+format = 1
+
+[[node]]
+id = "24e5b22567ba0121"
+subgraph = "ram-4x4"
+pos = [0.0, 280.0]
+
+[[node]]
+id = "7c6e16c878afd22c"
+subgraph = "ram-4x4"
+pos = [0.0, 660.0]
+
+[[input]]
+key = "cd54aa93"
+name = "write"
+pos = [-300.0, 0.0]
+to = ["24e5b22567ba0121.8279ad7a", "7c6e16c878afd22c.8279ad7a"]
+
+[[input]]
+key = "854ec2ea"
+name = "a0"
+pos = [-300.0, 100.0]
+to = ["24e5b22567ba0121.027cf6c0", "7c6e16c878afd22c.027cf6c0"]
+
+[[input]]
+key = "09ec663f"
+name = "a1"
+pos = [-300.0, 200.0]
+to = ["24e5b22567ba0121.325c9b79", "7c6e16c878afd22c.325c9b79"]
+
+[[input]]
+key = "f26763ea"
+name = "d0"
+pos = [-300.0, 300.0]
+to = ["24e5b22567ba0121.eb2e5852"]
+
+[[input]]
+key = "6a343f94"
+name = "d1"
+pos = [-300.0, 400.0]
+to = ["24e5b22567ba0121.c22fd302"]
+
+[[input]]
+key = "e46d7765"
+name = "d2"
+pos = [-300.0, 500.0]
+to = ["24e5b22567ba0121.c4f53d17"]
+
+[[input]]
+key = "b60f295f"
+name = "d3"
+pos = [-300.0, 600.0]
+to = ["24e5b22567ba0121.f1e702c9"]
+
+[[input]]
+key = "5ae1e254"
+name = "d4"
+pos = [-300.0, 700.0]
+to = ["7c6e16c878afd22c.eb2e5852"]
+
+[[input]]
+key = "e391e7ee"
+name = "d5"
+pos = [-300.0, 800.0]
+to = ["7c6e16c878afd22c.c22fd302"]
+
+[[input]]
+key = "54991297"
+name = "d6"
+pos = [-300.0, 900.0]
+to = ["7c6e16c878afd22c.c4f53d17"]
+
+[[input]]
+key = "8d8582a6"
+name = "d7"
+pos = [-300.0, 1000.0]
+to = ["7c6e16c878afd22c.f1e702c9"]
+
+[[output]]
+key = "544fcde9"
+name = "q0"
+pos = [300.0, 0.0]
+from = "24e5b22567ba0121.15f95648"
+
+[[output]]
+key = "eacfb5a1"
+name = "q1"
+pos = [300.0, 100.0]
+from = "24e5b22567ba0121.2ef5b12a"
+
+[[output]]
+key = "1052b6a3"
+name = "q2"
+pos = [300.0, 200.0]
+from = "24e5b22567ba0121.292376c6"
+
+[[output]]
+key = "351a1e86"
+name = "q3"
+pos = [300.0, 300.0]
+from = "24e5b22567ba0121.2aee4b3c"
+
+[[output]]
+key = "635662bc"
+name = "q4"
+pos = [300.0, 400.0]
+from = "7c6e16c878afd22c.15f95648"
+
+[[output]]
+key = "ce51ebb6"
+name = "q5"
+pos = [300.0, 500.0]
+from = "7c6e16c878afd22c.2ef5b12a"
+
+[[output]]
+key = "e41ee903"
+name = "q6"
+pos = [300.0, 600.0]
+from = "7c6e16c878afd22c.292376c6"
+
+[[output]]
+key = "602fcd1d"
+name = "q7"
+pos = [300.0, 700.0]
+from = "7c6e16c878afd22c.2aee4b3c"

@@ -255,20 +255,22 @@ To test a subgraph alone, open it and click **Test** in the path bar. Click the 
 of an input to toggle it. The lamp at the right of an output shows its value. Click **End test**
 to return. The **Graphs** group of the **Project** panel lists the subgraphs. Click one to open
 it, or drag it into the graph to add a use.
-A `switch` node shows a check box in its **on** row. Click it to set the bit. Two `display` nodes
-show the count and the OUT register of the CPU as hex digits on 7 segments.
+A `switch` node shows a check box in its **on** row. Click it to set the bit. Three `display`
+nodes show the count, and the OUT register of the CPU as two hex digits on 7 segments.
 
-Each frame writes nine lines: the count, the count plus 3, an accumulator that adds 5 at each
-step, a memory, the three registers of a CPU and the segments of the two displays. A `register-4` subgraph keeps 4 bits, and takes new bits when its **load**
-input is on. The `ram-4x4` subgraph keeps 4 words of 4 bits. It writes the accumulator to the
-address of the count, so it shows the accumulator of 4 steps before.
+Each frame writes ten lines: the count, the count plus 3, an accumulator that adds 5 at each
+step, a memory, the three registers of the CPU and the segments of the three displays. A
+`register-4` subgraph keeps 4 bits, and takes new bits when its **load** input is on. The
+`ram-4x4` subgraph keeps 4 words of 4 bits. It writes the accumulator to the address of the
+count, so it shows the accumulator of 4 steps before.
 
-The `cpu` subgraph is a small computer. Each step, it runs one instruction from the
-`rom-8x7` subgraph. Lines 5 to 7 of a frame show its program counter, its register A and its
-OUT register. The instructions have a 3-bit opcode and a 4-bit value k:
+The `cpu` subgraph is a small 8-bit computer. Each step, it runs one instruction from the
+`rom-16x7` subgraph, which keeps 16 instructions. Lines 5 to 7 of a frame show its 4-bit program
+counter, its 8-bit register A and its 8-bit OUT register. The `ram-4x8` subgraph keeps 4 words of
+8 bits. The instructions have a 3-bit opcode and a 4-bit value k:
 
 - **LDI k** (000): A takes k.
-- **ADD k** (001): A takes A + k. The carry flag C takes the carry.
+- **ADD k** (001): A takes A + the RAM word at address k. The carry flag C takes the carry.
 - **OUT** (010): OUT takes A.
 - **JMP k** (011): the program counter takes k.
 - **JC k** (100): the program counter takes k when C is on.
@@ -278,14 +280,14 @@ OUT register. The instructions have a 3-bit opcode and a 4-bit value k:
 
 The zero flag Z takes "A is 0" each time that A takes a new value.
 
-Each bit of the ROM is a `switch` node. To change the program, open `rom-8x7` and set the
-switches. Bits i0 to i3 are k, and bits i4 to i6 are the opcode. The example program adds 4 to
-A and shows A on OUT. It keeps A in the RAM. At the carry, it loads A from the RAM. JZ skips
-the LDI when the RAM word is 0.
+Each bit of the ROM is a `switch` node. To change the program, open `rom-16x7` and set the
+switches. Bits i0 to i3 are k, and bits i4 to i6 are the opcode. The example program writes the
+Fibonacci numbers 1, 1, 2, 3, 5 to 233 to OUT. It keeps the last two numbers in the RAM. At the
+carry of the next sum, it writes 0 to OUT and starts again.
 
-In the editor, the `readout` nodes show the bits as lamps. The `lcd` node shows 2 lines of 16
-characters. At each step, the CPU writes the character '0' plus OUT to it. The values 10 to 15
-show as `:` to `?`, the next ASCII characters.
+In the editor, the `readout` nodes show the 8 bits as lamps and as a number. The `lcd` node shows
+2 lines of 16 characters. At each step, the CPU writes the character '0' plus the low hex digit of
+OUT to it. The values 10 to 15 show as `:` to `?`, the next ASCII characters.
 
 ## Install
 

@@ -674,37 +674,42 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
 #[test]
 fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer");
-    let (output, stdout, stderr) = run(&project, &["--frames", "24"]);
+    let (output, stdout, stderr) = run(&project, &["--frames", "140"]);
     assert!(output.status.success(), "{stderr}");
     // Each frame is one clock step: readout A shows the count, and readout B the count plus 3.
     // With b = 0011, the four full adders get all 8 input vectors. The register of readout C
     // loads its value plus 5 at each step. The memory of readout D writes C to address n % 4, so D
-    // shows C of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. Its
-    // program adds 4 to A, and loads A from the RAM at the carry. JZ skips an LDI. The display
-    // shows the count as a hex digit, segments a to g, and the second display shows OUT. The LCD
-    // writes the character '0' + OUT at each step.
+    // shows C of 4 steps before. Readouts E, F and G show the PC, A and OUT of the 8-bit CPU. Its
+    // program writes the Fibonacci numbers to OUT, and at the carry it shows 0 and starts again.
+    // The displays show the count, and OUT as two hex digits, segments a to g. The LCD writes the
+    // character '0' + the low hex digit of OUT at each step.
     const SEGMENTS: [&str; 16] = [
         "1111110", "0110000", "1101101", "1111001", "0110011", "1011011", "1011111", "1110000", "1111111", "1111011", "1110111", "0011111",
         "1001110", "0111101", "1001111", "1000111",
     ];
-    const PROGRAM: [(u8, u8); 8] = [(6, 2), (7, 6), (0, 4), (1, 4), (2, 5), (4, 0), (5, 2), (3, 3)];
+    const PROGRAM: [(u8, u8); 16] =
+        [(0, 0), (5, 2), (0, 1), (5, 1), (2, 0), (1, 2), (4, 13), (5, 3), (6, 1), (5, 2), (6, 3), (5, 1), (3, 4), (0, 0), (2, 0), (7, 0)];
     let (mut pc, mut acc, mut out, mut carry, mut zero, mut ram) = (0u8, 0u8, 0u8, false, false, [0u8; 4]);
-    let (mut expected, mut lcd) = (Vec::new(), String::new());
-    for n in 0..24u8 {
-        lcd.push(char::from(b'0' + out));
-        let readouts = [n % 16, (n + 3) % 16, n * 5 % 16, n.saturating_sub(4) * 5 % 16, pc, acc, out];
-        expected.extend(readouts.map(|n| format!("{n:04b} {n}")));
-        expected.extend([SEGMENTS[n as usize % 16], SEGMENTS[out as usize]].map(str::to_string));
-        let (op, k) = PROGRAM[pc as usize];
-        pc = (pc + 1) % 8;
+    let (mut expected, mut lcd, mut shown) = (Vec::new(), String::new(), Vec::new());
+    for n in 0..140u32 {
+        lcd.push(char::from(b'0' + out % 16));
+        let readouts = [n % 16, (n + 3) % 16, n * 5 % 16, n.saturating_sub(4) * 5 % 16, pc.into(), acc.into(), out.into()];
+        expected.extend(readouts.map(|n| format!("{n:08b} {n}")));
+        expected.extend([n as usize % 16, usize::from(out >> 4), usize::from(out % 16)].map(|d| SEGMENTS[d].to_string()));
+        let (op, k) = PROGRAM[usize::from(pc)];
+        let word = usize::from(k % 4);
+        pc = (pc + 1) % 16;
         match op {
             0 => acc = k,
-            1 => (carry, acc) = (acc + k > 15, (acc + k) % 16),
-            2 => out = acc,
+            1 => (acc, carry) = acc.overflowing_add(ram[word]),
+            2 => {
+                out = acc;
+                shown.push(acc);
+            }
             3 => pc = k,
             4 if carry => pc = k,
-            5 => ram[k as usize % 4] = acc,
-            6 => acc = ram[k as usize % 4],
+            5 => ram[word] = acc,
+            6 => acc = ram[word],
             7 if zero => pc = k,
             _ => {}
         }
@@ -712,7 +717,10 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
             zero = acc == 0;
         }
     }
+    assert_eq!(shown, [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 0, 1, 1]);
     let (lcd_lines, lines): (Vec<_>, Vec<_>) = stdout.lines().partition(|l| l.starts_with("lcd "));
     assert_eq!(lines, expected);
-    assert_eq!(lcd_lines.last(), Some(&format!("lcd |{}|{:<16}|", &lcd[..16], &lcd[16..]).as_str()));
+    // After 32 characters, each new line moves the lines up.
+    let (old, line) = lcd.split_at(lcd.len() - (lcd.len() - 17) % 16 - 1);
+    assert_eq!(lcd_lines.last(), Some(&format!("lcd |{}|{line:<16}|", &old[old.len() - 16..]).as_str()));
 }

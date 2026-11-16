@@ -17,7 +17,7 @@ export const HEAD = 26;
 export const ROW = 18;
 const CELL_W = 270;
 const CELL_H = 200;
-const TITLES = ['clock', 'switch', 'nand', 'counter-4', 'decoder-4', 'full-adder', 'register', 'mux-4', 'cpu', 'adder-4', 'hex-7seg', 'display', 'readout', 'rom-8x7', 'ram-16', 'lcd', 'alu-8', 'bus'];
+const TITLES = ['clock', 'switch', 'nand', 'counter-4', 'decoder-4', 'full-adder', 'register', 'mux-4', 'cpu', 'adder-4', 'hex-7seg', 'display', 'readout', 'rom-16x7', 'ram-16', 'lcd', 'alu-8', 'bus'];
 
 export const nodeHeight = (n: BdNode) => HEAD + Math.max(n.ins, n.outs, 1) * ROW + 10;
 

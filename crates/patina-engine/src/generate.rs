@@ -409,64 +409,72 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
     }
 }
 
-/// Writes the call of step `n` in the cluster.
+/// Writes the call of step `n` in the cluster. `glue::run` gives the call its own catch (4.7), so
+/// the code has no closure for each node, and a large cluster builds fast.
 fn inline(s: &mut String, plan: &Plan, n: usize) {
     let step = &plan.steps[n];
     let (name, node) = &plan.nodes[step.node];
-    let delay = plan.is_delay(n);
     let indent = "                ";
     let krate = name.replace('-', "_");
-    if node.state.is_some() {
-        let _ = writeln!(s, "{indent}let mut st = s{n}.lock();");
-    }
-    let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
-    let _ = writeln!(
-        s,
-        "{indent}ok &= ::patina_sdk::glue::{}(::std::panic::catch_unwind(\
-         ::std::panic::AssertUnwindSafe(|| -> ::std::result::Result<(), ::std::string::String> {{",
-        if node.state.is_some() { "finish_state" } else { "finish" }
-    );
-    let inner = format!("{indent}    ");
-    let mut args = Vec::new();
+    let (mut args, mut muts) = (Vec::new(), Vec::new());
     let mut call = format!("::{krate}::{}", node.func);
     if let Some(state) = &node.state {
+        let _ = writeln!(s, "{indent}let mut st = s{n}.lock();");
         // A panic in `init` leaves no state, so the next run calls `init` again (4.7).
-        let _ = writeln!(s, "{inner}let st = st.get_or_insert_with(::{krate}::{state}::init);");
-        args.push("st".to_owned());
+        args.push(format!("::patina_sdk::glue::Init(&mut *st, ::{krate}::{state}::init)"));
         call = format!("::{krate}::{state}::{}", node.func);
     }
-    for (input, value) in node.inputs.iter().zip(inputs(plan, n)).filter(|_| !delay) {
-        if input.pass == Pass::Mut {
-            let _ = writeln!(s, "{inner}let mut m_{} = {value};", input.key);
-            args.push(format!("&mut m_{}", input.key));
-        } else {
-            args.push(value);
+    let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
+    if plan.is_delay(n) {
+        call = "::std::mem::take".to_owned();
+        args.push(format!("&mut *d{n}.write()"));
+    } else {
+        for (input, value) in node.inputs.iter().zip(inputs(plan, n, true)) {
+            if input.pass == Pass::Mut {
+                let _ = writeln!(s, "{indent}let mut m_{} = ::std::option::Option::None;", input.key);
+                args.push(format!("::patina_sdk::glue::Hold(&mut m_{}, {value})", input.key));
+                muts.push(&input.key);
+            } else {
+                args.push(value);
+            }
         }
     }
-    let call = if delay { format!("::std::mem::take(&mut *d{n}.write())") } else { format!("{call}({})", args.join(", ")) };
-    if node.fallible {
-        let _ = writeln!(
-            s,
-            "{inner}let r = match {call} {{\n{inner}    ::std::result::Result::Ok(v) => v,\n\
-             {inner}    ::std::result::Result::Err(e) => \
-             return ::std::result::Result::Err(::std::format!(\"{{e:?}}\")),\n{inner}}};"
-        );
-    } else {
-        let _ = writeln!(s, "{inner}let r = {call};");
+    let args: String = args.iter().map(|arg| format!("{arg}, ")).collect();
+    let run = if node.fallible { "try_run" } else { "run" };
+    let _ = writeln!(s, "{indent}let r = ::patina_sdk::glue::{run}({call}, ({args}));");
+    let done = if node.state.is_some() { "done_state(r, &mut *st, " } else { "done(r, " };
+    let _ = writeln!(s, "{indent}if let ::std::option::Option::Some(r) = ::patina_sdk::glue::{done}rep, {n}, &mut ok) {{");
+    let inner = format!("{indent}    ");
+    for key in &muts {
+        // A call that worked gave the value to each `Hold`.
+        let _ = writeln!(s, "{inner}let m_{key} = m_{key}.unwrap();");
     }
     store(s, plan, n, &inner);
-    let state = if node.state.is_some() { "&mut *st, " } else { "" };
-    let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n{indent}}})), {state}rep, {n});");
+    s.push_str(indent);
+    s.push('}');
+    if !muts.is_empty() {
+        s.push_str(" else {");
+        for key in &muts {
+            let _ = write!(s, " ok &= ::patina_sdk::glue::drop_value(m_{key}, rep, {n});");
+        }
+        s.push_str(" }");
+    }
+    s.push('\n');
     let _ = writeln!(s, "{indent}rep.time({n}, t);");
 }
 
-/// The expression of the value of each input of step `n`, in the order of the node inputs.
-fn inputs(plan: &Plan, n: usize) -> Vec<String> {
+/// The expression of the value of each input of step `n`, in the order of the node inputs. With
+/// `wrap`, each copy and each moved value is a `glue::Arg`, so the copy runs in the catch.
+fn inputs(plan: &Plan, n: usize, wrap: bool) -> Vec<String> {
     let step = &plan.steps[n];
     let node = &plan.nodes[step.node].1;
+    let cloned = |value: String| if wrap { format!("::patina_sdk::glue::Cloned({value})") } else { format!("::std::clone::Clone::clone({value})") };
+    let moved = |value: String| if wrap { format!("::patina_sdk::glue::Take({value})") } else { value };
     let value = |(input, source): (&crate::node::Input, &Source)| match (source, input.pass) {
+        // A call through `glue::run` has no deref coercion, so the slot `String` becomes a `&str`.
+        (Source::Slot(i), Pass::Ref) if input.is_str && wrap => format!("::std::string::String::as_str(&*p{i}.read())"),
         (Source::Slot(i), Pass::Ref) => format!("&*p{i}.read()"),
-        (Source::Slot(i), _) => format!("::std::clone::Clone::clone(&*p{i}.read())"),
+        (Source::Slot(i), _) => cloned(format!("&*p{i}.read()")),
         (Source::Wire { step: from, output }, pass) => {
             let [read, write, _] = held(plan, *from, *output);
             match pass {
@@ -474,9 +482,9 @@ fn inputs(plan: &Plan, n: usize) -> Vec<String> {
                 // Only one node reads the value, so it takes the value with no copy. A frame
                 // reads a batch value again at each frame.
                 _ if plan.steps[*from].consumers[*output] == 1 && plan.steps[*from].domain == step.domain => {
-                    format!("{write}.take().unwrap()")
+                    moved(format!("{write}.take().unwrap()"))
                 }
-                _ => format!("::std::clone::Clone::clone({read}.as_ref().unwrap())"),
+                _ => cloned(format!("{read}.as_ref().unwrap()")),
             }
         }
     };
@@ -484,7 +492,7 @@ fn inputs(plan: &Plan, n: usize) -> Vec<String> {
 }
 
 /// Unpacks the result `r` of step `n`, and stores each output and each `m_` value that a node
-/// reads. It drops the other values.
+/// reads. It drops the other values, each with its own catch.
 fn store(s: &mut String, plan: &Plan, n: usize, indent: &str) {
     let node = &plan.nodes[plan.steps[n].node].1;
     let mut values: Vec<String> = match node.output {
@@ -504,7 +512,7 @@ fn store(s: &mut String, plan: &Plan, n: usize, indent: &str) {
         if plan.steps[n].consumers[k] > 0 {
             let _ = writeln!(s, "{indent}{} = ::std::option::Option::Some({value});", held(plan, n, k)[2]);
         } else {
-            let _ = writeln!(s, "{indent}::std::mem::drop({value});");
+            let _ = writeln!(s, "{indent}ok &= ::patina_sdk::glue::drop_value(::std::option::Option::Some({value}), rep, {n});");
         }
     }
 }
@@ -515,12 +523,12 @@ fn probes(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
     let indent = "                ";
     for k in (0..step.consumers.len()).filter(|k| step.consumers[*k] > 0) {
         let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {
-            format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, || ::{}::{}(v));", name.replace('-', "_"), kind.func)
+            format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, v, ::{}::{});", name.replace('-', "_"), kind.func)
         });
         let _ = writeln!(
             s,
             "{indent}if let ::std::option::Option::Some(v) = {}.as_ref() {{ ::patina_sdk::glue::send_value(rep, {probe}, \
-             |out| (&&&::patina_sdk::glue::Probe(v)).text(out));{lanes} (&&::patina_sdk::glue::Probe(v)).keep(&keeps, {probe}); }}",
+             v, (&&&::patina_sdk::glue::Probe(v)).text_fn());{lanes} (&&::patina_sdk::glue::Probe(v)).keep(&keeps, {probe}); }}",
             held(plan, n, k)[0]
         );
         probe += 1;

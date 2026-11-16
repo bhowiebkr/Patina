@@ -136,6 +136,9 @@ pub fn parse(source: &str) -> Result<Node, String> {
         _ => return Err("put #[node] on a function (spec 4.1) or a struct (spec 4.2)".to_owned()),
     };
     plain(sig, state.is_none())?;
+    if sig.inputs.len() > MAX_ARGS {
+        return Err(format!("a node function takes at most {MAX_ARGS} arguments, with `&mut self` (spec 4.1)"));
+    }
     let mut inputs = Vec::new();
     let mut mut_types = Vec::new();
     for (i, arg) in sig.inputs.iter().enumerate() {
@@ -183,6 +186,9 @@ pub fn parse(source: &str) -> Result<Node, String> {
     }
     Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, ui, full })
 }
+
+/// The most arguments of a node call: the cluster calls nodes through tuples (generate.rs).
+const MAX_ARGS: usize = 16;
 
 const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
 
@@ -414,6 +420,9 @@ mod tests {
         for source in fails {
             assert!(parse(source).is_err(), "{source}");
         }
+        let args = |count: usize| (0..count).map(|i| format!("a{i}: u8")).collect::<Vec<_>>().join(", ");
+        assert!(parse(&format!("#[node] pub fn f({}) {{}}", args(MAX_ARGS))).is_ok());
+        assert!(parse(&format!("#[node] pub fn f({}) {{}}", args(MAX_ARGS + 1))).is_err());
     }
 
     #[test]
