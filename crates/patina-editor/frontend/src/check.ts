@@ -268,6 +268,13 @@ fn broken() -> u32 {
     await until('Logs in the bottom area after Reset layout', RUN_MS, () => !!tab('Logs')?.closest('.area.bottom'));
     if (transform() !== zoomed) throw new Error('Reset layout changed the pan and zoom');
     steps.push('dock layout restored and reset');
+    // The rail icon of the active left panel folds the left area, and a second click unfolds it.
+    const rail = (name: string) => document.querySelector<HTMLButtonElement>(`nav.strip button[aria-label="${name}"]`)!;
+    rail('Project').click();
+    await until('a folded left area', RUN_MS, () => document.querySelector('.area.left') === null && rail('Project').getAttribute('aria-pressed') === 'false');
+    rail('Project').click();
+    await until('the left area again', RUN_MS, () => document.querySelector('.area.left') !== null && rail('Project').getAttribute('aria-pressed') === 'true');
+    steps.push('rail folds the left area');
 
     from = mark();
     v = await step('run again', () => api.run());

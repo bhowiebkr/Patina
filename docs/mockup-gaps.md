@@ -14,6 +14,7 @@ The editor has these mockup features. They are not gaps.
 
 - The dock shell with the **Project**, **Inspector**, **Logs** and **Output** panels, the
   **Views** menu, splitters, float windows and the status bar (mockups 1, 5 and 8).
+- A navigation rail that folds the left area, so the graph gets more room (mockup 6).
 - The node header with the name, the kind icon, the domain icon, the state icon, the slot icon
   and the header color. The selected node gets a lighter shade of its header color (mockups 1,
   4 and 9).
@@ -50,7 +51,6 @@ The editor has these mockup features. They are not gaps.
 
 | Gap | Mockup | What the editor does now |
 |---|---|---|
-| A collapsed navigation rail that gives the graph more room | 6 | A panel closes or moves to another area. |
 | **Lock bends** (optional in the guide) | Connections guide | The route points are fixed, and the router moves the free segments. |
 
 ## Shared widget gaps

@@ -5,11 +5,11 @@
 import { useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { api, reportError } from './api';
 import {
-  areaOf,
   closePanel,
   defaultLayout,
   floatPanel,
   isOpen,
+  isShown,
   layoutText,
   MAX_SIZE,
   MIN_SIZE,
@@ -18,6 +18,8 @@ import {
   openView,
   PANELS,
   parseLayout,
+  railClick,
+  railPanels,
   resetLayout,
   resizeArea,
   setViewport,
@@ -176,8 +178,8 @@ export function ViewsMenu({ views }: { views: string[] }) {
   const full = VIEW_SLOTS.every((s) => isOpen(layout, s));
   const items: Item[] = PANELS.filter((p) => !VIEW_SLOTS.includes(p as ViewSlot)).map((p) => ({
     label: TITLES[p],
-    checked: areaOf(layout, p) !== null,
-    run: () => changeLayout((l) => (areaOf(l, p) ? closePanel(l, p) : openPanel(l, p))),
+    checked: isShown(layout, p),
+    run: () => changeLayout((l) => (isShown(l, p) ? closePanel(l, p) : openPanel(l, p))),
   }));
   if (views.length > 0) items.push('line');
   for (const name of views) {
@@ -266,8 +268,8 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
     onDrag(false);
     changeLayout((l) => movePanel(l, panel as PanelId, id, before));
   };
-  if (tabs.length === 0) {
-    // An empty area takes no space. It shows only as a place to drop a tab.
+  if (tabs.length === 0 || (id === 'left' && layout.folded)) {
+    // An empty or folded area takes no space. It shows only as a place to drop a tab.
     return dragging ? (
       <div className={`drop-zone ${id}`} aria-label={`Drop a tab in the ${id} area`} onDragOver={over} onDrop={(e) => drop(e)} />
     ) : null;
@@ -341,28 +343,43 @@ interface DockProps {
   children: ReactNode;
 }
 
-/** The icon strip, the dock areas, the splitters and the center. */
+const WINDOW_ICON = 'M1.5 2.5h13v11h-13zM1.5 5.5h13';
+const RAIL_ICONS: Partial<Record<PanelId, string>> = {
+  layers: 'M8 1.5 14.5 5 8 8.5 1.5 5zM1.5 8 8 11.5 14.5 8M1.5 11 8 14.5 14.5 11',
+  project: 'M1.5 3.5h5l1.5 2h6.5v8h-13z',
+  inspector: 'M3 2v12M8 2v12M13 2v12M1.5 5h3M6.5 10h3M11.5 6.5h3',
+  logs: 'M2 4h12M2 8h12M2 12h8',
+  output: 'M1.5 2.5h13v11h-13zM4 6l2 2-2 2M8 10.5h4',
+};
+
+/** The navigation rail, the dock areas, the splitters and the center. */
 export function Dock({ panels: fixed, view, children }: DockProps) {
   const layout = useSyncExternalStore(subscribe, getLayout);
   const [dragging, setDragging] = useState(false);
   const slots = Object.fromEntries(VIEW_SLOTS.map((s) => [s, { title: viewTitle(layout, s), body: view(s, layout.views[s] ?? null) }]));
   const panels = { ...fixed, ...slots } as Record<PanelId, Panel>;
   const area = (id: AreaId) => <DockArea id={id} layout={layout} panels={panels} dragging={dragging} onDrag={setDragging} />;
-  const split = (id: AreaId) => layout.areas[id].tabs.length > 0 && <Splitter area={id} size={layout.areas[id].size} />;
-  const project = areaOf(layout, 'project');
-  const shown = project !== null && layout.areas[project].active === 'project';
+  const split = (id: AreaId) => layout.areas[id].tabs.length > 0 && !(id === 'left' && layout.folded) && <Splitter area={id} size={layout.areas[id].size} />;
+  const left = layout.areas.left;
   return (
     <div className="middle">
       <nav className="strip" aria-label="Panels">
-        <button
-          className={shown ? 'icon-btn active' : 'icon-btn'}
-          aria-label="Project"
-          aria-pressed={shown}
-          title="Project"
-          onClick={() => changeLayout((l) => (shown ? closePanel(l, 'project') : openPanel(l, 'project')))}
-        >
-          <Icon d="M1.5 3.5h5l1.5 2h6.5v8h-13z" />
-        </button>
+        {railPanels(layout).map((p) => {
+          const title = panels[p].title ?? TITLES[p];
+          const on = left.active === p && !layout.folded;
+          return (
+            <button
+              key={p}
+              className={on ? 'icon-btn active' : 'icon-btn'}
+              aria-label={title}
+              aria-pressed={on}
+              title={on ? `${title} - click to fold the left area` : title}
+              onClick={() => changeLayout((l) => railClick(l, p))}
+            >
+              <Icon d={RAIL_ICONS[p] ?? WINDOW_ICON} />
+            </button>
+          );
+        })}
       </nav>
       {area('left')}
       {split('left')}

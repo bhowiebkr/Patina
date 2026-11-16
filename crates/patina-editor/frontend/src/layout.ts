@@ -49,6 +49,8 @@ export interface Layout {
   viewports: Record<string, Viewport>;
   /** The view folder of each open view slot, for example `views/scene`. */
   views: Partial<Record<ViewSlot, string>>;
+  /** True when the left area folds to the icons of the navigation rail. */
+  folded: boolean;
 }
 
 /** The layout of the table of spec 15.2. */
@@ -62,6 +64,7 @@ export function defaultLayout(): Layout {
     floats: {},
     viewports: {},
     views: {},
+    folded: false,
   };
 }
 
@@ -70,6 +73,7 @@ export function areaOf(layout: Layout, panel: PanelId): AreaId | null {
 }
 
 const withArea = (layout: Layout, id: AreaId, area: Area): Layout => ({ ...layout, areas: { ...layout.areas, [id]: area } });
+const unfold = (layout: Layout): Layout => (layout.folded ? { ...layout, folded: false } : layout);
 
 const isSlot = (v: unknown): v is ViewSlot => VIEW_SLOTS.includes(v as ViewSlot);
 
@@ -143,14 +147,35 @@ export function movePanel(layout: Layout, panel: PanelId, to: AreaId, before?: P
   const tabs = [...area.tabs];
   const at = before ? tabs.indexOf(before) : -1;
   tabs.splice(at < 0 ? tabs.length : at, 0, panel);
-  return withArea(out, to, { ...area, tabs, active: panel });
+  const next = withArea(out, to, { ...area, tabs, active: panel });
+  return to === 'left' ? unfold(next) : next;
 }
 
 /** Makes the panel the active tab of its area. A closed panel opens in its default area. */
 export function openPanel(layout: Layout, panel: PanelId): Layout {
   const id = areaOf(layout, panel);
   if (!id) return movePanel(layout, panel, HOME[panel]);
-  return layout.areas[id].active === panel ? layout : withArea(layout, id, { ...layout.areas[id], active: panel });
+  const next = layout.areas[id].active === panel ? layout : withArea(layout, id, { ...layout.areas[id], active: panel });
+  return id === 'left' ? unfold(next) : next;
+}
+
+/** True when the panel has a tab in a dock area that shows: a folded left area does not show. */
+export const isShown = (layout: Layout, panel: PanelId) => {
+  const id = areaOf(layout, panel);
+  return id !== null && !(id === 'left' && layout.folded);
+};
+
+/** The panels of the navigation rail: the tabs of the left area, and Project when it is closed. */
+export function railPanels(layout: Layout): PanelId[] {
+  const tabs = layout.areas.left.tabs;
+  return isOpen(layout, 'project') ? tabs : [...tabs, 'project'];
+}
+
+/** A click on a rail icon. The icon of the active panel of the left area folds or unfolds the area. */
+export function railClick(layout: Layout, panel: PanelId): Layout {
+  const left = layout.areas.left;
+  if (left.active === panel) return { ...layout, folded: !layout.folded };
+  return openPanel(layout, panel);
 }
 
 const clampSize = (size: number) => Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE, size)));
@@ -213,6 +238,7 @@ export function parseLayout(text: string | null): Layout {
   for (const [slot, name] of Object.entries(isRaw(raw.views) ? raw.views : {})) {
     if (isSlot(slot) && typeof name === 'string' && seen.has(slot)) layout.views[slot] = name;
   }
+  layout.folded = raw.folded === true;
   // A float window without a view has nothing to show.
   for (const slot of VIEW_SLOTS) if (!layout.views[slot]) delete layout.floats[slot];
   return layout;

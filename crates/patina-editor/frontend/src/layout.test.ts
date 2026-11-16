@@ -8,6 +8,7 @@ import {
   dockPanel,
   floatPanel,
   isOpen,
+  isShown,
   layoutText,
   MAX_SIZE,
   MIN_SIZE,
@@ -16,6 +17,8 @@ import {
   openPanel,
   openView,
   parseLayout,
+  railClick,
+  railPanels,
   resetLayout,
   resizeArea,
   setViewport,
@@ -102,4 +105,26 @@ test('a bad float rect or a float without a view does not load', () => {
   assert.deepEqual(parseLayout(text({ view: { x: 1 } }, { view: 'views/a' })).floats, {});
   assert.deepEqual(parseLayout(text({ view: null }, {})).floats, {});
   assert.deepEqual(parseLayout(text({ view: { x: 0, y: 0, w: 1, h: 99999 } }, { view: 'views/a' })).floats, { view: { x: 0, y: 0, w: MIN_SIZE, h: MAX_SIZE } });
+});
+
+test('the rail folds and unfolds the left area', () => {
+  const start = defaultLayout();
+  assert.deepEqual(railPanels(start), ['layers', 'project']);
+  let l = railClick(start, 'project');
+  assert.equal(l.folded, true, 'the icon of the active panel folds the area');
+  assert.equal(isShown(l, 'project'), false);
+  assert.equal(isShown(l, 'inspector'), true);
+  assert.equal(parseLayout(layoutText(l)).folded, true);
+  assert.equal(railClick(l, 'project').folded, false, 'a second click unfolds it');
+  const layers = railClick(l, 'layers');
+  assert.equal(layers.folded, false);
+  assert.equal(layers.areas.left.active, 'layers');
+  assert.equal(openPanel(l, 'project').folded, false, 'an open of a left panel unfolds the area');
+  assert.equal(movePanel(l, 'logs', 'left').folded, false);
+  assert.equal(movePanel(l, 'logs', 'right').folded, true);
+  assert.equal(resetLayout(l).folded, false);
+  l = closePanel(start, 'project');
+  assert.deepEqual(railPanels(l), ['layers', 'project'], 'a closed Project panel keeps its icon');
+  assert.equal(railClick(l, 'project').areas.left.active, 'project');
+  assert.equal(parseLayout(JSON.stringify({ version: 1, areas: {}, folded: 'yes' })).folded, false);
 });

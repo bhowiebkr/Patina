@@ -523,6 +523,8 @@ The panels dock at the left, the right and the bottom of the graph:
 - Drag a tab to another area, or right-click the tab to move or close it.
 - Drag the line between an area and the graph to change the size of the area.
 - Use the **Views** menu to show or hide a panel. **Reset layout** gives the default layout.
+- Click the icon of the active panel in the rail at the left edge to fold the left area. This
+  gives the graph more room. Click an icon again to unfold the area.
 
 Patina keeps the layout and the pan and zoom of each project for each user.
 

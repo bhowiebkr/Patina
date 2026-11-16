@@ -1034,6 +1034,9 @@ To run the editor from a checkout:
   are tabs in the left, right and bottom areas. Drag a tab to another area, or use its
   right-click menu to move or close it. A splitter changes the size of an area, with the mouse
   or the arrow keys.
+- The navigation rail has an icon for each tab of the left area (mockup 6). The icon of the
+  active panel folds and unfolds the left area. The layout file keeps the fold. A unit test
+  checks the fold, and the selfcheck folds and unfolds the area with the rail.
 - The **Views** menu shows and hides each panel, and **Reset layout** gives the default layout.
   The layout and the pan and zoom of the graph go to `data/layouts/<project id>.json`, 300 ms
   after a change and before a close or a quit.
