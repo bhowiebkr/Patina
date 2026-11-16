@@ -46,7 +46,7 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 
 This is an agent decision of 2026-11-15. The owner can change it.
 
-- The left, right and bottom areas take panels. The center holds only the graph view. Tabs in the center come with the views (15.8).
+- The left, right and bottom areas take panels. The center holds only the graph view. In version 1 of views, the **View** panel opens in the right area (15.8). Tabs in the center come later.
 - The panels are **Layers**, **Project**, **Inspector**, **Logs** and **Output**. The **Debug** tab comes later. The left area has the **Layers** tab and the **Project** tab, and **Project** is active at the start.
 - Float windows come later. In version 1, a tab cannot go out of the window.
 - A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area** and **Close**. The menu is the method for the keyboard and for screen readers.
@@ -330,11 +330,15 @@ change it.)
   `patina_view_free`. The writes of the view use the report kind `EDIT`. The ABI version stays 14.
 - The engine builds a view in edit mode on its first `ui` call. It copies the library to
   `build/loaded/view.<name>.<hash>`, with the Rust runtime, as for the clusters (8.5).
-- The `Graph` handle is a copy of the open graph as text lines: the nodes, the parameters and
-  the live values of the last run. The functions are `nodes`, `folder`, `param`,
-  `output_text`, `output` and `set_param`.
-- `set_param` becomes the edit `SetParam` (7.4). The editor applies it on the edit path, so undo
-  removes it.
+- The `Graph` handle is a copy of the open graph as text lines: the nodes, the parameters, the
+  wires and the live values of the last run. The read functions are `nodes`, `folder`, `param`,
+  `wires`, `output_text` and `output`.
+- The write functions are `set_param`, `add_node`, `remove_node`, `connect` and `disconnect`.
+  They become the edits `SetParam`, `AddNode`, `RemoveNode`, `Connect` and `Disconnect` (7.4).
+- The editor applies the writes of one `ui` call as one `Group` edit, so one undo removes them.
+  When one write is not valid, no write applies, and the panel shows the error.
+- `add_node` makes a random ID of 16 hex digits (6.4) and returns it. Thus the same call can
+  connect the new node.
 - The editor has one **View** panel. The **Views** menu lists the views of the project and opens
   one in the panel. The panel asks for the widget lines at the display rate while it shows.
 - A save of the code of a view drops the loaded view and does not build the clusters. The next
@@ -344,7 +348,7 @@ The limits of version 1:
 
 - One instance of each view, in one panel. No float window.
 - No typed outputs through type crates (rule 3). A view reads the text of an output.
-- No edits other than `set_param`: no add node, no wire, no trigger and no selection.
+- No trigger (9.4), no selection, no subgraph edits and no reads of node states or errors.
 - No viewport, and no bake build of a view.
 
 ### 15.9 Connections and routing

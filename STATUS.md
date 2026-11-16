@@ -17,7 +17,8 @@ change the graph (spec 15.8).
 1. Version 1 of views: the `#[view]` ABI, the `Graph` handle, the build of a view and the
    **View** panel. This part works.
 2. More instances of a view, and float windows.
-3. More edits from a view: add a node, connect a wire, start a trigger and select nodes.
+3. More edits from a view: add a node, connect a wire, start a trigger and select nodes. Add,
+   remove, connect and disconnect work. Trigger and select do not.
 4. Typed outputs through type crates (15.8 rule 3).
 5. A viewport in a view (15.8), on the native path of the viewport prototype.
 
@@ -29,7 +30,8 @@ change the graph (spec 15.8).
 - `Project::build_view` builds `views/<name>` in edit mode into `build/loaded`.
 - The editor lists the views in the **Project** panel and in the **Views** menu. **New view**
   makes a view folder. The **View** panel shows the widgets of the open view.
-- A `set_param` of a view goes through the edit path, and undo removes it.
+- A view reads the wires. It sets parameters, adds and removes nodes, and connects and
+  disconnects wires. The writes of one call go through the edit path as one step of undo.
 - A save of the code of a view builds only the view again.
 
 ### What was checked
@@ -44,7 +46,7 @@ change the graph (spec 15.8).
 ### Known limits
 
 - The limits of version 1 are in spec 15.8: one instance, no float window, text outputs only,
-  only `set_param`, no viewport and no bake build.
+  no trigger, no selection, no viewport and no bake build.
 - The first open of a view builds it on the engine thread. A frame run waits for this build.
 - The view did not run on Linux or macOS. Only CI built it there.
 

@@ -542,7 +542,8 @@ pub fn view_ui(editor: State<'_, Editor>, name: String, events: String) -> Resul
     let frame = answer.recv().map_err(|_| stopped())??;
     let view = match frame.edits.is_empty() {
         true => None,
-        false => Some(editor.change(|project| frame.edits.iter().try_for_each(|edit| project.apply(edit)))?),
+        // The writes of one call are one step of undo.
+        false => Some(editor.change(|project| project.apply(&Edit::Group { edits: frame.edits }))?),
     };
     Ok(ViewFrame { tree: frame.tree, view })
 }

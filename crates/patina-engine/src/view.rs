@@ -104,8 +104,8 @@ impl Drop for View {
     }
 }
 
-/// The graph lines that a view reads (`patina_sdk::Graph`): the nodes and the parameters of
-/// `graph`, and the live values of the last run.
+/// The graph lines that a view reads (`patina_sdk::Graph`): the nodes, the parameters and the wires
+/// of `graph`, and the live values of the last run.
 pub fn snapshot(graph: &GraphFile, values: &[Value]) -> String {
     let clean = |text: &str| text.chars().map(|c| if c.is_control() { ' ' } else { c }).collect::<String>();
     let mut lines = String::new();
@@ -116,6 +116,9 @@ pub fn snapshot(graph: &GraphFile, values: &[Value]) -> String {
             lines.push_str(&format!("param\t{}\t{key}\t{}\n", node.id, clean(text)));
         }
     }
+    for wire in &graph.wire {
+        lines.push_str(&format!("wire\t{}\t{}\n", wire.from, wire.to));
+    }
     for value in values {
         let Some((id, key)) = value.from.split_once('.') else { continue };
         lines.push_str(&format!("out\t{id}\t{key}\t{}\n", clean(&value.text)));
@@ -123,11 +126,19 @@ pub fn snapshot(graph: &GraphFile, values: &[Value]) -> String {
     lines
 }
 
-/// The edit of a write line of a view: `set <id> <key> <text>`. None for a bad line.
+/// The edit of a write line of a view (`patina_sdk::Graph`). None for a bad line.
 fn edit(line: &str) -> Option<Edit> {
-    let mut fields = line.strip_prefix("set\t")?.splitn(3, '\t');
-    let (id, key, text) = (fields.next()?, fields.next()?, fields.next()?);
-    Some(Edit::SetParam { id: id.to_owned(), key: key.to_owned(), text: Some(text.to_owned()) })
+    let mut fields = line.split('\t');
+    let mut text = || fields.next().map(str::to_owned);
+    let edit = match text()?.as_str() {
+        "set" => Edit::SetParam { id: text()?, key: text()?, text: Some(text()?) },
+        "add" => Edit::AddNode { id: text()?, folder: text()?, builtin: false, pos: [text()?.parse().ok()?, text()?.parse().ok()?] },
+        "remove" => Edit::RemoveNode { id: text()? },
+        "connect" => Edit::Connect { from: text()?, to: text()? },
+        "disconnect" => Edit::Disconnect { from: text()?, to: text()? },
+        _ => return None,
+    };
+    text().is_none().then_some(edit)
 }
 
 #[cfg(test)]
@@ -138,10 +149,17 @@ mod tests {
     fn snapshot_and_edit_lines() {
         let mut graph: GraphFile = toml::from_str("format = 1\n[[node]]\nid = \"a\"\nfolder = \"number\"\nparams = { value = \"2\" }\n").unwrap();
         graph.node[0].params.insert("text".to_owned(), "x\ty".to_owned());
+        graph.wire = toml::from_str::<GraphFile>("format = 1\n[[wire]]\nfrom = \"a.out\"\nto = \"b.in\"\n").unwrap().wire;
         let values = [Value { from: "a.out".to_owned(), text: "2.0".to_owned(), lanes: None }];
-        assert_eq!(snapshot(&graph, &values), "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nout\ta\tout\t2.0\n");
+        assert_eq!(snapshot(&graph, &values), "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nwire\ta.out\tb.in\nout\ta\tout\t2.0\n");
         let set = edit("set\ta\tvalue\t3 4");
         assert!(matches!(set, Some(Edit::SetParam { id, key, text: Some(text) }) if id == "a" && key == "value" && text == "3 4"));
-        assert!(edit("add\ta").is_none() && edit("set\ta\tvalue").is_none());
+        assert!(matches!(edit("add\tb\tnodes/show\t1\t-2.5"), Some(Edit::AddNode { id, folder, builtin: false, pos: [1.0, -2.5] }) if id == "b" && folder == "nodes/show"));
+        assert!(matches!(edit("remove\tb"), Some(Edit::RemoveNode { id }) if id == "b"));
+        assert!(matches!(edit("connect\ta.out\tb.in"), Some(Edit::Connect { from, to }) if from == "a.out" && to == "b.in"));
+        assert!(matches!(edit("disconnect\ta.out\tb.in"), Some(Edit::Disconnect { .. })));
+        for bad in ["add\ta", "add\tb\tnodes/show\tx\t1", "set\ta\tvalue", "remove\tb\tc", "move\tb", ""] {
+            assert!(edit(bad).is_none(), "{bad}");
+        }
     }
 }
