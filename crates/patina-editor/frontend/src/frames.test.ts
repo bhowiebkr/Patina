@@ -59,6 +59,12 @@ test('an edit of the view gets graph points', () => {
   const group = graphEdit({ kind: 'Group', edits: [{ kind: 'MoveNode', id: 'u', pos: [0, 100] }, { kind: 'MoveNode', id: 'n', pos: [600, 100] }] }, [room]);
   assert.deepEqual(group, { kind: 'Group', edits: [{ kind: 'MoveNode', id: 'u', pos: [0, 100] }, { kind: 'MoveNode', id: 'n', pos: [300, 100] }] });
   assert.deepEqual(place([{ ...room, x: 0 }], [300, 100]), [600, 100]);
+  // Two uses move in one edit: the use that moves to the left grows the place of the other use.
+  const far = { use: 'v', x: 2000, y: 0, w: 100, h: 100, dx: 200, dy: 0 };
+  const both = graphEdit({ kind: 'Group', edits: [{ kind: 'MoveNode', id: 'v', pos: [100, 100] }, { kind: 'MoveNode', id: 'u', pos: [1000, 100] }] }, [room, far]);
+  const moved = both.kind === 'Group' ? both.edits.map((e) => (e.kind === 'MoveNode' ? e.pos : null)) : [];
+  assert.deepEqual(moved, [[100, 100], [800, 100]]);
+  assert.deepEqual(place([{ ...room, x: 800 }, { ...far, x: 100, y: 100 }], [800, 100]), [1000, 100], 'the use shows at the place of the drop');
   const edit = { kind: 'Connect', from: 'a.y', to: 'b.x' } as const;
   assert.equal(graphEdit(edit, [room]), edit);
 });

@@ -129,14 +129,19 @@ export function graphEdit(edit: Edit, rooms: readonly Room[]): Edit {
   };
   collect(edit);
   const round = ([x, y]: Point): Point => [Math.round(x), Math.round(y)];
-  // A use does not grow its own place.
-  // shortcut: each moved use sees the old places of the other moved uses; solve them together when users move many open frames.
-  const next = rooms.map((r) => {
-    const p = moves.get(r.use);
-    if (!p) return r;
-    const [x, y] = round(unplace(rooms.filter((o) => o !== r), p));
-    return { ...r, x, y };
-  });
+  // A use does not grow its own place. A room grows only the points after its start, so the moved
+  // uses take their places in the order of the view on each axis, and each sees the earlier ones.
+  const solve = (axis: 0 | 1) => {
+    const known = rooms.filter((r) => !moves.has(r.use));
+    const moved = rooms.filter((r) => moves.has(r.use)).sort((a, b) => moves.get(a.use)![axis] - moves.get(b.use)![axis]);
+    for (const r of moved) {
+      const at = Math.round(inverse(moves.get(r.use)![axis], spans(known, axis)));
+      known.push(axis === 0 ? { ...r, x: at } : { ...r, y: at });
+    }
+    return new Map(known.map((r) => [r.use, axis === 0 ? r.x : r.y]));
+  };
+  const [xs, ys] = [solve(0), solve(1)];
+  const next = rooms.map((r) => (moves.has(r.use) ? { ...r, x: xs.get(r.use)!, y: ys.get(r.use)! } : r));
   const at = (p: Point) => round(unplace(next, p));
   const map = (e: Edit): Edit => {
     switch (e.kind) {

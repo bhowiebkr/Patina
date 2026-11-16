@@ -1270,8 +1270,6 @@ To run the editor from a checkout:
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - The route points of the wires in a frame stay in place during a drag of the use. The frame
   is read-only. Open the subgraph to edit its nodes.
-- When one edit moves two or more uses with open frames, for example **Arrange**, the nodes can
-  show at other places than the places of the drop. Hide the frames before **Arrange**.
 - These parts of spec 15 are not in the editor yet: view tabs in the center
   (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type
