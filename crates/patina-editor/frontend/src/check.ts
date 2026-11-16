@@ -701,6 +701,37 @@ fn broken() -> u32 {
     await until('the widgets of the docked view', BUILD_MS, () => viewText().startsWith('value '));
     steps.push('a float window of a view');
 
+    // Fire in a subgraph use (15.8): a double-click opens the subgraph through its use, and Fire
+    // sends the flat ID <use ID>/<node ID>. This step is last, because the change of graph saves.
+    const use = 'f12e000000000001';
+    v = await step('make an event node for the subgraph', () => api.edit({ kind: 'SetCode', path: lib, text: EVENT_NODE }));
+    v = await step('add a trigger for the subgraph', () =>
+      api.edit({
+        kind: 'Group',
+        edits: [
+          { kind: 'AddNode', id: T, folder: 'trigger', builtin: true, pos: [-300, 0] },
+          { kind: 'Connect', from: `${T}.out`, to: `${A}.text` },
+        ],
+      }),
+    );
+    v = await step('move the trigger into a subgraph', () => api.collapse('fire_check', [T], use));
+    from = mark();
+    v = await step('run the trigger in the subgraph', () => api.run());
+    await until('a run with the trigger in the subgraph', BUILD_MS, () => {
+      const failed = ofRun().find((e) => e.state === 'failed' || (e.state === 'ran' && !e.ok));
+      if (failed) throw new Error(`the run failed: ${JSON.stringify(failed)}`);
+      return ofRun().some((e) => e.state === 'ran' && e.events);
+    });
+    await until('the use of the subgraph', RUN_MS, () => !!document.querySelector(`.react-flow__node[data-id="${use}"]`));
+    document.querySelector(`.react-flow__node[data-id="${use}"]`)!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await until('the fire button in the subgraph', BUILD_MS, () => fireButton()?.disabled === false);
+    fireButton()!.click();
+    await until('the event run of the trigger in the use', RUN_MS, () => eventRuns().some((e) => e.trigger === `${use}/${T}`) && output.slice(outputFrom).includes('2.5'));
+    topButton('Stop')!.click();
+    await until('the end of the event runs in the subgraph', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+    v = await step('open the main graph', () => api.openGraph('main'));
+    steps.push('fire a trigger in a subgraph use');
+
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');
     steps.push('screenshot');
