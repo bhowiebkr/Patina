@@ -268,6 +268,7 @@ fn main() {
             session::bake,
             session::stop,
             session::gui,
+            session::visible,
             session::running,
             session::fire,
             session::value,

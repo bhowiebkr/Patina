@@ -9,6 +9,7 @@ import {
   applyNodeChanges,
   useConnection,
   useReactFlow,
+  useStore,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -24,6 +25,7 @@ import { api, newId, type Domain, type Edit, type GraphFile, type KindInfo, type
 import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
 import { savedViewport, saveViewport } from './Dock';
 import { FrameToggle, HEADER, NodeEdit, NodeView, ORDER, ROW, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
+import { FAR_ZOOM } from './gl';
 import { NODE_WIDTH } from './gui';
 import { frameOf, graphEdit, place, shownFrames, toggleFrame, type Frame, type Room } from './frames';
 import { dragStyle, matchPin, outputTypeOf, socketKey } from './palette';
@@ -338,6 +340,24 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const [labels] = useState(() => new Labels());
   const [hover] = useState(() => new HoverStore());
   const [glOk, setGlOk] = useState(true);
+  // The nodes in view, so that the frames draw only their GUIs (4.3 rule 3). None at a far zoom.
+  const visible = useStore((s) => {
+    const [tx, ty, zoom] = s.transform;
+    if (zoom < FAR_ZOOM) return '';
+    const [x0, y0] = [-tx / zoom, -ty / zoom];
+    const [x1, y1] = [x0 + s.width / zoom, y0 + s.height / zoom];
+    const ids: string[] = [];
+    for (const n of s.nodeLookup.values()) {
+      const { x, y } = n.internals.positionAbsolute;
+      const [w, h] = [n.measured.width ?? 0, n.measured.height ?? 0];
+      if (n.type === 'patina' && x <= x1 && x + w >= x0 && y <= y1 && y + h >= y0) ids.push(n.id);
+    }
+    return ids.join('\n');
+  });
+  useEffect(() => {
+    const t = setTimeout(() => api.visible(visible === '' ? [] : visible.split('\n')).catch(() => {}), 50);
+    return () => clearTimeout(t);
+  }, [visible]);
   // The uses that show their inner nodes (15.3), and the files of their subgraphs.
   const [shown, setShown] = useState(() => shownFrames(view.graphName));
   const [files, setFiles] = useState<ReadonlyMap<string, GraphFile>>(() => new Map());

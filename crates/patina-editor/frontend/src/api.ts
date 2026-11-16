@@ -395,6 +395,8 @@ export const api = {
   stop: () => invoke<View>('stop'),
   /** Sends user input to a node GUI, or asks for its widget lines when `events` is empty (4.3). */
   gui: (id: string, mode: number, events: string) => invoke<void>('gui', { id, mode, events }),
+  /** Gives the nodes in view. The frames draw only their GUIs (4.3 rule 3). */
+  visible: (ids: string[]) => invoke<void>('visible', { ids }),
   /** The ID of the node that runs, or that ran last in the active run. Null between runs (15.2). */
   running: () => invoke<string | null>('running'),
   /** Fires the `trigger` node `id` of the live run with `text` (9.4). */

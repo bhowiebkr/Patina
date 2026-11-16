@@ -6,6 +6,7 @@
 mod blocks;
 mod events;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SendError, Sender, TryRecvError};
@@ -48,6 +49,8 @@ pub enum Job {
     CloseView(String),
     /// Drops one view instance, by its dock slot. The reply to the ask comes after the drop.
     DropView(String, u64),
+    /// The nodes in the view of the graph. The frames draw only their GUIs (4.3 rule 3).
+    Visible(Vec<String>),
 }
 
 /// Sends jobs to the engine thread. It counts the runs that wait for a build, so the engine
@@ -311,6 +314,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                     views.drop_instance(&instance);
                     out.reply(ask, Ok(()));
                 }
+                Job::Visible(ids) => shown.visible = Some(ids.into_iter().collect()),
             }
         }
         if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
@@ -350,7 +354,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
         let ran = matches!(event, Event::Ran { .. });
         out.emit(&event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
-            draw(out, &mut loaded.cluster.frame_part(), run.serial, &shown);
+            draw(out, &mut loaded.cluster.frame_part(), run.serial, &shown, true);
             if goes_on {
                 let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
                 next = run_frames(live, &mut loaded.cluster);
@@ -373,7 +377,7 @@ fn wait(jobs: &Receiver<Job>, fuse_at: Option<Instant>) -> Option<Job> {
 /// Gives the GUI input to node `input.id`, and sends its new widget lines. Returns `Some` when
 /// the change must run the graph again: `Some(true)` when the node is in the frame domain.
 fn gui(out: &Out, part: &mut Frames, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
-    if let Some(node) = (input.mode as usize).checked_sub(1).and_then(|i| shown.get_mut(i)) {
+    if let Some(node) = (input.mode as usize).checked_sub(1).and_then(|i| shown.sizes.get_mut(i)) {
         *node = (!input.id.is_empty()).then(|| input.id.clone());
     }
     let (tree, done) = part.ui(&input.id, input.mode, &input.events);
@@ -383,17 +387,38 @@ fn gui(out: &Out, part: &mut Frames, serial: u64, input: &GuiInput, shown: &mut 
     (input.rerun && !input.events.is_empty()).then_some(frame)
 }
 
-/// The node of the **Inspector** size and the node of the full size (4.3).
-type Shown = [Option<String>; 2];
+/// The nodes whose GUIs the page shows (4.3).
+#[derive(Default)]
+struct Shown {
+    /// The node of the **Inspector** size and the node of the full size.
+    sizes: [Option<String>; 2],
+    /// The nodes in view. None until the page sends them, so that each node draws.
+    visible: Option<HashSet<String>>,
+}
 
-/// Sends the widget lines of each node GUI (4.3): the node body size of each node, and the
-/// larger sizes of the nodes in `shown`.
-fn draw(out: &Out, part: &mut Frames, serial: u64, shown: &Shown) {
+impl Shown {
+    /// True when node `id` draws in size `mode`. The node body size draws for the nodes in view,
+    /// and for all nodes when `all`.
+    fn draws(&self, id: &str, mode: u32, all: bool) -> bool {
+        match mode {
+            0 => all || self.visible.as_ref().is_none_or(|v| v.contains(id)),
+            _ => self.sizes[mode as usize - 1].as_deref() == Some(id),
+        }
+    }
+}
+
+/// Sends the widget lines of the node GUIs (4.3): the node body size of the nodes in view, and
+/// the larger sizes of the nodes in `shown`. After a run, `all` draws each node one time, so that
+/// each node gets its size.
+fn draw(out: &Out, part: &mut Frames, serial: u64, shown: &Shown, all: bool) {
     let (mut trees, mut reports) = (Vec::new(), Vec::new());
-    // shortcut: the engine draws all node GUIs, also the nodes out of view (4.3 rule 3). Send the visible nodes from the page when graphs get large.
     for n in 0..part.guis().len() {
+        let modes = [0, 1, 2].map(|m| shown.draws(&part.guis()[n].0, m, all));
+        if !modes.contains(&true) {
+            continue;
+        }
         let id = part.guis()[n].0.clone();
-        for mode in [0, 1, 2].into_iter().filter(|&m| m == 0 || shown[m as usize - 1].as_ref() == Some(&id)) {
+        for mode in (0..3).filter(|&m| modes[m as usize]) {
             let (tree, done) = part.ui(&id, mode, "");
             reports.extend(done.reports);
             trees.extend(tree.map(|tree| Tree { id: id.clone(), mode, tree }));
@@ -440,6 +465,7 @@ impl Live<'_> {
                 self.views.drop_instance(&instance);
                 self.out.reply(ask, Ok(()));
             }
+            Ok(Job::Visible(ids)) => self.shown.visible = Some(ids.into_iter().collect()),
             Ok(job) => return Some(Some(job)),
             Err(TryRecvError::Disconnected) => return Some(None),
             Err(TryRecvError::Empty) if self.shared.control.stopped() => return Some(None),
@@ -589,7 +615,7 @@ fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(String, Str
     blocks.clear();
     let values = badges(&values);
     out.emit(&Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
-    draw(out, part, serial, shown);
+    draw(out, part, serial, shown, false);
     ok
 }
 
@@ -748,6 +774,15 @@ mod tests {
         assert_eq!(badge(&full), full);
         // The 33rd two-byte character ends at byte 66, so the badge keeps 32 of them.
         assert_eq!(badge(&"\u{e9}".repeat(40)), format!("{}...", "\u{e9}".repeat(32)));
+    }
+
+    #[test]
+    fn the_frames_draw_only_the_node_guis_in_view() {
+        let mut shown = Shown { sizes: [Some("b".to_owned()), None], visible: None };
+        assert!(shown.draws("a", 0, false));
+        shown.visible = Some(HashSet::from(["a".to_owned()]));
+        assert!(shown.draws("a", 0, false) && !shown.draws("b", 0, false) && shown.draws("b", 0, true));
+        assert!(shown.draws("b", 1, false) && !shown.draws("a", 1, false) && !shown.draws("b", 2, false));
     }
 
     #[test]

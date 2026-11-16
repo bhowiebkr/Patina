@@ -96,6 +96,12 @@ pub fn gui(editor: State<'_, Editor>, id: String, mode: u32, events: String) -> 
     })
 }
 
+/// Gives the nodes in the view of the graph. The frames draw only their GUIs (4.3 rule 3).
+#[tauri::command(async)]
+pub fn visible(editor: State<'_, Editor>, ids: Vec<String>) {
+    editor.engine.send(Job::Visible(ids));
+}
+
 /// The ID of the node that runs, or that ran last in the active run. None between runs (15.2).
 #[tauri::command(async)]
 pub fn running(editor: State<'_, Editor>) -> Option<String> {

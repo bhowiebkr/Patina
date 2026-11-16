@@ -869,12 +869,12 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   implements the `Widget` trait. The editor selfcheck clicks a canvas, and the node draws a dot
   at the point. No check drags on a canvas in the editor.
 - These shortcuts are open in the code:
-  - The engine draws all node GUIs after each run and frame, also the nodes out of view (4.3,
-    `crates/patina-editor/src/engine.rs`). Send the visible nodes from the page when graphs get
-    large.
   - The **Add node** palette compares the type text with no module paths, so two types of one
     name in two modules match (`crates/patina-editor/frontend/src/palette.ts`). rustc checks the
     types at build time.
+- The frames draw only the node GUIs in the view of the graph (fixed 2026-11-16, 4.3 rule 3).
+  The page sends the nodes in view. The test `the_frames_draw_only_the_node_guis_in_view` checks
+  the choice of the engine. No check measured the time on a large graph.
 - The delay runs in the audio domain when its input comes from there (fixed 2026-11-16). The
   hello test plays a tone through a delay and hears it one block later with no frame between.
   The plan test puts the delay of an audio cycle in the audio domain. The editor selfcheck wires
