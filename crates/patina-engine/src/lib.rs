@@ -34,7 +34,7 @@ pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
 pub use edit::Edit;
-pub use load::{Cluster, Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
+pub use load::{Audio, Cluster, Frames, Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;
 use project::GraphFile;
 

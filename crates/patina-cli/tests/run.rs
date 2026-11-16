@@ -5,9 +5,14 @@ use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::atomic::Ordering::Relaxed;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::time::Instant;
 
 use patina_engine::{Control, Lanes, Mode, Project, Toolchain};
+
+mod nodes;
+use nodes::{HOLD, KIND, METER, MIX, SPEAKER, TICK, TONE};
 
 /// Copies a project into the temporary folder of the tests and sets the Rust version of the
 /// toolchain. The `build/` folder stays, so a second test run builds only the changes.
@@ -77,62 +82,6 @@ unsafe impl GlobalAlloc for Counter {
 
 #[global_allocator]
 static COUNTER: Counter = Counter;
-
-/// A connection kind of the test, for the f64 wires of the hello example (6.3).
-const KIND: &str = "#[patina_sdk::connection]
-pub fn whole(value: &f64) -> patina_sdk::Lanes {
-    patina_sdk::Lanes::bits(8, *value as u64).label(\"whole\")
-}
-";
-
-/// A generic stateful frame node of the test (4.2, 4.5).
-const TICK: &str = "#[patina_sdk::node(domain = frame)]
-pub struct Tick<T> {
-    count: f64,
-    last: Option<T>,
-}
-
-impl<T: Copy + Into<f64>> Tick<T> {
-    pub fn init() -> Self {
-        Tick { count: 0.0, last: None }
-    }
-
-    pub fn process(&mut self, base: T) -> f64 {
-        self.last = Some(base);
-        self.count = (self.count + base.into()) % 10.0;
-        self.count
-    }
-
-    pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
-        ui.label(\"Tick\");
-        if ui.button(\"Reset\").clicked() {
-            self.count = 0.0;
-        }
-        ui.slider(\"Count\", &mut self.count, 0.0..=10.0);
-    }
-}
-";
-
-/// A generic node of the test (4.5).
-const MIX: &str = "#[patina_sdk::node]
-pub fn mix<T: std::ops::Add<Output = T> + Copy>(a: &T, b: T) -> T {
-    *a + b
-}
-";
-
-/// An audio node of the test (9.3): a block with the peak two times the level.
-const TONE: &str = "#[patina_sdk::node(domain = audio)]
-pub fn tone(level: &f64) -> patina_sdk::AudioBlock {
-    patina_sdk::AudioBlock::from_fn(|i| if i == 0 { *level as f32 * 2.0 } else { 0.0 })
-}
-";
-
-/// A frame node of the test that reads an audio block (9.3).
-const METER: &str = "#[patina_sdk::node(domain = frame)]
-pub fn meter(sound: &patina_sdk::AudioBlock) -> f64 {
-    f64::from(sound.peak())
-}
-";
 
 #[test]
 fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
@@ -248,8 +197,9 @@ builtin = \"delay\"
     }
 
     // Audio (9.3): tone a1 reads mix f3 of the frames, and meter a2 reads tone for show a3. Each
-    // reads the latest value of the other domain. Frame 0 runs before block 0, so meter has no
-    // value. Frames 1 and 2 run before blocks 4 and 7, and get the tones of frames 0 and 1.
+    // reads the latest value of the other domain. The blocks run on their own thread, so the
+    // tone that a frame gets depends on the time. Frame 0 starts before mix has a value, so
+    // meter has no value. Frames 1 and 2 can get the tones of frames 0 and 1 (15 and 19).
     for (name, code) in [("tone", TONE), ("meter", METER)] {
         let folder = project.join("nodes").join(name);
         fs::create_dir_all(folder.join("src")).unwrap();
@@ -268,10 +218,31 @@ builtin = \"delay\"
     fs::write(&graph, fs::read_to_string(&graph).unwrap() + &more).unwrap();
     let (output, stdout, stderr) = run(&project, &["--frames", "3", "--blocks", "9"]);
     assert!(output.status.success(), "{stderr}");
+    let (tones, mut lines): (Vec<&str>, Vec<&str>) = stdout.lines().partition(|l| ["15", "19"].contains(l));
+    lines.sort_unstable();
+    assert_eq!(lines, ["13.5", "6.5", "7.5", "9.5"], "{stderr}");
+    assert!(tones.len() <= 2 && stderr.contains("Node 00000000000000a2: skipped"), "{stderr}");
+    // The frames have no count, so they stop when the blocks are done.
+    let (output, _, stderr) = run(&project, &["--blocks", "9"]);
+    assert!(output.status.success(), "{stderr}");
+
+    // Hold a5 keeps a value that is not `Sync`, so the blocks run on the thread of the frames. A
+    // frame runs before the first block that starts at or after its time: frames 1 and 2 run
+    // before blocks 4 and 7, and get the tones of frames 0 and 1.
+    let threaded = fs::read_to_string(&graph).unwrap();
+    let folder = project.join("nodes/hold");
+    fs::create_dir_all(folder.join("src")).unwrap();
+    fs::write(folder.join("Cargo.toml"), manifest.replace("whole", "hold")).unwrap();
+    fs::write(folder.join("src/lib.rs"), HOLD).unwrap();
+    fs::write(&graph, threaded.clone() + &node("a5", "hold") + &wire("00000000000000a1.out", "00000000000000a5.sound")).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--frames", "3", "--blocks", "9"]);
+    assert!(output.status.success(), "{stderr}");
     let mut lines: Vec<&str> = stdout.lines().collect();
     lines.sort_unstable();
     assert_eq!(lines, ["13.5", "15", "19", "6.5", "7.5", "9.5"], "{stderr}");
-    assert!(stderr.contains("Node 00000000000000a2: skipped"), "{stderr}");
+    let mut held = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Edit).unwrap();
+    assert!(held.blocks() && held.split().is_none());
+    fs::write(&graph, threaded).unwrap();
 
     // Speaker a4 plays tone into the mix of the project, which the engine reads after a block.
     let folder = project.join("nodes/speaker");
@@ -286,14 +257,27 @@ builtin = \"delay\"
     assert!(cluster.run(&control).ok && cluster.frame(&control).ok && cluster.sound().is_none());
     assert!(cluster.block(&control).ok);
     assert_eq!(cluster.sound().map(|s| (s[0], s[1])), Some((15.0, 0.0)));
-}
 
-/// An audio node of the test that plays its input (9.3).
-const SPEAKER: &str = "#[patina_sdk::node(domain = audio)]
-pub fn speaker(sound: &patina_sdk::AudioBlock) {
-    patina_sdk::audio::play(sound);
+    // A slow frame does not make the blocks late: the audio thread runs blocks during the 20 ms
+    // of meter in a frame.
+    let (mut frames, mut audio) = cluster.split().unwrap();
+    let (stop, blocks) = (AtomicBool::new(false), AtomicU64::new(0));
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            let control = Control::default();
+            while !stop.load(Relaxed) {
+                assert!(audio.block(&control).ok);
+                blocks.fetch_add(1, Relaxed);
+            }
+        });
+        let before = blocks.load(Relaxed);
+        let start = Instant::now();
+        let out = frames.frame(&control);
+        assert!(out.ok && out.skipped.is_empty() && start.elapsed().as_millis() >= 20);
+        assert!(blocks.load(Relaxed) > before, "no block ran during the frame");
+        stop.store(true, Relaxed);
+    });
 }
-";
 
 #[test]
 fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {

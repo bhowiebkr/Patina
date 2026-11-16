@@ -404,7 +404,9 @@ cargo run -p patina-cli -- run examples/hello --frames 3
 The run stops at the first frame in which a node fails.
 
 A graph with audio nodes also runs blocks of 256 audio samples, 187.5 blocks each second. The
-frames run between the blocks. To run a number of blocks and then stop, add `--blocks <count>`.
+blocks run on their own thread, at the same time as the frames. To run a number of blocks and
+then stop, add `--blocks <count>`. The frames then run until the blocks are done, and the
+blocks run until the frames of `--frames` are done.
 When a node plays sound, the CLI opens the default audio device. The device then sets the pace
 of the blocks. A node plays a block with `patina_sdk::audio::play(&block)`.
 

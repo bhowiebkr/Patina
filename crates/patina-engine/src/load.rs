@@ -161,10 +161,10 @@ pub struct Cluster {
     probes: Vec<String>,
     /// True for each slot that got a text at the last `set_params`.
     has_text: Vec<bool>,
-    /// The reports of the last call.
-    sink: Sink,
-    /// The outcome of the last call. A frame fills it again, so it does not allocate (9.1).
-    out: Outcome,
+    /// The reports and the outcome of the last call of the batch and the frame domains.
+    calls: Calls,
+    /// The reports and the outcome of the last block, apart, so that an audio thread fills them (9.3).
+    block_calls: Calls,
     /// The mix that the audio nodes of the project play into (9.3).
     mix: &'static Mix,
     /// The mix of the last block.
@@ -226,8 +226,8 @@ impl Cluster {
             has_text: vec![false; slots.len()],
             slots,
             probes,
-            sink,
-            out: Outcome::default(),
+            calls: Calls { sink, out: Outcome::default() },
+            block_calls: Calls::default(),
             mix: glue::shared_in(&root.to_string_lossy(), Mix::default),
             sound: [0.0; BLOCK],
         })
@@ -260,9 +260,9 @@ impl Cluster {
     /// get new states and the state keys `keys`. On a failure, the active slot library stays.
     pub(crate) fn swap_slot(&mut self, path: &Path, root: &Path, keys: Vec<Option<u64>>) -> Result<(), Error> {
         let slot = slot_library(path, root)?;
-        if !link(&self.libraries, &[], Some(&slot.1), &mut self.sink) {
+        if !link(&self.libraries, &[], Some(&slot.1), &mut self.calls.sink) {
             if let Some((_, old)) = &self.slot {
-                link(&self.libraries, &[], Some(old), &mut self.sink);
+                link(&self.libraries, &[], Some(old), &mut self.calls.sink);
             }
             return Err(Error::Load("a cluster did not take the slot library. Build it again".to_owned()));
         }
@@ -288,7 +288,7 @@ impl Cluster {
                 return Outcome::default();
             }
             self.libraries.iter_mut().flatten().zip(states).for_each(|(library, state)| library.replace(state));
-            if !link(&self.libraries, &self.links, self.slot.as_ref().map(|(_, r)| &**r), &mut self.sink) {
+            if !link(&self.libraries, &self.links, self.slot.as_ref().map(|(_, r)| &**r), &mut self.calls.sink) {
                 return Outcome::default();
             }
         }
@@ -297,12 +297,12 @@ impl Cluster {
             let Some(text) = text else { continue };
             let Some(library) = self.library(self.slots[slot as usize].0) else { continue };
             let (state, set) = (library.state, library.set);
-            self.sink.clear();
+            self.calls.sink.clear();
             // SAFETY: `state` is live, `text` is valid during the call, and so is the reporter.
             self.call(std::ptr::null(), |rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) });
             let key = &self.slots[slot as usize].1;
-            all.ok &= self.out.ok;
-            all.reports.extend(self.out.reports.drain(..).map(|r| Report { text: format!("input `{key}`: {}", r.text), ..r }));
+            all.ok &= self.calls.out.ok;
+            all.reports.extend(self.calls.out.reports.drain(..).map(|r| Report { text: format!("input `{key}`: {}", r.text), ..r }));
         }
         self.has_text = texts.iter().map(Option::is_some).collect();
         all
@@ -313,14 +313,14 @@ impl Cluster {
     pub fn run(&mut self, control: &Control) -> Outcome {
         self.run_domain(Domain::Batch, control);
         // The batch run is not a hot path, so it gives its lists to the caller.
-        std::mem::take(&mut self.out)
+        std::mem::take(&mut self.calls.out)
     }
 
     /// Runs the frame domain of the graph one time: one frame (9.1). After the first frames, it
     /// does not allocate, because it fills the lists of the last outcome again.
     pub fn frame(&mut self, control: &Control) -> &Outcome {
         self.run_domain(Domain::Frame, control);
-        &self.out
+        &self.calls.out
     }
 
     /// Runs the audio domain of the graph one time: one block of `patina_sdk::audio::BLOCK`
@@ -328,7 +328,7 @@ impl Cluster {
     pub fn block(&mut self, control: &Control) -> &Outcome {
         self.run_domain(Domain::Audio, control);
         self.mix.take(&mut self.sound);
-        &self.out
+        &self.block_calls.out
     }
 
     /// The samples that the nodes played in the last block, or `None` before the first node played.
@@ -351,35 +351,28 @@ impl Cluster {
     }
 
     fn run_domain(&mut self, domain: Domain, control: &Control) {
-        let Some(library) = &self.libraries[domain as usize] else {
-            self.sink.clear();
-            self.call(control, |_| true);
-            return;
-        };
-        let rep = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
-        // SAFETY: `state` is live, no task runs, and the reporter is valid during the call.
-        let begun = unsafe { (library.begin)(library.state, domain as u32, &rep) };
-        let tasks = &library.tasks;
-        tasks.state.store(library.state, Relaxed);
-        tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
-        tasks.ok.store(true, Relaxed);
-        let parallel = library.parallel && self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel);
-        if use_pool(parallel, tasks.inputs.len(), self.work[domain as usize]) {
-            pool::run(tasks.clone());
-        } else {
-            (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
+        let audio = domain == Domain::Audio;
+        // One thread runs all audio nodes (9.3), so the audio domain never uses the pool.
+        let pool = !audio && self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel);
+        let calls = if audio { &mut self.block_calls } else { &mut self.calls };
+        let (names, probes, work) = (&self.names, &self.probes, &mut self.work[domain as usize]);
+        Run { library: self.libraries[domain as usize].as_ref(), pool, names, probes, calls, work }.domain(domain, control);
+    }
+
+    /// Splits the cluster into its frame domain and its audio domain, so that the audio domain
+    /// runs on its own thread at the same time as the frames (9.3). `None` when the graph has no
+    /// audio nodes, or when the audio library or the slot library keeps a value that is not `Sync`.
+    pub fn split(&mut self) -> Option<(Frames<'_>, Audio<'_>)> {
+        let audio = self.libraries[Domain::Audio as usize].as_ref();
+        if !audio.is_some_and(|audio| audio.parallel) || self.slot.as_ref().is_some_and(|(slot, _)| !slot.parallel) {
+            return None;
         }
-        tasks.control.store(std::ptr::null_mut(), Relaxed);
-        self.sink.clear();
-        for task in &tasks.sinks {
-            self.sink.append(&mut lock(task));
-        }
-        let (state, end, ok) = (library.state, library.end, tasks.ok.load(Relaxed));
-        // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
-        // during the call.
-        self.call(control, |rep| unsafe { end(state, domain as u32, rep) });
-        self.out.ok &= ok && begun;
-        self.work[domain as usize] = self.out.times.iter().map(|t| t.ms).sum();
+        let [_, frame_work, audio_work] = &mut self.work;
+        let [_, frame, audio] = &self.libraries;
+        let (names, probes) = (&self.names, &self.probes);
+        let frames = Run { library: frame.as_ref(), pool: true, names, probes, calls: &mut self.calls, work: frame_work };
+        let blocks = Run { library: audio.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, work: audio_work };
+        Some((Frames(frames), Audio { run: blocks, mix: self.mix, sound: &mut self.sound }))
     }
 
     /// Calls the `ui` function of node `id` between two runs (4.3), in mode `mode` (0 compact,
@@ -389,12 +382,12 @@ impl Cluster {
         let Some(n) = self.names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
         let (Some(library), Ok(node)) = (self.owner(n), u32::try_from(n)) else { return (None, Outcome::default()) };
         let (state, ui) = (library.state, library.ui);
-        self.sink.clear();
+        self.calls.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run is active, and `events` and the
         // reporter are valid during the call.
         self.call(std::ptr::null(), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
-        let tree = self.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
-        (tree, std::mem::take(&mut self.out))
+        let tree = self.calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
+        (tree, std::mem::take(&mut self.calls.out))
     }
 
     /// The kept copy of output `key` of node `id` for a view (15.8 rule 3), as a pointer to a
@@ -463,9 +456,108 @@ impl Cluster {
 
     /// Calls `f` with a reporter that adds to the sink. Then fills the outcome from the sink.
     fn call(&mut self, control: *const Control, f: impl FnOnce(*const Reporter) -> bool) {
+        self.calls.call(&self.names, &self.probes, control, f);
+    }
+}
+
+/// The reports and the outcome of the calls of one thread. A run fills them again, so it does
+/// not allocate (9.1).
+#[derive(Default)]
+struct Calls {
+    sink: Sink,
+    out: Outcome,
+}
+
+impl Calls {
+    /// Calls `f` with a reporter that adds to the sink. Then fills the outcome from the sink.
+    fn call(&mut self, names: &[(String, String)], probes: &[String], control: *const Control, f: impl FnOnce(*const Reporter) -> bool) {
         let reporter = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
         let ok = f(&reporter);
-        fill(&mut self.out, ok, &self.sink, &self.names, &self.probes);
+        fill(&mut self.out, ok, &self.sink, names, probes);
+    }
+}
+
+/// What one thread needs for a run of one domain.
+struct Run<'a> {
+    library: Option<&'a Library>,
+    /// False when the worker pool must not run the tasks.
+    pool: bool,
+    names: &'a [(String, String)],
+    probes: &'a [String],
+    calls: &'a mut Calls,
+    /// The sum of the node run times of the last run, in ms.
+    work: &'a mut f64,
+}
+
+impl Run<'_> {
+    fn domain(&mut self, domain: Domain, control: &Control) {
+        let Some(library) = self.library else {
+            self.calls.sink.clear();
+            self.calls.call(self.names, self.probes, control, |_| true);
+            return;
+        };
+        let rep = Reporter { ctx: (&raw mut self.calls.sink).cast(), report: collect, control };
+        // SAFETY: `state` is live, no task runs, and the reporter is valid during the call.
+        let begun = unsafe { (library.begin)(library.state, domain as u32, &rep) };
+        let tasks = &library.tasks;
+        tasks.state.store(library.state, Relaxed);
+        tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
+        tasks.ok.store(true, Relaxed);
+        if use_pool(self.pool && library.parallel, tasks.inputs.len(), *self.work) {
+            pool::run(tasks.clone());
+        } else {
+            (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
+        }
+        tasks.control.store(std::ptr::null_mut(), Relaxed);
+        self.calls.sink.clear();
+        for task in &tasks.sinks {
+            self.calls.sink.append(&mut lock(task));
+        }
+        let (state, end, ok) = (library.state, library.end, tasks.ok.load(Relaxed));
+        // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
+        // during the call.
+        self.calls.call(self.names, self.probes, control, |rep| unsafe { end(state, domain as u32, rep) });
+        self.calls.out.ok &= ok && begun;
+        *self.work = self.calls.out.times.iter().map(|t| t.ms).sum();
+    }
+}
+
+/// The frame domain of a split cluster (`Cluster::split`).
+pub struct Frames<'a>(Run<'a>);
+
+impl Frames<'_> {
+    /// Runs one frame, as `Cluster::frame`.
+    pub fn frame(&mut self, control: &Control) -> &Outcome {
+        self.0.domain(Domain::Frame, control);
+        &self.0.calls.out
+    }
+}
+
+/// The audio domain of a split cluster, for the audio thread (9.3).
+pub struct Audio<'a> {
+    run: Run<'a>,
+    mix: &'static Mix,
+    sound: &'a mut [f32; BLOCK],
+}
+
+// SAFETY: while the split lasts, only the thread that holds `Audio` calls the audio cluster, and
+// `Frames` never calls it. `Cluster::split` allows a split only when the audio library and the
+// slot library are parallel, so each value that the audio thread keeps or reads is `Sync`. The
+// two domains share only the latest-value wires, which take one writer and one reader without a
+// lock (9.3), the batch values, which do not change while the split lasts, and the slot.
+unsafe impl Send for Audio<'_> {}
+
+impl Audio<'_> {
+    /// Runs one block, as `Cluster::block`.
+    pub fn block(&mut self, control: &Control) -> &Outcome {
+        self.run.domain(Domain::Audio, control);
+        self.mix.take(self.sound);
+        &self.run.calls.out
+    }
+
+    /// The samples of the last block, as `Cluster::sound`.
+    pub fn sound(&self) -> Option<&[f32; BLOCK]> {
+        self.mix.played().then_some(&*self.sound)
     }
 }
 

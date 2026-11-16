@@ -4,12 +4,14 @@ mod device;
 
 use std::path::Path;
 use std::process::ExitCode;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
 use std::time::Instant;
 
 use device::Device;
 use patina_engine::clock::{self, Clock};
 use patina_engine::project::GraphFile;
-use patina_engine::{Cluster, Control, Mode, Outcome, Project, Toolchain, package};
+use patina_engine::{Audio, Cluster, Control, Mode, Outcome, Project, Toolchain, package};
 
 const USAGE: &str = "usage: patina-cli run <project folder> [--frames <count>] [--blocks <count>] [--edit]
        patina-cli package <project folder> <package folder> [--edit]";
@@ -131,32 +133,92 @@ fn run_package(dir: &Path, args: &[String]) -> Result<bool, String> {
 }
 
 /// Runs the batch domain one time. Then it runs the frames and the audio blocks of `counts`.
-/// With audio, the frames run between the blocks on the block clock. Returns false when a node
-/// failed.
+/// The blocks run on their own thread, at the same time as the frames (9.3). Returns false when
+/// a node failed.
 fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
     let control = Control::default();
     // A node with a bad parameter does not run, so the graph does not run.
     if !show(&cluster.set_params(graph)) || !show(&cluster.run(&control)) {
         return false;
     }
-    let frames = if cluster.frames() { counts.frames.unwrap_or(u64::MAX) } else { 0 };
+    let has_frames = cluster.frames();
     if !cluster.blocks() {
-        let mut clock = Clock::new(clock::FRAME);
-        return (0..frames).all(|frame| {
-            if frame > 0 {
-                clock.wait();
-            }
-            show(cluster.frame(&control))
-        });
+        let count = if has_frames { counts.frames } else { Some(0) };
+        return frames(|| show(cluster.frame(&control)), count, &AtomicBool::new(false));
     }
-    // The timer paces the blocks until a node plays. Then the audio device paces them (9.3).
-    let (mut clock, mut device, mut opened) = (Clock::new(clock::BLOCK), None::<Device>, false);
-    let mut frame = 0;
-    for block in 0..counts.blocks.unwrap_or(u64::MAX) {
-        if block > 0 && device.is_none() {
+    let Some((mut frame, mut audio)) = cluster.split() else {
+        return between(cluster, counts, has_frames);
+    };
+    // A domain without a count runs until each domain with a count is done, or a node fails.
+    let stop = AtomicBool::new(false);
+    let done = |ok: bool, other: Option<u64>| {
+        if !ok || other.is_none() {
+            stop.store(true, Relaxed);
+        }
+        ok
+    };
+    std::thread::scope(|scope| {
+        let thread = scope.spawn(|| done(blocks(&mut audio, counts.blocks, &stop), counts.frames.filter(|_| has_frames)));
+        let framed = !has_frames || done(frames(|| show(frame.frame(&control)), counts.frames, &stop), counts.blocks);
+        // A panic of the audio thread is a failure of the run.
+        thread.join().unwrap_or(false) && framed
+    })
+}
+
+/// Runs `count` frames on the frame clock, or frames until `stop`. Returns false when a node
+/// failed.
+fn frames(mut frame: impl FnMut() -> bool, count: Option<u64>, stop: &AtomicBool) -> bool {
+    let mut clock = Clock::new(clock::FRAME);
+    for n in 0..count.unwrap_or(u64::MAX) {
+        if n > 0 {
             clock.wait();
         }
-        while frame < frames && frame_due(frame, block) {
+        if stop.load(Relaxed) {
+            break;
+        }
+        if !frame() {
+            return false;
+        }
+    }
+    true
+}
+
+/// Runs `count` audio blocks, or blocks until `stop`, on the audio thread. Returns false when a
+/// node failed.
+fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
+    let (control, mut pace) = (Control::default(), Pace::new());
+    for block in 0..count.unwrap_or(u64::MAX) {
+        if block > 0 {
+            pace.wait();
+        }
+        if stop.load(Relaxed) {
+            break;
+        }
+        if !show(audio.block(&control)) {
+            return false;
+        }
+        pace.play(audio.sound().map(|s| s.as_slice()));
+    }
+    pace.drain();
+    true
+}
+
+/// Runs the blocks and the frames on one thread, when the audio domain cannot have its own
+/// thread (9.3). A frame runs before the first block that starts at or after its time. Returns
+/// false when a node failed.
+fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool) -> bool {
+    let (control, mut pace) = (Control::default(), Pace::new());
+    let limit = if has_frames { counts.frames.unwrap_or(u64::MAX) } else { 0 };
+    let mut frame = 0;
+    for block in 0..counts.blocks.unwrap_or(u64::MAX) {
+        // A domain without a count runs until each domain with a count is done.
+        if counts.blocks.is_none() && has_frames && counts.frames == Some(frame) {
+            break;
+        }
+        if block > 0 {
+            pace.wait();
+        }
+        while frame < limit && frame_due(frame, block) {
             if !show(cluster.frame(&control)) {
                 return false;
             }
@@ -165,29 +227,60 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
         if !show(cluster.block(&control)) {
             return false;
         }
-        let Some(sound) = cluster.sound() else { continue };
-        if !opened {
-            opened = true;
-            device = Device::open(clock::SAMPLE_RATE);
-            match device {
-                Some(_) => eprintln!("Playing the sound on the default audio device"),
-                None => eprintln!("warning: no audio device takes {} Hz, so the sound does not play", clock::SAMPLE_RATE),
-            }
-        }
-        if device.as_ref().is_some_and(|d| !d.play(sound)) {
-            eprintln!("warning: the audio device stopped");
-            (device, clock) = (None, Clock::new(clock::BLOCK));
-        }
+        pace.play(cluster.sound().map(|s| s.as_slice()));
     }
-    if let Some(device) = device {
-        device.drain();
-    }
-    true
+    pace.drain();
+    let rest = counts.frames.filter(|_| has_frames).map_or(0, |count| count - frame);
+    frames(|| show(cluster.frame(&control)), Some(rest), &AtomicBool::new(false))
 }
 
 /// True when frame `frame` starts at or before the start of audio block `block`.
 fn frame_due(frame: u64, block: u64) -> bool {
     u128::from(frame) * clock::FRAME.as_nanos() <= u128::from(block) * clock::BLOCK.as_nanos()
+}
+
+/// Paces the blocks: the timer until a node plays, then the audio device (9.3).
+struct Pace {
+    clock: Clock,
+    device: Option<Device>,
+    opened: bool,
+}
+
+impl Pace {
+    fn new() -> Pace {
+        Pace { clock: Clock::new(clock::BLOCK), device: None, opened: false }
+    }
+
+    /// Waits for the time of the next block. With a device, `play` waits instead.
+    fn wait(&mut self) {
+        if self.device.is_none() {
+            self.clock.wait();
+        }
+    }
+
+    /// Sends the sound of a block to the device. Opens the device at the first sound.
+    fn play(&mut self, sound: Option<&[f32]>) {
+        let Some(sound) = sound else { return };
+        if !self.opened {
+            self.opened = true;
+            self.device = Device::open(clock::SAMPLE_RATE);
+            match self.device {
+                Some(_) => eprintln!("Playing the sound on the default audio device"),
+                None => eprintln!("warning: no audio device takes {} Hz, so the sound does not play", clock::SAMPLE_RATE),
+            }
+        }
+        if self.device.as_ref().is_some_and(|d| !d.play(sound)) {
+            eprintln!("warning: the audio device stopped");
+            (self.device, self.clock) = (None, Clock::new(clock::BLOCK));
+        }
+    }
+
+    /// Waits until the device played its queue.
+    fn drain(self) {
+        if let Some(device) = self.device {
+            device.drain();
+        }
+    }
 }
 
 fn show(outcome: &Outcome) -> bool {

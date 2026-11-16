@@ -1,8 +1,8 @@
 # Status
 
-The current work is the circuit graphs of question 13 (spec section 18): build a computer from
-NAND gates. The owner put this work first on 2026-11-15. Milestone 11, the audio domain, is
-paused after its step 2. Milestone 10, views,
+The current work is milestone 11, the audio domain. It continued on 2026-11-16 with its step 4.
+The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
+complete since 2026-11-16. Milestone 10, views,
 ended on 2026-11-15. Milestone 9, the GPU, ended on 2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
 a download that the owner did not approve yet. Milestones 2 to 10 work, with the open items in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
@@ -164,16 +164,23 @@ at each block of samples (spec 9.3).
 2. Done: audio output to the default device with `cpal`. A node plays a block with
    `patina_sdk::audio::play`. The timer stays when there is no device.
 3. Deferred by the owner on 2026-11-15: node GUIs of audio nodes (4.3).
-4. The audio thread, apart from the frames. The milestone check: a slow `ui` of an audio node
-   does not make a block late.
+4. Done on 2026-11-16: the audio thread, apart from the frames (`Cluster::split`). The node GUIs
+   of audio nodes are deferred (step 3), so the milestone check uses a slow frame node: it does
+   not make a block late.
 5. The editor runs the audio domain with the frames. **Stop** stops it.
 
 ### Checked
 
 - On Windows 11 with Rust 1.100.0: the CLI test adds the audio node `tone` and the frame node
   `meter` to a copy of the hello example. Tone reads a frame value, and meter reads the block of
-  tone. With `--frames 3 --blocks 9`, meter shows the tones of frames 0 and 1. Frame 0 runs
-  before block 0, so meter skips it.
+  tone. With `--frames 3 --blocks 9`, the frames and the blocks run on two threads. Frame 0
+  starts before tone has a value, so meter skips it. Meter shows only the tones 15 and 19.
+- The same test adds the audio node `hold`, which keeps an `Rc`. The audio library is then not
+  parallel, so `Cluster::split` gives no split and the CLI runs the blocks between the frames.
+  Meter then shows the tones of frames 0 and 1, in a fixed order.
+- The same test runs `--blocks 9` without `--frames`. The frames stop when the blocks are done.
+- The same test splits the cluster. An audio thread runs blocks while the main thread runs one
+  frame, in which meter sleeps 20 ms. Blocks ran during the frame.
 - Unit tests check the buffer of three values, the pool of `AudioBlock`, the order of the
   frames and the blocks, and the domain of a node with a frame input and the audio domain.
 - The witness block now builds with a delay before an import. A delay gets the type of its
@@ -189,8 +196,10 @@ at each block of samples (spec 9.3).
 - These shortcuts are open in the code:
   - `device.rs` of `patina-cli`: a fixed wait of 50 ms for the buffer of the device at the end.
 - `patina-capi` and the editor do not run audio blocks yet.
-- The thread of the frames runs the blocks, so a slow frame makes the blocks late. The device
-  queue of 43 ms hides a short delay only.
+- When an audio node keeps a value that is not `Sync`, the blocks run on the thread of the
+  frames. A slow frame then makes the blocks late. The device queue of 43 ms hides a short delay
+  only.
+- The audio thread has the normal priority of the operating system, not a real-time priority.
 - The device must take 48 kHz f32 samples. There is no resampler.
 - Linux needs the ALSA library. The device output was not run on Linux or macOS.
 
