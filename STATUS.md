@@ -923,7 +923,9 @@ milestone 5 (9.2).
 
 ### Known limits
 
-- No delay node yet, so a graph cannot have a feedback loop. Milestone 5 added it.
+Milestone 5 added the delay node, and milestone 11 made the latest-value wires of the audio
+domain free of locks. These limits are still open:
+
 - The calling thread of a parallel run wakes about 60 us after the last task ends. Eight
   separate tasks of 180 us thus ran only 2.5 to 5 times faster than one task, not 8 times.
 - The pool rule uses the node times of the last run. Thus, after a small run, the next run
@@ -935,14 +937,12 @@ milestone 5 (9.2).
 - A text that is longer than the text of the last frame grows its buffer one time.
 - The editor sends an event to the page at each frame, also when no value changed.
 - A change while the frames run runs the batch domain again before the next frame.
-- A latest-value wire uses a shared slot with a lock, not a buffer that does not lock (9.1).
-  The two domains do not run at the same time yet, so the lock never waits.
+- A latest-value wire between the batch and the frame domain uses a slot with a lock (9.1).
+  The batch run ends before the frames start, so the lock never waits.
 - A batch value that a frame node reads stays after the frames end, until the next batch run.
 - Ctrl+C stops the CLI at once. The values that the frame domain keeps do not drop.
 - These shortcuts are open in the code:
   - The editor copies each frame into a JSON event (`crates/patina-editor/src/engine.rs`).
-  - A latest-value wire uses a lock that never waits, because the domains do not run at the
-    same time (`crates/patina-engine/src/generate.rs`).
 
 ## Milestone 2: editor
 
@@ -1276,7 +1276,7 @@ To run the editor from a checkout:
 - Undo does not remove a new node, widget or view folder (15.2).
 - The check does not test the **does not stop** message of **Stop** (15.2), because that needs
   a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
-  starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.
+  starts. The limits of milestone 12 tell how the waits of async nodes (4.6) stop.
 - The self-check does not run a node with the `log` crate, because that needs crates.io. The
   type check covers the log lines of the page, but no check showed them in the editor yet.
 - The log lines show only the levels Info, Warn and Error. The logger drops a record from a
@@ -1296,8 +1296,6 @@ To run the editor from a checkout:
   saved. The route changes when a node moves, and the wires of a large graph can jump.
   **Arrange** puts all nodes of a layer in one column, so a wide layer makes a tall column, for
   example the 112 switches of `rom-16x7`.
-- The check does not run the SVG wires, the fallback when WebGL does not start (15.1). The
-  route handles are the same in the two modes.
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did
   not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
   old recovery file, and its new changes do not go into the file until the user answers.
@@ -1316,7 +1314,7 @@ To run the editor from a checkout:
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,
   which has the critical advisory GHSA-p98j-92pf-mc4p. `npm audit` now finds 0 problems.
 - These shortcuts are open in the code:
-  - Monaco has no rust-analyzer. Milestone 3 connects it (`frontend/src/code.ts`).
+  - Monaco has no rust-analyzer (15.1, `frontend/src/code.ts`).
   - Monaco is in the main page script, which is 3.7 MB. Load it when the **Code** tab opens if
     the start time gets slow (`frontend/src/code.ts`).
   - The **Code** tab forgets the cursor and the scroll position when it closes
@@ -1386,10 +1384,9 @@ The projects are very small, so these times do not predict real projects.
 
 ### Known limits
 
-- One cluster, in the `dev` profile. Milestone 6 links a shared `std`. Clusters that share
-  types, hot reload and **Bake** come at milestone 6.
-- Only function nodes. Stateful nodes, node settings and generic nodes come at milestone 5.
-  Subgraphs come at milestone 7, and async nodes at milestone 12.
+The later milestones closed the limits of one cluster, a static `std`, function nodes only, the
+library in the target folder and the single run of the CLI. These limits are still open:
+
 - The toolchain comes from the toolchain folder (13.3), or else from the `CARGO` variable or
   `PATH`. Its version must be the `rust` version of `patina.toml`.
 - **Install toolchain** works only on Windows. It installs rust-analyzer too, but no install
@@ -1397,21 +1394,13 @@ The projects are very small, so these times do not predict real projects.
   install has no rust-analyzer. Remove the `toolchain` folder and install again.
 - No GitHub release makes the portable zip yet. The **Package** workflow keeps the zips only as
   artifacts of the run.
-- The engine loads the library from the cargo target folder, and never unloads it. Windows
-  locks the file, so one process cannot build the same project again after the load.
 - A node panic shows two messages: the default panic message of the cluster, and the report.
 - A `Result` output is found by the type name `Result` only. A type alias with another name is
   not found, and then an `Err` is a value, not a failure.
 - The editor compares the pin types only for the ring of a wire drag (15.9). A drop on a socket
   of another type still adds the wire, and the next build gives the compile error. The type
   label is the text of the code, so `String` and `std::string::String` show differently.
-- The CLI runs the graph one time. The clock domains (9.1) come later.
-- These shortcuts are open in the code:
-  - The CLI finds only the toolchain folder next to it (`crates/patina-cli/src/main.rs`).
-  - One cluster with a static `std` in the `dev` profile (`crates/patina-engine/src/cargo.rs`).
-  - The library loads from the target folder (`crates/patina-engine/src/lib.rs`).
-  - Only function nodes (`crates/patina-engine/src/node.rs`,
-    `crates/patina-macros/src/lib.rs`).
+- The CLI finds only the toolchain folder next to it (`crates/patina-cli/src/main.rs`).
 
 ## Milestone 0: risk prototypes
 

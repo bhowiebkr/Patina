@@ -1,7 +1,7 @@
 // The code buffers of the Code tab (spec 15.10): one Monaco model for each open file of a node
 // folder. Edits stay in the buffer until a save sends one SetCode edit for each changed file.
 
-// shortcut: no rust-analyzer; connect it at milestone 3 (spec 15.1).
+// shortcut: no rust-analyzer; connect it when the toolchain install has it (spec 15.1).
 // shortcut: Monaco is in the main script (3.7 MB); load it with the Code tab if the start gets slow.
 import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/editor/contrib/bracketMatching/browser/bracketMatching';
