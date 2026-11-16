@@ -516,3 +516,29 @@ after = "ba4fbf2be96592c8"
 [[order]]
 before = "ba4fbf2be96592c8"
 after = "d415f2b47c52f4e8"
+
+[[node]]
+id = "1cd0a5c11d15b1a7"
+folder = "nodes/lcd"
+pos = [1000.0, 2560.0]
+
+[node.params]
+d4 = "true"
+d5 = "true"
+write = "true"
+
+[[wire]]
+from = "a3efcc2ce595017a.f6341638"
+to = "1cd0a5c11d15b1a7.d0"
+
+[[wire]]
+from = "a3efcc2ce595017a.0ceec420"
+to = "1cd0a5c11d15b1a7.d1"
+
+[[wire]]
+from = "a3efcc2ce595017a.9b738df0"
+to = "1cd0a5c11d15b1a7.d2"
+
+[[wire]]
+from = "a3efcc2ce595017a.30556757"
+to = "1cd0a5c11d15b1a7.d3"

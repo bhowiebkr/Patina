@@ -38,7 +38,10 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 10. Done: the **Test** button of an open subgraph runs it alone. Switches toggle its `bool`
     inputs and lamps show its outputs. The **Graphs** group of the **Project** panel lists the
     subgraphs. A click opens one, and a drag adds a use.
-11. Next: an 8-bit data path, so the CPU counts past 15.
+11. Done: an `lcd` node shows 2 lines of 16 characters. The CPU writes the character '0' plus
+    OUT at each step. A node GUI keeps its size: a canvas sets the node width, a label clips on
+    one line, and nothing draws outside the node (4.3).
+12. Next: an 8-bit data path, so the CPU counts past 15.
 
 ### Checked
 

@@ -198,6 +198,22 @@
   border-top: 1px solid var(--border);
   font-size: 12px;
   cursor: default;
+  /* A node keeps its size (4.3): nothing draws outside it, and a label clips on one line. */
+  overflow: hidden;
+}
+
+.node-gui .label,
+.node-gui .gui-row > span,
+.gui-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gui-row.gui-label {
+  display: block;
+  line-height: 24px;
 }
 
 .gui-canvas-row {
@@ -221,6 +237,8 @@ html.native-viewport .gui-viewport {
 
 .gui-canvas {
   display: block;
+  max-width: 100%;
+  height: auto;
   background: var(--field);
   border: 1px solid var(--border);
   border-radius: 4px;

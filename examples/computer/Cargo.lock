@@ -16,6 +16,7 @@ name = "cluster-frame"
 version = "0.0.0"
 dependencies = [
  "display",
+ "lcd",
  "nand",
  "patina-sdk",
  "readout",
@@ -24,6 +25,13 @@ dependencies = [
 
 [[package]]
 name = "display"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
+name = "lcd"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",

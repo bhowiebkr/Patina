@@ -121,6 +121,8 @@ The canvas lets a node author make custom controls, for example a gradient edito
 
 The width and height of a node body fit its GUI. Nodes do not have to share a size. Give plots and image controls room, and keep small utility nodes compact.
 
+The size of a node comes from the sizes that its GUI declares, never from the values that it shows. A node is 200 px wide. A canvas makes the node wider, to the canvas width plus the padding, up to 480 px. A wider canvas scales down to fit. A label stays on one line and clips with an ellipsis, and its full text shows as a tooltip. Nothing draws outside the node. A node that shows values gives its canvas the size of the largest content, for example all 16 x 2 cells of an LCD. Then the node does not grow when the content changes. (Agent decision, 2026-11-15. The owner can change it.)
+
 1. The engine never calls `ui` while `process` runs. It calls `ui` between runs, so the two functions never use the node state at the same time.
 2. A GUI change marks the node as changed. The change applies on the next run of the clock domain of the node.
 3. The engine calls `ui` at the display rate at most, and only for visible nodes.

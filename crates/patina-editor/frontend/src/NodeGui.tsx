@@ -91,11 +91,16 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
   };
   return (
     <div className="gui-canvas-row">
-      {w.text && <span className="label">{w.text}</span>}
+      {w.text && (
+        <span className="label" title={w.text}>
+          {w.text}
+        </span>
+      )}
       <svg
         className="gui-canvas"
         width={w.width}
         height={w.height}
+        style={{ aspectRatio: `${w.width} / ${w.height}` }}
         viewBox={`0 0 ${w.width} ${w.height}`}
         role="img"
         aria-label={w.text || 'Canvas'}
@@ -170,7 +175,7 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
         switch (w.kind) {
           case 'label':
             return (
-              <div key={w.index} className="gui-row">
+              <div key={w.index} className="gui-row gui-label" title={w.text}>
                 {w.text}
               </div>
             );

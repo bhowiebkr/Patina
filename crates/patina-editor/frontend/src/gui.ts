@@ -91,6 +91,21 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
   return null;
 }
 
+// A node is 200 px wide. A canvas makes it wider, up to the limit (4.3). 26 px is the padding and the border.
+const NODE_WIDTH = 200;
+const MAX_NODE_WIDTH = 480;
+const GUI_PAD = 26;
+
+/** The width of a node from the canvas sizes of its GUI. The values that it shows never change it. */
+export function nodeWidth(tree: string): number {
+  let width = 0;
+  for (const line of tree.split('\n')) {
+    const [kind, , value] = line.split('\t', 3);
+    if (kind === 'canvas') width = Math.max(width, Number(value) || 0);
+  }
+  return Math.min(Math.max(NODE_WIDTH, Math.ceil(width) + GUI_PAD), MAX_NODE_WIDTH);
+}
+
 /** Reads one widget from each line. A line of an unknown kind or with bad numbers keeps its index. */
 export function parseTree(tree: string): Widget[] {
   const widgets: Widget[] = [];

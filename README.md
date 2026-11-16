@@ -283,7 +283,9 @@ switches. Bits i0 to i3 are k, and bits i4 to i6 are the opcode. The example pro
 A and shows A on OUT. It keeps A in the RAM. At the carry, it loads A from the RAM. JZ skips
 the LDI when the RAM word is 0.
 
-In the editor, the `readout` nodes show the bits as lamps.
+In the editor, the `readout` nodes show the bits as lamps. The `lcd` node shows 2 lines of 16
+characters. At each step, the CPU writes the character '0' plus OUT to it. The values 10 to 15
+show as `:` to `?`, the next ASCII characters.
 
 ## Install
 

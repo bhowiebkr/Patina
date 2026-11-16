@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { eventLine, parseTree } from './gui.ts';
+import { eventLine, nodeWidth, parseTree } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
   const tree = 'label\tTick\nwheel\tX\nbutton\tReset\ntoggle\tOn\t1\nslider\tCount\t2.5\t0\t10\nslider\tBad\tx\t0\t1';
@@ -74,4 +74,10 @@ test('a canvas keeps its good shapes and limits its size', () => {
       ],
     },
   ]);
+});
+
+test('a canvas sets the node width, and the values and labels do not', () => {
+  assert.equal(nodeWidth('label\tA long value that does not fit'), 200);
+  assert.equal(nodeWidth('canvas\tLCD\t252\t57\nlabel\tx'), 278);
+  assert.equal(nodeWidth('canvas\tBig\t4096\t10'), 480);
 });

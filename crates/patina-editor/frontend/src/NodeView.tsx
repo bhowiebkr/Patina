@@ -5,6 +5,7 @@ import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/r
 import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Report, type Value, type View } from './api';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
+import { nodeWidth } from './gui';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -229,8 +230,9 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
   const classes = ['patina-node', state];
   if (selected) classes.push('selected');
   if (far) classes.push('far');
+  const width = gui === undefined ? undefined : nodeWidth(gui);
   return (
-    <div className={classes.join(' ')}>
+    <div className={classes.join(' ')} style={width === undefined ? undefined : { width }}>
       <div className="patina-node-header">
         <span className="title">{folderName(entry)}</span>
         {info?.full && <ExpandButton id={entry.id} />}

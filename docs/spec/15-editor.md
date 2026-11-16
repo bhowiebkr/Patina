@@ -160,7 +160,7 @@ shared controls and image-specific corrections. Use neutral charcoal surfaces,
 an amber application accent, and the Aged Dovetail branding artwork of
 [assets/branding](../../assets/branding/README.md). Mockup 9 is the
 main theme reference. Do not copy the blue-tinted surfaces of earlier mockups.
-Node bodies fit their contents; their widths and heights need not match.
+Node bodies fit their contents; their widths and heights need not match. A node never changes size with the values that it shows (4.3).
 
 **Colors:**
 
