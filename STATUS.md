@@ -1084,7 +1084,8 @@ To run the editor from a checkout:
 - The **Inspector** has the **Parameters**, **Code** and **Logs** tabs of the selected node. A
   parameter change applies when the field loses the focus.
 - The **Code** tab edits the files of the node folder in Monaco, with Rust colors. An unsaved
-  file has a dot on its tab. The tab shows the build state of the saved code (15.10).
+  file has a dot on its tab. The tab shows the build state of the saved code (15.10). It keeps
+  the cursor and the scroll position of each file, and shows the last file of the folder again.
 - Each graph change is one edit of the engine (7.4): add, remove, move, connect, disconnect, set
   a parameter, or a group. Undo and redo work for each edit.
 - Ctrl+S saves all: one `SetCode` edit for each changed code file, then the graph files. Undo
@@ -1145,6 +1146,8 @@ To run the editor from a checkout:
   - Save a function with a type error into `nodes/number/src/lib.rs`. The old build still
     writes `2.5`. Find the error on the node, in Monaco, in the gutter and in the status bar.
     Capture the window into `code-error.png`.
+  - Open `Cargo.toml` and then `src/lib.rs`: the cursor is at the error again. Put it on line 2,
+    close the **Code** tab and open it again: the cursor is on line 2.
   - Replace the error in the Monaco buffer with the original code, a panic at 13 and a loop
     that waits while the value is 99. Push Ctrl+S. The build passes, the file on disk has that code and no file
     is unsaved.
@@ -1354,8 +1357,6 @@ To run the editor from a checkout:
   - Monaco has no rust-analyzer (15.1, `frontend/src/code.ts`).
   - Monaco is in the main page script, which is 3.7 MB. Load it when the **Code** tab opens if
     the start time gets slow (`frontend/src/code.ts`).
-  - The **Code** tab forgets the cursor and the scroll position when it closes
-    (`frontend/src/CodeTab.tsx`).
   - The capture works only on Windows (`src/session/check.rs`).
   - One texture row holds the points of each wire. Above `MAX_TEXTURE_SIZE` wires (2048 or
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).

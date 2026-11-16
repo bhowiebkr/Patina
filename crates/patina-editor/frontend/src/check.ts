@@ -2,7 +2,7 @@
 // project again in the real window, then writes the result for the Rust side.
 
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from './api';
-import { bufferOf, flushCode, openFile, unsavedFiles } from './code';
+import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
 import { emit, listen } from '@tauri-apps/api/event';
 import { changeLayout, flushLayout, savedViewport } from './Dock';
@@ -144,6 +144,21 @@ fn broken() -> u32 {
     steps.push('compile error shown');
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('code-error');
+
+    // The Code tab keeps the cursor of each file when the file or the Inspector tab changes (15.10).
+    const codeEditor = () => monaco.editor.getEditors()[0];
+    const lineAt = () => codeEditor()?.getPosition()?.lineNumber;
+    const tabOf = (box: string, name: (t: HTMLElement) => boolean) => [...document.querySelectorAll<HTMLElement>(`${box} [role=tab]`)].find(name)!;
+    tabOf('.code-tab .files', (t) => t.title.endsWith('/Cargo.toml')).click();
+    await until('Cargo.toml in the Code tab', RUN_MS, () => codeEditor()?.getModel()?.uri.path.endsWith('/Cargo.toml') === true);
+    tabOf('.code-tab .files', (t) => t.title === lib).click();
+    await until('the cursor at the error again', RUN_MS, () => lineAt() === error.start[0]);
+    codeEditor()!.setPosition({ lineNumber: 2, column: 1 });
+    tabOf('aside[aria-label="Inspector"]', (t) => t.textContent === 'Parameters').click();
+    await until('no Code tab', RUN_MS, () => monaco.editor.getEditors().length === 0);
+    tabOf('aside[aria-label="Inspector"]', (t) => t.textContent === 'Code').click();
+    await until('the cursor on line 2 after the Code tab opens again', RUN_MS, () => lineAt() === 2);
+    steps.push('the Code tab keeps the cursor');
 
     // The fixed code also panics at 13 (15.3), and waits while the value is 99 until the user
     // clicks Stop (15.2). It crashes at 66 and does not stop at 77 (16.1).

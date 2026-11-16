@@ -29,6 +29,18 @@ export function buildState(run: RunState): [string, boolean] {
   return ['Not built', false];
 }
 
+// The view of each file and the last file of each folder stay when the tab closes (15.10).
+const views = new WeakMap<monaco.editor.ITextModel, monaco.editor.ICodeEditorViewState>();
+const lastFile = new Map<string, string>();
+/** The last reveal that showed, so a tab that opens again does not show it again. */
+let shown: Reveal | null = null;
+
+function keepView(e: monaco.editor.IStandaloneCodeEditor) {
+  const model = e.getModel();
+  const view = e.saveViewState();
+  if (model && view) views.set(model, view);
+}
+
 interface Props {
   /** The node or widget folder, for example `nodes/number`. */
   name: string;
@@ -48,7 +60,6 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
   const [error, setError] = useState('');
   const box = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const shown = useRef<Reveal | null>(null);
   const save = useRef(onSave);
   const unsaved = useSyncExternalStore(subscribe, unsavedFiles);
   const folder = `${name}/`;
@@ -57,7 +68,6 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
     save.current = onSave;
   });
 
-  // shortcut: the cursor and the scroll position are lost when the tab closes; keep the view state if users ask.
   useEffect(() => {
     const e = monaco.editor.create(box.current!, {
       model: null,
@@ -74,6 +84,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
     e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => save.current());
     editor.current = e;
     return () => {
+      keepView(e);
       e.dispose();
       editor.current = null;
     };
@@ -89,8 +100,9 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
       .folderFiles(name)
       .then((list) => {
         if (!live) return;
+        const last = lastFile.get(name);
         setFiles({ name, list });
-        setPath((p) => (p && list.includes(p) ? p : (list.find((f) => f.endsWith('/src/lib.rs')) ?? list[0] ?? null)));
+        setPath((p) => (p && list.includes(p) ? p : last && list.includes(last) ? last : (list.find((f) => f.endsWith('/src/lib.rs')) ?? list[0] ?? null)));
       })
       .catch((e) => live && setError(String(e)));
     return () => {
@@ -99,7 +111,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
   }, [name]);
 
   const go = (at: Reveal | null) => {
-    if (!at) return;
+    if (!at || at === shown) return;
     setTarget(at);
     setPath(at.path);
   };
@@ -112,10 +124,16 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
       .then((model) => {
         const e = editor.current;
         if (!live || !e) return;
-        if (e.getModel() !== model) e.setModel(model);
+        if (e.getModel() !== model) {
+          keepView(e);
+          e.setModel(model);
+          const view = views.get(model);
+          if (view) e.restoreViewState(view);
+        }
+        if (path.startsWith(`${name}/`)) lastFile.set(name, path);
         setError('');
-        if (target && target.path === path && shown.current !== target) {
-          shown.current = target;
+        if (target && target.path === path && shown !== target) {
+          shown = target;
           e.revealLineInCenter(target.line);
           e.setPosition({ lineNumber: target.line, column: target.col });
           e.focus();

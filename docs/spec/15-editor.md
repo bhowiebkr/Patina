@@ -218,6 +218,7 @@ The engine reports a node as skipped when a wired input has no value, because an
 - The header shows the node name, the node kind, and the full path, for example "Color Grade / Exposure".
 - The header also shows the layer of the node: base or slot (7).
 - The **Code** tab shows the files of the node folder (6.2).
+- The **Code** tab keeps the cursor and the scroll position of each open file. When the tab opens again, it shows the last file of the folder. (Agent decision, 2026-11-16. The owner can change it.)
 - The user can open the code of a view (15.8), a widget or a type crate. Then the header shows its name, its kind and its build state.
 
 The large node GUI (4.3) goes at the top of the **Inspector**, under the header and above the tabs. (Agent decision, 2026-11-15. The owner can change it.)
