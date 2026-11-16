@@ -52,6 +52,6 @@ Ask the owner. Do not decide these alone.
 9. **GPU:** shared context, GPU types, shader nodes with WESL (10.1).
 10. **Views:** the `Graph` handle and the viewport (15.8).
 11. **Audio domain.** Ended on 2026-11-16. The owner deferred the GUI of audio nodes (4.3), so the check used a slow `ui` function of a frame node. Check: a slow `ui` function of an audio node while audio runs. The audio domain misses no deadline, and the GUI holds no lock that the audio thread waits for (4.3).
-12. **Event domain:** async nodes and trigger nodes.
+12. **Event domain:** async nodes and trigger nodes. Ended on 2026-11-16. Check: the triggers `schedule`, `trigger`, `file_change` and `webhook` start runs in `patina-cli`, and the three overlap modes keep their rules (9.4). In the editor, the **Fire** button and a view fire a `trigger` node. The editor makes and removes order wires (9.2).
 
 Each milestone gives a tool that works.

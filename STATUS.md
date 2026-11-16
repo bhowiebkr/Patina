@@ -1,6 +1,8 @@
 # Status
 
-The current work is milestone 12, the event domain. It started on 2026-11-16.
+All milestones of the roadmap (spec section 16) ended. Milestone 12, the event domain, ended on
+2026-11-16. The current work is the open items of the known limits and of
+[docs/before-building.md](docs/before-building.md).
 Milestone 11, the audio domain, ended on 2026-11-16. Its step 3, the GUI of audio nodes, stays
 deferred by the owner.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
@@ -156,7 +158,7 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 
 ## Milestone 12: the event domain
 
-Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and trigger nodes
+Milestone 12 started and ended on 2026-11-16. It adds the event domain: async nodes and trigger nodes
 (spec 4.6 and 9.4).
 
 ### Plan
@@ -1228,13 +1230,13 @@ To run the editor from a checkout:
     the start time gets slow (`frontend/src/code.ts`).
   - The **Code** tab forgets the cursor and the scroll position when it closes
     (`frontend/src/CodeTab.tsx`).
-  - The capture works only on Windows (`src/session.rs`).
+  - The capture works only on Windows (`src/session/check.rs`).
   - One texture row holds the points of each wire. Above `MAX_TEXTURE_SIZE` wires (2048 or
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).
   - A route of more than 62 points draws only its first 62 points. Only a graph file that a
     person edited has such a route (`frontend/src/wires.ts`).
   - Each run formats and sends each held value, also when a graph runs faster than the display
-    (15.6) (`crates/patina-sdk/src/glue.rs`).
+    (15.6) (`crates/patina-sdk/src/glue/probe.rs`).
   - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
   - The SVG wires draw a bus as one line (`frontend/src/WireLayer.tsx`).
   - A graph with a route grid of more than 2 million cells gets the simple orthogonal paths
