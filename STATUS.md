@@ -33,7 +33,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
    input shows a check box in the node row, so a click sets a switch (4.8).
 7. Done: a `display` node shows 7 segments. The `hex-7seg` subgraph of NAND gates decodes the
    count to the segments of its hex digit.
-8. Next: the OUT register of the CPU on a second display.
+8. Done: a second display shows the OUT register of the CPU.
+9. Next: a zero flag and a JZ instruction, with the free opcode 7.
 
 ### Checked
 
@@ -42,8 +43,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   accumulator: 0, 5, 10, 15, 4 and so on. Readout D shows the memory: 0 for 4 steps, then the
   accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. The
   test compares them with a small emulator of the 7 instructions. The program
-  takes the conditional jump and reads a stored word from the RAM. The display gives the
-  segments of the 16 hex digits. The test took 10.1 s.
+  takes the conditional jump and reads a stored word from the RAM. The first display gives the
+  segments of the 16 hex digits, and the second the segments of OUT. The test took 11.9 s.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first

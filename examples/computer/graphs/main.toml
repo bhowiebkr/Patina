@@ -121,9 +121,14 @@ folder = "nodes/readout"
 pos = [300.0, 2280.0]
 
 [[node]]
+id = "94a519f494e21966"
+subgraph = "hex-7seg"
+pos = [300.0, 2710.0]
+
+[[node]]
 id = "a431b509737b3ea9"
 folder = "nodes/readout"
-pos = [300.0, 2710.0]
+pos = [300.0, 3090.0]
 
 [[node]]
 id = "caecd5b055f33875"
@@ -147,6 +152,11 @@ pos = [600.0, 1100.0]
 id = "2504c53cbf24694b"
 subgraph = "register-4"
 pos = [600.0, 1530.0]
+
+[[node]]
+id = "a3efcc2ce595017a"
+folder = "nodes/display"
+pos = [600.0, 2690.0]
 
 [[node]]
 id = "57651e4c47b88d73"
@@ -431,6 +441,50 @@ to = "2c0c5416f75ced61.f"
 from = "a1ab1827b8780af9.707950be"
 to = "2c0c5416f75ced61.g"
 
+[[wire]]
+from = "edebef2a7706ee1d.f8caa39c"
+to = "94a519f494e21966.1a4f6ba9"
+
+[[wire]]
+from = "edebef2a7706ee1d.b274a598"
+to = "94a519f494e21966.3eb0d8e2"
+
+[[wire]]
+from = "edebef2a7706ee1d.ad0102ee"
+to = "94a519f494e21966.d023ae2d"
+
+[[wire]]
+from = "edebef2a7706ee1d.6e562c51"
+to = "94a519f494e21966.ec05358b"
+
+[[wire]]
+from = "94a519f494e21966.b5525d2e"
+to = "a3efcc2ce595017a.a"
+
+[[wire]]
+from = "94a519f494e21966.e5fe9b45"
+to = "a3efcc2ce595017a.b"
+
+[[wire]]
+from = "94a519f494e21966.3f5e003f"
+to = "a3efcc2ce595017a.c"
+
+[[wire]]
+from = "94a519f494e21966.c6aff6dd"
+to = "a3efcc2ce595017a.d"
+
+[[wire]]
+from = "94a519f494e21966.8000c82b"
+to = "a3efcc2ce595017a.e"
+
+[[wire]]
+from = "94a519f494e21966.0842c12c"
+to = "a3efcc2ce595017a.f"
+
+[[wire]]
+from = "94a519f494e21966.707950be"
+to = "a3efcc2ce595017a.g"
+
 [[order]]
 before = "6cbfc8fc2e8b5c4e"
 after = "76ccaf24b4baf19e"
@@ -458,3 +512,7 @@ after = "01e6fe323c4fd5e2"
 [[order]]
 before = "01e6fe323c4fd5e2"
 after = "2c0c5416f75ced61"
+
+[[order]]
+before = "2c0c5416f75ced61"
+after = "a3efcc2ce595017a"

@@ -251,11 +251,11 @@ cargo run -p patina-cli -- run examples/computer --frames 16
 
 In the editor, a 1-bit wire is lit when it is true. Run the project and double-click a use of a
 subgraph, for example the `cpu` node. The subgraph opens with the live values of that use.
-A `switch` node shows a check box in its **on** row. Click it to set the bit. The `display` node
-shows the count as a hex digit on 7 segments.
+A `switch` node shows a check box in its **on** row. Click it to set the bit. Two `display` nodes
+show the count and the OUT register of the CPU as hex digits on 7 segments.
 
-Each frame writes seven lines: the count, the count plus 3, an accumulator that adds 5 at each
-step, a memory and the three registers of a CPU. A `register-4` subgraph keeps 4 bits, and takes new bits when its **load**
+Each frame writes nine lines: the count, the count plus 3, an accumulator that adds 5 at each
+step, a memory, the three registers of a CPU and the segments of the two displays. A `register-4` subgraph keeps 4 bits, and takes new bits when its **load**
 input is on. The `ram-4x4` subgraph keeps 4 words of 4 bits. It writes the accumulator to the
 address of the count, so it shows the accumulator of 4 steps before.
 
