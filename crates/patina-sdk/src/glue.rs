@@ -6,12 +6,11 @@
 //! Each call into node code has its own `catch_unwind`, so a panic never crosses the C ABI
 //! (spec 4.7).
 
-use std::any::Any;
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::fmt::{self, Write as _};
 use std::marker::PhantomData;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -349,7 +348,7 @@ impl<T> State<T> {
 pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &mut crate::Ui), cmd: (u32, &str), rep: &Reporter, node: u32) -> bool {
     let mut st = state.lock();
     let mut gui = crate::Ui::new(cmd.0, cmd.1);
-    let caught = catch_unwind(AssertUnwindSafe(|| {
+    let caught = catch_quiet(AssertUnwindSafe(|| {
         let value = st.get_or_insert_with(init);
         ui(value, &mut gui);
         // A widget writes its value before it applies its event, so draw again with the new state.
@@ -400,7 +399,7 @@ pub fn default_value<T: Param>() -> T {
 }
 
 pub fn set_param<T: Param>(slot: &mut T, text: &str, rep: &Reporter, node: u32) -> bool {
-    let caught = catch_unwind(AssertUnwindSafe(|| T::from_text(text).map(|value| *slot = value)));
+    let caught = catch_quiet(AssertUnwindSafe(|| T::from_text(text).map(|value| *slot = value)));
     match caught {
         Ok(Ok(())) => true,
         Ok(Err(message)) => {
@@ -412,57 +411,6 @@ pub fn set_param<T: Param>(slot: &mut T, text: &str, rep: &Reporter, node: u32) 
             false
         }
     }
-}
-
-/// Calls node code with a catch (4.7). The `dyn` makes one copy of the catch for all nodes, so
-/// a graph of many nodes builds fast.
-pub fn catch(call: &mut dyn FnMut() -> Result<(), String>) -> std::thread::Result<Result<(), String>> {
-    catch_unwind(AssertUnwindSafe(call))
-}
-
-/// Reports the result of one node call. An `Err` holds the `Debug` text of the node error.
-pub fn finish(caught: std::thread::Result<Result<(), String>>, rep: &Reporter, node: u32) -> bool {
-    match caught {
-        Ok(Ok(())) => true,
-        Ok(Err(message)) => {
-            rep.send(node, ERROR, &message);
-            false
-        }
-        Err(payload) => {
-            rep.send(node, PANIC, &panic_text(&*payload));
-            false
-        }
-    }
-}
-
-/// Reports the result of a call of a stateful node. A panic can break the state, so the state
-/// drops, and the next call makes a new state with `init` (spec 4.7).
-pub fn finish_state<T>(caught: std::thread::Result<Result<(), String>>, state: &mut Option<T>, rep: &Reporter, node: u32) -> bool {
-    let panicked = caught.is_err();
-    let ok = finish(caught, rep, node);
-    if panicked {
-        drop_value(state.take(), rep, node);
-    }
-    ok
-}
-
-/// Drops a value that no node took, with its own catch (spec 4.7).
-pub fn drop_value<T>(value: Option<T>, rep: &Reporter, node: u32) -> bool {
-    rep.set_node(node);
-    let caught = catch_unwind(AssertUnwindSafe(move || {
-        drop(value);
-        Ok(())
-    }));
-    finish(caught, rep, node)
-}
-
-fn panic_text(payload: &(dyn Any + Send)) -> String {
-    let text = payload
-        .downcast_ref::<&str>()
-        .copied()
-        .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
-        .unwrap_or("no message");
-    format!("panic: {text}")
 }
 
 /// The engine function that keeps one value for each key in the process (10.2). When the key has
@@ -754,6 +702,8 @@ pub unsafe fn free(cluster: *mut Cluster) {
 
 mod call;
 pub use call::*;
+mod catch;
+pub use catch::*;
 mod keep;
 pub use keep::*;
 mod latest;

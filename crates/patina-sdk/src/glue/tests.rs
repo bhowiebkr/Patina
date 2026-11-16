@@ -38,6 +38,13 @@ fn values_use_the_viewer_then_debug_then_the_type_name() {
 }
 
 #[test]
+fn only_a_catch_with_a_report_keeps_the_place_of_the_panic() {
+    // The inner catch gives no report, so its panic does not set the place.
+    assert!(catch_quiet(|| catch_unwind(|| panic!("inner")).is_err()).unwrap());
+    assert_eq!(panic_text(&"no place"), "panic: no place");
+}
+
+#[test]
 fn a_panic_drops_the_state_and_an_error_keeps_it() {
     let mut sent: Vec<(u32, u32, String)> = Vec::new();
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
@@ -45,9 +52,13 @@ fn a_panic_drops_the_state_and_an_error_keeps_it() {
     *state.lock() = Some(5);
     assert!(!finish_state(Ok(Err("bad".to_owned())), &mut *state.lock(), &rep, 1));
     assert_eq!(*state.lock(), Some(5));
-    assert!(!finish_state(catch_unwind(|| -> Result<(), String> { panic!("broken") }), &mut *state.lock(), &rep, 1));
+    assert!(!finish_state(catch_quiet(|| -> Result<(), String> { panic!("broken") }), &mut *state.lock(), &rep, 1));
     assert_eq!(*state.lock(), None);
-    assert_eq!(sent, [(1, ERROR, "bad".to_owned()), (1, PANIC, "panic: broken".to_owned())]);
+    assert_eq!(sent[0], (1, ERROR, "bad".to_owned()));
+    // The report has the place of the panic, and the standard error does not get the message.
+    let place = format!("panic: broken ({}:", file!());
+    assert!(sent[1].1 == PANIC && sent[1].2.starts_with(&place), "{:?}", sent[1]);
+    assert_eq!(sent.len(), 2);
 }
 
 #[test]
@@ -83,7 +94,7 @@ fn node_calls_catch_errors_and_panics_with_the_copies_in_the_catch() {
     assert_eq!((state, ok), (Some(11), true));
     assert_eq!(done_state(super::run(bump, (Init(&mut state, || 10), Take(0))), &mut state, &rep, 3, &mut ok), None);
     assert_eq!((state, ok), (None, false));
-    let errors: Vec<_> = sent.iter().map(|(node, kind, text)| (*node, *kind, text.as_str())).collect();
+    let errors: Vec<_> = sent.iter().map(|(node, kind, text)| (*node, *kind, text.split(" (").next().unwrap())).collect();
     assert_eq!(errors, [(1, ERROR, "ParseIntError { kind: InvalidDigit }"), (2, PANIC, "panic: clone"), (3, PANIC, "panic: zero")]);
 }
 

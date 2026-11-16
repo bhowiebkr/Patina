@@ -3,7 +3,7 @@
 /// The SDK crates that a project builds with. The engine carries their source.
 /// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
 /// projects do not build `wgpu` or `cudarc`.
-pub(super) const SDK_FILES: [(&str, &str); 28] = [
+pub(super) const SDK_FILES: [(&str, &str); 29] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -12,6 +12,7 @@ pub(super) const SDK_FILES: [(&str, &str); 28] = [
     ("build/sdk/patina-sdk/src/lib.rs", include_str!("../../../patina-sdk/src/lib.rs")),
     ("build/sdk/patina-sdk/src/glue.rs", include_str!("../../../patina-sdk/src/glue.rs")),
     ("build/sdk/patina-sdk/src/glue/call.rs", include_str!("../../../patina-sdk/src/glue/call.rs")),
+    ("build/sdk/patina-sdk/src/glue/catch.rs", include_str!("../../../patina-sdk/src/glue/catch.rs")),
     ("build/sdk/patina-sdk/src/glue/slot.rs", include_str!("../../../patina-sdk/src/glue/slot.rs")),
     ("build/sdk/patina-sdk/src/glue/probe.rs", include_str!("../../../patina-sdk/src/glue/probe.rs")),
     ("build/sdk/patina-sdk/src/glue/keep.rs", include_str!("../../../patina-sdk/src/glue/keep.rs")),

@@ -2,9 +2,9 @@
 //! code has no closure: a closure for each node makes the type check of a large cluster slow.
 
 use std::fmt;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
 
-use super::{Reporter, drop_value, finish};
+use super::{Reporter, catch_quiet, drop_value, finish};
 
 /// The result of `run`: a panic, an error of a fallible node, or the value of the call.
 pub type Caught<R> = std::thread::Result<Result<R, String>>;
@@ -108,12 +108,12 @@ args!(A B C D E G H J K L M N O P Q S);
 
 /// Calls node function `f` with `args` in a catch (4.7).
 pub fn run<F, A: Args<F>>(f: F, args: A) -> Caught<A::Out> {
-    catch_unwind(AssertUnwindSafe(move || Ok(args.call(f))))
+    catch_quiet(AssertUnwindSafe(move || Ok(args.call(f))))
 }
 
 /// Calls fallible node function `f` with `args` in a catch. An `Err` gives its `Debug` text.
 pub fn try_run<F, T, E: fmt::Debug, A: Args<F, Out = Result<T, E>>>(f: F, args: A) -> Caught<T> {
-    catch_unwind(AssertUnwindSafe(move || args.call(f).map_err(|e| format!("{e:?}"))))
+    catch_quiet(AssertUnwindSafe(move || args.call(f).map_err(|e| format!("{e:?}"))))
 }
 
 /// Reports the result of `run`, and gives the value of a call that worked.

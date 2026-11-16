@@ -1311,9 +1311,8 @@ To run the editor from a checkout:
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type
   alias does not match its type, and two types of one name in two modules match.
 - Undo does not remove a new node, widget or view folder (15.2).
-- The check does not test the **does not stop** message of **Stop** (15.2), because that needs
-  a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
-  starts. The limits of milestone 12 tell how the waits of async nodes (4.6) stop.
+- `stop_requested()` is false on a thread that a node starts. The limits of milestone 12 tell how
+  the waits of async nodes (4.6) stop.
 - The self-check does not run a node with the `log` crate, because that needs crates.io. The
   type check covers the log lines of the page, but no check showed them in the editor yet.
 - The log lines show only the levels Info, Warn and Error. The logger drops a record from a
@@ -1431,7 +1430,6 @@ library in the target folder and the single run of the CLI. These limits are sti
   install has no rust-analyzer. Remove the `toolchain` folder and install again.
 - No GitHub release makes the portable zip yet. The **Package** workflow keeps the zips only as
   artifacts of the run.
-- A node panic shows two messages: the default panic message of the cluster, and the report.
 - A `Result` output is found by the type name `Result` only. A type alias with another name is
   not found, and then an `Err` is a value, not a failure.
 - The editor compares the pin types only for the ring of a wire drag (15.9). A drop on a socket

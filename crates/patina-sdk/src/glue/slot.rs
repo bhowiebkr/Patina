@@ -2,10 +2,10 @@
 //! the slot through a function pointer.
 
 use std::ffi::c_void;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicPtr, Ordering::Acquire, Ordering::Release};
 
-use super::{Cluster, Cmd, ERROR, NODE, RUN, Reporter};
+use super::{Cluster, Cmd, ERROR, NODE, RUN, Reporter, catch_unwind};
 
 /// The function of a slot library that calls one node (`call`).
 pub type CallFn = unsafe extern "C" fn(*const c_void, u32, *const *mut c_void, usize, *const Reporter) -> bool;

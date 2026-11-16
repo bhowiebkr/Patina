@@ -2,9 +2,9 @@
 //! these functions.
 
 use std::ffi::c_void;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
 
-use super::{EDIT, Reader, Reporter, UI, finish};
+use super::{EDIT, Reader, Reporter, UI, catch_quiet, catch_unwind, finish};
 use crate::{Graph, Ui};
 
 /// The body of `patina_view_new`: a new state from `init` as a raw box, or null when `init`
@@ -38,7 +38,7 @@ pub unsafe fn view_ui<T>(
     let (Ok(events), Ok(lines)) = (std::str::from_utf8(events), std::str::from_utf8(lines)) else { return false };
     let mut graph = Graph::with_reader(lines, reader);
     let mut gui = Ui::new(mode, events);
-    let caught = catch_unwind(AssertUnwindSafe(|| {
+    let caught = catch_quiet(AssertUnwindSafe(|| {
         ui(view, &mut gui, &mut graph);
         // A widget writes its value before it applies its event, so draw again with the new state.
         if !events.is_empty() {

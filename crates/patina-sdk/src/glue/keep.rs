@@ -4,11 +4,11 @@
 
 use std::any::Any;
 use std::ffi::c_void;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::sync::{Mutex, PoisonError};
 
-use super::{Cluster, Cmd, Probe, Reporter};
+use super::{Cluster, Cmd, Probe, Reporter, catch_unwind};
 
 /// A kept copy of a held value, as `Box<dyn Any + Send>`.
 type Copy = Option<Box<dyn Any + Send>>;

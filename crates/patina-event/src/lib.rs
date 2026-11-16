@@ -4,12 +4,12 @@
 
 use std::fmt;
 use std::future::{Future, poll_fn};
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
 use std::sync::OnceLock;
 use std::task::Poll;
 use std::time::Duration;
 
-use patina_sdk::glue::{self, Args, Caught, Reporter, STOPPED};
+use patina_sdk::glue::{self, Args, Caught, Reporter, STOPPED, catch_quiet};
 pub use tokio;
 use tokio::time::MissedTickBehavior;
 
@@ -76,7 +76,7 @@ fn wait<T>(future: impl Future<Output = T>, rep: &Reporter, node: u32) -> Option
             if patina_sdk::stop_requested() {
                 return Poll::Ready(None);
             }
-            match catch_unwind(AssertUnwindSafe(|| future.as_mut().poll(cx))) {
+            match catch_quiet(AssertUnwindSafe(|| future.as_mut().poll(cx))) {
                 Ok(Poll::Ready(value)) => Poll::Ready(Some(Ok(value))),
                 Err(payload) => Poll::Ready(Some(Err(payload))),
                 Ok(Poll::Pending) => {

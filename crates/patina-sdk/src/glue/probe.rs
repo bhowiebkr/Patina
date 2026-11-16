@@ -2,9 +2,9 @@
 //! has no closure for a probe, so a large cluster builds fast.
 
 use std::fmt::{self, Write as _};
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
 
-use super::{LANES, Reporter, TEXT_LEN, VALUE};
+use super::{LANES, Reporter, TEXT_LEN, VALUE, catch_unwind};
 use crate::{Lanes, Text, Viewer};
 
 /// A held value for its text. The generated code calls `(&&&Probe(v)).text_fn()`, so Rust uses

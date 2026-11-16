@@ -262,7 +262,8 @@ fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     assert_eq!(stdout, "", "a node after a failed node must not run");
     assert!(stderr.contains("Node fea12c51067a34d8 (fail): error: \"cannot use 1.5\""), "{stderr}");
-    assert!(stderr.contains("Node dc1095edd35b9589 (boom): panic: the boom node panicked"), "{stderr}");
+    assert!(stderr.contains("Node dc1095edd35b9589 (boom): panic: the boom node panicked ("), "{stderr}");
+    assert!(stderr.contains("lib.rs:3:5)") && !stderr.contains("panicked at"), "one message for each panic: {stderr}");
     assert!(stderr.contains("Node df93472b07eaca16: skipped: an input has no value"), "{stderr}");
     assert!(stderr.contains("Node 7363866a8cd1c455: skipped"), "{stderr}");
 
