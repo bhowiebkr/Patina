@@ -29,7 +29,7 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 5. Done: look at the circuit in the editor. A 1-bit wire is lit when it is true. A subgraph
    that opens with a double-click on a use shows the live values of that use, also for a use
    inside a use. The generator stacks the nodes by their pin count, so they do not overlap.
-6. Next: a tool to place the nodes of a large subgraph, and the pin names on a use.
+6. Next: a tool to place the nodes of a large subgraph.
 
 ### Checked
 
@@ -44,8 +44,7 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first
   use. On `examples/computer`, it wrote 18 screenshots in about 25 s. They show the lit wires
   in the subgraphs and the lamps of the readouts at a near zoom.
-- The readout lamps hide at a far zoom, as all node GUIs do (15.1).
-- A use of a subgraph shows no pin names on the node.
+- The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
 
 ## Milestone 11: the audio domain
 

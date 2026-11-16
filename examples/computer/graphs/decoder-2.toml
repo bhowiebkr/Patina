@@ -6,29 +6,29 @@ subgraph = "not"
 pos = [0.0, 0.0]
 
 [[node]]
-id = "1915629d75caaaaf"
-subgraph = "not"
+id = "389842a2db606132"
+subgraph = "and"
 pos = [0.0, 140.0]
 
 [[node]]
-id = "2874864671059a3f"
-subgraph = "and"
-pos = [300.0, 0.0]
-
-[[node]]
-id = "cbcb5270881db220"
-subgraph = "and"
-pos = [300.0, 180.0]
+id = "1915629d75caaaaf"
+subgraph = "not"
+pos = [0.0, 320.0]
 
 [[node]]
 id = "3d1db535d0c2af8b"
 subgraph = "and"
-pos = [300.0, 360.0]
+pos = [300.0, 30.0]
 
 [[node]]
-id = "389842a2db606132"
+id = "2874864671059a3f"
 subgraph = "and"
-pos = [300.0, 540.0]
+pos = [300.0, 210.0]
+
+[[node]]
+id = "cbcb5270881db220"
+subgraph = "and"
+pos = [300.0, 390.0]
 
 [[wire]]
 from = "20ade2465181b273.7ff633ef"

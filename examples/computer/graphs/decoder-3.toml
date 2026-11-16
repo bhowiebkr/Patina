@@ -3,52 +3,52 @@ format = 1
 [[node]]
 id = "691c4ab98a245b9f"
 subgraph = "decoder-2"
-pos = [0.0, 0.0]
+pos = [0.0, 30.0]
 
 [[node]]
 id = "a0a0a60dfc6a2e56"
 subgraph = "not"
-pos = [0.0, 260.0]
-
-[[node]]
-id = "359b399c250ff60e"
-subgraph = "and"
-pos = [300.0, 0.0]
-
-[[node]]
-id = "4e331066ac2a6a3b"
-subgraph = "and"
-pos = [300.0, 180.0]
-
-[[node]]
-id = "3db2597d2988dcc6"
-subgraph = "and"
-pos = [300.0, 360.0]
-
-[[node]]
-id = "8c4bda59e4f2d82f"
-subgraph = "and"
-pos = [300.0, 540.0]
+pos = [0.0, 290.0]
 
 [[node]]
 id = "a000482c3d70c39f"
 subgraph = "and"
-pos = [300.0, 720.0]
+pos = [300.0, 95.0]
 
 [[node]]
 id = "3f2006b3120bdbae"
 subgraph = "and"
-pos = [300.0, 900.0]
+pos = [300.0, 275.0]
 
 [[node]]
 id = "f8ce5a3dc83f0d46"
 subgraph = "and"
-pos = [300.0, 1080.0]
+pos = [300.0, 455.0]
 
 [[node]]
 id = "2c94d61aee5eb91b"
 subgraph = "and"
-pos = [300.0, 1260.0]
+pos = [300.0, 635.0]
+
+[[node]]
+id = "359b399c250ff60e"
+subgraph = "and"
+pos = [300.0, 815.0]
+
+[[node]]
+id = "4e331066ac2a6a3b"
+subgraph = "and"
+pos = [300.0, 995.0]
+
+[[node]]
+id = "3db2597d2988dcc6"
+subgraph = "and"
+pos = [300.0, 1175.0]
+
+[[node]]
+id = "8c4bda59e4f2d82f"
+subgraph = "and"
+pos = [300.0, 1355.0]
 
 [[wire]]
 from = "691c4ab98a245b9f.0bce0f02"

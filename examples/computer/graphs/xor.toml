@@ -3,7 +3,7 @@ format = 1
 [[node]]
 id = "364c4665b22b073f"
 folder = "nodes/nand"
-pos = [0.0, 0.0]
+pos = [0.0, 30.0]
 
 [[node]]
 id = "55f978979ceadbea"
@@ -18,7 +18,7 @@ pos = [300.0, 180.0]
 [[node]]
 id = "c2e92a3604a5416b"
 folder = "nodes/nand"
-pos = [600.0, 0.0]
+pos = [600.0, 70.0]
 
 [[wire]]
 from = "364c4665b22b073f.out"

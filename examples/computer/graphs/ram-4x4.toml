@@ -3,107 +3,107 @@ format = 1
 [[node]]
 id = "19d03f68203c7af6"
 subgraph = "decoder-2"
-pos = [0.0, 0.0]
+pos = [0.0, 130.0]
 
 [[node]]
 id = "f48fe8ee067a64fa"
 subgraph = "and"
-pos = [300.0, 0.0]
+pos = [300.0, 45.0]
 
 [[node]]
 id = "5d21caeade6d70ef"
 subgraph = "and"
-pos = [300.0, 180.0]
+pos = [300.0, 225.0]
 
 [[node]]
 id = "6aee1549328a4e3e"
 subgraph = "and"
-pos = [300.0, 360.0]
+pos = [300.0, 405.0]
 
 [[node]]
 id = "d09e26b12641f0ce"
 subgraph = "and"
-pos = [300.0, 540.0]
+pos = [300.0, 585.0]
 
 [[node]]
 id = "3d18860ffb1c97d5"
 subgraph = "register-4"
-pos = [600.0, 0.0]
+pos = [600.0, 349.0]
 
 [[node]]
 id = "8f129ee458c2226d"
 subgraph = "register-4"
-pos = [600.0, 300.0]
+pos = [600.0, 649.0]
 
 [[node]]
 id = "e2e2dbb5d2e29cc6"
 subgraph = "register-4"
-pos = [600.0, 600.0]
+pos = [600.0, 949.0]
 
 [[node]]
 id = "dad8368042e174a1"
 subgraph = "register-4"
-pos = [600.0, 900.0]
+pos = [600.0, 1249.0]
 
 [[node]]
 id = "7f0d10268a161a41"
 subgraph = "mux"
-pos = [900.0, 0.0]
-
-[[node]]
-id = "6366f6e4a2bbeddf"
-subgraph = "mux"
-pos = [900.0, 220.0]
-
-[[node]]
-id = "6851a085cd32b95e"
-subgraph = "mux"
-pos = [1200.0, 0.0]
+pos = [900.0, 346.0]
 
 [[node]]
 id = "5e976f420bceaee0"
 subgraph = "mux"
-pos = [900.0, 440.0]
-
-[[node]]
-id = "934892054e6316dc"
-subgraph = "mux"
-pos = [900.0, 660.0]
-
-[[node]]
-id = "f3c12b98e3d19a2d"
-subgraph = "mux"
-pos = [1200.0, 220.0]
+pos = [900.0, 566.0]
 
 [[node]]
 id = "8cf4c33c1724a589"
 subgraph = "mux"
-pos = [900.0, 880.0]
-
-[[node]]
-id = "57abe56402f3cbbc"
-subgraph = "mux"
-pos = [900.0, 1100.0]
-
-[[node]]
-id = "4a6d698f4c6dd243"
-subgraph = "mux"
-pos = [1200.0, 440.0]
+pos = [900.0, 786.0]
 
 [[node]]
 id = "8569e573d28b74c7"
 subgraph = "mux"
-pos = [900.0, 1320.0]
+pos = [900.0, 1006.0]
+
+[[node]]
+id = "6366f6e4a2bbeddf"
+subgraph = "mux"
+pos = [900.0, 1226.0]
+
+[[node]]
+id = "934892054e6316dc"
+subgraph = "mux"
+pos = [900.0, 1446.0]
+
+[[node]]
+id = "57abe56402f3cbbc"
+subgraph = "mux"
+pos = [900.0, 1666.0]
 
 [[node]]
 id = "1bb9d4b0b2194b5f"
 subgraph = "mux"
-pos = [900.0, 1540.0]
+pos = [900.0, 1886.0]
+
+[[node]]
+id = "6851a085cd32b95e"
+subgraph = "mux"
+pos = [1200.0, 570.7]
+
+[[node]]
+id = "f3c12b98e3d19a2d"
+subgraph = "mux"
+pos = [1200.0, 790.7]
+
+[[node]]
+id = "4a6d698f4c6dd243"
+subgraph = "mux"
+pos = [1200.0, 1010.7]
 
 [[node]]
 id = "222aa90d06188daf"
 subgraph = "mux"
-pos = [1200.0, 660.0]
+pos = [1200.0, 1230.7]
 
 [[wire]]
 from = "19d03f68203c7af6.0bce0f02"

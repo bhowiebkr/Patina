@@ -1,36 +1,6 @@
 format = 1
 
 [[node]]
-id = "a6be62cc5dc57e7f"
-subgraph = "rom-8x7"
-pos = [300.0, 0.0]
-
-[[node]]
-id = "235102a6b9c721c8"
-subgraph = "decoder-3"
-pos = [600.0, 0.0]
-
-[[node]]
-id = "c3c385faeb69a06c"
-builtin = "delay"
-pos = [900.0, 0.0]
-
-[[node]]
-id = "301032493973936b"
-subgraph = "mux"
-pos = [900.0, 140.0]
-
-[[node]]
-id = "9fe7208224b181a3"
-subgraph = "and"
-pos = [900.0, 360.0]
-
-[[node]]
-id = "5f5ab5e0bbcbf2d2"
-subgraph = "or"
-pos = [900.0, 540.0]
-
-[[node]]
 id = "568248c76d0ec471"
 builtin = "delay"
 pos = [0.0, 0.0]
@@ -54,74 +24,104 @@ pos = [0.0, 420.0]
 on = "true"
 
 [[node]]
+id = "a6be62cc5dc57e7f"
+subgraph = "rom-8x7"
+pos = [300.0, 120.0]
+
+[[node]]
 id = "611ada82ce4a4eec"
 subgraph = "half-adder"
-pos = [0.0, 620.0]
+pos = [300.0, 500.0]
 
 [[node]]
-id = "40703803a42a7656"
-subgraph = "half-adder"
-pos = [0.0, 800.0]
+id = "c3c385faeb69a06c"
+builtin = "delay"
+pos = [600.0, 0.0]
 
 [[node]]
-id = "7e8d0d6cdda1dee3"
-subgraph = "half-adder"
-pos = [0.0, 980.0]
-
-[[node]]
-id = "c5f1579d75657ac5"
-subgraph = "mux"
-pos = [0.0, 1160.0]
-
-[[node]]
-id = "2fc85c46eeac479c"
-subgraph = "mux"
-pos = [0.0, 1380.0]
-
-[[node]]
-id = "09db9dde745200aa"
-subgraph = "mux"
-pos = [0.0, 1600.0]
-
-[[node]]
-id = "148d89ac3696ee52"
-subgraph = "register-4"
-pos = [1800.0, 0.0]
-
-[[node]]
-id = "1f2505a2679399ac"
-subgraph = "adder-4"
-pos = [1200.0, 0.0]
+id = "235102a6b9c721c8"
+subgraph = "decoder-3"
+pos = [600.0, 140.0]
 
 [[node]]
 id = "f6a3a573078cb515"
 subgraph = "mux-4"
-pos = [1500.0, 0.0]
+pos = [600.0, 560.0]
 
 [[node]]
-id = "392e8aba26d522ab"
-subgraph = "mux-4"
-pos = [1500.0, 460.0]
+id = "40703803a42a7656"
+subgraph = "half-adder"
+pos = [600.0, 1020.0]
+
+[[node]]
+id = "9fe7208224b181a3"
+subgraph = "and"
+pos = [900.0, 50.0]
 
 [[node]]
 id = "0c494d44f5758eed"
 subgraph = "ram-4x4"
-pos = [1200.0, 420.0]
+pos = [900.0, 230.0]
 
 [[node]]
 id = "7d01cd268ff950e0"
 subgraph = "or"
-pos = [1200.0, 800.0]
+pos = [900.0, 610.0]
+
+[[node]]
+id = "7e8d0d6cdda1dee3"
+subgraph = "half-adder"
+pos = [900.0, 790.0]
+
+[[node]]
+id = "5f5ab5e0bbcbf2d2"
+subgraph = "or"
+pos = [1200.0, 75.0]
+
+[[node]]
+id = "392e8aba26d522ab"
+subgraph = "mux-4"
+pos = [1200.0, 344.4]
 
 [[node]]
 id = "707b92c140cc21ce"
 subgraph = "or"
-pos = [1500.0, 920.0]
+pos = [1200.0, 804.4]
+
+[[node]]
+id = "c5f1579d75657ac5"
+subgraph = "mux"
+pos = [1500.0, 211.7]
+
+[[node]]
+id = "09db9dde745200aa"
+subgraph = "mux"
+pos = [1500.0, 431.7]
+
+[[node]]
+id = "2fc85c46eeac479c"
+subgraph = "mux"
+pos = [1500.0, 651.7]
+
+[[node]]
+id = "148d89ac3696ee52"
+subgraph = "register-4"
+pos = [1500.0, 871.7]
+
+[[node]]
+id = "1f2505a2679399ac"
+subgraph = "adder-4"
+pos = [1800.0, 475.8]
 
 [[node]]
 id = "9b8f36a9a5dca4d7"
 subgraph = "register-4"
-pos = [1800.0, 300.0]
+pos = [1800.0, 895.8]
+
+[[node]]
+id = "301032493973936b"
+subgraph = "mux"
+pos = [2100.0, 185.3]
 
 [[wire]]
 from = "a6be62cc5dc57e7f.65c35174"
@@ -442,65 +442,65 @@ to = "0c494d44f5758eed.f1e702c9"
 [[output]]
 key = "89d4aa6b"
 name = "pc0"
-pos = [2100.0, 0.0]
+pos = [2400.0, 0.0]
 from = "568248c76d0ec471.out"
 
 [[output]]
 key = "db622e26"
 name = "pc1"
-pos = [2100.0, 100.0]
+pos = [2400.0, 100.0]
 from = "f0dff38ad4b256fe.out"
 
 [[output]]
 key = "db7f777b"
 name = "pc2"
-pos = [2100.0, 200.0]
+pos = [2400.0, 200.0]
 from = "09f3bed12aeb11d9.out"
 
 [[output]]
 key = "4d7243f3"
 name = "a0"
-pos = [2100.0, 300.0]
+pos = [2400.0, 300.0]
 from = "148d89ac3696ee52.608ab439"
 
 [[output]]
 key = "e307c1c3"
 name = "a1"
-pos = [2100.0, 400.0]
+pos = [2400.0, 400.0]
 from = "148d89ac3696ee52.fbae7ec2"
 
 [[output]]
 key = "4ce43a5f"
 name = "a2"
-pos = [2100.0, 500.0]
+pos = [2400.0, 500.0]
 from = "148d89ac3696ee52.f5c7996c"
 
 [[output]]
 key = "068fc063"
 name = "a3"
-pos = [2100.0, 600.0]
+pos = [2400.0, 600.0]
 from = "148d89ac3696ee52.3dca83af"
 
 [[output]]
 key = "f8caa39c"
 name = "out0"
-pos = [2100.0, 700.0]
+pos = [2400.0, 700.0]
 from = "9b8f36a9a5dca4d7.608ab439"
 
 [[output]]
 key = "b274a598"
 name = "out1"
-pos = [2100.0, 800.0]
+pos = [2400.0, 800.0]
 from = "9b8f36a9a5dca4d7.fbae7ec2"
 
 [[output]]
 key = "ad0102ee"
 name = "out2"
-pos = [2100.0, 900.0]
+pos = [2400.0, 900.0]
 from = "9b8f36a9a5dca4d7.f5c7996c"
 
 [[output]]
 key = "6e562c51"
 name = "out3"
-pos = [2100.0, 1000.0]
+pos = [2400.0, 1000.0]
 from = "9b8f36a9a5dca4d7.3dca83af"

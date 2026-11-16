@@ -3,12 +3,12 @@ format = 1
 [[node]]
 id = "8cc7c34fb0e0708a"
 subgraph = "xor"
-pos = [0.0, 0.0]
+pos = [0.0, 30.0]
 
 [[node]]
 id = "33890740e6f55ffa"
 subgraph = "and"
-pos = [0.0, 180.0]
+pos = [0.0, 210.0]
 
 [[input]]
 key = "9131f68f"

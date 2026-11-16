@@ -65,41 +65,6 @@ pos = [0.0, 1400.0]
 on = "false"
 
 [[node]]
-id = "0b74277127403d82"
-subgraph = "mux"
-pos = [300.0, 0.0]
-
-[[node]]
-id = "aae81302a87d1ae0"
-subgraph = "mux"
-pos = [300.0, 220.0]
-
-[[node]]
-id = "1ed172254cbdc3fc"
-subgraph = "mux"
-pos = [300.0, 440.0]
-
-[[node]]
-id = "fe3cac2d240b31d4"
-subgraph = "mux"
-pos = [300.0, 660.0]
-
-[[node]]
-id = "d9f9cba2ccd7cef2"
-subgraph = "mux"
-pos = [600.0, 0.0]
-
-[[node]]
-id = "29df2e54f216fc17"
-subgraph = "mux"
-pos = [600.0, 220.0]
-
-[[node]]
-id = "3bd7437e7ca716df"
-subgraph = "mux"
-pos = [900.0, 0.0]
-
-[[node]]
 id = "b72ca14af34fe834"
 folder = "nodes/switch"
 pos = [0.0, 1600.0]
@@ -162,41 +127,6 @@ pos = [0.0, 3000.0]
 
 [node.params]
 on = "false"
-
-[[node]]
-id = "72d1a60e363854af"
-subgraph = "mux"
-pos = [300.0, 880.0]
-
-[[node]]
-id = "2075a0ed5040ce22"
-subgraph = "mux"
-pos = [300.0, 1100.0]
-
-[[node]]
-id = "a5c65307e1757041"
-subgraph = "mux"
-pos = [300.0, 1320.0]
-
-[[node]]
-id = "5b75ddcfd3069999"
-subgraph = "mux"
-pos = [300.0, 1540.0]
-
-[[node]]
-id = "303e4b72310cfbf8"
-subgraph = "mux"
-pos = [600.0, 440.0]
-
-[[node]]
-id = "84aa83510eb007d5"
-subgraph = "mux"
-pos = [600.0, 660.0]
-
-[[node]]
-id = "6bbafa7da87d5510"
-subgraph = "mux"
-pos = [900.0, 220.0]
 
 [[node]]
 id = "71b2ec75c2e5ecf1"
@@ -263,41 +193,6 @@ pos = [0.0, 4600.0]
 on = "false"
 
 [[node]]
-id = "5052a3a1d013932d"
-subgraph = "mux"
-pos = [300.0, 1760.0]
-
-[[node]]
-id = "18671cf94bcacf20"
-subgraph = "mux"
-pos = [300.0, 1980.0]
-
-[[node]]
-id = "9cef90c279f613b2"
-subgraph = "mux"
-pos = [300.0, 2200.0]
-
-[[node]]
-id = "c3fb8949ce6af3a4"
-subgraph = "mux"
-pos = [300.0, 2420.0]
-
-[[node]]
-id = "fe65ee18faa390f4"
-subgraph = "mux"
-pos = [600.0, 880.0]
-
-[[node]]
-id = "3d2e4b8c6bdf384e"
-subgraph = "mux"
-pos = [600.0, 1100.0]
-
-[[node]]
-id = "56bd4a60a27db69b"
-subgraph = "mux"
-pos = [900.0, 440.0]
-
-[[node]]
 id = "88acc32b5d8e57e1"
 folder = "nodes/switch"
 pos = [0.0, 4800.0]
@@ -360,41 +255,6 @@ pos = [0.0, 6200.0]
 
 [node.params]
 on = "false"
-
-[[node]]
-id = "5e564b1945fd7b36"
-subgraph = "mux"
-pos = [300.0, 2640.0]
-
-[[node]]
-id = "f4a6d66f57b255bc"
-subgraph = "mux"
-pos = [300.0, 2860.0]
-
-[[node]]
-id = "7503ee892b1bac2e"
-subgraph = "mux"
-pos = [300.0, 3080.0]
-
-[[node]]
-id = "cda0cd6f01e40503"
-subgraph = "mux"
-pos = [300.0, 3300.0]
-
-[[node]]
-id = "64d94678f251c4c2"
-subgraph = "mux"
-pos = [600.0, 1320.0]
-
-[[node]]
-id = "364ec835a436078a"
-subgraph = "mux"
-pos = [600.0, 1540.0]
-
-[[node]]
-id = "e1811f98732087fd"
-subgraph = "mux"
-pos = [900.0, 660.0]
 
 [[node]]
 id = "4b0f11647c911599"
@@ -461,41 +321,6 @@ pos = [0.0, 7800.0]
 on = "false"
 
 [[node]]
-id = "74929ceba9bae572"
-subgraph = "mux"
-pos = [300.0, 3520.0]
-
-[[node]]
-id = "ad782d52d8097297"
-subgraph = "mux"
-pos = [300.0, 3740.0]
-
-[[node]]
-id = "5c40ea74b65b8b24"
-subgraph = "mux"
-pos = [300.0, 3960.0]
-
-[[node]]
-id = "d080dbb7f64b00ab"
-subgraph = "mux"
-pos = [300.0, 4180.0]
-
-[[node]]
-id = "79371a6df29cb3e3"
-subgraph = "mux"
-pos = [600.0, 1760.0]
-
-[[node]]
-id = "b748f26d7aa53cda"
-subgraph = "mux"
-pos = [600.0, 1980.0]
-
-[[node]]
-id = "89ea1d40cf77ef77"
-subgraph = "mux"
-pos = [900.0, 880.0]
-
-[[node]]
 id = "48a43c52781ba396"
 folder = "nodes/switch"
 pos = [0.0, 8000.0]
@@ -558,41 +383,6 @@ pos = [0.0, 9400.0]
 
 [node.params]
 on = "true"
-
-[[node]]
-id = "f96d98d3e93fe7af"
-subgraph = "mux"
-pos = [300.0, 4400.0]
-
-[[node]]
-id = "f67bc6c160cf5357"
-subgraph = "mux"
-pos = [300.0, 4620.0]
-
-[[node]]
-id = "17f5cbf5e0fc1652"
-subgraph = "mux"
-pos = [300.0, 4840.0]
-
-[[node]]
-id = "923385f49e881d18"
-subgraph = "mux"
-pos = [300.0, 5060.0]
-
-[[node]]
-id = "806cc3f1a3017907"
-subgraph = "mux"
-pos = [600.0, 2200.0]
-
-[[node]]
-id = "274551e1c660299c"
-subgraph = "mux"
-pos = [600.0, 2420.0]
-
-[[node]]
-id = "450dacbdc12c1014"
-subgraph = "mux"
-pos = [900.0, 1100.0]
 
 [[node]]
 id = "9d97cbddcd7cecf0"
@@ -659,39 +449,249 @@ pos = [0.0, 11000.0]
 on = "false"
 
 [[node]]
+id = "0b74277127403d82"
+subgraph = "mux"
+pos = [300.0, 46.7]
+
+[[node]]
+id = "aae81302a87d1ae0"
+subgraph = "mux"
+pos = [300.0, 313.3]
+
+[[node]]
+id = "1ed172254cbdc3fc"
+subgraph = "mux"
+pos = [300.0, 580.0]
+
+[[node]]
+id = "fe3cac2d240b31d4"
+subgraph = "mux"
+pos = [300.0, 846.7]
+
+[[node]]
+id = "72d1a60e363854af"
+subgraph = "mux"
+pos = [300.0, 1113.3]
+
+[[node]]
+id = "2075a0ed5040ce22"
+subgraph = "mux"
+pos = [300.0, 1380.0]
+
+[[node]]
+id = "a5c65307e1757041"
+subgraph = "mux"
+pos = [300.0, 1646.7]
+
+[[node]]
+id = "5b75ddcfd3069999"
+subgraph = "mux"
+pos = [300.0, 1913.3]
+
+[[node]]
+id = "5052a3a1d013932d"
+subgraph = "mux"
+pos = [300.0, 2180.0]
+
+[[node]]
+id = "18671cf94bcacf20"
+subgraph = "mux"
+pos = [300.0, 2446.7]
+
+[[node]]
+id = "9cef90c279f613b2"
+subgraph = "mux"
+pos = [300.0, 2713.3]
+
+[[node]]
+id = "c3fb8949ce6af3a4"
+subgraph = "mux"
+pos = [300.0, 2980.0]
+
+[[node]]
+id = "5e564b1945fd7b36"
+subgraph = "mux"
+pos = [300.0, 3246.7]
+
+[[node]]
+id = "f4a6d66f57b255bc"
+subgraph = "mux"
+pos = [300.0, 3513.3]
+
+[[node]]
+id = "7503ee892b1bac2e"
+subgraph = "mux"
+pos = [300.0, 3780.0]
+
+[[node]]
+id = "cda0cd6f01e40503"
+subgraph = "mux"
+pos = [300.0, 4046.7]
+
+[[node]]
+id = "74929ceba9bae572"
+subgraph = "mux"
+pos = [300.0, 4313.3]
+
+[[node]]
+id = "ad782d52d8097297"
+subgraph = "mux"
+pos = [300.0, 4580.0]
+
+[[node]]
+id = "5c40ea74b65b8b24"
+subgraph = "mux"
+pos = [300.0, 4846.7]
+
+[[node]]
+id = "d080dbb7f64b00ab"
+subgraph = "mux"
+pos = [300.0, 5113.3]
+
+[[node]]
+id = "f96d98d3e93fe7af"
+subgraph = "mux"
+pos = [300.0, 5380.0]
+
+[[node]]
+id = "f67bc6c160cf5357"
+subgraph = "mux"
+pos = [300.0, 5646.7]
+
+[[node]]
+id = "17f5cbf5e0fc1652"
+subgraph = "mux"
+pos = [300.0, 5913.3]
+
+[[node]]
+id = "923385f49e881d18"
+subgraph = "mux"
+pos = [300.0, 6180.0]
+
+[[node]]
 id = "fc9a49ae82373835"
 subgraph = "mux"
-pos = [300.0, 5280.0]
+pos = [300.0, 6446.7]
 
 [[node]]
 id = "a8c36bae32a3fe15"
 subgraph = "mux"
-pos = [300.0, 5500.0]
+pos = [300.0, 6713.3]
 
 [[node]]
 id = "a29ba02d27376600"
 subgraph = "mux"
-pos = [300.0, 5720.0]
+pos = [300.0, 6980.0]
 
 [[node]]
 id = "53c27e54d8e9b9cf"
 subgraph = "mux"
-pos = [300.0, 5940.0]
+pos = [300.0, 7246.7]
+
+[[node]]
+id = "d9f9cba2ccd7cef2"
+subgraph = "mux"
+pos = [600.0, 133.3]
+
+[[node]]
+id = "29df2e54f216fc17"
+subgraph = "mux"
+pos = [600.0, 488.9]
+
+[[node]]
+id = "303e4b72310cfbf8"
+subgraph = "mux"
+pos = [600.0, 844.4]
+
+[[node]]
+id = "84aa83510eb007d5"
+subgraph = "mux"
+pos = [600.0, 1200.0]
+
+[[node]]
+id = "fe65ee18faa390f4"
+subgraph = "mux"
+pos = [600.0, 1555.6]
+
+[[node]]
+id = "3d2e4b8c6bdf384e"
+subgraph = "mux"
+pos = [600.0, 1911.1]
+
+[[node]]
+id = "64d94678f251c4c2"
+subgraph = "mux"
+pos = [600.0, 2266.7]
+
+[[node]]
+id = "364ec835a436078a"
+subgraph = "mux"
+pos = [600.0, 2622.2]
+
+[[node]]
+id = "79371a6df29cb3e3"
+subgraph = "mux"
+pos = [600.0, 2977.8]
+
+[[node]]
+id = "b748f26d7aa53cda"
+subgraph = "mux"
+pos = [600.0, 3333.3]
+
+[[node]]
+id = "806cc3f1a3017907"
+subgraph = "mux"
+pos = [600.0, 3688.9]
+
+[[node]]
+id = "274551e1c660299c"
+subgraph = "mux"
+pos = [600.0, 4044.4]
 
 [[node]]
 id = "0e24617f41007b7d"
 subgraph = "mux"
-pos = [600.0, 2640.0]
+pos = [600.0, 4400.0]
 
 [[node]]
 id = "9e5ebac6411a06bd"
 subgraph = "mux"
-pos = [600.0, 2860.0]
+pos = [600.0, 4755.6]
+
+[[node]]
+id = "3bd7437e7ca716df"
+subgraph = "mux"
+pos = [900.0, 254.1]
+
+[[node]]
+id = "6bbafa7da87d5510"
+subgraph = "mux"
+pos = [900.0, 728.1]
+
+[[node]]
+id = "56bd4a60a27db69b"
+subgraph = "mux"
+pos = [900.0, 1202.2]
+
+[[node]]
+id = "e1811f98732087fd"
+subgraph = "mux"
+pos = [900.0, 1676.3]
+
+[[node]]
+id = "89ea1d40cf77ef77"
+subgraph = "mux"
+pos = [900.0, 2150.4]
+
+[[node]]
+id = "450dacbdc12c1014"
+subgraph = "mux"
+pos = [900.0, 2624.4]
 
 [[node]]
 id = "fbd01f0c5b72963d"
 subgraph = "mux"
-pos = [900.0, 1320.0]
+pos = [900.0, 3098.5]
 
 [[wire]]
 from = "7b6419017f38e9c7.out"

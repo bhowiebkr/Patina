@@ -3,17 +3,17 @@ format = 1
 [[node]]
 id = "91e3afa186d5bae3"
 subgraph = "half-adder"
-pos = [0.0, 0.0]
+pos = [0.0, 30.0]
 
 [[node]]
 id = "497e847739625976"
 subgraph = "half-adder"
-pos = [300.0, 0.0]
+pos = [300.0, 95.0]
 
 [[node]]
 id = "9187a97d7d87a75c"
 subgraph = "or"
-pos = [600.0, 0.0]
+pos = [600.0, 42.5]
 
 [[wire]]
 from = "91e3afa186d5bae3.301a2640"

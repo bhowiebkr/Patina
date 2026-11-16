@@ -3,42 +3,42 @@ format = 1
 [[node]]
 id = "f6123f740f86e213"
 builtin = "delay"
-pos = [300.0, 0.0]
+pos = [0.0, 0.0]
 
 [[node]]
 id = "6653a48cddc309e1"
 builtin = "delay"
-pos = [300.0, 140.0]
+pos = [0.0, 140.0]
 
 [[node]]
 id = "8e1b8885797b8b71"
 builtin = "delay"
-pos = [300.0, 280.0]
+pos = [0.0, 280.0]
 
 [[node]]
 id = "81bf8f9b5012e051"
 builtin = "delay"
-pos = [300.0, 420.0]
+pos = [0.0, 420.0]
 
 [[node]]
 id = "4fa2e13ff15b5fd9"
 subgraph = "mux"
-pos = [0.0, 0.0]
+pos = [300.0, 13.3]
 
 [[node]]
 id = "4ab72625929f6ed2"
 subgraph = "mux"
-pos = [0.0, 220.0]
+pos = [300.0, 233.3]
 
 [[node]]
 id = "f29d0b3c10d30e25"
 subgraph = "mux"
-pos = [0.0, 440.0]
+pos = [300.0, 453.3]
 
 [[node]]
 id = "536c13f9ef501330"
 subgraph = "mux"
-pos = [0.0, 660.0]
+pos = [300.0, 673.3]
 
 [[wire]]
 from = "f6123f740f86e213.out"
