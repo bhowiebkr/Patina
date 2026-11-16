@@ -144,14 +144,20 @@ export const below = (el: HTMLElement) => {
 };
 
 /** The Views menu of the top bar: show or hide each panel, and Reset layout (15.2). */
-export function ViewsMenu() {
+/** The Views menu (15.2, 15.8): the panels, the views of the project and Reset layout. */
+export function ViewsMenu({ views, open, onOpen }: { views: string[]; open: string | null; onOpen: (name: string) => void }) {
   const layout = useSyncExternalStore(subscribe, getLayout);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
-  const items: Item[] = PANELS.map((p) => ({
+  const shown = areaOf(layout, 'view') !== null;
+  const items: Item[] = PANELS.filter((p) => p !== 'view').map((p) => ({
     label: TITLES[p],
     checked: areaOf(layout, p) !== null,
     run: () => changeLayout((l) => (areaOf(l, p) ? closePanel(l, p) : openPanel(l, p))),
   }));
+  if (views.length > 0) items.push('line');
+  for (const name of views) {
+    items.push({ label: name, checked: shown && open === name, run: () => (onOpen(name), changeLayout((l) => openPanel(l, 'view'))) });
+  }
   items.push('line', { label: 'Reset layout', run: () => changeLayout(resetLayout) });
   return (
     <>

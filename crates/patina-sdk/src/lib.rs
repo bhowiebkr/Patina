@@ -3,10 +3,12 @@
 
 #[doc(hidden)]
 pub mod glue;
+mod graph;
 mod ui;
 mod view;
 
-pub use patina_macros::{connection, node};
+pub use graph::Graph;
+pub use patina_macros::{connection, node, view};
 pub use ui::{Canvas, Mode, Number, Pointer, Response, Ui, Widget};
 pub use view::{Lanes, Text, Viewer};
 

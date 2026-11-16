@@ -1,14 +1,14 @@
 // The dock layout of the editor window (spec 15.2): the tabs of each dock area, the size of each
 // area and the pan and zoom of each graph. These are pure functions, so `npm test` runs them.
 
-export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output'] as const;
+export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output', 'view'] as const;
 export type PanelId = (typeof PANELS)[number];
 export const AREAS = ['left', 'right', 'bottom'] as const;
 export type AreaId = (typeof AREAS)[number];
 
-export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output' };
+export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output', view: 'View' };
 /** The area of each panel in the default layout. A closed panel opens there again. */
-const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom' };
+const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', view: 'right' };
 
 export const MIN_SIZE = 120;
 export const MAX_SIZE = 1600;

@@ -87,6 +87,8 @@ export interface View {
   nodes: NodeInfo[];
   /** The widget folders (6.2), for example `gradient-bar` for `widgets/gradient-bar`. */
   widgets: string[];
+  /** The view folders (15.8), for example `map` for `views/map`. */
+  views: string[];
   /** The imported folders (6.4), for example `nodes/blur`. */
   imports: string[];
   problems: string[];
@@ -274,6 +276,15 @@ export const api = {
   newNode: (name: string) => invoke<View>('new_node', { name }),
   /** Makes the widget folder `widgets/<name>` (4.3). */
   newWidget: (name: string) => invoke<View>('new_widget', { name }),
+  /** Makes the view folder `views/<name>` (15.8). */
+  newView: (name: string) => invoke<View>('new_view', { name }),
+  /**
+   * Gives the user input `events` to view `name` and gets its widget lines (15.8). The first call
+   * builds the view. `view` is the new project when the view wrote to the graph.
+   */
+  viewUi: (name: string, events: string) => invoke<{ tree: string; view: View | null }>('view_ui', { name, events }),
+  /** Drops a view, so the next call builds it again. */
+  closeView: (name: string) => invoke<void>('close_view', { name }),
   /**
    * Adds a crate of crates.io, `name` or `name@version`, or a widget folder of the project to a
    * node or widget folder, for example `nodes/number` (15.4).

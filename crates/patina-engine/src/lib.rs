@@ -17,6 +17,7 @@ mod pool;
 pub mod project;
 mod subgraph;
 mod types;
+pub mod view;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -194,6 +195,13 @@ impl Project {
         self.new_folder("widgets", name, &WIDGET_CODE.replace("NAME", &ty))
     }
 
+    /// Makes the view folder `views/<name>` with a start view (15.8).
+    pub fn new_view(&self, name: &str) -> Result<(), String> {
+        plan::check_name(name)?;
+        let ty: String = name.split(['-', '_']).filter(|p| !p.is_empty()).map(|p| p[..1].to_ascii_uppercase() + &p[1..]).collect();
+        self.new_folder("views", name, &VIEW_CODE.replace("NAME", &ty))
+    }
+
     /// Makes the crate folder `<group>/<name>` with `code` in `src/lib.rs`. No other folder of the
     /// project can have the same crate name (6.2).
     fn new_folder(&self, group: &str, name: &str, code: &str) -> Result<(), String> {
@@ -212,8 +220,10 @@ impl Project {
         // create_dir fails when the folder exists, so the files of another folder stay.
         let dir = parent.join(name);
         fs::create_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        // A view compiles as its own library (15.8).
+        let lib = if group == "views" { "[lib]\ncrate-type = [\"cdylib\"]\n\n" } else { "" };
         let manifest = format!(
-            "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+            "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n{lib}\
              [dependencies]\npatina-sdk = {{ workspace = true }}\n"
         );
         let written = write_file(&dir.join("Cargo.toml"), &manifest).and_then(|()| write_file(&dir.join("src/lib.rs"), code));
@@ -413,7 +423,26 @@ impl Project {
 
     /// The widget folders in `widgets/` (6.2), sorted by name.
     pub fn widgets(&self) -> Vec<String> {
-        let entries = fs::read_dir(self.root.join("widgets")).into_iter().flatten().flatten();
+        self.crate_folders("widgets")
+    }
+
+    /// The view folders in `views/` (15.8), sorted by name.
+    pub fn views(&self) -> Vec<String> {
+        self.crate_folders("views")
+    }
+
+    /// Builds the view folder `views/<name>` in edit mode and gives its library for `View::load`
+    /// (15.8). The library is a copy in `build/loaded/`, as the clusters are (8.5).
+    pub fn build_view(&self, toolchain: &Toolchain, name: &str) -> Result<PathBuf, Error> {
+        let library = cargo::build_view(&self.root, toolchain, name, Mode::Edit)?;
+        // A dot is not in a name, so the prefix of one view is not the prefix of another view.
+        let copy = checked::copy_to_loaded(&self.root, &format!("view.{name}."), &[library])?;
+        checked::copy_runtime(&self.root.join("build").join("loaded"), &toolchain.libdir)?;
+        Ok(copy.into_iter().next().unwrap_or_default())
+    }
+
+    fn crate_folders(&self, group: &str) -> Vec<String> {
+        let entries = fs::read_dir(self.root.join(group)).into_iter().flatten().flatten();
         let dirs = entries.filter(|e| e.path().is_dir()).filter_map(|e| e.file_name().into_string().ok());
         let mut names: Vec<String> = dirs.filter(|name| plan::check_name(name).is_ok()).collect();
         names.sort();
@@ -486,11 +515,36 @@ impl patina_sdk::Widget for NAME {
 }
 ";
 
-/// Checks a node or widget folder as `nodes/<name>` or `widgets/<name>` (6.2). The page sends it.
+/// The start code of a view folder (15.8). `NAME` is the type name.
+const VIEW_CODE: &str = "use patina_sdk::{Graph, Ui, view};
+
+/// A panel that shows each node of the open graph and its live outputs. Write the panel here.
+#[view]
+pub struct NAME {
+    pub shown: u64,
+}
+
+impl NAME {
+    pub fn init() -> Self {
+        NAME { shown: 0 }
+    }
+
+    pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
+        self.shown += 1;
+        for id in graph.nodes() {
+            let folder = graph.folder(id).unwrap_or(\"-\");
+            ui.label(&format!(\"{id} ({folder})\"));
+        }
+    }
+}
+";
+
+/// Checks a node, widget or view folder as `nodes/<name>`, `widgets/<name>` or `views/<name>`
+/// (6.2). The page sends it.
 pub(crate) fn code_folder(folder: &str) -> Result<(), String> {
-    let (group, name) = folder.split_once('/').ok_or_else(|| format!("{folder:?} is not a node or widget folder"))?;
-    if group != "nodes" && group != "widgets" {
-        return Err(format!("{folder:?} is not a node or widget folder"));
+    let (group, name) = folder.split_once('/').ok_or_else(|| format!("{folder:?} is not a node, widget or view folder"))?;
+    if !["nodes", "widgets", "views"].contains(&group) {
+        return Err(format!("{folder:?} is not a node, widget or view folder"));
     }
     plan::check_name(name)
 }

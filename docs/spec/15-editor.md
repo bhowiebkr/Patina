@@ -257,18 +257,19 @@ impl Timeline {
     pub fn init() -> Self { Self { zoom: 1.0 } }
 
     pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
-        let clock = graph.node("Clock");
-        if let Some(frame) = graph.output::<u64>(clock, "frame") {
+        let clock = graph.nodes().find(|id| graph.folder(id) == Some("nodes/clock")).map(str::to_owned);
+        let Some(clock) = clock else { return };
+        if let Some(frame) = graph.output::<u64>(&clock, "frame") {
             ui.label(&format!("Frame {frame}"));
         }
         if ui.button("Play").clicked() {
-            graph.set_param(clock, "running", true);
+            graph.set_param(&clock, "running", true);
         }
     }
 }
 ```
 
-The names of the `Graph` functions in this example are not final.
+The example uses the `Graph` functions of version 1. See **Version 1** below.
 
 **Model**
 
@@ -317,6 +318,34 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 - Each view compiles as its own library, outside the base and the slot (8.2).
 - While the user edits a view, it builds in edit mode and hot reloads (8.5). It rebuilds in bake mode at the same events as a fuse (7.2).
 - When the code of a view changes, the state of each instance resets.
+
+**Version 1**
+
+Version 1 is the first part of views that works. (Agent decision, 2026-11-15. The owner can
+change it.)
+
+- A view folder is a crate with `crate-type = ["cdylib"]`. **New view** in the **Project** panel
+  makes the folder with a start view.
+- `#[view]` writes four exports: `patina_abi_version`, `patina_view_new`, `patina_view_ui` and
+  `patina_view_free`. The writes of the view use the report kind `EDIT`. The ABI version stays 14.
+- The engine builds a view in edit mode on its first `ui` call. It copies the library to
+  `build/loaded/view.<name>.<hash>`, with the Rust runtime, as for the clusters (8.5).
+- The `Graph` handle is a copy of the open graph as text lines: the nodes, the parameters and
+  the live values of the last run. The functions are `nodes`, `folder`, `param`,
+  `output_text`, `output` and `set_param`.
+- `set_param` becomes the edit `SetParam` (7.4). The editor applies it on the edit path, so undo
+  removes it.
+- The editor has one **View** panel. The **Views** menu lists the views of the project and opens
+  one in the panel. The panel asks for the widget lines at the display rate while it shows.
+- A save of the code of a view drops the loaded view and does not build the clusters. The next
+  `ui` call builds the view again. After a panic, the next call makes a new state.
+
+The limits of version 1:
+
+- One instance of each view, in one panel. No float window.
+- No typed outputs through type crates (rule 3). A view reads the text of an output.
+- No edits other than `set_param`: no add node, no wire, no trigger and no selection.
+- No viewport, and no bake build of a view.
 
 ### 15.9 Connections and routing
 

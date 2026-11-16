@@ -39,6 +39,8 @@ pub const TIME: u32 = 8;
 pub const LOG: u32 = 9;
 /// The widget lines of a call of `ui` (4.3), from `Ui::tree`.
 pub const UI: u32 = 10;
+/// A write of a view to the graph (15.8), from `Graph::set_param`.
+pub const EDIT: u32 = 11;
 
 /// The most log lines of one run (15.7). The cluster does not send the lines after them.
 pub const LOG_LINES: u32 = 1000;
@@ -744,6 +746,8 @@ pub unsafe fn free(cluster: *mut Cluster) {
 
 mod slot;
 pub use slot::*;
+mod view;
+pub use view::*;
 
 #[cfg(test)]
 mod tests;

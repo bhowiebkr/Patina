@@ -225,13 +225,13 @@ pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 /// # Safety
 ///
 /// The symbol has the type `T`.
-unsafe fn symbol<T: Copy>(library: &libloading::Library, name: &[u8]) -> Result<T, libloading::Error> {
+pub(crate) unsafe fn symbol<T: Copy>(library: &libloading::Library, name: &[u8]) -> Result<T, libloading::Error> {
     // SAFETY: the caller gives the type of the symbol.
     unsafe { library.get::<T>(name).map(|s| *s) }
 }
 
 #[cfg(windows)]
-fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
+pub(crate) fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
     use libloading::os::windows::{LOAD_LIBRARY_SEARCH_DEFAULT_DIRS, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, Library};
     // Only the folder of the library and the system folders give other libraries (8.5).
     let flags = LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS;
@@ -241,7 +241,7 @@ fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
 }
 
 #[cfg(not(windows))]
-fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
+pub(crate) fn open(path: &Path) -> Result<libloading::Library, libloading::Error> {
     // SAFETY: the load runs the init code of the library. Patina built it from a project that
     // the owner trusts (11).
     unsafe { libloading::Library::new(path) }

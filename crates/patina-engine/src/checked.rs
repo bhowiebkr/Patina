@@ -101,7 +101,7 @@ impl Checked {
 /// Windows locks a loaded library, so cargo cannot write the library of the next build over it.
 /// The same bytes give the same name, so a loaded library stays in use. The copies of `prefix`
 /// that are not in `built` are removed.
-fn copy_to_loaded(root: &Path, prefix: &str, built: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
+pub(crate) fn copy_to_loaded(root: &Path, prefix: &str, built: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
     let dir = root.join("build").join("loaded");
     let mut copies = Vec::new();
     for library in built {

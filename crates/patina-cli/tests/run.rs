@@ -541,3 +541,50 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     let tree = cluster.ui("4d5e6f708192a3b4", 0, "").0.unwrap();
     assert!(tree.starts_with("image	Preview	64	16	"), "{tree}");
 }
+
+const VIEW: &str = "use patina_sdk::{Graph, Ui, view};
+
+#[view]
+pub struct Panel {
+    clicks: u32,
+}
+
+impl Panel {
+    pub fn init() -> Self {
+        Panel { clicks: 0 }
+    }
+
+    pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
+        let value = graph.param(\"9bc1790966687030\", \"value\");
+        ui.label(&format!(\"{} nodes, {value:?}, {} clicks\", graph.nodes().count(), self.clicks));
+        if ui.button(\"Set\").clicked() {
+            self.clicks += 1;
+            graph.set_param(\"9bc1790966687030\", \"value\", 5.0);
+        }
+    }
+}
+";
+
+#[test]
+fn a_view_reads_the_graph_and_sets_a_parameter() {
+    use patina_engine::view::{View, snapshot};
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "view");
+    let opened = Project::open(&project).unwrap();
+    opened.new_view("panel").unwrap();
+    fs::write(project.join("views/panel/src/lib.rs"), VIEW).unwrap();
+    let library = opened.build_view(&Toolchain::detect().unwrap(), "panel").unwrap();
+    let graph = snapshot(opened.graph(), &[]);
+    let mut view = View::load(&library).unwrap();
+    let frame = view.ui(0, "", &graph).unwrap();
+    assert_eq!(frame.tree, "label\t4 nodes, Some(\"2.5\"), 0 clicks\nbutton\tSet");
+    assert!(frame.edits.is_empty());
+
+    // A click writes the parameter as an edit, and the view draws again with its new state.
+    let frame = view.ui(0, "1 1", &graph).unwrap();
+    assert!(frame.tree.contains("1 clicks"), "{}", frame.tree);
+    let [patina_engine::Edit::SetParam { id, key, text: Some(text) }] = &frame.edits[..] else { panic!("{:?}", frame.edits) };
+    assert_eq!((id.as_str(), key.as_str(), text.as_str()), ("9bc1790966687030", "value", "5"));
+
+    // Each instance has its own state.
+    assert!(View::load(&library).unwrap().ui(0, "", &graph).unwrap().tree.contains("0 clicks"));
+}

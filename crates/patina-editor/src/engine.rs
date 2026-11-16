@@ -12,6 +12,8 @@ use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog,
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
+use crate::views::{ViewInput, Views};
+
 pub enum Job {
     Run(Box<Run>),
     /// Drops the cluster, for example when the project closes.
@@ -27,6 +29,10 @@ pub enum Job {
     Bake,
     /// Makes a package of the saved project `root` in `out` (14.1). `reply` gets the warnings.
     Package { root: PathBuf, out: PathBuf, reply: Sender<Result<Vec<String>, String>> },
+    /// User input to a view (15.8). The first input builds the view.
+    View(ViewInput),
+    /// Drops a view, so the next input builds it again.
+    CloseView(String),
 }
 
 /// Sends jobs to the engine thread. It counts the runs that wait for a build, so the engine
@@ -198,6 +204,7 @@ pub fn start(app: AppHandle, toolchain: PathBuf) -> (Jobs, Arc<Shared>) {
 
 fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     let mut toolchain = None;
+    let mut views = Views::default();
     let mut loaded: Option<Loaded> = None;
     let mut next = None;
     // The last run, which a GUI change runs again, and the nodes of the Inspector and the full size.
@@ -214,6 +221,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             match job {
                 Job::Unload => {
                     (loaded, newest, build, last, fuse_at) = (None, None, false, None, None);
+                    views = Views::default();
                     lock(&shared.values).clear();
                 }
                 Job::Run(run) => {
@@ -236,6 +244,8 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Package { root, out, reply } => {
                     let _ = reply.send(make_package(folder, &mut toolchain, &root, &out));
                 }
+                Job::View(input) => views.ui(folder, &mut toolchain, input),
+                Job::CloseView(name) => views.close(&name),
             }
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -273,7 +283,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
             draw(app, &mut loaded.cluster, run.serial, &shown);
             if frames {
-                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown, &loaded.aliases), shared, (run.serial, fuse_at));
+                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown, &loaded.aliases), (&mut views, folder, &mut toolchain), shared, (run.serial, fuse_at));
             }
         }
         last = Some(run);
@@ -326,7 +336,7 @@ fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, shown: &Shown) {
 
 /// Runs the frame domain at 60 FPS until a job comes, the user stops the run, a frame fails or
 /// the time of the fuse comes (9.1, 7.2). Returns the job that ended the run.
-fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): (&mut Cluster, &mut Shown, &[(String, String)]), shared: &Shared, (serial, fuse_at): (u64, Option<Instant>)) -> Option<Job> {
+fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): (&mut Cluster, &mut Shown, &[(String, String)]), (views, folder, toolchain): (&mut Views, &Path, &mut Option<Toolchain>), shared: &Shared, (serial, fuse_at): (u64, Option<Instant>)) -> Option<Job> {
     let (mut clock, mut frames) = (Clock::new(clock::FRAME), 0);
     let job = loop {
         clock.wait();
@@ -340,6 +350,9 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): 
                     break Some(Job::Rerun);
                 }
             }
+            // A view reads the live values, so the frames go on.
+            Ok(Job::View(input)) => views.ui(folder, toolchain, input),
+            Ok(Job::CloseView(name)) => views.close(&name),
             Ok(job) => break Some(job),
             Err(TryRecvError::Disconnected) => break None,
             Err(TryRecvError::Empty) if shared.control.stopped() => break None,
@@ -412,7 +425,7 @@ fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, loaded: 
 
 /// The toolchain of the builds. After an install, the toolchain folder replaces the Rust of the
 /// system.
-fn find_toolchain<'a>(folder: &Path, toolchain: &'a mut Option<Toolchain>) -> Result<&'a Toolchain, Error> {
+pub(crate) fn find_toolchain<'a>(folder: &Path, toolchain: &'a mut Option<Toolchain>) -> Result<&'a Toolchain, Error> {
     if toolchain.as_ref().is_none_or(|t| t.own.is_none() && Toolchain::installed(folder)) {
         *toolchain = Some(Toolchain::find(folder)?);
     }

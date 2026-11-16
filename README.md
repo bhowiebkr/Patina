@@ -170,8 +170,10 @@ tool.
 - A view uses the same GUI API as node GUIs, and it can draw with the GPU.
 - A view is not part of the graph, but it can read and change the graph: parameters, outputs,
   nodes and wires.
-- Open a view from the **Views** menu. It docks like the other panels, and it can float in its
-  own window.
+- Open a view from the **Views** menu. It docks like the other panels. A float window comes
+  later.
+- To make a view, click **+** in the **Views** group of the **Project** panel. Write the view in
+  the **Code** tab. A save builds the view again.
 
 ## Layers
 

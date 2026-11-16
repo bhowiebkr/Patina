@@ -13,6 +13,26 @@ const A = 'a000000000000001';
 const B = 'b000000000000002';
 
 /** A stateful number node with a GUI (4.2, 4.3): its button adds 1 to the output. It also shows each value widget. */
+// A view (15.8) that shows a parameter of node A, and sets it with a button.
+const VIEW_CODE = `use patina_sdk::{Graph, Ui, view};
+
+#[view]
+pub struct Panel;
+
+impl Panel {
+    pub fn init() -> Self {
+        Panel
+    }
+
+    pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
+        ui.label(&format!("value {}", graph.param("${A}", "value").unwrap_or_default()));
+        if ui.button("Set").clicked() {
+            graph.set_param("${A}", "value", 5.0);
+        }
+    }
+}
+`;
+
 const GUI_NODE = `use patina_sdk::node;
 
 #[node]
@@ -596,6 +616,29 @@ fn broken() -> u32 {
     await step('pause', () => api.pause());
     v = await step('undo the node GUI', () => api.undo());
     steps.push('click a node GUI');
+
+    // A view (15.8): the Views menu opens it in the View panel. Its button writes a parameter
+    // through the edit path, so undo removes the write.
+    v = await step('make a view', () => api.newView('panel'));
+    v = await step('write the view code', () => api.edit({ kind: 'SetCode', path: 'views/panel/src/lib.rs', text: VIEW_CODE }));
+    button('Views')!.click();
+    const item = () => [...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find((e) => e.textContent?.trim() === 'panel');
+    await until('the item of the view in the Views menu', RUN_MS, () => !!item());
+    item()!.click();
+    const panel = 'aside[aria-label="View"]';
+    const viewText = () => {
+      const failed = document.querySelector(`${panel} .error-text`)?.textContent;
+      if (failed) throw new Error(`the view failed: ${failed}`);
+      return document.querySelector(`${panel} .node-gui`)?.textContent ?? '';
+    };
+    await until('the widgets of the view', BUILD_MS, () => viewText().startsWith('value '));
+    if (!viewText().startsWith(`value ${v.graph.node?.find((n) => n.id === A)?.params?.value ?? ''}Set`)) throw new Error(`the view shows ${viewText()}`);
+    [...document.querySelectorAll<HTMLButtonElement>(`${panel} .node-gui button`)].find((b) => b.textContent === 'Set')!.click();
+    await until('the write of the view', RUN_MS, () => viewText().startsWith('value 5Set'));
+    await api.capture('view');
+    v = await step('undo the view write', () => api.undo());
+    if (v.graph.node?.find((n) => n.id === A)?.params?.value === '5') throw new Error('undo did not remove the write of the view');
+    steps.push('a view sets a parameter');
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');

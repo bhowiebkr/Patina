@@ -7,6 +7,47 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Milestone 10: views
+
+Milestone 10 started on 2026-11-15. It adds views: custom panels of the editor that read and
+change the graph (spec 15.8).
+
+### Plan
+
+1. Version 1 of views: the `#[view]` ABI, the `Graph` handle, the build of a view and the
+   **View** panel. This part works.
+2. More instances of a view, and float windows.
+3. More edits from a view: add a node, connect a wire, start a trigger and select nodes.
+4. Typed outputs through type crates (15.8 rule 3).
+5. A viewport in a view (15.8), on the native path of the viewport prototype.
+
+### What works
+
+- `#[view]` compiles a struct with `init` and `ui` into a view library.
+- `patina_engine::view::View` loads the library and calls `ui` with the graph lines. A panic
+  frees the state, and the next call makes a new state.
+- `Project::build_view` builds `views/<name>` in edit mode into `build/loaded`.
+- The editor lists the views in the **Project** panel and in the **Views** menu. **New view**
+  makes a view folder. The **View** panel shows the widgets of the open view.
+- A `set_param` of a view goes through the edit path, and undo removes it.
+- A save of the code of a view builds only the view again.
+
+### What was checked
+
+- `cargo test --workspace` on Windows: the test
+  `a_view_reads_the_graph_and_sets_a_parameter` builds a view, reads the graph, clicks a button
+  and gets the edit. A second instance has its own state.
+- The editor self-check on Windows: it makes a view, opens it from the **Views** menu, clicks
+  **Set**, sees the new value and undoes the write.
+- CI builds and tests on Windows, Linux and macOS.
+
+### Known limits
+
+- The limits of version 1 are in spec 15.8: one instance, no float window, text outputs only,
+  only `set_param`, no viewport and no bake build.
+- The first open of a view builds it on the engine thread. A frame run waits for this build.
+- The view did not run on Linux or macOS. Only CI built it there.
+
 ## Milestone 9: the GPU
 
 Milestone 9 started on 2026-11-15 and ended on 2026-11-15. It adds the shared GPU context, GPU
@@ -810,8 +851,7 @@ To run the editor from a checkout:
   (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
 - The palette of a drag from a pin compares the type text (15.2). Two paths of one type, for
   example `String` and `std::string::String`, do not match.
-- The **Views** and **Widgets** groups have no **+** button yet. Undo does not remove a new
-  node folder (15.2).
+- Undo does not remove a new node, widget or view folder (15.2).
 - The check does not test the **does not stop** message of **Stop** (15.2), because that needs
   a node that ignores the flag for more than 2 s. `stop_requested()` is false on a thread that a node
   starts. The engine has no async nodes (4.6) yet, so no node drops at a wait.

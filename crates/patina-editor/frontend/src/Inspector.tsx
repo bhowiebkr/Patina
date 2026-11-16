@@ -161,12 +161,12 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   const code = (folder: string) => (
     <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
   );
-  if (inspect?.kind === 'type' || inspect?.kind === 'widget') {
+  if (inspect?.kind === 'type' || inspect?.kind === 'widget' || inspect?.kind === 'view') {
     return (
       <aside className="panel" aria-label="Inspector">
         <div className="panel-title">{inspect.name}</div>
         <Tabs tab="code" only="code" onTab={onTab} />
-        {code(`${inspect.kind === 'type' ? 'nodes' : 'widgets'}/${inspect.name}`)}
+        {code(`${{ type: 'nodes', widget: 'widgets', view: 'views' }[inspect.kind]}/${inspect.name}`)}
       </aside>
     );
   }

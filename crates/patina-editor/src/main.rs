@@ -13,6 +13,7 @@ mod session;
 #[cfg(windows)]
 mod shot;
 mod toolchain;
+mod views;
 
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -200,6 +201,9 @@ fn main() {
             session::folder_files,
             session::new_node,
             session::new_widget,
+            session::new_view,
+            session::view_ui,
+            session::close_view,
             session::add_crate,
             session::import_folders,
             session::import_plan,

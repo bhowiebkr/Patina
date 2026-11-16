@@ -144,12 +144,18 @@ function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 't
 let queue = Promise.resolve();
 
 function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
-  const send = (index: number) => (value: number | string) => {
-    queue = queue.then(() => api.gui(id, mode, eventLine(index, value))).catch(() => {});
+  const send = (line: string) => {
+    queue = queue.then(() => api.gui(id, mode, line)).catch(() => {});
   };
+  return <GuiWidgets tree={tree} disabled={disabled} label="Node controls" send={send} />;
+}
+
+/** Draws widget lines. `send` gets the event line of each user input. A view uses it too (15.8). */
+export function GuiWidgets({ tree, disabled, label, send: sendLine }: { tree: string; disabled: boolean; label: string; send: (line: string) => void }) {
+  const send = (index: number) => (value: number | string) => sendLine(eventLine(index, value));
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
-    <div className="node-gui nodrag nowheel" role="group" aria-label="Node controls">
+    <div className="node-gui nodrag nowheel" role="group" aria-label={label}>
       {parseTree(tree).map((w) => {
         switch (w.kind) {
           case 'label':

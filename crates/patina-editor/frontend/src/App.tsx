@@ -37,6 +37,7 @@ import { LayersPanel } from './LayersPanel';
 import { NO_RUN, valueStale, type RunState } from './NodeView';
 import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
+import { ViewPanel } from './ViewPanel';
 import { ImportDialog } from './ImportDialog';
 import { UpdateDialog } from './UpdateDialog';
 import { SettingsScreen } from './SettingsScreen';
@@ -89,6 +90,8 @@ export function App() {
   const [importing, setImporting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<{ other: string; folder: string } | null>(null);
   const [inspect, setInspect] = useState<Inspect>(null);
+  /** The view of the View panel (15.8). */
+  const [openView, setOpenView] = useState<string | null>(null);
   const [ask, setAsk] = useState<'close' | 'quit' | null>(null);
   const [tab, setTab] = useState<InspectorTab>('parameters');
   const [reveal, setReveal] = useState<Reveal | null>(null);
@@ -198,7 +201,8 @@ export function App() {
   const pick = useCallback((at: Reveal) => {
     const [group, name = ''] = at.path.split('/');
     const entry = current.current?.graph.node?.find((n) => n.folder === `nodes/${name}`);
-    setInspect(group === 'widgets' ? { kind: 'widget', name } : entry ? { kind: 'node', id: entry.id } : { kind: 'type', name });
+    const folder = group === 'widgets' ? 'widget' : group === 'views' ? 'view' : null;
+    setInspect(folder ? { kind: folder, name } : entry ? { kind: 'node', id: entry.id } : { kind: 'type', name });
     if (entry) setFocus({ id: entry.id, n: at.n });
     setTab('code');
     setReveal(at);
@@ -250,6 +254,14 @@ export function App() {
     async (name: string) => {
       show(await api.newWidget(name));
       setInspect({ kind: 'widget', name });
+    },
+    [show],
+  );
+
+  const newView = useCallback(
+    async (name: string) => {
+      show(await api.newView(name));
+      setInspect({ kind: 'view', name });
     },
     [show],
   );
@@ -424,7 +436,7 @@ export function App() {
     setInspect((old) => {
       if (ids.length === 1) return { kind: 'node', id: ids[0] };
       if (ids.length === 0 && wires.length === 1) return { kind: 'wire', from: wires[0].from, to: wires[0].to };
-      return old?.kind === 'type' || old?.kind === 'widget' ? old : null;
+      return old?.kind === 'type' || old?.kind === 'widget' || old?.kind === 'view' ? old : null;
     });
   }, []);
 
@@ -477,7 +489,7 @@ export function App() {
   );
   const panels: Record<PanelId, Panel> = {
     layers: { body: <LayersPanel run={run} /> },
-    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onImport={pickImport} onUpdate={pickUpdate} onPackage={makePackage} /> },
+    project: { body: <ProjectPanel view={view} inspect={inspect} onInspect={setInspect} onNewNode={newNode} onNewWidget={newWidget} onNewView={newView} onImport={pickImport} onUpdate={pickUpdate} onPackage={makePackage} /> },
     inspector: {
       body: (
         <Inspector
@@ -497,6 +509,7 @@ export function App() {
     },
     logs: { body: <Lines lines={logs} label="Logs" onPick={pick} />, actions: clear(() => setLogs([])) },
     output: { body: <Lines lines={output} label="Output" onPick={pick} />, actions: clear(() => setOutput([])) },
+    view: { body: <ViewPanel name={openView && view.views.includes(openView) ? openView : null} revision={view.codeRevision} trusted={view.trusted} onView={show} /> },
   };
 
   return (
@@ -552,7 +565,7 @@ export function App() {
           Bake
         </button>
         <span className="sep" />
-        <ViewsMenu />
+        <ViewsMenu views={view.views} open={openView} onOpen={setOpenView} />
         <HelpMenu />
       </header>
       {/* The dock waits for the layout of the project, so the graph opens at its saved pan and zoom. */}

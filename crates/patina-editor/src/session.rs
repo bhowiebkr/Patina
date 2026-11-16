@@ -13,6 +13,7 @@ use tauri::{AppHandle, State, WebviewWindow};
 
 use crate::data::{Data, Recovery, same_path};
 use crate::engine::{self, GuiInput, Job, Jobs, Run, Shared};
+use crate::views::ViewInput;
 
 pub struct Editor {
     pub data: Data,
@@ -55,6 +56,8 @@ pub struct View {
     nodes: Vec<NodeInfo>,
     /// The widget folders (6.2).
     widgets: Vec<String>,
+    /// The view folders (15.8).
+    views: Vec<String>,
     /// The imported folders (6.4), for example `nodes/blur`.
     imports: Vec<String>,
     /// The problems of the graph check, for example `node <id>: <text>`.
@@ -168,7 +171,13 @@ impl Editor {
             let code = session.project.code_revision();
             f(&mut session.project)?;
             session.keep_recovery(&self.data);
-            let built = (session.project.code_revision() != code).then_some(true);
+            let coded = session.project.code_revision() != code;
+            // A view is not part of the clusters, so its code drops only the loaded view (15.8).
+            let view = coded.then(|| session.project.last_code().and_then(view_folder)).flatten();
+            if let Some(name) = view.clone() {
+                let _ = self.engine.send(Job::CloseView(name));
+            }
+            let built = (coded && view.is_none()).then_some(true);
             let build = old.and_then(|old| built.or(affects_run(&old, session.project.graph())));
             let slot = built.and(session.project.last_code()).and_then(slot_folder);
             Ok(session.view(&self.engine, build, slot))
@@ -215,6 +224,7 @@ impl Session {
             graph_name: project.graph_name().to_owned(),
             nodes,
             widgets: project.widgets(),
+            views: project.views(),
             imports: project.imports(),
             problems,
             dirty: project.dirty(),
@@ -230,6 +240,11 @@ impl Session {
 
 /// The node folder of a code file, when a change of the file can build in the slot: a Rust file of
 /// the node folder, not its `Cargo.toml`. A new crate can change the crates of the base (7.1).
+/// The view of a code path in `views/<name>/`.
+fn view_folder(path: &str) -> Option<String> {
+    path.strip_prefix("views/")?.split_once('/').map(|(name, _)| name.to_owned())
+}
+
 fn slot_folder(path: &str) -> Option<String> {
     let (name, file) = path.strip_prefix("nodes/")?.split_once('/')?;
     file.ends_with(".rs").then(|| name.to_owned())
@@ -500,6 +515,44 @@ pub fn new_widget(editor: State<'_, Editor>, name: String) -> Result<View, Strin
     editor.change(|project| project.new_widget(&name))
 }
 
+/// Makes the view folder `views/<name>` (15.8). Undo does not remove the folder.
+#[tauri::command(async)]
+pub fn new_view(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.change(|project| project.new_view(&name))
+}
+
+/// The widget lines of a view, and the new view of the project when the view wrote to the graph.
+#[derive(Serialize)]
+pub struct ViewFrame {
+    tree: String,
+    view: Option<View>,
+}
+
+/// Gives user input to view `name`, or asks for its widget lines when `events` is empty (15.8).
+/// The first input builds the view. Its writes go through the edit path, so undo works.
+#[tauri::command(async)]
+pub fn view_ui(editor: State<'_, Editor>, name: String, events: String) -> Result<ViewFrame, String> {
+    let (root, graph) = editor.with(|session| match session.trusted {
+        true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values)))),
+        false => Err("Trust the project before you open a view.".to_owned()),
+    })?;
+    let (reply, answer) = std::sync::mpsc::channel();
+    let stopped = || "The engine stopped.".to_owned();
+    editor.engine.send(Job::View(ViewInput { root, name, events, graph, reply })).map_err(|_| stopped())?;
+    let frame = answer.recv().map_err(|_| stopped())??;
+    let view = match frame.edits.is_empty() {
+        true => None,
+        false => Some(editor.change(|project| frame.edits.iter().try_for_each(|edit| project.apply(edit)))?),
+    };
+    Ok(ViewFrame { tree: frame.tree, view })
+}
+
+/// Drops view `name`, so the next input builds it again (15.8).
+#[tauri::command(async)]
+pub fn close_view(editor: State<'_, Editor>, name: String) -> Result<(), String> {
+    editor.engine.send(Job::CloseView(name)).map_err(|_| "The engine stopped.".to_owned())
+}
+
 /// The page sends the unsaved text of the Code tab, so a close of the window asks first and the
 /// recovery file has the text (15.10). Text that comes after the close of the project is old.
 #[tauri::command(async)]
@@ -699,6 +752,8 @@ mod tests {
         assert_eq!(slot_folder("nodes/acc/src/lib.rs").as_deref(), Some("acc"));
         assert_eq!(slot_folder("nodes/acc/Cargo.toml"), None);
         assert_eq!(slot_folder("widgets/bar/src/lib.rs"), None);
+        assert_eq!(view_folder("views/map/src/lib.rs").as_deref(), Some("map"));
+        assert_eq!(view_folder("nodes/map/src/lib.rs"), None);
     }
 
     #[test]

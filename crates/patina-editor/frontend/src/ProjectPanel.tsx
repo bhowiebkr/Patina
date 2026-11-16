@@ -9,6 +9,7 @@ export type Inspect =
   | { kind: 'node'; id: string }
   | { kind: 'type'; name: string }
   | { kind: 'widget'; name: string }
+  | { kind: 'view'; name: string }
   | { kind: 'wire'; from: string; to: string }
   | null;
 
@@ -20,6 +21,8 @@ interface Props {
   onNewNode: (name: string) => Promise<void>;
   /** Makes the widget folder `widgets/<name>`. It fails with the problem of the name. */
   onNewWidget: (name: string) => Promise<void>;
+  /** Makes the view folder `views/<name>`. It fails with the problem of the name. */
+  onNewView: (name: string) => Promise<void>;
   /** Asks for another project, and opens the Import dialog (6.2). */
   onImport: () => void;
   /** Asks for a folder, and makes a package of the project in it (14.1). */
@@ -42,8 +45,8 @@ function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget, onImport, onUpdate, onPackage }: Props) {
-  const [naming, setNaming] = useState<'node' | 'widget' | null>(null);
+export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget, onNewView, onImport, onUpdate, onPackage }: Props) {
+  const [naming, setNaming] = useState<'node' | 'widget' | 'view' | null>(null);
   const close = () => setNaming(null);
   const startDrag = (e: DragEvent, name: string) => {
     e.dataTransfer.setData(NODE_MIME, `nodes/${name}`);
@@ -93,12 +96,27 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget,
           </button>
         ))}
       </div>
-      {['Views', 'Types'].map((title) => (
-        <div key={title} className="group">
-          <div className="group-title">{title}</div>
-          <Empty />
+      <div className="group">
+        <div className="group-title">
+          Views
+          {view.trusted && <NewButton label="New view" onClick={() => setNaming('view')} />}
         </div>
-      ))}
+        {naming === 'view' && <NameField label="View name" onMake={onNewView} onClose={close} />}
+        {view.views.length === 0 && naming !== 'view' && <Empty />}
+        {view.views.map((name) => (
+          <button
+            key={name}
+            className={inspect?.kind === 'view' && inspect.name === name ? 'item active' : 'item'}
+            onClick={() => onInspect({ kind: 'view', name })}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+      <div className="group">
+        <div className="group-title">Types</div>
+        <Empty />
+      </div>
       {view.trusted && (
         <div className="group">
           {view.imports.length > 0 && <div className="group-title">Imports</div>}

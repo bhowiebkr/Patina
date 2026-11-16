@@ -50,11 +50,11 @@ const KEPT_ENV: &[&str] = &[
 const KEPT_ENV: &[&str] = &["HOME", "USER", "LANG", "TMPDIR"];
 
 /// The manifest of the project workspace. Cargo fails on a member glob that matches no folder, so
-/// `nodes/*`, `widgets/*`, `connections/*` and `build/clusters/*` are members only with a folder.
+/// `nodes/*`, `views/*`, `widgets/*`, `connections/*` and `build/clusters/*` are members only with a folder.
 fn workspace(root: &Path) -> String {
     let used = |group: &&str| std::fs::read_dir(root.join(group)).into_iter().flatten().flatten().any(|e| e.path().is_dir());
     let members: Vec<String> =
-        ["nodes", "widgets", "connections", "build/clusters"].into_iter().filter(used).map(|g| format!("\"{g}/*\"")).collect();
+        ["nodes", "views", "widgets", "connections", "build/clusters"].into_iter().filter(used).map(|g| format!("\"{g}/*\"")).collect();
     format!(
         "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
          members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n\
@@ -89,7 +89,7 @@ impl Mode {
 /// The SDK crates that a project builds with. The engine carries their source.
 /// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
 /// projects do not build `wgpu` or `cudarc`.
-const SDK_FILES: [(&str, &str); 15] = [
+const SDK_FILES: [(&str, &str); 17] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -98,6 +98,8 @@ const SDK_FILES: [(&str, &str); 15] = [
     ("build/sdk/patina-sdk/src/lib.rs", include_str!("../../patina-sdk/src/lib.rs")),
     ("build/sdk/patina-sdk/src/glue.rs", include_str!("../../patina-sdk/src/glue.rs")),
     ("build/sdk/patina-sdk/src/glue/slot.rs", include_str!("../../patina-sdk/src/glue/slot.rs")),
+    ("build/sdk/patina-sdk/src/glue/view.rs", include_str!("../../patina-sdk/src/glue/view.rs")),
+    ("build/sdk/patina-sdk/src/graph.rs", include_str!("../../patina-sdk/src/graph.rs")),
     ("build/sdk/patina-sdk/src/view.rs", include_str!("../../patina-sdk/src/view.rs")),
     ("build/sdk/patina-sdk/src/ui.rs", include_str!("../../patina-sdk/src/ui.rs")),
     (
@@ -361,6 +363,14 @@ pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) 
     let (library, id) = artifact(&messages, slot::TARGET)?;
     let (_, keys) = keys(toolchain, plan, &messages, &[id], Some(common))?;
     Ok((library, keys))
+}
+
+/// Builds the view folder `views/<name>` and gives its library (15.8).
+pub fn build_view(root: &Path, toolchain: &Toolchain, name: &str, mode: Mode) -> Result<PathBuf, Error> {
+    crate::plan::check_name(name).map_err(Error::Build)?;
+    write_workspace(root)?;
+    let messages = run_cargo(root, toolchain, &[name.to_owned()], mode)?;
+    artifact(&messages, &name.replace('-', "_")).map(|(library, _)| library)
 }
 
 fn write_slot(root: &Path, plan: &Plan, slot: usize) -> Result<(), Error> {

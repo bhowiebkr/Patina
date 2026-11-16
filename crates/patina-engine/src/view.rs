@@ -1,0 +1,147 @@
+//! Loads a view library (15.8) and calls its `ui` function.
+
+use std::ffi::c_void;
+use std::path::Path;
+
+use patina_sdk::glue::{self, Reporter};
+
+use crate::Edit;
+use crate::library::{Sink, collect, open, symbol};
+use crate::load::Value;
+use crate::project::GraphFile;
+
+type VersionFn = unsafe extern "C" fn() -> u32;
+type NewFn = unsafe extern "C" fn() -> *mut c_void;
+type UiFn = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize, *const u8, usize, *const Reporter) -> bool;
+type FreeFn = unsafe extern "C" fn(*mut c_void);
+
+/// One instance of a view: the functions of its library and its state. Each instance has its own
+/// state (15.8).
+pub struct View {
+    state: *mut c_void,
+    new: NewFn,
+    ui: UiFn,
+    free: FreeFn,
+    sink: Sink,
+}
+
+/// The result of one call of `View::ui`.
+#[derive(Debug, Default)]
+pub struct Frame {
+    /// The widget lines (4.3).
+    pub tree: String,
+    /// The writes to the graph, as edits for the edit path of the editor (15.8 rule 2).
+    pub edits: Vec<Edit>,
+}
+
+impl View {
+    /// Loads the view library at `path` from `Project::build_view`. The state is made on the first
+    /// call of `ui`.
+    pub fn load(path: &Path) -> Result<View, String> {
+        let fail = |text: String| format!("{}: {text}", path.display());
+        let library = open(path).map_err(|e| fail(e.to_string()))?;
+        let missing = |e: libloading::Error| fail(e.to_string());
+        // SAFETY: the `#[view]` attribute writes these symbols with these signatures.
+        let view = unsafe {
+            let version: VersionFn = symbol(&library, b"patina_abi_version\0").map_err(missing)?;
+            if version() != glue::ABI_VERSION {
+                return Err(fail("the view has another ABI version. Build it again".to_owned()));
+            }
+            let new: NewFn = symbol(&library, b"patina_view_new\0").map_err(missing)?;
+            let ui: UiFn = symbol(&library, b"patina_view_ui\0").map_err(missing)?;
+            let free: FreeFn = symbol(&library, b"patina_view_free\0").map_err(missing)?;
+            View { state: std::ptr::null_mut(), new, ui, free, sink: Sink::default() }
+        };
+        // Rust libraries do not unload safely, so the library stays loaded (8.5).
+        std::mem::forget(library);
+        Ok(view)
+    }
+
+    /// Calls `ui` in mode `mode` with the user input `events` and the graph lines of `snapshot`.
+    /// After an error, the next call makes a new state.
+    pub fn ui(&mut self, mode: u32, events: &str, graph: &str) -> Result<Frame, String> {
+        if self.state.is_null() {
+            // SAFETY: the function came from the loaded view.
+            self.state = unsafe { (self.new)() };
+            if self.state.is_null() {
+                return Err("the init function of the view panicked".to_owned());
+            }
+        }
+        self.sink.clear();
+        let rep = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control: std::ptr::null() };
+        // SAFETY: the state came from `new` of this library and is live. The texts and the reporter
+        // are valid during the call.
+        let ok = unsafe { (self.ui)(self.state, mode, events.as_ptr(), events.len(), graph.as_ptr(), graph.len(), &rep) };
+        let mut frame = Frame::default();
+        let mut error = None;
+        for (_, kind, text) in self.sink.iter() {
+            match kind {
+                glue::UI => frame.tree = text.to_owned(),
+                glue::EDIT => frame.edits.extend(edit(text)),
+                glue::ERROR | glue::PANIC => error = Some(text.to_owned()),
+                _ => {}
+            }
+        }
+        if ok {
+            return Ok(frame);
+        }
+        self.free_state();
+        Err(error.unwrap_or_else(|| "the view failed".to_owned()))
+    }
+
+    fn free_state(&mut self) {
+        let state = std::mem::replace(&mut self.state, std::ptr::null_mut());
+        if !state.is_null() {
+            // SAFETY: `state` came from `new` of this library and is not used again.
+            unsafe { (self.free)(state) }
+        }
+    }
+}
+
+impl Drop for View {
+    fn drop(&mut self) {
+        self.free_state();
+    }
+}
+
+/// The graph lines that a view reads (`patina_sdk::Graph`): the nodes and the parameters of
+/// `graph`, and the live values of the last run.
+pub fn snapshot(graph: &GraphFile, values: &[Value]) -> String {
+    let clean = |text: &str| text.chars().map(|c| if c.is_control() { ' ' } else { c }).collect::<String>();
+    let mut lines = String::new();
+    for node in &graph.node {
+        let folder = node.folder.as_deref().unwrap_or_default();
+        lines.push_str(&format!("node\t{}\t{folder}\n", node.id));
+        for (key, text) in &node.params {
+            lines.push_str(&format!("param\t{}\t{key}\t{}\n", node.id, clean(text)));
+        }
+    }
+    for value in values {
+        let Some((id, key)) = value.from.split_once('.') else { continue };
+        lines.push_str(&format!("out\t{id}\t{key}\t{}\n", clean(&value.text)));
+    }
+    lines
+}
+
+/// The edit of a write line of a view: `set <id> <key> <text>`. None for a bad line.
+fn edit(line: &str) -> Option<Edit> {
+    let mut fields = line.strip_prefix("set\t")?.splitn(3, '\t');
+    let (id, key, text) = (fields.next()?, fields.next()?, fields.next()?);
+    Some(Edit::SetParam { id: id.to_owned(), key: key.to_owned(), text: Some(text.to_owned()) })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_and_edit_lines() {
+        let mut graph: GraphFile = toml::from_str("format = 1\n[[node]]\nid = \"a\"\nfolder = \"number\"\nparams = { value = \"2\" }\n").unwrap();
+        graph.node[0].params.insert("text".to_owned(), "x\ty".to_owned());
+        let values = [Value { from: "a.out".to_owned(), text: "2.0".to_owned(), lanes: None }];
+        assert_eq!(snapshot(&graph, &values), "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nout\ta\tout\t2.0\n");
+        let set = edit("set\ta\tvalue\t3 4");
+        assert!(matches!(set, Some(Edit::SetParam { id, key, text: Some(text) }) if id == "a" && key == "value" && text == "3 4"));
+        assert!(edit("add\ta").is_none() && edit("set\ta\tvalue").is_none());
+    }
+}
