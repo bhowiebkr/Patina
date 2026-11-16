@@ -125,5 +125,5 @@ editor has them:
 - The start screen and the settings screen (15.10). The fuse time goes into the settings screen
   when section 18, question 7 has an answer.
 
-App mode (section 18, question 6) is still open. A mockup can help the owner decide, but only
-when the owner asks for one.
+App mode (section 18, question 6) is not in version 1 (agent decision of 2026-11-16). A mockup
+can help the owner change this decision, but only when the owner asks for one.

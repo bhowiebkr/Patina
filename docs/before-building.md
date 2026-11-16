@@ -72,13 +72,16 @@ Milestone 4, automatic parallelism and the frame domain:
 
 Later milestones:
 
-- [ ] **Q7, fuse time.** Milestone 6 measures it.
+- [x] **Q7, fuse time.** Agent decision of 2026-11-15: 30 s with no change (7.2). Milestone 6
+  measured 0.4 s for a fuse in bake mode on Windows, with the crates built before.
 - [x] **Q3, audio block size and number of audio threads.** Agent decision of 2026-11-15:
   256 samples at 48 kHz, and one audio thread for all audio nodes (9.3). Milestone 11 ended on
   2026-11-16 with this design.
-- [ ] **Q4, process isolation on or off by default.** An optional target (16).
+- [x] **Q4, process isolation on or off by default.** Agent decision of 2026-11-16: off. The
+  target is optional (16), and the native viewport needs one process (15.8).
 - [ ] **Q5, Zig and Xcode on macOS.** A test on macOS can answer it.
-- [ ] **Q6, app mode.** Milestones 8 and 10, packaging and views.
+- [x] **Q6, app mode.** Agent decision of 2026-11-16: not in version 1. An executable package
+  has no window, so it cannot show views (14.1).
 - [x] **Q13, circuit graphs.** Agent decision of 2026-11-15: a synchronous model. One frame is
   one clock step, a delay is a D flip-flop, a cycle needs a delay, and a bus uses a multiplexer.
   `examples/computer` counts and adds with NAND gates. See the

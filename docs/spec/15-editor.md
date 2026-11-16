@@ -70,7 +70,7 @@ This is an agent decision of 2026-11-15 for question 8 (18). The owner can chang
 - A project with no layout file opens with the default layout. A project that moves to another folder keeps its layout, because the file name is the project ID (6.2).
 - The state of a view instance (15.8), for example the camera of a 3D viewport, is not saved in version 1. Each view instance starts with `init`.
 - Reason: the project folder goes into Git. A layout in it changes each time a user moves a panel, and it gives merge conflicts. Float windows also depend on the screens of each user.
-- App mode (question 6 of 18) can add a layout that the project owns. That layout is separate from the layout of each user.
+- App mode (question 6 of 18) is not in version 1. Later, it can add a layout that the project owns. That layout is separate from the layout of each user.
 
 **Project panel:**
 
