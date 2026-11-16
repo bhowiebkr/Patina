@@ -12,6 +12,16 @@ const BUILD_MS = 150_000;
 const RUN_MS = 20_000;
 const A = 'a000000000000001';
 const B = 'b000000000000002';
+const T = 'c000000000000003';
+
+/** An event node (9.4): it gives the number plus the length of the text of the event. */
+const EVENT_NODE = `use patina_sdk::node;
+
+#[node(domain = event)]
+pub fn number(value: f64, text: &String) -> f64 {
+    value + text.len() as f64
+}
+`;
 
 /** A stateful number node with a GUI (4.2, 4.3): its button adds 1 to the output. It also shows each value widget. */
 // A view (15.8) that shows a parameter of node A, and sets it with a button.
@@ -632,6 +642,43 @@ fn broken() -> u32 {
     if (frameCount() !== audioFrames || output.slice(outputFrom).filter((l) => l === '2.5').length !== blocks) throw new Error('a block ran after Stop');
     v = await step('undo the audio node', () => api.undo());
     steps.push(`blocks until Stop: ${blocks} in ${audioFrames} frames`);
+
+    // The event domain (9.4): Run starts the triggers. The button of a `trigger` node fires one
+    // run of its downstream nodes, and a view or the editor can give a text. Stop ends the runs.
+    v = await step('make an event node', () => api.edit({ kind: 'SetCode', path: lib, text: EVENT_NODE }));
+    v = await step('add a trigger', () =>
+      api.edit({
+        kind: 'Group',
+        edits: [
+          { kind: 'AddNode', id: T, folder: 'trigger', builtin: true, pos: [-300, 0] },
+          { kind: 'Connect', from: `${T}.out`, to: `${A}.text` },
+        ],
+      }),
+    );
+    if (v.problems.length > 0) throw new Error(`problems: ${v.problems.join('; ')}`);
+    from = mark();
+    v = await step('run the triggers', () => api.run());
+    const eventRuns = () => ofRun().flatMap((e) => (e.state === 'fired' ? [e] : []));
+    await until('a run with triggers that listen', BUILD_MS, () => {
+      const failed = ofRun().find((e) => e.state === 'failed' || (e.state === 'ran' && !e.ok));
+      if (failed) throw new Error(`the event run failed: ${JSON.stringify(failed)}`);
+      return ofRun().some((e) => e.state === 'ran' && e.events);
+    });
+    if (eventRuns().length > 0 || output.slice(outputFrom).includes('2.5')) throw new Error('a trigger fired before a click');
+    const fireButton = () => document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${T}"] button[aria-label="Fire the trigger"]`);
+    await until('the fire button of the trigger', RUN_MS, () => fireButton()?.disabled === false);
+    fireButton()!.click();
+    await until('event run 1 that prints 2.5', RUN_MS, () => eventRuns().length >= 1 && output.slice(outputFrom).includes('2.5'));
+    await api.fire(T, 'abc');
+    await until('event run 2 that prints 5.5', RUN_MS, () => eventRuns().length >= 2 && output.slice(outputFrom).includes('5.5'));
+    const [run1, run2] = eventRuns();
+    if (!run1.ok || !run2.ok || run1.id !== 1 || run2.id !== 2 || run1.trigger !== T) throw new Error(`the event runs are wrong: ${JSON.stringify(eventRuns())}`);
+    topButton('Stop')!.click();
+    await until('the end of the event runs', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+    if (!(await api.fire(T, '').then(() => false, () => true))) throw new Error('a fire after Stop did not fail');
+    v = await step('undo the trigger', () => api.undo());
+    v = await step('undo the event node', () => api.undo());
+    steps.push('fire a trigger node');
 
     // A node GUI (4.3): the node body shows the button of the `ui`. A click in a live graph runs
     // the graph again with the new state, and does not build again.

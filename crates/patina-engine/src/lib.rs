@@ -37,7 +37,7 @@ pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
 pub use edit::Edit;
-pub use events::EventRun;
+pub use events::{EventRun, Events, Inbox, Remote, remote};
 pub use run::{Audio, Frames};
 pub use load::{Cluster, Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;

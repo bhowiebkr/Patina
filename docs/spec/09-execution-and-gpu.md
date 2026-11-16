@@ -147,6 +147,11 @@ pub fn gain(
 - An async node runs on a `tokio` runtime with two worker threads. In version 1, the thread of its run waits for it, so a wait blocks no worker thread of the pool. **Stop** asks each active run to stop. An async node that waits then drops its future in 20 ms or less.
 - `patina-cli run <folder> --events <count>` ends after the given number of event runs. The CLI fires each `trigger` node one time at the start, with an empty payload.
 - In version 1 of the CLI, the event runs come after the batch run and before the frames and the audio blocks. Without `--events`, they continue until no trigger can fire again, or until the user stops the process. Each log line and report of a run starts with **Run <ID>:**.
+- In the editor, **Run** starts the event domain on its own threads after the batch run, at the same time as the frames and the audio blocks. A `trigger` node does not fire at the start. Its **Fire** button fires it with an empty text, and a view can fire it with a text (15.8).
+- **Pause**, **Stop**, a change and a failed frame end the event domain of the editor. No new run starts, and the engine waits for the active runs. **Stop** also asks them to stop (15.2). In version 1, a code swap thus waits for the active runs, and does not keep them on the old builds.
+- While the event domain runs, the editor does not call the libraries of the event nodes from the engine thread: a view reads no output of an event node, and the GUI of an event node does not draw. The event domain shares only the batch values with the other domains.
+- Each event run sends the values, the times, the log lines and the reports of its nodes to the page. A run replaces only the reports of the nodes that it reached. Each log line and report of a run starts with **Run <ID>:**.
+- The editor starts the event domain only when the slot library and the audio library keep only `Sync` values. Otherwise, **Logs** shows a warning, and the event runs do not start.
 
 ## 10. GPU
 

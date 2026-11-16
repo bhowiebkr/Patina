@@ -165,8 +165,8 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
    built-in triggers `schedule` and `trigger`, a run thread for each event run, and
    `patina-cli run --events <count>`.
 2. Done on 2026-11-16: the triggers `file_change` and `webhook`.
-3. The editor: the event runs with **Run**, **Pause** and **Stop**, a button that fires a
-   `trigger` node, and a selfcheck step.
+3. Done on 2026-11-16: the editor runs the event domain with **Run**, **Pause** and **Stop**.
+   The **Fire** button of a `trigger` node fires it. The selfcheck has a step for it.
 4. Views fire a `trigger` node through `Graph`. Record the limit of a code swap during a run.
 
 ### Checked
@@ -182,6 +182,13 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
   an event node with no trigger.
 - A unit test checks the settings of a trigger. A plan test checks the trigger of each event
   step.
+- An engine test fires a `trigger` node through a remote, and gets one run.
+  A fire with a wrong ID gives a report. After the end, no new run starts.
+- The editor selfcheck makes the number node an event node with a `trigger` node in front of
+  it. **Run** starts no event run. A click on **Fire** gave run 1, which printed 2.5. A fire
+  with the text `abc` gave run 2, which printed 5.5. After **Stop**, a fire failed.
+- An editor unit test checks that an event run replaces only the reports of the nodes that it
+  reached.
 - The same CLI test changes a file in a watched folder two times, and gets two runs with the
   path of the file. A `file_change` node with no path gives an error before a run.
 - The same CLI test sends a `POST` to a wrong path, which got 404, then a `POST` with the body
@@ -201,7 +208,17 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
     of an event node rebuilds its cluster.
   - `events/watch.rs` of `patina-engine`: `file_change` polls its folder.
   - `events/webhook.rs` of `patina-engine`: `webhook` reads one request at a time.
-- The editor does not run the event domain yet (step 3). `patina-capi` does not run it either.
+  - `engine.rs` of `patina-editor`: no event runs when the slot or the audio domain keeps a
+    value that is not `Sync`.
+- `patina-capi` does not run the event domain.
+- In the editor, a change, **Pause** and a failed frame wait for the active event runs. A code
+  swap does not keep the active runs on the old builds (9.4).
+- While the event domain runs, a view reads no output of an event node, and the GUI of an event
+  node does not draw.
+- The **Fire** button in a subgraph fires nothing, because the engine looks for the ID of the
+  node in the main graph. A report names the problem.
+- The editor has no edit for an order wire, so an async node with no inputs cannot get its
+  trigger in the editor. Edit the graph file.
 - The first build of a project with an async node needs `tokio` from crates.io or the cargo
   cache.
 

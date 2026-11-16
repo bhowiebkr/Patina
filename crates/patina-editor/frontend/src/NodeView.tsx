@@ -41,6 +41,8 @@ export interface RunState {
   frames: number;
   /** True when the last run has frame nodes, so **Step** can run one frame (9.1). */
   framed: boolean;
+  /** The run errors of the event runs since the last run (9.4). `reports` has them too. */
+  eventReports: Report[];
   /** True for clusters in bake mode with no slot (7.3). */
   fused: boolean;
   /** The node folder in the slot (7.1), or null. */
@@ -65,6 +67,7 @@ export const NO_RUN: RunState = {
   logs: [],
   frames: 0,
   framed: false,
+  eventReports: [],
   fused: false,
   slot: null,
 };
@@ -123,6 +126,9 @@ export const PortTest = createContext<((key: string) => void) | null>(null);
 
 /** Applies an edit from a control in a node body, for example a check box of a `bool` input. */
 export const NodeEdit = createContext<(edit: Edit) => void>(() => {});
+
+/** Fires a `trigger` node of the live run (9.4). Null while the graph is paused. */
+export const FireTrigger = createContext<((id: string) => void) | null>(null);
 
 const HEADER = 32;
 const ROW = 24;
@@ -255,6 +261,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
       <div className="patina-node-header">
         <span className="title">{folderName(entry)}</span>
         {info?.full && <ExpandButton id={entry.id} />}
+        {entry.builtin === 'trigger' && <FireButton id={entry.id} />}
         {slot && (
           <span className="state-icon" role="img" title="In the slot" aria-label="In the slot">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -316,6 +323,17 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
         <PinHandle key={`o-${pin.key}`} pin={pin} output editable={editable} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
       ))}
     </div>
+  );
+}
+
+function FireButton({ id }: { id: string }) {
+  const fire = useContext(FireTrigger);
+  return (
+    <button className="icon-btn expand nodrag" aria-label="Fire the trigger" title={fire ? 'Fire' : 'Run the graph to fire the trigger'} disabled={!fire} onClick={() => fire?.(id)}>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+        <path d="M9.5 1.5 3.5 9h4l-1 5.5 6-7.5h-4z" />
+      </svg>
+    </button>
   );
 }
 

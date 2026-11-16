@@ -256,6 +256,7 @@ fn main() {
             session::stop,
             session::gui,
             session::running,
+            session::fire,
             session::value,
             session::layout,
             session::save_layout,

@@ -217,11 +217,13 @@ export function logKind(level: string): 'err' | 'warn' | 'out' {
 export type EngineEvent =
   | { state: 'building'; serial: number }
   | { state: 'started'; serial: number }
-  | { state: 'ran'; serial: number; builtMs: number | null; slotOnly: boolean; fused: boolean; slot: string | null; runMs: number; ok: boolean; frames: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
+  | { state: 'ran'; serial: number; builtMs: number | null; slotOnly: boolean; fused: boolean; slot: string | null; runMs: number; ok: boolean; frames: boolean; events: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] }
   /** One frame of the frame domain (9.1). Only the nodes of the frame domain ran. */
   | { state: 'frame'; serial: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
-  /** The frame run ended after `frames` frames. */
+  /** One event run ended (9.4). Only the nodes of the run ran. `id` is 0 for a report of a trigger or of Patina. */
+  | { state: 'fired'; serial: number; id: number; trigger: string; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
+  /** The live run ended after `frames` frames. */
   | { state: 'ended'; serial: number; frames: number }
   /** The widget lines of node GUIs (4.3), and the problems of their `ui` calls. */
   | { state: 'gui'; serial: number; trees: Tree[]; reports: Report[] };
@@ -360,6 +362,8 @@ export const api = {
   gui: (id: string, mode: number, events: string) => invoke<void>('gui', { id, mode, events }),
   /** The ID of the node that runs, or that ran last in the active run. Null between runs (15.2). */
   running: () => invoke<string | null>('running'),
+  /** Fires the `trigger` node `id` of the live run with `text` (9.4). */
+  fire: (id: string, text: string) => invoke<void>('fire', { id, text }),
   /** The full text of the live value of an output after the last run (15.7), or null. */
   value: (from: string) => invoke<string | null>('value', { from }),
   /** The saved layout of a project (15.2), or null. */

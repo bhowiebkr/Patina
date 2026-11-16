@@ -103,7 +103,7 @@ export function useRun(serial: RefObject<number>) {
       if (e.reports.length > 0) log(nodeLines({ logs: [], reports: e.reports }));
       return;
     }
-    const active = e.state === 'building' || e.state === 'started' || e.state === 'frame' || (e.state === 'ran' && e.frames);
+    const active = e.state === 'building' || e.state === 'started' || e.state === 'frame' || e.state === 'fired' || (e.state === 'ran' && (e.frames || e.events));
     setBusy(active);
     if (!active) endStop();
     if (e.state === 'started') return;
@@ -113,7 +113,8 @@ export function useRun(serial: RefObject<number>) {
         ...r,
         runMs: e.runMs,
         ok: e.ok,
-        reports: e.reports,
+        // The reports of the event runs stay, because the event nodes are not in the frame domain.
+        reports: [...e.reports, ...r.eventReports],
         values: new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]),
         idle: idleOf(e.skipped, e.stopped),
         times: new Map([...r.times, ...e.times.map((t) => [t.id, t.ms] as const)]),
@@ -124,8 +125,25 @@ export function useRun(serial: RefObject<number>) {
       if (lines.length > 0) log(lines);
       return;
     }
+    if (e.state === 'fired') {
+      // Only the nodes of this run ran. A run replaces the reports of the nodes that it reached (9.4).
+      const reached = new Set([...e.times.map((t) => t.id), ...e.skipped, ...e.stopped, ...e.reports.map((r) => r.id)]);
+      const merge = (old: Report[]) => [...old.filter((r) => !reached.has(r.id)), ...e.reports];
+      setRun((r) => ({
+        ...r,
+        ok: r.ok && e.ok,
+        reports: merge(r.reports),
+        eventReports: merge(r.eventReports),
+        values: new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]),
+        times: new Map([...r.times, ...e.times.map((t) => [t.id, t.ms] as const)]),
+      }));
+      const prefix = e.id > 0 ? `Run ${e.id}: ` : '';
+      const lines = nodeLines(e).map((l) => ({ ...l, text: prefix + l.text }));
+      if (lines.length > 0) log(lines);
+      return;
+    }
     if (e.state === 'ended') {
-      log([{ text: `Ran ${plural(e.frames, 'frame')}`, kind: 'info' }]);
+      log([{ text: e.frames > 0 ? `Ran ${plural(e.frames, 'frame')}` : 'The live run ended', kind: 'info' }]);
       return;
     }
     if (e.state === 'building') {
@@ -159,6 +177,7 @@ export function useRun(serial: RefObject<number>) {
           logs: e.logs,
           frames: 0,
           framed: e.frames,
+          eventReports: [],
           fused: e.fused,
           slot: e.slot,
         };

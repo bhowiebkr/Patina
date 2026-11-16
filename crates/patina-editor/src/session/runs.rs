@@ -100,6 +100,17 @@ pub fn running(editor: State<'_, Editor>) -> Option<String> {
     editor.shared.running()
 }
 
+/// Fires the `trigger` node `id` of the live run with `text` (9.4). The event run starts on its own
+/// thread, and its result comes as a `Fired` event.
+#[tauri::command(async)]
+pub fn fire(editor: State<'_, Editor>, id: String, text: String) -> Result<(), String> {
+    let remote = engine::lock(&editor.shared.remote).clone();
+    match remote.is_some_and(|remote| remote.fire(&id, text)) {
+        true => Ok(()),
+        false => Err("The event domain does not run. Click **Run** to start it.".to_owned()),
+    }
+}
+
 /// The full text of the live value of output `from` ("<node id>.<output key>") after the last run
 /// (15.7). A read never changes the run (9.2).
 #[tauri::command(async)]
@@ -121,7 +132,10 @@ pub struct ViewFrame {
 #[tauri::command(async)]
 pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, instance: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
     let (root, graph) = editor.with(|session| match session.trusted {
-        true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &engine::lock(&editor.shared.reports), &selected))),
+        true => {
+            let reports: Vec<_> = engine::lock(&editor.shared.reports).iter().chain(engine::lock(&editor.shared.event_reports).iter()).cloned().collect();
+            Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &reports, &selected)))
+        }
         false => Err("Trust the project before you open a view.".to_owned()),
     })?;
     let frame = editor.window_ask(window.label(), |reply| Job::View(Box::new(ViewInput { root, name, instance, events, graph, reply })))?;

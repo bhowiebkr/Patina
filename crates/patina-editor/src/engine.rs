@@ -1,5 +1,8 @@
 //! The engine thread. It owns the loaded cluster, and builds and runs the graph (spec 7.2,
-//! 15.10). During a frame run, an audio thread can run the audio domain of the cluster (9.3).
+//! 15.10). During a frame run, an audio thread can run the audio domain of the cluster (9.3), and
+//! the event domain runs on its own threads (9.4).
+
+mod events;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -9,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock, frame_due};
 use patina_engine::device::{Notice, Pace};
-use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Outcome, Report, Toolchain, Value, package};
+use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Outcome, Remote, Report, Toolchain, Value, package};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -107,7 +110,7 @@ pub enum Event {
     /// have the IDs of the nodes that did not run (15.3, 15.2). `times` has the run time of each
     /// node call that started, and `logs` has the log lines of the nodes (15.7). `frames` is true
     /// when the frame domain or the audio domain runs after this run of the batch domain (9.1,
-    /// 9.3). `fused` is true for
+    /// 9.3), and `events` is true when the triggers listen after it (9.4). `fused` is true for
     /// clusters in bake mode with no slot, and `slot` has the node folder in the slot (7.3).
     /// `slot_only` is true when the build made only the slot library.
     Ran {
@@ -119,6 +122,7 @@ pub enum Event {
         run_ms: f64,
         ok: bool,
         frames: bool,
+        events: bool,
         skipped: Vec<String>,
         stopped: Vec<String>,
         times: Vec<NodeTime>,
@@ -141,7 +145,21 @@ pub enum Event {
         reports: Vec<Report>,
         values: Vec<Value>,
     },
-    /// The frame run ended after `frames` frames: by **Pause**, **Stop**, a new run or a failed frame.
+    /// One event run ended (9.4). `id` is the run ID, from 1 at each start, and 0 for a report of
+    /// a trigger or of Patina. The other fields are as in `Frame`, for the nodes of the run.
+    Fired {
+        serial: u64,
+        id: u64,
+        trigger: String,
+        ok: bool,
+        skipped: Vec<String>,
+        stopped: Vec<String>,
+        times: Vec<NodeTime>,
+        logs: Vec<NodeLog>,
+        reports: Vec<Report>,
+        values: Vec<Value>,
+    },
+    /// The live run ended after `frames` frames: by **Pause**, **Stop**, a new run or a failed frame.
     Ended { serial: u64, frames: u64 },
     /// The widget lines of the node GUIs (4.3), and the problems of their `ui` calls.
     Gui { serial: u64, trees: Vec<Tree>, reports: Vec<Report> },
@@ -175,6 +193,10 @@ pub struct Shared {
     pub values: Mutex<Vec<Value>>,
     /// The node errors of the last run or frame. A view reads them (15.8).
     pub reports: Mutex<Vec<Report>>,
+    /// The node errors of the last event run of each node since the last run (9.4).
+    pub event_reports: Mutex<Vec<Report>>,
+    /// Fires the `trigger` nodes while the event domain runs (9.4).
+    pub remote: Mutex<Option<Remote>>,
     /// The stop flag and the node that runs (15.2).
     pub control: Control,
     /// The node ID of each node index of the loaded cluster.
@@ -235,6 +257,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                     views = Views::default();
                     lock(&shared.values).clear();
                     lock(&shared.reports).clear();
+                    lock(&shared.event_reports).clear();
                 }
                 Job::Run(run) => {
                     if run.build {
@@ -290,6 +313,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             Err(e) => {
                 lock(&shared.values).clear();
                 lock(&shared.reports).clear();
+                lock(&shared.event_reports).clear();
                 let text = e.to_string();
                 Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
             }
@@ -299,13 +323,13 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             let edit = build.mode == Mode::Edit && loaded.as_ref().is_some_and(Loaded::needs_fuse);
             fuse_at = edit.then(|| Instant::now() + FUSE_IDLE);
         }
-        let frames = matches!(event, Event::Ran { frames: true, .. });
-        framed = frames;
+        framed = matches!(event, Event::Ran { frames: true, .. });
+        let goes_on = matches!(event, Event::Ran { frames: true, .. } | Event::Ran { events: true, .. });
         let ran = matches!(event, Event::Ran { .. });
         let _ = app.emit("engine", event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
             draw(app, &mut loaded.cluster.frame_part(), run.serial, &shown);
-            if frames {
+            if goes_on {
                 let live = Live { app, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
                 next = run_frames(live, &mut loaded.cluster);
             }
@@ -409,16 +433,27 @@ impl Live<'_> {
     }
 }
 
-/// Runs the frame domain at 60 FPS and the audio domain at each block (9.3) until a job comes,
-/// the user stops the run, a frame or a block fails or the time of the fuse comes (9.1, 7.2).
-/// Returns the job that ended the run.
+/// Runs the frame domain at 60 FPS, the audio domain at each block (9.3) and the event domain at
+/// each fire (9.4) until a job comes, the user stops the run, a frame or a block fails or the time
+/// of the fuse comes (9.1, 7.2). Returns the job that ended the run.
 fn run_frames(mut live: Live, cluster: &mut Cluster) -> Option<Job> {
-    let job = match cluster.blocks() {
-        false => frames_only(&mut live, &mut cluster.frame_part()),
-        true => match cluster.split() {
-            Some((mut part, audio)) => split(&mut live, &mut part, audio),
-            None => between(&mut live, cluster),
-        },
+    let (frames, blocks, events) = (cluster.frames(), cluster.blocks(), cluster.events());
+    let job = match events.then(|| cluster.live()).flatten() {
+        Some((mut part, audio, events)) => events::run(&mut live, &mut part, audio, events, frames),
+        None => {
+            if events {
+                // shortcut: no event runs when a node of the slot or the audio domain keeps a value that is not Sync; give such a graph one thread for all domains when this gets common.
+                events::warn(&live, "The event runs do not start, because a node in the slot or in the audio domain keeps a value that is not Sync (9.4).".to_owned());
+            }
+            match (frames, blocks) {
+                (false, false) => None,
+                (true, false) => frames_only(&mut live, &mut cluster.frame_part()),
+                (_, true) => match cluster.split() {
+                    Some((mut part, audio)) => split(&mut live, &mut part, audio),
+                    None => between(&mut live, cluster),
+                },
+            }
+        }
     };
     let _ = live.app.emit("engine", Event::Ended { serial: live.serial, frames: live.frames });
     job
@@ -668,10 +703,12 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     outcome.values.extend(extra);
     let reports: Vec<Report> = params.reports.into_iter().chain(outcome.reports).collect();
     lock(&shared.reports).clone_from(&reports);
+    lock(&shared.event_reports).clear();
     let values = badges(&outcome.values);
     *lock(&shared.values) = outcome.values;
-    let frames = params.ok && outcome.ok && (cluster.frames() || cluster.blocks()) && !shared.control.stopped();
-    Ok(Some(Event::Ran { serial: run.serial, built_ms, slot_only, fused, slot, run_ms, ok: outcome.ok, frames, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors }))
+    let goes_on = params.ok && outcome.ok && !shared.control.stopped();
+    let (frames, events) = (goes_on && (cluster.frames() || cluster.blocks()), goes_on && cluster.events());
+    Ok(Some(Event::Ran { serial: run.serial, built_ms, slot_only, fused, slot, run_ms, ok: outcome.ok, frames, events, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors }))
 }
 
 /// Cuts a text for its badge at a character boundary.

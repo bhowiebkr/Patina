@@ -141,12 +141,19 @@ pub(crate) struct Nodes<'a> {
     pub(crate) guis: &'a [(String, bool)],
     /// False while the audio thread runs the audio domain (`Cluster::split`).
     pub(crate) audio: bool,
+    /// False while the event runs call the event domain (`Cluster::live`).
+    pub(crate) events: bool,
 }
 
 impl Nodes<'_> {
-    /// False for an audio node while the audio thread runs, and for an unknown node.
+    /// False for an audio node while the audio thread runs, for an event node while the event
+    /// runs go on, and for an unknown node.
     fn callable(&self, n: usize) -> bool {
-        self.domains.get(n).is_some_and(|&domain| self.audio || domain != Domain::Audio)
+        self.domains.get(n).is_some_and(|&domain| match domain {
+            Domain::Audio => self.audio,
+            Domain::Event => self.events,
+            _ => true,
+        })
     }
 
     /// The cluster of the domain of node `n`.

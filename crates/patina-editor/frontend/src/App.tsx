@@ -22,7 +22,7 @@ import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { useProjectActions } from './ProjectActions';
 import { StatusBar, useRun } from './RunStatus';
-import { PortTest, scopeRun, TEST_USE } from './NodeView';
+import { FireTrigger, PortTest, scopeRun, TEST_USE } from './NodeView';
 import { ViewPanel } from './ViewPanel';
 import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
@@ -169,6 +169,7 @@ export function App() {
   );
 
   const expandUses = useCallback((ids: string[]) => act(api.expand(ids), markStale), [act, markStale]);
+  const fire = useCallback((id: string) => api.fire(id, '').catch((e) => setError(String(e))), []);
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
   const pick = useCallback((at: Reveal) => {
@@ -396,7 +397,9 @@ export function App() {
             )}
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
-                <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
+                <FireTrigger.Provider value={view.live ? fire : null}>
+                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
+                </FireTrigger.Provider>
               </PortTest.Provider>
               {view.graphName !== 'main' && (
                 <nav className="graph-path" aria-label="Graph path">

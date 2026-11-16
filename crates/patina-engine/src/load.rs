@@ -9,7 +9,7 @@ use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter, SlotRef};
 use serde::Serialize;
 
-use crate::events::{self, EventRun, Trigger};
+use crate::events::{EventRun, Events, Trigger};
 use crate::library::{Library, Sink, collect};
 use crate::node::Domain;
 use crate::plan::Plan;
@@ -376,8 +376,7 @@ impl Cluster {
     /// until `control` asks to stop. Each `trigger` node fires one time at the start with an
     /// empty text. `done` gets each run when it ends. Returns false when a run failed.
     pub fn run_events(&mut self, count: u64, control: &Control, done: impl FnMut(&EventRun)) -> bool {
-        let Some(library) = &self.libraries[Domain::Event as usize] else { return true };
-        events::run_all(library, &self.triggers, &self.names, &self.probes, &self.root, count, control, done)
+        self.parts(true, true).3.is_none_or(|events| events.run(count, control, None, done))
     }
 
     fn has(&self, domain: Domain) -> bool {
@@ -402,21 +401,36 @@ impl Cluster {
             return None;
         }
         let mix = self.mix;
-        let (frames, run, sound) = self.parts(false);
+        let (frames, run, sound, _) = self.parts(false, true);
         Some((frames, Audio { run, mix, sound }))
+    }
+
+    /// Splits the cluster for a live run of the editor (9.3, 9.4): the frame part, the audio
+    /// domain for its own thread when the graph has audio nodes, and the event domain for its own
+    /// threads. `None` when the graph has no event nodes, or when the slot library or the audio
+    /// library keeps a value that is not `Sync`.
+    pub fn live(&mut self) -> Option<(Frames<'_>, Option<Audio<'_>>, Events<'_>)> {
+        let audio = self.libraries[Domain::Audio as usize].as_ref();
+        if !self.events() || audio.is_some_and(|audio| !audio.parallel) || self.slot.as_ref().is_some_and(|(slot, _)| !slot.parallel) {
+            return None;
+        }
+        let (blocks, mix) = (self.blocks(), self.mix);
+        let (frames, run, sound, events) = self.parts(false, false);
+        Some((frames, blocks.then_some(Audio { run, mix, sound }), events?))
     }
 
     /// The frame part of the cluster: the frames, the node GUIs and the reads of the views,
     /// between two runs of the other domains.
     pub fn frame_part(&mut self) -> Frames<'_> {
-        self.parts(true).0
+        self.parts(true, true).0
     }
 
-    /// The frame part, the run of the audio domain and the samples of the last block. `audio` is
-    /// false when the audio thread runs the audio domain, so the frame part refuses audio nodes.
-    fn parts(&mut self, audio: bool) -> (Frames<'_>, Run<'_>, &mut [f32; BLOCK]) {
+    /// The frame part, the run of the audio domain, the samples of the last block and the event
+    /// domain. `audio` and `events` are false when other threads run these domains, so the frame
+    /// part refuses their nodes.
+    fn parts(&mut self, audio: bool, events: bool) -> (Frames<'_>, Run<'_>, &mut [f32; BLOCK], Option<Events<'_>>) {
         let [_, frame_work, audio_work, _] = &mut self.work;
-        let [_, frame, audio_library, _] = &self.libraries;
+        let [_, frame, audio_library, event_library] = &self.libraries;
         let (names, probes) = (&self.names, &self.probes);
         // The frames use the pool only when the slot library allows it (9.2).
         let pool = self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel);
@@ -427,10 +441,12 @@ impl Cluster {
             domains: &self.domains,
             guis: &self.guis,
             audio,
+            events,
         };
         let run = Run { library: frame.as_ref(), pool, names, probes, calls: &mut self.calls, work: frame_work };
         let blocks = Run { library: audio_library.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, work: audio_work };
-        (Frames { run, nodes }, blocks, &mut self.sound)
+        let events = event_library.as_ref().map(|library| Events::new(library, pool, &self.triggers, names, probes, &self.root));
+        (Frames { run, nodes }, blocks, &mut self.sound, events)
     }
 
     /// Calls the `ui` function of node `id` between two runs, as `Frames::ui` (4.3).

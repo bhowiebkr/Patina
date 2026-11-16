@@ -149,6 +149,7 @@ The **Add node** palette is the second way to add a node, after a drag from the 
 **Run, Pause, Step, Stop, and Bake:**
 
 - Run starts the graph. Batch nodes run one time. Frame and audio domains start their clocks. Triggers start to listen.
+- The header of a `trigger` node has a **Fire** button. A click fires the trigger with an empty text (9.4). The button is off while the graph is paused. This is an agent decision of 2026-11-16. The owner can change it.
 - Pause stops the frame and audio clocks and stops new event runs. Active event runs finish.
 - Step runs one frame of the frame domain of the last run, and no audio block (9.3). The graph stays paused. A live graph pauses first. Node states stay, so each click moves a clocked circuit one tick, as the clock step of a breadboard computer. Step is ready after a run with frame nodes, and not while an edit waits for a run. This is an agent decision of 2026-11-15. The owner can change it.
 - Stop does all that Pause does, and it also asks the active runs to stop. This is an agent decision of 2026-11-15 for question 10 (18). The owner can change it:

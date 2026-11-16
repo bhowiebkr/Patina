@@ -419,6 +419,9 @@ A `pub async fn` node can wait in its run, for example for a timer of `patina_ev
 `Cargo.toml` then has `patina-event = { workspace = true }`. To stop after a number of runs, add
 `--events <count>`. Each log line and report of a run starts with **Run <ID>:**.
 The CLI runs the event runs before the frames and the blocks.
+In the editor, **Run** starts the triggers, and the event runs go on with the frames and the
+blocks until **Pause** or **Stop**. A `trigger` node does not fire at the start. Click the
+**Fire** button in its header to fire it.
 
 ## Make a package
 
