@@ -31,7 +31,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
    inside a use. The generator stacks the nodes by their pin count, so they do not overlap.
 6. Done: the generator puts each node in a column by its signal depth. An unwired `bool`
    input shows a check box in the node row, so a click sets a switch (4.8).
-7. Next: a 7-segment display of NAND gates for the OUT register of the CPU.
+7. Done: a `display` node shows 7 segments. The `hex-7seg` subgraph of NAND gates decodes the
+   count to the segments of its hex digit.
+8. Next: the OUT register of the CPU on a second display.
 
 ### Checked
 
@@ -40,7 +42,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   accumulator: 0, 5, 10, 15, 4 and so on. Readout D shows the memory: 0 for 4 steps, then the
   accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. The
   test compares them with a small emulator of the 7 instructions. The program
-  takes the conditional jump and reads a stored word from the RAM. The test took 8.1 s.
+  takes the conditional jump and reads a stored word from the RAM. The display gives the
+  segments of the 16 hex digits. The test took 10.1 s.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first
@@ -150,8 +153,10 @@ change the graph (spec 15.8).
   cannot show the surface. The colors, the resize and the scroll clip need a check on screen.
 - A viewport draws in the `ui` call on the engine thread, so a slow run delays its frames.
 - On 2026-11-15, the in-process run of `the_gpu_example_draws_a_gradient_with_a_wesl_shader`
-  failed one time in a parallel test run. Four more parallel runs passed. The assert now shows
-  the node reports, so the next failure gives the cause.
+  failed one time in a parallel test run. Four more parallel runs passed. A second failure gave
+  the cause: **Patina could not read the image from the GPU**. Hypothesis: a poll on another
+  thread ran the map callback late. The read now polls until the callback ran. Watch for a
+  third failure.
 - The first open of a view builds it on the engine thread. A frame run waits for this build.
 - The view did not run on Linux or macOS. Only CI built it there.
 - These shortcuts are open in the code:

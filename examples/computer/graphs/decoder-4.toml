@@ -1,0 +1,339 @@
+format = 1
+
+[[node]]
+id = "daa6d45c6f863477"
+subgraph = "decoder-2"
+pos = [0.0, 30.0]
+
+[[node]]
+id = "8ff3c3500317faba"
+subgraph = "decoder-2"
+pos = [0.0, 290.0]
+
+[[node]]
+id = "ccd3b184bb37004d"
+subgraph = "and"
+pos = [300.0, 140.0]
+
+[[node]]
+id = "654124ac56a3d4e9"
+subgraph = "and"
+pos = [300.0, 320.0]
+
+[[node]]
+id = "8dcac1a03ed09d0c"
+subgraph = "and"
+pos = [300.0, 500.0]
+
+[[node]]
+id = "9dce3e4dc23233b6"
+subgraph = "and"
+pos = [300.0, 680.0]
+
+[[node]]
+id = "0ceec420f6341638"
+subgraph = "and"
+pos = [300.0, 860.0]
+
+[[node]]
+id = "305567579b738df0"
+subgraph = "and"
+pos = [300.0, 1040.0]
+
+[[node]]
+id = "60517bad38c0862a"
+subgraph = "and"
+pos = [300.0, 1220.0]
+
+[[node]]
+id = "c35fca079bb78dda"
+subgraph = "and"
+pos = [300.0, 1400.0]
+
+[[node]]
+id = "7a2c441e05fdf060"
+subgraph = "and"
+pos = [300.0, 1580.0]
+
+[[node]]
+id = "edfe5b7d1cc0f3b4"
+subgraph = "and"
+pos = [300.0, 1760.0]
+
+[[node]]
+id = "f07719babe18550f"
+subgraph = "and"
+pos = [300.0, 1940.0]
+
+[[node]]
+id = "04abce2c712e8d05"
+subgraph = "and"
+pos = [300.0, 2120.0]
+
+[[node]]
+id = "174df3a0c645aba7"
+subgraph = "and"
+pos = [300.0, 2300.0]
+
+[[node]]
+id = "bb2fe1eabb29e5e6"
+subgraph = "and"
+pos = [300.0, 2480.0]
+
+[[node]]
+id = "4285e8281e3f5947"
+subgraph = "and"
+pos = [300.0, 2660.0]
+
+[[node]]
+id = "97d2ad0bb983fcf1"
+subgraph = "and"
+pos = [300.0, 2840.0]
+
+[[wire]]
+from = "daa6d45c6f863477.0bce0f02"
+to = "ccd3b184bb37004d.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.0bce0f02"
+to = "ccd3b184bb37004d.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7f8c6b22"
+to = "654124ac56a3d4e9.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.0bce0f02"
+to = "654124ac56a3d4e9.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7b70e010"
+to = "8dcac1a03ed09d0c.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.0bce0f02"
+to = "8dcac1a03ed09d0c.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.1c205e69"
+to = "9dce3e4dc23233b6.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.0bce0f02"
+to = "9dce3e4dc23233b6.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.0bce0f02"
+to = "0ceec420f6341638.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7f8c6b22"
+to = "0ceec420f6341638.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7f8c6b22"
+to = "305567579b738df0.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7f8c6b22"
+to = "305567579b738df0.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7b70e010"
+to = "60517bad38c0862a.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7f8c6b22"
+to = "60517bad38c0862a.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.1c205e69"
+to = "c35fca079bb78dda.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7f8c6b22"
+to = "c35fca079bb78dda.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.0bce0f02"
+to = "7a2c441e05fdf060.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7b70e010"
+to = "7a2c441e05fdf060.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7f8c6b22"
+to = "edfe5b7d1cc0f3b4.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7b70e010"
+to = "edfe5b7d1cc0f3b4.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7b70e010"
+to = "f07719babe18550f.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7b70e010"
+to = "f07719babe18550f.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.1c205e69"
+to = "04abce2c712e8d05.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.7b70e010"
+to = "04abce2c712e8d05.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.0bce0f02"
+to = "174df3a0c645aba7.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.1c205e69"
+to = "174df3a0c645aba7.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7f8c6b22"
+to = "bb2fe1eabb29e5e6.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.1c205e69"
+to = "bb2fe1eabb29e5e6.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.7b70e010"
+to = "4285e8281e3f5947.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.1c205e69"
+to = "4285e8281e3f5947.072eae79"
+
+[[wire]]
+from = "daa6d45c6f863477.1c205e69"
+to = "97d2ad0bb983fcf1.665555f1"
+
+[[wire]]
+from = "8ff3c3500317faba.1c205e69"
+to = "97d2ad0bb983fcf1.072eae79"
+
+[[input]]
+key = "9422d4fe"
+name = "a0"
+pos = [-300.0, 0.0]
+to = ["daa6d45c6f863477.2794c9ea"]
+
+[[input]]
+key = "01e35535"
+name = "a1"
+pos = [-300.0, 100.0]
+to = ["daa6d45c6f863477.baddcf7d"]
+
+[[input]]
+key = "befa2843"
+name = "a2"
+pos = [-300.0, 200.0]
+to = ["8ff3c3500317faba.2794c9ea"]
+
+[[input]]
+key = "21791ef7"
+name = "a3"
+pos = [-300.0, 300.0]
+to = ["8ff3c3500317faba.baddcf7d"]
+
+[[output]]
+key = "19e4a785"
+name = "y0"
+pos = [600.0, 0.0]
+from = "ccd3b184bb37004d.72b5072c"
+
+[[output]]
+key = "4551e7d7"
+name = "y1"
+pos = [600.0, 100.0]
+from = "654124ac56a3d4e9.72b5072c"
+
+[[output]]
+key = "0c402ae7"
+name = "y2"
+pos = [600.0, 200.0]
+from = "8dcac1a03ed09d0c.72b5072c"
+
+[[output]]
+key = "d5ee12c8"
+name = "y3"
+pos = [600.0, 300.0]
+from = "9dce3e4dc23233b6.72b5072c"
+
+[[output]]
+key = "029a7383"
+name = "y4"
+pos = [600.0, 400.0]
+from = "0ceec420f6341638.72b5072c"
+
+[[output]]
+key = "6abc704f"
+name = "y5"
+pos = [600.0, 500.0]
+from = "305567579b738df0.72b5072c"
+
+[[output]]
+key = "59f4a069"
+name = "y6"
+pos = [600.0, 600.0]
+from = "60517bad38c0862a.72b5072c"
+
+[[output]]
+key = "96e800c4"
+name = "y7"
+pos = [600.0, 700.0]
+from = "c35fca079bb78dda.72b5072c"
+
+[[output]]
+key = "60468e0a"
+name = "y8"
+pos = [600.0, 800.0]
+from = "7a2c441e05fdf060.72b5072c"
+
+[[output]]
+key = "d2fdad0d"
+name = "y9"
+pos = [600.0, 900.0]
+from = "edfe5b7d1cc0f3b4.72b5072c"
+
+[[output]]
+key = "1b0f9177"
+name = "y10"
+pos = [600.0, 1000.0]
+from = "f07719babe18550f.72b5072c"
+
+[[output]]
+key = "601dc930"
+name = "y11"
+pos = [600.0, 1100.0]
+from = "04abce2c712e8d05.72b5072c"
+
+[[output]]
+key = "68f5f5c7"
+name = "y12"
+pos = [600.0, 1200.0]
+from = "174df3a0c645aba7.72b5072c"
+
+[[output]]
+key = "7bc42f03"
+name = "y13"
+pos = [600.0, 1300.0]
+from = "bb2fe1eabb29e5e6.72b5072c"
+
+[[output]]
+key = "0bf86cf3"
+name = "y14"
+pos = [600.0, 1400.0]
+from = "4285e8281e3f5947.72b5072c"
+
+[[output]]
+key = "9df7e54e"
+name = "y15"
+pos = [600.0, 1500.0]
+from = "97d2ad0bb983fcf1.72b5072c"
