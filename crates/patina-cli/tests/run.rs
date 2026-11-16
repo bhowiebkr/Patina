@@ -674,24 +674,30 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
 #[test]
 fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer");
-    let (output, stdout, stderr) = run(&project, &["--frames", "16"]);
+    let (output, stdout, stderr) = run(&project, &["--frames", "24"]);
     assert!(output.status.success(), "{stderr}");
     // Each frame is one clock step: readout A shows the count, and readout B the count plus 3.
     // With b = 0011, the four full adders get all 8 input vectors. The register of readout C
     // loads its value plus 5 at each step. The memory of readout D writes C to address n % 4, so D
-    // shows C of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU, which runs
-    // LDI 1, ADD 3, OUT, JMP 1.
-    let (mut pc, mut acc, mut out) = (0u8, 0u8, 0u8);
+    // shows C of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. Its
+    // program adds 4 to A and stores A until the carry, then loads A from the RAM.
+    const PROGRAM: [(u8, u8); 8] = [(0, 3), (1, 4), (5, 1), (4, 5), (3, 1), (0, 0), (6, 1), (2, 0)];
+    let (mut pc, mut acc, mut out, mut carry, mut ram) = (0u8, 0u8, 0u8, false, [0u8; 4]);
     let mut expected = Vec::new();
-    for n in 0..16u8 {
-        expected.extend([n, (n + 3) % 16, n * 5 % 16, n.saturating_sub(4) * 5 % 16, pc, acc, out]);
-        match pc {
-            0 => acc = 1,
-            1 => acc = (acc + 3) % 16,
+    for n in 0..24u8 {
+        expected.extend([n % 16, (n + 3) % 16, n * 5 % 16, n.saturating_sub(4) * 5 % 16, pc, acc, out]);
+        let (op, k) = PROGRAM[pc as usize];
+        pc = (pc + 1) % 8;
+        match op {
+            0 => acc = k,
+            1 => (carry, acc) = (acc + k > 15, (acc + k) % 16),
             2 => out = acc,
+            3 => pc = k,
+            4 if carry => pc = k,
+            5 => ram[k as usize % 4] = acc,
+            6 => acc = ram[k as usize % 4],
             _ => {}
         }
-        pc = if pc == 3 { 1 } else { pc + 1 };
     }
     let expected: Vec<String> = expected.into_iter().map(|n| format!("{n:04b} {n}")).collect();
     assert_eq!(stdout.lines().collect::<Vec<_>>(), expected);

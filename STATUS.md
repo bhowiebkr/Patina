@@ -23,18 +23,19 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 3. Done: a memory of 4 words of 4 bits, with a decoder of the address. It writes the
    accumulator at each step, and readout D shows the word that it wrote 4 steps before.
 4. Done: a CPU of NAND gates and delays. It runs one instruction at each step from a ROM of 8
-   words of 6 bits. Each ROM bit is a switch. The 4 instructions are LDI, ADD, OUT and JMP. The
-   CPU has no instruction register, because each instruction takes one step.
-5. Next: a conditional jump and a CPU that uses the RAM.
+   words of 7 bits. Each ROM bit is a switch. The 7 instructions are LDI, ADD, OUT, JMP, JC, ST
+   and LD. JC uses a carry flag, and ST and LD use the RAM of step 3. The CPU has no
+   instruction register, because each instruction takes one step.
+5. Next: look at the circuit in the editor.
 
 ### Checked
 
-- On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 16 frames. Readout
-  A shows the count 0 to 15, and readout B the count plus 3, modulo 16. Readout C shows the
+- On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 24 frames. Readout
+  A shows the count modulo 16, and readout B the count plus 3, modulo 16. Readout C shows the
   accumulator: 0, 5, 10, 15, 4 and so on. Readout D shows the memory: 0 for 4 steps, then the
-  accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. The test
-  compares them with a small emulator of the program LDI 1, ADD 3, OUT, JMP 1. The test took
-  5.3 s. A first build of the example with the CPU took 23 s.
+  accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. The
+  test compares them with a small emulator of the 7 instructions. The program
+  takes the conditional jump and reads a stored word from the RAM. The test took 8.1 s.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - The GUI of the readout node was not looked at in the editor.
 
