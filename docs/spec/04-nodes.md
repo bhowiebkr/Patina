@@ -78,6 +78,7 @@ impl CurveEditor {
 - Tabs are a row of names, and the node shows the widgets of the selected tab after the row. A section has a head that opens and closes it, and the node keeps the open state. A closed section still runs its widgets and sends an empty line for each, so the widgets after it keep their order. A section more than 8 levels deep shows its widgets in its parent. (Agent decision, 2026-11-16. The owner can change it.)
 - A waveform can have a trim range from 0 to 1 with two handles. A drag moves the nearest handle and sends the range at the end of the drag. The arrow keys move the focused handle. A handle stops at the other handle, and the editor dims the parts outside the range. (Agent decision, 2026-11-16. The owner can change it.)
 - A plot can have axes: the x range and a unit for each axis. The editor labels the ends of each axis with the value and the unit. A scatter plot has the same axes and sends at most 1024 points: a longer list sends points at equal steps. A curve can have a histogram behind it, with at most 256 bars: a longer histogram sends the sum of equal parts. The editor scales the bars to the highest bar. (Agent decision, 2026-11-16. The owner can change it.)
+- An icon button has an icon name and a text. The editor shows the icon and uses the text as the accessible name and the tooltip. An unknown icon name shows the text. Icon buttons on adjacent lines share one row. A progress bar shows a value from 0 to 1 as a percent, and a value that is not finite shows 0. (Agent decision, 2026-11-16. The owner can change it.)
 - The GUI state is the node state, except in audio nodes (below). A GUI change can change the node output, so downstream nodes get the new value.
 
 **Audio nodes**
@@ -114,8 +115,8 @@ impl AdsrEnvelope {
 
 | Group | Widgets |
 |---|---|
-| Basic | Label, button, toggle, slider, number field (with a unit and step buttons), text field, dropdown, tabs, section |
-| Values | Color picker, curve with an optional histogram, plot with optional axes, scatter plot, table, image, waveform |
+| Basic | Label, button, icon button, toggle, slider, number field (with a unit and step buttons), text field, dropdown, tabs, section |
+| Values | Color picker, curve with an optional histogram, plot with optional axes, scatter plot, progress bar, table, image, waveform |
 | Canvas | Lines, rectangles, circles, text, images. Mouse and key events |
 | Viewport | A GPU surface that the code draws into with `wgpu` (15.8). Not in the node body |
 | Custom | Widgets from widget folders (6.2) |

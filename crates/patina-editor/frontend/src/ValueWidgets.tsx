@@ -323,6 +323,20 @@ export function Curve({ w, send, disabled }: Input<'curve'>) {
   );
 }
 
+/** A bar of the accent color, with the percent after it. */
+export function Progress({ w }: { w: Of<'progress'> }) {
+  const percent = Math.round(w.done * 100);
+  return (
+    <div className="gui-row">
+      {w.text && <span className="label">{w.text}</span>}
+      <div className="gui-progress" role="progressbar" aria-label={w.text || 'Progress'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+        <div style={{ width: `${w.done * 100}%` }} />
+      </div>
+      <span className="gui-value">{percent}%</span>
+    </div>
+  );
+}
+
 /** Draws the pixels of the image when they change. An empty image shows an empty box. */
 export function Picture({ w }: { w: Of<'image'> }) {
   const ref = useRef<HTMLCanvasElement>(null);

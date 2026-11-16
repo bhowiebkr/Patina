@@ -1,0 +1,153 @@
+//! The tests of the node GUI widgets (spec 4.3).
+
+use super::*;
+
+#[test]
+fn widgets_read_their_events_and_write_their_lines() {
+    let (mut on, mut level) = (true, 3_i32);
+    let mut ui = Ui::new(1, "0 1\n2 99\nbad\n3 0");
+    assert_eq!(ui.mode(), Mode::Large);
+    assert!(ui.button("Re\tset").clicked());
+    assert!(!ui.toggle("On", &mut on).changed());
+    assert!(ui.slider("Level", &mut level, 0..=10).changed());
+    assert!(ui.toggle("Off", &mut on).changed());
+    assert_eq!((on, level), (false, 10));
+    assert_eq!(ui.tree(), "button\tRe set\ntoggle\tOn\t1\nslider\tLevel\t3\t0\t10\ntoggle\tOff\t1");
+}
+
+#[test]
+fn fields_and_dropdowns_take_their_values() {
+    let (mut count, mut name, mut pick) = (1_u32, String::from("a"), 0);
+    let mut ui = Ui::new(0, "0 7\n1 new name\n2 5\n3 x");
+    assert!(ui.number("Count", &mut count).changed());
+    assert!(ui.text_field("Name", &mut name).changed());
+    assert!(!ui.dropdown("Wave", &mut pick, &["Sine", "Saw"]).changed());
+    assert!(!ui.number("Bad", &mut count).changed());
+    assert_eq!((count, name.as_str(), pick), (7, "new name", 0));
+    assert_eq!(ui.tree(), "number\tCount\t1\ntext\tName\ta\ndropdown\tWave\t0\tSine\tSaw\nnumber\tBad\t7");
+}
+
+#[test]
+fn units_tabs_and_sections_write_their_lines() {
+    let (mut gain, mut tab, mut open, mut shut) = (1.5_f32, 0, false, true);
+    // Index 2 opens the first section, so its label is index 3 and its end is 4. Index 5 closes the next one.
+    let mut ui = Ui::new(0, "0 -3\n1 1\n2 1\n5 0\n8 1");
+    assert!(ui.number_unit("Gain", &mut gain, -0.5, "d\tB").changed());
+    assert!(ui.tabs("Pages", &mut tab, &["Main", "More"]).changed());
+    let mut inner = false;
+    assert!(ui.section("More", &mut open, |ui| ui.label("in")).changed());
+    ui.section("Shut", &mut shut, |ui| {
+        ui.toggle("hidden", &mut inner);
+    });
+    assert!(ui.button("After").clicked());
+    assert_eq!((gain, tab, open, shut), (-3.0, 1, true, false));
+    let lines: Vec<&str> = ui.tree().lines().collect();
+    assert_eq!(lines, ["number\tGain\t1.5\t0.5\td B", "tabs\tPages\t0\tMain\tMore", "section\tMore\t1", "label\tin", "end\t", "section\tShut\t0", "", "end\t", "button\tAfter"]);
+}
+
+#[test]
+fn axes_a_scatter_plot_and_a_histogram_write_their_lines() {
+    let mut points = vec![[0.5, 0.5]];
+    let mut ui = Ui::new(0, "");
+    ui.plot_axes("Response", &[1.0, 2.0], -1.0..=2.0, 20.0..=20000.0, ["Hz", "d\tB"]);
+    ui.scatter("Dots", &[[1.0, 2.0], [3.0, 4.0]], 0.0..=4.0, 0.0..=5.0, ["s", ""]);
+    ui.curve_histogram("Levels", &mut points, &[1.0, 2.0, 3.0]);
+    let lines: Vec<_> = ui.tree().lines().collect();
+    assert_eq!(lines, ["plot\tResponse\t-1\t2\t1 2\t20\t20000\tHz\td B", "scatter\tDots\t0\t5\t1 2 3 4\t0\t4\ts\t", "curve\tLevels\t1 2 3\t0.5 0.5"]);
+
+    // A long histogram keeps its total, and a long scatter plot sends points at equal steps.
+    let (bars, dots) = (vec![1.0; 1000], vec![[0.0, 0.0]; 3000]);
+    let mut ui = Ui::new(0, "");
+    ui.curve_histogram("Long", &mut points, &bars);
+    ui.scatter("Long", &dots, 0.0..=1.0, 0.0..=1.0, ["", ""]);
+    let lines: Vec<Vec<&str>> = ui.tree().lines().map(|l| l.split('\t').collect()).collect();
+    let total: f32 = lines[0][2].split(' ').map(|v| v.parse::<f32>().unwrap()).sum();
+    assert_eq!((lines[0][2].split(' ').count(), total), (MAX_BINS, 1000.0));
+    assert_eq!(lines[1][4].split(' ').count(), 2 * 1000);
+}
+
+#[test]
+fn an_icon_button_and_a_progress_bar_write_their_lines() {
+    let mut ui = Ui::new(0, "0 1");
+    assert!(ui.icon_button("rotate-left", "Rotate\tleft").clicked());
+    ui.progress("Frames", 1.5);
+    ui.progress("Bad", f32::NAN);
+    assert_eq!(ui.tree(), "icon\tRotate left\trotate-left\nprogress\tFrames\t1\nprogress\tBad\t0");
+}
+
+#[test]
+fn a_trim_event_sets_a_sorted_range_in_the_limits() {
+    let (mut trim, mut bad) = ([0.2_f32, 0.8], [f32::NAN, 0.5]);
+    let mut ui = Ui::new(0, "0 0.9 -1\n1 x 0.5");
+    assert!(ui.waveform_trim("Wave", &[0.5], None, &mut trim).changed());
+    assert!(!ui.waveform_trim("Bad", &[], Some(0.5), &mut bad).changed());
+    assert_eq!(trim, [0.0, 0.9]);
+    assert_eq!(ui.tree().lines().collect::<Vec<_>>(), ["waveform\tWave\t\t0.5 0.5\t0 0.9", "waveform\tBad\t0.5\t\t0 1"]);
+}
+
+#[test]
+fn a_canvas_reads_the_pointer_and_writes_its_shapes() {
+    struct Dot;
+    impl Widget for Dot {
+        fn show(&mut self, ui: &mut Ui) -> Response {
+            let mut canvas = ui.canvas("Dot", [40.0, 20.0]);
+            let down = canvas.pointer().iter().any(|p| matches!(p, Pointer::Down(_)));
+            canvas.circle([5.0, 5.0], 2.5, [255, 0, 16], true);
+            canvas.text([1.0, 15.0], [0, 0, 0], "a\tb");
+            Response { clicked: down, changed: false }
+        }
+    }
+    let mut ui = Ui::new(0, "1 down 1 2\n1 move x 2\n1 up 3 4\n0 1");
+    ui.label("Top");
+    assert!(ui.add(&mut Dot).clicked());
+    let mut canvas = ui.canvas("Grid", [8.0, 8.0]);
+    assert!(canvas.pointer().is_empty());
+    canvas.line([0.0, 0.0], [8.0, 8.0], [1, 2, 3]);
+    assert_eq!(ui.canvas("Again", [1.0, 1.0]).pointer(), &[] as &[Pointer]);
+    let lines: Vec<_> = ui.tree().lines().collect();
+    assert_eq!(lines[1], "canvas\tDot\t40\t20\tcircle 5 5 2.5 #ff0010 1\ttext 1 15 #000000 a b");
+    assert_eq!(lines[2], "canvas\tGrid\t8\t8\tline 0 0 8 8 #010203");
+    let mut ui = Ui::new(0, "0 down 1 2\n0 move 3 4\n0 up 5 6");
+    assert_eq!(ui.canvas("Drag", [9.0, 9.0]).pointer(), [Pointer::Down([1.0, 2.0]), Pointer::Move([3.0, 4.0]), Pointer::Up([5.0, 6.0])]);
+}
+
+#[test]
+fn a_viewport_reads_its_place_and_input() {
+    let mut ui = Ui::new(0, "0 place 7 800 600 10 20 300 200\n0 down 1 2\n0 wheel 40\n0 key down KeyW\n0 key up \n0 wheel -15\n0 key up KeyW\n0 place 7 900 600 0 0 1\n0 wheel x\n1 place 9 1 1 0 0 1 1");
+    let viewport = ui.viewport("Scene", 240.0);
+    assert_eq!((viewport.window, viewport.window_size, viewport.rect), (7, [800, 600], [10, 20, 300, 200]));
+    assert_eq!((viewport.pointer, viewport.wheel), (vec![Pointer::Down([1.0, 2.0])], 25.0));
+    assert_eq!(viewport.keys, [Key::Down("KeyW".into()), Key::Up("KeyW".into())]);
+    assert_eq!(ui.tree(), "viewport\tScene\t240");
+    assert_eq!(Ui::new(0, "").viewport("Empty", 1.0), Viewport::default());
+}
+
+#[test]
+fn value_widgets_write_their_data_and_take_their_edits() {
+    let (mut color, mut row, mut points) = ([255, 0, 16], None, vec![[0.5, 0.5], [0.0, 0.0]]);
+    let mut ui = Ui::new(0, "0 #00ff80\n2 1\n3 move 0 2 -1\n4 #zz0000\n5 9\n6 add 0.5");
+    assert!(ui.color("Tint", &mut color).changed());
+    ui.plot("Level", &[0.0, 1.5, f32::NAN], 0.0..=2.0);
+    assert!(ui.table("Notes", &["Note", "Hz"], &["A", "440", "C"], &mut row).changed());
+    assert!(ui.curve("Shape", &mut points).changed());
+    assert!(!ui.color("Bad", &mut color).changed());
+    assert!(!ui.table("Empty", &[], &["x"], &mut row).changed());
+    assert!(!ui.curve("Bad", &mut points).changed());
+    ui.waveform("Wave", &[0.0, -0.5, 1.0, f32::NAN], Some(2.0));
+    ui.image("Dot", [1, 1], &[1, 2, 3, 255]);
+    ui.image("Bad", [2, 1], &[0; 4]);
+    assert_eq!((color, row, points), ([0, 255, 128], Some(1), vec![[0.0, 0.0], [1.0, 0.0]]));
+    let lines: Vec<_> = ui.tree().lines().collect();
+    assert_eq!(lines[..6], ["color\tTint\t#ff0010", "plot\tLevel\t0\t2\t0 1.5 NaN", "table\tNotes\t2\t\tNote\tHz\tA\t440\tC", "curve\tShape\t\t0.5 0.5\t0 0", "color\tBad\t#00ff80", "table\tEmpty\t0\t1\tx"]);
+    assert_eq!(lines[7..], ["waveform\tWave\t1\t0 0 -0.5 -0.5 1 1 inf -inf", "image\tDot\t1\t1\tAQID/w==", "image\tBad\t0\t0\t"]);
+
+    // A long plot line keeps its peak, and a long waveform has a fixed number of columns.
+    let long: Vec<f32> = (0..3000).map(|i| if i == 1500 { 9.0 } else { 0.0 }).collect();
+    let mut ui = Ui::new(0, "");
+    ui.plot("Long", &long, 0.0..=9.0);
+    ui.waveform("Long", &long, None);
+    let lines: Vec<Vec<_>> = ui.tree().lines().map(|l| l.rsplit('\t').next().unwrap().split(' ').collect()).collect();
+    assert_eq!((lines[0].len(), lines[0].contains(&"9")), (MAX_PLOT, true));
+    assert_eq!((lines[1].len(), lines[1].contains(&"9")), (2 * WAVE_COLUMNS, true));
+    assert!(ui.tree().contains("waveform\tLong\t\t0 0"));
+}

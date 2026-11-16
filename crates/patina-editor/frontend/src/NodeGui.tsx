@@ -3,7 +3,8 @@
 import { createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from './api';
 import { eventLine, nest, parseTree, stepped, type Block, type Shape, type Widget } from './gui';
-import { ColorPicker, Curve, Picture, Plot, Table, Waveform } from './ValueWidgets';
+import { guiIcon } from './icons';
+import { ColorPicker, Curve, Picture, Plot, Progress, Table, Waveform } from './ValueWidgets';
 import { ViewportView } from './Viewport';
 
 interface Props {
@@ -240,6 +241,18 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
                 {w.text}
               </button>
             );
+          case 'icons':
+            return (
+              <div key={w.index} className="gui-icons">
+                {w.items.map((b) => (
+                  <button key={b.index} className="btn gui-icon" aria-label={b.text} title={b.text} disabled={disabled} onClick={() => send(b.index)(1)}>
+                    {guiIcon(b.icon) ?? b.text}
+                  </button>
+                ))}
+              </div>
+            );
+          case 'progress':
+            return <Progress key={w.index} w={w} />;
           case 'toggle':
             return (
               <label key={w.index} className="gui-row">

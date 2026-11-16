@@ -44,9 +44,9 @@ The editor has these mockup features. They are not gaps.
   bridge stays an optional refinement.
 - The **Subgraph interface** in the **Inspector**: the public pins in pin order, with their
   names, types and a preview of the use (mockup 11).
-- The SDK `Ui` widgets: label, button, toggle, slider, number field with a unit and step
+- The SDK `Ui` widgets: label, button, icon button, toggle, slider, number field with a unit and step
   buttons, text field, dropdown, tabs, collapsible section, color, plot with axes, scatter plot, waveform with trim handles, table, curve with histogram,
-  image, 2D canvas and GPU viewport (mockups 4, 6, 7 and 9).
+  progress bar, image, 2D canvas and GPU viewport (mockups 4, 6, 7 and 9).
 
 ## Editor gaps
 
@@ -65,10 +65,8 @@ its own version.
 | Color ramp with stops, and the color, position and interpolation of the selected stop | 4, 9 | Gradient Map, Patina Mask and Material Layers. |
 | Layer stack: ordered rows, drag handles, visibility, swatch, amount and the properties of the selected layer | 9 | Material Layers. |
 | A file path with a **Browse** button | 4 | Batch Export. A dialog of the platform needs a person, so a test cannot click it. |
-| A progress bar | 8 | Sample Window. |
 | A 2D transform gizmo with pivot, rotation and axis handles | 4 | A canvas with pointer events can draw it. |
 | An asset picker | 9 | Mesh Maps. |
-| Icon buttons with accessible names | 7 | Orientation. The button has text only. |
 | A timeline with a ruler, clip lanes and automation lanes | 5 | A custom view. |
 
 ## Next steps

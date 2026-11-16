@@ -397,6 +397,34 @@ html.native-viewport .gui-viewport {
   align-self: flex-start;
 }
 
+/* A row of icon buttons, as the Orientation node of mockup 7. */
+.gui-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.node-gui .gui-icon {
+  min-width: 28px;
+  padding: 0 6px;
+  justify-content: center;
+}
+
+.gui-progress {
+  flex: 1;
+  min-width: 60px;
+  height: 6px;
+  overflow: hidden;
+  background: var(--field);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.gui-progress > div {
+  height: 100%;
+  background: var(--accent);
+}
+
 .gui-field {
   flex: 1;
   min-width: 60px;

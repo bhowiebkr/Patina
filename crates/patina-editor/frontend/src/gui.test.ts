@@ -102,6 +102,23 @@ test('a plot can have axes, a scatter plot has points, and a curve can have a hi
   ]);
 });
 
+test('icon buttons on adjacent lines share a row, and a progress bar is from 0 to 1', () => {
+  const tree = ['icon\tRotate left\trotate-left', 'icon\tMirror\tflip-h', 'progress\tBad\t2', 'icon\tPlay\tplay', 'progress\tFrames\t0.5', 'progress\tBad\tNaN'].join('\n');
+  assert.deepEqual(nest(parseTree(tree)), [
+    {
+      kind: 'icons',
+      index: 0,
+      items: [
+        { kind: 'icon', index: 0, text: 'Rotate left', icon: 'rotate-left' },
+        { kind: 'icon', index: 1, text: 'Mirror', icon: 'flip-h' },
+      ],
+    },
+    // The bad line between the buttons keeps its index, so the third button starts a new row.
+    { kind: 'icons', index: 3, items: [{ kind: 'icon', index: 3, text: 'Play', icon: 'play' }] },
+    { kind: 'progress', index: 4, text: 'Frames', done: 0.5 },
+  ]);
+});
+
 test('a viewport has a height in the limits', () => {
   assert.deepEqual(parseTree('viewport\tScene\t99999\nviewport\tBad\t0\nviewport\t\t240'), [
     { kind: 'viewport', index: 0, text: 'Scene', height: 4096 },

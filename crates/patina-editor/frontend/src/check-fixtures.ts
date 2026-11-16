@@ -53,11 +53,12 @@ pub struct Number {
     page: usize,
     more: bool,
     trim: [f32; 2],
+    turns: u32,
 }
 
 impl Number {
     pub fn init() -> Self {
-        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0] }
+        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0], turns: 0 }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -68,6 +69,10 @@ impl Number {
         if ui.button("Add 1").clicked() {
             self.added += 1.0;
         }
+        if ui.icon_button("rotate-right", "Rotate right").clicked() {
+            self.turns = (self.turns + 1) % 4;
+        }
+        ui.progress("Turns", self.turns as f32 / 4.0);
         ui.color("Tint", &mut self.tint);
         ui.number_unit("Gain", &mut self.gain, 0.5, "dB");
         ui.tabs("Pages", &mut self.page, &["Values", "Shape"]);

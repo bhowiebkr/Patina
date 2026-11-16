@@ -4,6 +4,8 @@
 export type Widget =
   | { kind: 'label'; index: number; text: string }
   | { kind: 'button'; index: number; text: string }
+  | { kind: 'icon'; index: number; text: string; icon: string }
+  | { kind: 'progress'; index: number; text: string; done: number }
   | { kind: 'toggle'; index: number; text: string; on: boolean }
   | { kind: 'slider'; index: number; text: string; value: number; low: number; high: number }
   | { kind: 'number'; index: number; text: string; value: number; step: number; unit: string }
@@ -133,6 +135,8 @@ export function parseTree(tree: string): Widget[] {
     const [kind, text = '', ...rest] = line.split('\t');
     const [value, low, high] = rest.map(Number);
     if (kind === 'label' || kind === 'button') widgets.push({ kind, index, text });
+    else if (kind === 'icon') widgets.push({ kind, index, text, icon: rest[0] ?? '' });
+    else if (kind === 'progress' && value >= 0 && value <= 1) widgets.push({ kind, index, text, done: value });
     else if (kind === 'toggle' && Number.isFinite(value)) widgets.push({ kind, index, text, on: value !== 0 });
     else if (kind === 'slider' && [value, low, high].every(Number.isFinite) && low <= high) widgets.push({ kind, index, text, value, low, high });
     else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value, step: low > 0 && Number.isFinite(low) ? low : 0, unit: rest[2] ?? '' });
@@ -152,17 +156,27 @@ export function parseTree(tree: string): Widget[] {
   return widgets;
 }
 
-/** A widget, or a section with the widgets up to its end line. */
-export type Block = Exclude<Widget, { kind: 'section' | 'end' }> | (Extract<Widget, { kind: 'section' }> & { items: Block[] });
+type IconButton = Extract<Widget, { kind: 'icon' }>;
 
-/** Puts the widgets of each section into it. An end line without a section does nothing. */
+/** A widget, a section with the widgets up to its end line, or a row of icon buttons. */
+export type Block =
+  | Exclude<Widget, { kind: 'section' | 'end' | 'icon' }>
+  | (Extract<Widget, { kind: 'section' }> & { items: Block[] })
+  | { kind: 'icons'; index: number; items: IconButton[] };
+
+/** Puts the widgets of each section into it, and icon buttons on adjacent lines into one row.
+ * An end line without a section does nothing. */
 export function nest(widgets: Widget[]): Block[] {
   const root: Block[] = [];
   const stack = [root];
   for (const w of widgets) {
     const top = stack[stack.length - 1];
+    const last = top[top.length - 1];
     if (w.kind === 'end') {
       if (stack.length > 1) stack.pop();
+    } else if (w.kind === 'icon') {
+      if (last?.kind === 'icons' && last.items[last.items.length - 1].index === w.index - 1) last.items.push(w);
+      else top.push({ kind: 'icons', index: w.index, items: [w] });
     } else if (w.kind !== 'section') top.push(w);
     else if (stack.length > MAX_DEPTH) stack.push(top);
     else {

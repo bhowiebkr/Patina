@@ -581,6 +581,10 @@ fn broken() -> u32 {
     const dots = document.querySelector(`${gui} .dots`)?.getAttribute('d')?.split('M').length ?? 0;
     if (dots !== 41) throw new Error(`the scatter plot has ${dots - 1} dots, not 40`);
     if (!document.querySelector(`${gui} .gui-curve .histogram`)) throw new Error('the curve has no histogram');
+    const rotate = () => document.querySelector<HTMLButtonElement>(`${gui} button[aria-label="Rotate right"]`);
+    if (!rotate()?.querySelector('svg')) throw new Error('the icon button has no icon');
+    rotate()!.click();
+    await until('the progress bar after a click on the icon button', RUN_MS, () => document.querySelector(`${gui} [role="progressbar"]`)?.getAttribute('aria-valuenow') === '25');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

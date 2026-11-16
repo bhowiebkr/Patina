@@ -61,6 +61,32 @@ const DOMAIN_PATHS: Record<Domain, ReactNode> = {
   ),
 };
 
+/** The icons that a node GUI icon button can show (4.3), as paths in a 16 px box. */
+const GUI_ICONS: Record<string, string> = {
+  'rotate-left': 'M2 8a6 6 0 1 0 6-6 6.5 6.5 0 0 0-4.5 1.8L2 5.3M2 2v3.3h3.3',
+  'rotate-right': 'M14 8a6 6 0 1 1-6-6 6.5 6.5 0 0 1 4.5 1.8L14 5.3M14 2v3.3h-3.3',
+  'flip-h': 'M2 8h12M5 5 2 8l3 3M11 5l3 3-3 3',
+  'flip-v': 'M8 2v12M5 5l3-3 3 3M5 11l3 3 3-3',
+  play: 'M4.5 2.5v11l9-5.5z',
+  pause: 'M5 3v10M11 3v10',
+  stop: 'M3.5 3.5h9v9h-9z',
+  record: 'M8 3a5 5 0 1 1 0 10A5 5 0 1 1 8 3z',
+  add: 'M8 3v10M3 8h10',
+  remove: 'M3 8h10',
+  folder: 'M1.5 3.5h4.5l1.5 1.5h7v7.5h-13z',
+  eye: 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 6a2 2 0 1 1 0 4 2 2 0 1 1 0-4z',
+};
+
+/** The drawing of a node GUI icon, or null for an unknown name. */
+export function guiIcon(name: string): ReactNode {
+  const d = Object.hasOwn(GUI_ICONS, name) ? GUI_ICONS[name] : null;
+  return d === null ? null : (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
 function Icon({ className, name, children }: { className: string; name: string; children: ReactNode }) {
   return (
     <span className={`node-icon ${className}`} role="img" aria-label={name} title={name}>

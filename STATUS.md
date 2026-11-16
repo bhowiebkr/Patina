@@ -689,10 +689,11 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   A parameter that no input wire gives makes an error on the node.
 - A stateful node can have `pub fn ui(&mut self, ui: &mut Ui)`. `Cluster::ui` calls it between
   two runs, with the user input as events, and gives the widget lines. The `Ui` has the basic
-  widgets (a label, a button, a toggle, a slider, a number field with an optional unit and step
+  widgets (a label, a button, an icon button, a toggle, a slider, a number field with an optional unit and step
   buttons, a text field, a dropdown, tabs and a section that opens and closes)
   and the value widgets (a color picker, a plot with optional axes and units, a scatter plot, a
-  waveform with optional trim handles, a table, a curve with an optional histogram and an image).
+  waveform with optional trim handles, a table, a curve with an optional histogram, a progress
+  bar and an image).
   After the events, `ui` runs one more time, so the widget lines show the new state. A panic in `ui` drops the state, as in `process`.
 - A graph can have a feedback loop in the frame domain through a delay node
   (`builtin = "delay"`). The delay gives the value of its input in the previous frame, and
@@ -736,6 +737,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - The `Ui` test writes the lines of plot axes, a scatter plot and a curve histogram. A
   histogram of 1000 bins sent 256 bars with the same sum. 3000 scatter points sent 1000 points.
   The frontend test reads the axes and the histogram, and drops a plot with a bad axis.
+- The `Ui` test writes an icon button and a progress bar, and keeps a bad progress value at 0.
+  The frontend test puts icon buttons on adjacent lines into one row and drops a progress
+  value above 1.
 - The hello test moves the **Count** slider of the tick node to 7. The widget lines after the
   event showed 7, not the old count.
 - The editor selfcheck shows the value widgets in the node body. A click on a table row
@@ -755,7 +759,7 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
   value widget, selects a table row, steps a number field, selects a tab, opens a section, moves a trim
-  handle with a key, reads the axis labels, the scatter dots and the curve histogram, and shows the large size in the **Inspector**. No check
+  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, and shows the large size in the **Inspector**. No check
   drags a curve point or a trim handle, or picks a color in the editor.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
