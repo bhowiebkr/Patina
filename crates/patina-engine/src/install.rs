@@ -259,7 +259,7 @@ fn tool(work: &Path, program: &Path) -> Result<Command, Error> {
     Ok(command)
 }
 
-fn system32() -> PathBuf {
+pub(crate) fn system32() -> PathBuf {
     let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
     Path::new(&root).join("System32")
 }

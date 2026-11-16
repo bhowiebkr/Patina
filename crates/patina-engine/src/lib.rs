@@ -21,6 +21,7 @@ mod run;
 pub mod project;
 mod subgraph;
 mod types;
+pub mod update;
 pub mod view;
 
 use std::collections::{BTreeMap, HashMap};

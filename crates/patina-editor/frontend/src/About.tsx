@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
+import { api } from './api';
 import { Icon, Menu, below } from './Dock';
 
 /** The version of the editor, or an empty text until it is known. */
@@ -14,9 +15,25 @@ export function useVersion() {
   return version;
 }
 
-/** The About dialog: the banner artwork, the name, the version and the license. */
+/** The About dialog: the banner artwork, the name, the version and the license. Patina reads
+ * the newest release from GitHub only when the person clicks **Check for updates**. */
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const version = useVersion();
+  const [update, setUpdate] = useState('');
+  const check = () => {
+    setUpdate('Checking for updates...');
+    api.checkUpdate().then(
+      (release) =>
+        setUpdate(
+          release === null
+            ? 'Patina has no release on GitHub yet.'
+            : release.newer
+              ? `Patina ${release.version} is available at ${release.url}`
+              : 'This is the newest version.',
+        ),
+      (e) => setUpdate(`Cannot check for updates: ${e}`),
+    );
+  };
   return (
     <div className="backdrop" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <div className="dialog about" role="dialog" aria-modal="true" aria-labelledby="about-title">
@@ -25,7 +42,13 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="label">{version && `Version ${version}`}</div>
         <div className="label">MIT or Apache-2.0</div>
+        <div className="label update" aria-live="polite">
+          {update}
+        </div>
         <div className="actions">
+          <button className="btn" disabled={update === 'Checking for updates...'} onClick={check}>
+            Check for updates
+          </button>
           <button className="btn primary" autoFocus onClick={onClose}>
             Close
           </button>

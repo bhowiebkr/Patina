@@ -522,6 +522,10 @@ Click **Settings** on the start screen to see the Rust toolchain, the data folde
 trusted projects. When the toolchain folder is empty, Patina uses the Rust of your system. Click **Remove** to take a project off the trusted list. Patina then asks
 again before it builds the project.
 
+Click **About** on the start screen, or **Help** and then **About Patina**, to see the version.
+Click **Check for updates** to compare it with the newest release on GitHub. Patina does not
+connect to the network before you click this button.
+
 If Patina stops before you save, it keeps your changes. When you open the project again, click
 **Restore** to get them back, or **Discard** to delete them.
 

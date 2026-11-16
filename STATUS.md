@@ -759,6 +759,10 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - The editor uses the Aged Dovetail branding (`assets/branding`): the executable and window icon,
   the title accent and the **Help** menu with **About Patina** in the top bar, the splash on the
   start screen, the **About** dialog and the `.msi` bitmaps in `tauri.conf.json`.
+- The **About** dialog has **Check for updates** since 2026-11-16 (spec 15.3). Only the click
+  makes a network request. A unit test reads the answers of GitHub, and one manual run with the
+  `curl.exe` of System32 got "no release". The self-check opens the dialog, but does not click
+  the button.
 
 ### What was checked
 

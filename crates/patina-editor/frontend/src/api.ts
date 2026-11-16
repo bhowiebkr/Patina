@@ -321,6 +321,8 @@ export const api = {
   trustProject: () => invoke<View>('trust_project'),
   settings: () => invoke<Settings>('settings'),
   installToolchain: () => invoke<void>('install_toolchain'),
+  /** Reads the newest release from GitHub (15.3). Null means that Patina has no release yet. */
+  checkUpdate: () => invoke<Release | null>('check_update'),
   /** Takes a folder off the list of trusted projects (11), and returns the new list. */
   untrustProject: (path: string) => invoke<string[]>('untrust_project', { path }),
   edit: (edit: Edit) => invoke<View>('edit', { edit }),
@@ -410,6 +412,13 @@ export const api = {
 
 export function onEngine(handler: (event: EngineEvent) => void): Promise<UnlistenFn> {
   return listen<EngineEvent>('engine', (e) => handler(e.payload));
+}
+
+/** The newest release of Patina on GitHub (15.3). `newer` is true when it is newer than this editor. */
+export interface Release {
+  version: string;
+  url: string;
+  newer: boolean;
 }
 
 /** A step of the toolchain install (13.2). The last event has `done`, and `error` when it failed. */

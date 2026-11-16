@@ -613,6 +613,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The start screen shows the splash artwork, with the name **Patina** and the version on its fade. It has an **About** button and a **Settings** button.
 - The top bar shows the title accent artwork, with the name **Patina** above its fading bar. The **Help** menu at its right end has **About Patina**.
 - The **About** dialog shows the banner artwork with the name on its plate, then the version and the license. **Close** or Esc closes it.
+- The **About** dialog has a **Check for updates** button. Patina makes no network request until the person clicks it. Then `curl` reads the newest release of the GitHub project, without drafts and pre-releases. The dialog shows the new version and its page, **This is the newest version.**, **Patina has no release on GitHub yet.** or the error. Patina does not download or install the release. (Agent decision, 2026-11-16. The owner can change it.)
 - The artwork has no text. The page draws all names, versions and labels, so they stay sharp and can change.
 - The window, the taskbar and the executable use `icons/icon.ico`. The installer uses the banner and dialog bitmaps of `icons/` (13.1).
 

@@ -176,6 +176,13 @@ fn window_handle() -> u64 {
     0
 }
 
+/// The **Check for updates** button of the About dialog (15.3). The request can take some
+/// seconds, so it runs off the main thread.
+#[tauri::command(async)]
+fn check_update() -> Result<Option<patina_engine::update::Release>, String> {
+    patina_engine::update::newest_release(env!("CARGO_PKG_VERSION")).map_err(|e| e.to_string())
+}
+
 /// Writes a failed result and stops the editor when the self-check takes too long.
 fn limit_check(dir: PathBuf) {
     std::thread::spawn(move || {
@@ -238,6 +245,7 @@ fn main() {
             session::close_view,
             floats::set_floats,
             window_handle,
+            check_update,
             session::add_crate,
             session::import_folders,
             session::import_plan,

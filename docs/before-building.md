@@ -143,8 +143,9 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
 - [x] Create `STATUS.md` with the result of the first prototype (AGENTS.md).
 - [ ] Make the Python module of a package (spec 14, milestone 8). It needs the `pyo3` crate,
   a download, and a Python install for the test. Ask the owner to approve the download.
-- [ ] Add a check for updates: Patina looks for new releases on GitHub. The owner asked for it
-  on 2026-11-15, for later.
+- [x] Add a check for updates: Patina looks for new releases on GitHub. The owner asked for it
+  on 2026-11-15, for later. The **About** dialog has **Check for updates** since 2026-11-16
+  (spec 15.3).
 - [x] Compare the mechanics and the look of all mockups with the editor, not only mockup 9.
   List each control and behavior that the editor does not have yet. The owner asked for it on
   2026-11-15, for later. The first pass on 2026-11-15 added only visual polish: shadows, card

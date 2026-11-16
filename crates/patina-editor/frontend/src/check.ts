@@ -85,6 +85,13 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     await until('the start screen with two Browse buttons', RUN_MS, () => !!button('Settings') && browse() === 2);
     await api.capture('start');
     steps.push('settings screen');
+    // The About dialog (15.3). The check does not click Check for updates: it needs the network.
+    button('About')!.click();
+    const about = () => document.querySelector('.dialog.about')?.textContent ?? '';
+    await until('the About dialog with Check for updates', RUN_MS, () => !!button('Check for updates') && /Version \d/.test(about()));
+    button('Close')!.click();
+    await until('the start screen after About', RUN_MS, () => !button('Check for updates'));
+    steps.push('about dialog');
 
     let v = await step('new project', () => api.newProject(dir, 'check'));
     if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0) throw new Error('a new project is trusted, paused and empty');
