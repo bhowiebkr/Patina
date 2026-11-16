@@ -6,6 +6,7 @@ mod checked;
 pub mod clock;
 pub mod device;
 mod edit;
+mod events;
 mod folders;
 mod generate;
 pub mod import;
@@ -36,6 +37,7 @@ pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
 pub use edit::Edit;
+pub use events::EventRun;
 pub use run::{Audio, Frames};
 pub use load::{Cluster, Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;
@@ -150,7 +152,7 @@ impl NodeInfo {
 
 /// The built-in nodes, for the node list of the editor (9.2).
 pub fn builtins() -> Vec<NodeInfo> {
-    vec![NodeInfo::new(plan::DELAY.to_owned(), node::delay(), true)]
+    node::Builtin::ALL.into_iter().map(|b| NodeInfo::new(b.name().to_owned(), b.node(), true)).collect()
 }
 
 /// A graph that passed all checks, ready to build.

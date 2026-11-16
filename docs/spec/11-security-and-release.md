@@ -185,7 +185,8 @@ The package is a folder:
 
 - When `package.toml` is next to the program, the program runs the package and not the CLI
   commands.
-- The arguments are `--frames <count>` and parameters `<node ID>.<input key>=<value>`. A
+- The arguments are `--frames <count>`, `--blocks <count>`, `--events <count>` and parameters
+  `<node ID>.<input key>=<value>`. A
   parameter replaces the value of the graph. A name that the graph does not have stops the run
   and shows the list of parameters.
 - `wiring` is the SHA-256 hash of the wiring of the checked graph. If the project source does

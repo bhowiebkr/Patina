@@ -3,9 +3,11 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 
-use crate::node::{self, Domain, Kind, Node};
+use crate::node::{self, Builtin, Domain, Kind, Node};
 use crate::project::{GraphFile, is_id};
 use crate::types;
+
+mod event;
 
 /// A graph that passed all checks, in run order.
 pub struct Plan {
@@ -21,8 +23,8 @@ pub struct Plan {
     pub log: bool,
     /// The tasks of the scheduler (9.2), in run order.
     pub tasks: Vec<Task>,
-    /// The index in `nodes` of the built-in delay node (9.2), when the graph uses it.
-    pub delay: Option<usize>,
+    /// The index in `nodes` of each built-in node that the graph uses (9.2, 9.4).
+    pub builtins: Vec<(usize, Builtin)>,
     /// The index in `nodes` of the node in the slot (7.1). Each of its uses runs in the slot
     /// library.
     pub slot: Option<usize>,
@@ -67,9 +69,24 @@ impl Plan {
         (0..self.steps.len()).filter(|&n| self.nodes[self.steps[n].node].1.state.is_some())
     }
 
+    /// The built-in node of step `n` (9.2, 9.4), or None for a use of a node folder.
+    pub fn builtin(&self, n: usize) -> Option<Builtin> {
+        self.builtins.iter().find(|(i, _)| *i == self.steps[n].node).map(|&(_, b)| b)
+    }
+
     /// True when step `n` is a delay node (9.2).
     pub fn is_delay(&self, n: usize) -> bool {
-        self.delay == Some(self.steps[n].node)
+        self.builtin(n) == Some(Builtin::Delay)
+    }
+
+    /// True when step `n` is a trigger that starts event runs (9.4).
+    pub fn is_trigger(&self, n: usize) -> bool {
+        self.builtin(n).is_some_and(Builtin::fires)
+    }
+
+    /// True when the node with index `i` in `nodes` is built in.
+    pub fn is_builtin_node(&self, i: usize) -> bool {
+        self.builtins.iter().any(|&(b, _)| b == i)
     }
 
     /// True when step `n` is a use of the node in the slot (7.1).
@@ -96,13 +113,10 @@ pub struct Slot {
     pub is_str: bool,
 }
 
-/// The `builtin` name of the delay node in a graph file (9.2).
-pub(crate) const DELAY: &str = "delay";
-
 /// Crate names that a node folder cannot have, after `-` changes to `_`.
 /// Crate names of Rust and Patina, the keywords of Rust, the folder names of Cargo and the device
 /// names of Windows. Cargo or Windows refuses a crate or a folder with one of these names.
-const RESERVED: &str = "std core alloc proc_macro test patina_sdk patina_macros patina_log cluster_batch cluster_frame \
+const RESERVED: &str = "std core alloc proc_macro test patina_sdk patina_macros patina_log patina_event cluster_batch cluster_frame cluster_audio cluster_event \
     as async await break const continue crate dyn else enum extern false fn for gen if impl in let \
     loop match mod move mut pub ref return self static struct super trait true type unsafe use \
     where while abstract become box do final macro override priv try typeof unsized virtual yield \
@@ -126,7 +140,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let mut by_name: HashMap<String, Option<usize>> = HashMap::new();
     let mut entries: Vec<Option<Entry>> = Vec::new();
     let mut by_id: HashMap<&str, usize> = HashMap::new();
-    let mut delay = None;
+    let mut builtins: Vec<(usize, Builtin)> = Vec::new();
 
     for (index, entry) in graph.node.iter().enumerate() {
         entries.push(None);
@@ -145,14 +159,20 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             fail("node settings (4.3) come at milestone 5".to_owned());
         }
         let node_index = match (&entry.folder, &entry.builtin) {
-            (None, Some(builtin)) if builtin == DELAY => *delay.get_or_insert_with(|| {
-                nodes.push((DELAY.to_owned(), node::delay()));
-                nodes.len() - 1
-            }),
-            (None, Some(builtin)) => {
-                fail(format!("Patina has no built-in node {builtin:?} (spec 9.2)"));
-                continue;
-            }
+            (None, Some(name)) => match Builtin::parse(name) {
+                Some(builtin) => match builtins.iter().find(|(_, b)| *b == builtin) {
+                    Some(&(i, _)) => i,
+                    None => {
+                        nodes.push((builtin.name().to_owned(), builtin.node()));
+                        builtins.push((nodes.len() - 1, builtin));
+                        nodes.len() - 1
+                    }
+                },
+                None => {
+                    fail(format!("Patina has no built-in node {name:?} (spec 9.2)"));
+                    continue;
+                }
+            },
             (Some(_), Some(_)) => {
                 fail("give the node a folder or a built-in node, not both".to_owned());
                 continue;
@@ -180,7 +200,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
                 node_index
             }
         };
-        let folder = entry.folder.as_deref().unwrap_or(DELAY);
+        let folder = entry.folder.as_deref().or(entry.builtin.as_deref()).unwrap_or_default();
         let node = &nodes[node_index].1;
         for key in entry.params.keys() {
             if !node.inputs.iter().any(|i| &i.key == key) {
@@ -200,6 +220,8 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         entries[index] = Some(Entry { id: id.to_owned(), node: node_index, wired, domain: node.domain.or(chosen) });
     }
 
+    let is_delay = |node: usize| builtins.contains(&(node, Builtin::Delay));
+    let fires = |node: usize| builtins.iter().any(|&(i, b)| i == node && b.fires());
     let mut edges: Vec<(usize, usize)> = Vec::new();
     for wire in &graph.wire {
         let from = find_pin(&wire.from, &by_id, &entries, &nodes, |n| n.output_keys());
@@ -220,8 +242,11 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         if entry.wired[input].replace((from_entry, output)).is_some() {
             problems.push(format!("the input {:?} has more than one wire", wire.to));
         }
+        if fires(entry.node) {
+            problems.push(format!("the input {:?} is a setting of the trigger. Set it in its parameter field (spec 9.4)", wire.to));
+        }
         // The delay gives the value of the previous frame, so its input wire makes no cycle (9.2).
-        if delay != Some(entry.node) {
+        if !is_delay(entry.node) {
             edges.push((from_entry, to_entry));
         }
     }
@@ -265,7 +290,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
                     steps[step_of[from]].consumers[output] += 1;
                     Source::Wire { step: step_of[from], output }
                 }
-                None if delay == Some(entry.node) => {
+                None if is_delay(entry.node) => {
                     return Err(vec![format!("node {}: connect a wire to the input `value` of the delay (spec 9.2)", entry.id)]);
                 }
                 None => {
@@ -279,18 +304,19 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     resolve(&mut steps, &nodes)?;
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
     domains(&mut steps, &edges, |n| entries[order[n]].domain)?;
-    for step in steps.iter().filter(|s| delay == Some(s.node)) {
+    for step in steps.iter().filter(|s| is_delay(s.node)) {
         if let Source::Wire { step: from, .. } = step.inputs[0]
             && !reaches(steps[from].domain, step.domain)
         {
             return Err(vec![format!("node {}: the delay reads the {} domain. Connect a value of the frame domain", step.id, steps[from].domain.name())]);
         }
     }
-    let tasks = split(&mut steps, &edges);
-    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, delay, slot: None };
+    let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
+    let tasks = split(&mut steps, &edges, &trigger);
+    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
     plan.kinds.retain(|(name, _)| used.contains(name));
-    let mut folders = plan.nodes.iter().enumerate().filter(|(i, _)| plan.delay != Some(*i)).map(|(_, (n, _))| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
+    let mut folders = plan.nodes.iter().enumerate().filter(|(i, _)| !plan.is_builtin_node(*i)).map(|(_, (n, _))| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
     plan.log = folders.any(|(group, name)| uses_log(root, group, name));
     Ok(plan)
 }
@@ -467,10 +493,12 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
 }
 
 /// True when a wire can go from domain `from` to domain `to` (9.1). The batch domain runs before
-/// the frames and the audio, so they read the latest batch value. No value goes back to batch.
-/// The frame and the audio domain run at the same time and read the latest values of each other.
+/// the other domains, so they read the latest batch value. No value goes back to batch. The frame
+/// and the audio domain run at the same time and read the latest values of each other. In version
+/// 1, only the batch domain gives values to the event domain, and no value leaves it.
 fn reaches(from: Domain, to: Domain) -> bool {
-    from == Domain::Batch || to != Domain::Batch
+    let event = from == Domain::Event || to == Domain::Event;
+    from == to || from == Domain::Batch || (to != Domain::Batch && !event)
 }
 
 /// Sets the domain of each step (9.1). A step with no domain of its own takes the domain that all
@@ -500,7 +528,8 @@ fn domains(steps: &mut [Step], edges: &[(usize, usize)], own: impl Fn(usize) -> 
 
 /// Puts the steps into tasks (9.2). A step joins the task of its predecessor when it has exactly
 /// one predecessor, that predecessor has exactly one successor, and both have the same domain.
-fn split(steps: &mut [Step], edges: &[(usize, usize)]) -> Vec<Task> {
+/// An event step joins the task of its trigger, so an event run is one call (9.4).
+fn split(steps: &mut [Step], edges: &[(usize, usize)], trigger: &[Option<usize>]) -> Vec<Task> {
     let mut before: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
     let mut after: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
     for &(from, to) in edges {
@@ -510,8 +539,12 @@ fn split(steps: &mut [Step], edges: &[(usize, usize)]) -> Vec<Task> {
     let mut tasks: Vec<Task> = Vec::new();
     for n in 0..steps.len() {
         let chain = before[n].first().filter(|&&p| before[n].len() == 1 && after[p].len() == 1 && steps[p].domain == steps[n].domain);
-        steps[n].task = match chain {
-            Some(&p) => steps[p].task,
+        let joined = match trigger[n] {
+            Some(t) if t != n => Some(steps[t].task),
+            _ => chain.map(|&p| steps[p].task),
+        };
+        steps[n].task = match joined {
+            Some(task) => task,
             None => {
                 tasks.push(Task { steps: Vec::new(), inputs: 0, next: Vec::new(), domain: steps[n].domain });
                 tasks.len() - 1
@@ -541,7 +574,7 @@ mod tests {
     fn chains_become_one_task_and_branches_split() {
         let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), task: 0, domain: Domain::Batch }).collect();
         // 0 -> 1 -> 2 is a chain. 2 feeds 3 and 4, and both feed 5. An order wire 1 -> 2 doubles a data wire.
-        let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)]);
+        let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)], &[None; 6]);
         let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
         assert_eq!(parts, [(&[0, 1, 2][..], 0, &[1, 2][..]), (&[3], 1, &[3]), (&[4], 1, &[3]), (&[5], 2, &[])]);
         assert_eq!(steps.iter().map(|s| s.task).collect::<Vec<_>>(), [0, 0, 0, 1, 2, 3]);

@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 16;
+pub const ABI_VERSION: u32 = 17;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -194,6 +194,9 @@ pub enum Cmd<'a> {
     Begin(u32),
     /// Runs the task with this index (9.2). Returns false when a node failed.
     Task(u32),
+    /// Runs the event task with this index for one fire of its trigger (9.4), with the text of
+    /// the event. Returns false when a node failed.
+    Fire(u32, &'a str),
     /// Ends a run of the domain with this index (9.1): drops each value of the domain that no
     /// node took. Returns false when a drop failed.
     End(u32),
@@ -611,6 +614,28 @@ pub unsafe fn task(cluster: *const Cluster, task: u32, rep: *const Reporter) -> 
     // SAFETY: the caller keeps the rules of this function.
     let (cluster, rep) = unsafe { (&*cluster, &*rep) };
     in_run(rep, || (cluster.f)(Cmd::Task(task), rep))
+}
+
+/// The body of `patina_cluster_fire`: one event run of task `task` with the event text (9.4).
+///
+/// # Safety
+///
+/// The same as for `task`. `text` points to `len` bytes. Other event runs of the same cluster can
+/// run on other threads at the same time only when `parallel` is true.
+pub unsafe fn fire(cluster: *const Cluster, task: u32, text: *const u8, len: usize, rep: *const Reporter) -> bool {
+    // SAFETY: the caller keeps the rules of this function.
+    let (cluster, rep, bytes) = unsafe { (&*cluster, &*rep, std::slice::from_raw_parts(text, len)) };
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    let ok = in_run(rep, || (cluster.f)(Cmd::Fire(task, text), rep));
+    rep.set_node(IDLE);
+    NODE.set(IDLE);
+    if let Some(control) = rep.control() {
+        control.lines.store(0, Relaxed);
+    }
+    let _ = std::io::Write::flush(&mut std::io::stdout());
+    ok
 }
 
 /// The body of `patina_cluster_begin`, before the first task of a run of domain `domain`.

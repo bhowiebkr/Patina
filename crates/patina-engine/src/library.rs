@@ -20,6 +20,7 @@ pub(crate) type UiFn = unsafe extern "C" fn(*const c_void, u32, u32, *const u8, 
 type HostFn = unsafe extern "C" fn(glue::ShareFn, *const u8, usize);
 type ParallelFn = unsafe extern "C" fn(*const c_void) -> bool;
 type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
+pub(crate) type FireFn = unsafe extern "C" fn(*const c_void, u32, *const u8, usize, *const Reporter) -> bool;
 pub(crate) type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 type FreeFn = unsafe extern "C" fn(*mut c_void);
 pub(crate) type TakeFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> *mut c_void;
@@ -45,6 +46,8 @@ pub(crate) struct Library {
     pub slot: SlotFn,
     /// Calls a node of a slot library (7.1).
     pub call: CallFn,
+    /// Runs one event run of an event task (9.4).
+    pub fire: FireFn,
     /// True when the tasks of a run can run on many threads at a time (9.2).
     pub parallel: bool,
     /// The tasks of the domain (9.1).
@@ -83,12 +86,13 @@ impl Library {
             let read: TakeFn = symbol(&library, b"patina_cluster_read\0").map_err(missing)?;
             let slot: SlotFn = symbol(&library, b"patina_cluster_slot\0").map_err(missing)?;
             let call: CallFn = symbol(&library, b"patina_cluster_call\0").map_err(missing)?;
+            let fire: FireFn = symbol(&library, b"patina_cluster_fire\0").map_err(missing)?;
             let state = new();
             if state.is_null() {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
             let tasks = Arc::new(Tasks::new(state, task, all, domain));
-            Library { state, new, set, ui, begin, end, free, take, put, export, import, read, slot, call, parallel: parallel(state), tasks }
+            Library { state, new, set, ui, begin, end, free, take, put, export, import, read, slot, call, fire, parallel: parallel(state), tasks }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);

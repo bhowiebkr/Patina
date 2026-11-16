@@ -6,7 +6,7 @@
 
 use std::fmt::Write;
 
-use crate::node::{Domain, Output, Pass};
+use crate::node::{Builtin, Domain, Output, Pass};
 use crate::plan::{Plan, Source};
 
 mod exports;
@@ -20,7 +20,7 @@ const HEADER: &str = "# Made by Patina. Patina writes this file again at each bu
 /// shortcut: one cluster for each domain, with no boundary at large nodes (8.2). Split at large nodes and subgraphs when milestone 6 measures the need.
 pub fn domains(plan: &Plan) -> Vec<Domain> {
     let mut domains: Vec<Domain> =
-        [Domain::Batch, Domain::Frame, Domain::Audio].into_iter().filter(|&d| plan.steps.iter().any(|step| step.domain == d)).collect();
+        Domain::ALL.into_iter().filter(|&d| plan.steps.iter().any(|step| step.domain == d)).collect();
     if domains.is_empty() {
         domains.push(Domain::Batch);
     }
@@ -79,7 +79,7 @@ pub fn manifest(plan: &Plan, domain: Domain) -> String {
     // The witness of the links calls the steps before them, so it needs their crates too.
     let steps = (0..plan.steps.len()).filter(|&n| plan.steps[n].domain == domain).chain(ancestors(plan, domain));
     let mut names: Vec<&str> =
-        steps.map(|n| plan.steps[n].node).filter(|&i| plan.delay != Some(i)).map(|i| plan.nodes[i].0.as_str()).collect();
+        steps.map(|n| plan.steps[n].node).filter(|&i| !plan.is_builtin_node(i)).map(|i| plan.nodes[i].0.as_str()).collect();
     names.sort_unstable();
     names.dedup();
     for name in names {
@@ -90,6 +90,9 @@ pub fn manifest(plan: &Plan, domain: Domain) -> String {
     }
     if plan.log {
         text.push_str("patina-log = { package = \"log\", version = \"0.4\" }\n");
+    }
+    if domain == Domain::Event {
+        text.push_str("patina-event = { workspace = true }\n");
     }
     text
 }
@@ -109,7 +112,9 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     }
     let mut shared = Vec::new();
     let mine = |n: usize| plan.steps[n].domain == domain;
-    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| mine(slot.step)) {
+    // The engine reads the settings of a trigger (9.4), so they get no value in the cluster.
+    let own = |slot: &&crate::plan::Slot| mine(slot.step) && !plan.is_trigger(slot.step);
+    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| own(slot)) {
         let ty = if slot.is_str { ": ::patina_sdk::glue::Shared<::std::string::String>" } else { "" };
         let id = &plan.steps[slot.step].id;
         let _ = writeln!(
@@ -172,7 +177,7 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         "    let f = ::patina_sdk::glue::typed(move |cmd, rep| match cmd {\n        \
          ::patina_sdk::glue::Cmd::Set(index, text) => match index {\n",
     );
-    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| mine(slot.step)) {
+    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| own(slot)) {
         let _ = writeln!(s, "            {i} => ::patina_sdk::glue::set_param(&mut *p{i}.write(), text, rep, {}),", slot.step);
     }
     s.push_str("            _ => false,\n        },\n");
@@ -187,7 +192,9 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     order.sort_by_key(|&t| plan.tasks[t].steps.iter().any(|&n| plan.is_delay(n)));
     for t in order {
         let task = &plan.tasks[t];
-        let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::Task({t}) => {{\n            let mut ok = true;");
+        // An event task runs once for each event of its trigger, with the text of the event (9.4).
+        let cmd = if task.domain == Domain::Event { format!("Fire({t}, event)") } else { format!("Task({t})") };
+        let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::{cmd} => {{\n            let mut ok = true;");
         let local: Vec<(usize, usize)> =
             plan.held().filter(|&(n, k)| plan.steps[n].task == t && !is_shared(plan, n, k)).collect();
         for (n, k) in &local {
@@ -201,7 +208,7 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         }
         s.push_str("            ok\n        }\n");
     }
-    s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n");
+    s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n        ::patina_sdk::glue::Cmd::Fire(..) => false,\n");
     // The GUI of each node with a `ui` function (4.3). The CLI never calls it.
     s.push_str("        ::patina_sdk::glue::Cmd::Ui(index, mode, events) => match index {\n");
     ui_arms(&mut s, plan, &stateful);
@@ -290,6 +297,11 @@ fn witness(s: &mut String, plan: &Plan, domain: Domain) {
     let steps: std::collections::BTreeSet<usize> = own.chain(ancestors(plan, domain)).collect();
     for m in steps {
         let step = &plan.steps[m];
+        if plan.is_trigger(m) {
+            let ty = if plan.builtin(m) == Some(Builtin::Schedule) { "0u64" } else { "::std::string::String::new()" };
+            let _ = writeln!(s, "    let w{m} = if false {{ ::std::option::Option::Some(({ty},)) }} else {{ ::std::option::Option::None }}; // {}", step.id);
+            continue;
+        }
         if plan.is_delay(m) {
             if let Source::Wire { step: from, output } = step.inputs[0] {
                 let _ = writeln!(
@@ -323,6 +335,9 @@ fn witness(s: &mut String, plan: &Plan, domain: Domain) {
             }
         }
         let mut call = format!("{call}({})", args.join(", "));
+        if node.is_async {
+            call = format!("::patina_event::output({call})");
+        }
         if node.fallible {
             call = format!("match {call} {{ ::std::result::Result::Ok(v) => v, ::std::result::Result::Err(_) => ::std::unreachable!() }}");
         }
@@ -396,13 +411,19 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
         })
         .collect();
     let ready = if wired.is_empty() { "true".to_owned() } else { wired.join(" && ") };
-    let _ = writeln!(s, "            // {}: {}", step.id, if delay { "delay (9.2)".to_owned() } else { format!("nodes/{name}") });
+    let kind = match plan.builtin(n) {
+        Some(builtin) => format!("{} (9.2, 9.4)", builtin.name()),
+        None => format!("nodes/{name}"),
+    };
+    let _ = writeln!(s, "            // {}: {kind}", step.id);
     for k in (0..step.consumers.len()).filter(|&k| is_kept(plan, n, k)) {
         let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
     }
     let _ = writeln!(s, "            if rep.enter({n}, {ready}) {{");
     if plan.in_slot(n) {
         slot::call(s, plan, n);
+    } else if plan.is_trigger(n) {
+        fire(s, plan, n);
     } else {
         inline(s, plan, n);
     }
@@ -410,6 +431,14 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
     s.push_str("            }\n");
     for k in (0..step.consumers.len()).filter(|&k| is_latest(plan, n, k)) {
         let _ = writeln!(s, "            n{n}_{k}.publish();");
+    }
+}
+
+/// Stores the event of trigger step `n` (9.4): the text of a trigger, or the count of a schedule.
+fn fire(s: &mut String, plan: &Plan, n: usize) {
+    if plan.steps[n].consumers[0] > 0 {
+        let value = if plan.builtin(n) == Some(Builtin::Schedule) { "event.parse::<u64>().unwrap_or(0)" } else { "::std::borrow::ToOwned::to_owned(event)" };
+        let _ = writeln!(s, "                {} = ::std::option::Option::Some({value});", held(plan, n, 0)[2]);
     }
 }
 
@@ -445,9 +474,15 @@ fn inline(s: &mut String, plan: &Plan, n: usize) {
     }
     let args: String = args.iter().map(|arg| format!("{arg}, ")).collect();
     let run = if node.fallible { "try_run" } else { "run" };
-    let _ = writeln!(s, "{indent}let r = ::patina_sdk::glue::{run}({call}, ({args}));");
-    let done = if node.state.is_some() { "done_state(r, &mut *st, " } else { "done(r, " };
-    let _ = writeln!(s, "{indent}if let ::std::option::Option::Some(r) = ::patina_sdk::glue::{done}rep, {n}, &mut ok) {{");
+    if node.is_async {
+        // The run waits for the future of an async node, and stops it at **Stop** (9.4).
+        let _ = writeln!(s, "{indent}let r = ::patina_event::{run}({call}, ({args}), rep, {n});");
+        let _ = writeln!(s, "{indent}if let ::std::option::Option::Some(r) = ::patina_event::done(r, rep, {n}, &mut ok) {{");
+    } else {
+        let _ = writeln!(s, "{indent}let r = ::patina_sdk::glue::{run}({call}, ({args}));");
+        let done = if node.state.is_some() { "done_state(r, &mut *st, " } else { "done(r, " };
+        let _ = writeln!(s, "{indent}if let ::std::option::Option::Some(r) = ::patina_sdk::glue::{done}rep, {n}, &mut ok) {{");
+    }
     let inner = format!("{indent}    ");
     for key in &muts {
         // A call that worked gave the value to each `Hold`.

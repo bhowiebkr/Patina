@@ -411,6 +411,13 @@ In the editor, **Run** runs the blocks with the frames until **Stop**.
 When a node plays sound, the CLI opens the default audio device. The device then sets the pace
 of the blocks. A node plays a block with `patina_sdk::audio::play(&block)`.
 
+A graph with event nodes starts a run each time a trigger node fires. A `schedule` node fires
+at each `every_ms` milliseconds. A `trigger` node fires one time at the start of the CLI run.
+A `pub async fn` node can wait in its run, for example for a timer of `patina_event::tokio`. Its
+`Cargo.toml` then has `patina-event = { workspace = true }`. To stop after a number of runs, add
+`--events <count>`. Each log line and report of a run starts with **Run <ID>:**.
+The CLI runs the event runs before the frames and the blocks.
+
 ## Make a package
 
 `patina-cli package` builds a project and writes a folder that runs without Rust:

@@ -168,7 +168,7 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
             if graph.node.iter().any(|n| &n.id == id) {
                 return Err(format!("the graph has a node with the ID {id}"));
             }
-            if *builtin && folder != crate::plan::DELAY {
+            if *builtin && crate::node::Builtin::parse(folder).is_none() {
                 return Err(format!("Patina has no built-in node {folder:?} (spec 9.2)"));
             }
             // The folder `graphs/<name>` adds a use of a subgraph (6.1).

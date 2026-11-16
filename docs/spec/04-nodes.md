@@ -193,6 +193,7 @@ pub async fn fetch(url: &str) -> Result<String, FetchError> { ... }
 
 - An async node runs in the event domain (see 9.4).
 - A wait does not block a worker thread.
+- In version 1, an async node is a plain function. An async stateful node is an error. An async node needs a trigger (9.4). Agent decision of 2026-11-16, the owner can change it.
 
 ### 4.7 Errors
 

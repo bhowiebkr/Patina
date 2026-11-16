@@ -72,6 +72,21 @@ pub unsafe extern "C" fn patina_cluster_task(
 
 /// # Safety
 ///
+/// The engine keeps the rules of `patina_sdk::glue::fire`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_cluster_fire(
+    cluster: *const ::std::ffi::c_void,
+    task: u32,
+    text: *const u8,
+    len: usize,
+    rep: *const ::patina_sdk::glue::Reporter,
+) -> bool {
+    // SAFETY: the engine keeps the rules of `glue::fire`.
+    unsafe { ::patina_sdk::glue::fire(cluster.cast(), task, text, len, rep) }
+}
+
+/// # Safety
+///
 /// The engine keeps the rules of `patina_sdk::glue::begin`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn patina_cluster_begin(

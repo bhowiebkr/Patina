@@ -1,7 +1,8 @@
 # Status
 
+The current work is milestone 12, the event domain. It started on 2026-11-16.
 Milestone 11, the audio domain, ended on 2026-11-16. Its step 3, the GUI of audio nodes, stays
-deferred by the owner. The next work is milestone 12, the event domain.
+deferred by the owner.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
 complete since 2026-11-16. Milestone 10, views,
 ended on 2026-11-15. Milestone 9, the GPU, ended on 2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
@@ -152,6 +153,50 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   the 25 graphs of `examples/computer`. In Node, a test graph of 217 nodes and 210 wires took
   5 ms to arrange and 27 ms to route. A graph of 400 nodes and 500 wires took 84 ms to route. No
   test drags a node, and no check measured the route time in the window.
+
+## Milestone 12: the event domain
+
+Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and trigger nodes
+(spec 4.6 and 9.4).
+
+### Plan
+
+1. Done on 2026-11-16: the engine and the CLI: `Domain::Event`, plain async nodes, the
+   built-in triggers `schedule` and `trigger`, a run thread for each event run, and
+   `patina-cli run --events <count>`.
+2. The triggers `file_change` and `webhook`.
+3. The editor: the event runs with **Run**, **Pause** and **Stop**, a button that fires a
+   `trigger` node, and a selfcheck step.
+4. Views fire a `trigger` node through `Graph`. Record the limit of a code swap during a run.
+
+### Checked
+
+- On Windows 11 with Rust 1.100.0: the CLI test `events` adds the async node `wait` and the
+  node `say` to a copy of the hello example. A `schedule` node gives the run ID to wait, and
+  say shows the value of wait. Say has no domain, so it runs in the event domain.
+- With `overlap = both`, runs 2 and 3 started while run 1 waited 1 s. With `skip`, each run
+  was alone. With `queue`, the trigger dropped a fire at 16 runs and reported it, and the 17
+  runs came in order.
+- The same test checks a bad `every_ms` (a bad parameter before a run), a `trigger` node that
+  fires one time with an empty text, the **Run 1:** start of a report, and the graph error of
+  an event node with no trigger.
+- A unit test checks the settings of a trigger. A plan test checks the trigger of each event
+  step.
+- The test machine has no network for the tests, so the local test run used
+  `CARGO_NET_OFFLINE=true`. The `tokio` crate came from the cargo cache.
+
+### Known limits
+
+- These shortcuts are open in the code:
+  - `events.rs` of `patina-engine`: one thread for each run.
+  - `patina-event`: each cluster build makes its own runtime, and each wait of an async node
+    allocates its future and blocks the thread of its run.
+  - `main.rs` of `patina-cli`: the event runs come before the frames and the blocks.
+  - `checked.rs` of `patina-engine`: an event node does not go into the slot (7.1), so an edit
+    of an event node rebuilds its cluster.
+- The editor does not run the event domain yet (step 3). `patina-capi` does not run it either.
+- The first build of a project with an async node needs `tokio` from crates.io or the cargo
+  cache.
 
 ## Milestone 11: the audio domain
 

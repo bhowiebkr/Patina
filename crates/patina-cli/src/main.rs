@@ -10,16 +10,17 @@ use std::time::Instant;
 use patina_engine::clock::{self, Clock, frame_due};
 use patina_engine::device::{Notice, Pace};
 use patina_engine::project::GraphFile;
-use patina_engine::{Audio, Cluster, Control, Mode, Outcome, Project, Toolchain, package};
+use patina_engine::{Audio, Cluster, Control, EventRun, Mode, Outcome, Project, Toolchain, package};
 
-const USAGE: &str = "usage: patina-cli run <project folder> [--frames <count>] [--blocks <count>] [--edit]
+const USAGE: &str = "usage: patina-cli run <project folder> [--frames <count>] [--blocks <count>] [--events <count>] [--edit]
        patina-cli package <project folder> <package folder> [--edit]";
 
-/// The number of frames and of audio blocks to run. `None` runs until the user stops the process.
+/// The number of frames, of audio blocks and of event runs to run. `None` runs until the user stops the process.
 #[derive(Debug, PartialEq, Default, Clone, Copy)]
 struct Counts {
     frames: Option<u64>,
     blocks: Option<u64>,
+    events: Option<u64>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -54,7 +55,7 @@ fn main() -> ExitCode {
 }
 
 /// Reads the arguments. `--edit` makes a fast build in edit mode, else the build is in bake mode
-/// (8.3). Only `run` takes `--frames` and `--blocks`.
+/// (8.3). Only `run` takes `--frames`, `--blocks` and `--events`.
 fn parse(args: &[String]) -> Option<Command<'_>> {
     let (command, rest) = args.split_first()?;
     let (paths, flags) = rest.split_at(rest.iter().position(|a| a.starts_with("--")).unwrap_or(rest.len()));
@@ -64,6 +65,7 @@ fn parse(args: &[String]) -> Option<Command<'_>> {
         match flag.as_str() {
             "--frames" if counts.frames.is_none() && command == "run" => counts.frames = Some(flags.next()?.parse().ok()?),
             "--blocks" if counts.blocks.is_none() && command == "run" => counts.blocks = Some(flags.next()?.parse().ok()?),
+            "--events" if counts.events.is_none() && command == "run" => counts.events = Some(flags.next()?.parse().ok()?),
             "--edit" if mode == Mode::Bake => mode = Mode::Edit,
             _ => return None,
         }
@@ -110,7 +112,8 @@ fn make(folder: &Path, out: &Path, mode: Mode) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Runs the package in `dir`. The arguments are `--frames <count>`, `--blocks <count>` and parameters
+/// Runs the package in `dir`. The arguments are `--frames <count>`, `--blocks <count>`,
+/// `--events <count>` and parameters
 /// `<node ID>.<input key>=<value>` (14).
 fn run_package(dir: &Path, args: &[String]) -> Result<bool, String> {
     let (mut checked, mut cluster) = package::open(dir).map_err(|e| e.to_string())?;
@@ -120,6 +123,7 @@ fn run_package(dir: &Path, args: &[String]) -> Result<bool, String> {
         let count = match arg.as_str() {
             "--frames" if counts.frames.is_none() => &mut counts.frames,
             "--blocks" if counts.blocks.is_none() => &mut counts.blocks,
+            "--events" if counts.events.is_none() => &mut counts.events,
             _ => {
                 params.push(arg.clone());
                 continue;
@@ -131,13 +135,17 @@ fn run_package(dir: &Path, args: &[String]) -> Result<bool, String> {
     Ok(drive(&mut cluster, checked.graph(), counts))
 }
 
-/// Runs the batch domain one time. Then it runs the frames and the audio blocks of `counts`.
-/// The blocks run on their own thread, at the same time as the frames (9.3). Returns false when
-/// a node failed.
+/// Runs the batch domain one time. Then it runs the event runs, the frames and the audio blocks of
+/// `counts`. The blocks run on their own thread, at the same time as the frames (9.3). Returns
+/// false when a node failed.
 fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
     let control = Control::default();
     // A node with a bad parameter does not run, so the graph does not run.
     if !show(&cluster.set_params(graph)) || !show(&cluster.run(&control)) {
+        return false;
+    }
+    // shortcut: the event runs come before the frames and blocks, change it when the event domain gets its own part (9.4).
+    if cluster.events() && !cluster.run_events(counts.events.unwrap_or(u64::MAX), &control, |run| _ = show_run(run)) {
         return false;
     }
     let has_frames = cluster.frames();
@@ -243,17 +251,26 @@ fn notice(notice: Option<Notice>) {
 }
 
 fn show(outcome: &Outcome) -> bool {
+    show_with(outcome, "")
+}
+
+/// Shows the outcome of an event run. Each line starts with its run ID (9.4).
+fn show_run(run: &EventRun) -> bool {
+    show_with(&run.out, &if run.id > 0 { format!("Run {}: ", run.id) } else { String::new() })
+}
+
+fn show_with(outcome: &Outcome, prefix: &str) -> bool {
     for line in &outcome.logs {
-        eprintln!("{line}");
+        eprintln!("{prefix}{line}");
     }
     for report in &outcome.reports {
-        eprintln!("{report}");
+        eprintln!("{prefix}{report}");
     }
     for id in &outcome.skipped {
-        eprintln!("Node {id}: skipped: an input has no value");
+        eprintln!("{prefix}Node {id}: skipped: an input has no value");
     }
     if !outcome.ok && outcome.reports.is_empty() {
-        eprintln!("error: the cluster failed with no report");
+        eprintln!("{prefix}error: the cluster failed with no report");
     }
     outcome.ok
 }
@@ -266,19 +283,20 @@ mod tests {
     fn the_flags_come_in_any_order_one_time_each() {
         let args = |text: &str| text.split(' ').map(str::to_owned).collect::<Vec<_>>();
         let run = |text: &str| match parse(&args(text)) {
-            Some(Command::Run { folder, counts, mode }) => Some((folder.to_owned(), counts.frames, counts.blocks, mode)),
+            Some(Command::Run { folder, counts, mode }) => Some((folder.to_owned(), counts.frames, counts.blocks, counts.events, mode)),
             _ => None,
         };
-        assert_eq!(run("run p"), Some(("p".to_owned(), None, None, Mode::Bake)));
-        assert_eq!(run("run p --edit --frames 3"), Some(("p".to_owned(), Some(3), None, Mode::Edit)));
-        assert_eq!(run("run p --blocks 9 --frames 3 --edit"), Some(("p".to_owned(), Some(3), Some(9), Mode::Edit)));
+        assert_eq!(run("run p"), Some(("p".to_owned(), None, None, None, Mode::Bake)));
+        assert_eq!(run("run p --edit --frames 3"), Some(("p".to_owned(), Some(3), None, None, Mode::Edit)));
+        assert_eq!(run("run p --blocks 9 --frames 3 --edit"), Some(("p".to_owned(), Some(3), Some(9), None, Mode::Edit)));
+        assert_eq!(run("run p --events 2"), Some(("p".to_owned(), None, None, Some(2), Mode::Bake)));
         let bad = ["run", "go p", "run p --frames", "run p --frames x", "run p --edit --edit", "run p --fast", "run p q"];
-        for bad in bad.into_iter().chain(["run p --blocks 1 --blocks 2"]) {
+        for bad in bad.into_iter().chain(["run p --blocks 1 --blocks 2", "run p --events 1 --events 2"]) {
             assert_eq!(run(bad), None, "{bad}");
         }
         let package = args("package p out --edit");
         assert_eq!(parse(&package), Some(Command::Package { folder: "p", out: "out", mode: Mode::Edit }));
-        for bad in ["package p", "package p out --frames 3", "package p out --blocks 3", "package p --edit out"] {
+        for bad in ["package p", "package p out --frames 3", "package p out --events 3", "package p --edit out"] {
             assert_eq!(parse(&args(bad)), None, "{bad}");
         }
     }

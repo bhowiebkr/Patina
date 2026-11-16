@@ -134,7 +134,7 @@ impl Frames<'_> {
 
 /// What the node GUIs and the views of the frame part need to find the library of a node.
 pub(crate) struct Nodes<'a> {
-    pub(crate) libraries: &'a [Option<Library>; 3],
+    pub(crate) libraries: &'a [Option<Library>; 4],
     pub(crate) slot: Option<&'a Library>,
     pub(crate) slotted: &'a [bool],
     pub(crate) domains: &'a [Domain],

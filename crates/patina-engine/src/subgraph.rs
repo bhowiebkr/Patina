@@ -206,7 +206,7 @@ fn end_type(root: &Path, graph: &GraphFile, end: &str, input: bool, stack: &mut 
     let entry = graph.node.iter().find(|n| n.id == id)?;
     let node = match (&entry.folder, &entry.builtin, &entry.subgraph) {
         (Some(folder), None, None) => plan::read_node(root, folder.strip_prefix("nodes/")?).ok()?,
-        (None, Some(builtin), None) if builtin == plan::DELAY => node::delay(),
+        (None, Some(builtin), None) => node::Builtin::parse(builtin)?.node(),
         (None, None, Some(name)) if plan::check_name(name).is_ok() && !stack.contains(name) => {
             let inner = project::read(&root.join("graphs").join(format!("{name}.toml")), |g: &GraphFile| g.format).ok()?;
             let end = match input {

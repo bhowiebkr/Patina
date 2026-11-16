@@ -3,8 +3,8 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::path::Path;
+use std::process::Command;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::time::Instant;
@@ -14,47 +14,8 @@ use patina_engine::{Control, Lanes, Mode, Project, Toolchain};
 mod nodes;
 use nodes::{HOLD, KIND, METER, MIX, SPEAKER, TICK, TONE};
 
-/// Copies a project into the temporary folder of the tests and sets the Rust version of the
-/// toolchain. The `build/` folder stays, so a second test run builds only the changes.
-fn copy(from: &Path, name: &str) -> PathBuf {
-    let to = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
-    for entry in fs::read_dir(&to).into_iter().flatten().map(Result::unwrap) {
-        if entry.file_name() != "build" {
-            let path = entry.path();
-            if path.is_dir() { fs::remove_dir_all(path) } else { fs::remove_file(path) }.unwrap();
-        }
-    }
-    copy_dir(from, &to);
-    let release = Toolchain::detect().unwrap().release;
-    let file = to.join("patina.toml");
-    let text = fs::read_to_string(&file).unwrap();
-    let text: Vec<String> =
-        text.lines().map(|l| if l.starts_with("rust = ") { format!("rust = \"{release}\"") } else { l.to_owned() }).collect();
-    fs::write(file, text.join("
-")).unwrap();
-    to
-}
-
-fn copy_dir(from: &Path, to: &Path) {
-    fs::create_dir_all(to).unwrap();
-    for entry in fs::read_dir(from).unwrap().map(Result::unwrap) {
-        let (source, target) = (entry.path(), to.join(entry.file_name()));
-        if entry.file_name() == "build" {
-            continue;
-        } else if source.is_dir() {
-            copy_dir(&source, &target);
-        } else {
-            fs::copy(&source, &target).unwrap();
-        }
-    }
-}
-
-fn run(project: &Path, more: &[&str]) -> (Output, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("run").arg(project).arg("--edit").args(more).output().unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-    (output, stdout, stderr)
-}
+mod common;
+use common::{copy, run};
 
 thread_local! {
     static COUNTING: Cell<bool> = const { Cell::new(false) };
@@ -262,7 +223,9 @@ builtin = \"delay\"
     // the 20 ms of meter in a frame and in a `ui` call (4.3).
     let (mut frames, mut audio) = cluster.split().unwrap();
     let (stop, blocks) = (AtomicBool::new(false), AtomicU64::new(0));
-    std::thread::scope(|s| {
+    // The checks come after the scope: a failed check in it does not stop the audio thread, so
+    // the scope never ends.
+    let (frame, ui) = std::thread::scope(|s| {
         s.spawn(|| {
             let control = Control::default();
             while !stop.load(Relaxed) {
@@ -270,17 +233,20 @@ builtin = \"delay\"
                 blocks.fetch_add(1, Relaxed);
             }
         });
-        let before = blocks.load(Relaxed);
-        let start = Instant::now();
+        let (before, start) = (blocks.load(Relaxed), Instant::now());
         let out = frames.frame(&control);
-        assert!(out.ok && out.skipped.is_empty() && start.elapsed().as_millis() >= 20);
-        assert!(blocks.load(Relaxed) > before, "no block ran during the frame");
+        let frame = (out.ok && out.skipped.is_empty(), start.elapsed(), blocks.load(Relaxed) - before);
         let (before, start) = (blocks.load(Relaxed), Instant::now());
         let (tree, out) = frames.ui("00000000000000a2", 0, "");
-        assert!(out.ok && tree.is_some_and(|t| t.contains("Meter")) && start.elapsed().as_millis() >= 20);
-        assert!(blocks.load(Relaxed) > before, "no block ran during the ui");
+        let ui = (out.ok && tree.is_some_and(|t| t.contains("Meter")), start.elapsed(), blocks.load(Relaxed) - before);
         stop.store(true, Relaxed);
+        (frame, ui)
     });
+    for (what, (ok, time, ran)) in [("frame", frame), ("ui", ui)] {
+        // The meter sleeps 20 ms. On Windows, a sleep can end a little early on the clock of `Instant`.
+        assert!(ok && time.as_millis() >= 15, "{what}: ok {ok}, {time:?}");
+        assert!(ran > 0, "no block ran during the {what}");
+    }
 }
 
 #[test]

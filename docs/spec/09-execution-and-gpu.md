@@ -29,18 +29,19 @@ Each node runs in one clock domain. The domain decides when the node runs.
 
 **Domain decisions of milestone 4.** These are agent decisions of 2026-11-15. The owner can change them.
 
-- A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. Milestone 11 adds `#[node(domain = audio)]` (9.3). Event gives an error until milestone 12.
+- A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. Milestone 11 adds `#[node(domain = audio)]` (9.3). Milestone 12 adds `#[node(domain = event)]` (9.4).
 - The `domain` key of a node in the graph file (6.4) is the domain that the user selects. A node that declares a domain cannot have another domain in the graph file.
 - A node with no declared and no selected domain takes the domain that all its data wires and order wires can reach. A batch and a frame input thus give the frame domain. A frame and an audio input give the audio domain. A node with no wires in is in the batch domain.
 - A node with inputs that reach no common domain and no selected domain is a graph error: "select its domain". The editor shows it as an error, not a warning, until it can show warnings.
 - A task (9.2) holds steps of one domain. A value never goes from one domain to another inside a task.
 - The batch domain runs one time, when the user clicks **Run**. Then the frame domain runs at each tick of a 60 FPS clock until the user clicks **Stop**. A frame that is late starts at once, and the clock skips the ticks that it missed. Frames never queue.
 - A run of the frame domain stops at the first frame in which a node fails.
-- `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process. `--edit` builds in edit mode (8.3). `--blocks <count>` gives the number of audio blocks (9.3). A domain without a count runs until each domain with a count is done. Without counts, the run continues until the user stops the process.
+- `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process. `--edit` builds in edit mode (8.3). `--blocks <count>` gives the number of audio blocks (9.3). `--events <count>` gives the number of event runs (9.4). A domain without a count runs until each domain with a count is done. Without counts, the run continues until the user stops the process.
 - In the editor, **Pause**, **Stop**, a failed frame or block and a change that runs the graph again end the frame run. **Step** runs one frame of the paused graph (15.2). A change runs the batch domain again, and then the frames start again. The status bar shows the number of the frame, and the values and run times of the frame nodes change at each frame.
 - A change runs all the nodes of the batch domain again. The engine runs only the newest change: the changes that come during a run go into one next run. A parameter field and a slider apply their value when the user ends the edit: at Enter, at a focus change, or at the release of the slider. Thus a drag runs a node that writes a file or sends to the network one time, not at each step of the drag. A cache that runs only the changed nodes and the nodes after them can come later. This is the agent decision of 2026-11-15 for question 11 (18). The owner can change it.
 - A wire from the batch domain to the frame domain is a latest-value wire. At each frame, the frame node reads the value of the last batch run. The value stays until its node runs again in the next batch run.
 - A wire from the frame or the audio domain to the batch domain is a graph error, because the batch domain runs before the frames and the audio. Wires between the frame and the audio domain go in the two directions.
+- A wire from the batch domain to the event domain is a latest-value wire. In version 1, a wire from the frame or the audio domain to the event domain, and a wire out of the event domain, are graph errors. In the editor, a change ends the event runs before the batch domain runs again, so the batch domain and the event runs never run at the same time. Agent decision of 2026-11-16, the owner can change it.
 - In milestone 4, the batch and the frame domain never run at the same time. Thus the latest value is in a shared slot with a lock that never waits. The buffer that does not lock comes with the audio domain (milestone 11).
 
 ### 9.2 Automatic parallelism
@@ -133,6 +134,17 @@ pub fn gain(
 - A stateful node has one state. When runs overlap, they take turns at a stateful node: one run at a time calls it, in the order that the runs reach it. The other nodes of the runs still run at the same time.
 - A code swap does not stop active runs. Each run finishes with the builds that it started with. New runs use the new builds. The old state of an edited node drops after the last old run ends.
 - Later: retry rules and a run history.
+
+**Event decisions of milestone 12.** These are agent decisions of 2026-11-16. The owner can change them.
+
+- The triggers are built-in nodes, as `delay` (9.2). The graph file gives the name in the `builtin` key. `schedule` fires at each `every_ms` milliseconds, 1000 when the input has no value. Its output is the run ID. `trigger` fires when the user clicks its button in the editor, or when a view fires it. Its output is the text that the click or the view gives. `file_change` and `webhook` come in step 2 of milestone 12.
+- The settings of a trigger are inputs with a parameter field, for example `every_ms` and `overlap`. A wire into a trigger input is a graph error, so a trigger has no data inputs.
+- The `overlap` input of a trigger selects what a fire does while a run of the same trigger is active: `queue` (the default) waits until the active run ends, `both` starts the new run at once, and `skip` drops the new run. A trigger keeps at most 16 waiting or active runs. A fire when it has 16 is a node error of the trigger.
+- Each event node gets its runs from exactly one trigger, through data wires and order wires. An event node that no trigger reaches is a graph error, and an event node that two triggers reach is a graph error too. An async node with no inputs gets an order wire from its trigger.
+- Each run has its own thread. The run ID counts from 1 at each start of the event domain. A report and a log line of an event node show the run ID.
+- An async node runs on a `tokio` runtime with two worker threads. In version 1, the thread of its run waits for it, so a wait blocks no worker thread of the pool. **Stop** asks each active run to stop. An async node that waits then drops its future in 20 ms or less.
+- `patina-cli run <folder> --events <count>` ends after the given number of event runs. The CLI fires each `trigger` node one time at the start, with an empty payload.
+- In version 1 of the CLI, the event runs come after the batch run and before the frames and the audio blocks. Without `--events`, they continue until no trigger can fire again, or until the user stops the process. Each log line and report of a run starts with **Run <ID>:**.
 
 ## 10. GPU
 

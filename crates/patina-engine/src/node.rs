@@ -44,17 +44,21 @@ pub enum Domain {
     Batch,
     Frame,
     Audio,
+    Event,
 }
 
 impl Domain {
+    /// All domains, in the order of their index.
+    pub const ALL: [Domain; 4] = [Domain::Batch, Domain::Frame, Domain::Audio, Domain::Event];
+
     /// Reads a domain name, as `#[node(domain = ...)]` and the graph file write it.
     pub fn parse(name: &str) -> Result<Domain, String> {
         match name {
             "batch" => Ok(Domain::Batch),
             "frame" => Ok(Domain::Frame),
             "audio" => Ok(Domain::Audio),
-            "event" => Err("the event domain comes at milestone 12".to_owned()),
-            _ => Err(format!("{name:?} is not a domain. Use batch, frame or audio")),
+            "event" => Ok(Domain::Event),
+            _ => Err(format!("{name:?} is not a domain. Use batch, frame, audio or event")),
         }
     }
 
@@ -63,6 +67,7 @@ impl Domain {
             Domain::Batch => "batch",
             Domain::Frame => "frame",
             Domain::Audio => "audio",
+            Domain::Event => "event",
         }
     }
 }
@@ -82,8 +87,10 @@ pub struct Node {
     pub fallible: bool,
     /// The value type of each output pin, in the order of `output_keys`.
     pub output_types: Vec<String>,
-    /// The domain of `#[node(domain = ...)]`.
+    /// The domain of `#[node(domain = ...)]`. An async node is in the event domain (4.6).
     pub domain: Option<Domain>,
+    /// `pub async fn`: the node returns a future, and the event domain waits for it (4.6).
+    pub is_async: bool,
     /// The state struct has `pub fn ui(&mut self, ui: &mut Ui)` (4.3).
     pub ui: bool,
     /// `#[node(full_gui)]`: the GUI has a full size (4.3).
@@ -138,6 +145,11 @@ pub fn parse(source: &str) -> Result<Node, String> {
         _ => return Err("put #[node] on a function (spec 4.1) or a struct (spec 4.2)".to_owned()),
     };
     plain(sig, state.is_none())?;
+    let is_async = sig.asyncness.is_some();
+    if is_async && domain.is_some_and(|d| d != Domain::Event) {
+        return Err("an async node is in the event domain (spec 4.6)".to_owned());
+    }
+    let domain = if is_async { Some(Domain::Event) } else { domain };
     if sig.inputs.len() > MAX_ARGS {
         return Err(format!("a node function takes at most {MAX_ARGS} arguments, with `&mut self` (spec 4.1)"));
     }
@@ -186,7 +198,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
     if full && !ui {
         return Err("a node with `full_gui` needs `pub fn ui(&mut self, ui: &mut Ui)` (spec 4.3)".to_owned());
     }
-    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, ui, full, color })
+    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, is_async, ui, full, color })
 }
 
 /// The most arguments of a node call: the cluster calls nodes through tuples (generate.rs).
@@ -194,12 +206,53 @@ const MAX_ARGS: usize = 16;
 
 const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
 
-/// The built-in delay node (9.2). Its output is the value of its input in the previous frame.
-pub fn delay() -> Node {
-    let t = "T".to_owned();
-    let input = Input { key: "value".to_owned(), pass: Pass::Take, is_str: false, ty: t.clone(), value: t.clone() };
-    let (generics, output_types) = (vec![t.clone()], vec![t]);
-    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame), ui: false, full: false, color: None }
+/// A node that Patina builds in (9.2, 9.4). The `builtin` key of a graph file names it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Builtin {
+    /// Its output is the value of its input in the previous frame (9.2).
+    Delay,
+    /// Starts an event run at each period. Its output is the run ID (9.4).
+    Schedule,
+    /// Starts an event run when the editor or a view fires it. Its output is the text (9.4).
+    Trigger,
+}
+
+impl Builtin {
+    pub const ALL: [Builtin; 3] = [Builtin::Delay, Builtin::Schedule, Builtin::Trigger];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Builtin::Delay => "delay",
+            Builtin::Schedule => "schedule",
+            Builtin::Trigger => "trigger",
+        }
+    }
+
+    pub fn parse(name: &str) -> Option<Builtin> {
+        Builtin::ALL.into_iter().find(|b| b.name() == name)
+    }
+
+    /// True for a node that starts event runs (9.4).
+    pub fn fires(self) -> bool {
+        self != Builtin::Delay
+    }
+
+    /// The pins of the node. The inputs of a trigger are its settings (9.4).
+    pub fn node(self) -> Node {
+        let input = |key: &str, ty: &str| {
+            let (is_str, value) = (ty == "&str", ty.trim_start_matches('&').to_owned());
+            let pass = if is_str { Pass::Ref } else { Pass::Take };
+            Input { key: key.to_owned(), pass, is_str, ty: ty.to_owned(), value }
+        };
+        let (inputs, out, domain) = match self {
+            Builtin::Delay => (vec![input("value", "T")], "T", Domain::Frame),
+            Builtin::Schedule => (vec![input("every_ms", "u64"), input("overlap", "&str")], "u64", Domain::Event),
+            Builtin::Trigger => (vec![input("overlap", "&str")], "String", Domain::Event),
+        };
+        let generics = if self == Builtin::Delay { vec!["T".to_owned()] } else { Vec::new() };
+        let output_types = vec![out.to_owned()];
+        Node { func: self.name().to_owned(), state: None, generics, inputs, output: Output::One, fallible: false, output_types, domain: Some(domain), is_async: false, ui: false, full: false, color: None }
+    }
 }
 
 /// The names of the type parameters. A node has no lifetime or const parameters (4.5).
@@ -213,8 +266,8 @@ fn type_params(generics: &Generics) -> Result<Vec<String>, String> {
 
 /// Checks that `sig` is a plain safe function. A method of a stateful node has no generics of its own.
 fn plain(sig: &Signature, own_generics: bool) -> Result<(), String> {
-    if sig.asyncness.is_some() {
-        return Err("async nodes come at milestone 12".to_owned());
+    if sig.asyncness.is_some() && !own_generics {
+        return Err(format!("`{}` cannot be async. Only a node function is async (spec 4.6)", sig.ident));
     }
     if !own_generics && !sig.generics.params.is_empty() {
         return Err(format!("put the type parameters of `{}` on the node struct (spec 4.5)", sig.ident));
@@ -467,10 +520,14 @@ mod tests {
         assert_eq!(node.inputs[0].ty, "std::collections::HashMap<String, [u8; 4]>");
         assert_eq!(node.output_types, ["&'static str"]);
         assert_eq!((node.domain, parse("#[node(domain = frame)] pub fn f() {}").unwrap().domain), (None, Some(Domain::Frame)));
+        let wait = parse("#[node] pub async fn f(ms: u64) -> u64 { ms }").unwrap();
+        assert_eq!((wait.is_async, wait.domain, wait.output_types.as_slice()), (true, Some(Domain::Event), ["u64".to_owned()].as_slice()));
+        assert_eq!(parse("#[node(domain = event)] pub fn f() {}").unwrap().domain, Some(Domain::Event));
 
         let fails = [
             "#[node] fn f() {}",
-            "#[node] pub async fn f() {}",
+            "#[node(domain = frame)] pub async fn f() {}",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub async fn process(&mut self) {} }",
             "#[node] pub fn f<'a>(x: &'a u8) {}",
             "#[node] pub fn f<const N: usize>() {}",
             "#[node] pub fn f(x: impl Copy) {}",
@@ -479,7 +536,7 @@ mod tests {
             "#[node] pub fn f(out1: &mut u8) {}",
             "#[node] pub fn f() {} #[node] pub fn g() {}",
             "pub fn f() {}",
-            "#[node(domain = event)] pub fn f() {}",
+            "#[node(domain = later)] pub fn f() {}",
             "#[node(speed = 1)] pub fn f() {}",
         ];
         for source in fails {

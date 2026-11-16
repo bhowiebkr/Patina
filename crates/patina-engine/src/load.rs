@@ -9,8 +9,9 @@ use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter, SlotRef};
 use serde::Serialize;
 
+use crate::events::{self, EventRun, Trigger};
 use crate::library::{Library, Sink, collect};
-use crate::node::Domain;
+use crate::node::{Builtin, Domain};
 use crate::plan::Plan;
 use crate::pool;
 use crate::project::GraphFile;
@@ -130,7 +131,7 @@ pub struct Outcome {
 /// their node states.
 pub struct Cluster {
     /// The cluster of each domain, by `Domain` index. A domain with no step has none.
-    libraries: [Option<Library>; 3],
+    libraries: [Option<Library>; 4],
     /// The slot library and the reference that the clusters call it with (7.1). The box keeps the
     /// address of the reference while the clusters keep it.
     slot: Option<(Library, Box<SlotRef>)>,
@@ -150,7 +151,7 @@ pub struct Cluster {
     /// The state key of each node, by node index (7.2). A node with no state has none.
     keys: Vec<Option<u64>>,
     /// The sum of the node run times of the last run of each domain, in ms.
-    work: [f64; 3],
+    work: [f64; 4],
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
     /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).
@@ -169,6 +170,8 @@ pub struct Cluster {
     mix: &'static Mix,
     /// The mix of the last block.
     sound: [f32; BLOCK],
+    /// The trigger nodes of the event domain and their settings (9.4).
+    triggers: Vec<Trigger>,
 }
 
 impl Cluster {
@@ -181,7 +184,7 @@ impl Cluster {
         plan: &Plan,
         keys: Vec<Option<u64>>,
     ) -> Result<Cluster, Error> {
-        let mut loaded: [Option<Library>; 3] = [None, None, None];
+        let mut loaded: [Option<Library>; 4] = [None, None, None, None];
         for &(domain, ref path) in libraries {
             loaded[domain as usize] = Some(Library::load(path, root, &plan.tasks, domain)?);
         }
@@ -199,7 +202,7 @@ impl Cluster {
         let mut links = Vec::new();
         for (index, (n, k)) in (0u32..).zip(generate::links(plan)) {
             let from = plan.steps[n].domain;
-            for to in [Domain::Batch, Domain::Frame, Domain::Audio].into_iter().filter(|&d| d != from && generate::reads(plan, n, k, d)) {
+            for to in Domain::ALL.into_iter().filter(|&d| d != from && generate::reads(plan, n, k, d)) {
                 links.push((from, to, index));
             }
         }
@@ -220,7 +223,7 @@ impl Cluster {
             domains: plan.steps.iter().map(|s| s.domain).collect(),
             links,
             keys,
-            work: [f64::INFINITY; 3],
+            work: [f64::INFINITY; 4],
             names,
             guis,
             has_text: vec![false; slots.len()],
@@ -230,6 +233,10 @@ impl Cluster {
             block_calls: Calls::default(),
             mix: glue::shared_in(&root.to_string_lossy(), Mix::default),
             sound: [0.0; BLOCK],
+            triggers: (0..plan.steps.len())
+                .filter(|&n| plan.is_trigger(n))
+                .map(|n| Trigger::new(n, plan.steps[n].task as u32, plan.builtin(n) == Some(Builtin::Schedule)))
+                .collect(),
         })
     }
 
@@ -293,8 +300,19 @@ impl Cluster {
             }
         }
         let mut all = Outcome { ok: true, ..Outcome::default() };
+        self.triggers.iter_mut().for_each(Trigger::reset);
         for (slot, text) in (0u32..).zip(&texts) {
             let Some(text) = text else { continue };
+            let (n, key) = &self.slots[slot as usize];
+            // The engine reads the settings of a trigger (9.4).
+            if let Some(trigger) = self.triggers.iter_mut().find(|t| t.node == *n) {
+                if let Err(text) = trigger.set(key, text) {
+                    let (id, folder) = self.names[*n].clone();
+                    all.reports.push(Report { id, folder, kind: ReportKind::BadParam, text: format!("input `{key}`: {text}") });
+                    all.ok = false;
+                }
+                continue;
+            }
             let Some(library) = self.library(self.slots[slot as usize].0) else { continue };
             let (state, set) = (library.state, library.set);
             self.calls.sink.clear();
@@ -346,6 +364,19 @@ impl Cluster {
         self.has(Domain::Audio)
     }
 
+    /// True when the graph has nodes in the event domain (9.4).
+    pub fn events(&self) -> bool {
+        self.has(Domain::Event)
+    }
+
+    /// Runs the event domain (9.4) until `count` runs ended, until no trigger can fire again, or
+    /// until `control` asks to stop. Each `trigger` node fires one time at the start with an
+    /// empty text. `done` gets each run when it ends. Returns false when a run failed.
+    pub fn run_events(&mut self, count: u64, control: &Control, done: impl FnMut(&EventRun)) -> bool {
+        let Some(library) = &self.libraries[Domain::Event as usize] else { return true };
+        events::run_all(library, &self.triggers, &self.names, &self.probes, count, control, done)
+    }
+
     fn has(&self, domain: Domain) -> bool {
         self.libraries[domain as usize].as_ref().is_some_and(|l| !l.tasks.ids.is_empty())
     }
@@ -381,8 +412,8 @@ impl Cluster {
     /// The frame part, the run of the audio domain and the samples of the last block. `audio` is
     /// false when the audio thread runs the audio domain, so the frame part refuses audio nodes.
     fn parts(&mut self, audio: bool) -> (Frames<'_>, Run<'_>, &mut [f32; BLOCK]) {
-        let [_, frame_work, audio_work] = &mut self.work;
-        let [_, frame, audio_library] = &self.libraries;
+        let [_, frame_work, audio_work, _] = &mut self.work;
+        let [_, frame, audio_library, _] = &self.libraries;
         let (names, probes) = (&self.names, &self.probes);
         // The frames use the pool only when the slot library allows it (9.2).
         let pool = self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel);
@@ -472,7 +503,7 @@ fn slot_library(path: &Path, root: &Path) -> Result<(Library, Box<SlotRef>), Err
 /// Gives each value that a cluster makes to each cluster of another domain that reads it (8.2),
 /// and gives each cluster the slot library. False when a cluster has no such link. Each new
 /// state needs its links again.
-fn link(libraries: &[Option<Library>; 3], links: &[(Domain, Domain, u32)], slot: Option<&SlotRef>, sink: &mut Sink) -> bool {
+fn link(libraries: &[Option<Library>; 4], links: &[(Domain, Domain, u32)], slot: Option<&SlotRef>, sink: &mut Sink) -> bool {
     let rep = Reporter { ctx: std::ptr::from_mut(sink).cast(), report: collect, control: std::ptr::null() };
     let slotted = slot.is_none_or(|slot| {
         // SAFETY: the state is live, no run is active, and the reporter is valid during the call.
