@@ -18,6 +18,7 @@ Patina is a development tool, so users often run nodes that fail. A node that fa
 - Views and node GUIs send text, so they cross the process boundary with no change. A native viewport (15.8) needs a shared GPU texture between the two processes, or the copy path.
 - The node process sends the same events as before, so the cost is one copy of each event into JSON and through a pipe.
 - The node process also gives the new standard input and output to the C runtime. So `printf` of C code in a node shows in **Output**, and C code cannot read or write the message pipes. The editor shows each line that is not a message in **Output**.
+- The editor sends the output to the **Output** tab at most each 100 ms. When more than 256 KB of output waits, the editor skips the oldest lines and shows how many lines it skipped. So a node that prints without a pause does not stop the window, and **Stop** works. (Agent decision, 2026-11-16. The owner can change it.)
 
 ### 16.2 WASM sandbox
 

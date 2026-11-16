@@ -3,10 +3,90 @@
 
 use std::fs::File;
 use std::io::{self, Read};
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::time::Duration;
+
+use crate::engine::lock;
 
 /// The size of the read buffer. A longer line goes to the tab in parts.
 const BUFFER: usize = 64 * 1024;
+/// The most text that waits for the tab. The tab keeps only the newest 5000 lines.
+const MAX_WAIT: usize = 256 * 1024;
+/// The shortest time between two sends to the tab.
+const PERIOD: Duration = Duration::from_millis(100);
+
+/// Sends text to the **Output** tab at most each 100 ms, so a node that prints without a pause
+/// does not stop the window (16.1). When too much text waits, the oldest lines are skipped.
+#[derive(Clone)]
+pub struct Tab(Arc<(Mutex<Waiting>, Condvar)>);
+
+#[derive(Default)]
+struct Waiting {
+    /// The blocks of text in order, with true for the standard error.
+    blocks: Vec<(bool, String)>,
+    len: usize,
+    skipped: usize,
+}
+
+impl Tab {
+    /// Starts the thread that calls `send` with each block of text, and true for standard error.
+    pub fn start(send: impl Fn(String, bool) + Send + 'static) -> io::Result<Tab> {
+        let tab = Tab(Arc::default());
+        let shared = tab.0.clone();
+        std::thread::Builder::new().name("patina-output".to_owned()).spawn(move || {
+            let (waiting, ready) = &*shared;
+            loop {
+                let next = std::mem::take(&mut *ready.wait_while(lock(waiting), |w| w.blocks.is_empty()).unwrap_or_else(PoisonError::into_inner));
+                if next.skipped > 0 {
+                    send(format!("Patina skipped {} lines of output, because the nodes printed them too fast.\n", next.skipped), true);
+                }
+                for (err, text) in next.blocks {
+                    send(text, err);
+                }
+                std::thread::sleep(PERIOD);
+            }
+        })?;
+        Ok(tab)
+    }
+
+    /// Adds text for the tab, with true for standard error.
+    pub fn push(&self, text: String, err: bool) {
+        let (waiting, ready) = &*self.0;
+        lock(waiting).push(text, err);
+        ready.notify_one();
+    }
+}
+
+impl Waiting {
+    fn push(&mut self, text: String, err: bool) {
+        self.len += text.len();
+        match self.blocks.last_mut() {
+            Some((e, block)) if *e == err => block.push_str(&text),
+            _ => self.blocks.push((err, text)),
+        }
+        if self.len > MAX_WAIT {
+            self.cut(self.len - MAX_WAIT / 2);
+        }
+    }
+
+    /// Removes at least `over` bytes of the oldest text, up to the end of a line.
+    fn cut(&mut self, mut over: usize) {
+        for (_, block) in &mut self.blocks {
+            let end = match block.as_bytes().get(over..).and_then(|rest| rest.iter().position(|&b| b == b'\n')) {
+                Some(i) => over + i + 1,
+                None => block.len(),
+            };
+            self.skipped += block[..end].matches('\n').count();
+            self.len -= end;
+            over = over.saturating_sub(end);
+            block.drain(..end);
+            if over == 0 {
+                break;
+            }
+        }
+        self.blocks.retain(|(_, block)| !block.is_empty());
+    }
+}
 
 /// Sends the `streams` into pipes, and starts a thread for each pipe: false for the standard
 /// output, true for the standard error. `send` gets the text of complete lines, and true for
@@ -137,6 +217,30 @@ mod tests {
         let mut sent = Vec::new();
         read_lines(&b"end"[..], |text| sent.push(text));
         assert_eq!(sent, ["end"], "the text after the last end of line goes out at the end");
+    }
+
+    #[test]
+    fn too_much_waiting_text_skips_the_oldest_lines() {
+        let mut waiting = Waiting::default();
+        waiting.push("first\n".to_owned(), true);
+        let line = "a line of output\n";
+        let count = MAX_WAIT / line.len() + 1;
+        for _ in 0..count {
+            waiting.push(line.to_owned(), false);
+        }
+        waiting.push("last\n".to_owned(), true);
+        let kept: usize = waiting.blocks.iter().map(|(_, block)| block.len()).sum();
+        assert!(waiting.len == kept && kept <= MAX_WAIT && kept >= MAX_WAIT / 2 - line.len(), "{kept}");
+        assert_eq!(waiting.skipped + kept / line.len(), count + 1, "each line is kept or counted");
+        assert!(matches!(&waiting.blocks[..], [(false, out), (true, last)] if out.starts_with(line) && last == "last\n"));
+
+        let (sent, got) = std::sync::mpsc::channel();
+        let tab = Tab::start(move |text, err| {
+            let _ = sent.send((text, err));
+        })
+        .unwrap();
+        tab.push("x\n".to_owned(), true);
+        assert_eq!(got.recv_timeout(Duration::from_secs(5)).unwrap(), ("x\n".to_owned(), true));
     }
 
     /// C code reads and writes the redirected streams, not the message pipes (16.1). The test runs

@@ -1,8 +1,9 @@
 // The isolation steps of the self-check (16.1): a node that crashes ends only the node process, and
-// a node that does not stop ends at the second Stop. The next run starts a new node process.
+// a node that does not stop ends at the second Stop. The next run starts a new node process. A node
+// that prints without a pause does not stop the window.
 
-import { api, type EngineEvent, type View } from './api';
-import { A, BUILD_MS, RUN_MS } from './check-fixtures';
+import { api, onOutput, type EngineEvent, type View } from './api';
+import { A, B, BUILD_MS, RUN_MS } from './check-fixtures';
 
 type Lost = Extract<EngineEvent, { state: 'lost' }>;
 
@@ -49,14 +50,18 @@ export async function checkIsolation({ step, until, mark, result, events, steps 
   }
   steps.push('a crash ends only the node process');
 
+  const runningA = async () => {
+    const waitEnd = Date.now() + RUN_MS;
+    while ((await api.running()) !== A) {
+      if (Date.now() > waitEnd) throw new Error(`no run of node ${A} after ${RUN_MS} ms`);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
+
   // The value 77 loops and does not read the stop request.
   from = mark();
   v = await step('a node that does not stop', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '77' }));
-  const waitEnd = Date.now() + RUN_MS;
-  while ((await api.running()) !== A) {
-    if (Date.now() > waitEnd) throw new Error(`no run of node ${A} after ${RUN_MS} ms`);
-    await new Promise((r) => setTimeout(r, 20));
-  }
+  await runningA();
   await until('the Stop button', RUN_MS, () => topButton('Stop')?.disabled === false);
   topButton('Stop')!.click();
   await until('the node that does not stop in the status bar', RUN_MS, () => statusText().includes(`Node ${A} does not stop`));
@@ -71,5 +76,41 @@ export async function checkIsolation({ step, until, mark, result, events, steps 
   v = await step('run in a new node process', () => api.run());
   await result(v, from, '2.5', BUILD_MS);
   steps.push('the second Stop ends the node process');
+
+  // The value 88 prints without a pause until Stop. The window must still answer, and Stop works.
+  from = mark();
+  v = await step('a node that floods the output', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '88' }));
+  await runningA();
+  let blocks = 0;
+  let skipped = false;
+  const stopCount = await onOutput((o) => {
+    blocks += 1;
+    skipped ||= o.text.startsWith('Patina skipped ');
+  });
+  let slowest = 0;
+  let running: string | null = null;
+  const floodEnd = Date.now() + 2000;
+  while (Date.now() < floodEnd) {
+    const t = Date.now();
+    running = await api.running();
+    slowest = Math.max(slowest, Date.now() - t);
+  }
+  stopCount();
+  if (running !== A || slowest > 1000 || !skipped || blocks > 100) {
+    throw new Error(`the flood: node ${running} runs, the slowest ask took ${slowest} ms, skip note ${skipped}, ${blocks} blocks`);
+  }
+  await until('the Stop button', RUN_MS, () => topButton('Stop')?.disabled === false);
+  topButton('Stop')!.click();
+  let ended: Extract<EngineEvent, { state: 'ran' }> | undefined;
+  await until('the end of the flood', RUN_MS, () => {
+    ended = events.slice(from).find((e): e is Extract<EngineEvent, { state: 'ran' }> => e.serial === v.serial && e.state === 'ran');
+    return ended !== undefined;
+  });
+  if (!ended!.ok || ended!.stopped.join() !== B) throw new Error(`Stop did not end the flood: ${JSON.stringify(ended)}`);
+  steps.push('the window answers during a flood of output');
+  v = await step('undo the flood', () => api.undo());
+  from = mark();
+  v = await step('run after the flood', () => api.run());
+  await result(v, from, '2.5', BUILD_MS);
   return v;
 }

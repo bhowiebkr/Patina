@@ -19,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use tauri::{AppHandle, Emitter};
 
-use crate::OutputText;
 use crate::engine::{Event, Job, lock};
 use crate::output;
 
@@ -125,6 +124,8 @@ pub struct Host(Arc<Inner>);
 
 struct Inner {
     app: AppHandle,
+    /// The **Output** tab. All output goes through it in order.
+    tab: output::Tab,
     toolchain: PathBuf,
     state: Mutex<State>,
     next: AtomicU64,
@@ -150,8 +151,8 @@ struct Proc {
 type Pending = Arc<Mutex<Option<HashMap<u64, Sender<Reply>>>>>;
 
 impl Host {
-    pub fn new(app: AppHandle, toolchain: PathBuf) -> Host {
-        Host(Arc::new(Inner { app, toolchain, state: Mutex::default(), next: AtomicU64::new(1) }))
+    pub fn new(app: AppHandle, toolchain: PathBuf, tab: output::Tab) -> Host {
+        Host(Arc::new(Inner { app, tab, toolchain, state: Mutex::default(), next: AtomicU64::new(1) }))
     }
 
     /// Sends a job when the node process runs. Without the process, no job has work to do.
@@ -175,7 +176,7 @@ impl Host {
         lock(&self.0.state).serial = serial;
         let parts = checked.into_parts();
         if let Err(e) = self.write(true, false, |_| ToNode::Run(Box::new(RunParts { serial, parts, build, slot }))) {
-            fail(&self.0.app, serial, &e, "");
+            fail(&self.0, serial, &e, "");
         }
     }
 
@@ -216,7 +217,7 @@ impl Host {
             eprintln!("patina: the node process does not end: {e}");
         }
         let text = format!("Patina ended the node process, because node `{node}` did not stop. The node states are lost.");
-        fail(&self.0.app, serial, &text, "");
+        fail(&self.0, serial, &text, "");
     }
 
     /// Writes a message to the node process. With `spawn`, it starts the process first when it
@@ -263,17 +264,17 @@ impl Host {
         let killed = Arc::new(AtomicBool::new(false));
         let tail = Arc::new(Mutex::new(String::new()));
         let errors = {
-            let (app, tail) = (self.0.app.clone(), tail.clone());
+            let (tab, tail) = (self.0.tab.clone(), tail.clone());
             std::thread::Builder::new().name("patina-node-stderr".to_owned()).spawn(move || {
                 output::read_lines(stderr, |text| {
                     keep_tail(&mut lock(&tail), &text);
-                    let _ = app.emit("output", OutputText { text, err: true });
+                    tab.push(text, true);
                 })
             })?
         };
         let (inner, read_pending, read_killed, read_child) = (self.0.clone(), pending.clone(), killed.clone(), child.clone());
         std::thread::Builder::new().name("patina-node-stdout".to_owned()).spawn(move || {
-            read_messages(&inner.app, stdout, &read_pending);
+            read_messages(&inner, stdout, &read_pending);
             for (_, reply) in lock(&read_pending).take().into_iter().flatten() {
                 let _ = reply.send(Err(STOPPED.to_owned()));
             }
@@ -285,7 +286,7 @@ impl Host {
             let status = lock(&read_child).wait();
             if !read_killed.load(Ordering::SeqCst) {
                 let serial = lock(&inner.state).serial;
-                fail(&inner.app, serial, &exit_text(status), &lock(&tail));
+                fail(&inner, serial, &exit_text(status), &lock(&tail));
             }
         })?;
         Ok(Proc { stdin, child, pending, killed })
@@ -300,7 +301,7 @@ pub fn wait<T: DeserializeOwned + Default>(answer: Option<Receiver<Reply>>) -> R
 }
 
 /// Reads the messages of the node process until its standard output ends.
-fn read_messages(app: &AppHandle, stdout: ChildStdout, pending: &Pending) {
+fn read_messages(inner: &Inner, stdout: ChildStdout, pending: &Pending) {
     let mut reader = BufReader::new(stdout);
     let mut line = Vec::new();
     loop {
@@ -311,33 +312,29 @@ fn read_messages(app: &AppHandle, stdout: ChildStdout, pending: &Pending) {
         let text = String::from_utf8_lossy(&line);
         match serde_json::from_str::<FromNode<Box<RawValue>, Box<RawValue>>>(&text) {
             Ok(FromNode::Event(event)) => {
-                let _ = app.emit("engine", event);
+                let _ = inner.app.emit("engine", event);
             }
-            Ok(FromNode::Output(text)) => {
-                let _ = app.emit("output", OutputText { text, err: false });
-            }
+            Ok(FromNode::Output(text)) => inner.tab.push(text, false),
             Ok(FromNode::Reply { id, result }) => {
                 let reply = lock(pending).as_mut().and_then(|pending| pending.remove(&id));
                 if let Some(reply) = reply {
                     let _ = reply.send(result);
                 }
             }
-            Err(_) => {
-                let _ = app.emit("output", OutputText { text: text.into_owned(), err: false });
-            }
+            Err(_) => inner.tab.push(text.into_owned(), false),
         }
     }
 }
 
 /// Shows a failure of the node process in the **Output** tab, and on the run with the last error
 /// text `tail`.
-fn fail(app: &AppHandle, serial: u64, text: &str, tail: &str) {
-    let _ = app.emit("output", OutputText { text: format!("{text}\n"), err: true });
+fn fail(inner: &Inner, serial: u64, text: &str, tail: &str) {
+    inner.tab.push(format!("{text}\n"), true);
     let text = match tail.trim_end() {
         "" => text.to_owned(),
         tail => format!("{text}\n{tail}"),
     };
-    let _ = app.emit("engine", Event::Lost { serial, text });
+    let _ = inner.app.emit("engine", Event::Lost { serial, text });
 }
 
 fn exit_text(status: std::io::Result<ExitStatus>) -> String {

@@ -169,7 +169,8 @@ fn broken() -> u32 {
     steps.push('the Code tab keeps the cursor');
 
     // The fixed code also panics at 13 (15.3), and waits while the value is 99 until the user
-    // clicks Stop (15.2). It crashes at 66, overflows its stack at 55 and does not stop at 77 (16.1).
+    // clicks Stop (15.2). It crashes at 66, overflows its stack at 55, does not stop at 77 and
+    // prints without a pause at 88 until Stop (16.1).
     const stoppable = original.replace(/    value\r?\n\}/, `    assert!(value != 13.0, "the check panics at 13");
     if value == 66.0 {
         unsafe { (8usize as *mut u8).write_volatile(1) }
@@ -183,6 +184,9 @@ fn broken() -> u32 {
     }
     while value == 77.0 {
         std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    while value == 88.0 && !patina_sdk::stop_requested() {
+        println!("the check floods the output");
     }
     while value == 99.0 && !patina_sdk::stop_requested() {
         std::thread::sleep(std::time::Duration::from_millis(5));

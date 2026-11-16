@@ -33,6 +33,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   of an error or a panic to 16 KB (spec 4.3 and 4.7).
 - Patina parses node code on a thread with a 64 MB stack (spec 4.1). A node type with 200 levels
   of nesting stopped `patina-cli` before this change.
+- The editor sends the output to **Output** at most each 100 ms, and skips the oldest lines when
+  more than 256 KB waits (spec 16.1). Before this change, a node that printed without a pause
+  made the editor use more than 2 GB and stop.
 
 ### What was checked
 
@@ -42,6 +45,10 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   stack. The editor shows the exit codes `0xc0000005` and `0xc00000fd` and the node. Each undo runs
   in a new node process. A node that does not read the stop request ends at the second **Stop**,
   and the next **Run** works.
+- The hidden selfcheck on Windows: a node prints without a pause for 2 s. The window answers in
+  60 ms or less, **Output** shows the skip note, and **Stop** ends the run. The peak memory was
+  58 MB for the editor and 232 MB for the web view. Before the fix, it was 2.3 GB and 3.3 GB, and
+  the check stopped at its 180 s limit.
 - Linux and macOS did not run.
 
 ### Known limits
