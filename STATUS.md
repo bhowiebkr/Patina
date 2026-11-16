@@ -691,7 +691,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   two runs, with the user input as events, and gives the widget lines. The `Ui` has the basic
   widgets (a label, a button, a toggle, a slider, a number field with an optional unit and step
   buttons, a text field, a dropdown, tabs and a section that opens and closes)
-  and the value widgets (a color picker, a plot, a waveform, a table, a curve and an image).
+  and the value widgets (a color picker, a plot, a waveform with optional trim handles, a table,
+  a curve and an image).
   After the events, `ui` runs one more time, so the widget lines show the new state. A panic in `ui` drops the state, as in `process`.
 - A graph can have a feedback loop in the frame domain through a delay node
   (`builtin = "delay"`). The delay gives the value of its input in the previous frame, and
@@ -730,6 +731,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - The `Ui` test writes the lines of a unit, tabs and two sections. The closed section kept an
   empty line for its hidden widget, so the button after it kept its index. The frontend test
   puts the widgets into their sections, ignores an extra end line and stops at 8 levels.
+- The `Ui` test sorts a trim event and keeps it from 0 to 1, and a bad trim event changes no
+  value. The frontend test reads a trim range and drops a range with the start after the end.
 - The hello test moves the **Count** slider of the tick node to 7. The widget lines after the
   event showed 7, not the old count.
 - The editor selfcheck shows the value widgets in the node body. A click on a table row
@@ -748,9 +751,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - The editor draws the node GUIs in the node body, and the large size of the selected node in
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
-  value widget, selects a table row, steps a number field, selects a tab, opens a section and
-  shows the large size in the **Inspector**. No check
-  drags a curve point or picks a color in the editor.
+  value widget, selects a table row, steps a number field, selects a tab, opens a section, moves a trim
+  handle with a key and shows the large size in the **Inspector**. No check
+  drags a curve point or a trim handle, or picks a color in the editor.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. Nobody opened a full size in the editor.

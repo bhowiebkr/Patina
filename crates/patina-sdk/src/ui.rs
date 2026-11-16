@@ -357,6 +357,19 @@ impl Ui {
     /// end).
     pub fn waveform(&mut self, text: &str, samples: &[f32], playhead: Option<f32>) {
         self.push("waveform", text);
+        self.wave(samples, playhead);
+    }
+
+    /// Shows a waveform with two handles that set `trim`: the start and the end, from 0 to 1.
+    pub fn waveform_trim(&mut self, text: &str, samples: &[f32], playhead: Option<f32>, trim: &mut [f32; 2]) -> Response {
+        let event = self.push("waveform", text).and_then(span).map(|v| *trim = v);
+        self.wave(samples, playhead);
+        let [start, end] = if trim.iter().all(|v| v.is_finite()) { sorted(*trim) } else { [0.0, 1.0] };
+        let _ = write!(self.tree, "\t{start} {end}");
+        changed(event)
+    }
+
+    fn wave(&mut self, samples: &[f32], playhead: Option<f32>) {
         self.tree.push('\t');
         if let Some(at) = playhead.filter(|v| v.is_finite()) {
             let _ = write!(self.tree, "{}", at.clamp(0.0, 1.0));
@@ -540,6 +553,18 @@ fn pointer(event: &str) -> Option<Pointer> {
     }
 }
 
+/// Reads a trim event, for example `0.1 0.9`.
+fn span(event: &str) -> Option<[f32; 2]> {
+    let (a, b) = event.split_once(' ')?;
+    let v = [a.parse::<f32>().ok()?, b.parse::<f32>().ok()?];
+    v.iter().all(|v| v.is_finite()).then(|| sorted(v))
+}
+
+fn sorted(v: [f32; 2]) -> [f32; 2] {
+    let [a, b] = v.map(|v| v.clamp(0.0, 1.0));
+    if a <= b { [a, b] } else { [b, a] }
+}
+
 fn number(event: Option<&str>) -> Option<f64> {
     event?.parse().ok().filter(|v: &f64| v.is_finite())
 }
@@ -593,6 +618,16 @@ mod tests {
         assert_eq!((gain, tab, open, shut), (-3.0, 1, true, false));
         let lines: Vec<&str> = ui.tree().lines().collect();
         assert_eq!(lines, ["number\tGain\t1.5\t0.5\td B", "tabs\tPages\t0\tMain\tMore", "section\tMore\t1", "label\tin", "end\t", "section\tShut\t0", "", "end\t", "button\tAfter"]);
+    }
+
+    #[test]
+    fn a_trim_event_sets_a_sorted_range_in_the_limits() {
+        let (mut trim, mut bad) = ([0.2_f32, 0.8], [f32::NAN, 0.5]);
+        let mut ui = Ui::new(0, "0 0.9 -1\n1 x 0.5");
+        assert!(ui.waveform_trim("Wave", &[0.5], None, &mut trim).changed());
+        assert!(!ui.waveform_trim("Bad", &[], Some(0.5), &mut bad).changed());
+        assert_eq!(trim, [0.0, 0.9]);
+        assert_eq!(ui.tree().lines().collect::<Vec<_>>(), ["waveform\tWave\t\t0.5 0.5\t0 0.9", "waveform\tBad\t0.5\t\t0 1"]);
     }
 
     #[test]

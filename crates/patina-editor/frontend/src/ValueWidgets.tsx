@@ -79,21 +79,91 @@ export function Plot({ w }: { w: Of<'plot'> }) {
   );
 }
 
-/** The columns go from -1 at the bottom to 1 at the top. A column that is not finite is silent. */
-export function Waveform({ w }: { w: Of<'waveform'> }) {
+/** The columns go from -1 at the bottom to 1 at the top. A column that is not finite is silent. A
+ * trim range has two handles: a drag moves the nearest one, and the arrow keys move the focused one. */
+export function Waveform({ w, send, disabled }: Input<'waveform'>) {
+  const [drag, setDrag] = useState<{ i: number; at: number } | null>(null);
+  const area = useRef<HTMLDivElement>(null);
   const n = w.columns.length;
   const y = (v: number) => (Number.isFinite(v) ? 1 - Math.min(Math.max(v, -1), 1) : 1);
   const top = w.columns.map(([, high], i) => `${i + 0.5} ${y(high)}`);
   const bottom = w.columns.map(([low], i) => `${i + 0.5} ${y(low)}`).reverse();
+  const moved = (i: number, at: number): [number, number] | null => {
+    if (!w.trim) return null;
+    const next: [number, number] = [...w.trim];
+    next[i] = at;
+    // A handle stops at the other handle.
+    if (next[0] > next[1]) next[i] = next[1 - i];
+    return next;
+  };
+  const trim = drag ? moved(drag.i, drag.at) : w.trim;
+  const at = (e: PointerEvent) => {
+    const r = area.current!.getBoundingClientRect();
+    return round(clamp((e.clientX - r.left) / r.width));
+  };
+  const down = (e: PointerEvent<HTMLDivElement>) => {
+    if (!w.trim || e.button !== 0) return;
+    const x = at(e);
+    const [a, b] = [Math.abs(x - w.trim[0]), Math.abs(x - w.trim[1])];
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ i: a < b || (a === b && x < w.trim[0]) ? 0 : 1, at: x });
+  };
+  const move = (e: PointerEvent<HTMLDivElement>) => {
+    if (drag && e.currentTarget.hasPointerCapture(e.pointerId)) setDrag({ i: drag.i, at: at(e) });
+  };
+  const up = () => {
+    if (trim && w.trim && (trim[0] !== w.trim[0] || trim[1] !== w.trim[1])) send(trim.join(' '));
+    setDrag(null);
+  };
+  const key = (e: KeyboardEvent<HTMLDivElement>, i: number) => {
+    const step = e.shiftKey ? 0.01 : 0.05;
+    const d = { ArrowLeft: -step, ArrowDown: -step, ArrowRight: step, ArrowUp: step }[e.key];
+    const next = d && w.trim ? moved(i, round(clamp(w.trim[i] + d))) : null;
+    if (next) {
+      own(e);
+      send(next.join(' '));
+    }
+  };
+  const wave = (
+    <svg viewBox={`0 0 ${Math.max(n, 1)} 2`} preserveAspectRatio="none" role="img" aria-label={w.text || 'Waveform'}>
+      <path className="grid" d={`M0 1H${n}`} />
+      {n > 0 && <polygon className="wave" points={[...top, ...bottom].join(' ')} />}
+      {w.playhead !== null && <path className="playhead" d={`M${w.playhead * n} 0V2`} />}
+    </svg>
+  );
+  if (!trim) {
+    return (
+      <Titled text={w.text}>
+        <div className="gui-chart">{wave}</div>
+      </Titled>
+    );
+  }
+  const name = w.text || 'Waveform';
   return (
     <Titled text={w.text}>
-      <div className="gui-chart">
-        <svg viewBox={`0 0 ${Math.max(n, 1)} 2`} preserveAspectRatio="none" role="img" aria-label={w.text || 'Waveform'}>
-          <path className="grid" d={`M0 1H${n}`} />
-          {n > 0 && <polygon className="wave" points={[...top, ...bottom].join(' ')} />}
-          {w.playhead !== null && <path className="playhead" d={`M${w.playhead * n} 0V2`} />}
-        </svg>
+      <div className="gui-chart gui-trim">
+        <div ref={area} className="trim-area" onPointerDown={disabled ? undefined : down} onPointerMove={disabled ? undefined : move} onPointerUp={disabled ? undefined : up} onPointerCancel={() => setDrag(null)}>
+          {wave}
+          <div className="trim-out" style={{ left: 0, width: `${trim[0] * 100}%` }} />
+          <div className="trim-out" style={{ left: `${trim[1] * 100}%`, right: 0 }} />
+          {trim.map((v, i) => (
+            <div
+              key={i}
+              className="trim-handle"
+              style={{ left: `${v * 100}%` }}
+              role="slider"
+              tabIndex={disabled ? -1 : 0}
+              aria-label={`${name} trim ${i ? 'end' : 'start'}`}
+              aria-valuemin={i ? trim[0] : 0}
+              aria-valuemax={i ? 1 : trim[1]}
+              aria-valuenow={v}
+              aria-disabled={disabled}
+              onKeyDown={disabled ? undefined : (e) => key(e, i)}
+            />
+          ))}
+        </div>
       </div>
+      <span className="gui-hint">{`Trim ${trim[0].toFixed(3)} to ${trim[1].toFixed(3)}`}</span>
     </Titled>
   );
 }

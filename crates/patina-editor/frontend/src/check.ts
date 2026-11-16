@@ -573,6 +573,9 @@ fn broken() -> u32 {
     await until('the selected tab', RUN_MS, () => shapeTab()?.getAttribute('aria-selected') === 'true');
     document.querySelector<HTMLButtonElement>(`${gui} .gui-section-head`)!.click();
     await until('the open section', RUN_MS, () => document.querySelector(`${gui} .gui-section-body`)?.textContent === 'Hidden detail');
+    const trimStart = () => document.querySelector<HTMLElement>(`${gui} [aria-label="Waveform trim start"]`);
+    trimStart()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await until('the moved trim handle', RUN_MS, () => trimStart()?.getAttribute('aria-valuenow') === '0.05');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

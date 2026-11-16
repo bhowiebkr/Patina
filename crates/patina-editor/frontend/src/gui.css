@@ -126,6 +126,62 @@ html.native-viewport .gui-viewport {
   vector-effect: non-scaling-stroke;
 }
 
+/* A trim range dims the cut parts. Each handle is a bar with a grip at the top (Sample Player). */
+.gui-trim {
+  padding: 0 6px;
+}
+
+.gui-trim .trim-area {
+  position: relative;
+  height: 100%;
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+.gui-trim .trim-out {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.gui-trim .trim-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  margin-left: -6px;
+  outline: none;
+}
+
+.gui-trim .trim-handle::before,
+.gui-trim .trim-handle::after {
+  content: '';
+  position: absolute;
+  background: var(--text);
+}
+
+.gui-trim .trim-handle::before {
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+}
+
+.gui-trim .trim-handle::after {
+  top: 3px;
+  left: 2px;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.gui-trim .trim-handle:focus-visible::before,
+.gui-trim .trim-handle:focus-visible::after {
+  background: var(--accent);
+}
+
 .gui-curve {
   height: auto;
   aspect-ratio: 5 / 3;

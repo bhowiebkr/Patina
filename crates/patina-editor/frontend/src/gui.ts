@@ -16,7 +16,7 @@ export type Widget =
   | { kind: 'viewport'; index: number; text: string; height: number }
   | { kind: 'color'; index: number; text: string; value: string }
   | { kind: 'plot'; index: number; text: string; low: number; high: number; values: number[] }
-  | { kind: 'waveform'; index: number; text: string; playhead: number | null; columns: [number, number][] }
+  | { kind: 'waveform'; index: number; text: string; playhead: number | null; columns: [number, number][]; trim: [number, number] | null }
   | { kind: 'table'; index: number; text: string; headings: string[]; rows: string[][]; selected: number | null }
   | { kind: 'curve'; index: number; text: string; points: [number, number][] }
   | { kind: 'image'; index: number; text: string; width: number; height: number; rgba: string };
@@ -71,7 +71,10 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
     const at = rest[0] ? Number(rest[0]) : null;
     const n = numbers(rest[1], MAX_VALUES);
     const columns = Array.from({ length: n.length >> 1 }, (_, i): [number, number] => [n[2 * i], n[2 * i + 1]]);
-    return at === null || (at >= 0 && at <= 1) ? { kind, index, text, playhead: at, columns } : null;
+    const [start, end] = rest[2] ? numbers(rest[2], 2) : [];
+    const trim: [number, number] | null = rest[2] ? [start, end] : null;
+    if (trim && !(start >= 0 && start <= end && end <= 1)) return null;
+    return at === null || (at >= 0 && at <= 1) ? { kind, index, text, playhead: at, columns, trim } : null;
   }
   if (kind === 'table') {
     const count = Number(rest[0]);

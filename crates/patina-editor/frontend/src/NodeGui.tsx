@@ -282,7 +282,7 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
           case 'plot':
             return <Plot key={w.index} w={w} />;
           case 'waveform':
-            return <Waveform key={w.index} w={w} />;
+            return <Waveform key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'table':
             return <Table key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'curve':

@@ -52,11 +52,12 @@ pub struct Number {
     gain: f32,
     page: usize,
     more: bool,
+    trim: [f32; 2],
 }
 
 impl Number {
     pub fn init() -> Self {
-        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false }
+        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0] }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -73,7 +74,7 @@ impl Number {
         ui.section("More", &mut self.more, |ui| ui.label("Hidden detail"));
         let wave: Vec<f32> = (0..400).map(|i| (i as f32 * 0.2).sin() * (1.0 - i as f32 / 400.0)).collect();
         ui.plot("Wave plot", &wave[..100], -1.0..=1.0);
-        ui.waveform("Waveform", &wave, Some(0.3));
+        ui.waveform_trim("Waveform", &wave, Some(0.3), &mut self.trim);
         let added = self.added.to_string();
         ui.table("Values", &["Name", "Value"], &["added", added.as_str(), "points", "3"], &mut self.row);
         ui.curve("Curve", &mut self.points);

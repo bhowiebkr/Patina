@@ -72,6 +72,8 @@ test('value widgets read their data, and a bad line keeps its index', () => {
     'curve\tBad\t0.5',
     'waveform\tBad\t2\t',
     'table\tBad\t1\tx\tA',
+    'waveform\tTrim\t\t0 0\t0.25 1',
+    'waveform\tBad trim\t\t\t0.5 0.25',
     'image\tEmpty\t0\t0\t',
   ].join('\n');
   assert.deepEqual(parseTree(tree), [
@@ -79,9 +81,10 @@ test('value widgets read their data, and a bad line keeps its index', () => {
     { kind: 'plot', index: 1, text: 'Level', low: 0, high: 2, values: [0, 1.5, NaN] },
     { kind: 'table', index: 2, text: 'Notes', headings: ['Note', 'Hz'], rows: [['A', '440'], ['C']], selected: 1 },
     { kind: 'curve', index: 3, text: 'Shape', points: [[0.5, 0.5], [1, 0]] },
-    { kind: 'waveform', index: 4, text: 'Wave', playhead: 1, columns: [[0, 0], [-0.5, 0.5], [NaN, NaN]] },
+    { kind: 'waveform', index: 4, text: 'Wave', playhead: 1, columns: [[0, 0], [-0.5, 0.5], [NaN, NaN]], trim: null },
     { kind: 'image', index: 5, text: 'Dot', width: 1, height: 1, rgba: 'AQID/w==' },
-    { kind: 'image', index: 11, text: 'Empty', width: 0, height: 0, rgba: '' },
+    { kind: 'waveform', index: 11, text: 'Trim', playhead: null, columns: [[0, 0]], trim: [0.25, 1] },
+    { kind: 'image', index: 13, text: 'Empty', width: 0, height: 0, rgba: '' },
   ]);
 });
 
