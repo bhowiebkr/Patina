@@ -16,10 +16,11 @@ at each block of samples (spec 9.3).
 
 1. Done: the audio domain without a device: `domain = audio`, `AudioBlock` from a pool, and
    latest-value wires without a lock. The CLI runs the blocks on a timer, between the frames.
-2. Audio output to the device with `cpal`, on the audio thread, and the timer when there is no
-   device.
+2. Done: audio output to the default device with `cpal`. A node plays a block with
+   `patina_sdk::audio::play`. The timer stays when there is no device.
 3. Node GUIs of audio nodes: settings, messages and display values (4.3).
-4. The milestone check: a slow `ui` of an audio node does not make a block late.
+4. The audio thread, apart from the frames. The milestone check: a slow `ui` of an audio node
+   does not make a block late.
 5. The editor runs the audio domain with the frames. **Stop** stops it.
 
 ### Checked
@@ -32,13 +33,21 @@ at each block of samples (spec 9.3).
   frames and the blocks, and the domain of a node with a frame input and the audio domain.
 - The witness block now builds with a delay before an import. A delay gets the type of its
   input at the end of the block.
+- The CLI test adds the audio node `speaker`, which plays tone. After a frame and a block, the
+  engine reads the mix with the sample of tone. Unit tests check the mix and the device queue.
+- On Windows 11, a manual run of a node that plays silence opened the default device. 1500
+  blocks took 8.009 s on the device clock (8.000 s expected). This run was silent.
+- CI does not open a device: no test graph plays in the CLI.
 
 ### Known limits
 
 - These shortcuts are open in the code:
-  - `main.rs` of `patina-cli`: a timer clock runs the audio blocks, with no audio device.
+  - `device.rs` of `patina-cli`: a fixed wait of 50 ms for the buffer of the device at the end.
 - `patina-capi` and the editor do not run audio blocks yet.
-- The thread of the frames runs the blocks, so a slow frame makes the blocks late.
+- The thread of the frames runs the blocks, so a slow frame makes the blocks late. The device
+  queue of 43 ms hides a short delay only.
+- The device must take 48 kHz f32 samples. There is no resampler.
+- Linux needs the ALSA library. The device output was not run on Linux or macOS.
 
 ## Milestone 10: views
 

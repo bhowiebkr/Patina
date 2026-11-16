@@ -272,7 +272,28 @@ builtin = \"delay\"
     lines.sort_unstable();
     assert_eq!(lines, ["13.5", "15", "19", "6.5", "7.5", "9.5"], "{stderr}");
     assert!(stderr.contains("Node 00000000000000a2: skipped"), "{stderr}");
+
+    // Speaker a4 plays tone into the mix of the project, which the engine reads after a block.
+    let folder = project.join("nodes/speaker");
+    fs::create_dir_all(folder.join("src")).unwrap();
+    fs::write(folder.join("Cargo.toml"), manifest.replace("whole", "speaker")).unwrap();
+    fs::write(folder.join("src/lib.rs"), SPEAKER).unwrap();
+    let more = node("a4", "speaker") + &wire("00000000000000a1.out", "00000000000000a4.sound");
+    fs::write(&graph, fs::read_to_string(&graph).unwrap() + &more).unwrap();
+    let opened = Project::open(&project).unwrap();
+    let mut cluster = opened.check().unwrap().build(&toolchain, Mode::Edit).unwrap();
+    cluster.set_params(opened.graph());
+    assert!(cluster.run(&control).ok && cluster.frame(&control).ok && cluster.sound().is_none());
+    assert!(cluster.block(&control).ok);
+    assert_eq!(cluster.sound().map(|s| (s[0], s[1])), Some((15.0, 0.0)));
 }
+
+/// An audio node of the test that plays its input (9.3).
+const SPEAKER: &str = "#[patina_sdk::node(domain = audio)]
+pub fn speaker(sound: &patina_sdk::AudioBlock) {
+    patina_sdk::audio::play(sound);
+}
+";
 
 #[test]
 fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {

@@ -1,9 +1,12 @@
 //! Runs a Patina project or a package from the command line (spec 3 and 14).
 
+mod device;
+
 use std::path::Path;
 use std::process::ExitCode;
 use std::time::Instant;
 
+use device::Device;
 use patina_engine::clock::{self, Clock};
 use patina_engine::project::GraphFile;
 use patina_engine::{Cluster, Control, Mode, Outcome, Project, Toolchain, package};
@@ -146,11 +149,11 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
             show(cluster.frame(&control))
         });
     }
-    // shortcut: a timer clock runs the audio blocks, with no audio device. Use the device in step 2 of milestone 11.
-    let mut clock = Clock::new(clock::BLOCK);
+    // The timer paces the blocks until a node plays. Then the audio device paces them (9.3).
+    let (mut clock, mut device, mut opened) = (Clock::new(clock::BLOCK), None::<Device>, false);
     let mut frame = 0;
     for block in 0..counts.blocks.unwrap_or(u64::MAX) {
-        if block > 0 {
+        if block > 0 && device.is_none() {
             clock.wait();
         }
         while frame < frames && frame_due(frame, block) {
@@ -162,6 +165,22 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
         if !show(cluster.block(&control)) {
             return false;
         }
+        let Some(sound) = cluster.sound() else { continue };
+        if !opened {
+            opened = true;
+            device = Device::open(clock::SAMPLE_RATE);
+            match device {
+                Some(_) => eprintln!("Playing the sound on the default audio device"),
+                None => eprintln!("warning: no audio device takes {} Hz, so the sound does not play", clock::SAMPLE_RATE),
+            }
+        }
+        if device.as_ref().is_some_and(|d| !d.play(sound)) {
+            eprintln!("warning: the audio device stopped");
+            (device, clock) = (None, Clock::new(clock::BLOCK));
+        }
+    }
+    if let Some(device) = device {
+        device.drain();
     }
     true
 }

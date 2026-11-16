@@ -577,6 +577,15 @@ pub unsafe extern "C" fn share(key: *const u8, len: usize, value: *mut c_void) -
 /// project root, so the projects of one editor process do not share.
 pub fn shared<T: Send + Sync + 'static>(make: impl FnOnce() -> T) -> &'static T {
     let (share, root) = HOST.get().map_or((share as ShareFn, ""), |(f, root)| (*f, root.as_str()));
+    shared_with(share, root, make)
+}
+
+/// The shared value of the project `root` for the engine, which gives `share` to the clusters.
+pub fn shared_in<T: Send + Sync + 'static>(root: &str, make: impl FnOnce() -> T) -> &'static T {
+    shared_with(share, root, make)
+}
+
+fn shared_with<T: Send + Sync + 'static>(share: ShareFn, root: &str, make: impl FnOnce() -> T) -> &'static T {
     let key = format!("{root} {} {} {}", std::any::type_name::<T>(), size_of::<T>(), align_of::<T>());
     // SAFETY: the key is valid during the calls, and a kept value is never freed.
     let value = unsafe {

@@ -4,6 +4,8 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 
 /// The samples in one block (9.3).
 pub const BLOCK: usize = 256;
@@ -100,6 +102,49 @@ impl fmt::Debug for AudioBlock {
     }
 }
 
+/// The sum of the blocks that the audio nodes of a project play in one block. The engine sends it
+/// to the audio device. Only the audio domain writes it, so the atomics never wait.
+#[repr(C)]
+pub struct Mix {
+    samples: [AtomicU32; BLOCK],
+    played: AtomicBool,
+}
+
+impl Default for Mix {
+    fn default() -> Mix {
+        Mix { samples: [const { AtomicU32::new(0) }; BLOCK], played: AtomicBool::new(false) }
+    }
+}
+
+impl Mix {
+    /// Adds `block` to the mix.
+    pub fn add(&self, block: &AudioBlock) {
+        for (sum, sample) in self.samples.iter().zip(block.iter()) {
+            sum.store((f32::from_bits(sum.load(Relaxed)) + sample).to_bits(), Relaxed);
+        }
+        self.played.store(true, Relaxed);
+    }
+
+    /// Moves the mix into `out` and starts a new silent mix.
+    pub fn take(&self, out: &mut [f32; BLOCK]) {
+        for (out, sum) in out.iter_mut().zip(&self.samples) {
+            *out = f32::from_bits(sum.swap(0, Relaxed));
+        }
+    }
+
+    /// True after the first block that a node played.
+    pub fn played(&self) -> bool {
+        self.played.load(Relaxed)
+    }
+}
+
+/// Sends `block` to the audio device, with the blocks of the other nodes that play. Call it from
+/// a node of the audio domain (9.3).
+pub fn play(block: &AudioBlock) {
+    static MIX: OnceLock<&'static Mix> = OnceLock::new();
+    MIX.get_or_init(|| crate::glue::shared(Mix::default)).add(block);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,5 +160,17 @@ mod tests {
         let mut copy = again.map(|s| s + 0.5);
         copy.clone_from(&again);
         assert_eq!(copy.peak(), 0.0);
+    }
+
+    #[test]
+    fn the_mix_adds_the_blocks_and_starts_again_after_a_take() {
+        let (mix, mut out) = (Mix::default(), [1.0; BLOCK]);
+        assert!(!mix.played());
+        mix.add(&AudioBlock::from_fn(|i| i as f32));
+        mix.add(&AudioBlock::from_fn(|_| 0.5));
+        mix.take(&mut out);
+        assert_eq!((out[0], out[3], mix.played()), (0.5, 3.5, true));
+        mix.take(&mut out);
+        assert_eq!(out, [0.0; BLOCK]);
     }
 }

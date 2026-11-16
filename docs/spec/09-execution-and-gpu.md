@@ -109,7 +109,11 @@ pub fn gain(
 - A wire into or out of the audio domain is a latest-value wire without a lock: a buffer of three values. The writer clones its value into the buffer, so the value type must be `Clone`. The reader never waits, allocates or drops a value on the audio thread.
 - The audio domain runs on its own thread, at the same time as the frame domain. The batch domain runs before it.
 - When the computer has no audio device, a timer gives the blocks, so the CLI and CI run audio graphs without a device.
-- Step 1 of milestone 11 has no audio thread and no device. The thread of the frames runs each block, between the frames, on a timer of 5.3 ms. A frame runs before the first block that starts at or after its time. The latest-value wires are the same as with the audio thread.
+- Step 1 of milestone 11 has no audio thread. The thread of the frames runs each block, between the frames. A frame runs before the first block that starts at or after its time. The latest-value wires are the same as with the audio thread.
+- A node sends sound to the device with `patina_sdk::audio::play(&block)`. There is no output node: any audio node can play. The blocks that the nodes play in one block add into one mix for each project. The mix is mono, and the device gets it on all channels.
+- The mix is a value that the engine and the clusters share (`glue::shared`). The engine moves it out after each block.
+- The CLI opens the default output device at the first block that a node plays. The device needs 48 kHz and f32 samples. Without such a device, the CLI shows a warning and the timer stays.
+- The timer paces the blocks until the device opens. Then the device paces them, with a queue of 8 blocks (43 ms). At the end of `--blocks`, the CLI waits until the device played the queue.
 - A cluster run starts with `patina_cluster_begin`, which fetches the newest values of the latest-value wires. A node output on such a wire publishes its value after the node runs, so a failed node publishes no value.
 
 ### 9.4 Event domain: async and trigger nodes

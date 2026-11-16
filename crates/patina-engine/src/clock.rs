@@ -2,6 +2,8 @@
 
 use std::time::{Duration, Instant};
 
+pub use patina_sdk::audio::SAMPLE_RATE;
+
 /// The frame period at 60 FPS.
 pub const FRAME: Duration = Duration::from_nanos(16_666_667);
 

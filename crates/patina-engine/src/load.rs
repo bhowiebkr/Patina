@@ -6,6 +6,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering::Relaxed;
 
+use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter, SlotRef};
 use serde::Serialize;
 
@@ -164,6 +165,10 @@ pub struct Cluster {
     sink: Sink,
     /// The outcome of the last call. A frame fills it again, so it does not allocate (9.1).
     out: Outcome,
+    /// The mix that the audio nodes of the project play into (9.3).
+    mix: &'static Mix,
+    /// The mix of the last block.
+    sound: [f32; BLOCK],
 }
 
 impl Cluster {
@@ -223,6 +228,8 @@ impl Cluster {
             probes,
             sink,
             out: Outcome::default(),
+            mix: glue::shared_in(&root.to_string_lossy(), Mix::default),
+            sound: [0.0; BLOCK],
         })
     }
 
@@ -320,7 +327,13 @@ impl Cluster {
     /// samples (9.3).
     pub fn block(&mut self, control: &Control) -> &Outcome {
         self.run_domain(Domain::Audio, control);
+        self.mix.take(&mut self.sound);
         &self.out
+    }
+
+    /// The samples that the nodes played in the last block, or `None` before the first node played.
+    pub fn sound(&self) -> Option<&[f32; BLOCK]> {
+        self.mix.played().then_some(&self.sound)
     }
 
     /// True when the graph has nodes in the frame domain.

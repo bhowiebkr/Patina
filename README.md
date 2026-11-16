@@ -321,7 +321,8 @@ The run stops at the first frame in which a node fails.
 
 A graph with audio nodes also runs blocks of 256 audio samples, 187.5 blocks each second. The
 frames run between the blocks. To run a number of blocks and then stop, add `--blocks <count>`.
-The audio does not go to a device yet.
+When a node plays sound, the CLI opens the default audio device. The device then sets the pace
+of the blocks. A node plays a block with `patina_sdk::audio::play(&block)`.
 
 ## Make a package
 

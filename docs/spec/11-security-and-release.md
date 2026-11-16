@@ -120,6 +120,7 @@ Installed edition:
 | Windows | WebView2 Runtime | Tauri draws the editor with it. Windows 11 includes it, and most Windows 10 computers get it with Microsoft Edge. It can still be missing, so Patina checks for it (13.1). |
 | Windows | Code signing certificate (for the release) | Signing of the `.msi` and the executable. Without it, SmartScreen shows a warning. |
 | Linux | WebKitGTK | Tauri uses the system web engine. Most desktop distributions include it. |
+| Linux | ALSA library (`libasound2`) | Patina plays the audio domain through ALSA (9.3). Most desktop distributions include it. A build from source needs `libasound2-dev`. |
 | macOS | Xcode Command Line Tools, possibly | Apple frameworks. Test if Zig removes this need. Patina starts the install with `xcode-select --install`. |
 | macOS | Apple Developer account (optional, only for a notarized release) | Signing and notarization. The basic build has neither, so the user clicks **Open Anyway** one time (13.1). |
 | macOS | `com.apple.security.cs.disable-library-validation` entitlement (only for a notarized release) | Notarization needs the hardened runtime. The hardened runtime loads only libraries that Apple or the same team signed. Patina loads clusters that it compiles on the computer of the user (8.5). The basic build has no hardened runtime. Each cluster still needs at least an ad-hoc signature on Apple silicon. |
