@@ -774,12 +774,13 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
   value widget, selects a table row, steps a number field, selects a tab, opens a section, moves a trim
-  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, picks a project file in the asset picker, and shows the large size in the **Inspector**. No check
+  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, picks a project file in the asset picker, clicks the canvas, shows the large size in the **Inspector**, and opens the full size and closes it with Esc. No check
   drags a curve point, a trim handle, a ramp stop or a layer, picks a color, or clicks
   **Browse** in the editor. The dialog of the platform needs a person.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
-  parse test and the macro test check `full_gui`. Nobody opened a full size in the editor.
+  parse test and the macro test check `full_gui`. The editor selfcheck opens the full size,
+  reads a label that the node shows only in the full mode, and closes it with Esc.
 - Each build makes a new cluster. Milestone 6 keeps the state of each node whose code did not
   change (7.2).
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
@@ -796,7 +797,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   a widget folder in `patina-cli`. No editor test makes a widget.
 - A node GUI can have a canvas with lines, rectangles, circles and text. The canvas sends the
   pointer down, the moves of a drag (one for each frame at most) and the up. A custom widget
-  implements the `Widget` trait. No test runs a canvas in the editor.
+  implements the `Widget` trait. The editor selfcheck clicks a canvas, and the node draws a dot
+  at the point. No check drags on a canvas in the editor.
 - These shortcuts are open in the code:
   - The engine draws all node GUIs after each run and frame, also the nodes out of view (4.3,
     `crates/patina-editor/src/engine.rs`). Send the visible nodes from the page when graphs get

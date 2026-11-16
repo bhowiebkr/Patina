@@ -43,7 +43,7 @@ impl Panel {
 
 export const GUI_NODE = `use patina_sdk::node;
 
-#[node]
+#[node(full_gui)]
 pub struct Number {
     added: f64,
     row: Option<usize>,
@@ -60,6 +60,7 @@ pub struct Number {
     layer: usize,
     path: String,
     source: String,
+    dot: [f32; 2],
 }
 
 impl Number {
@@ -68,7 +69,7 @@ impl Number {
             patina_sdk::Layer { name: "Edge polish".into(), color: [232, 176, 128], visible: true, amount: Some(0.35) },
             patina_sdk::Layer { name: "Verdigris".into(), color: [52, 190, 160], visible: true, amount: Some(0.62) },
             patina_sdk::Layer { name: "Copper".into(), color: [180, 100, 56], visible: true, amount: None },
-        ], layer: 1, path: "out/frame_####.png".into(), source: String::new() }
+        ], layer: 1, path: "out/frame_####.png".into(), source: String::new(), dot: [20.0, 24.0] }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -89,6 +90,14 @@ impl Number {
         ui.layer_stack("Layers", &mut self.layers, &mut self.layer);
         ui.file_path("Path", &mut self.path, patina_sdk::PathKind::Save);
         ui.asset_picker("Source", &mut self.source, &["toml"]);
+        let mut pad = ui.canvas("Pad", [160.0, 48.0]);
+        if let Some(patina_sdk::Pointer::Down(p) | patina_sdk::Pointer::Move(p)) = pad.pointer().last().copied() {
+            self.dot = p;
+        }
+        pad.circle(self.dot, 6.0, [232, 163, 61], true);
+        if ui.mode() == patina_sdk::Mode::Full {
+            ui.label("Full size");
+        }
         ui.tabs("Pages", &mut self.page, &["Values", "Shape"]);
         ui.section("More", &mut self.more, |ui| ui.label("Hidden detail"));
         let wave: Vec<f32> = (0..400).map(|i| (i as f32 * 0.2).sin() * (1.0 - i as f32 / 400.0)).collect();
@@ -108,6 +117,13 @@ impl Number {
     }
 }
 `;
+
+/** Types a text into a field as a person does, and presses Enter. */
+export function enterText(field: HTMLInputElement, text: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, text);
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+}
 
 /** True if a pixel of the RGBA column passes the test. */
 export function anyPixel(column: Uint8Array, test: (r: number, g: number, b: number) => boolean): boolean {
