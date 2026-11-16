@@ -194,3 +194,29 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
 - The editor shows link and compile errors at the line of the WESL file (15.5).
   - `link` validates the linked WGSL with `naga`. An error gives the WESL file and the line of the declaration that has the error, for example "shade.wesl line 2, in `shade`: ...". The `wesl` source map has no spans, so the error does not give the exact line in the declaration. Agent decision of 2026-11-15, the owner can change it.
 - A change of shader source does not need a Rust compile. This keeps shader editors fast.
+
+### 10.4 Later: GPU fusion
+
+Later, Patina can run a subgraph of many small nodes as one compute shader. This is not part
+of version 1. Owner decision of 2026-11-16.
+
+- Fusion helps when the same small nodes run many times, for example many copies of a logic
+  circuit, of agents or of a cellular automaton.
+- Fusion does not help one copy of a small circuit. The GPU dispatch and the copy back to the
+  CPU take more time than the CPU run.
+- Shaders, science and AI already have shader nodes (10.3) and values that stay on the GPU
+  (10.2). Fusion would only make them faster.
+- Real-time audio is a bad fit, because each GPU round trip adds latency to the block deadline.
+
+These rules keep fusion an addition that needs no change to the current nodes:
+
+- Fusion is opt-in for each node. A node can go into a fused subgraph only when it has a GPU
+  body, for example a WESL file next to its Rust function.
+- A node without a GPU body runs on the CPU, as before. So no current node or project needs a
+  change.
+- Do not add a node declaration for fusion before fusion exists, for example "pure" or a GPU
+  type. The GPU body itself marks a node that can run on the GPU.
+- A fused subgraph runs as one generated node in the normal cluster. The scheduler (9.2), the C
+  ABI and the clusters stay the same.
+- The engine gives the GPU version of the delay node (9.2) itself.
+- The graph file gets one optional key at most, so old graph files stay valid.
