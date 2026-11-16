@@ -842,7 +842,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   change (7.2).
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
   not only the task of the node (9.2).
-- No test makes a real cluster panic in `process`. The glue test checks the rule.
+- The slot test of `run.rs` makes a real stateful node panic in `process` (fixed 2026-11-16).
+  The cluster drops the state, the GUI call after it does not fail, and the next run makes a
+  new state.
 - The editor selfcheck wires the built-in delay, a generic node, from A to B in the live graph.
   Both wires show 2.5. The editor uses the same engine code as the CLI.
 - A generic node with no wire that gives its type is unresolved, with gray pins (fixed

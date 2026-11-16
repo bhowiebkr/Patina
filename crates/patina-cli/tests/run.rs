@@ -342,6 +342,7 @@ impl Acc {
     }
 
     pub fn process(&mut self, value: &f64, scale: f64, note: &str, extra: &mut f64) -> f64 {
+        assert!(note != \"boom\", \"the note is boom\");
         self.total += *value * scale;
         *extra += note.len() as f64;
         self.total
@@ -440,6 +441,14 @@ to = \"00000000000000a3.value\"
     lost.node.iter_mut().find(|n| n.id == "00000000000000a1").unwrap().params.remove("scale");
     assert!(fused.set_params(&lost).ok);
     assert_eq!(value(&mut fused, "out"), "260.0");
+    // A panic in `process` drops the state. The GUI call survives, and the next run makes a new state.
+    lost.node.iter_mut().find(|n| n.id == "00000000000000a1").unwrap().params.insert("note".into(), "boom".into());
+    assert!(fused.set_params(&lost).ok);
+    let out = fused.run(&control);
+    assert!(!out.ok && out.reports.iter().any(|r| r.text.contains("the note is boom")), "{:?}", out.reports);
+    let _ = fused.ui("00000000000000a1", 0, "");
+    assert!(fused.set_params(opened.graph()).ok);
+    assert_eq!(value(&mut fused, "out"), "130.0");
     assert!(!slotted().build_slot(&toolchain, &mut fused).unwrap(), "a fused cluster has no slot");
 
     // A change of the signature changes the base, so the slot alone does not build.
