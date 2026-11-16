@@ -195,7 +195,7 @@ export function resetLayout(layout: Layout): Layout {
 }
 
 export function layoutText(layout: Layout): string {
-  return JSON.stringify({ version: VERSION, ...layout });
+  return JSON.stringify({ version: VERSION, panels: PANELS, ...layout });
 }
 
 type Raw = Record<string, unknown>;
@@ -222,6 +222,16 @@ export function parseLayout(text: string | null): Layout {
     const tabs = (Array.isArray(area.tabs) ? area.tabs : []).filter((t): t is PanelId => isPanel(t) && !seen.has(t) && !!seen.add(t));
     const active = isPanel(area.active) && tabs.includes(area.active) ? area.active : (tabs[0] ?? null);
     layout.areas[id] = { tabs, active, size: finite(area.size) ? clampSize(area.size) : layout.areas[id].size };
+  }
+  // A panel that the file does not list is newer than the file, so it opens in its home area.
+  // A file without the list came from an editor before the Layers tab.
+  const known: unknown[] = Array.isArray(raw.panels) ? raw.panels : PANELS.filter((p) => p !== 'layers');
+  for (const p of PANELS) {
+    const area = layout.areas[HOME[p]];
+    if (known.includes(p) || seen.has(p) || !defaultLayout().areas[HOME[p]].tabs.includes(p)) continue;
+    area.tabs.push(p);
+    area.active ??= p;
+    seen.add(p);
   }
   for (const [graph, v] of Object.entries(isRaw(raw.viewports) ? raw.viewports : {})) {
     if (isRaw(v) && finite(v.x) && finite(v.y) && finite(v.zoom) && v.zoom >= MIN_ZOOM && v.zoom <= MAX_ZOOM) {

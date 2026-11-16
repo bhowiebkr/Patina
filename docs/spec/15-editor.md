@@ -68,6 +68,7 @@ This is an agent decision of 2026-11-15 for question 8 (18). The owner can chang
 - Each user keeps their own layout for each project. Patina saves it in `data/layouts/<project id>.json` of the data folder (13.3), not in the project folder.
 - The layout file holds the dock areas and their tabs, the size of each area, the float windows with their screen positions, the open views, and the pan and zoom of each graph.
 - A project with no layout file opens with the default layout. A project that moves to another folder keeps its layout, because the file name is the project ID (6.2).
+- The layout file lists the panels that the editor knew when it saved the file. A panel that is not in the list is newer than the file, so it opens in its area of the default layout. A closed panel stays closed. (Agent decision, 2026-11-16. The owner can change it.)
 - The state of a view instance (15.8), for example the camera of a 3D viewport, is not saved in version 1. Each view instance starts with `init`.
 - Reason: the project folder goes into Git. A layout in it changes each time a user moves a panel, and it gives merge conflicts. Float windows also depend on the screens of each user.
 - App mode (question 6 of 18) is not in version 1. Later, it can add a layout that the project owns. That layout is separate from the layout of each user.

@@ -712,8 +712,9 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.
 - Nobody ran the state move in the editor. The editor calls the same engine code as the test.
-- A layout that an older editor saved has no **Layers** tab. **Views** or **Reset layout**
-  shows it.
+- A layout that an older editor saved now opens the **Layers** tab in the left area (fixed
+  2026-11-16). The layout file lists the known panels, so a closed panel stays closed. The
+  frontend test reads an old file, a file with a short list and a file with a closed panel.
 - The fuse builds on the engine thread, so the graph does not run during a fuse
   (`crates/patina-editor/src/engine.rs`).
 - A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a

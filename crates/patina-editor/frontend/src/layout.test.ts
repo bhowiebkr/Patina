@@ -70,10 +70,18 @@ test('a saved layout reads back, and bad parts are dropped', () => {
       viewports: { main: { x: 0, y: 0, zoom: 99 }, other: { x: 1, y: 2, zoom: 1 } },
     }),
   );
-  assert.deepEqual(odd.areas.left, { tabs: ['project'], active: 'project', size: MAX_SIZE });
+  assert.deepEqual(odd.areas.left, { tabs: ['project', 'layers'], active: 'project', size: MAX_SIZE }, 'a file without a panel list gets the Layers tab');
   assert.deepEqual(odd.areas.right, { tabs: ['logs'], active: 'logs', size: 360 });
   assert.deepEqual(odd.areas.bottom, { tabs: [], active: null, size: 200 });
   assert.deepEqual(odd.viewports, { other: { x: 1, y: 2, zoom: 1 } });
+});
+
+test('a panel that is newer than the layout file opens in its home area', () => {
+  const closed = closePanel(defaultLayout(), 'layers');
+  assert.deepEqual(parseLayout(layoutText(closed)).areas.left.tabs, ['project'], 'a closed panel stays closed');
+  const old = JSON.stringify({ version: 1, panels: ['project', 'inspector', 'logs'], areas: { left: { tabs: [] }, right: { tabs: ['inspector'] } } });
+  assert.deepEqual(parseLayout(old).areas.left, { tabs: ['layers'], active: 'layers', size: 260 });
+  assert.deepEqual(parseLayout(old).areas.bottom.tabs, ['output']);
 });
 
 test('sizes are clamped and reset keeps the pan and zoom', () => {
