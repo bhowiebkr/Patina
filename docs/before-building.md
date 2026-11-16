@@ -141,10 +141,11 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
   a download, and a Python install for the test. Ask the owner to approve the download.
 - [ ] Add a check for updates: Patina looks for new releases on GitHub. The owner asked for it
   on 2026-11-15, for later.
-- [ ] Compare the mechanics and the look of all mockups with the editor, not only mockup 9.
+- [x] Compare the mechanics and the look of all mockups with the editor, not only mockup 9.
   List each control and behavior that the editor does not have yet. The owner asked for it on
   2026-11-15, for later. The first pass on 2026-11-15 added only visual polish: shadows, card
-  panels, header gradients, pins, sliders and the selected rows.
+  panels, header gradients, pins, sliders and the selected rows. Done on 2026-11-16:
+  [mockup-gaps.md](mockup-gaps.md) lists the gaps. Each gap needs a spec decision first.
 - [x] Add the node header colors of spec 15.3 (`#[node(color = ...)]`), with the tinted node
   border of the Material Layers node of mockup 9 and the swatches of the Project panel. Done
   on 2026-11-16.

@@ -335,7 +335,7 @@ export function App() {
           <b className="brand-name">Patina</b>
         </div>
         <span className="path">
-          <b>{view.name}</b> / main{fullEntry && ` / ${folderName(fullEntry)}`}
+          <b>{view.name}</b> / {view.graphName}{fullEntry && ` / ${folderName(fullEntry)}`}
         </span>
         {fullEntry && (
           <button className="btn" title="Back to the graph (Esc)" onClick={closeFull}>

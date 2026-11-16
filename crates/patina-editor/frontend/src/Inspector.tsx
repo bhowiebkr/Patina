@@ -2,6 +2,7 @@
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
 import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { KindIcon } from './icons';
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
@@ -224,6 +225,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   return (
     <aside className="panel" aria-label="Inspector">
       <div className="panel-title">
+        {info && <KindIcon kind={info.kind} />}
         {folderName(entry)}
         <span className="spacer" />
         {info?.full && <ExpandButton id={entry.id} />}
