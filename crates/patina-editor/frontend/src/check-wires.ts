@@ -108,23 +108,25 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   v = await step('undo the route point in the body', () => api.undo());
   await until('no conflict mark after the undo', RUN_MS, () => document.querySelector('.route-conflict') === null);
   steps.push('routing conflict marked');
-  // A delay is in the frame domain (9.1). The batch value to it goes on a dashed wire, and each
-  // node shows its kind icon and its domain icon (15.3).
+  // A delay is in the frame domain (9.1). Each node shows its kind icon and its domain icon (15.3).
   const D = 'd000000000000004';
-  v = await step('add a delay', () =>
-    api.edit({
-      kind: 'Group',
-      edits: [
-        { kind: 'AddNode', id: D, folder: 'delay', builtin: true, pos: [300, 300] },
-        { kind: 'Connect', from: `${A}.out`, to: `${D}.value` },
-      ],
-    }),
-  );
-  if (v.problems.length > 0) throw new Error(`problems: ${v.problems.join('; ')}`);
-  await until('the kind and domain icons', RUN_MS, () => icon(A, 'kind-icon.function') && icon(A, 'domain-icon.batch') && icon(D, 'kind-icon.stateful') && icon(D, 'domain-icon.frame'));
+  v = await step('add a delay', () => api.edit({ kind: 'AddNode', id: D, folder: 'delay', builtin: true, pos: [300, 300] }));
+  await until('the kind icons', RUN_MS, () => icon(A, 'kind-icon.function') && icon(D, 'kind-icon.stateful'));
+  // A drag on the end of the wire moves it to the delay (15.9). The batch value to the delay goes
+  // on a dashed wire (15.3). One undo gives the wire to B again.
+  const mid = (el: Element, b = el.getBoundingClientRect()) => ({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
+  const end = document.querySelector(`.react-flow__edge[data-id="${A}.out>${B}.value"] .react-flow__edgeupdater-target`)!;
+  const socket = document.querySelector(`.react-flow__node[data-id="${D}"] .react-flow__handle.target[data-handleid="value"]`)!;
+  end.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ...mid(end) }));
+  document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...mid(socket) }));
+  socket.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...mid(socket) }));
+  await until('the wire moved to the delay', RUN_MS, () => !!document.querySelector(`.react-flow__edge[data-id="${A}.out>${D}.value"]`) && !document.querySelector(`.react-flow__edge[data-id="${A}.out>${B}.value"]`));
+  await until('the domain icons', RUN_MS, () => icon(A, 'domain-icon.batch') && icon(D, 'domain-icon.frame'));
   await until('a dashed cross-domain wire', RUN_MS, () => document.querySelectorAll('.wire-line.cross').length === 1);
-  v = await step('undo the delay', () => api.undo());
+  v = await step('undo the move of the wire end', () => api.undo());
+  if (v.graph.wire?.length !== 1 || v.graph.wire[0].to !== `${B}.value`) throw new Error(`undo did not give the wire to B: ${JSON.stringify(v.graph.wire)}`);
   await until('no dashed wire after the undo', RUN_MS, () => document.querySelector('.wire-line.cross') === null);
-  steps.push('domain icons and a dashed cross-domain wire');
+  v = await step('undo the delay', () => api.undo());
+  steps.push('domain icons, a wire end moved and a dashed cross-domain wire');
   return v;
 }

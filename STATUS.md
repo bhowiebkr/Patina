@@ -946,6 +946,9 @@ To run the editor from a checkout:
 - Each use of a subgraph has an **Open subgraph** button, and the path bar shows each use of a
   nested path (15.9). Unit tests check the use names and the use path. The selfcheck opens a use
   with the button, checks the path bar, and goes back with its **main** button.
+- A drag on the end of a wire moves it to another socket in one edit, and keeps the wire name
+  and look (15.9). The selfcheck drags the end of the wire from B to a delay, checks the new
+  wire, and checks that one undo gives the wire to B.
 - Each node header shows a kind icon and a clock-domain icon, and a wire between two domains is
   dashed (15.3). A unit test checks the kinds of the engine. Frontend tests check the domains
   of a scope and the dash flag of the wire store. The selfcheck connects a batch value to a

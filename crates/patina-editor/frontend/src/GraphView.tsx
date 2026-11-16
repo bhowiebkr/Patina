@@ -200,6 +200,26 @@ interface FreeEnd {
   ty: string;
 }
 
+/** The edit for a wire between two sockets, or null for a wire between two public pins (6.4). */
+function connectEdit(c: Connection): Edit | null {
+  const [from, to, inKey, outKey] = [`${c.source}.${c.sourceHandle}`, `${c.target}.${c.targetHandle}`, portKey(c.source), portKey(c.target)];
+  if (inKey && outKey) return null;
+  if (c.sourceHandle === ORDER) return { kind: 'ConnectOrder', before: c.source, after: c.target };
+  if (inKey) return { kind: 'ConnectPin', key: inKey, end: to };
+  if (outKey) return { kind: 'ConnectPin', key: outKey, end: from };
+  return { kind: 'Connect', from, to };
+}
+
+/** The edit that removes a wire. */
+function disconnectEdit(edge: Edge<WireData>): Edit {
+  if (edge.type === 'order') return { kind: 'DisconnectOrder', before: edge.source, after: edge.target };
+  const { from, to } = edge.data!;
+  const [inKey, outKey] = [portKey(edge.source), portKey(edge.target)];
+  if (inKey) return { kind: 'DisconnectPin', key: inKey, end: to };
+  if (outKey) return { kind: 'DisconnectPin', key: outKey, end: from };
+  return { kind: 'Disconnect', from, to };
+}
+
 /** An order socket connects only to an order socket (9.2). */
 function orderMatch(c: Edge | Connection): boolean {
   return (c.sourceHandle === ORDER) === (c.targetHandle === ORDER);
@@ -298,12 +318,26 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   // A wire from a public input or to a public output connects the pin. A wire between two pins is refused.
   const onConnect = useCallback(
     (c: Connection) => {
-      const [from, to, inKey, outKey] = [`${c.source}.${c.sourceHandle}`, `${c.target}.${c.targetHandle}`, portKey(c.source), portKey(c.target)];
-      if (inKey && outKey) return;
-      if (c.sourceHandle === ORDER) onEdit({ kind: 'ConnectOrder', before: c.source, after: c.target });
-      else if (inKey) onEdit({ kind: 'ConnectPin', key: inKey, end: to });
-      else if (outKey) onEdit({ kind: 'ConnectPin', key: outKey, end: from });
-      else onEdit({ kind: 'Connect', from, to });
+      const add = connectEdit(c);
+      if (add) onEdit(add);
+    },
+    [onEdit],
+  );
+
+  // A drag on the end of a wire moves that end to another socket, in one undo step (15.9).
+  // A data wire keeps its name and its look. A drop on an empty area keeps the wire.
+  const onReconnect = useCallback(
+    (old: Edge<WireData>, c: Connection) => {
+      const add = connectEdit(c);
+      const same = old.source === c.source && old.sourceHandle === c.sourceHandle && old.target === c.target && old.targetHandle === c.targetHandle;
+      if (!add || same) return;
+      const edits = [disconnectEdit(old), add];
+      const d = old.data;
+      if (add.kind === 'Connect' && d) {
+        if (d.style || d.corners) edits.push({ kind: 'SetLook', to: add.to, style: d.style, corners: d.corners });
+        if (d.name) edits.push({ kind: 'NameWire', to: add.to, name: d.name });
+      }
+      onEdit({ kind: 'Group', edits });
     },
     [onEdit],
   );
@@ -341,17 +375,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           return key ? { kind: 'RemovePin', key } : { kind: 'RemoveNode', id };
         });
         for (const edge of edges) {
-          if (!edge.selected || removed.has(edge.source) || removed.has(edge.target)) continue;
-          if (edge.type === 'order') {
-            edits.push({ kind: 'DisconnectOrder', before: edge.source, after: edge.target });
-            continue;
-          }
-          const { from, to } = edge.data!;
-          const inKey = portKey(edge.source);
-          const outKey = portKey(edge.target);
-          if (inKey) edits.push({ kind: 'DisconnectPin', key: inKey, end: to });
-          else if (outKey) edits.push({ kind: 'DisconnectPin', key: outKey, end: from });
-          else edits.push({ kind: 'Disconnect', from, to });
+          if (edge.selected && !removed.has(edge.source) && !removed.has(edge.target)) edits.push(disconnectEdit(edge));
         }
         if (edits.length > 0) onEdit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
       } else if (e.key === 'f' || e.key === 'F') {
@@ -429,6 +453,8 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           onSelectionChange={onSelectionChange}
           onNodeDragStop={onNodeDragStop}
           onConnect={onConnect}
+          onReconnect={onReconnect}
+          edgesReconnectable={view.trusted}
           isValidConnection={orderMatch}
           onConnectEnd={onConnectEnd}
           onDragOver={onDragOver}
