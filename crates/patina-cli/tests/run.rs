@@ -677,7 +677,9 @@ fn the_computer_example_counts_and_adds_with_nand_gates() {
     let (output, stdout, stderr) = run(&project, &["--frames", "16"]);
     assert!(output.status.success(), "{stderr}");
     // Each frame is one clock step: readout A shows the count, and readout B the count plus 3.
-    // With b = 0011, the four full adders get all 8 input vectors.
-    let expected: Vec<String> = (0..16).flat_map(|n| [n, (n + 3) % 16]).map(|n: u8| format!("{n:04b} {n}")).collect();
+    // With b = 0011, the four full adders get all 8 input vectors. The register of readout C
+    // loads its value plus 5 at each step.
+    let expected: Vec<String> =
+        (0..16).flat_map(|n| [n, (n + 3) % 16, n * 5 % 16]).map(|n: u8| format!("{n:04b} {n}")).collect();
     assert_eq!(stdout.lines().collect::<Vec<_>>(), expected);
 }

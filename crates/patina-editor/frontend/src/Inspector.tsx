@@ -212,13 +212,20 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         <>
           <div className="section">
             {(info?.inputs ?? []).length === 0 && <div className="label">No inputs</div>}
-            {(info?.inputs ?? []).map(({ key }) => {
+            {(info?.inputs ?? []).map(({ key, ty }) => {
               const before = entry.params?.[key] ?? '';
               return (
                 <label key={key} className="param">
                   <span className="label">{key}</span>
                   {wired.has(`${entry.id}.${key}`) ? (
                     <span className="label">Wired</span>
+                  ) : ty === 'bool' ? (
+                    <input
+                      type="checkbox"
+                      checked={before === 'true'}
+                      disabled={!view.trusted}
+                      onChange={(e) => onEdit({ kind: 'SetParam', id: entry.id, key, text: String(e.currentTarget.checked) })}
+                    />
                   ) : (
                     <input
                       key={`${entry.id}.${key}=${before}`}

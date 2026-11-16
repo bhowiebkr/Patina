@@ -1,0 +1,127 @@
+format = 1
+
+[[node]]
+id = "f6123f740f86e213"
+builtin = "delay"
+pos = [240.0, 0.0]
+
+[[node]]
+id = "6653a48cddc309e1"
+builtin = "delay"
+pos = [240.0, 100.0]
+
+[[node]]
+id = "8e1b8885797b8b71"
+builtin = "delay"
+pos = [240.0, 200.0]
+
+[[node]]
+id = "81bf8f9b5012e051"
+builtin = "delay"
+pos = [240.0, 300.0]
+
+[[node]]
+id = "4fa2e13ff15b5fd9"
+subgraph = "mux"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "4ab72625929f6ed2"
+subgraph = "mux"
+pos = [0.0, 100.0]
+
+[[node]]
+id = "f29d0b3c10d30e25"
+subgraph = "mux"
+pos = [0.0, 200.0]
+
+[[node]]
+id = "536c13f9ef501330"
+subgraph = "mux"
+pos = [0.0, 300.0]
+
+[[wire]]
+from = "f6123f740f86e213.out"
+to = "4fa2e13ff15b5fd9.987c7f5a"
+
+[[wire]]
+from = "4fa2e13ff15b5fd9.93be95a4"
+to = "f6123f740f86e213.value"
+
+[[wire]]
+from = "6653a48cddc309e1.out"
+to = "4ab72625929f6ed2.987c7f5a"
+
+[[wire]]
+from = "4ab72625929f6ed2.93be95a4"
+to = "6653a48cddc309e1.value"
+
+[[wire]]
+from = "8e1b8885797b8b71.out"
+to = "f29d0b3c10d30e25.987c7f5a"
+
+[[wire]]
+from = "f29d0b3c10d30e25.93be95a4"
+to = "8e1b8885797b8b71.value"
+
+[[wire]]
+from = "81bf8f9b5012e051.out"
+to = "536c13f9ef501330.987c7f5a"
+
+[[wire]]
+from = "536c13f9ef501330.93be95a4"
+to = "81bf8f9b5012e051.value"
+
+[[input]]
+key = "9a4aecd8"
+name = "load"
+pos = [-240.0, 0.0]
+to = ["4fa2e13ff15b5fd9.dcc47589", "4ab72625929f6ed2.dcc47589", "f29d0b3c10d30e25.dcc47589", "536c13f9ef501330.dcc47589"]
+
+[[input]]
+key = "8e1b6add"
+name = "d0"
+pos = [-240.0, 100.0]
+to = ["4fa2e13ff15b5fd9.36ab6f8b"]
+
+[[input]]
+key = "1e5ac83e"
+name = "d1"
+pos = [-240.0, 200.0]
+to = ["4ab72625929f6ed2.36ab6f8b"]
+
+[[input]]
+key = "64e805d7"
+name = "d2"
+pos = [-240.0, 300.0]
+to = ["f29d0b3c10d30e25.36ab6f8b"]
+
+[[input]]
+key = "ba62d0fb"
+name = "d3"
+pos = [-240.0, 400.0]
+to = ["536c13f9ef501330.36ab6f8b"]
+
+[[output]]
+key = "608ab439"
+name = "q0"
+pos = [480.0, 0.0]
+from = "f6123f740f86e213.out"
+
+[[output]]
+key = "fbae7ec2"
+name = "q1"
+pos = [480.0, 100.0]
+from = "6653a48cddc309e1.out"
+
+[[output]]
+key = "f5c7996c"
+name = "q2"
+pos = [480.0, 200.0]
+from = "8e1b8885797b8b71.out"
+
+[[output]]
+key = "3dca83af"
+name = "q3"
+pos = [480.0, 300.0]
+from = "81bf8f9b5012e051.out"

@@ -249,8 +249,10 @@ circuit needs a delay. Run the example:
 cargo run -p patina-cli -- run examples/computer --frames 16
 ```
 
-Each frame writes the count and the count plus 3, for example `0101 5` and `1000 8`. In the
-editor, the two `readout` nodes show the bits as lamps.
+Each frame writes three lines: the count, the count plus 3, and an accumulator that adds 5 at
+each step. A `register-4` subgraph keeps 4 bits, and takes new bits when its **load** input is on.
+In the editor, the `readout` nodes show the bits as lamps. Set a `switch` node with the check
+box in the **Inspector**.
 
 ## Install
 

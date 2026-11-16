@@ -419,7 +419,8 @@ html.native-viewport .gui-viewport {
   background: var(--disabled);
 }
 
-.node-gui input[type='checkbox'] {
+.node-gui input[type='checkbox'],
+.param input[type='checkbox'] {
   accent-color: var(--muted);
 }
 
