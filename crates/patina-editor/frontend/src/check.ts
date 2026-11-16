@@ -532,9 +532,19 @@ fn broken() -> u32 {
     const codeTab = () => document.querySelector('[aria-label=Inspector] [aria-selected=true]')?.textContent === 'Code';
     await until('the new node folder and its code', RUN_MS, () => !nameField() && listed() && codeTab());
     steps.push('make a node folder');
+    // New connection and New type (15.4): the same + makes a connection kind and a type crate.
+    for (const [one, name] of [['connection', 'made-bus'], ['type', 'made-type']]) {
+      const field = () => document.querySelector<HTMLInputElement>(`[aria-label="${one[0].toUpperCase()}${one.slice(1)} name"]`);
+      document.querySelector<HTMLButtonElement>(`[aria-label="New ${one}"]`)!.click();
+      await until(`the ${one} name field`, RUN_MS, () => !!field());
+      enterText(field()!, name);
+      const shown = () => [...document.querySelectorAll('[aria-label=Project] .item')].some((b) => b.textContent === name);
+      await until(`the new ${one} folder and its code`, RUN_MS, () => !field() && shown() && codeTab());
+    }
+    steps.push('make a connection and a type folder');
 
     // Add crate (15.4): a bad crate name shows its problem before cargo runs, so no network is used.
-    const crateField = () => document.querySelector<HTMLInputElement>('[aria-label="Crate or widget name"]');
+    const crateField = () => document.querySelector<HTMLInputElement>('[aria-label="Crate, widget or type name"]');
     [...document.querySelectorAll<HTMLButtonElement>('.code-bar .btn')].find((b) => b.textContent === 'Add crate')!.click();
     await until('the crate field', RUN_MS, () => !!crateField());
     enterText(crateField()!, '-x');

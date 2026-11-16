@@ -551,9 +551,9 @@ fn write_workspace(root: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-/// Runs `cargo add` for a node or widget folder, for example `nodes/number`, and returns the new
-/// text of its `Cargo.toml` (15.4). The file keeps its old text, so the caller applies the new
-/// text as one edit with undo. A widget folder of the project goes in by its path (6.2).
+/// Runs `cargo add` for a code folder, for example `nodes/number`, and returns the new text of its
+/// `Cargo.toml` (15.4). The file keeps its old text, so the caller applies the new text as one
+/// edit with undo. A widget or type folder of the project goes in by its path (6.2).
 pub fn add_crate(root: &Path, toolchain: &Toolchain, folder: &str, spec: &str) -> Result<String, String> {
     crate::code_folder(folder)?;
     check_crate(spec)?;
@@ -563,9 +563,9 @@ pub fn add_crate(root: &Path, toolchain: &Toolchain, folder: &str, spec: &str) -
     write_workspace(root).map_err(|e| e.to_string())?;
     let mut command = toolchain.command(&toolchain.cargo).map_err(|e| e.to_string())?;
     command.current_dir(root).arg("add").arg("--manifest-path").arg(&manifest);
-    let widget = root.join("widgets").join(spec);
-    if widget.is_dir() {
-        command.arg("--path").arg(widget);
+    let local = ["widgets", "types"].map(|group| root.join(group).join(spec));
+    if let Some(local) = local.into_iter().find(|dir| dir.is_dir()) {
+        command.arg("--path").arg(local);
     } else {
         command.arg("--").arg(spec);
     }
@@ -692,6 +692,19 @@ mod tests {
         assert_eq!(std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap(), manifest);
         let error = add_crate(&root, &toolchain, "nodes/num", "patina-no-such-crate-x").unwrap_err();
         assert!(error.contains("patina-no-such-crate-x"), "{error}");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_type_folder_goes_in_by_its_path() {
+        let root = std::env::temp_dir().join(format!("patina-add-type-{}", std::process::id()));
+        for name in ["nodes/num", "types/digit"] {
+            let manifest = format!("[package]\nname = \"{}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n", &name[6..]);
+            write(&root, &format!("{name}/Cargo.toml"), &manifest).unwrap();
+            write(&root, &format!("{name}/src/lib.rs"), "").unwrap();
+        }
+        let text = add_crate(&root, &Toolchain::detect().unwrap(), "nodes/num", "digit").unwrap();
+        assert!(text.contains("path = \"../../types/digit\""), "{text}");
         std::fs::remove_dir_all(root).unwrap();
     }
 

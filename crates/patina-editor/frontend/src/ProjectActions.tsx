@@ -1,11 +1,11 @@
 // The actions of the Project panel (15.2): new folders, crates, import, update and package. The
 // Import and Update dialogs show here.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { api, type View } from './api';
 import { ImportDialog } from './ImportDialog';
 import type { Line } from './Lines';
-import type { Inspect } from './ProjectPanel';
+import type { Group, Inspect } from './ProjectPanel';
 import { UpdateDialog } from './UpdateDialog';
 
 interface Host {
@@ -20,14 +20,15 @@ export function useProjectActions({ show, markStale, log, setInspect, setError }
   const [importing, setImporting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<{ other: string; folder: string } | null>(null);
 
-  /** Makes a node, widget or view folder and shows its code in the Inspector (15.2). */
-  const made = useMemo(() => {
-    const make = (kind: 'type' | 'widget' | 'view', job: (name: string) => Promise<View>) => async (name: string) => {
-      show(await job(name));
-      setInspect({ kind, name });
-    };
-    return { newNode: make('type', api.newNode), newWidget: make('widget', api.newWidget), newView: make('view', api.newView) };
-  }, [show, setInspect]);
+  /** Makes a code folder and shows its code in the Inspector (15.2). */
+  const newFolder = useCallback(
+    async (group: Group, name: string) => {
+      const jobs = { nodes: api.newNode, widgets: api.newWidget, views: api.newView, connections: api.newConnection, types: api.newType };
+      show(await jobs[group](name));
+      setInspect(group === 'nodes' ? { kind: 'type', name } : { kind: 'folder', folder: `${group}/${name}` });
+    },
+    [show, setInspect],
+  );
 
   const pickImport = useCallback(
     () =>
@@ -61,7 +62,7 @@ export function useProjectActions({ show, markStale, log, setInspect, setError }
     }
   }, [show, log, setError]);
 
-  /** Adds a crate to a node or widget folder with `cargo add`. Undo removes it (15.4). */
+  /** Adds a crate to a code folder with `cargo add`. Undo removes it (15.4). */
   const addCrate = useCallback(async (folder: string, spec: string) => show(await api.addCrate(folder, spec)), [show]);
 
   const done = (close: () => void) => (v: View) => {
@@ -77,7 +78,7 @@ export function useProjectActions({ show, markStale, log, setInspect, setError }
   );
 
   return {
-    ...made,
+    newFolder,
     pickImport,
     pickUpdate,
     makePackage,

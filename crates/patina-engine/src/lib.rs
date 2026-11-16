@@ -210,6 +210,16 @@ impl Project {
         folders::new_folder(&self.root, "views", name)
     }
 
+    /// Makes the connection folder `connections/<name>` with a start connection kind (6.3).
+    pub fn new_connection(&self, name: &str) -> Result<(), String> {
+        folders::new_folder(&self.root, "connections", name)
+    }
+
+    /// Makes the type folder `types/<name>` with a start type (5.1).
+    pub fn new_type(&self, name: &str) -> Result<(), String> {
+        folders::new_folder(&self.root, "types", name)
+    }
+
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -414,6 +424,16 @@ impl Project {
         self.crate_folders("views")
     }
 
+    /// The connection folders in `connections/` (6.3), sorted by name.
+    pub fn connections(&self) -> Vec<String> {
+        self.crate_folders("connections")
+    }
+
+    /// The type folders in `types/` (5.1), sorted by name.
+    pub fn types(&self) -> Vec<String> {
+        self.crate_folders("types")
+    }
+
     /// Builds the view folder `views/<name>` in edit mode and gives its library for `View::load`
     /// (15.8). The library is a copy in `build/loaded/`, as the clusters are (8.5).
     pub fn build_view(&self, toolchain: &Toolchain, name: &str) -> Result<PathBuf, Error> {
@@ -432,7 +452,7 @@ impl Project {
         names
     }
 
-    /// The files of a node or widget folder, for example `nodes/number` (15.4), as sorted paths
+    /// The files of a code folder, for example `nodes/number` (15.4), as sorted paths
     /// from the project root. Hidden files and `target` folders are not in the list.
     pub fn folder_files(&self, folder: &str) -> Result<Vec<String>, Error> {
         let dir = self.root.join(folder);
@@ -521,6 +541,13 @@ mod tests {
         assert_eq!(project.widgets(), ["gradient-bar"]);
         let code = project.read_code("widgets/gradient-bar/src/lib.rs").unwrap();
         assert!(code.contains("pub struct GradientBar {"), "{code}");
+        project.new_type("seg-digit").unwrap();
+        project.new_connection("word-bus").unwrap();
+        assert_eq!((project.types(), project.connections()), (vec!["seg-digit".to_owned()], vec!["word-bus".to_owned()]));
+        assert!(project.read_code("types/seg-digit/src/lib.rs").unwrap().contains("pub struct SegDigit("));
+        assert!(!project.read_code("types/seg-digit/Cargo.toml").unwrap().contains("patina-sdk"));
+        let kind = &project.kinds()[0];
+        assert_eq!((kind.ty.as_str(), kind.lanes.len(), kind.label.as_deref()), ("u16", 16, Some("word_bus")));
 
         let path = "nodes/show/src/lib.rs".to_owned();
         let code = Edit::SetCode { path: path.clone(), text: "// new\n".to_owned() };

@@ -149,7 +149,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
       </div>
       {adding && (
         <NameField
-          label="Crate or widget name"
+          label="Crate, widget or type name"
           onMake={async (spec) => {
             await onAddCrate(spec);
             setPath(`${folder}Cargo.toml`);

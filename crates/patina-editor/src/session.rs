@@ -73,6 +73,10 @@ pub struct View {
     widgets: Vec<String>,
     /// The view folders (15.8).
     views: Vec<String>,
+    /// The connection folders (6.3).
+    connections: Vec<String>,
+    /// The type folders (5.1).
+    types: Vec<String>,
     /// The imported folders (6.4), for example `nodes/blur`.
     imports: Vec<String>,
     /// The problems of the graph check, for example `node <id>: <text>`.
@@ -289,6 +293,8 @@ impl Session {
             kinds: project.kinds(),
             widgets: project.widgets(),
             views: project.views(),
+            connections: project.connections(),
+            types: project.types(),
             imports: project.imports(),
             problems,
             dirty: project.dirty(),
@@ -467,7 +473,7 @@ pub fn folder_files(editor: State<'_, Editor>, folder: String) -> Result<Vec<Str
     editor.with(|session| session.project.folder_files(&folder).map_err(|e| e.to_string()))
 }
 
-/// Adds a crate of crates.io or a widget folder to a node or widget folder with `cargo add`
+/// Adds a crate of crates.io, a widget folder or a type folder to a code folder with `cargo add`
 /// (15.4). The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate.
 #[tauri::command(async)]
 pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Result<View, String> {
@@ -508,6 +514,18 @@ pub fn new_widget(editor: State<'_, Editor>, name: String) -> Result<View, Strin
 #[tauri::command(async)]
 pub fn new_view(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_view(&name))
+}
+
+/// Makes the connection folder `connections/<name>` (6.3). Undo does not remove the folder.
+#[tauri::command(async)]
+pub fn new_connection(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.change(|project| project.new_connection(&name))
+}
+
+/// Makes the type folder `types/<name>` (5.1). Undo does not remove the folder.
+#[tauri::command(async)]
+pub fn new_type(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.change(|project| project.new_type(&name))
 }
 
 /// The page sends the unsaved text of the Code tab, so a close of the window asks first and the

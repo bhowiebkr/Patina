@@ -228,6 +228,8 @@ fn main() {
             session::new_node,
             session::new_widget,
             session::new_view,
+            session::new_connection,
+            session::new_type,
             session::view_ui,
             session::close_view,
             floats::set_floats,

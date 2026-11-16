@@ -153,9 +153,9 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 
 To add a connection kind:
 
-1. Make the folder `connections/<name>/` in the project, with a `Cargo.toml` that has
-   `patina-sdk = { workspace = true }`.
-2. In `src/lib.rs`, write a `#[connection]` function. It takes a reference to the value and
+1. In the **Project** panel, click the **+** of the **Connections** group, type a name and
+   push Enter. The **Inspector** shows the start code of the kind.
+2. In `src/lib.rs`, change the `#[connection]` function. It takes a reference to the value and
    gives its lanes:
 
    ```rust
@@ -166,6 +166,9 @@ To add a connection kind:
    ```
 
 3. Run the graph. Each wire of that type shows its lanes and the label `data[7:0] / 8`.
+
+To add your own type, click the **+** of the **Types** group. Then select a node or a
+connection folder, click **Add crate** in its **Code** tab and type the name of the type folder.
 
 ## Views
 

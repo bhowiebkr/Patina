@@ -182,12 +182,13 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   const code = (folder: string) => (
     <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
   );
-  if (inspect?.kind === 'type' || inspect?.kind === 'widget' || inspect?.kind === 'view') {
+  if (inspect?.kind === 'type' || inspect?.kind === 'folder') {
+    const folder = inspect.kind === 'type' ? `nodes/${inspect.name}` : inspect.folder;
     return (
       <aside className="panel" aria-label="Inspector">
-        <div className="panel-title">{inspect.name}</div>
+        <div className="panel-title">{folder.slice(folder.indexOf('/') + 1)}</div>
         <Tabs tab="code" only="code" onTab={onTab} />
-        {code(`${{ type: 'nodes', widget: 'widgets', view: 'views' }[inspect.kind]}/${inspect.name}`)}
+        {code(folder)}
       </aside>
     );
   }

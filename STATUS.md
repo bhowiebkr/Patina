@@ -82,6 +82,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 23. Done: wire names on one line. A named wire of one line shows its name in place of the
     type label. In the `cpu` graph, the 8 opcode lines of the decoder have the names `LDI` to
     `JZ`.
+24. Done: connection work in the editor (15.2). The **Project** panel has the groups
+    **Connections** and **Types**, each with a **+** button and a start crate. A click opens
+    the code in the **Inspector**. **Add crate** adds a type folder by its path.
 
 ### Checked
 

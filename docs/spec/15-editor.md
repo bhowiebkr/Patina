@@ -73,10 +73,10 @@ This is an agent decision of 2026-11-15 for question 8 (18). The owner can chang
 
 **Project panel:**
 
-- The **Project** tab lists the folders of the project (6.2) in groups: **Graphs**, **Nodes**, **Views**, **Widgets**, and **Types**.
+- The **Project** tab lists the folders of the project (6.2) in groups: **Graphs**, **Nodes**, **Widgets**, **Views**, **Connections** and **Types**.
 - The user drags a node folder into the graph to add a node.
 - The **Graphs** group lists **main** and each subgraph. A click opens the graph. The user drags a subgraph into the open graph to add a use of it (6.1). The **Nodes** group lists only node folders. This is an agent decision of 2026-11-15. The owner can change it.
-- A click on a view, widget, or type folder opens its code in the inspector.
+- A click on a widget, view, connection or type folder opens its code in the inspector.
 - **Import** copies a folder from another project (6.2).
 - **Update** compares an imported folder with its origin, and copies the new version when the user confirms (6.2).
 
@@ -89,7 +89,13 @@ The **+** button in the title of the **Nodes** group makes a new node folder. (A
 - The new folder has a `Cargo.toml` and a `src/lib.rs` with a start node: a `#[node]` function with the crate name, an `f64` input `value` and an `f64` output. The **Inspector** shows the new `src/lib.rs`.
 - Undo does not remove the folder. The user deletes it in the file manager.
 - The **Widgets** group has the same **+** button. A new widget folder has a start widget: a struct that implements `Widget` and draws a bar on a canvas (4.3). The **Inspector** shows its code with the **Code** tab only.
-- An untrusted project has no **+** button. The **Views** group gets the same button when views (15.8) come.
+- An untrusted project has no **+** button. The **Views** group has the same button (15.8).
+
+The **Connections** and **Types** groups have the same **+** button. Thus the user makes a connection kind (6.3) and its type in the editor, with no file manager. (Agent decision, 2026-11-16, after the owner asked that the user can do all connection work in the GUI. The owner can change it.)
+
+- A new connection folder has a start kind: a `#[connection]` function with the crate name. It shows a `u16` as a teal ribbon of 16 lanes.
+- A new type folder has a start type: a plain struct with one `u8` field. Its `Cargo.toml` has no `patina-sdk`, because a type crate is plain Rust (5.1).
+- **Add crate** with the name of a type folder adds the type by its path. Thus a node folder and a connection folder use the same type.
 
 The **Import** button at the end of the **Project** panel copies a folder from another project (6.2). (Agent decision, 2026-11-15. The owner can change it.)
 
@@ -213,11 +219,11 @@ The large node GUI (4.3) goes at the top of the **Inspector**, under the header 
 - The GUI area has the height that the node asks for, up to half of the height of the **Inspector**. A higher GUI scrolls in its area.
 - A node with no `ui` function has no GUI area, and the tabs start under the header.
 
-A crate of crates.io is a dependency of one node or widget folder, in its `Cargo.toml` (8.1). (Agent decision, 2026-11-15. The owner can change it.)
+A crate of crates.io is a dependency of one code folder, in its `Cargo.toml` (8.1). (Agent decision, 2026-11-15. The owner can change it.)
 
 - The user edits `[dependencies]` in the `Cargo.toml` tab of the **Code** tab, or clicks **Add crate** above the code.
 - **Add crate** opens a field. The user types `name` or `name@version`, for example `rand` or `rand@0.9`, and pushes Enter. Esc cancels.
-- The name of a widget folder of the project adds that widget by its path, so a node can use it with `ui.add` (4.3).
+- The name of a widget folder of the project adds that widget by its path, so a node can use it with `ui.add` (4.3). The name of a type folder adds that type by its path (5.1).
 - Patina runs `cargo add` of the project toolchain for the folder. The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate. The next build downloads the crate.
 - A name has 1 to 64 letters, digits, `_` and `-`, and starts with a letter. Cargo gets the text as one argument, so it cannot be an option, a path or a second crate.
 - The field shows the problem of a bad name, of a crate that crates.io does not have, and of a crate that the node has already.

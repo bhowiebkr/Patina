@@ -94,6 +94,10 @@ export interface View {
   widgets: string[];
   /** The view folders (15.8), for example `map` for `views/map`. */
   views: string[];
+  /** The connection folders (6.3), for example `byte` for `connections/byte`. */
+  connections: string[];
+  /** The type folders (5.1), for example `segments` for `types/segments`. */
+  types: string[];
   /** The imported folders (6.4), for example `nodes/blur`. */
   imports: string[];
   problems: string[];
@@ -290,7 +294,7 @@ export const api = {
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),
   save: () => invoke<View>('save'),
-  /** The files of a node or widget folder, for example `nodes/number`. */
+  /** The files of a code folder, for example `nodes/number`. */
   folderFiles: (folder: string) => invoke<string[]>('folder_files', { folder }),
   /** Makes the node folder `nodes/<name>` (15.2). */
   newNode: (name: string) => invoke<View>('new_node', { name }),
@@ -298,6 +302,10 @@ export const api = {
   newWidget: (name: string) => invoke<View>('new_widget', { name }),
   /** Makes the view folder `views/<name>` (15.8). */
   newView: (name: string) => invoke<View>('new_view', { name }),
+  /** Makes the connection folder `connections/<name>` (6.3). */
+  newConnection: (name: string) => invoke<View>('new_connection', { name }),
+  /** Makes the type folder `types/<name>` (5.1). */
+  newType: (name: string) => invoke<View>('new_type', { name }),
   /**
    * Gives the user input `events` to view `name` and gets its widget lines (15.8). The first call
    * builds the view. `view` is the new project when the view wrote to the graph.
@@ -311,8 +319,8 @@ export const api = {
   /** The native handle of the editor window for a viewport, or 0 where a viewport cannot draw. */
   windowHandle: () => invoke<number>('window_handle'),
   /**
-   * Adds a crate of crates.io, `name` or `name@version`, or a widget folder of the project to a
-   * node or widget folder, for example `nodes/number` (15.4).
+   * Adds a crate of crates.io, `name` or `name@version`, or a widget or type folder of the
+   * project to a code folder, for example `nodes/number` (15.4).
    */
   addCrate: (folder: string, spec: string) => invoke<View>('add_crate', { folder, spec }),
   /** The folders of the trusted project at `other` that Import can copy (6.2). */

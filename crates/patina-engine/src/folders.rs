@@ -1,5 +1,5 @@
-//! The node, widget and view folders of a project (6.2): new folders, their start code, and safe
-//! reads and writes of their code files.
+//! The node, widget, view, connection and type folders of a project (6.2): new folders, their
+//! start code, and safe reads and writes of their code files.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,12 +25,10 @@ pub(crate) fn new_folder(root: &Path, group: &str, name: &str) -> Result<(), Str
     // create_dir fails when the folder exists, so the files of another folder stay.
     let dir = parent.join(name);
     fs::create_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    // A view compiles as its own library (15.8).
+    // A view compiles as its own library (15.8). A type crate is plain Rust (5.1).
     let lib = if group == "views" { "[lib]\ncrate-type = [\"cdylib\"]\n\n" } else { "" };
-    let manifest = format!(
-        "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n{lib}\
-         [dependencies]\npatina-sdk = {{ workspace = true }}\n"
-    );
+    let sdk = if group == "types" { "" } else { "patina-sdk = { workspace = true }\n" };
+    let manifest = format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n{lib}[dependencies]\n{sdk}");
     let written = write_file(&dir.join("Cargo.toml"), &manifest).and_then(|()| write_file(&dir.join("src/lib.rs"), &code));
     if let Err(e) = written {
         let _ = fs::remove_dir_all(&dir);
@@ -39,17 +37,19 @@ pub(crate) fn new_folder(root: &Path, group: &str, name: &str) -> Result<(), Str
     Ok(())
 }
 
-/// The start code of a node, widget or view folder.
+/// The start code of a node, widget, view, connection or type folder.
 fn start_code(group: &str, name: &str) -> String {
     let ty: String = name.split(['-', '_']).filter(|p| !p.is_empty()).map(|p| p[..1].to_ascii_uppercase() + &p[1..]).collect();
     match group {
         "widgets" => WIDGET_CODE.replace("NAME", &ty),
         "views" => VIEW_CODE.replace("NAME", &ty),
+        "connections" => CONNECTION_CODE.replace("NAME", &plan::name_key(name)),
+        "types" => TYPE_CODE.replace("NAME", &ty),
         _ => format!(
             "use patina_sdk::node;
 
 /// Gives the value of the input. Write the work of the node here.
-             #[node]
+#[node]
 pub fn {}(value: f64) -> f64 {{
     value
 }}
@@ -64,6 +64,24 @@ pub(crate) fn write_file(path: &Path, text: &str) -> Result<(), Error> {
     fs::create_dir_all(parent).map_err(|e| Error::Io(parent.to_owned(), e))?;
     fs::write(path, text).map_err(|e| Error::Io(path.to_owned(), e))
 }
+
+/// The start code of a connection folder (6.3). `NAME` is the crate name.
+const CONNECTION_CODE: &str = "use patina_sdk::{Lanes, connection};
+
+/// Draws each wire of the type `u16` as a ribbon of 16 lanes, bit 15 at the top. Change the type,
+/// the lane names, the label and the color here.
+#[connection(lanes = 16, label = \"NAME\", color = \"teal\")]
+pub fn NAME(value: &u16) -> Lanes {
+    Lanes::bits(16, u64::from(*value))
+}
+";
+
+/// The start code of a type folder (5.1). `NAME` is the type name.
+const TYPE_CODE: &str = "/// A value that goes on a wire between two nodes. Write its fields here. A node or a connection
+/// uses it after **Add crate** adds this folder to its Cargo.toml.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NAME(pub u8);
+";
 
 /// The start code of a widget folder. `NAME` is the type name.
 const WIDGET_CODE: &str = "/// A bar that the user drags to set a value from 0 to 1. Write the drawing and the input of the
@@ -113,20 +131,21 @@ impl NAME {
 }
 ";
 
-/// Checks a node, widget or view folder as `nodes/<name>`, `widgets/<name>` or `views/<name>`
-/// (6.2). The page sends it.
+/// Checks a code folder as `<group>/<name>`, for example `nodes/number` or `types/segments` (6.2).
+/// The page sends it.
 pub(crate) fn code_folder(folder: &str) -> Result<(), String> {
-    let (group, name) = folder.split_once('/').ok_or_else(|| format!("{folder:?} is not a node, widget or view folder"))?;
-    if !["nodes", "widgets", "views"].contains(&group) {
-        return Err(format!("{folder:?} is not a node, widget or view folder"));
+    let bad = || format!("{folder:?} is not a node, widget, view, connection or type folder");
+    let (group, name) = folder.split_once('/').ok_or_else(bad)?;
+    if !["nodes", "widgets", "views", "connections", "types"].contains(&group) {
+        return Err(bad());
     }
     plan::check_name(name)
 }
 
-/// The full path of an existing file in a node or widget folder, from a path like
-/// `nodes/number/src/lib.rs` (6.2). The page sends the path, so it must stay in the folder.
+/// The full path of an existing file in a code folder, from a path like `nodes/number/src/lib.rs`
+/// (6.2). The page sends the path, so it must stay in the folder.
 pub(crate) fn code_file(root: &Path, path: &str) -> Result<PathBuf, String> {
-    let bad = || format!("{path:?} is not a file in a node or widget folder");
+    let bad = || format!("{path:?} is not a file in a code folder");
     let mut parts = path.split('/');
     let folder = [parts.next().ok_or_else(bad)?, parts.next().ok_or_else(bad)?].join("/");
     code_folder(&folder).map_err(|_| bad())?;
