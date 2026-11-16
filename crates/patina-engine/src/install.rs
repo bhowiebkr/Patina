@@ -23,7 +23,7 @@ const DIST: &str = "https://static.rust-lang.org";
 const PACKAGES: &[&str] = &["rustc", "cargo", "rust-std", "rust-mingw", "rust-analyzer-preview"];
 /// The Zig target for the C code of the Rust target `x86_64-pc-windows-gnu`.
 const ZIG_TARGET: &str = "x86_64-windows-gnu";
-/// The copies of the editor that start Zig (see [`run_wrapper`]).
+/// The copies of the editor or the CLI that start Zig (see [`run_wrapper`]).
 const WRAPPERS: [&str; 3] = ["zig-cc.exe", "zig-ar.exe", "zig-dlltool.exe"];
 
 /// Installs the toolchain into `folder` and returns its Rust version. The steps work in the
@@ -93,7 +93,7 @@ pub fn add_wrappers(folder: &Path, wrapper: &Path) -> Result<(), Error> {
 
 /// When this program is a Zig wrapper, runs Zig and returns its exit code. cc-rs takes `CC` as
 /// one path, and a value such as `zig cc` splits on spaces. So each wrapper is a copy of the
-/// editor, and it starts Zig with the subcommand of its file name (13.2).
+/// editor or the CLI, and it starts Zig with the subcommand of its file name (13.2).
 pub fn run_wrapper() -> Option<i32> {
     let exe = std::env::current_exe().ok()?;
     let tool = match exe.file_stem()?.to_str()? {

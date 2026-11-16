@@ -32,6 +32,9 @@ enum Command<'a> {
 }
 
 fn main() -> ExitCode {
+    if let Some(code) = patina_engine::install::run_wrapper() {
+        std::process::exit(code);
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     // A copy of the CLI in a package runs that package (14).
     let dir = std::env::current_exe().ok().and_then(|exe| Some(exe.parent()?.to_owned()));
@@ -86,9 +89,13 @@ fn parse(args: &[String]) -> Option<Command<'_>> {
 /// The toolchain folder next to the CLI (portable edition), or the Rust of the system.
 fn toolchain() -> Result<Toolchain, String> {
     // shortcut: only the toolchain folder next to the CLI (portable edition), change it with the installers.
-    let folder = std::env::current_exe().ok().and_then(|exe| Some(exe.parent()?.join("toolchain")));
-    match folder {
-        Some(folder) => Toolchain::find(&folder),
+    match std::env::current_exe().ok().and_then(|exe| Some((exe.parent()?.join("toolchain"), exe))) {
+        Some((folder, exe)) => {
+            if let Err(e) = patina_engine::install::add_wrappers(&folder, &exe) {
+                eprintln!("warning: Patina cannot add the Zig wrappers to the toolchain: {e}");
+            }
+            Toolchain::find(&folder)
+        }
         None => Toolchain::detect(),
     }
     .map_err(|e| e.to_string())
