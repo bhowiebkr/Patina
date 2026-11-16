@@ -31,3 +31,19 @@ export function matchPin(node: Pins, output: boolean, ty: string): string | unde
   const fits = (pinTy: string) => node.generics.includes(pinTy) || wireType(pinTy) === wireType(ty);
   return (output ? node.inputs : node.outputs).find((p) => fits(p.ty))?.key;
 }
+
+/**
+ * The Rust type of output `from`, "<node id>.<output key>". A generic output, as of a delay, has the
+ * type of the wire into an input of the same type (4.5). `wireTo` gives the source of the wire to an input.
+ */
+export function outputTypeOf(from: string, pins: (id: string) => Pins | null | undefined, wireTo: (to: string) => string | undefined, seen: string[] = []): string | undefined {
+  const dot = from.lastIndexOf('.');
+  const id = from.slice(0, dot);
+  const node = pins(id);
+  const ty = node?.outputs.find((p) => p.key === from.slice(dot + 1))?.ty;
+  if (ty === undefined || !node!.generics.includes(ty) || seen.includes(from)) return ty;
+  const input = node!.inputs.find((p) => p.ty === ty);
+  const source = input && wireTo(`${id}.${input.key}`);
+  const found = source === undefined ? undefined : outputTypeOf(source, pins, wireTo, [...seen, from]);
+  return found ?? ty;
+}

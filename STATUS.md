@@ -90,6 +90,11 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 26. Done: a value badge cuts its text to the room between the nodes, as the label does, but
     keeps at least 32 px. Before, a long badge on a short wire covered the pin names. The
     `hello` and `gpu` graphs now have the column gap of **Arrange**.
+27. Done: a wide main graph. The CPU, its displays and the LCD are at the left. The counter and
+    the adder are at the upper right, and the accumulator and the RAM at the lower right. The
+    CPU bits go straight to the `lcd-writer`, and the `lcd` takes d0 first. A badge hides when
+    the badge of another wire covers it. A delay output shows the type of its input, so a
+    wire from a register shows `bool` and not `T`.
 
 ### Checked
 

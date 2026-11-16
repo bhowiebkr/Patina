@@ -7,6 +7,7 @@ import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
+import { outputTypeOf } from './palette';
 import { nodeWidth } from './gui';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
@@ -169,9 +170,11 @@ export function infoOf(entry: NodeEntry, nodes: NodeInfo[]): NodeInfo | null {
 
 /** The Rust type of output `from`, "<node id>.<output key>", or undefined when its node does not read. */
 export function outputType(view: View, from: string): string | undefined {
-  const dot = from.lastIndexOf('.');
-  const entry = view.graph.node?.find((n) => n.id === from.slice(0, dot));
-  return (entry && infoOf(entry, view.nodes))?.outputs.find((p) => p.key === from.slice(dot + 1))?.ty;
+  const pins = (id: string) => {
+    const entry = view.graph.node?.find((n) => n.id === id);
+    return entry && infoOf(entry, view.nodes);
+  };
+  return outputTypeOf(from, pins, (to) => view.graph.wire?.find((w) => w.to === to)?.from);
 }
 
 function StateIcon({ state }: { state: NodeState }) {

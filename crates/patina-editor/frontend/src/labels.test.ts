@@ -32,3 +32,18 @@ test('a covered wire label hides, by its rank', () => {
   labels.compute();
   assert.equal(labels.hidden('type'), false);
 });
+
+test('a covered badge hides, and a hidden badge does not hide a label', () => {
+  const labels = new Labels();
+  labels.set('a', null, box(0, 0), 2);
+  labels.set('b', null, box(20, 4), 2);
+  labels.set('c', box(45, 4), box(200, 0), 2);
+  labels.compute();
+  assert.deepEqual(['a', 'b'].map(labels.badgeHidden), [false, true]);
+  assert.equal(labels.hidden('c'), false);
+  // A selected badge always shows, so it hides the badge of a and the label of c.
+  labels.set('b', null, box(20, 4), -1);
+  labels.compute();
+  assert.deepEqual(['a', 'b'].map(labels.badgeHidden), [true, false]);
+  assert.equal(labels.hidden('c'), true);
+});

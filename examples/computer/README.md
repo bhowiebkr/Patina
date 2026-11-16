@@ -3,8 +3,6 @@
 A small 8-bit computer, made of NAND gates. The style is the style of a digital logic
 simulator: each gate, adder, register and memory is a subgraph that you can open.
 
-This example is in progress. The text and the images will change.
-
 ![The main graph of the computer in the editor](images/editor.png)
 
 ## Run the example
@@ -57,7 +55,7 @@ The subgraphs, from small to large:
 - **Output:** `hex-7seg`, `hex-ascii`, `lcd-writer`.
 - **The computer:** `cpu`.
 
-![The readouts, the logic analyzer and the hex display of the main graph](images/readouts.png)
+![The CPU, a hex display, the LCD writer, the LCD and a readout of the main graph](images/readouts.png)
 
 ## The instruction set
 

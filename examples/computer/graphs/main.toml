@@ -3,12 +3,12 @@ format = 1
 [[node]]
 id = "2504c53cbf24694b"
 subgraph = "counter-4"
-pos = [0.0, 0.0]
+pos = [1648.0, 334.0]
 
 [[node]]
 id = "b160f7065d7e5bb9"
 folder = "nodes/switch"
-pos = [0.0, 260.0]
+pos = [1648.0, 626.0]
 
 [node.params]
 on = "true"
@@ -16,7 +16,7 @@ on = "true"
 [[node]]
 id = "5aa05caa15eaef14"
 folder = "nodes/switch"
-pos = [0.0, 460.0]
+pos = [1648.0, 752.0]
 
 [node.params]
 on = "true"
@@ -24,7 +24,7 @@ on = "true"
 [[node]]
 id = "fcb5ca8082af7143"
 folder = "nodes/switch"
-pos = [0.0, 660.0]
+pos = [1648.0, 878.0]
 
 [node.params]
 on = "false"
@@ -32,7 +32,7 @@ on = "false"
 [[node]]
 id = "925b464f05646caf"
 folder = "nodes/switch"
-pos = [0.0, 860.0]
+pos = [1648.0, 1004.0]
 
 [node.params]
 on = "false"
@@ -40,7 +40,7 @@ on = "false"
 [[node]]
 id = "edebef2a7706ee1d"
 folder = "nodes/switch"
-pos = [0.0, 1060.0]
+pos = [1648.0, 1612.0]
 
 [node.params]
 on = "true"
@@ -48,7 +48,7 @@ on = "true"
 [[node]]
 id = "d4a9adf78549eb14"
 folder = "nodes/switch"
-pos = [0.0, 1260.0]
+pos = [1648.0, 1726.0]
 
 [node.params]
 on = "false"
@@ -56,7 +56,7 @@ on = "false"
 [[node]]
 id = "a431b509737b3ea9"
 folder = "nodes/switch"
-pos = [0.0, 1460.0]
+pos = [1648.0, 1840.0]
 
 [node.params]
 on = "true"
@@ -64,7 +64,7 @@ on = "true"
 [[node]]
 id = "cdd2e5ccb55383f6"
 folder = "nodes/switch"
-pos = [0.0, 1660.0]
+pos = [1648.0, 1954.0]
 
 [node.params]
 on = "false"
@@ -72,17 +72,17 @@ on = "false"
 [[node]]
 id = "a3efcc2ce595017a"
 subgraph = "cpu"
-pos = [0.0, 1860.0]
+pos = [292.0, 918.0]
 
 [[node]]
 id = "9bfefb001a1ae7a9"
 folder = "nodes/readout"
-pos = [300.0, 0.0]
+pos = [1988.0, 376.0]
 
 [[node]]
 id = "5c53f482ab97d1a3"
 folder = "nodes/switch"
-pos = [300.0, 430.0]
+pos = [1968.0, 1410.0]
 
 [node.params]
 on = "true"
@@ -90,42 +90,42 @@ on = "true"
 [[node]]
 id = "21a01203787a27d0"
 subgraph = "hex-7seg"
-pos = [300.0, 630.0]
+pos = [1988.0, 120.0]
 
 [[node]]
 id = "f5d800547e0fb0a8"
 subgraph = "adder-4"
-pos = [300.0, 1010.0]
+pos = [1988.0, 668.0]
 
 [[node]]
 id = "caecd5b055f33875"
 subgraph = "adder-4"
-pos = [300.0, 1430.0]
+pos = [1968.0, 1516.0]
 
 [[node]]
 id = "531d9271f2ea833f"
 folder = "nodes/readout"
-pos = [300.0, 1850.0]
+pos = [700.0, 1768.0]
 
 [[node]]
 id = "fdda7fd6865424b1"
 folder = "nodes/readout"
-pos = [300.0, 2280.0]
+pos = [700.0, 2060.0]
 
 [[node]]
 id = "f5158e2151afe01b"
 subgraph = "hex-7seg"
-pos = [300.0, 2710.0]
+pos = [700.0, 514.0]
 
 [[node]]
 id = "763cb88852418f5d"
 folder = "nodes/readout"
-pos = [300.0, 3090.0]
+pos = [700.0, 1476.0]
 
 [[node]]
 id = "2c0c5416f75ced61"
 folder = "nodes/switch"
-pos = [600.0, 0.0]
+pos = [2288.0, 1220.0]
 
 [node.params]
 on = "true"
@@ -133,37 +133,37 @@ on = "true"
 [[node]]
 id = "ba4fbf2be96592c8"
 folder = "nodes/display"
-pos = [600.0, 610.0]
+pos = [2308.0, 120.0]
 
 [[node]]
 id = "50dbdb8e88aefbc0"
 folder = "nodes/readout"
-pos = [600.0, 1100.0]
+pos = [2308.0, 788.0]
 
 [[node]]
 id = "57651e4c47b88d73"
 subgraph = "register-4"
-pos = [600.0, 1530.0]
+pos = [2288.0, 1492.0]
 
 [[node]]
 id = "d415f2b47c52f4e8"
 folder = "nodes/display"
-pos = [600.0, 2690.0]
+pos = [1162.0, 514.0]
 
 [[node]]
 id = "a1ab1827b8780af9"
 subgraph = "ram-4x4"
-pos = [900.0, 854.3]
+pos = [2608.0, 1420.0]
 
 [[node]]
 id = "01e6fe323c4fd5e2"
 folder = "nodes/readout"
-pos = [900.0, 1510.0]
+pos = [2608.0, 1780.0]
 
 [[node]]
 id = "94a519f494e21966"
 folder = "nodes/readout"
-pos = [1200.0, 834.3]
+pos = [2928.0, 1516.0]
 
 [[wire]]
 from = "2504c53cbf24694b.f6bc0840"
@@ -352,17 +352,17 @@ after = "d72d0630056e81d1"
 [[node]]
 id = "1cd0a5c11d15b1a7"
 folder = "nodes/lcd"
-pos = [1000.0, 2560.0]
+pos = [1162.0, 1182.0]
 
 [[node]]
 id = "3be1bbc4818ab673"
 subgraph = "hex-7seg"
-pos = [300.0, 3420.0]
+pos = [700.0, 848.0]
 
 [[node]]
 id = "d72d0630056e81d1"
 folder = "nodes/display"
-pos = [600.0, 3110.0]
+pos = [1162.0, 848.0]
 
 [[wire]]
 from = "a3efcc2ce595017a.488b8fa6"
@@ -391,7 +391,7 @@ after = "d415f2b47c52f4e8"
 [[node]]
 id = "6c2be0d93f4a1e57"
 subgraph = "lcd-writer"
-pos = [1000.0, 2100.0]
+pos = [700.0, 1182.0]
 
 [[wire]]
 from = "a3efcc2ce595017a.5e1f0a7c"
@@ -464,7 +464,7 @@ to = "1cd0a5c11d15b1a7.write"
 [[node]]
 id = "c10c0c1a5e7b2d48"
 folder = "nodes/clock"
-pos = [-300.0, 1860.0]
+pos = [0.0, 918.0]
 
 [node.params]
 every = "4"
@@ -477,7 +477,7 @@ to = "a3efcc2ce595017a.4654170b"
 [[node]]
 id = "a7a1c0de5c09e3b1"
 folder = "nodes/analyzer"
-pos = [-150.0, 2750.0]
+pos = [700.0, 0.0]
 
 [node.params]
 names = "clk,strobe,pc0,pc1,pc2,pc3,a0,out0"

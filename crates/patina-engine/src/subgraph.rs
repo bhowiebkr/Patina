@@ -221,10 +221,23 @@ fn end_type(root: &Path, graph: &GraphFile, end: &str, input: bool, stack: &mut 
         _ => return None,
     };
     let ty = match input {
-        true => node.inputs.into_iter().find(|i| i.key == key).map(|i| i.value),
+        true => node.inputs.iter().find(|i| i.key == key).map(|i| i.value.clone()),
         false => node.output_keys().into_iter().zip(node.output_types).find(|(k, _)| k == key).map(|(_, ty)| ty),
-    };
-    Some((ty?, node.generics))
+    }?;
+    // A generic output, as of a delay, has the type of the wire into an input of the same type (4.5).
+    let seen = format!("#{end}");
+    if !input && node.generics.contains(&ty) && !stack.contains(&seen) {
+        let to = node.inputs.iter().find(|i| i.value == ty).map(|i| format!("{id}.{}", i.key));
+        if let Some(from) = to.and_then(|to| graph.wire.iter().find(|w| w.to == to)).map(|w| w.from.clone()) {
+            stack.push(seen);
+            let found = end_type(root, graph, &from, false, stack);
+            stack.pop();
+            if let Some((found, of)) = found.filter(|(found, of)| !of.contains(found)) {
+                return Some((found, of));
+            }
+        }
+    }
+    Some((ty, node.generics))
 }
 
 /// Moves the nodes `ids` of `graph` into a new subgraph `name` (6.1). Gives the outer graph, with
@@ -589,6 +602,22 @@ folder = \"nodes/gate\"
 [[node]]
 id = \"00000000000000a2\"
 folder = \"nodes/pick\"
+[[node]]
+id = \"00000000000000a3\"
+builtin = \"delay\"
+[[wire]]
+from = \"00000000000000a1.out\"
+to = \"00000000000000a3.value\"
+[[output]]
+key = \"0000000c\"
+name = \"q\"
+pos = [0.0, 0.0]
+from = \"00000000000000a3.out\"
+[[output]]
+key = \"0000000d\"
+name = \"p\"
+pos = [0.0, 0.0]
+from = \"00000000000000a2.out\"
                     [[input]]
 key = \"0000000a\"
 name = \"a\"
@@ -606,6 +635,9 @@ to = [\"00000000000000a2.a\"]
         std::fs::remove_dir_all(&root).unwrap();
         let types: Vec<&str> = infos[0].inputs.iter().map(|p| p.ty.as_str()).collect();
         assert_eq!((types, &infos[0].generics[..]), (vec!["bool", "T"], &["T".to_owned()][..]));
+        // A delay output takes the type of its input wire. An output of a generic node stays generic.
+        let outs: Vec<&str> = infos[0].outputs.iter().map(|p| p.ty.as_str()).collect();
+        assert_eq!(outs, ["bool", "T"]);
     }
 
     #[test]

@@ -120,6 +120,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   }, [labels, id, label, badge, badgeRoom, room, mx, my, above, selected, ribbon, named]);
   useLayoutEffect(() => () => labels.remove(id), [labels, id]);
   const covered = useSyncExternalStore(labels.subscribe, () => labels.hidden(id));
+  const badgeCovered = useSyncExternalStore(labels.subscribe, () => labels.badgeHidden(id));
   // The lane under the pointer (15.9). The hit area covers the full ribbon.
   const leave = () => {
     if (hover.get()?.wire === id) hover.set(null);
@@ -154,7 +155,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
             {label}
           </div>
         )}
-        {badge !== undefined && (
+        {badge !== undefined && !badgeCovered && (
           <div
             className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}
             style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)`, maxWidth: badgeRoom }}

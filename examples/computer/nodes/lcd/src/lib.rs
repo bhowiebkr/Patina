@@ -62,8 +62,9 @@ const FONT: &[(char, [u8; 7])] = &[
 const UNKNOWN: [u8; 7] = [0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F];
 
 /// A display of 2 lines of 16 characters, as a character LCD. When `write` is on, it puts the
-/// ASCII character of bits d7 to d0 at the cursor. After the last cell, the lines move up one
-/// line. `clear` empties the display first. It writes the two lines to the standard output.
+/// ASCII character of bits d0 to d7 at the cursor, with d0 as the low bit. After the last cell, the
+/// lines move up one line. `clear` empties the display first. It writes the two lines to the
+/// standard output.
 #[node(color = "#59366f")]
 pub struct Lcd {
     cells: [u8; 2 * COLS],
@@ -76,7 +77,7 @@ impl Lcd {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn process(&mut self, d7: &bool, d6: &bool, d5: &bool, d4: &bool, d3: &bool, d2: &bool, d1: &bool, d0: &bool, write: &bool, clear: &bool) {
+    pub fn process(&mut self, d0: &bool, d1: &bool, d2: &bool, d3: &bool, d4: &bool, d5: &bool, d6: &bool, d7: &bool, write: &bool, clear: &bool) {
         if *clear {
             *self = Lcd::init();
         }

@@ -9,6 +9,7 @@ interface Entry {
   /** A lower rank shows first. A label with a rank below 0 always shows. */
   rank: number;
   hidden: boolean;
+  badgeHidden: boolean;
 }
 
 const overlap = (a: Rect, b: Rect) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
@@ -28,7 +29,7 @@ export class Labels {
   set(id: string, label: Rect | null, badge: Rect | null, rank: number) {
     const e = this.entries.get(id);
     if (e) Object.assign(e, { label, badge, rank });
-    else this.entries.set(id, { id, label, badge, rank, hidden: false });
+    else this.entries.set(id, { id, label, badge, rank, hidden: false, badgeHidden: false });
     this.queue();
   }
 
@@ -42,6 +43,8 @@ export class Labels {
   }
 
   hidden = (id: string): boolean => this.entries.get(id)?.hidden ?? false;
+
+  badgeHidden = (id: string): boolean => this.entries.get(id)?.badgeHidden ?? false;
 
   subscribe = (f: () => void) => {
     this.listeners.add(f);
@@ -57,24 +60,31 @@ export class Labels {
     });
   }
 
-  /** Shows the labels in the order of their rank. Each label hides when a shown box covers it. */
+  /**
+   * Shows the badges, then the labels, in the order of their rank. A badge hides when a shown badge
+   * covers it. A label hides when a shown box covers it.
+   */
   compute() {
     const order = this.order;
     order.length = 0;
     let changed = false;
-    for (const e of this.entries.values()) {
-      if (e.label) order.push(e);
-      else if (e.hidden) [e.hidden, changed] = [false, true];
-    }
+    for (const e of this.entries.values()) order.push(e);
     order.sort((a, b) => a.rank - b.rank || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const shown = (o: Entry) => o.badge !== null && !o.badgeHidden;
     for (let i = 0; i < order.length; i++) {
       const e = order[i];
-      const box = e.label!;
       let hide = false;
-      if (e.rank >= 0) {
+      if (e.badge && e.rank >= 0) for (let j = 0; j < i && !hide; j++) hide = shown(order[j]) && overlap(e.badge, order[j].badge!);
+      if (e.badgeHidden !== hide) [e.badgeHidden, changed] = [hide, true];
+    }
+    for (let i = 0; i < order.length; i++) {
+      const e = order[i];
+      const box = e.label;
+      let hide = false;
+      if (box && e.rank >= 0) {
         hide = this.rects.some((r) => overlap(box, r));
-        for (const o of this.entries.values()) if (!hide && o !== e && o.badge) hide = overlap(box, o.badge);
-        for (let j = 0; j < i && !hide; j++) hide = !order[j].hidden && overlap(box, order[j].label!);
+        for (let j = 0; j < order.length && !hide; j++) hide = j !== i && shown(order[j]) && overlap(box, order[j].badge!);
+        for (let j = 0; j < i && !hide; j++) hide = !order[j].hidden && order[j].label !== null && overlap(box, order[j].label!);
       }
       if (e.hidden !== hide) [e.hidden, changed] = [hide, true];
     }
