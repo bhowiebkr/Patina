@@ -786,7 +786,8 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - A state that is not `Send` makes all the tasks of the cluster run on the thread of the run,
   not only the task of the node (9.2).
 - No test makes a real cluster panic in `process`. The glue test checks the rule.
-- The editor was not run with a generic node. It uses the same engine code as the CLI.
+- The editor selfcheck wires the built-in delay, a generic node, from A to B in the live graph.
+  Both wires show 2.5. The editor uses the same engine code as the CLI.
 - The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
   palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
   the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.

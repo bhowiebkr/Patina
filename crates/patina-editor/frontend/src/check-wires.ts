@@ -2,7 +2,7 @@
 // conflict mark and the cross-domain dash (15.1, 15.3, 15.9).
 
 import { api, type View } from './api';
-import { A, B, RUN_MS, amber, anyPixel, gray, icon, wireColumn } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, amber, anyPixel, gray, icon, wireColumn } from './check-fixtures';
 
 type Step = (name: string, job: () => Promise<View>) => Promise<View>;
 type Until = (what: string, ms: number, test: () => boolean) => Promise<void>;
@@ -128,6 +128,12 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   await until('the wire moved to the delay', RUN_MS, () => !!document.querySelector(`.react-flow__edge[data-id="${A}.out>${D}.value"]`) && !document.querySelector(`.react-flow__edge[data-id="${A}.out>${B}.value"]`));
   await until('the domain icons', RUN_MS, () => icon(A, 'domain-icon.batch') && icon(D, 'domain-icon.frame'));
   await until('a dashed cross-domain wire', RUN_MS, () => document.querySelectorAll('.wire-line.cross').length === 1);
+  // The delay is generic (4.5), and the wire from A gives it f64. The live graph runs A through the
+  // delay to B, one frame late, so both wires show 2.5.
+  v = await step('wire the delay to B', () => api.edit({ kind: 'Connect', from: `${D}.out`, to: `${B}.value` }));
+  const values = () => [...document.querySelectorAll('.wire-value:not(.stale)')].map((b) => b.textContent);
+  await until('the value of A through the generic delay', BUILD_MS, () => values().join() === '2.5,2.5');
+  v = await step('undo the wire from the delay', () => api.undo());
   v = await step('undo the move of the wire end', () => api.undo());
   if (v.graph.wire?.length !== 1 || v.graph.wire[0].to !== `${B}.value`) throw new Error(`undo did not give the wire to B: ${JSON.stringify(v.graph.wire)}`);
   await until('no dashed wire after the undo', RUN_MS, () => document.querySelector('.wire-line.cross') === null);
