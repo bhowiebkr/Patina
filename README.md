@@ -413,6 +413,8 @@ of the blocks. A node plays a block with `patina_sdk::audio::play(&block)`.
 
 A graph with event nodes starts a run each time a trigger node fires. A `schedule` node fires
 at each `every_ms` milliseconds. A `trigger` node fires one time at the start of the CLI run.
+A `file_change` node fires when a file at its `path` changes, and gives the path of the file.
+A `webhook` node fires for each `POST` to `http://127.0.0.1:<port><path>`, and gives the body.
 A `pub async fn` node can wait in its run, for example for a timer of `patina_event::tokio`. Its
 `Cargo.toml` then has `patina-event = { workspace = true }`. To stop after a number of runs, add
 `--events <count>`. Each log line and report of a run starts with **Run <ID>:**.

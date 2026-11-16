@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use crate::events::{self, EventRun, Trigger};
 use crate::library::{Library, Sink, collect};
-use crate::node::{Builtin, Domain};
+use crate::node::Domain;
 use crate::plan::Plan;
 use crate::pool;
 use crate::project::GraphFile;
@@ -172,6 +172,8 @@ pub struct Cluster {
     sound: [f32; BLOCK],
     /// The trigger nodes of the event domain and their settings (9.4).
     triggers: Vec<Trigger>,
+    /// The project root, where a relative path of a `file_change` trigger starts (9.4).
+    root: PathBuf,
 }
 
 impl Cluster {
@@ -235,8 +237,9 @@ impl Cluster {
             sound: [0.0; BLOCK],
             triggers: (0..plan.steps.len())
                 .filter(|&n| plan.is_trigger(n))
-                .map(|n| Trigger::new(n, plan.steps[n].task as u32, plan.builtin(n) == Some(Builtin::Schedule)))
+                .filter_map(|n| Some(Trigger::new(n, plan.steps[n].task as u32, plan.builtin(n)?)))
                 .collect(),
+            root: root.to_path_buf(),
         })
     }
 
@@ -374,7 +377,7 @@ impl Cluster {
     /// empty text. `done` gets each run when it ends. Returns false when a run failed.
     pub fn run_events(&mut self, count: u64, control: &Control, done: impl FnMut(&EventRun)) -> bool {
         let Some(library) = &self.libraries[Domain::Event as usize] else { return true };
-        events::run_all(library, &self.triggers, &self.names, &self.probes, count, control, done)
+        events::run_all(library, &self.triggers, &self.names, &self.probes, &self.root, count, control, done)
     }
 
     fn has(&self, domain: Domain) -> bool {

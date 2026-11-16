@@ -164,7 +164,7 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
 1. Done on 2026-11-16: the engine and the CLI: `Domain::Event`, plain async nodes, the
    built-in triggers `schedule` and `trigger`, a run thread for each event run, and
    `patina-cli run --events <count>`.
-2. The triggers `file_change` and `webhook`.
+2. Done on 2026-11-16: the triggers `file_change` and `webhook`.
 3. The editor: the event runs with **Run**, **Pause** and **Stop**, a button that fires a
    `trigger` node, and a selfcheck step.
 4. Views fire a `trigger` node through `Graph`. Record the limit of a code swap during a run.
@@ -182,6 +182,11 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
   an event node with no trigger.
 - A unit test checks the settings of a trigger. A plan test checks the trigger of each event
   step.
+- The same CLI test changes a file in a watched folder two times, and gets two runs with the
+  path of the file. A `file_change` node with no path gives an error before a run.
+- The same CLI test sends a `POST` to a wrong path, which got 404, then a `POST` with the body
+  `hello`, which got 202 and a run with `hello`. A port in use gives an error before a run.
+- Unit tests check the scan of a file and of a folder, and the status code of each bad request.
 - The test machine has no network for the tests, so the local test run used
   `CARGO_NET_OFFLINE=true`. The `tokio` crate came from the cargo cache.
 
@@ -194,6 +199,8 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
   - `main.rs` of `patina-cli`: the event runs come before the frames and the blocks.
   - `checked.rs` of `patina-engine`: an event node does not go into the slot (7.1), so an edit
     of an event node rebuilds its cluster.
+  - `events/watch.rs` of `patina-engine`: `file_change` polls its folder.
+  - `events/webhook.rs` of `patina-engine`: `webhook` reads one request at a time.
 - The editor does not run the event domain yet (step 3). `patina-capi` does not run it either.
 - The first build of a project with an async node needs `tokio` from crates.io or the cargo
   cache.

@@ -1,10 +1,12 @@
 //! Runs graphs with event nodes in the CLI (spec 9.4, milestone 12).
 
 use std::fs;
+use std::io::{Read, Write};
+use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::Path;
 
 mod common;
-use common::{copy, run};
+use common::{copy, run, run_while};
 
 /// An async node. Run 1 waits 1 s, the other runs do not wait. It gives 10 x the run ID plus the
 /// number of active runs at its start.
@@ -38,7 +40,7 @@ pub fn hear(text: &String) -> Result<(), String> {
 ";
 
 fn node(id: &str, kind: &str) -> String {
-    let kind = if ["schedule", "trigger"].contains(&kind) { format!("builtin = \"{kind}\"") } else { format!("folder = \"nodes/{kind}\"") };
+    let kind = if ["schedule", "trigger", "file_change", "webhook"].contains(&kind) { format!("builtin = \"{kind}\"") } else { format!("folder = \"nodes/{kind}\"") };
     format!("[[node]]\nid = \"00000000000000{id}\"\n{kind}\n\n")
 }
 
@@ -47,7 +49,7 @@ fn wire(from: &str, to: &str) -> String {
 }
 
 #[test]
-fn a_schedule_starts_runs_and_its_overlap_rule_holds() {
+fn triggers_start_runs_and_their_rules_hold() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "events");
     for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false)] {
         let folder = project.join("nodes").join(name);
@@ -103,5 +105,49 @@ fn a_schedule_starts_runs_and_its_overlap_rule_holds() {
     // An event node needs a trigger.
     fs::write(&main, format!("format = 1\n\n{}", node("e1", "wait"))).unwrap();
     let (output, _, stderr) = run(&project, &[]);
-    assert!(!output.status.success() && stderr.contains("connect a wire or an order wire from a schedule"), "{stderr}");
+    assert!(!output.status.success() && stderr.contains("connect a wire or an order wire from a trigger node"), "{stderr}");
+
+    // A file change fires a run with the path of the file. The first scan does not fire.
+    let hear = |kind: &str, params: &str| {
+        let trigger = format!("{}[node.params]\n{params}\n\n", node("e0", kind));
+        format!("format = 1\n\n{trigger}{}{}", node("e1", "hear"), wire("e0.out", "e1.text"))
+    };
+    fs::create_dir_all(project.join("watched")).unwrap();
+    fs::write(&main, hear("file_change", "path = \"watched\"\nevery_ms = \"20\"")).unwrap();
+    let mut text = String::new();
+    let (_, stdout, stderr) = run_while(&project, &["--events", "2"], || {
+        text.push('x');
+        fs::write(project.join("watched/a.txt"), &text).unwrap();
+    });
+    let file = project.join("watched").join("a.txt").display().to_string();
+    assert_eq!(stdout.lines().collect::<Vec<_>>(), [format!("[{file}]"), format!("[{file}]")], "{stderr}");
+    fs::write(&main, hear("file_change", "every_ms = \"20\"")).unwrap();
+    let (output, _, stderr) = run(&project, &[]);
+    assert!(!output.status.success() && stderr.contains("input `path`: give the file or the folder"), "{stderr}");
+
+    // A webhook on 127.0.0.1 fires a run with the body of each POST to its path.
+    let port = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap().local_addr().unwrap().port();
+    fs::write(&main, hear("webhook", &format!("port = \"{port}\"\npath = \"/hook\""))).unwrap();
+    let send = |request: &str| {
+        let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).ok()?;
+        stream.write_all(request.as_bytes()).ok()?;
+        let mut reply = String::new();
+        stream.read_to_string(&mut reply).ok()?;
+        Some(reply)
+    };
+    let mut replies = Vec::new();
+    let (_, stdout, stderr) = run_while(&project, &["--events", "1"], || {
+        if replies.is_empty()
+            && let Some(missing) = send("POST /other HTTP/1.1\r\n\r\n")
+        {
+            replies = vec![missing, send("POST /hook HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello").unwrap_or_default()];
+        }
+    });
+    assert_eq!(stdout.trim(), "[hello]", "{stderr}");
+    assert!(replies[0].starts_with("HTTP/1.1 404") && replies[1].starts_with("HTTP/1.1 202"), "{replies:?}");
+    // A port in use stops the event domain before a run.
+    let used = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).unwrap();
+    let (output, _, stderr) = run(&project, &[]);
+    assert!(!output.status.success() && stderr.contains(&format!("cannot listen on port {port}")), "{stderr}");
+    drop(used);
 }

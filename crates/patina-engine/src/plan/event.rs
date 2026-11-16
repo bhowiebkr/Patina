@@ -23,7 +23,7 @@ pub(super) fn triggers(steps: &[Step], edges: &[(usize, usize)], fires: impl Fn(
             let found: BTreeSet<usize> = before().filter_map(|p| trigger[p]).collect();
             match found.len() {
                 1 => trigger[n] = found.first().copied(),
-                0 => problems.push(format!("node {id}: connect a wire or an order wire from a schedule or a trigger node (spec 9.4)")),
+                0 => problems.push(format!("node {id}: connect a wire or an order wire from a trigger node: schedule, trigger, file_change or webhook (spec 9.4)")),
                 _ => problems.push(format!("node {id}: two triggers reach this node. Connect one trigger (spec 9.4)")),
             }
         }

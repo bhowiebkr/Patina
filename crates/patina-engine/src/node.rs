@@ -215,16 +215,22 @@ pub enum Builtin {
     Schedule,
     /// Starts an event run when the editor or a view fires it. Its output is the text (9.4).
     Trigger,
+    /// Starts an event run for each changed file. Its output is the path of the file (9.4).
+    FileChange,
+    /// Starts an event run for each HTTP request. Its output is the body of the request (9.4).
+    Webhook,
 }
 
 impl Builtin {
-    pub const ALL: [Builtin; 3] = [Builtin::Delay, Builtin::Schedule, Builtin::Trigger];
+    pub const ALL: [Builtin; 5] = [Builtin::Delay, Builtin::Schedule, Builtin::Trigger, Builtin::FileChange, Builtin::Webhook];
 
     pub fn name(self) -> &'static str {
         match self {
             Builtin::Delay => "delay",
             Builtin::Schedule => "schedule",
             Builtin::Trigger => "trigger",
+            Builtin::FileChange => "file_change",
+            Builtin::Webhook => "webhook",
         }
     }
 
@@ -248,6 +254,8 @@ impl Builtin {
             Builtin::Delay => (vec![input("value", "T")], "T", Domain::Frame),
             Builtin::Schedule => (vec![input("every_ms", "u64"), input("overlap", "&str")], "u64", Domain::Event),
             Builtin::Trigger => (vec![input("overlap", "&str")], "String", Domain::Event),
+            Builtin::FileChange => (vec![input("path", "&str"), input("every_ms", "u64"), input("overlap", "&str")], "String", Domain::Event),
+            Builtin::Webhook => (vec![input("port", "u16"), input("path", "&str"), input("overlap", "&str")], "String", Domain::Event),
         };
         let generics = if self == Builtin::Delay { vec!["T".to_owned()] } else { Vec::new() };
         let output_types = vec![out.to_owned()];
