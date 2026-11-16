@@ -1,4 +1,4 @@
-//! The file path widget of a node GUI (spec 4.3).
+//! The file path widget and the asset picker of a node GUI (spec 4.3).
 
 use super::{Response, Ui, changed, push_clean};
 
@@ -24,6 +24,22 @@ impl Ui {
             PathKind::Save => "\tsave\t",
             PathKind::Folder => "\tfolder\t",
         });
+        push_clean(&mut self.tree, path);
+        changed(event.map(|v| *path = v))
+    }
+
+    /// Shows a dropdown of the project files with one of `extensions`, for example `&["glb"]`.
+    /// The path is relative to the project root, as for `file_path`, and empty for no file.
+    pub fn asset_picker(&mut self, text: &str, path: &mut String, extensions: &[&str]) -> Response {
+        let event = self.push("asset", text).map(str::to_owned);
+        self.tree.push('\t');
+        for (i, extension) in extensions.iter().enumerate() {
+            if i > 0 {
+                self.tree.push(' ');
+            }
+            push_clean(&mut self.tree, extension);
+        }
+        self.tree.push('\t');
         push_clean(&mut self.tree, path);
         changed(event.map(|v| *path = v))
     }

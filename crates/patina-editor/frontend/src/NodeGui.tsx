@@ -2,7 +2,7 @@
 
 import { createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from './api';
-import { Field } from './Field';
+import { AssetPicker, Field } from './Field';
 import { eventLine, nest, parseTree, type Block, type Shape, type Widget } from './gui';
 import { guiIcon } from './icons';
 import { LayerStack } from './LayerStack';
@@ -212,6 +212,8 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
           case 'text':
           case 'path':
             return <Field key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'asset':
+            return <AssetPicker key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'tabs':
             return <Tabs key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'section':

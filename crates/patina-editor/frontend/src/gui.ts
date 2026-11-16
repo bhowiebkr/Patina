@@ -11,6 +11,7 @@ export type Widget =
   | { kind: 'number'; index: number; text: string; value: number; step: number; unit: string }
   | { kind: 'text'; index: number; text: string; value: string }
   | { kind: 'path'; index: number; text: string; pick: 'open' | 'save' | 'folder'; value: string }
+  | { kind: 'asset'; index: number; text: string; extensions: string[]; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'tabs'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'section'; index: number; text: string; open: boolean }
@@ -177,6 +178,7 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value, step: low > 0 && Number.isFinite(low) ? low : 0, unit: rest[2] ?? '' });
     else if (kind === 'text') widgets.push({ kind, index, text, value: rest[0] ?? '' });
     else if (kind === 'path' && (rest[0] === 'open' || rest[0] === 'save' || rest[0] === 'folder')) widgets.push({ kind, index, text, pick: rest[0], value: rest[1] ?? '' });
+    else if (kind === 'asset') widgets.push({ kind, index, text, extensions: (rest[0] ?? '').split(' ').filter(Boolean), value: rest[1] ?? '' });
     else if ((kind === 'dropdown' || kind === 'tabs') && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });
     else if (kind === 'section' && Number.isFinite(value)) widgets.push({ kind, index, text, open: value !== 0 });
     else if (kind === 'end') widgets.push({ kind, index, text });

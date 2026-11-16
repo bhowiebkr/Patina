@@ -1,6 +1,6 @@
-// A text, number or file path field of a node GUI (spec 4.3, GUI guide controls).
+// A text, number or file path field, and the asset picker, of a node GUI (spec 4.3, GUI guide controls).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from './api';
 import { stepped, type Widget } from './gui';
 import { guiIcon } from './icons';
@@ -73,6 +73,31 @@ export function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'numbe
           </button>
         </span>
       )}
+    </label>
+  );
+}
+
+/** A dropdown of the project files with one of the extensions. It reads the list again when it gets
+ * the focus, so a new file shows. A path that is not in the list stays as an option. */
+export function AssetPicker({ w, send, disabled }: { w: Extract<Widget, { kind: 'asset' }>; send: (value: string) => void; disabled: boolean }) {
+  const [files, setFiles] = useState<string[]>([]);
+  const extensions = w.extensions.join(' ');
+  const load = () => {
+    api.assetFiles(extensions.split(' ').filter(Boolean)).then(setFiles, () => setFiles([]));
+  };
+  useEffect(load, [extensions]);
+  const options = w.value === '' || files.includes(w.value) ? files : [w.value, ...files];
+  return (
+    <label className="gui-row">
+      <span className="label">{w.text}</span>
+      <select className="field gui-field" value={w.value} disabled={disabled} onFocus={load} onChange={(e) => send(e.currentTarget.value)}>
+        <option value="">None</option>
+        {options.map((f) => (
+          <option key={f} value={f}>
+            {f}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

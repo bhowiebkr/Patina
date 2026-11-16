@@ -497,6 +497,20 @@ impl Project {
         Ok(files)
     }
 
+    /// The files of the project with one of `extensions`, for an asset picker (4.3), sorted and
+    /// relative to the root with `/`. The walk skips `build/`, the `target` folders and hidden files.
+    pub fn asset_files(&self, extensions: &[String]) -> Result<Vec<String>, Error> {
+        const MAX_ASSETS: usize = 1000;
+        let mut files = Vec::new();
+        list_files(&self.root, ".", &mut files)?;
+        let ext = |f: &Path| f.extension().is_some_and(|e| extensions.iter().any(|x| e.eq_ignore_ascii_case(x)));
+        files.retain(|f| !f.starts_with("./build/") && ext(Path::new(f)));
+        files.iter_mut().for_each(|f| drop(f.drain(.."./".len())));
+        files.sort();
+        files.truncate(MAX_ASSETS);
+        Ok(files)
+    }
+
     /// The text of a file in a node or widget folder, for example `nodes/number/src/lib.rs`.
     pub fn read_code(&self, path: &str) -> Result<String, String> {
         let file = code_file(&self.root, path)?;
@@ -556,6 +570,9 @@ mod tests {
         assert_eq!((&nodes[0].inputs[..], &nodes[0].outputs[..]), (&[pin("value", "f64")][..], &[pin("out", "f64")][..]));
         assert_eq!(nodes[1].inputs, [pin("value", "&f64")]);
         assert_eq!(project.folder_files("nodes/show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);
+        fs::create_dir_all(root.join("build")).unwrap();
+        fs::write(root.join("build/x.toml"), "").unwrap();
+        assert_eq!(project.asset_files(&["TOML".to_owned()]).unwrap(), ["graphs/main.toml", "nodes/number/Cargo.toml", "nodes/show/Cargo.toml", "patina.toml"]);
         assert!(project.read_code("nodes/show/src/lib.rs").unwrap().contains("println!"));
         for bad in ["patina.toml", "nodes/show", "nodes/show/../../patina.toml", "nodes/show/src\\..\\x", "nodes/show/c:x"] {
             assert!(project.read_code(bad).is_err(), "{bad}");

@@ -146,6 +146,10 @@ test('a file path reads its dialog kind and drops an unknown kind', () => {
   assert.deepEqual(parseTree('path\tPath\tsave\tout/b c.png\npath\tBad\tdelete\tx'), [{ kind: 'path', index: 0, text: 'Path', pick: 'save', value: 'out/b c.png' }]);
 });
 
+test('an asset picker reads its extensions', () => {
+  assert.deepEqual(parseTree('asset\tSource\tglb obj\t'), [{ kind: 'asset', index: 0, text: 'Source', extensions: ['glb', 'obj'], value: '' }]);
+});
+
 test('a ramp gradient has hard edges for a constant blend and spans the bar for one stop', () => {
   assert.equal(rampGradient([], 'linear'), 'none');
   assert.equal(rampGradient([[0.5, '#ff0000']], 'linear'), 'linear-gradient(to right, #ff0000 0%, #ff0000 50%, #ff0000 100%)');

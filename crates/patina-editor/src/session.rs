@@ -482,6 +482,12 @@ pub fn folder_files(editor: State<'_, Editor>, folder: String) -> Result<Vec<Str
     editor.with(|session| session.project.folder_files(&folder).map_err(|e| e.to_string()))
 }
 
+/// The project files for an asset picker (4.3).
+#[tauri::command(async)]
+pub fn asset_files(editor: State<'_, Editor>, extensions: Vec<String>) -> Result<Vec<String>, String> {
+    editor.with(|session| session.project.asset_files(&extensions).map_err(|e| e.to_string()))
+}
+
 /// Adds a crate of crates.io, a widget folder or a type folder to a code folder with `cargo add`
 /// (15.4). The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate.
 #[tauri::command(async)]

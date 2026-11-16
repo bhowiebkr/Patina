@@ -313,6 +313,8 @@ export const api = {
   pickFolder: (start: string) => invoke<string | null>('pick_folder', { start }),
   /** The **Browse** dialog of a file path widget (4.3). A path in the project comes back relative. */
   pickPath: (kind: PathPick, start: string) => invoke<string | null>('pick_path', { kind, start }),
+  /** The project files with one of the extensions, for an asset picker (4.3). */
+  assetFiles: (extensions: string[]) => invoke<string[]>('asset_files', { extensions }),
   newProject: (parent: string, name: string) => invoke<View>('new_project', { parent, name }),
   openProject: (path: string) => invoke<View>('open_project', { path }),
   closeProject: () => invoke<void>('close_project'),

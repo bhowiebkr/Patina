@@ -234,3 +234,12 @@ fn a_file_path_writes_its_kind_and_takes_the_new_path() {
     assert_eq!(path, "out/b c.png");
     assert_eq!(crate::project_path("/abs/x"), std::path::PathBuf::from("/abs/x"));
 }
+
+#[test]
+fn an_asset_picker_writes_its_extensions_and_takes_the_new_path() {
+    let mut path = String::new();
+    let mut ui = Ui::new(0, "0 meshes/ball.glb");
+    assert!(ui.asset_picker("Source", &mut path, &["glb", "obj"]).changed());
+    assert_eq!(ui.tree(), "asset\tSource\tglb obj\t");
+    assert_eq!(path, "meshes/ball.glb");
+}

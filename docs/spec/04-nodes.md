@@ -82,6 +82,7 @@ impl CurveEditor {
 - A color ramp has stops with a position from 0 to 1 and a color, in the order of position, and a blend: linear, ease or constant. The SDK keeps the selected stop, so the node body and the **Inspector** show the same stop. A click on the bar adds a stop with the color of the ramp at that point. A drag or an arrow key moves a stop, and Delete or a double-click removes it. A ramp keeps 1 stop and has 32 stops at most. A row below the bar shows the color, the blend and the position of the selected stop. (Agent decision, 2026-11-16. The owner can change it.)
 - A layer stack shows one row for each layer, with the first layer at the top. A row has a handle, a visibility toggle, a swatch, the name and an amount from 0 to 1. A layer without an amount, for example a base, has no amount field. A drag of the handle or the up and down arrows move a layer, and a move selects it. The SDK keeps the selected layer. The node shows the properties of the selected layer below the stack, for example in a section. The node adds and removes layers, so the stack has no add or remove control. (Agent decision, 2026-11-16. The owner can change it.)
 - A file path field has a **Browse** button and a kind: open a file, save a file or select a folder. The button opens the dialog of the platform at the folder of the current path. A path in the project comes back relative to the project root, with `/`. A path outside the project stays absolute. The node gives the path to `patina_sdk::project_path` to get the full path. A path pick needs no trust, because no project code runs. (Agent decision, 2026-11-16. The owner can change it.)
+- An asset picker is a dropdown of the project files with one of its extensions, for example `glb`. The editor lists the files again when the dropdown gets the focus. The list skips `build/`, the `target` folders and hidden files, and has 1000 files at most. The value is a path relative to the project root, as for a file path field, and empty for **None**. A path that is not in the list stays as an option. (Agent decision, 2026-11-16. The owner can change it.)
 - The GUI state is the node state, except in audio nodes (below). A GUI change can change the node output, so downstream nodes get the new value.
 
 **Audio nodes**
@@ -119,7 +120,7 @@ impl AdsrEnvelope {
 | Group | Widgets |
 |---|---|
 | Basic | Label, button, icon button, toggle, slider, number field (with a unit and step buttons), text field, file path field (with a **Browse** button), dropdown, tabs, section |
-| Values | Color picker, color ramp, layer stack, curve with an optional histogram, plot with optional axes, scatter plot, progress bar, table, image, waveform |
+| Values | Color picker, color ramp, layer stack, asset picker, curve with an optional histogram, plot with optional axes, scatter plot, progress bar, table, image, waveform |
 | Canvas | Lines, rectangles, circles, text, images. Mouse and key events |
 | Viewport | A GPU surface that the code draws into with `wgpu` (15.8). Not in the node body |
 | Custom | Widgets from widget folders (6.2) |

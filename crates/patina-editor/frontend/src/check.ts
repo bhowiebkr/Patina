@@ -609,6 +609,13 @@ fn broken() -> u32 {
     const pathField = () => document.querySelector(`${gui} [aria-label="Browse Path"]`)?.parentElement?.querySelector('input');
     enterText(pathField()!, 'out/b c.png');
     await until('the typed file path', RUN_MS, () => pathField()?.value === 'out/b c.png');
+    // The asset picker lists the project files with its extension, and a pick goes to the node.
+    // React puts the old value back after the change, so the new value shows only after the round trip.
+    const source = () => document.querySelector<HTMLSelectElement>(`${gui} select:has(option[value="patina.toml"])`);
+    await until('the project files in the asset picker', RUN_MS, () => !!source());
+    source()!.value = 'patina.toml';
+    source()!.dispatchEvent(new Event('change', { bubbles: true }));
+    await until('the picked asset', RUN_MS, () => source()?.value === 'patina.toml');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

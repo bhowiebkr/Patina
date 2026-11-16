@@ -268,6 +268,7 @@ fn main() {
             toolchain::install_toolchain,
             dialog::pick_folder,
             dialog::pick_path,
+            session::asset_files,
         ])
         .on_window_event(|window, event| {
             floats::window_event(window, event);

@@ -59,6 +59,7 @@ pub struct Number {
     layers: Vec<patina_sdk::Layer>,
     layer: usize,
     path: String,
+    source: String,
 }
 
 impl Number {
@@ -67,7 +68,7 @@ impl Number {
             patina_sdk::Layer { name: "Edge polish".into(), color: [232, 176, 128], visible: true, amount: Some(0.35) },
             patina_sdk::Layer { name: "Verdigris".into(), color: [52, 190, 160], visible: true, amount: Some(0.62) },
             patina_sdk::Layer { name: "Copper".into(), color: [180, 100, 56], visible: true, amount: None },
-        ], layer: 1, path: "out/frame_####.png".into() }
+        ], layer: 1, path: "out/frame_####.png".into(), source: String::new() }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -87,6 +88,7 @@ impl Number {
         ui.color_ramp("Ramp", &mut self.ramp, &mut self.stop);
         ui.layer_stack("Layers", &mut self.layers, &mut self.layer);
         ui.file_path("Path", &mut self.path, patina_sdk::PathKind::Save);
+        ui.asset_picker("Source", &mut self.source, &["toml"]);
         ui.tabs("Pages", &mut self.page, &["Values", "Shape"]);
         ui.section("More", &mut self.more, |ui| ui.label("Hidden detail"));
         let wave: Vec<f32> = (0..400).map(|i| (i as f32 * 0.2).sin() * (1.0 - i as f32 / 400.0)).collect();

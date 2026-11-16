@@ -45,7 +45,7 @@ The editor has these mockup features. They are not gaps.
 - The **Subgraph interface** in the **Inspector**: the public pins in pin order, with their
   names, types and a preview of the use (mockup 11).
 - The SDK `Ui` widgets: label, button, icon button, toggle, slider, number field with a unit and step
-  buttons, text field, file path with **Browse**, dropdown, tabs, collapsible section, color, color ramp, layer stack, plot with axes, scatter plot, waveform with trim handles, table, curve with histogram,
+  buttons, text field, file path with **Browse**, dropdown, tabs, collapsible section, color, color ramp, layer stack, asset picker, plot with axes, scatter plot, waveform with trim handles, table, curve with histogram,
   progress bar, image, 2D canvas and GPU viewport (mockups 4, 6, 7 and 9).
 
 ## Editor gaps
@@ -63,7 +63,6 @@ its own version.
 | Widget | Mockups | Note |
 |---|---|---|
 | A 2D transform gizmo with pivot, rotation and axis handles | 4 | A canvas with pointer events can draw it. |
-| An asset picker | 9 | Mesh Maps. |
 | A timeline with a ruler, clip lanes and automation lanes | 5 | A custom view. |
 
 ## Next steps
