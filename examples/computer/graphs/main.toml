@@ -8,7 +8,7 @@ pos = [0.0, 0.0]
 [[node]]
 id = "8ff3c3500317faba"
 folder = "nodes/switch"
-pos = [0.0, 100.0]
+pos = [0.0, 260.0]
 
 [node.params]
 on = "true"
@@ -16,7 +16,7 @@ on = "true"
 [[node]]
 id = "ccd3b184bb37004d"
 folder = "nodes/switch"
-pos = [0.0, 200.0]
+pos = [0.0, 460.0]
 
 [node.params]
 on = "true"
@@ -24,7 +24,7 @@ on = "true"
 [[node]]
 id = "654124ac56a3d4e9"
 folder = "nodes/switch"
-pos = [0.0, 300.0]
+pos = [0.0, 660.0]
 
 [node.params]
 on = "false"
@@ -32,7 +32,7 @@ on = "false"
 [[node]]
 id = "8dcac1a03ed09d0c"
 folder = "nodes/switch"
-pos = [0.0, 400.0]
+pos = [0.0, 860.0]
 
 [node.params]
 on = "false"
@@ -40,32 +40,32 @@ on = "false"
 [[node]]
 id = "9dce3e4dc23233b6"
 subgraph = "adder-4"
-pos = [240.0, 0.0]
+pos = [300.0, 0.0]
 
 [[node]]
 id = "0ceec420f6341638"
 folder = "nodes/readout"
-pos = [480.0, 0.0]
+pos = [600.0, 0.0]
 
 [[node]]
 id = "305567579b738df0"
 folder = "nodes/readout"
-pos = [480.0, 100.0]
+pos = [600.0, 430.0]
 
 [[node]]
 id = "60517bad38c0862a"
 subgraph = "register-4"
-pos = [720.0, 0.0]
+pos = [900.0, 0.0]
 
 [[node]]
 id = "c35fca079bb78dda"
 subgraph = "adder-4"
-pos = [720.0, 100.0]
+pos = [900.0, 300.0]
 
 [[node]]
 id = "7a2c441e05fdf060"
 folder = "nodes/switch"
-pos = [720.0, 200.0]
+pos = [900.0, 720.0]
 
 [node.params]
 on = "true"
@@ -73,7 +73,7 @@ on = "true"
 [[node]]
 id = "edfe5b7d1cc0f3b4"
 folder = "nodes/switch"
-pos = [960.0, 0.0]
+pos = [1200.0, 0.0]
 
 [node.params]
 on = "true"
@@ -81,7 +81,7 @@ on = "true"
 [[node]]
 id = "f07719babe18550f"
 folder = "nodes/switch"
-pos = [960.0, 100.0]
+pos = [1200.0, 200.0]
 
 [node.params]
 on = "false"
@@ -89,7 +89,7 @@ on = "false"
 [[node]]
 id = "04abce2c712e8d05"
 folder = "nodes/switch"
-pos = [960.0, 200.0]
+pos = [1200.0, 400.0]
 
 [node.params]
 on = "true"
@@ -97,7 +97,7 @@ on = "true"
 [[node]]
 id = "174df3a0c645aba7"
 folder = "nodes/switch"
-pos = [960.0, 300.0]
+pos = [1200.0, 600.0]
 
 [node.params]
 on = "false"
@@ -105,17 +105,17 @@ on = "false"
 [[node]]
 id = "bb2fe1eabb29e5e6"
 folder = "nodes/readout"
-pos = [1200.0, 0.0]
+pos = [1500.0, 0.0]
 
 [[node]]
 id = "4285e8281e3f5947"
 subgraph = "ram-4x4"
-pos = [1440.0, 0.0]
+pos = [1800.0, 0.0]
 
 [[node]]
 id = "97d2ad0bb983fcf1"
 folder = "nodes/switch"
-pos = [1440.0, 100.0]
+pos = [1800.0, 380.0]
 
 [node.params]
 on = "true"
@@ -123,17 +123,17 @@ on = "true"
 [[node]]
 id = "01e355359422d4fe"
 folder = "nodes/readout"
-pos = [1680.0, 0.0]
+pos = [2100.0, 0.0]
 
 [[node]]
 id = "21791ef7befa2843"
 subgraph = "cpu"
-pos = [1920.0, 0.0]
+pos = [2400.0, 0.0]
 
 [[node]]
 id = "4551e7d719e4a785"
 folder = "nodes/switch"
-pos = [1920.0, 100.0]
+pos = [2400.0, 540.0]
 
 [node.params]
 on = "false"
@@ -141,17 +141,17 @@ on = "false"
 [[node]]
 id = "d5ee12c80c402ae7"
 folder = "nodes/readout"
-pos = [2160.0, 0.0]
+pos = [2700.0, 0.0]
 
 [[node]]
 id = "6abc704f029a7383"
 folder = "nodes/readout"
-pos = [2160.0, 100.0]
+pos = [2700.0, 430.0]
 
 [[node]]
 id = "96e800c459f4a069"
 folder = "nodes/readout"
-pos = [2160.0, 200.0]
+pos = [2700.0, 860.0]
 
 [[wire]]
 from = "daa6d45c6f863477.f6bc0840"

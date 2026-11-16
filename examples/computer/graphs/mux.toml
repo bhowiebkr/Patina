@@ -8,17 +8,17 @@ pos = [0.0, 0.0]
 [[node]]
 id = "b687f8f8f0ecb58d"
 folder = "nodes/nand"
-pos = [240.0, 0.0]
+pos = [300.0, 0.0]
 
 [[node]]
 id = "bc3c2ba9a195e4a0"
 folder = "nodes/nand"
-pos = [240.0, 100.0]
+pos = [300.0, 180.0]
 
 [[node]]
 id = "fc3d7c9dec099e92"
 folder = "nodes/nand"
-pos = [480.0, 0.0]
+pos = [600.0, 0.0]
 
 [[wire]]
 from = "d5094f57d323d619.out"
@@ -35,23 +35,23 @@ to = "fc3d7c9dec099e92.b"
 [[input]]
 key = "dcc47589"
 name = "sel"
-pos = [-240.0, 0.0]
+pos = [-300.0, 0.0]
 to = ["d5094f57d323d619.a", "d5094f57d323d619.b", "bc3c2ba9a195e4a0.b"]
 
 [[input]]
 key = "987c7f5a"
 name = "a"
-pos = [-240.0, 100.0]
+pos = [-300.0, 100.0]
 to = ["b687f8f8f0ecb58d.a"]
 
 [[input]]
 key = "36ab6f8b"
 name = "b"
-pos = [-240.0, 200.0]
+pos = [-300.0, 200.0]
 to = ["bc3c2ba9a195e4a0.a"]
 
 [[output]]
 key = "93be95a4"
 name = "out"
-pos = [720.0, 0.0]
+pos = [900.0, 0.0]
 from = "fc3d7c9dec099e92.out"

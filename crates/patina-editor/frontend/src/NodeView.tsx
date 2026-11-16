@@ -63,6 +63,15 @@ export const NO_RUN: RunState = {
 };
 
 /** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
+/** The values and idle nodes of one use of a subgraph, with the IDs inside the use (6.4, 15.9). */
+export function scopeRun(run: RunState, scope: string): RunState {
+  if (!scope) return run;
+  const p = `${scope}/`;
+  const inner = <T,>(map: ReadonlyMap<string, T>) => [...map].filter(([k]) => k.startsWith(p)).map(([k, v]) => [k.slice(p.length), v] as const);
+  const values = new Map(inner(run.values).map(([k, v]) => [k, { ...v, from: k }]));
+  return { ...run, values, idle: new Map(inner(run.idle)) };
+}
+
 export function valueStale(run: RunState, from: string): boolean {
   return run.stale || run.idle.has(from.slice(0, from.lastIndexOf('.')));
 }

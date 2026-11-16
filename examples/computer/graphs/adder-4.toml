@@ -11,22 +11,22 @@ on = "false"
 [[node]]
 id = "3742416f0d432a7a"
 subgraph = "full-adder"
-pos = [240.0, 0.0]
+pos = [300.0, 0.0]
 
 [[node]]
 id = "a49caf04776a0e66"
 subgraph = "full-adder"
-pos = [240.0, 100.0]
+pos = [300.0, 220.0]
 
 [[node]]
 id = "28dc0bb3b6b3333f"
 subgraph = "full-adder"
-pos = [240.0, 200.0]
+pos = [300.0, 440.0]
 
 [[node]]
 id = "8a44d71f602bab23"
 subgraph = "full-adder"
-pos = [240.0, 300.0]
+pos = [300.0, 660.0]
 
 [[wire]]
 from = "9d80ec0320d455a5.out"
@@ -47,77 +47,77 @@ to = "8a44d71f602bab23.1395fdff"
 [[input]]
 key = "44be6e56"
 name = "a0"
-pos = [-240.0, 0.0]
+pos = [-300.0, 0.0]
 to = ["3742416f0d432a7a.47486110"]
 
 [[input]]
 key = "b88f5374"
 name = "a1"
-pos = [-240.0, 100.0]
+pos = [-300.0, 100.0]
 to = ["a49caf04776a0e66.47486110"]
 
 [[input]]
 key = "9eda28d5"
 name = "a2"
-pos = [-240.0, 200.0]
+pos = [-300.0, 200.0]
 to = ["28dc0bb3b6b3333f.47486110"]
 
 [[input]]
 key = "06d0ab61"
 name = "a3"
-pos = [-240.0, 300.0]
+pos = [-300.0, 300.0]
 to = ["8a44d71f602bab23.47486110"]
 
 [[input]]
 key = "002175a2"
 name = "b0"
-pos = [-240.0, 400.0]
+pos = [-300.0, 400.0]
 to = ["3742416f0d432a7a.27379ee4"]
 
 [[input]]
 key = "edb0af1f"
 name = "b1"
-pos = [-240.0, 500.0]
+pos = [-300.0, 500.0]
 to = ["a49caf04776a0e66.27379ee4"]
 
 [[input]]
 key = "b0434d4b"
 name = "b2"
-pos = [-240.0, 600.0]
+pos = [-300.0, 600.0]
 to = ["28dc0bb3b6b3333f.27379ee4"]
 
 [[input]]
 key = "eb88b835"
 name = "b3"
-pos = [-240.0, 700.0]
+pos = [-300.0, 700.0]
 to = ["8a44d71f602bab23.27379ee4"]
 
 [[output]]
 key = "ed1ff052"
 name = "s0"
-pos = [480.0, 0.0]
+pos = [600.0, 0.0]
 from = "3742416f0d432a7a.fc3b813e"
 
 [[output]]
 key = "5cfeeec0"
 name = "s1"
-pos = [480.0, 100.0]
+pos = [600.0, 100.0]
 from = "a49caf04776a0e66.fc3b813e"
 
 [[output]]
 key = "23cf175d"
 name = "s2"
-pos = [480.0, 200.0]
+pos = [600.0, 200.0]
 from = "28dc0bb3b6b3333f.fc3b813e"
 
 [[output]]
 key = "777d8973"
 name = "s3"
-pos = [480.0, 300.0]
+pos = [600.0, 300.0]
 from = "8a44d71f602bab23.fc3b813e"
 
 [[output]]
 key = "8f87e1af"
 name = "carry out"
-pos = [480.0, 400.0]
+pos = [600.0, 400.0]
 from = "8a44d71f602bab23.3273375a"

@@ -45,7 +45,7 @@ GitHub Releases has prebuilt files in two editions. Windows is the main platform
 - The `.msi` uses the Aged Dovetail artwork: `icons/wix-banner.bmp` at the top of its dialogs and `icons/wix-dialog.bmp` on its first and last pages. **Apps > Installed apps** shows the icon of the executable for the uninstall. This is an agent decision of 2026-11-15. The owner can change it.
 - The `.msi` installs the WebView2 Runtime if it is missing, with the bootstrapper of Tauri. This needs internet.
 - The portable edition checks for the WebView2 Runtime before it opens a window. If it is missing, Patina shows a Windows message with a link to the Microsoft download. The Runtime then installs for the current user.
-- An error that stops Patina before or while its window opens shows in a message box of the platform, and goes to the standard error. The hidden self-check (`--check`) shows no message box. This is an agent decision of 2026-11-15. The owner can change it.
+- An error that stops Patina before or while its window opens shows in a message box of the platform, and goes to the standard error. The hidden self-check (`--check`) and the hidden screenshots (`--shot`) show no message box. This is an agent decision of 2026-11-15. The owner can change it.
 
 ### 13.2 "Install toolchain" button
 

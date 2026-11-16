@@ -29,6 +29,8 @@ pub struct Editor {
     session: Mutex<Option<Session>>,
     /// The folder of the self-check (`--check`), or none in normal use.
     pub check: Option<PathBuf>,
+    /// The project of `--shot`, which the page opens and runs. Its screenshots go to `check`.
+    shot: Option<PathBuf>,
     serial: AtomicU64,
     /// The labels of the float windows that close. Their views get no more jobs (15.8).
     closing: Mutex<Vec<String>>,
@@ -95,6 +97,7 @@ pub struct StartInfo {
     recent: Vec<Recent>,
     projects_dir: PathBuf,
     check: Option<PathBuf>,
+    shot: Option<PathBuf>,
 }
 
 /// The settings screen (15.10): the toolchain, the folders and the trusted projects.
@@ -124,8 +127,8 @@ pub struct Recent {
 }
 
 impl Editor {
-    pub fn new(data: Data, (engine, shared): (Jobs, Arc<Shared>), check: Option<PathBuf>) -> Editor {
-        Editor { data, engine, shared, session: Mutex::new(None), check, serial: AtomicU64::new(0), closing: Mutex::default() }
+    pub fn new(data: Data, (engine, shared): (Jobs, Arc<Shared>), check: Option<PathBuf>, shot: Option<PathBuf>) -> Editor {
+        Editor { data, engine, shared, session: Mutex::new(None), check, shot, serial: AtomicU64::new(0), closing: Mutex::default() }
     }
 
     /// True when the open project or the Code tab has changes that are not saved.
@@ -363,6 +366,7 @@ pub fn start_info(editor: State<'_, Editor>) -> StartInfo {
         recent: recent.map(|path| Recent { name: folder_name(&path), exists: path.join("patina.toml").is_file(), path }).collect(),
         projects_dir: editor.data.projects.clone(),
         check: editor.check.clone(),
+        shot: editor.shot.clone(),
     }
 }
 

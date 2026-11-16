@@ -8,11 +8,11 @@ pos = [0.0, 0.0]
 [[input]]
 key = "5ade65ce"
 name = "a"
-pos = [-240.0, 0.0]
+pos = [-300.0, 0.0]
 to = ["b0d8a6fa79c36c20.a", "b0d8a6fa79c36c20.b"]
 
 [[output]]
 key = "7ff633ef"
 name = "out"
-pos = [240.0, 0.0]
+pos = [300.0, 0.0]
 from = "b0d8a6fa79c36c20.out"

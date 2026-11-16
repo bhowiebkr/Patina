@@ -409,7 +409,8 @@ fn keep(kept: &mut Vec<Value>, values: &[Value]) {
 
 /// A copy of the value of each inner output for the output pin of its subgraph use (6.4).
 fn alias(values: &[Value], aliases: &[(String, String)]) -> Vec<Value> {
-    let value = |(outer, inner): &(String, String)| Some(Value { from: outer.clone(), ..values.iter().find(|v| &v.from == inner)?.clone() });
+    let by: std::collections::HashMap<&str, &Value> = values.iter().map(|v| (v.from.as_str(), v)).collect();
+    let value = |(outer, inner): &(String, String)| Some(Value { from: outer.clone(), ..(*by.get(inner.as_str())?).clone() });
     aliases.iter().filter_map(value).collect()
 }
 

@@ -130,7 +130,8 @@ interface Props {
   /** The nodes to select, for example from a view (15.8). */
   focus: { ids: string[]; n: number } | null;
   /** Opens a subgraph, from a double-click on a use (6.1). */
-  onOpen: (name: string) => void;
+  /** Opens a graph. `use` is the ID of the use that a double-click opened. */
+  onOpen: (name: string, use?: string) => void;
   /** Moves the nodes into a new subgraph. It fails with the problem. */
   onCollapse: (name: string, ids: string[]) => Promise<void>;
   /** Puts the nodes of each subgraph use in its place. */
@@ -318,7 +319,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
         onDrop={onDrop}
         onDoubleClick={onDoubleClick}
         onNodeDoubleClick={(e, n) => {
-          if (n.type === 'patina' && n.data.entry.subgraph) onOpen(n.data.entry.subgraph);
+          if (n.type === 'patina' && n.data.entry.subgraph) onOpen(n.data.entry.subgraph, n.id);
           else if (n.type === 'port' && view.trusted) setRenaming({ key: portKey(n.id)!, name: n.data.name, x: e.clientX, y: e.clientY });
         }}
         onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}

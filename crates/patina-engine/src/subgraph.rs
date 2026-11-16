@@ -24,8 +24,15 @@ pub(crate) type Alias = (String, String);
 /// editor draws them. `open` is a subgraph of the editor that replaces its file.
 pub(crate) fn flatten(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>) -> Result<(GraphFile, Vec<Alias>), Vec<String>> {
     let mut problems = Vec::new();
-    let flat = expand(root, graph, open, &mut Vec::new(), &mut problems);
-    if problems.is_empty() { Ok(flat) } else { Err(problems) }
+    let (flat, mut aliases) = expand(root, graph, open, &mut Vec::new(), &mut problems);
+    // An inner public input pin can get its value from an outer public input pin.
+    let map: HashMap<String, String> = aliases.iter().cloned().collect();
+    for (_, from) in &mut aliases {
+        while let Some(next) = map.get(from.as_str()) {
+            from.clone_from(next);
+        }
+    }
+    if problems.is_empty() { Ok((flat, aliases)) } else { Err(problems) }
 }
 
 fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stack: &mut Vec<String>, problems: &mut Vec<String>) -> (GraphFile, Vec<Alias>) {
@@ -34,6 +41,7 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
     }
     let mut flat = GraphFile { node: Vec::new(), wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), ..graph.clone() };
     let mut uses: HashMap<&str, Use> = HashMap::new();
+    let mut nested: Vec<Alias> = Vec::new();
     let mut errors = Vec::new();
     for entry in &graph.node {
         let Some(name) = &entry.subgraph else {
@@ -66,9 +74,11 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
             }
         };
         stack.push(name.clone());
-        let inner = expand(root, &file, open, stack, problems).0;
+        let (inner, inner_aliases) = expand(root, &file, open, stack, problems);
         stack.pop();
         let prefix = |end: &str| format!("{id}/{end}");
+        // The editor shows the values inside a use, so the uses inside it keep their aliases (15.9).
+        nested.extend(inner_aliases.iter().map(|(outer, from)| (prefix(outer), prefix(from))));
         let mut one = Use { inputs: HashMap::new(), outputs: HashMap::new(), nodes: Vec::new() };
         for pin in &inner.input {
             if one.inputs.insert(pin.key.clone(), pin.to.iter().map(|to| prefix(to)).collect()).is_some() {
@@ -126,11 +136,18 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
         if from.is_empty() {
             continue;
         }
+        // The public input pin inside a use shows the value of the wire to the use (15.9).
+        if let Some((id, key)) = wire.to.split_once('.').filter(|(id, _)| uses.contains_key(id)) {
+            nested.push((format!("{id}/in:{key}.pin"), from.clone()));
+        }
         for to in targets(&wire.to, problems) {
             flat.wire.push(Wire { from: from.clone(), to, ..wire.clone() });
         }
     }
     for pin in &mut flat.input {
+        for (id, key) in pin.to.iter().filter_map(|to| to.split_once('.')).filter(|(id, _)| uses.contains_key(id)) {
+            nested.push((format!("{id}/in:{key}.pin"), format!("in:{}.pin", pin.key)));
+        }
         pin.to = pin.to.iter().flat_map(|to| targets(to, problems)).collect();
     }
     for pin in &mut flat.output {
@@ -145,7 +162,7 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
             }
         }
     }
-    let mut aliases: Vec<Alias> = uses.iter().flat_map(|(id, one)| one.outputs.iter().filter(|(_, from)| !from.is_empty()).map(move |(key, from)| (format!("{id}.{key}"), from.clone()))).collect();
+    let mut aliases: Vec<Alias> = nested.into_iter().chain(uses.iter().flat_map(|(id, one)| one.outputs.iter().filter(|(_, from)| !from.is_empty()).map(move |(key, from)| (format!("{id}.{key}"), from.clone())))).collect();
     aliases.sort();
     (flat, aliases)
 }
@@ -477,7 +494,8 @@ after = "00000000000000c2"
         );
         let (flat, aliases) = flatten(&root, &main, None).unwrap();
         let inner = |id: &str| format!("{id}/00000000000000a1.out");
-        assert_eq!(aliases, [("00000000000000d1.0000000b".to_owned(), inner("00000000000000d1")), ("00000000000000d2.0000000b".to_owned(), inner("00000000000000d2"))]);
+        let pin = ("00000000000000d1/in:0000000a.pin".to_owned(), "00000000000000c1.out".to_owned());
+        assert_eq!(aliases, [("00000000000000d1.0000000b".to_owned(), inner("00000000000000d1")), pin, ("00000000000000d2.0000000b".to_owned(), inner("00000000000000d2"))]);
         let ids: Vec<&str> = flat.node.iter().map(|n| n.id.as_str()).collect();
         assert_eq!(ids, ["00000000000000c1", "00000000000000d1/00000000000000a1", "00000000000000d2/00000000000000a1", "00000000000000c2"]);
         let wires: Vec<(&str, &str)> = flat.wire.iter().map(|w| (w.from.as_str(), w.to.as_str())).collect();
@@ -492,6 +510,39 @@ after = "00000000000000c2"
         assert_eq!(flat.node[1].params["b"], "1");
         assert_eq!((flat.node[2].params["a"].as_str(), flat.node[2].params["b"].as_str()), ("7", "7"));
         assert_eq!((flat.order[0].before.as_str(), flat.order[0].after.as_str()), ("00000000000000d1/00000000000000a1", "00000000000000c2"));
+
+        // A use inside a use keeps its alias, with the path of the outer use.
+        let twice = "format = 1
+[[node]]
+id = \"00000000000000e1\"
+subgraph = \"half\"
+[[output]]
+key = \"0000000d\"
+name = \"y\"
+pos = [0.0, 0.0]
+from = \"00000000000000e1.0000000b\"
+[[input]]
+key = \"0000000e\"
+name = \"x\"
+pos = [0.0, 0.0]
+to = [\"00000000000000e1.0000000a\"]
+";
+        std::fs::write(root.join("graphs/twice.toml"), twice).unwrap();
+        let (_, aliases) = flatten(&root, &graph("format = 1
+[[node]]
+id = \"c1\"
+folder = \"nodes/number\"
+[[node]]
+id = \"f1\"
+subgraph = \"twice\"
+[[wire]]
+from = \"c1.out\"
+to = \"f1.0000000e\"
+"), None).unwrap();
+        let deep = "f1/00000000000000e1/00000000000000a1.out".to_owned();
+        let at = |pin: &str| (pin.to_owned(), "c1.out".to_owned());
+        assert_eq!(aliases, [("f1.0000000d".to_owned(), deep.clone()), ("f1/00000000000000e1.0000000b".to_owned(), deep), at("f1/00000000000000e1/in:0000000a.pin"), at("f1/in:0000000e.pin")]);
+        std::fs::remove_file(root.join("graphs/twice.toml")).unwrap();
 
         // A wire from an output that is not connected inside gives no value.
         std::fs::write(root.join("graphs/open.toml"), "format = 1\n[[output]]\nkey = \"0000000c\"\nname = \"y\"\npos = [0.0, 0.0]\n").unwrap();

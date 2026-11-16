@@ -117,6 +117,8 @@ export interface StartInfo {
   recent: Recent[];
   projectsDir: string;
   check: string | null;
+  /** The project of `patina --shot <project> <dir>`. */
+  shot: string | null;
 }
 
 /** The settings screen (15.10). `rust` and `cargo` are null when Patina finds no toolchain. */

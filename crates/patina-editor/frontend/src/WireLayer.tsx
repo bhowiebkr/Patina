@@ -44,7 +44,8 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const [draft, setDraft] = useState<readonly Point[] | null>(null);
   const route = draft ?? data!.route;
   const value = values.get(data!.from);
-  const bits = value?.lanes?.bits ?? '';
+  // A bool wire is one lane: lit when true (15.9).
+  const bits = value?.lanes?.bits ?? (value?.text === 'true' ? '1' : value?.text === 'false' ? '0' : '');
   const old = stale(data!.from);
   // A bus shows one line with its width at a far zoom (15.9).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);

@@ -249,6 +249,9 @@ circuit needs a delay. Run the example:
 cargo run -p patina-cli -- run examples/computer --frames 16
 ```
 
+In the editor, a 1-bit wire is lit when it is true. Run the project and double-click a use of a
+subgraph, for example the `cpu` node. The subgraph opens with the live values of that use.
+
 Each frame writes seven lines: the count, the count plus 3, an accumulator that adds 5 at each
 step, a memory and the three registers of a CPU. A `register-4` subgraph keeps 4 bits, and takes new bits when its **load**
 input is on. The `ram-4x4` subgraph keeps 4 words of 4 bits. It writes the accumulator to the

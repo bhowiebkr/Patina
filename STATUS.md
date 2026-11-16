@@ -26,7 +26,10 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
    words of 7 bits. Each ROM bit is a switch. The 7 instructions are LDI, ADD, OUT, JMP, JC, ST
    and LD. JC uses a carry flag, and ST and LD use the RAM of step 3. The CPU has no
    instruction register, because each instruction takes one step.
-5. Next: look at the circuit in the editor.
+5. Done: look at the circuit in the editor. A 1-bit wire is lit when it is true. A subgraph
+   that opens with a double-click on a use shows the live values of that use, also for a use
+   inside a use. The generator stacks the nodes by their pin count, so they do not overlap.
+6. Next: a tool to place the nodes of a large subgraph, and the pin names on a use.
 
 ### Checked
 
@@ -37,7 +40,12 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   test compares them with a small emulator of the 7 instructions. The program
   takes the conditional jump and reads a stored word from the RAM. The test took 8.1 s.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
-- The GUI of the readout node was not looked at in the editor.
+- `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
+  screenshot of the main graph and of each subgraph. It opens each subgraph through its first
+  use. On `examples/computer`, it wrote 18 screenshots in about 25 s. They show the lit wires
+  in the subgraphs and the lamps of the readouts at a near zoom.
+- The readout lamps hide at a far zoom, as all node GUIs do (15.1).
+- A use of a subgraph shows no pin names on the node.
 
 ## Milestone 11: the audio domain
 

@@ -2,7 +2,9 @@
 //!
 //! `patina --portable <dir>` keeps the data in `<dir>/data` (13.3). `patina --check <dir>` runs
 //! the self-check in a hidden window: it makes the project `<dir>/check`, edits, runs, saves and
-//! opens it again. Then it writes `<dir>/check.json` and `<dir>/check.png`.
+//! opens it again. Then it writes `<dir>/check.json` and `<dir>/check.png`. `patina --shot
+//! <project> <dir>` opens and runs the project in a hidden window. It writes a screenshot of each
+//! graph to `<dir>`.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod data;
@@ -54,10 +56,11 @@ struct OutputText {
 struct Args {
     portable: Option<PathBuf>,
     check: Option<PathBuf>,
+    shot: Option<PathBuf>,
 }
 
 fn parse_args() -> Result<Args, String> {
-    let mut args = Args { portable: None, check: None };
+    let mut args = Args { portable: None, check: None, shot: None };
     let mut list = std::env::args_os().skip(1);
     while let Some(arg) = list.next() {
         let name = arg.to_string_lossy().into_owned();
@@ -68,6 +71,7 @@ fn parse_args() -> Result<Args, String> {
         match name.as_str() {
             "--portable" => args.portable = Some(folder()?),
             "--check" => args.check = Some(folder()?),
+            "--shot" => (args.shot, args.check) = (Some(folder()?), Some(folder()?)),
             _ => return Err(format!("unknown argument {name}")),
         }
     }
@@ -77,7 +81,7 @@ fn parse_args() -> Result<Args, String> {
 /// Writes the error and stops. A message box shows it too, except in the hidden self-check.
 fn fatal(text: &str) -> ! {
     eprintln!("patina: {text}");
-    if !std::env::args_os().any(|arg| arg == "--check") {
+    if !std::env::args_os().any(|arg| arg == "--check" || arg == "--shot") {
         dialog::error(text);
     }
     std::process::exit(1);
@@ -205,7 +209,7 @@ fn main() {
         std::process::exit(1);
     }
     let data = Data::find(args.portable.or_else(|| args.check.clone())).unwrap_or_else(|e| fatal(&e));
-    let check = args.check;
+    let (check, shot) = (args.check, args.shot);
     tauri::Builder::default()
         .register_uri_scheme_protocol("patina", |_ctx, request| serve(&request))
         .invoke_handler(tauri::generate_handler![
@@ -286,7 +290,7 @@ fn main() {
                 limit_check(dir.clone());
             }
             let is_check = check.is_some();
-            app.manage(Editor::new(data, engine, check));
+            app.manage(Editor::new(data, engine, check, shot));
             let main = window(app.handle(), "main", page_url(), webview_dir, is_check).title("Patina").inner_size(1440.0, 900.0);
             match is_check {
                 true => main.build()?,

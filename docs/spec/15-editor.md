@@ -490,6 +490,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - A removed pin also removes its wires in the subgraph. A wire of a use to a removed pin stays in the outer graph, and the check shows a problem for it.
 - Only the open graph can have unsaved changes. Thus a change of graph saves all first, as Ctrl+S does. Each graph keeps its undo history while the project is open.
 - A run uses the unsaved changes of the open subgraph, as it does for the main graph.
+- A subgraph that opens with a double-click on a use shows the live values of that use: the lit wires, the value badges and the node GUIs. A public input pin shows the value of the wire to the use. A subgraph that opens from the **Project** panel shows no live values, because it has no use. This is an agent decision of 2026-11-15. The owner can change it.
 - Reason: one unsaved graph keeps the save, the recovery file and the close dialog simple. A user who opens a subgraph usually wants the change of the main graph to stay.
 
 **Collapse into a subgraph**

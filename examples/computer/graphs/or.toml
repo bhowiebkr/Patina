@@ -8,12 +8,12 @@ pos = [0.0, 0.0]
 [[node]]
 id = "a9ab786660e234f1"
 subgraph = "not"
-pos = [0.0, 100.0]
+pos = [0.0, 140.0]
 
 [[node]]
 id = "bf44688399e68bac"
 folder = "nodes/nand"
-pos = [240.0, 0.0]
+pos = [300.0, 0.0]
 
 [[wire]]
 from = "0062c04df4060375.7ff633ef"
@@ -26,17 +26,17 @@ to = "bf44688399e68bac.b"
 [[input]]
 key = "37c6cc47"
 name = "a"
-pos = [-240.0, 0.0]
+pos = [-300.0, 0.0]
 to = ["0062c04df4060375.5ade65ce"]
 
 [[input]]
 key = "3fbd40e4"
 name = "b"
-pos = [-240.0, 100.0]
+pos = [-300.0, 100.0]
 to = ["a9ab786660e234f1.5ade65ce"]
 
 [[output]]
 key = "67d0fbe0"
 name = "out"
-pos = [480.0, 0.0]
+pos = [600.0, 0.0]
 from = "bf44688399e68bac.out"

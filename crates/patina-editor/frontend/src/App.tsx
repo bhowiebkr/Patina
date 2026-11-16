@@ -1,11 +1,12 @@
 // The editor window (spec 15.1): the top bar, the dock with the graph and the panels (15.2), and
 // the status bar. The start screen shows when no project is open.
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
 import { api, folderName, newId, onCloseRequested, type Edit, type StartInfo, type View } from './api';
 import { HelpMenu } from './About';
 import { runCheck } from './check';
+import { runShot } from './shot';
 import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
 import type { Reveal } from './CodeTab';
 import { Confirm } from './Confirm';
@@ -21,6 +22,7 @@ import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { useProjectActions } from './ProjectActions';
 import { StatusBar, useRun } from './RunStatus';
+import { scopeRun } from './NodeView';
 import { ViewPanel } from './ViewPanel';
 import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
@@ -128,12 +130,19 @@ export function App() {
   }, [show, markStale]);
 
   // Only the open graph can have unsaved changes, so a change of graph saves all first (6.1).
+  // A double-click on a use opens the subgraph with the live values of that use (15.9).
+  const [scope, setScope] = useState('');
   const openGraph = useCallback(
-    async (name: string) => {
-      if (!current.current?.dirty || (await saveAll())) act(api.openGraph(name));
+    async (name: string, use?: string) => {
+      if (current.current?.dirty && !(await saveAll())) return undefined;
+      setScope((s) => (use === undefined ? '' : s ? `${s}/${use}` : use));
+      let opened: View | undefined;
+      await act(api.openGraph(name), (v) => (opened = v));
+      return opened;
     },
     [act, saveAll],
   );
+  const scoped = useMemo(() => scopeRun(run, view?.graphName === 'main' ? '' : scope), [run, scope, view?.graphName]);
 
   // Ctrl+G moves the selected nodes into a new subgraph (6.1).
   const collapse = useCallback(
@@ -170,9 +179,10 @@ export function App() {
   useEffect(() => {
     if (start?.check && !checkStarted) {
       checkStarted = true;
-      runCheck(start.check, show, pick, markStale);
+      if (start.shot) runShot(start.shot, show, openGraph);
+      else runCheck(start.check, show, pick, markStale);
     }
-  }, [start, show, pick, markStale]);
+  }, [start, show, pick, markStale, openGraph]);
 
   useEffect(() => showErrors(run.errors), [run.errors]);
 
@@ -280,7 +290,7 @@ export function App() {
       body: (
         <Inspector
           view={view}
-          run={run}
+          run={scoped}
           guis={guis}
           inspect={inspect}
           tab={tab}
@@ -370,7 +380,7 @@ export function App() {
               </div>
             )}
             <div className="canvas">
-              <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={run} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
+              <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
               {view.graphName !== 'main' && (
                 <nav className="graph-path" aria-label="Graph path">
                   <button className="btn" onClick={() => openGraph('main')}>
