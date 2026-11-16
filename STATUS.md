@@ -940,6 +940,9 @@ To run the editor from a checkout:
 - A selected orthogonal wire shows a bar on each middle segment (15.9). A drag on a bar moves
   the segment sideways, and the segments next to it stretch. A unit test checks the moves. The
   selfcheck drags a bar 40 px and pushes an arrow key on it, and checks each undo.
+- A wire with the graph default look and no clear path shows a yellow conflict mark on the
+  first segment through a node body (15.9). A unit test checks the mark and its removal. The
+  selfcheck puts a route point in a node body, and checks the mark and that the undo removes it.
 - The **Look** section of the **Inspector** sets the look of the selected wire (15.9). **Route**
   is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded**
   or **Sharp**. **Reset route** removes the route points. The graph file keeps the style, and
@@ -1248,8 +1251,6 @@ To run the editor from a checkout:
   - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
   - The SVG wires draw a bus as one line (`frontend/src/WireLayer.tsx`).
   - A graph with a route grid of more than 2 million cells gets the simple orthogonal paths
-    (`frontend/src/route.ts`).
-  - A wire with no clear path gets the simple orthogonal path and no conflict mark
     (`frontend/src/route.ts`).
 
 ## Milestone 1: engine and CLI

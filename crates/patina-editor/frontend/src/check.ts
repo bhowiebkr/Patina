@@ -398,6 +398,14 @@ fn broken() -> u32 {
     v = await step('undo the orthogonal style', () => api.undo());
     if (v.graph.wire?.[0]?.style !== undefined || JSON.stringify(v.graph.wire?.[0]?.points) !== before) throw new Error('undo did not give the wire before the segment moves');
     steps.push('orthogonal segment moved sideways');
+    // A route point in a node body gives the automatic route no clear path. The wire shows a
+    // conflict mark (15.9), and the mark goes after the undo.
+    const [nx, ny] = v.graph.node!.find((n) => n.id === B)!.pos!;
+    v = await step('a route point in a node body', () => api.edit({ kind: 'SetRoute', to: `${B}.value`, points: [[nx + 40, ny + 40]] }));
+    await until('the conflict mark of the wire', RUN_MS, () => document.querySelector('.route-conflict') !== null);
+    v = await step('undo the route point in the body', () => api.undo());
+    await until('no conflict mark after the undo', RUN_MS, () => document.querySelector('.route-conflict') === null);
+    steps.push('routing conflict marked');
     // While the graph is paused, an edit makes the value of the last run stale (15.3, 15.9).
     await step('pause', () => api.pause());
     v = await step('edit while paused', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '3' }));

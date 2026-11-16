@@ -274,30 +274,41 @@ function toPoints(g: Grid, states: readonly number[], w: WireIn): Point[] {
   return simplify(pts, w.via);
 }
 
-// shortcut: a wire with no clear path gets the simple orthogonal path and no conflict mark; show the conflict (15.9) when users ask.
+/** The simple orthogonal path, for a wire with no clear path or a graph that is too large. */
 function fallback(w: WireIn): Point[] {
   return simplify([[w.sx, w.sy], ...orthogonal(w.sx, w.sy, w.tx, w.ty, w.via), [w.tx, w.ty]], w.via);
 }
 
-/** A wire with route points goes alone, through each point in turn. */
-function routeVia(g: Grid, w: WireIn): Point[] {
+/** A wire with route points goes alone, through each point in turn. Null when it has no clear path. */
+function routeVia(g: Grid, w: WireIn): Point[] | null {
   const marks = [free(g, w.sx + PAD, w.sy), ...w.via.map(([x, y]) => free(g, x, y)), free(g, w.tx - PAD, w.ty)];
-  if (marks.includes(-1)) return fallback(w);
+  if (marks.includes(-1)) return null;
   const states = [marks[0] * 2];
   for (let k = 1; k < marks.length; k++) {
     const end = search(g, [states[states.length - 1]], marks[k], k === marks.length - 1 ? 0 : -1);
-    if (end < 0) return fallback(w);
+    if (end < 0) return null;
     states.push(...trace(end).slice(1));
   }
   return toPoints(g, states, w);
 }
 
-/** The wires of one output: the nearest target first, then each next target from the nearest point of the tree. */
-function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>) {
+/**
+ * The wires of one output: the nearest target first, then each next target from the nearest point of the tree.
+ * A wire with no clear path gets the simple path, and its ID goes into `conflicts`.
+ */
+function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>, conflicts: Set<string>) {
   const tree: Leg[] = [];
+  const lost = ({ id, w }: Leg) => {
+    out.set(id, fallback(w));
+    conflicts.add(id);
+  };
   for (const l of legs) {
-    if (l.w.via.length) out.set(l.id, routeVia(g, l.w));
-    else tree.push(l);
+    if (!l.w.via.length) tree.push(l);
+    else {
+      const p = routeVia(g, l.w);
+      if (p) out.set(l.id, p);
+      else lost(l);
+    }
   }
   if (!tree.length) return;
   const { sx, sy } = tree[0].w;
@@ -306,11 +317,12 @@ function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>) {
   const start = free(g, sx + PAD, sy);
   const paths: number[][] = [];
   const owner = new Map<number, [number, number]>();
-  for (const { id, w } of tree) {
+  for (const l of tree) {
+    const { id, w } = l;
     const goal = free(g, w.tx - PAD, w.ty);
     const end = start < 0 || goal < 0 ? -1 : search(g, paths.length ? [...owner.keys()] : [start * 2], goal, 0);
     if (end < 0) {
-      out.set(id, fallback(w));
+      lost(l);
       continue;
     }
     const branch = trace(end);
@@ -322,13 +334,13 @@ function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>) {
   }
 }
 
-/** The paths of the nets from pin to pin, before the nudge. */
-function routeNets(rects: readonly Rect[], nets: readonly (readonly Leg[])[]): Map<string, Point[]> {
+/** The paths of the nets from pin to pin, before the nudge. A graph that is too large has no conflicts. */
+function routeNets(rects: readonly Rect[], nets: readonly (readonly Leg[])[], conflicts = new Set<string>()): Map<string, Point[]> {
   const out = new Map<string, Point[]>();
   if (!nets.length) return out;
   const g = grid(rects, nets.flat());
   for (const legs of nets) {
-    if (g) routeNet(g, legs, out);
+    if (g) routeNet(g, legs, out, conflicts);
     else for (const l of legs) out.set(l.id, fallback(l.w));
   }
   return out;
@@ -514,9 +526,13 @@ export function route(rects: readonly Rect[], wires: ReadonlyMap<string, WireIn>
   return new Map(ids.map((id, i) => [id, paths[i]]));
 }
 
-/** True when a segment of the path goes through a body. The pin ends can be in the margin of their node. */
+/** True when a segment of the path goes through a body. */
 function blocked(path: readonly Point[] | undefined, rects: readonly Rect[]): boolean {
-  if (!path) return true;
+  return !path || blockedAt(path, rects) >= 0;
+}
+
+/** The first segment of the path that goes through a body, or -1. The pin ends can be in the margin of their node. */
+function blockedAt(path: readonly Point[], rects: readonly Rect[]): number {
   const trim = MARGIN + 1;
   for (let k = 0; k + 1 < path.length; k++) {
     let [x0, y0] = path[k];
@@ -525,9 +541,17 @@ function blocked(path: readonly Point[] | undefined, rects: readonly Rect[]): bo
     if (k === path.length - 2) x1 = Math.max(x1 - trim, x0);
     [x0, x1] = [Math.min(x0, x1), Math.max(x0, x1)];
     [y0, y1] = [Math.min(y0, y1), Math.max(y0, y1)];
-    for (const r of rects) if (x0 < r.r + MARGIN && x1 > r.l - MARGIN && y0 < r.b + MARGIN && y1 > r.t - MARGIN) return true;
+    for (const r of rects) if (x0 < r.r + MARGIN && x1 > r.l - MARGIN && y0 < r.b + MARGIN && y1 > r.t - MARGIN) return k;
   }
-  return false;
+  return -1;
+}
+
+/** The place of the conflict mark: the middle of the first segment through a body, or of the middle segment. */
+export function conflictAt(path: readonly Point[], rects: readonly Rect[]): Point {
+  const b = blockedAt(path, rects);
+  const k = b >= 0 ? b : Math.max(0, Math.floor(path.length / 2) - 1);
+  const [p, q] = [path[k], path[Math.min(k + 1, path.length - 1)]];
+  return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
 }
 
 const samePoints = (a: readonly Point[], b: readonly Point[]) => a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1]);
@@ -542,6 +566,8 @@ export class Router {
   private raw = new Map<string, Point[]>();
   private keys = new Map<string, string>();
   private out = new Map<string, readonly Point[]>();
+  private conflicts = new Set<string>();
+  private marks = new Map<string, Point>();
   private listeners = new Set<() => void>();
   private queued = false;
   private moved = false;
@@ -569,6 +595,9 @@ export class Router {
   /** The bends of the routed wire, the same array until the route changes. */
   bends = (id: string): readonly Point[] | undefined => this.out.get(id);
 
+  /** The place of the conflict mark of a wire with no clear path (15.9), the same array until it moves. */
+  conflict = (id: string): Point | undefined => this.marks.get(id);
+
   subscribe = (f: () => void) => {
     this.listeners.add(f);
     return () => void this.listeners.delete(f);
@@ -592,8 +621,10 @@ export class Router {
       keys.set(net, key);
       if (all || this.keys.get(net) !== key || legs.some(({ id }) => blocked(this.raw.get(id), this.rects))) todo.push(legs);
     }
-    for (const [id, p] of routeNets(this.rects, todo)) this.raw.set(id, p);
+    for (const legs of todo) for (const { id } of legs) this.conflicts.delete(id);
+    for (const [id, p] of routeNets(this.rects, todo, this.conflicts)) this.raw.set(id, p);
     for (const id of this.raw.keys()) if (!this.wires.has(id)) this.raw.delete(id);
+    for (const id of this.conflicts) if (!this.wires.has(id)) this.conflicts.delete(id);
     this.keys = keys;
     clearTimeout(this.timer);
     if (!all && todo.length < groups.size && (todo.length > 0 || this.moved)) this.timer = setTimeout(() => this.compute(true), SETTLE);
@@ -602,15 +633,23 @@ export class Router {
     const paths = ids.map((id) => this.raw.get(id)!.map(([x, y]): Point => [x, y]));
     nudge(paths, ids.map((id) => this.wires.get(id)!), this.rects);
     const out = new Map<string, readonly Point[]>();
-    let changed = ids.length !== this.out.size;
+    const marks = new Map<string, Point>();
+    let changed = ids.length !== this.out.size || this.conflicts.size !== this.marks.size;
     ids.forEach((id, i) => {
       const bends = paths[i].slice(1, -1);
       const old = this.out.get(id);
       const keep = old !== undefined && samePoints(old, bends);
       out.set(id, keep ? old : bends);
       changed ||= !keep;
+      if (!this.conflicts.has(id)) return;
+      const at = conflictAt(paths[i], this.rects);
+      const was = this.marks.get(id);
+      const same = was !== undefined && samePoints([was], [at]);
+      marks.set(id, same ? was : at);
+      changed ||= !same;
     });
     this.out = out;
+    this.marks = marks;
     if (changed) for (const f of this.listeners) f();
   }
 }

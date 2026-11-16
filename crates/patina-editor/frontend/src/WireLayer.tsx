@@ -59,6 +59,8 @@ export function OrderEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
   );
 }
 
+const CONFLICT = 'No clear path around the nodes. Move a node or a route point.';
+
 export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
   const { store, router, labels, onEdit, editable, values, stale, kinds } = useContext(WireContext)!;
   const hover = useContext(HoverContext);
@@ -86,6 +88,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   }, [router, id, auto, sourceX, sourceY, targetX, targetY, route, from, width]);
   useLayoutEffect(() => () => router.removeWire(id), [router, id]);
   const routed = useSyncExternalStore(router.subscribe, () => (auto ? router.bends(id) : undefined));
+  const conflict = useSyncExternalStore(router.subscribe, () => (auto ? router.conflict(id) : undefined));
   const path = useMemo(
     () =>
       auto
@@ -180,6 +183,17 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
             style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))`, maxWidth: selected ? undefined : room }}
           >
             {label}
+          </div>
+        )}
+        {conflict && (
+          <div
+            className="route-conflict"
+            role="img"
+            aria-label={CONFLICT}
+            title={CONFLICT}
+            style={{ transform: `translate(${conflict[0]}px, ${conflict[1]}px) translate(-50%, -50%)` }}
+          >
+            !
           </div>
         )}
         {badge !== undefined && !badgeCovered && (

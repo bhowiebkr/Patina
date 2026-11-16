@@ -690,6 +690,23 @@ html.native-viewport .gui-viewport {
 }
 
 /* The live value of a wire (15.9). The selected wire shows the full text. */
+/* A routing conflict (15.9): the wire has no clear path around the nodes. It is not a run error. */
+.route-conflict {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--accent-ink);
+  background: var(--warning);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  font: bold 11px/16px Consolas, 'Cascadia Mono', monospace;
+  text-align: center;
+  pointer-events: all;
+  cursor: help;
+}
+
 .wire-value {
   position: absolute;
   left: 0;

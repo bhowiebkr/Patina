@@ -58,3 +58,19 @@ test('the router gives the bends after a microtask', async () => {
   await Promise.resolve();
   assert.equal(router.bends('w'), bends);
 });
+
+test('a wire with a route point in a node body has a conflict mark, which goes when the point moves out', async () => {
+  const B: Rect = { l: 200, t: 0, r: 300, b: 100 };
+  const router = new Router();
+  router.setObstacles([A, B, C]);
+  router.setWire('w', wire(50, 50, 'a', [[250, 50]]));
+  router.setWire('v', wire(70, 70, 'b'));
+  await Promise.resolve();
+  const at = router.conflict('w');
+  assert.ok(at, 'the point in B has no clear path');
+  assert.ok(at[0] > 107 && at[0] <= 250, `the mark is on the first segment through a body: ${at}`);
+  assert.equal(router.conflict('v'), undefined, 'a wire around B has no mark');
+  router.setWire('w', wire(50, 50, 'a', [[250, 200]]));
+  await Promise.resolve();
+  assert.equal(router.conflict('w'), undefined);
+});

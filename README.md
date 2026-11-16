@@ -151,6 +151,8 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 - A selected orthogonal wire shows a bar on each middle segment. Drag a bar to move its segment
   sideways. The segments next to it stretch, so the wire stays connected. The arrow keys move a
   focused bar by 10 px, or by 1 px with Shift.
+- A yellow "!" on a wire shows that the wire has no clear path around the nodes, for example
+  because a bend is in a node body. Move the node or the bend. The graph still runs.
 - Press Shift+L to arrange the selected nodes in columns, with the signal from left to right.
   With fewer than two nodes selected, Shift+L arranges the full graph.
 - One output can feed many inputs. Splitting or joining a value takes a node.
