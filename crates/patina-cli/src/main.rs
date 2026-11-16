@@ -1,7 +1,7 @@
 //! Runs a Patina project or a package from the command line (spec 3 and 14).
 
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
@@ -86,10 +86,9 @@ fn parse(args: &[String]) -> Option<Command<'_>> {
     }
 }
 
-/// The toolchain folder next to the CLI (portable edition), or the Rust of the system.
+/// The toolchain of the toolchain folder, or the Rust of the system (13.3).
 fn toolchain() -> Result<Toolchain, String> {
-    // shortcut: only the toolchain folder next to the CLI (portable edition), change it with the installers.
-    match std::env::current_exe().ok().and_then(|exe| Some((exe.parent()?.join("toolchain"), exe))) {
+    match std::env::current_exe().ok().and_then(|exe| Some((toolchain_folder(exe.parent()?, dirs::data_local_dir()), exe))) {
         Some((folder, exe)) => {
             if let Err(e) = patina_engine::install::add_wrappers(&folder, &exe) {
                 eprintln!("warning: Patina cannot add the Zig wrappers to the toolchain: {e}");
@@ -99,6 +98,17 @@ fn toolchain() -> Result<Toolchain, String> {
         None => Toolchain::detect(),
     }
     .map_err(|e| e.to_string())
+}
+
+/// The toolchain folder of the editor (13.1): the folder next to the CLI in the portable edition,
+/// else the folder of the user. A toolchain next to the CLI is also used without the marker.
+fn toolchain_folder(exe_dir: &Path, local_data: Option<PathBuf>) -> PathBuf {
+    let next = exe_dir.join("toolchain");
+    if exe_dir.join("portable").is_file() || Toolchain::installed(&next) {
+        return next;
+    }
+    let name = if cfg!(target_os = "linux") { "patina" } else { "Patina" };
+    local_data.map_or(next, |base| base.join(name).join("toolchain"))
 }
 
 /// Builds the main graph and runs it. Returns false when a node failed.
@@ -313,5 +323,23 @@ mod tests {
         for bad in ["package p", "package p out --frames 3", "package p out --events 3", "package p --edit out"] {
             assert_eq!(parse(&args(bad)), None, "{bad}");
         }
+    }
+
+    #[test]
+    fn the_toolchain_folder_is_next_to_a_portable_cli_else_in_the_user_folder() {
+        let dir = std::env::temp_dir().join(format!("patina-cli-toolchain-{}", std::process::id()));
+        let (exe, user) = (dir.join("bin"), dir.join("local"));
+        std::fs::create_dir_all(&exe).unwrap();
+        let name = if cfg!(target_os = "linux") { "patina" } else { "Patina" };
+        assert_eq!(toolchain_folder(&exe, Some(user.clone())), user.join(name).join("toolchain"));
+        assert_eq!(toolchain_folder(&exe, None), exe.join("toolchain"));
+        std::fs::write(exe.join("portable"), "").unwrap();
+        assert_eq!(toolchain_folder(&exe, Some(user.clone())), exe.join("toolchain"));
+        std::fs::remove_file(exe.join("portable")).unwrap();
+        let bin = exe.join("toolchain").join("cargo").join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::write(bin.join(format!("cargo{}", std::env::consts::EXE_SUFFIX)), "").unwrap();
+        assert_eq!(toolchain_folder(&exe, Some(user)), exe.join("toolchain"));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -98,7 +98,7 @@ Installed edition:
 | Data: settings, logs, WebView2 data, recovery files | `%LOCALAPPDATA%\Patina\data` | `~/Library/Application Support/Patina/data` | `~/.local/share/patina/data` |
 
 - The toolchain folder has the same contents in both editions.
-- When the toolchain folder has no `cargo`, Patina uses the Rust of the system: the `CARGO` variable, or else `PATH`. Then a checkout of Patina builds projects without the folder. The settings screen shows the toolchain folder and the Rust that Patina uses. `patina-cli` uses the `toolchain/` folder next to it. This is an agent decision of 2026-11-15.
+- When the toolchain folder has no `cargo`, Patina uses the Rust of the system: the `CARGO` variable, or else `PATH`. Then a checkout of Patina builds projects without the folder. The settings screen shows the toolchain folder and the Rust that Patina uses. `patina-cli` finds the toolchain folder as the editor does: next to it when the `portable` file is there, else in the folder of the user. A toolchain next to it is also used without the `portable` file. This is an agent decision of 2026-11-15, changed 2026-11-16. The owner can change it.
 - The user can choose another folder for projects.
 - Each user has their own toolchain and data folder. After an **All users** install, each user clicks **Install toolchain** one time.
 

@@ -1456,7 +1456,8 @@ library in the target folder and the single run of the CLI. These limits are sti
 - The editor compares the pin types only for the ring of a wire drag (15.9). A drop on a socket
   of another type still adds the wire, and the next build gives the compile error. The type
   label is the text of the code, so `String` and `std::string::String` show differently.
-- The CLI finds only the toolchain folder next to it (`crates/patina-cli/src/main.rs`).
+- The CLI finds the toolchain folder of the installed edition too (fixed 2026-11-16). A unit
+  test checks the rule. No installer ran, so no installed CLI ran with it.
 
 ## Milestone 0: risk prototypes
 
