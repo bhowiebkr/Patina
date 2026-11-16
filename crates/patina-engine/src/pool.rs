@@ -2,7 +2,13 @@
 //! starts a run is one of them.
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError, TryLockError};
+use std::time::{Duration, Instant};
+
+/// The time that the calling thread of a run spins before it sleeps. A sleeping thread wakes about
+/// 60 us after the last task ends (9.2).
+const SPIN: Duration = Duration::from_micros(200);
 
 /// The tasks of one run. A task starts when each task that it waits for is done.
 pub trait Work: Send + Sync {
@@ -26,6 +32,8 @@ struct Pool {
     wake: Condvar,
     /// The pool runs one run at a time.
     busy: Mutex<()>,
+    /// The number of done tasks. It changes only with the lock, so a spin can watch it without.
+    done: AtomicUsize,
 }
 
 static POOL: OnceLock<Pool> = OnceLock::new();
@@ -57,7 +65,7 @@ pub fn run(work: Arc<dyn Work>) {
     while state.pending > 0 {
         state = match state.ready.pop() {
             Some(task) => pool.step(state, task),
-            None => pool.wake.wait(state).unwrap_or_else(PoisonError::into_inner),
+            None => pool.spin(state),
         };
     }
     state.job = None;
@@ -76,7 +84,7 @@ fn pool() -> &'static Pool {
     let pool = POOL.get_or_init(|| {
         first = true;
         let state = State { job: None, ready: Vec::new(), left: Vec::new(), pending: 0 };
-        Pool { state: Mutex::new(state), wake: Condvar::new(), busy: Mutex::new(()) }
+        Pool { state: Mutex::new(state), wake: Condvar::new(), busy: Mutex::new(()), done: AtomicUsize::new(0) }
     });
     if first {
         let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
@@ -115,6 +123,7 @@ impl Pool {
             }
         }
         state.pending -= 1;
+        self.done.fetch_add(1, Relaxed);
         if state.pending == 0 {
             self.wake.notify_all();
         }
@@ -123,6 +132,22 @@ impl Pool {
             self.wake.notify_one();
         }
         state
+    }
+
+    /// Waits until a task is done: first with a spin of up to `SPIN`, then on the condvar.
+    fn spin<'a>(&'a self, state: MutexGuard<'a, State>) -> MutexGuard<'a, State> {
+        let seen = self.done.load(Relaxed);
+        drop(state);
+        let end = Instant::now() + SPIN;
+        while self.done.load(Relaxed) == seen && Instant::now() < end {
+            std::hint::spin_loop();
+        }
+        let state = lock(&self.state);
+        // A task ends only with the lock, so no end comes between this check and the wait.
+        if self.done.load(Relaxed) != seen {
+            return state;
+        }
+        self.wake.wait(state).unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -167,6 +192,31 @@ mod tests {
             let done = lock(&work.done);
             assert_eq!((done.len(), done[0], done[3]), (4, 0, 3), "{done:?}");
         }
+    }
+
+    /// Task 0 waits a little, and task 1 waits longer than the spin of the calling thread.
+    struct Sleeps(Mutex<Vec<usize>>);
+
+    impl Work for Sleeps {
+        fn inputs(&self) -> &[u32] {
+            &[0, 0]
+        }
+
+        fn next(&self, _: usize) -> &[usize] {
+            &[]
+        }
+
+        fn run(&self, task: usize) {
+            std::thread::sleep([SPIN / 2, SPIN * 10][task]);
+            lock(&self.0).push(task);
+        }
+    }
+
+    #[test]
+    fn a_run_ends_after_a_task_that_is_longer_than_the_spin() {
+        let work = Arc::new(Sleeps(Mutex::new(Vec::new())));
+        run(work.clone());
+        assert_eq!(lock(&work.0).len(), 2);
     }
 
     /// `n` tasks of `spins` loop steps each, in a chain or apart, or `n` x `spins` in one task.

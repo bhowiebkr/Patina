@@ -991,8 +991,10 @@ milestone 5 (9.2).
 Milestone 5 added the delay node, and milestone 11 made the latest-value wires of the audio
 domain free of locks. These limits are still open:
 
-- The calling thread of a parallel run wakes about 60 us after the last task ends. Eight
-  separate tasks of 180 us thus ran only 2.5 to 5 times faster than one task, not 8 times.
+- The worker threads of a parallel run wake about 60 us after the run starts. The calling thread
+  spins for up to 200 us at the end, so it does not wait for its own wake (fixed 2026-11-16).
+  Eight separate tasks of 22 us now run 1.7 to 1.8 times faster than one task, and eight tasks
+  of 180 us 3.7 to 5.7 times faster, not 8 times. The measurement ran only on Windows.
 - The pool rule uses the node times of the last run. Thus, after a small run, the next run
   stays on one thread also when it is heavy. The measurement ran only on Windows.
 - The editor copies each frame into a JSON event for the page, so the frame loop of the editor
