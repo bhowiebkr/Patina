@@ -542,7 +542,7 @@ and 6.4).
   the subgraphs. The output pins of a use show the live values of their inner outputs, and a run
   error of an inner node shows on the use.
 - In an open subgraph, the inner nodes show no live values and no run errors, because a
-  subgraph can have many uses.
+  subgraph can have many uses. The frame of **Show inner nodes** shows them for one use.
 - A removed public pin keeps the wires of the uses to it. The check shows a problem for each.
 - Ctrl+G collapses the selected nodes into a new subgraph file, with public pins for the wires
   that cross. An undo keeps the new file. Ctrl+Shift+G expands the selected uses.
@@ -949,6 +949,11 @@ To run the editor from a checkout:
 - Each use of a subgraph has an **Open subgraph** button, and the path bar shows each use of a
   nested path (15.9). Unit tests check the use names and the use path. The selfcheck opens a use
   with the button, checks the path bar, and goes back with its **main** button.
+- **Show inner nodes** on a use shows the subgraph nodes in place, in a read-only frame with
+  live values (15.3). The frame moves the nodes at its right and below it in the view only.
+  Unit tests check the frame layout, the toggle, the view map and its inverse for edits. The
+  selfcheck shows and hides the frame. It checks the inner node, its wire to the frame pin, that
+  it has no edits, that the frame covers no node and that the nodes come back.
 - A drag on the end of a wire moves it to another socket in one edit, and keeps the wire name
   and look (15.9). The selfcheck drags the end of the wire from B to a delay, checks the new
   wire, and checks that one undo gives the wire to B.
@@ -1211,6 +1216,10 @@ To run the editor from a checkout:
 - The content security policy was not tested with a page that breaks it.
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
+- The route points of the wires in a frame stay in place during a drag of the use. The frame
+  is read-only. Open the subgraph to edit its nodes.
+- When one edit moves two or more uses with open frames, for example **Arrange**, the nodes can
+  show at other places than the places of the drop. Hide the frames before **Arrange**.
 - These parts of spec 15 are not in the editor yet: view tabs in the center
   (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type

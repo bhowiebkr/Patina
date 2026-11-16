@@ -33,6 +33,8 @@ The editor has these mockup features. They are not gaps.
   uses into the graph (mockups 10 and 11).
 - An **Open subgraph** button on each use, and a path bar with each use of a nested path
   (mockups 10 and 11).
+- **Show inner nodes** on each use: the nodes of the subgraph in place, in a neutral frame,
+  read-only and with live values. **Hide inner nodes** collapses it (mockups 3 and 11).
 - A drag on the end of a wire moves it to another socket (connections guide).
 - During a wire drag, the compatible sockets get a ring and the other sockets dim (connections
   guide).
@@ -48,7 +50,6 @@ The editor has these mockup features. They are not gaps.
 
 | Gap | Mockup | What the editor does now |
 |---|---|---|
-| An expanded subgraph in the parent graph, in a neutral frame with a collapse control | 3, 11 | A double-click opens the subgraph as its own graph. |
 | A collapsed navigation rail that gives the graph more room | 6 | A panel closes or moves to another area. |
 | **Lock bends** (optional in the guide) | Connections guide | The route points are fixed, and the router moves the free segments. |
 

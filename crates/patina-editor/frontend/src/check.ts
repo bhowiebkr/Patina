@@ -694,6 +694,30 @@ fn broken() -> u32 {
     await until('the main graph from the path bar', BUILD_MS, () => document.querySelector('.graph-path') === null);
     steps.push('open a subgraph use and fire its trigger');
 
+    // Show inner nodes puts the nodes of the use in place, in a frame, with the wire to the frame pin (15.3).
+    const frameButton = () => document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${use}"] .frame-toggle`);
+    const innerNode = () => document.querySelector(`.react-flow__node[data-id="${use}/${T}"]`);
+    await until('the frame button of the use', BUILD_MS, () => frameButton()?.getAttribute('aria-label') === 'Show inner nodes');
+    // The open frame moves the other nodes aside, so it covers none of them. They come back when it closes.
+    const others = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node')].filter((n) => n.dataset.id !== use && !n.dataset.id?.startsWith(`${use}/`));
+    const places = () => others().map((n) => `${n.dataset.id} ${n.style.transform}`).join('\n');
+    const covered = () => {
+      const f = document.querySelector(`.react-flow__node[data-id="${use}"]`)!.getBoundingClientRect();
+      return others().some((n) => {
+        const r = n.getBoundingClientRect();
+        return r.left < f.right - 1 && r.right > f.left + 1 && r.top < f.bottom - 1 && r.bottom > f.top + 1;
+      });
+    };
+    const before = places();
+    frameButton()!.click();
+    await until('the inner node and its wire to the frame pin', BUILD_MS, () => !!innerNode() && !!document.querySelector(`.react-flow__edge[data-id^="${use}/${T}.out>${use}.out:"]`));
+    await until('an open frame that covers no node', BUILD_MS, () => !covered());
+    if (innerNode()!.classList.contains('draggable') || innerNode()!.querySelector('.frame-toggle, .open-subgraph')) throw new Error('an inner node has edits');
+    frameButton()!.click();
+    await until('no inner nodes', RUN_MS, () => !innerNode() && frameButton()?.getAttribute('aria-expanded') === 'false');
+    await until('the nodes in their places again', BUILD_MS, () => places() === before);
+    steps.push('show the inner nodes of a use in a frame');
+
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');
     steps.push('screenshot');

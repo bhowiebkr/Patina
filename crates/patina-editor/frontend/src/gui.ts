@@ -92,7 +92,7 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
 }
 
 // A node is 200 px wide. A canvas makes it wider, up to the limit (4.3). 26 px is the padding and the border.
-const NODE_WIDTH = 200;
+export const NODE_WIDTH = 200;
 const MAX_NODE_WIDTH = 480;
 const GUI_PAD = 26;
 

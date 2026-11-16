@@ -282,6 +282,22 @@ impl Project {
         Ok(())
     }
 
+    /// The file of the subgraph `name`, with its unsaved edits, to show its nodes in place in the
+    /// graph that uses it (15.3).
+    pub fn subgraph_file(&self, name: &str) -> Result<GraphFile, String> {
+        if name == MAIN {
+            return Err("the main graph is not a subgraph".to_owned());
+        }
+        plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+        if name == self.name {
+            return Ok(self.history.graph.clone());
+        }
+        match self.parked.get(name) {
+            Some(history) => Ok(history.graph.clone()),
+            None => project::read(&graph_path(&self.root, name), |g: &GraphFile| g.format).map_err(|e| e.to_string()),
+        }
+    }
+
     /// Moves the nodes `ids` of the open graph into the new subgraph file `graphs/<name>.toml`, with
     /// the use `use_id` in their place, as one step of undo (6.1). An undo keeps the file.
     pub fn collapse(&mut self, name: &str, ids: &[String], use_id: &str) -> Result<(), String> {
@@ -617,6 +633,11 @@ mod tests {
         project.save().unwrap();
         project.open_graph("main").unwrap();
         assert_eq!((project.graph_name(), project.graph().node.len()), ("main", 2));
+        // The graph view shows the nodes of a subgraph use in place (15.3).
+        assert_eq!(project.subgraph_file("half").unwrap().node.len(), 1);
+        for bad in ["main", "missing", "../patina"] {
+            assert!(project.subgraph_file(bad).is_err(), "{bad}");
+        }
         assert!(project.can_undo(), "the undo history of the main graph stays");
         let half = fs::read_to_string(root.join("graphs/half.toml")).unwrap();
         assert!(half.contains("000000000000000a"), "{half}");

@@ -8,6 +8,7 @@ import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
 import { outputTypeOf, socketKey } from './palette';
+import { FRAME_BOTTOM, FRAME_RIGHT } from './frames';
 import { nodeWidth } from './gui';
 import { DomainIcon, KindIcon } from './icons';
 
@@ -113,6 +114,10 @@ export interface NodeData extends Record<string, unknown> {
   domain?: Domain;
   /** The bus sockets (15.9) by "i:<input key>" or "o:<output key>". */
   sockets?: Readonly<Record<string, Socket>>;
+  /** True for a subgraph use that shows its inner nodes in a frame (15.3). */
+  open?: boolean;
+  /** True for an inner node of such a frame. It has no edits and no header buttons. */
+  inner?: boolean;
 }
 
 export type PatinaNode = Node<NodeData, 'patina'>;
@@ -136,11 +141,14 @@ export const FireTrigger = createContext<((id: string) => void) | null>(null);
 /** Opens a subgraph through one of its uses, as a double-click on the use does (15.9). */
 export const OpenUse = createContext<((graph: string, use: string) => void) | null>(null);
 
+/** Shows or hides the inner nodes of a subgraph use (15.3). */
+export const FrameToggle = createContext<((use: string) => void) | null>(null);
+
 /** The handle ID of the order sockets in the header of a node (9.2). No pin key starts with "@". */
 export const ORDER = '@order';
 
-const HEADER = 32;
-const ROW = 24;
+export const HEADER = 32;
+export const ROW = 24;
 const PAD = 6;
 
 export const STATE_NAMES: Record<NodeState, string> = {
@@ -244,8 +252,8 @@ function StateIcon({ state }: { state: NodeState }) {
   );
 }
 
-function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable, time, gui, slot, sockets, domain } = data;
+function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
+  const { entry, info, wired, state, message, editable, time, gui, slot, sockets, domain, open, inner } = data;
   const inputs = info?.inputs ?? [];
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
@@ -260,19 +268,34 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
   // At a far zoom, the rows keep their size but have no text, so the page has fewer elements (15.1).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
   const edit = useContext(NodeEdit);
+  const toggle = useContext(FrameToggle);
+  // The right and bottom edges of the inner nodes, as one number so that a pan does not render the frame.
+  const size = useStore((s) => {
+    if (!open) return 0;
+    let [r, b] = [0, 0];
+    for (const n of s.nodeLookup.values()) {
+      if (n.parentId !== id) continue;
+      r = Math.max(r, n.position.x + (n.measured.width ?? 0));
+      b = Math.max(b, n.position.y + (n.measured.height ?? 0));
+    }
+    return Math.ceil(r) * 65536 + Math.ceil(b);
+  });
   const classes = ['patina-node', state];
+  if (open) classes.push('frame');
   if (selected) classes.push('selected');
   if (far) classes.push('far');
   if (info?.color) classes.push('colored');
-  const style = { width: gui === undefined ? undefined : nodeWidth(gui), '--head': info?.color ?? undefined } as CSSProperties;
+  const style = { width: gui === undefined ? undefined : nodeWidth(gui), minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
+  const use = entry.subgraph !== undefined && !inner;
   return (
     <div className={classes.join(' ')} style={style}>
       <div className="patina-node-header">
         {info && <KindIcon kind={info.kind} />}
         <span className="title">{folderName(entry)}</span>
-        {info?.full && <ExpandButton id={entry.id} />}
-        {entry.builtin === 'trigger' && <FireButton id={entry.id} />}
-        {entry.subgraph !== undefined && <OpenButton graph={entry.subgraph} use={entry.id} />}
+        {info?.full && !inner && <ExpandButton id={entry.id} />}
+        {entry.builtin === 'trigger' && !inner && <FireButton id={entry.id} />}
+        {use && <OpenButton graph={entry.subgraph!} use={entry.id} />}
+        {use && toggle && <FrameButton open={!!open} onClick={() => toggle(entry.id)} />}
         {slot && (
           <span className="state-icon" role="img" title="In the slot" aria-label="In the slot">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -325,6 +348,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
             }),
           )}
       </div>
+      {open && <div style={{ height: Math.max(0, (size % 65536) + FRAME_BOTTOM - tops[rows] - PAD) }} />}
       {gui !== undefined && !far && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
@@ -334,6 +358,9 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
       {outputs.map((pin, i) => (
         <PinHandle key={`o-${pin.key}`} pin={pin} generics={info?.generics} output editable={editable} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
       ))}
+      {/* The inner ends of the pins of a frame: the inner wires start and end at the edge (15.3). */}
+      {open && inputs.map((pin, i) => <FramePin key={`fi-${pin.key}`} id={`in:${pin.key}`} output={false} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />)}
+      {open && outputs.map((pin, i) => <FramePin key={`fo-${pin.key}`} id={`out:${pin.key}`} output top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />)}
       <Handle id={ORDER} type="target" position={Position.Left} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Order wire from a node that runs before this node" />
       <Handle id={ORDER} type="source" position={Position.Right} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Drag to a node that must run after this node" />
     </div>
@@ -361,6 +388,24 @@ export function OpenButton({ graph, use }: { graph: string; use: string }) {
       </svg>
     </button>
   );
+}
+
+/** **Show inner nodes** and **Hide inner nodes** of a subgraph use (15.3). */
+function FrameButton({ open, onClick }: { open: boolean; onClick: () => void }) {
+  const name = open ? 'Hide inner nodes' : 'Show inner nodes';
+  return (
+    <button className="icon-btn expand nodrag frame-toggle" aria-label={name} aria-expanded={open} title={name} onClick={onClick}>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
+        <path d={open ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4'} />
+      </svg>
+    </button>
+  );
+}
+
+/** A pin of a frame on the inside: an input gives its value to the inner wires, an output takes it. */
+function FramePin({ id, output, top, socket }: { id: string; output: boolean; top: number; socket: Socket | undefined }) {
+  const style = socket ? { top, height: socketBar(socket.bits.length) } : { top };
+  return <Handle id={id} type={output ? 'target' : 'source'} position={output ? Position.Right : Position.Left} isConnectable={false} className={socket ? 'frame-pin bus-pin' : 'frame-pin'} style={style} />;
 }
 
 function PinLabel({ pin }: { pin: Pin | undefined }) {

@@ -29,8 +29,8 @@ const HIT_WIDTH = 12;
 const HANDLE = 10;
 
 /** The ends of a wire, its route points, its look, the type of its value, its wire name and its bus name (spec 15.9). */
-/** `cross` is true for a wire between two clock domains, which is dashed (15.3). */
-export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean };
+/** `cross` is true for a wire between two clock domains, which is dashed (15.3). `net` is the route net when it is not `from`. */
+export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean; net?: string };
 
 export interface WireTools {
   store: WireStore;
@@ -79,14 +79,14 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const tip = useSyncExternalStore(hover.subscribe, () => (hover.get()?.wire === id ? hover.get() : null));
   // A bus shows one line with its width at a far zoom (15.9).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
-  const { from, style, corners, cross = false } = data!;
+  const { from, style, corners, cross = false, net = from } = data!;
   // A wire with the graph default look goes around the node bodies. Its route points are waypoints (15.9).
   const auto = style === undefined;
   const width = Math.max(2, bits.length * PITCH);
   useLayoutEffect(() => {
-    if (auto) router.setWire(id, { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, via: route, net: from, width });
+    if (auto) router.setWire(id, { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, via: route, net, width });
     else router.removeWire(id);
-  }, [router, id, auto, sourceX, sourceY, targetX, targetY, route, from, width]);
+  }, [router, id, auto, sourceX, sourceY, targetX, targetY, route, net, width]);
   useLayoutEffect(() => () => router.removeWire(id), [router, id]);
   const routed = useSyncExternalStore(router.subscribe, () => (auto ? router.bends(id) : undefined));
   const conflict = useSyncExternalStore(router.subscribe, () => (auto ? router.conflict(id) : undefined));

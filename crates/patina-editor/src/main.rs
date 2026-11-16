@@ -246,6 +246,7 @@ fn main() {
             session::set_unsaved_code,
             session::recover,
             session::open_graph,
+            session::subgraph_file,
             session::collapse,
             session::expand,
             session::run,

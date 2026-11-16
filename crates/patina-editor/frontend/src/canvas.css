@@ -12,6 +12,19 @@
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+/* A subgraph use that shows its inner nodes is a neutral frame: the wires under it stay visible (15.3). */
+.patina-node.frame {
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+}
+
+/* The inner end of a frame pin is at the inner edge of the frame, where the inner wires start. */
+.react-flow__node-patina .react-flow__handle.frame-pin {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0, -50%);
+}
+
 .patina-node:hover {
   border-color: var(--edge-hover, var(--control-border));
 }

@@ -284,6 +284,9 @@ In the editor, a 1-bit wire is lit when it is true. Run the project and double-c
 subgraph, for example the `cpu` node, or click its **Open subgraph** button. The subgraph opens
 with the live values of that use. The path bar shows each use from the main graph, for example
 **main / cpu / alu**. Click a name to go back to that graph.
+To see the inside of a use with no change of graph, click **Show inner nodes** in its header. The
+use becomes a frame with its inner nodes and their live values. Click **Hide inner nodes** to
+close it. To edit the inner nodes, open the subgraph.
 To test a subgraph alone, open it and click **Test** in the path bar. Click the switch at the left
 of an input to toggle it. The lamp at the right of an output shows its value. Click **End test**
 to return. The **Graphs** group of the **Project** panel lists the subgraphs. Click one to open

@@ -20,14 +20,16 @@ import {
 import { arrange, type Box, type Link } from './arrange';
 import { AddNode } from './AddNode';
 import { NameField } from './NameField';
-import { newId, type Domain, type Edit, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
+import { api, newId, type Domain, type Edit, type GraphFile, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
 import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
 import { savedViewport, saveViewport } from './Dock';
-import { NodeEdit, NodeView, ORDER, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
-import { dragStyle, matchPin, socketKey } from './palette';
+import { FrameToggle, HEADER, NodeEdit, NodeView, ORDER, ROW, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
+import { NODE_WIDTH } from './gui';
+import { frameOf, graphEdit, place, shownFrames, toggleFrame, type Frame, type Room } from './frames';
+import { dragStyle, matchPin, outputTypeOf, socketKey } from './palette';
 import { OrderEdge, WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { Labels } from './labels';
-import { Router } from './route';
+import { Router, type Rect } from './route';
 import { WireStore } from './wires';
 
 export const NODE_MIME = 'application/patina-node';
@@ -92,7 +94,7 @@ const PUBLIC_OUTPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public output', inputs: [
 /** The moves of the Arrange command (15.9): the selected nodes, or all nodes when fewer than two are selected. */
 function arrangeEdits(nodes: GraphNode[], edges: Edge<WireData>[], flow: ReactFlowInstance<GraphNode, Edge<WireData>>): Edit[] {
   const picked = nodes.filter((n) => n.selected);
-  const chosen = picked.length > 1 ? picked : nodes;
+  const chosen = picked.length > 1 ? picked : nodes.filter((n) => !n.parentId);
   if (chosen.length === 0) return [];
   const ids = new Set(chosen.map((n) => n.id));
   const size = (n: GraphNode) => [n.measured?.width ?? 0, n.measured?.height ?? 0];
@@ -122,10 +124,11 @@ function arrangeEdits(nodes: GraphNode[], edges: Edge<WireData>[], flow: ReactFl
 }
 
 /** The public pins of the open subgraph (6.4). The editor moves, connects, renames and removes them. */
-function buildPorts(view: View, run: RunState, old: Map<string, GraphNode>): PortNode[] {
+function buildPorts(view: View, run: RunState, rooms: readonly Room[], old: Map<string, GraphNode>): PortNode[] {
   const types = portTypes(view);
   const port = (id: string, name: string, pos: Point | undefined, input: boolean, from?: string): PortNode => {
-    const position = { x: pos?.[0] ?? 0, y: pos?.[1] ?? 0 };
+    const [x, y] = place(rooms, pos ?? [0, 0]);
+    const position = { x, y };
     const key = id.slice(id.indexOf(':') + 1);
     // An input shows its test value, and an output shows the value of the use (15.9).
     const value = input ? view.test?.[key] : run.values.get(`${id}.pin`)?.text;
@@ -141,30 +144,95 @@ function buildPorts(view: View, run: RunState, old: Map<string, GraphNode>): Por
   return [...inputs, ...(view.graph.output ?? []).map((p) => port(`out:${p.key}`, p.name, p.pos, false, p.from))];
 }
 
+/** The output that gives the value of each input, for the bus sockets. */
+function sourcesOf(view: View): Map<string, string> {
+  const wires = (view.graph.wire ?? []).map((w) => [w.to, w.from] as const);
+  return new Map([...wires, ...(view.graph.input ?? []).flatMap((p) => (p.to ?? []).map((to) => [to, `in:${p.key}.pin`] as const))]);
+}
+
+/** The inner nodes of each frame, as children of their use. They have no edits (15.3). */
+function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], old: Map<string, GraphNode>): PatinaNode[] {
+  const outer = sourcesOf(view);
+  const lock = { draggable: false, selectable: false, connectable: false, deletable: false, focusable: false };
+  return frames.flatMap((f) => {
+    // An inner input that a public input feeds gets the value of the outer wire to the use.
+    const fed = f.inputs.flatMap(({ key, to }) => {
+      const from = outer.get(`${f.use}.${key}`);
+      return from === undefined ? [] : [[to, from] as const];
+    });
+    const sources = new Map([...f.wires.map((w) => [w.to, w.from] as const), ...fed]);
+    const wired = [...f.wires.map((w) => w.to), ...f.inputs.map((p) => p.to)].map(splitPin);
+    return f.nodes.map(({ entry, x, y }): PatinaNode => {
+      const info = infoOf(entry, view.nodes);
+      const [state, message] = nodeState(entry, info, view, run);
+      const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
+      const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
+      const keys = wired.filter(([id]) => id === entry.id).map(([, key]) => key);
+      const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true };
+      const position = { x, y };
+      const before = old.get(entry.id);
+      return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina', parentId: f.use, position, data, ...lock };
+    });
+  });
+}
+
 /** Keeps the selection and the measured size of the nodes that stay. */
-function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, prev: GraphNode[]): GraphNode[] {
+function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[], prev: GraphNode[]): GraphNode[] {
   const old = new Map(prev.map((n) => [n.id, n]));
   const wires = view.graph.wire ?? [];
-  // The output that gives the value of each input, for the bus sockets.
-  const sources = new Map([...wires.map((w) => [w.to, w.from] as const), ...(view.graph.input ?? []).flatMap((p) => (p.to ?? []).map((to) => [to, `in:${p.key}.pin`] as const))]);
+  const sources = sourcesOf(view);
+  const open = new Set(frames.map((f) => f.use));
   const nodes: GraphNode[] = (view.graph.node ?? []).map((entry) => {
     const info = infoOf(entry, view.nodes);
     const [state, message] = nodeState(entry, info, view, run);
     const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
-    const position = { x: entry.pos?.[0] ?? 0, y: entry.pos?.[1] ?? 0 };
+    const [x, y] = place(rooms, entry.pos ?? [0, 0]);
+    const position = { x, y };
     const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
     const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
     const domain = domains.get(entry.id);
-    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain };
+    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id) };
     const before = old.get(entry.id);
     return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });
-  return [...nodes, ...buildPorts(view, run, old)];
+  // A parent comes before its children in the list.
+  return [...nodes, ...buildPorts(view, run, rooms, old), ...innerNodes(view, run, guis, domains, frames, old)];
+}
+
+/** The wires of each frame: between the inner nodes, and between the frame pins and the inner nodes (15.3). */
+function innerEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[]): Edge<WireData>[] {
+  const outer = sourcesOf(view);
+  const lock = { selectable: false, focusable: false, deletable: false, reconnectable: false };
+  const edge = (id: string, [source, sourceHandle]: [string, string], [target, targetHandle]: [string, string], data: WireData): Edge<WireData> => ({ id, type: 'wire', source, sourceHandle, target, targetHandle, ...lock, data: { ...data, fixed: true } });
+  return frames.flatMap((f) => {
+    const use = view.graph.node?.find((n) => n.id === f.use);
+    const pins = use && infoOf(use, view.nodes);
+    const [ux, uy] = place(rooms, use?.pos ?? [0, 0]);
+    const infos = new Map(f.nodes.map((n) => [n.entry.id, infoOf(n.entry, view.nodes)]));
+    const ty = (from: string) => outputTypeOf(from, (id) => infos.get(id), (to) => f.wires.find((w) => w.to === to)?.from);
+    const wires = f.wires.map((w) => {
+      const [a, b] = [domains.get(splitPin(w.from)[0]), domains.get(splitPin(w.to)[0])];
+      const bus = w.name ?? pinName(view, infos, w.from, true) ?? pinName(view, infos, w.to, false);
+      return edge(`${w.from}>${w.to}`, splitPin(w.from), splitPin(w.to), { from: w.from, to: w.to, route: w.points.map(([x, y]): Point => [x + ux, y + uy]), style: w.style, corners: w.corners, ty: ty(w.from), name: w.name, bus, cross: a !== undefined && b !== undefined && a !== b });
+    });
+    // A wire from a frame pin shows the value of the outer wire. It routes as its own net, from the frame edge.
+    const ins = f.inputs.map(({ key, to }) => {
+      const pin = pins?.inputs.find((p) => p.key === key);
+      const from = outer.get(`${f.use}.${key}`) ?? `${f.use}.${key}`;
+      return edge(`${f.use}.in:${key}>${to}`, [f.use, `in:${key}`], splitPin(to), { from, to, route: NO_POINTS, ty: pin?.ty, bus: pin?.name ?? pin?.key, net: `${f.use}.in:${key}` });
+    });
+    const outs = f.outputs.map(({ key, from }) => {
+      const pin = pins?.outputs.find((p) => p.key === key);
+      const to = `${f.use}.out:${key}`;
+      return edge(`${from}>${to}`, splitPin(from), [f.use, `out:${key}`], { from, to, route: NO_POINTS, ty: ty(from) ?? pin?.ty, bus: pin?.name });
+    });
+    return [...wires, ...ins, ...outs];
+  });
 }
 
 /** A wire between two known clock domains that differ is dashed (15.3). */
-function buildEdges(view: View, domains: ReadonlyMap<string, Domain>, prev: Edge<WireData>[]): Edge<WireData>[] {
+function buildEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[], prev: Edge<WireData>[]): Edge<WireData>[] {
   const selected = new Set(prev.filter((e) => e.selected).map((e) => e.id));
   const types = portTypes(view);
   const infos = new Map((view.graph.node ?? []).map((n) => [n.id, infoOf(n, view.nodes)]));
@@ -184,14 +252,14 @@ function buildEdges(view: View, domains: ReadonlyMap<string, Domain>, prev: Edge
     const id = `${w.from}>${w.to}`;
     const [a, b] = [domains.get(source), domains.get(target)];
     const cross = a !== undefined && b !== undefined && a !== b;
-    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from), name: w.name, bus: bus(w.from, w.to, w.name), cross } };
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ? w.points.map((q) => place(rooms, q)) : NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from), name: w.name, bus: bus(w.from, w.to, w.name), cross } };
   });
   // An order wire has no data, so the Inspector does not show it.
   const orders = (view.graph.order ?? []).map((o): Edge<WireData> => {
     const id = `order:${o.before}>${o.after}`;
     return { id, type: 'order', source: o.before, sourceHandle: ORDER, target: o.after, targetHandle: ORDER, selected: selected.has(id) };
   });
-  return [...wires, ...ports, ...orders];
+  return [...wires, ...ports, ...orders, ...innerEdges(view, domains, frames, rooms)];
 }
 
 /** A wire that a drag from a pin into an empty area started: the pin, its direction and its type. */
@@ -270,6 +338,35 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const [labels] = useState(() => new Labels());
   const [hover] = useState(() => new HoverStore());
   const [glOk, setGlOk] = useState(true);
+  // The uses that show their inner nodes (15.3), and the files of their subgraphs.
+  const [shown, setShown] = useState(() => shownFrames(view.graphName));
+  const [files, setFiles] = useState<ReadonlyMap<string, GraphFile>>(() => new Map());
+  useEffect(() => {
+    const names = [...new Set((view.graph.node ?? []).flatMap((n) => (shown.has(n.id) && n.subgraph !== undefined ? [n.subgraph] : [])))];
+    let live = true;
+    // A subgraph that does not read shows no frame.
+    Promise.all(names.map((name) => api.subgraphFile(name).then((file) => [name, file] as const, () => null))).then((list) => {
+      if (live) setFiles((prev) => (list.length === 0 && prev.size === 0 ? prev : new Map(list.filter((x) => x !== null))));
+    });
+    return () => {
+      live = false;
+    };
+  }, [view, shown]);
+  const frames = useMemo(
+    () =>
+      (view.graph.node ?? []).flatMap((n) => {
+        const file = shown.has(n.id) && n.subgraph !== undefined ? files.get(n.subgraph) : undefined;
+        return file ? [frameOf(n.id, file)] : [];
+      }),
+    [view, files, shown],
+  );
+  // shortcut: the route points of the inner wires stay in place during a drag of the frame; move them with the frame when users ask.
+  const toggle = useCallback((use: string) => setShown(toggleFrame(view.graphName, use)), [view.graphName]);
+  // The room of each open frame, from its measured size and the last closed size of its use (15.3).
+  const closed = useRef(new Map<string, readonly [number, number]>());
+  const [rooms, setRooms] = useState<readonly Room[]>([]);
+  // The view moves the nodes around the open frames, so each edit maps its points back to the graph.
+  const edit = useCallback((e: Edit) => onEdit(graphEdit(e, rooms)), [onEdit, rooms]);
   // The socket of a wire drag, as a string so that a pointer move does not render the graph again.
   const from = useConnection((c) => (c.inProgress ? JSON.stringify([c.fromHandle.type, c.fromHandle.nodeId, c.fromHandle.id ?? '']) : ''));
   const dragCss = useMemo(() => {
@@ -286,22 +383,47 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport(view.graphName));
   const tools = useMemo(
-    () => ({ store: wires, router, labels, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from), kinds: view.kinds }),
-    [wires, router, labels, onEdit, view.trusted, run, view.kinds],
+    () => ({ store: wires, router, labels, onEdit: edit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from), kinds: view.kinds }),
+    [wires, router, labels, edit, view.trusted, run, view.kinds],
   );
   // The node bodies that the automatic routes go around (15.9).
   useLayoutEffect(() => {
-    const body = (n: GraphNode) => {
+    const at = new Map(nodes.map((n) => [n.id, n.position]));
+    const body = (n: GraphNode): Rect[] => {
       const { width, height } = n.measured ?? {};
-      return width && height ? [{ l: n.position.x, t: n.position.y, r: n.position.x + width, b: n.position.y + height }] : [];
+      if (!width || !height) return [];
+      const p = n.parentId ? at.get(n.parentId) : undefined;
+      const [l, t] = [n.position.x + (p?.x ?? 0), n.position.y + (p?.y ?? 0)];
+      const [r, b] = [l + width, t + height];
+      if (n.type !== 'patina' || !n.data.open) return [{ l, t, r, b }];
+      // A frame blocks at its header and its thin edges, so the inner wires route inside it. The wires
+      // at the frame pins cross the side edges within the pin margin of the router.
+      return [{ l, t, r, b: t + HEADER }, { l: l - 1, t: t + HEADER, r: l, b }, { l: r, t: t + HEADER, r: r + 1, b }, { l, t: b - 1, r, b }];
     };
     const rects = nodes.flatMap(body);
     router.setObstacles(rects);
     labels.setObstacles(rects);
   }, [nodes, router, labels]);
 
-  useEffect(() => setNodes((prev) => buildNodes(view, run, guis, domains, prev)), [view, run, guis, domains]);
-  useEffect(() => setEdges((prev) => buildEdges(view, domains, prev)), [view, domains]);
+  useLayoutEffect(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    for (const n of nodes) {
+      if (n.type === 'patina' && !n.data.open && n.measured?.width && n.measured.height) closed.current.set(n.id, [n.measured.width, n.measured.height]);
+    }
+    const next = frames.flatMap((f): Room[] => {
+      const n = byId.get(f.use);
+      if (n?.type !== 'patina' || !n.data.open || !n.measured?.width || !n.measured.height) return [];
+      // A use that was not closed in this view gets the smallest closed size, so its frame never covers a node.
+      const rows = Math.max(n.data.info?.inputs.length ?? 0, n.data.info?.outputs.length ?? 0);
+      const [w, h] = closed.current.get(f.use) ?? [NODE_WIDTH, HEADER + rows * ROW];
+      const [x, y] = n.data.entry.pos ?? [0, 0];
+      return [{ use: f.use, x, y, w, h, dx: n.measured.width - w, dy: n.measured.height - h }];
+    });
+    setRooms((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+  }, [nodes, frames]);
+
+  useEffect(() => setNodes((prev) => buildNodes(view, run, guis, domains, frames, rooms, prev)), [view, run, guis, domains, frames, rooms]);
+  useEffect(() => setEdges((prev) => buildEdges(view, domains, frames, rooms, prev)), [view, domains, frames, rooms]);
   useEffect(() => {
     if (!focus) return;
     const ids = new Set(focus.ids);
@@ -328,18 +450,18 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
         const key = portKey(n.id);
         return key ? { kind: 'MovePin', key, pos } : { kind: 'MoveNode', id: n.id, pos };
       });
-      if (moves.length > 0) onEdit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
+      if (moves.length > 0) edit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
     },
-    [onEdit],
+    [edit],
   );
 
   // A wire from a public input or to a public output connects the pin. A wire between two pins is refused.
   const onConnect = useCallback(
     (c: Connection) => {
       const add = connectEdit(c);
-      if (add) onEdit(add);
+      if (add) edit(add);
     },
-    [onEdit],
+    [edit],
   );
 
   // A drag on the end of a wire moves that end to another socket, in one undo step (15.9).
@@ -355,9 +477,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
         if (d.style || d.corners) edits.push({ kind: 'SetLook', to: add.to, style: d.style, corners: d.corners });
         if (d.name) edits.push({ kind: 'NameWire', to: add.to, name: d.name });
       }
-      onEdit({ kind: 'Group', edits });
+      edit({ kind: 'Group', edits });
     },
-    [onEdit],
+    [edit],
   );
 
   // A drag from a pin that ends on an empty area opens the palette at that point (15.2).
@@ -395,12 +517,12 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
         for (const edge of edges) {
           if (edge.selected && !removed.has(edge.source) && !removed.has(edge.target)) edits.push(disconnectEdit(edge));
         }
-        if (edits.length > 0) onEdit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
+        if (edits.length > 0) edit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
       } else if (e.key === 'f' || e.key === 'F') {
         flow.fitView(FIT);
       } else if (e.shiftKey && e.key.toLowerCase() === 'l' && view.trusted) {
         const moves = arrangeEdits(nodes, edges, flow);
-        if (moves.length > 0) onEdit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
+        if (moves.length > 0) edit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
       } else if (e.shiftKey && e.key.toLowerCase() === 'a' && view.trusted) {
         const r = document.querySelector('.react-flow')!.getBoundingClientRect();
         setPalette(pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 });
@@ -414,7 +536,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [nodes, edges, view.trusted, onEdit, onExpand, flow]);
+  }, [nodes, edges, view.trusted, edit, onExpand, flow]);
 
   const onDragOver = (e: DragEvent) => {
     if (e.dataTransfer.types.includes(NODE_MIME) && view.trusted) {
@@ -430,8 +552,8 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
     const add: Edit = { kind: 'AddNode', id, folder, builtin: info?.builtin || undefined, pos: [Math.round(p.x), Math.round(p.y)] };
     const key = end && info && matchPin(info, end.output, end.ty);
     const pin = `${id}.${key}`;
-    if (!end || !key) onEdit(add);
-    else onEdit({ kind: 'Group', edits: [add, end.output ? { kind: 'Connect', from: end.pin, to: pin } : { kind: 'Connect', from: pin, to: end.pin }] });
+    if (!end || !key) edit(add);
+    else edit({ kind: 'Group', edits: [add, end.output ? { kind: 'Connect', from: end.pin, to: pin } : { kind: 'Connect', from: pin, to: end.pin }] });
   };
   /** Adds a public pin at a screen point, and its wire to `end` in the same undo step. It takes the key of the end as its name. */
   const addPin = (input: boolean, x: number, y: number, end?: FreeEnd) => {
@@ -439,7 +561,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
     const key = newId(4);
     const name = end ? splitPin(end.pin)[1] : input ? 'input' : 'output';
     const add: Edit = { kind: 'AddPin', key, name, input, pos: [Math.round(p.x), Math.round(p.y)] };
-    onEdit(end ? { kind: 'Group', edits: [add, { kind: 'ConnectPin', key, end: end.pin }] } : add);
+    edit(end ? { kind: 'Group', edits: [add, { kind: 'ConnectPin', key, end: end.pin }] } : add);
   };
   const end = palette?.end;
   const all = view.graphName === 'main' ? view.nodes : [...view.nodes, PUBLIC_INPUT, PUBLIC_OUTPUT];
@@ -459,7 +581,8 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   return (
     <WireContext.Provider value={tools}>
       <HoverContext.Provider value={hover}>
-      <NodeEdit.Provider value={onEdit}>
+      <NodeEdit.Provider value={edit}>
+      <FrameToggle.Provider value={toggle}>
         <ReactFlow
           className={glOk ? undefined : 'svg-wires'}
           nodes={nodes}
@@ -479,7 +602,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           onDrop={onDrop}
           onDoubleClick={onDoubleClick}
           onNodeDoubleClick={(e, n) => {
-            if (n.type === 'patina' && n.data.entry.subgraph) onOpen(n.data.entry.subgraph, n.id);
+            if (n.type === 'patina' && n.data.entry.subgraph && !n.data.inner) onOpen(n.data.entry.subgraph, n.id);
             else if (n.type === 'port' && view.trusted) setRenaming({ key: portKey(n.id)!, name: n.data.name, x: e.clientX, y: e.clientY });
           }}
           onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
@@ -530,10 +653,11 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
         {renaming && (
           <div className="menu-layer">
             <div className="menu collapse-name" role="dialog" aria-label="Rename the public pin" style={{ left: Math.min(renaming.x, innerWidth - 250), top: Math.min(renaming.y, innerHeight - 80) }}>
-              <NameField label="Pin name" initial={renaming.name} onMake={(name) => onEdit({ kind: 'RenamePin', key: renaming.key, name })} onClose={() => setRenaming(null)} />
+              <NameField label="Pin name" initial={renaming.name} onMake={(name) => edit({ kind: 'RenamePin', key: renaming.key, name })} onClose={() => setRenaming(null)} />
             </div>
           </div>
         )}
+      </FrameToggle.Provider>
       </NodeEdit.Provider>
       </HoverContext.Provider>
     </WireContext.Provider>

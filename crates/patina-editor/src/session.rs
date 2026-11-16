@@ -580,6 +580,12 @@ pub fn open_graph(editor: State<'_, Editor>, name: String) -> Result<View, Strin
     })
 }
 
+/// The file of a subgraph, to show its nodes in place in the graph that uses it (15.3).
+#[tauri::command(async)]
+pub fn subgraph_file(editor: State<'_, Editor>, name: String) -> Result<GraphFile, String> {
+    editor.with(|session| session.project.subgraph_file(&name))
+}
+
 /// Moves the selected nodes into a new subgraph (6.1).
 #[tauri::command(async)]
 pub fn collapse(editor: State<'_, Editor>, name: String, ids: Vec<String>, use_id: String) -> Result<View, String> {

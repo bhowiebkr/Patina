@@ -370,6 +370,8 @@ export const api = {
   recover: (restore: boolean) => invoke<{ view: View; code: Code }>('recover', { restore }),
   /** Opens the main graph or a subgraph (6.1). The open graph must have no unsaved changes. */
   openGraph: (name: string) => invoke<View>('open_graph', { name }),
+  /** The file of a subgraph, with its unsaved edits, to show its nodes in place (15.3). */
+  subgraphFile: (name: string) => invoke<GraphFile>('subgraph_file', { name }),
   /** Moves the nodes into the new subgraph `name`, with the use `useId` in their place (6.1). */
   collapse: (name: string, ids: string[], useId: string) => invoke<View>('collapse', { name, ids, useId }),
   /** Puts the nodes of each subgraph use in its place (6.1). */
