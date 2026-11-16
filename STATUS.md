@@ -46,7 +46,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 13. Done: an 8-bit data path. A, OUT and the RAM words have 8 bits, the PC has 4 bits and the
     ROM keeps 16 instructions. ADD adds the RAM word at address k. The program writes the
     Fibonacci numbers to OUT, and a third display shows the high hex digit of OUT.
-14. Next: an LED bar node, and a subgraph that writes the hex digit of OUT as ASCII to the LCD.
+14. Done: after each OUT instruction, the `lcd-writer` subgraph writes the two hex digits of OUT
+    and a space to the LCD. The `hex-ascii` subgraph gives the ASCII code of a hex digit. An LED
+    bar node is not necessary, because a readout shows 8 lamps.
 
 ### Checked
 
@@ -57,6 +59,7 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   The test compares them with a small emulator of the 8 instructions. OUT shows 1, 1, 2, 3, 5 to
   233, then 0, 1, 1 after the carry. The first display gives the
   segments of the 16 hex digits. The second and third displays give the two hex digits of OUT.
+  The LCD shows the last OUT values as hex digits, as the emulator gives them.
 - The 8-bit CPU has 1751 NAND gates. A clean build of its clusters took about 150 s, because
   each node call was a closure, and rustc checks all closures of one function together. Now
   the cluster calls each node through `glue::run` with a tuple of its arguments (4.1, 4.7). The

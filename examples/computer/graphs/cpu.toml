@@ -905,3 +905,9 @@ key = "8d314c02"
 name = "out7"
 pos = [3000.0, 1900.0]
 from = "d291c16eda56e8d0.32d35827"
+
+[[output]]
+key = "5e1f0a7c"
+name = "strobe"
+pos = [3000.0, 2000.0]
+from = "242ca5fc0b4cf5de.3061f316"

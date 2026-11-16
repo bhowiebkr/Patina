@@ -286,8 +286,10 @@ Fibonacci numbers 1, 1, 2, 3, 5 to 233 to OUT. It keeps the last two numbers in 
 carry of the next sum, it writes 0 to OUT and starts again.
 
 In the editor, the `readout` nodes show the 8 bits as lamps and as a number. The `lcd` node shows
-2 lines of 16 characters. At each step, the CPU writes the character '0' plus the low hex digit of
-OUT to it. The values 10 to 15 show as `:` to `?`, the next ASCII characters.
+2 lines of 16 characters. The **strobe** output of the `cpu` is on in the step of an OUT
+instruction. The `lcd-writer` subgraph then writes the two hex digits of OUT and a space to the
+LCD, one character at each step. Its `hex-ascii` subgraph gives the ASCII code of a hex digit,
+`0` to `9` or `A` to `F`.
 
 ## Install
 

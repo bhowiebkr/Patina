@@ -514,27 +514,6 @@ id = "1cd0a5c11d15b1a7"
 folder = "nodes/lcd"
 pos = [1000.0, 2560.0]
 
-[node.params]
-d4 = "true"
-d5 = "true"
-write = "true"
-
-[[wire]]
-from = "a3efcc2ce595017a.f6341638"
-to = "1cd0a5c11d15b1a7.d0"
-
-[[wire]]
-from = "a3efcc2ce595017a.0ceec420"
-to = "1cd0a5c11d15b1a7.d1"
-
-[[wire]]
-from = "a3efcc2ce595017a.9b738df0"
-to = "1cd0a5c11d15b1a7.d2"
-
-[[wire]]
-from = "a3efcc2ce595017a.30556757"
-to = "1cd0a5c11d15b1a7.d3"
-
 [[node]]
 id = "3be1bbc4818ab673"
 subgraph = "hex-7seg"
@@ -624,3 +603,76 @@ to = "d72d0630056e81d1.g"
 [[order]]
 before = "d72d0630056e81d1"
 after = "d415f2b47c52f4e8"
+
+[[node]]
+id = "6c2be0d93f4a1e57"
+subgraph = "lcd-writer"
+pos = [1000.0, 2100.0]
+
+[[wire]]
+from = "a3efcc2ce595017a.5e1f0a7c"
+to = "6c2be0d93f4a1e57.7eb8807b"
+
+[[wire]]
+from = "a3efcc2ce595017a.f6341638"
+to = "6c2be0d93f4a1e57.2d32bdbc"
+
+[[wire]]
+from = "a3efcc2ce595017a.0ceec420"
+to = "6c2be0d93f4a1e57.f82fb5e3"
+
+[[wire]]
+from = "a3efcc2ce595017a.9b738df0"
+to = "6c2be0d93f4a1e57.76f4c8ad"
+
+[[wire]]
+from = "a3efcc2ce595017a.30556757"
+to = "6c2be0d93f4a1e57.8084fcea"
+
+[[wire]]
+from = "a3efcc2ce595017a.488b8fa6"
+to = "6c2be0d93f4a1e57.f45bd7af"
+
+[[wire]]
+from = "a3efcc2ce595017a.5fbc79ba"
+to = "6c2be0d93f4a1e57.7f7abccd"
+
+[[wire]]
+from = "a3efcc2ce595017a.2b1b8661"
+to = "6c2be0d93f4a1e57.3c5ea14e"
+
+[[wire]]
+from = "a3efcc2ce595017a.8d314c02"
+to = "6c2be0d93f4a1e57.73f86dc8"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.aaa5d3c3"
+to = "1cd0a5c11d15b1a7.d0"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.555c8476"
+to = "1cd0a5c11d15b1a7.d1"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.493ff7a3"
+to = "1cd0a5c11d15b1a7.d2"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.5dffbf48"
+to = "1cd0a5c11d15b1a7.d3"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.048f320c"
+to = "1cd0a5c11d15b1a7.d4"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.ed417275"
+to = "1cd0a5c11d15b1a7.d5"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.765c0ac1"
+to = "1cd0a5c11d15b1a7.d6"
+
+[[wire]]
+from = "6c2be0d93f4a1e57.32ce5f1f"
+to = "1cd0a5c11d15b1a7.write"
