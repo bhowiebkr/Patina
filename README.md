@@ -566,9 +566,10 @@ tool that works.
 11. Audio domain.
 12. Event domain.
 
-Some design questions are still open, for example the side effects of a change while the
-graph runs.
-[Section 18 of the spec](docs/spec/16-roadmap.md#18-open-questions) lists them.
+One design question is still open: does Zig remove the need for the Xcode tools on macOS? A
+test on a Mac answers it.
+[Section 18 of the spec](docs/spec/16-roadmap.md#18-open-questions) lists it and the decided
+questions.
 
 ## Documentation
 

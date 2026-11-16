@@ -12,7 +12,7 @@ use crate::project::{self, ProjectFile};
 use crate::{Project, Toolchain, cargo};
 
 mod update;
-pub use update::{Changes, FileChange, FileState, Pick, changes, source_id, update};
+pub use update::{Changes, FileChange, FileState, Pick, Side, changes, source_id, update};
 
 /// The folder groups that are crates (6.2).
 const GROUPS: [&str; 5] = ["nodes", "views", "widgets", "connections", "types"];
@@ -168,8 +168,10 @@ pub fn apply(root: &Path, other: &Path, folder: &str, choices: &BTreeMap<String,
             }
             move_folder(&staged, &root.join(to), &mut moves)?;
             packages.extend(member(to));
-            let (hash, copy) = (hash(&other.join(from))?, Some(hash(&root.join(to))?));
-            file.imports.insert(to.clone(), project::Import { project: source.id.clone(), folder: crate_name(from), hash, copy });
+            let copied = files(&root.join(to))?;
+            let (hash, copy) = (hash(&other.join(from))?, Some(digest(copied.iter().map(|(p, b)| (p, b)))));
+            let files = Some(file_hashes(copied.iter().map(|(p, b)| (p, b))));
+            file.imports.insert(to.clone(), project::Import { project: source.id.clone(), folder: crate_name(from), hash, copy, files });
         }
         Ok::<(), String>(())
     })();
@@ -399,6 +401,11 @@ fn digest<'a>(files: impl Iterator<Item = (&'a String, &'a Vec<u8>)>) -> String 
     format!("sha256:{}", hasher.finalize().iter().map(|b| format!("{b:02x}")).collect::<String>())
 }
 
+/// The hash of each file, with the method of the import hash for one file (6.4).
+fn file_hashes<'a>(files: impl Iterator<Item = (&'a String, &'a Vec<u8>)>) -> BTreeMap<String, String> {
+    files.map(|(p, b)| (p.clone(), digest(std::iter::once((p, b))))).collect()
+}
+
 pub(crate) fn copy(from: &Path, to: &Path) -> Result<(), String> {
     write_files(to, files(from)?)
 }
@@ -504,6 +511,9 @@ mod tests {
         let file: ProjectFile = project::read(&root.join("patina.toml"), |f: &ProjectFile| f.format).unwrap();
         assert_eq!(file.imports.keys().collect::<Vec<_>>(), ["nodes/blur", "types/image2"]);
         assert_eq!((file.imports["types/image2"].folder.as_str(), file.imports["types/image2"].hash.len()), ("image", 71));
+        let blur_files = file.imports["nodes/blur"].files.as_ref().unwrap();
+        assert_eq!(blur_files.keys().collect::<Vec<_>>(), ["Cargo.toml", "src/lib.rs"]);
+        assert_eq!(blur_files["src/lib.rs"], digest(std::iter::once((&"src/lib.rs".to_owned(), &b"// blur".to_vec()))));
         applied.undo().unwrap();
         assert!(!root.join("nodes/blur").exists() && !root.join("types/image2").exists());
         assert_eq!(fs::read_to_string(root.join("patina.toml")).unwrap(), project);

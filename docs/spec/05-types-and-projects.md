@@ -109,8 +109,9 @@ The update rules of the first version. (Agent decision, 2026-11-15. The owner ca
 
 - **Update** works on one imported folder. Patina finds the other project in the list of trusted projects by its ID, or asks for its folder. The other project must be trusted.
 - Patina compares the copy with the folder in the other project. The `Cargo.toml` of the other folder gets the crate names of this project first, so a rename of the import is not a change.
-- The record hash shows if the other project changed the folder. The `copy` hash of the record shows if this project changed the copy. When the other project did not change the folder, **Update** has nothing to do.
-- When only the other project changed, each different file comes from the other project. When the two sides changed, the user picks the version of each different file, because the record has no hash for each file.
+- The record hash shows if the other project changed the folder. When the other project did not change the folder, **Update** has nothing to do.
+- The `files` table of the record has the hash of each file that the import or the last update copied from the other project. A file that only one side changed after that gets the version of that side. When the two sides changed a file, the user picks its version. (Agent decision, 2026-11-16. The owner can change it.)
+- A record with no `files` table is from before the file hashes. Then each different file comes from the other project when the `copy` hash shows no change, else the user picks the version of each different file.
 - A new dependency of the folder that is not in this project stops the update. The user imports that folder first.
 - Patina writes the new version to `build/import/` and moves it into the project. Then it builds the folder and the folders that use it. A failed build moves the old folder back and writes the old `patina.toml`.
 
@@ -179,11 +180,16 @@ project = "9a1b4c0d2e7f6385"     # the ID of the other project
 folder = "curve-editor"          # the folder name in the other project
 hash = "sha256:<64 hex characters>"
 copy = "sha256:<64 hex characters>"   # the copy in this project after the import or the last update
+
+[imports."nodes/curve-editor".files]     # each file that the import or the last update copied
+"Cargo.toml" = "sha256:<64 hex characters>"
+"src/lib.rs" = "sha256:<64 hex characters>"
 ```
 
 - The import hash is a SHA-256 hash of the sorted relative paths and the bytes of each file in the folder. The paths use `/` on each platform. For each file, the hash reads the path, a zero byte, the length as 8 little-endian bytes, and the bytes. Hidden files, links and `target` folders are not part of a folder. (Agent decision, 2026-11-15. The owner can change it.)
 - An import record holds no path of the other project (6.2).
 - The `copy` hash uses the same method. An old record with no `copy` key counts as a copy that changed. (Agent decision, 2026-11-15. The owner can change it.)
+- A hash of the `files` table uses the same method with only that file. It is the hash of the file from the other project, with the crate names of this project in `Cargo.toml`. (Agent decision, 2026-11-16. The owner can change it.)
 
 **Graph files**
 

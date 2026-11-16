@@ -32,4 +32,4 @@ The specification is split into these files. Each file keeps its section numbers
   - The error view logs "Graph execution aborted due to compile errors". The graph does not stop. It keeps running with the last build of the node that compiled (7.2), so the other nodes keep their normal look.
   - The error view has a **Compare** tab in the bottom panel. Patina has no compare mode. The bottom panel has the Logs, Output, and Debug tabs (15.2).
 - Start with milestone 0 (section 19, in [16-roadmap.md](16-roadmap.md#19-milestones)). Report the result of each prototype before you continue, because each result can change the design.
-- Section 18 ([16-roadmap.md](16-roadmap.md#18-open-questions)) lists open questions. Do not decide them alone. Ask the owner.
+- Section 18 ([16-roadmap.md](16-roadmap.md#18-open-questions)) lists the open questions and the decided questions. Do not decide an open question alone. Ask the owner.

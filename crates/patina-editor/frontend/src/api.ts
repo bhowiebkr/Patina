@@ -297,9 +297,8 @@ export interface ImportItem {
 export interface UpdateChanges {
   /** The other project changed the folder after the import or the last update. */
   other: boolean;
-  /** This project changed the copy after the import or the last update. */
-  this: boolean;
-  files: { path: string; state: 'OnlyOther' | 'OnlyThis' | 'Different' }[];
+  /** The side that changed each file. An update takes its version, or the pick for `Both`. */
+  files: { path: string; state: 'OnlyOther' | 'OnlyThis' | 'Different'; side: 'Other' | 'This' | 'Both' }[];
 }
 
 export type UpdatePick = 'Other' | 'This';

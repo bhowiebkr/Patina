@@ -543,6 +543,9 @@ and 6.4).
   and finds the changes of each side with the two record hashes. **Update** writes the new
   version with the picks of the user and puts it back when the build fails. A unit test checks
   a rename, an update, an undo, the picks and a new dependency.
+- The import record has a hash for each copied file. **Update** takes the version of the side
+  that changed a file, and asks only for the files that the two sides changed (2026-11-16). The
+  unit test checks each side, a kept file and a record from before the file hashes.
 - The **Imports** list of the **Project** panel opens the **Update** dialog.
 
 ### Known limits
@@ -564,8 +567,6 @@ and 6.4).
   of its `Cargo.toml`. A temporary test with the real toolchain on Windows imported a node and
   built it, put back an update that did not compile, and built a good update. The test is not
   in the repository. The two dialogs did not run in the window yet.
-- When the two sides changed an imported folder, the user picks each different file, also the
-  files that only one side changed. The record has no hash for each file.
 
 ## Milestone 6: layers
 

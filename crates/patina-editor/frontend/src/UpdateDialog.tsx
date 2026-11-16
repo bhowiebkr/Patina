@@ -13,6 +13,7 @@ interface Props {
 }
 
 const STATES = { OnlyOther: 'Only in the other project', OnlyThis: 'Only in this project', Different: 'Different' };
+const SIDES = { Other: 'Other project', This: 'This project' };
 
 export function UpdateDialog({ other, folder, onDone, onClose }: Props) {
   const [changes, setChanges] = useState<UpdateChanges | null>(null);
@@ -34,7 +35,7 @@ export function UpdateDialog({ other, folder, onDone, onClose }: Props) {
       setBusy(false);
     }
   };
-  const ready = changes !== null && changes.other && (!changes.this || changes.files.every((f) => picks[f.path]));
+  const ready = changes !== null && changes.other && changes.files.every((f) => f.side !== 'Both' || picks[f.path]);
   const name = other.split(/[\\/]/).filter(Boolean).pop() ?? other;
   return (
     <div className="backdrop" onKeyDown={(e) => e.key === 'Escape' && !busy && onClose()}>
@@ -43,8 +44,8 @@ export function UpdateDialog({ other, folder, onDone, onClose }: Props) {
           Update {folder} from {name}
         </h2>
         {changes && !changes.other && <div className="hint">The folder in the other project did not change.</div>}
-        {changes?.other && changes.this && (
-          <div className="hint">This project changed the copy too. Pick the version of each file.</div>
+        {changes?.other && changes.files.some((f) => f.side === 'Both') && (
+          <div className="hint">The two projects changed some files. Pick the version of each of these files.</div>
         )}
         {changes && changes.files.length > 0 && (
           <ul className="import-items" aria-label="Files that are different">
@@ -52,7 +53,7 @@ export function UpdateDialog({ other, folder, onDone, onClose }: Props) {
               <li key={f.path}>
                 <div className="import-row">
                   <span>{f.path}</span>
-                  {changes.other && changes.this ? (
+                  {changes.other && f.side === 'Both' ? (
                     <select
                       className="field"
                       aria-label={`Version of ${f.path}`}
@@ -67,10 +68,10 @@ export function UpdateDialog({ other, folder, onDone, onClose }: Props) {
                       <option value="This">This project</option>
                     </select>
                   ) : (
-                    <span className="hint">{STATES[f.state]}</span>
+                    <span className="hint">{changes.other && f.side !== 'Both' ? SIDES[f.side] : ''}</span>
                   )}
                 </div>
-                {changes.this && changes.other && <div className="hint">{STATES[f.state]}</div>}
+                <div className="hint">{STATES[f.state]}</div>
               </li>
             ))}
           </ul>

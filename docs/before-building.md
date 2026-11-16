@@ -79,7 +79,8 @@ Later milestones:
   2026-11-16 with this design.
 - [x] **Q4, process isolation on or off by default.** Agent decision of 2026-11-16: off. The
   target is optional (16), and the native viewport needs one process (15.8).
-- [ ] **Q5, Zig and Xcode on macOS.** A test on macOS can answer it.
+- [ ] **Q5, Zig and Xcode on macOS.** This is a test, not an owner decision. A build on a Mac
+  without the Xcode tools answers it.
 - [x] **Q6, app mode.** Agent decision of 2026-11-16: not in version 1. An executable package
   has no window, so it cannot show views (14.1).
 - [x] **Q13, circuit graphs.** Agent decision of 2026-11-15: a synchronous model. One frame is

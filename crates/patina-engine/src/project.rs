@@ -30,6 +30,9 @@ pub struct Import {
     /// The hash of the copy in this project after the import or the last update (6.2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub copy: Option<String>,
+    /// The hash of each file that the import or the last update copied from the other project (6.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub files: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
