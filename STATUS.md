@@ -1,15 +1,48 @@
 # Status
 
-The current milestone is milestone 10, views (spec section 19). Milestone 9, the GPU, ended on
-2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
-a download that the owner did not approve yet. Milestones 2 to 9 work, with the open items in their known limits. The installers of
+The current milestone is milestone 11, the audio domain (spec section 19). Milestone 10, views,
+ended on 2026-11-15. Milestone 9, the GPU, ended on 2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
+a download that the owner did not approve yet. Milestones 2 to 10 work, with the open items in their known limits. The installers of
 milestone 3 are not made yet: the WiX tools need a download that the owner did not approve yet.
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Milestone 11: the audio domain
+
+Milestone 11 started on 2026-11-15. It adds the audio domain: nodes that run on an audio thread
+at each block of samples (spec 9.3).
+
+### Plan
+
+1. Done: the audio domain without a device: `domain = audio`, `AudioBlock` from a pool, and
+   latest-value wires without a lock. The CLI runs the blocks on a timer, between the frames.
+2. Audio output to the device with `cpal`, on the audio thread, and the timer when there is no
+   device.
+3. Node GUIs of audio nodes: settings, messages and display values (4.3).
+4. The milestone check: a slow `ui` of an audio node does not make a block late.
+5. The editor runs the audio domain with the frames. **Stop** stops it.
+
+### Checked
+
+- On Windows 11 with Rust 1.100.0: the CLI test adds the audio node `tone` and the frame node
+  `meter` to a copy of the hello example. Tone reads a frame value, and meter reads the block of
+  tone. With `--frames 3 --blocks 9`, meter shows the tones of frames 0 and 1. Frame 0 runs
+  before block 0, so meter skips it.
+- Unit tests check the buffer of three values, the pool of `AudioBlock`, the order of the
+  frames and the blocks, and the domain of a node with a frame input and the audio domain.
+- The witness block now builds with a delay before an import. A delay gets the type of its
+  input at the end of the block.
+
+### Known limits
+
+- These shortcuts are open in the code:
+  - `main.rs` of `patina-cli`: a timer clock runs the audio blocks, with no audio device.
+- `patina-capi` and the editor do not run audio blocks yet.
+- The thread of the frames runs the blocks, so a slow frame makes the blocks late.
+
 ## Milestone 10: views
 
-Milestone 10 started on 2026-11-15. It adds views: custom panels of the editor that read and
+Milestone 10 started on 2026-11-15 and ended on 2026-11-15. It adds views: custom panels of the editor that read and
 change the graph (spec 15.8).
 
 ### Plan
@@ -19,10 +52,11 @@ change the graph (spec 15.8).
 2. More instances of a view, and float windows. This part works. The self-check floats a view,
    waits for its window and docks it again. Nobody looked at a float window on screen yet.
 3. More edits from a view: add a node, connect a wire, start a trigger and select nodes. Add,
-   remove, connect, disconnect and select work. Trigger waits for the event domain (9.4).
+   remove, connect, disconnect and select work. Trigger waits for the event domain of
+   milestone 12 (9.4).
 4. Typed outputs through type crates (15.8 rule 3). This part works for outputs with a wire.
 5. A viewport in a view (15.8), on the native path of the viewport prototype. Version 1
-   works on Windows. A render thread and more viewports in a window do not.
+   works on Windows. A render thread and more viewports in a window are limits of version 1.
 
 ### What works
 
@@ -68,6 +102,8 @@ change the graph (spec 15.8).
   the node reports, so the next failure gives the cause.
 - The first open of a view builds it on the engine thread. A frame run waits for this build.
 - The view did not run on Linux or macOS. Only CI built it there.
+- These shortcuts are open in the code:
+  - A viewport surface works only on Windows (`crates/patina-gpu/src/viewport.rs`).
 
 ## Milestone 9: the GPU
 

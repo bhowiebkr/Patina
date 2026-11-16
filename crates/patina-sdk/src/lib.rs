@@ -2,11 +2,13 @@
 //! folder of each project, so a node always builds with the SDK of its engine.
 
 #[doc(hidden)]
+pub mod audio;
 pub mod glue;
 mod graph;
 mod ui;
 mod view;
 
+pub use audio::AudioBlock;
 pub use graph::Graph;
 pub use patina_macros::{connection, node, view};
 pub use ui::{Canvas, Key, Mode, Number, Pointer, Response, Ui, Viewport, Widget};

@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Lanes, Param, Text, Viewer};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 15;
+pub const ABI_VERSION: u32 = 16;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -189,6 +189,9 @@ pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
 pub enum Cmd<'a> {
     /// Sets the parameter with this index from its text form (6.4).
     Set(u32, &'a str),
+    /// Starts a run of the domain with this index: gets the newest values of the latest-value
+    /// wires without a lock (9.3).
+    Begin(u32),
     /// Runs the task with this index (9.2). Returns false when a node failed.
     Task(u32),
     /// Ends a run of the domain with this index (9.1): drops each value of the domain that no
@@ -314,6 +317,14 @@ impl<T> std::ops::Deref for Link<T> {
 pub fn like<T>(_value: &T) -> T {
     unreachable!("the witness block never runs")
 }
+
+/// Gives a value of a type that `same` gives later, in the witness block.
+pub fn later<T>() -> T {
+    unreachable!("the witness block never runs")
+}
+
+/// Gives two values the same type, in the witness block.
+pub fn same<T>(_a: &T, _b: &T) {}
 
 /// The value of a delay node (9.2), with the type of its input. The first frame gives the default.
 pub fn delay_for<T: Default>(_input: &Shared<Option<T>>) -> Shared<T> {
@@ -651,6 +662,17 @@ pub unsafe fn task(cluster: *const Cluster, task: u32, rep: *const Reporter) -> 
     in_run(rep, || (cluster.f)(Cmd::Task(task), rep))
 }
 
+/// The body of `patina_cluster_begin`, before the first task of a run of domain `domain`.
+///
+/// # Safety
+///
+/// The same as for `end`.
+pub unsafe fn begin(cluster: *const Cluster, domain: u32, rep: *const Reporter) -> bool {
+    // SAFETY: the caller keeps the rules of this function.
+    let (cluster, rep) = unsafe { (&*cluster, &*rep) };
+    in_run(rep, || (cluster.f)(Cmd::Begin(domain), rep))
+}
+
 /// The body of `patina_cluster_end`, after the last task of a run of domain `domain`.
 ///
 /// # Safety
@@ -748,6 +770,8 @@ pub unsafe fn free(cluster: *mut Cluster) {
 
 mod keep;
 pub use keep::*;
+mod latest;
+pub use latest::*;
 mod slot;
 pub use slot::*;
 mod view;

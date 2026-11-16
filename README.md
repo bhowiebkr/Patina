@@ -319,6 +319,10 @@ cargo run -p patina-cli -- run examples/hello --frames 3
 
 The run stops at the first frame in which a node fails.
 
+A graph with audio nodes also runs blocks of 256 audio samples, 187.5 blocks each second. The
+frames run between the blocks. To run a number of blocks and then stop, add `--blocks <count>`.
+The audio does not go to a device yet.
+
 ## Make a package
 
 `patina-cli package` builds a project and writes a folder that runs without Rust:

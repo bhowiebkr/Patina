@@ -20,7 +20,7 @@ Ask the owner. Do not decide these alone.
 
 1. Project file format. Decided: TOML files that Patina writes in a fixed order, with stable keys for the public pins of a subgraph (6.4). Agent decision of 2026-11-15. The owner can change it.
 2. React or Svelte. Decided: React, with React Flow (15.1). Agent decision from the connections prototype, 2026-11-15. The owner can change it.
-3. Default audio block size and number of audio threads.
+3. Default audio block size and number of audio threads. Decided: 256 samples at 48 kHz, and one audio thread for all audio nodes (9.3). Agent decision of 2026-11-15. The owner can change it.
 4. Process isolation: default on or off.
 5. Zig: does it remove the need for Xcode on macOS?
 6. App mode: a layout that shows the views and the node GUIs without the graph, so a project becomes a tool for other users (15.8). Can a package include it, with its views?

@@ -29,18 +29,18 @@ Each node runs in one clock domain. The domain decides when the node runs.
 
 **Domain decisions of milestone 4.** These are agent decisions of 2026-11-15. The owner can change them.
 
-- A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. Audio and event give an error until their milestones (11 and 12).
+- A node declares its domain with `#[node(domain = batch)]` or `#[node(domain = frame)]`. Milestone 11 adds `#[node(domain = audio)]` (9.3). Event gives an error until milestone 12.
 - The `domain` key of a node in the graph file (6.4) is the domain that the user selects. A node that declares a domain cannot have another domain in the graph file.
-- A node with no declared and no selected domain takes the domain that all its data wires and order wires can reach. A batch and a frame input thus give the frame domain. A node with no wires in is in the batch domain.
+- A node with no declared and no selected domain takes the domain that all its data wires and order wires can reach. A batch and a frame input thus give the frame domain. A frame and an audio input give the audio domain. A node with no wires in is in the batch domain.
 - A node with inputs that reach no common domain and no selected domain is a graph error: "select its domain". The editor shows it as an error, not a warning, until it can show warnings.
 - A task (9.2) holds steps of one domain. A value never goes from one domain to another inside a task.
 - The batch domain runs one time, when the user clicks **Run**. Then the frame domain runs at each tick of a 60 FPS clock until the user clicks **Stop**. A frame that is late starts at once, and the clock skips the ticks that it missed. Frames never queue.
 - A run of the frame domain stops at the first frame in which a node fails.
-- `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process. `--edit` builds in edit mode (8.3).
+- `patina-cli run <folder> --frames <count>` runs the given number of frames. Without `--frames`, it runs frames until the user stops the process. `--edit` builds in edit mode (8.3). `--blocks <count>` gives the number of audio blocks (9.3).
 - In the editor, **Pause**, **Stop**, a failed frame and a change that runs the graph again end the frame run. A change runs the batch domain again, and then the frames start again. The status bar shows the number of the frame, and the values and run times of the frame nodes change at each frame.
 - A change runs all the nodes of the batch domain again. The engine runs only the newest change: the changes that come during a run go into one next run. A parameter field and a slider apply their value when the user ends the edit: at Enter, at a focus change, or at the release of the slider. Thus a drag runs a node that writes a file or sends to the network one time, not at each step of the drag. A cache that runs only the changed nodes and the nodes after them can come later. This is the agent decision of 2026-11-15 for question 11 (18). The owner can change it.
 - A wire from the batch domain to the frame domain is a latest-value wire. At each frame, the frame node reads the value of the last batch run. The value stays until its node runs again in the next batch run.
-- A wire from the frame domain to the batch domain is a graph error, because the batch domain runs before the frames.
+- A wire from the frame or the audio domain to the batch domain is a graph error, because the batch domain runs before the frames and the audio. Wires between the frame and the audio domain go in the two directions.
 - In milestone 4, the batch and the frame domain never run at the same time. Thus the latest value is in a shared slot with a lock that never waits. The buffer that does not lock comes with the audio domain (milestone 11).
 
 ### 9.2 Automatic parallelism
@@ -102,6 +102,15 @@ pub fn gain(
 - In edit mode, Patina checks for allocations in audio nodes and shows a warning on the node.
 - **Offline render:** an audio graph can also run in the batch domain. It then renders to a file faster than real time, for example to export a sound effect.
 - Small audio graphs run on one thread. Large audio graphs can run independent branches on a small set of real-time threads.
+
+**Audio decisions of milestone 11.** These are agent decisions of 2026-11-15. The owner can change them.
+
+- A block has 256 samples at 48 kHz (5.3 ms). All audio nodes run on one audio thread. This is the decision for question 3 (18). More audio threads can come when a graph needs them.
+- A wire into or out of the audio domain is a latest-value wire without a lock: a buffer of three values. The writer clones its value into the buffer, so the value type must be `Clone`. The reader never waits, allocates or drops a value on the audio thread.
+- The audio domain runs on its own thread, at the same time as the frame domain. The batch domain runs before it.
+- When the computer has no audio device, a timer gives the blocks, so the CLI and CI run audio graphs without a device.
+- Step 1 of milestone 11 has no audio thread and no device. The thread of the frames runs each block, between the frames, on a timer of 5.3 ms. A frame runs before the first block that starts at or after its time. The latest-value wires are the same as with the audio thread.
+- A cluster run starts with `patina_cluster_begin`, which fetches the newest values of the latest-value wires. A node output on such a wire publishes its value after the node runs, so a failed node publishes no value.
 
 ### 9.4 Event domain: async and trigger nodes
 

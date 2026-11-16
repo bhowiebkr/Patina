@@ -72,6 +72,19 @@ pub unsafe extern "C" fn patina_cluster_task(
 
 /// # Safety
 ///
+/// The engine keeps the rules of `patina_sdk::glue::begin`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_cluster_begin(
+    cluster: *const ::std::ffi::c_void,
+    domain: u32,
+    rep: *const ::patina_sdk::glue::Reporter,
+) -> bool {
+    // SAFETY: the engine keeps the rules of `glue::begin`.
+    unsafe { ::patina_sdk::glue::begin(cluster.cast(), domain, rep) }
+}
+
+/// # Safety
+///
 /// The engine keeps the rules of `patina_sdk::glue::end`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn patina_cluster_end(

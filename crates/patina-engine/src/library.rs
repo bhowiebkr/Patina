@@ -32,6 +32,7 @@ pub(crate) struct Library {
     new: NewFn,
     pub set: SetFn,
     pub ui: UiFn,
+    pub begin: EndFn,
     pub end: EndFn,
     free: FreeFn,
     pub take: TakeFn,
@@ -72,6 +73,7 @@ impl Library {
             let ui: UiFn = symbol(&library, b"patina_cluster_ui\0").map_err(missing)?;
             let parallel: ParallelFn = symbol(&library, b"patina_cluster_parallel\0").map_err(missing)?;
             let task: TaskFn = symbol(&library, b"patina_cluster_task\0").map_err(missing)?;
+            let begin: EndFn = symbol(&library, b"patina_cluster_begin\0").map_err(missing)?;
             let end: EndFn = symbol(&library, b"patina_cluster_end\0").map_err(missing)?;
             let free: FreeFn = symbol(&library, b"patina_cluster_free\0").map_err(missing)?;
             let take: TakeFn = symbol(&library, b"patina_cluster_take\0").map_err(missing)?;
@@ -86,7 +88,7 @@ impl Library {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
             let tasks = Arc::new(Tasks::new(state, task, all, domain));
-            Library { state, new, set, ui, end, free, take, put, export, import, read, slot, call, parallel: parallel(state), tasks }
+            Library { state, new, set, ui, begin, end, free, take, put, export, import, read, slot, call, parallel: parallel(state), tasks }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);

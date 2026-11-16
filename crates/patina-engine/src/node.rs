@@ -43,6 +43,7 @@ pub enum Output {
 pub enum Domain {
     Batch,
     Frame,
+    Audio,
 }
 
 impl Domain {
@@ -51,9 +52,9 @@ impl Domain {
         match name {
             "batch" => Ok(Domain::Batch),
             "frame" => Ok(Domain::Frame),
-            "audio" => Err("the audio domain comes at milestone 11".to_owned()),
+            "audio" => Ok(Domain::Audio),
             "event" => Err("the event domain comes at milestone 12".to_owned()),
-            _ => Err(format!("{name:?} is not a domain. Use batch or frame")),
+            _ => Err(format!("{name:?} is not a domain. Use batch, frame or audio")),
         }
     }
 
@@ -61,6 +62,7 @@ impl Domain {
         match self {
             Domain::Batch => "batch",
             Domain::Frame => "frame",
+            Domain::Audio => "audio",
         }
     }
 }
@@ -406,7 +408,7 @@ mod tests {
             "#[node] pub fn f(out1: &mut u8) {}",
             "#[node] pub fn f() {} #[node] pub fn g() {}",
             "pub fn f() {}",
-            "#[node(domain = audio)] pub fn f() {}",
+            "#[node(domain = event)] pub fn f() {}",
             "#[node(speed = 1)] pub fn f() {}",
         ];
         for source in fails {

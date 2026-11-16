@@ -120,6 +120,20 @@ pub fn mix<T: std::ops::Add<Output = T> + Copy>(a: &T, b: T) -> T {
 }
 ";
 
+/// An audio node of the test (9.3): a block with the peak two times the level.
+const TONE: &str = "#[patina_sdk::node(domain = audio)]
+pub fn tone(level: &f64) -> patina_sdk::AudioBlock {
+    patina_sdk::AudioBlock::from_fn(|i| if i == 0 { *level as f32 * 2.0 } else { 0.0 })
+}
+";
+
+/// A frame node of the test that reads an audio block (9.3).
+const METER: &str = "#[patina_sdk::node(domain = frame)]
+pub fn meter(sound: &patina_sdk::AudioBlock) -> f64 {
+    f64::from(sound.peak())
+}
+";
+
 #[test]
 fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "hello");
@@ -232,6 +246,32 @@ builtin = \"delay\"
         let tree = cluster.ui("00000000000000f1", 0, "").0.unwrap();
         assert!(tree.ends_with(&format!("slider\tCount\t{count}\t0\t10")), "{name}: {tree}");
     }
+
+    // Audio (9.3): tone a1 reads mix f3 of the frames, and meter a2 reads tone for show a3. Each
+    // reads the latest value of the other domain. Frame 0 runs before block 0, so meter has no
+    // value. Frames 1 and 2 run before blocks 4 and 7, and get the tones of frames 0 and 1.
+    for (name, code) in [("tone", TONE), ("meter", METER)] {
+        let folder = project.join("nodes").join(name);
+        fs::create_dir_all(folder.join("src")).unwrap();
+        fs::write(folder.join("Cargo.toml"), manifest.replace("whole", name)).unwrap();
+        fs::write(folder.join("src/lib.rs"), code).unwrap();
+    }
+    let more = [
+        node("a1", "tone"),
+        node("a2", "meter"),
+        node("a3", "show"),
+        wire("00000000000000f3.out", "00000000000000a1.level"),
+        wire("00000000000000a1.out", "00000000000000a2.sound"),
+        wire("00000000000000a2.out", "00000000000000a3.value"),
+    ]
+    .concat();
+    fs::write(&graph, fs::read_to_string(&graph).unwrap() + &more).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--frames", "3", "--blocks", "9"]);
+    assert!(output.status.success(), "{stderr}");
+    let mut lines: Vec<&str> = stdout.lines().collect();
+    lines.sort_unstable();
+    assert_eq!(lines, ["13.5", "15", "19", "6.5", "7.5", "9.5"], "{stderr}");
+    assert!(stderr.contains("Node 00000000000000a2: skipped"), "{stderr}");
 }
 
 #[test]

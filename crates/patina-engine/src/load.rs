@@ -128,8 +128,8 @@ pub struct Outcome {
 /// The loaded clusters of a graph, one for each clock domain (8.2), with their parameters and
 /// their node states.
 pub struct Cluster {
-    /// The cluster of the batch and of the frame domain. A domain with no step has none.
-    libraries: [Option<Library>; 2],
+    /// The cluster of each domain, by `Domain` index. A domain with no step has none.
+    libraries: [Option<Library>; 3],
     /// The slot library and the reference that the clusters call it with (7.1). The box keeps the
     /// address of the reference while the clusters keep it.
     slot: Option<(Library, Box<SlotRef>)>,
@@ -149,10 +149,10 @@ pub struct Cluster {
     /// The state key of each node, by node index (7.2). A node with no state has none.
     keys: Vec<Option<u64>>,
     /// The sum of the node run times of the last run of each domain, in ms.
-    work: [f64; 2],
+    work: [f64; 3],
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
-    /// The ID of each node with a GUI, and true when the node is in the frame domain (4.3).
+    /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).
     guis: Vec<(String, bool)>,
     /// The node index and the input key of each parameter slot.
     slots: Vec<(usize, String)>,
@@ -176,7 +176,7 @@ impl Cluster {
         plan: &Plan,
         keys: Vec<Option<u64>>,
     ) -> Result<Cluster, Error> {
-        let mut loaded: [Option<Library>; 2] = [None, None];
+        let mut loaded: [Option<Library>; 3] = [None, None, None];
         for &(domain, ref path) in libraries {
             loaded[domain as usize] = Some(Library::load(path, root, &plan.tasks, domain)?);
         }
@@ -189,12 +189,12 @@ impl Cluster {
             .collect();
         let guis = (plan.steps.iter())
             .filter(|s| plan.nodes[s.node].1.ui && plan.nodes[s.node].1.state.is_some())
-            .map(|s| (s.id.clone(), s.domain == Domain::Frame))
+            .map(|s| (s.id.clone(), s.domain != Domain::Batch))
             .collect();
         let mut links = Vec::new();
         for (index, (n, k)) in (0u32..).zip(generate::links(plan)) {
             let from = plan.steps[n].domain;
-            for to in [Domain::Batch, Domain::Frame].into_iter().filter(|&d| d != from && generate::reads(plan, n, k, d)) {
+            for to in [Domain::Batch, Domain::Frame, Domain::Audio].into_iter().filter(|&d| d != from && generate::reads(plan, n, k, d)) {
                 links.push((from, to, index));
             }
         }
@@ -215,7 +215,7 @@ impl Cluster {
             domains: plan.steps.iter().map(|s| s.domain).collect(),
             links,
             keys,
-            work: [f64::INFINITY; 2],
+            work: [f64::INFINITY; 3],
             names,
             guis,
             has_text: vec![false; slots.len()],
@@ -316,9 +316,25 @@ impl Cluster {
         &self.out
     }
 
+    /// Runs the audio domain of the graph one time: one block of `patina_sdk::audio::BLOCK`
+    /// samples (9.3).
+    pub fn block(&mut self, control: &Control) -> &Outcome {
+        self.run_domain(Domain::Audio, control);
+        &self.out
+    }
+
     /// True when the graph has nodes in the frame domain.
     pub fn frames(&self) -> bool {
-        self.libraries[Domain::Frame as usize].as_ref().is_some_and(|l| !l.tasks.ids.is_empty())
+        self.has(Domain::Frame)
+    }
+
+    /// True when the graph has nodes in the audio domain.
+    pub fn blocks(&self) -> bool {
+        self.has(Domain::Audio)
+    }
+
+    fn has(&self, domain: Domain) -> bool {
+        self.libraries[domain as usize].as_ref().is_some_and(|l| !l.tasks.ids.is_empty())
     }
 
     fn run_domain(&mut self, domain: Domain, control: &Control) {
@@ -327,6 +343,9 @@ impl Cluster {
             self.call(control, |_| true);
             return;
         };
+        let rep = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
+        // SAFETY: `state` is live, no task runs, and the reporter is valid during the call.
+        let begun = unsafe { (library.begin)(library.state, domain as u32, &rep) };
         let tasks = &library.tasks;
         tasks.state.store(library.state, Relaxed);
         tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
@@ -346,7 +365,7 @@ impl Cluster {
         // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
         // during the call.
         self.call(control, |rep| unsafe { end(state, domain as u32, rep) });
-        self.out.ok &= ok;
+        self.out.ok &= ok && begun;
         self.work[domain as usize] = self.out.times.iter().map(|t| t.ms).sum();
     }
 
@@ -382,7 +401,7 @@ impl Cluster {
         unsafe { (library.read)(library.state, index, &rep) }
     }
 
-    /// The ID of each node with a GUI, and true when the node is in the frame domain (4.3).
+    /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).
     pub fn guis(&self) -> &[(String, bool)] {
         &self.guis
     }
@@ -447,7 +466,7 @@ fn slot_library(path: &Path, root: &Path) -> Result<(Library, Box<SlotRef>), Err
 /// Gives each value that a cluster makes to each cluster of another domain that reads it (8.2),
 /// and gives each cluster the slot library. False when a cluster has no such link. Each new
 /// state needs its links again.
-fn link(libraries: &[Option<Library>; 2], links: &[(Domain, Domain, u32)], slot: Option<&SlotRef>, sink: &mut Sink) -> bool {
+fn link(libraries: &[Option<Library>; 3], links: &[(Domain, Domain, u32)], slot: Option<&SlotRef>, sink: &mut Sink) -> bool {
     let rep = Reporter { ctx: std::ptr::from_mut(sink).cast(), report: collect, control: std::ptr::null() };
     let slotted = slot.is_none_or(|slot| {
         // SAFETY: the state is live, no run is active, and the reporter is valid during the call.

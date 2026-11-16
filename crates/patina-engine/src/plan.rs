@@ -467,18 +467,19 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
 }
 
 /// True when a wire can go from domain `from` to domain `to` (9.1). The batch domain runs before
-/// the frames, so a frame node reads the latest batch value. No value goes back.
+/// the frames and the audio, so they read the latest batch value. No value goes back to batch.
+/// The frame and the audio domain run at the same time and read the latest values of each other.
 fn reaches(from: Domain, to: Domain) -> bool {
-    from == to || (from, to) == (Domain::Batch, Domain::Frame)
+    from == Domain::Batch || to != Domain::Batch
 }
 
 /// Sets the domain of each step (9.1). A step with no domain of its own takes the domain that all
-/// its inputs reach, or the batch domain when it has no inputs.
+/// its inputs reach, audio before frame before batch, or the batch domain when it has no inputs.
 fn domains(steps: &mut [Step], edges: &[(usize, usize)], own: impl Fn(usize) -> Option<Domain>) -> Result<(), Vec<String>> {
     let mut problems = Vec::new();
     for n in 0..steps.len() {
         let inputs: BTreeSet<Domain> = edges.iter().filter(|e| e.1 == n).map(|e| steps[e.0].domain).collect();
-        let common = inputs.iter().copied().find(|&d| inputs.iter().all(|&i| reaches(i, d)));
+        let common = inputs.iter().copied().rev().find(|&d| inputs.iter().all(|&i| reaches(i, d)));
         steps[n].domain = match (own(n), common) {
             (Some(domain), _) | (None, Some(domain)) => domain,
             (None, None) if inputs.is_empty() => Domain::Batch,
@@ -590,6 +591,7 @@ mod tests {
         };
         let mixed = "[[node]]\nid = \"000000000000000a\"\nfolder = \"nodes/num\"\n[[order]]\nbefore = \"000000000000000a\"\nafter = \"000000000000000b\"";
         let (frame, crossed, mixed) = (frames(""), frames("domain = \"batch\""), frames(mixed));
+        let heard = frames("domain = \"audio\"");
         let mut latest = graph("[[wire]]\nfrom = \"000000000000000a.out\"\nto = \"000000000000000b.v\"\n");
         latest.node[1].domain = Some("frame".to_owned());
         let latest = check(&root, &latest);
@@ -649,6 +651,8 @@ builtin = \"delay\"
         assert!(crossed.err().unwrap()[0].contains("from the frame domain to the batch domain"));
         let mixed = mixed.unwrap_or_else(|p| panic!("{p:?}"));
         assert_eq!(mixed.steps.iter().find(|s| s.id.ends_with('b')).map(|s| s.domain), Some(Domain::Frame), "batch and frame inputs give the frame domain");
+        let heard: Vec<Domain> = heard.unwrap_or_else(|p| panic!("{p:?}")).steps.iter().map(|s| s.domain).collect();
+        assert_eq!(heard, [Domain::Frame, Domain::Audio], "a frame value goes to the audio domain");
         let resolved = resolved.unwrap_or_else(|p| panic!("{p:?}"));
         let pick = resolved.steps.iter().position(|s| s.id.ends_with('e')).unwrap();
         assert_eq!(resolved.steps[pick].types, ["u8", "Vec<u8>"]);

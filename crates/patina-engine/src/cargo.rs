@@ -89,7 +89,7 @@ impl Mode {
 /// The SDK crates that a project builds with. The engine carries their source.
 /// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
 /// projects do not build `wgpu` or `cudarc`.
-const SDK_FILES: [(&str, &str); 19] = [
+const SDK_FILES: [(&str, &str); 21] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -100,6 +100,8 @@ const SDK_FILES: [(&str, &str); 19] = [
     ("build/sdk/patina-sdk/src/glue/slot.rs", include_str!("../../patina-sdk/src/glue/slot.rs")),
     ("build/sdk/patina-sdk/src/glue/keep.rs", include_str!("../../patina-sdk/src/glue/keep.rs")),
     ("build/sdk/patina-sdk/src/glue/view.rs", include_str!("../../patina-sdk/src/glue/view.rs")),
+    ("build/sdk/patina-sdk/src/glue/latest.rs", include_str!("../../patina-sdk/src/glue/latest.rs")),
+    ("build/sdk/patina-sdk/src/audio.rs", include_str!("../../patina-sdk/src/audio.rs")),
     ("build/sdk/patina-sdk/src/graph.rs", include_str!("../../patina-sdk/src/graph.rs")),
     ("build/sdk/patina-sdk/src/view.rs", include_str!("../../patina-sdk/src/view.rs")),
     ("build/sdk/patina-sdk/src/ui.rs", include_str!("../../patina-sdk/src/ui.rs")),

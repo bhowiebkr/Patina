@@ -20,7 +20,7 @@ const HEADER: &str = "# Made by Patina. Patina writes this file again at each bu
 /// shortcut: one cluster for each domain, with no boundary at large nodes (8.2). Split at large nodes and subgraphs when milestone 6 measures the need.
 pub fn domains(plan: &Plan) -> Vec<Domain> {
     let mut domains: Vec<Domain> =
-        [Domain::Batch, Domain::Frame].into_iter().filter(|&d| plan.steps.iter().any(|step| step.domain == d)).collect();
+        [Domain::Batch, Domain::Frame, Domain::Audio].into_iter().filter(|&d| plan.steps.iter().any(|step| step.domain == d)).collect();
     if domains.is_empty() {
         domains.push(Domain::Batch);
     }
@@ -120,12 +120,15 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         shared.push(format!("p{i}"));
     }
     // A value that another domain reads is in an `Arc`, which the other cluster links to (8.2).
+    // A wire into or out of the audio domain is a buffer without a lock (9.3).
     for (n, k) in plan.held().filter(|&(n, k)| is_shared(plan, n, k)) {
         let value = if !mine(n) {
             if !reads(plan, n, k, domain) {
                 continue;
             }
-            "::patina_sdk::glue::Link::new()"
+            if is_latest(plan, n, k) { "::patina_sdk::glue::LatestLink::new()" } else { "::patina_sdk::glue::Link::new()" }
+        } else if is_latest(plan, n, k) {
+            "::patina_sdk::glue::Latest::new()"
         } else if is_kept(plan, n, k) {
             "::std::sync::Arc::new(::patina_sdk::glue::Shared::new(::std::option::Option::None))"
         } else {
@@ -213,14 +216,22 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     // The engine links each value that another domain reads after it makes the clusters (8.2).
     s.push_str("        ::patina_sdk::glue::Cmd::Export(index, out) => match index {\n");
     for (i, &(n, k)) in links(plan).iter().enumerate().filter(|(_, (n, _))| mine(*n)) {
-        let _ = writeln!(s, "            {i} => ::patina_sdk::glue::export_link(&n{n}_{k}, out),");
+        let f = if is_latest(plan, n, k) { "export_latest" } else { "export_link" };
+        let _ = writeln!(s, "            {i} => ::patina_sdk::glue::{f}(&n{n}_{k}, out),");
     }
     s.push_str("            _ => false,\n        },\n        ::patina_sdk::glue::Cmd::Import(index, moved) => match index {\n");
     let imports = imports(plan, domain);
-    for (i, link) in links(plan).iter().enumerate().filter(|(_, link)| imports.contains(link)) {
-        let _ = writeln!(s, "            {i} => ::patina_sdk::glue::import_link(&n{}_{}, moved),", link.0, link.1);
+    for (i, &(n, k)) in links(plan).iter().enumerate().filter(|(_, link)| imports.contains(link)) {
+        let f = if is_latest(plan, n, k) { "import_latest" } else { "import_link" };
+        let _ = writeln!(s, "            {i} => ::patina_sdk::glue::{f}(&n{n}_{k}, moved),");
     }
     s.push_str("            _ => false,\n        },\n");
+    // The start of a run gets the newest value of each wire from the audio domain or into it.
+    let _ = write!(s, "        ::patina_sdk::glue::Cmd::Begin({}) => {{ ", domain as u32);
+    for (n, k) in imports.iter().filter(|&&(n, k)| is_latest(plan, n, k)) {
+        let _ = write!(s, "n{n}_{k}.fetch(); ");
+    }
+    s.push_str("true }\n        ::patina_sdk::glue::Cmd::Begin(_) => true,\n");
     // The end of a domain drops the values of its steps (9.1). A value that another domain reads
     // stays until its step runs again.
     let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::End({}) => {{\n            let mut ok = true;", domain as u32);
@@ -265,15 +276,23 @@ fn ui_arms(s: &mut String, plan: &Plan, steps: &[usize]) {
 
 /// Writes a block that never runs. It calls each step before the imports of `domain`, so Rust
 /// gives each link the type of the value of the other cluster (8.2). A slot gives its default.
-/// The steps before an import are in the batch domain, which has no delay (9.2).
+/// A delay runs before the step of its input, so its value gets the type of that input at the end.
 fn witness(s: &mut String, plan: &Plan, domain: Domain) {
     let imports = imports(plan, domain);
     if imports.is_empty() {
         return;
     }
     s.push_str("    if false {\n");
+    let mut ties = String::new();
     for m in ancestors(plan, domain) {
         let step = &plan.steps[m];
+        if plan.is_delay(m) {
+            if let Source::Wire { step: from, output } = step.inputs[0] {
+                let _ = writeln!(ties, "        ::patina_sdk::glue::same(&w{m}_0, &w{from}_{output});");
+            }
+            let _ = writeln!(s, "        let w{m}_0 = ::patina_sdk::glue::later(); // {}", step.id);
+            continue;
+        }
         let (name, node) = &plan.nodes[step.node];
         let krate = name.replace('-', "_");
         let (mut lets, mut args, mut call) = (String::new(), Vec::new(), format!("::{krate}::{}", node.func));
@@ -318,6 +337,7 @@ fn witness(s: &mut String, plan: &Plan, domain: Domain) {
             step.id
         );
     }
+    s.push_str(&ties);
     for (n, k) in imports {
         let _ = writeln!(s, "        n{n}_{k}.witness(w{n}_{k});");
     }
@@ -332,10 +352,15 @@ fn is_shared(plan: &Plan, n: usize, k: usize) -> bool {
 }
 
 /// True when a node of another domain reads output `k` of step `n`: a latest-value wire (9.1).
-/// shortcut: the domains never run at the same time, so the lock never waits. Use a buffer that does not lock with the audio domain (milestone 11).
+/// Batch ends before the frames start, so its lock never waits.
 fn is_kept(plan: &Plan, n: usize, k: usize) -> bool {
     let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
     plan.steps.iter().any(|step| step.domain != plan.steps[n].domain && step.inputs.iter().any(reads))
+}
+
+/// True for a latest-value wire into or out of the audio domain. It does not lock (9.3).
+fn is_latest(plan: &Plan, n: usize, k: usize) -> bool {
+    is_kept(plan, n, k) && (plan.steps[n].domain == Domain::Audio || reads(plan, n, k, Domain::Audio))
 }
 
 /// The read, the write and the store expressions of output `k` of step `n`.
@@ -379,6 +404,9 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
     }
     probes(s, plan, n, probe);
     s.push_str("            }\n");
+    for k in (0..step.consumers.len()).filter(|&k| is_latest(plan, n, k)) {
+        let _ = writeln!(s, "            n{n}_{k}.publish();");
+    }
 }
 
 /// Writes the call of step `n` in the cluster.
