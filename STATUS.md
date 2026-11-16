@@ -20,14 +20,16 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
    `nand` node. A `readout` node shows 4 bits as lamps in its GUI.
 2. Done: a multiplexer and a 4-bit register with a load input. An accumulator adds 5 to its
    register at each step. The **Inspector** shows a check box for a `bool` parameter.
-3. A small memory: an address decoder and 4 words of 4 bits.
+3. Done: a memory of 4 words of 4 bits, with a decoder of the address. It writes the
+   accumulator at each step, and readout D shows the word that it wrote 4 steps before.
 4. A small CPU: a program counter, an instruction register and an ALU.
 
 ### Checked
 
 - On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 16 frames. Readout
   A shows the count 0 to 15, and readout B the count plus 3, modulo 16. Readout C shows the
-  accumulator: 0, 5, 10, 15, 4 and so on.
+  accumulator: 0, 5, 10, 15, 4 and so on. Readout D shows the memory: 0 for 4 steps, then the
+  accumulator of 4 steps before. A build of the example took 7.6 s.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - The GUI of the readout node was not looked at in the editor.
 

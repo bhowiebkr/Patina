@@ -249,8 +249,10 @@ circuit needs a delay. Run the example:
 cargo run -p patina-cli -- run examples/computer --frames 16
 ```
 
-Each frame writes three lines: the count, the count plus 3, and an accumulator that adds 5 at
-each step. A `register-4` subgraph keeps 4 bits, and takes new bits when its **load** input is on.
+Each frame writes four lines: the count, the count plus 3, an accumulator that adds 5 at each
+step, and a memory. A `register-4` subgraph keeps 4 bits, and takes new bits when its **load**
+input is on. The `ram-4x4` subgraph keeps 4 words of 4 bits. It writes the accumulator to the
+address of the count, so it shows the accumulator of 4 steps before.
 In the editor, the `readout` nodes show the bits as lamps. Set a `switch` node with the check
 box in the **Inspector**.
 

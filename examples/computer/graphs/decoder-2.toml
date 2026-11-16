@@ -1,0 +1,83 @@
+format = 1
+
+[[node]]
+id = "20ade2465181b273"
+subgraph = "not"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "1915629d75caaaaf"
+subgraph = "not"
+pos = [0.0, 100.0]
+
+[[node]]
+id = "2874864671059a3f"
+subgraph = "and"
+pos = [240.0, 0.0]
+
+[[node]]
+id = "cbcb5270881db220"
+subgraph = "and"
+pos = [240.0, 100.0]
+
+[[node]]
+id = "3d1db535d0c2af8b"
+subgraph = "and"
+pos = [240.0, 200.0]
+
+[[node]]
+id = "389842a2db606132"
+subgraph = "and"
+pos = [240.0, 300.0]
+
+[[wire]]
+from = "20ade2465181b273.7ff633ef"
+to = "2874864671059a3f.072eae79"
+
+[[wire]]
+from = "1915629d75caaaaf.7ff633ef"
+to = "2874864671059a3f.665555f1"
+
+[[wire]]
+from = "1915629d75caaaaf.7ff633ef"
+to = "cbcb5270881db220.665555f1"
+
+[[wire]]
+from = "20ade2465181b273.7ff633ef"
+to = "3d1db535d0c2af8b.072eae79"
+
+[[input]]
+key = "2794c9ea"
+name = "a0"
+pos = [-240.0, 0.0]
+to = ["20ade2465181b273.5ade65ce", "cbcb5270881db220.072eae79", "389842a2db606132.072eae79"]
+
+[[input]]
+key = "baddcf7d"
+name = "a1"
+pos = [-240.0, 100.0]
+to = ["1915629d75caaaaf.5ade65ce", "3d1db535d0c2af8b.665555f1", "389842a2db606132.665555f1"]
+
+[[output]]
+key = "0bce0f02"
+name = "y0"
+pos = [480.0, 0.0]
+from = "2874864671059a3f.72b5072c"
+
+[[output]]
+key = "7f8c6b22"
+name = "y1"
+pos = [480.0, 100.0]
+from = "cbcb5270881db220.72b5072c"
+
+[[output]]
+key = "7b70e010"
+name = "y2"
+pos = [480.0, 200.0]
+from = "3d1db535d0c2af8b.72b5072c"
+
+[[output]]
+key = "1c205e69"
+name = "y3"
+pos = [480.0, 300.0]
+from = "389842a2db606132.72b5072c"
