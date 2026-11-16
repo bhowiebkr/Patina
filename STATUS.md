@@ -863,7 +863,11 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   - The **Add node** palette compares the type text with no module paths, so two types of one
     name in two modules match (`crates/patina-editor/frontend/src/palette.ts`). rustc checks the
     types at build time.
-- The delay runs only in the frame domain.
+- The delay runs in the audio domain when its input comes from there (fixed 2026-11-16). The
+  hello test plays a tone through a delay and hears it one block later with no frame between.
+  The plan test puts the delay of an audio cycle in the audio domain. The editor selfcheck wires
+  a delay after an audio node and sees the audio domain icon. No check played it on a real
+  device.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
 - A generic node with no input gets its type from the readers of its output (4.5). The hello
   test runs a generic zero node in the batch domain, and a number node of the frame domain gives

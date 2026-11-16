@@ -223,6 +223,28 @@ builtin = \"delay\"
     assert!(cluster.block(&control).ok);
     assert_eq!(cluster.sound().map(|s| (s[0], s[1])), Some((15.0, 0.0)));
 
+    // Delay ad between tone and speaker runs in the audio domain (9.2): a block plays the tone of
+    // the block before, also with no frame between them. The first block is silent.
+    let delay = "
+[[node]]
+id = \"00000000000000ad\"
+builtin = \"delay\"
+".to_owned()
+        + &wire("00000000000000a1.out", "00000000000000ad.value")
+        + &wire("00000000000000ad.out", "00000000000000a4.sound");
+    let text = fs::read_to_string(&graph).unwrap();
+    fs::write(&graph, text.replace(&wire("00000000000000a1.out", "00000000000000a4.sound"), &delay)).unwrap();
+    let opened = Project::open(&project).unwrap();
+    let mut delayed = opened.check().unwrap().build(&toolchain, Mode::Edit).unwrap();
+    delayed.set_params(opened.graph());
+    assert!(delayed.run(&control).ok && delayed.frame(&control).ok && delayed.block(&control).ok);
+    let first = delayed.sound().map(|s| (s[0], s[1]));
+    assert!(delayed.block(&control).ok);
+    assert!(first.is_none_or(|s| s == (0.0, 0.0)), "{first:?}");
+    assert_eq!(delayed.sound().map(|s| (s[0], s[1])), Some((15.0, 0.0)));
+    drop(delayed);
+    fs::write(&graph, text).unwrap();
+
     // A slow frame or node GUI does not make the blocks late: the audio thread runs blocks during
     // the 20 ms of meter in a frame and in a `ui` call (4.3).
     let (mut frames, mut audio) = cluster.split().unwrap();

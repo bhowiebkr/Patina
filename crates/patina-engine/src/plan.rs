@@ -7,6 +7,7 @@ use crate::node::{self, Builtin, Domain, Kind, Node};
 use crate::project::{GraphFile, is_id};
 use crate::types;
 
+mod domain;
 mod event;
 
 /// A graph that passed all checks, in run order.
@@ -325,14 +326,8 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     }
     resolve(&mut steps, &nodes, fires)?;
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
-    domains(&mut steps, &edges, |n| entries[order[n]].domain)?;
-    for step in steps.iter().filter(|s| is_delay(s.node)) {
-        if let Source::Wire { step: from, .. } = step.inputs[0]
-            && !reaches(steps[from].domain, step.domain)
-        {
-            return Err(vec![format!("node {}: the delay reads the {} domain. Connect a value of the frame domain", step.id, steps[from].domain.name())]);
-        }
-    }
+    let own: Vec<Option<Domain>> = order.iter().map(|&e| entries[e].domain).collect();
+    domain::assign(&mut steps, &edges, &own, is_delay)?;
     let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
     let tasks = split(&mut steps, &edges, &trigger);
     let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None };
@@ -531,40 +526,6 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
     }
 }
 
-/// True when a wire can go from domain `from` to domain `to` (9.1). The batch domain runs before
-/// the other domains, so they read the latest batch value. No value goes back to batch. The frame
-/// and the audio domain run at the same time and read the latest values of each other. In version
-/// 1, only the batch domain gives values to the event domain, and no value leaves it.
-fn reaches(from: Domain, to: Domain) -> bool {
-    let event = from == Domain::Event || to == Domain::Event;
-    from == to || from == Domain::Batch || (to != Domain::Batch && !event)
-}
-
-/// Sets the domain of each step (9.1). A step with no domain of its own takes the domain that all
-/// its inputs reach, audio before frame before batch, or the batch domain when it has no inputs.
-fn domains(steps: &mut [Step], edges: &[(usize, usize)], own: impl Fn(usize) -> Option<Domain>) -> Result<(), Vec<String>> {
-    let mut problems = Vec::new();
-    for n in 0..steps.len() {
-        let inputs: BTreeSet<Domain> = edges.iter().filter(|e| e.1 == n).map(|e| steps[e.0].domain).collect();
-        let common = inputs.iter().copied().rev().find(|&d| inputs.iter().all(|&i| reaches(i, d)));
-        steps[n].domain = match (own(n), common) {
-            (Some(domain), _) | (None, Some(domain)) => domain,
-            (None, None) if inputs.is_empty() => Domain::Batch,
-            (None, None) => {
-                problems.push(format!("node {}: its inputs come from more than one domain. Select its domain", steps[n].id));
-                Domain::Batch
-            }
-        };
-    }
-    for &(from, to) in edges.iter().collect::<BTreeSet<_>>() {
-        let (a, b) = (steps[from].domain, steps[to].domain);
-        if !reaches(a, b) && own(to).is_some() {
-            problems.push(format!("node {}: a value cannot go from the {} domain to the {} domain", steps[to].id, a.name(), b.name()));
-        }
-    }
-    if problems.is_empty() { Ok(()) } else { Err(problems) }
-}
-
 /// Puts the steps into tasks (9.2). A step joins the task of its predecessor when it has exactly
 /// one predecessor, that predecessor has exactly one successor, and both have the same domain.
 /// An event step joins the task of its trigger, so an event run is one call (9.4).
@@ -720,6 +681,31 @@ from = \"0000000000000011.out\"
 to = \"0000000000000012.n\"
 ",
         );
+        // Num a is audio, so pick e and the delay f of their cycle are audio too (9.2).
+        let audio = |more: &str| {
+            let text = format!(
+                "format = 1
+[[node]]
+id = \"000000000000000a\"
+folder = \"nodes/num\"
+domain = \"audio\"
+[[node]]
+id = \"000000000000000e\"
+                 folder = \"nodes/pick\"
+[[node]]
+id = \"000000000000000f\"
+builtin = \"delay\"
+{more}{}{}                 [[wire]]
+from = \"000000000000000e.out0\"
+to = \"000000000000000f.value\"
+",
+                wire("0a.out", "a"),
+                wire("0f.out", "b")
+            );
+            check(&root, &toml::from_str(&text).unwrap())
+        };
+        let (heard_loop, batch_delay) = (audio(""), audio("domain = \"batch\"
+"));
         std::fs::create_dir_all(root.join("connections/show")).unwrap();
         let named = check(&root, &graph(""));
         let num_logs = uses_log(&root, "nodes", "num");
@@ -761,6 +747,9 @@ to = \"0000000000000012.n\"
         assert!(untyped.err().unwrap()[0].contains("A cycle of generic nodes gives none"));
         assert!(unknown.err().unwrap()[0].contains("no built-in node \"echo\""));
         assert!(unwired.err().unwrap()[0].contains("connect a wire to the input `value` of the delay"));
+        let heard_loop = heard_loop.unwrap_or_else(|p| panic!("{p:?}"));
+        assert!(heard_loop.steps.iter().all(|s| s.domain == Domain::Audio), "the delay of an audio cycle is audio");
+        assert!(batch_delay.err().unwrap()[0].contains("a delay runs in the frame or the audio domain"));
         let backward = backward.unwrap_or_else(|p| panic!("{p:?}"));
         let step = |id: &str| backward.steps.iter().find(|s| s.id.ends_with(id)).unwrap();
         let types = |id: &str| Some(step(id).types.clone());

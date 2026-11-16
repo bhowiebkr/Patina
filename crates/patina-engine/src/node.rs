@@ -209,7 +209,7 @@ const PROCESS: &str = "`process` takes `&mut self` and then the inputs";
 /// A node that Patina builds in (9.2, 9.4). The `builtin` key of a graph file names it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Builtin {
-    /// Its output is the value of its input in the previous frame (9.2).
+    /// Its output is the value of its input in the previous frame or audio block (9.2).
     Delay,
     /// Starts an event run at each period. Its output is the run ID (9.4).
     Schedule,
@@ -251,15 +251,16 @@ impl Builtin {
             Input { key: key.to_owned(), pass, is_str, ty: ty.to_owned(), value }
         };
         let (inputs, out, domain) = match self {
-            Builtin::Delay => (vec![input("value", "T")], "T", Domain::Frame),
-            Builtin::Schedule => (vec![input("every_ms", "u64"), input("overlap", "&str")], "u64", Domain::Event),
-            Builtin::Trigger => (vec![input("overlap", "&str")], "String", Domain::Event),
-            Builtin::FileChange => (vec![input("path", "&str"), input("every_ms", "u64"), input("overlap", "&str")], "String", Domain::Event),
-            Builtin::Webhook => (vec![input("port", "u16"), input("path", "&str"), input("overlap", "&str")], "String", Domain::Event),
+            // The plan gives the delay the domain of its input (9.2).
+            Builtin::Delay => (vec![input("value", "T")], "T", None),
+            Builtin::Schedule => (vec![input("every_ms", "u64"), input("overlap", "&str")], "u64", Some(Domain::Event)),
+            Builtin::Trigger => (vec![input("overlap", "&str")], "String", Some(Domain::Event)),
+            Builtin::FileChange => (vec![input("path", "&str"), input("every_ms", "u64"), input("overlap", "&str")], "String", Some(Domain::Event)),
+            Builtin::Webhook => (vec![input("port", "u16"), input("path", "&str"), input("overlap", "&str")], "String", Some(Domain::Event)),
         };
         let generics = if self == Builtin::Delay { vec!["T".to_owned()] } else { Vec::new() };
         let output_types = vec![out.to_owned()];
-        Node { func: self.name().to_owned(), state: None, generics, inputs, output: Output::One, fallible: false, output_types, domain: Some(domain), is_async: false, ui: false, full: false, color: None }
+        Node { func: self.name().to_owned(), state: None, generics, inputs, output: Output::One, fallible: false, output_types, domain, is_async: false, ui: false, full: false, color: None }
     }
 }
 
