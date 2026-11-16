@@ -111,7 +111,8 @@ export interface NodeData extends Record<string, unknown> {
 export type PatinaNode = Node<NodeData, 'patina'>;
 
 /** A public pin of the open subgraph (6.4): an input gives a value to the inner nodes. */
-export type PortNode = Node<{ name: string; ty: string; input: boolean; value?: string; testing: boolean }, 'port'>;
+/** `socket` is the bus socket of a public pin whose kind gives lanes (15.9). */
+export type PortNode = Node<{ name: string; ty: string; input: boolean; value?: string; testing: boolean; socket?: Socket }, 'port'>;
 
 /** The ID of the use that runs the open subgraph alone. It is `TEST` in patina-engine (15.9). */
 export const TEST_USE = '7e57000000000000';
@@ -337,12 +338,13 @@ function PinHandle({ pin, output, editable, top, socket }: { pin: Pin; output: b
 export const NodeView = memo(NodeViewImpl);
 
 export function PortView({ id, data }: NodeProps<PortNode>) {
-  const { name, ty, input, value, testing } = data;
+  const { name, ty, input, value, testing, socket } = data;
   const toggle = useContext(PortTest);
+  const far = useStore((s) => s.transform[2] < FAR_ZOOM);
   const bit = value === 'true' || value === 'false';
   const on = value === 'true';
   return (
-    <div className="patina-node port" title={`${input ? 'Input' : 'Output'} ${name}: ${ty}`}>
+    <div className={socket ? 'patina-node port bus' : 'patina-node port'} title={`${input ? 'Input' : 'Output'} ${name}: ${ty}`}>
       <div className="patina-node-header">
         <span className="title">{name}</span>
         {value !== undefined && !bit && <span className="port-value">{value}</span>}
@@ -357,8 +359,18 @@ export function PortView({ id, data }: NodeProps<PortNode>) {
         />
       )}
       {!input && bit && <span className={`port-lamp${on ? ' on' : ''}`} role="img" aria-label={`${name} is ${on ? 'on' : 'off'}`} />}
-      {/* shortcut: a public pin of a bus type keeps a round pin and no socket; give it a socket when the ports of a subgraph need lane names. */}
-      <Handle id="pin" type={input ? 'source' : 'target'} position={input ? Position.Right : Position.Left} style={{ top: HEADER / 2 }} />
+      {socket && (
+        <div className="patina-rows" style={{ height: socketHeight(socket.bits.length) + 2 * PAD }}>
+          {!far && <BusSocket socket={socket} output={input} top={PAD} />}
+        </div>
+      )}
+      <Handle
+        id="pin"
+        type={input ? 'source' : 'target'}
+        position={input ? Position.Right : Position.Left}
+        className={socket ? 'bus-pin' : undefined}
+        style={socket ? { top: socketPin(HEADER + PAD, socket.bits.length), height: socketBar(socket.bits.length) } : { top: HEADER / 2 }}
+      />
     </div>
   );
 }

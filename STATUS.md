@@ -74,7 +74,7 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     leads fan in from the contacts to the lanes of the ribbon. A pointer on a lane or a contact
     marks the lane along the wire and at the two sockets, with a tooltip such as
     `ctrl[15] HLT = 1`. The **Inspector** gives a wire a **Name**. The example `byte` kind is
-    green.
+    green. A public pin of such a kind in an open subgraph is a bus socket too.
 22. Done: a segment bus with named lanes. The `segments` type crate keeps segments a to g in
     one value. It is the first type crate of the example (5.1). The `segment-bus` kind draws it
     as a copper ribbon of 7 lanes with the names a to g. A `seg-join` node in `hex-7seg` joins
@@ -1113,7 +1113,6 @@ To run the editor from a checkout:
     (15.6) (`crates/patina-sdk/src/glue.rs`).
   - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
   - The SVG wires draw a bus as one line (`frontend/src/WireLayer.tsx`).
-  - A public pin of a bus type keeps a round pin and no socket (`frontend/src/NodeView.tsx`).
   - A graph with a route grid of more than 2 million cells gets the simple orthogonal paths
     (`frontend/src/route.ts`).
   - A wire with no clear path gets the simple orthogonal path and no conflict mark

@@ -124,10 +124,25 @@
 }
 
 /* The pin of a bus socket is a bar as wide as the ribbon. */
-.react-flow__node-patina .react-flow__handle.bus-pin {
+.react-flow__node-patina .react-flow__handle.bus-pin,
+.react-flow__node-port .react-flow__handle.bus-pin {
   width: 7px;
   min-height: 0;
   border-radius: 3px;
+}
+
+/* A public pin of a bus type: the socket fills the pin box, and the bar has the pin colors. */
+.patina-node.port.bus {
+  width: 150px;
+}
+
+.patina-node.port.bus .bus-socket {
+  width: 100%;
+}
+
+.react-flow__node-port .react-flow__handle.bus-pin {
+  background: var(--wire);
+  border: 2px solid var(--node);
 }
 
 .lane-tip {

@@ -33,17 +33,19 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     await sleep(500);
     await api.capture('main');
     steps.push('main');
-    // The node GUIs hide at a far zoom (15.1), so a second screenshot zooms in on the last node.
-    const nodes = document.querySelectorAll('.react-flow__node');
-    const box = nodes[nodes.length - 1]?.getBoundingClientRect();
-    const pane = document.querySelector('.react-flow__pane');
-    if (box && pane) {
+    // The node GUIs and the bus contacts hide at a far zoom (15.1), so a second screenshot zooms in.
+    const zoom = async (node: Element | null | undefined, name: string) => {
+      const box = node?.getBoundingClientRect();
+      const pane = document.querySelector('.react-flow__pane');
+      if (!box || !pane) return;
       const at = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
       for (let i = 0; i < 12; i++) pane.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, ...at, bubbles: true, cancelable: true }));
       await sleep(1000);
-      await api.capture('main-zoom');
-      steps.push('main-zoom');
-    }
+      await api.capture(`${name}-zoom`);
+      steps.push(`${name}-zoom`);
+    };
+    const nodes = document.querySelectorAll('.react-flow__node');
+    await zoom(nodes[nodes.length - 1], 'main');
     // Depth first: open each subgraph one time, through its first use, then go back.
     const visit = async (graph: View, path: [string, string][]) => {
       for (const n of graph.graph.node ?? []) {
@@ -53,6 +55,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         await sleep(500);
         await api.capture(n.subgraph);
         steps.push(n.subgraph);
+        // A public pin of a bus type shows its contacts only near (15.9).
+        await zoom(document.querySelector('.patina-node.port.bus'), n.subgraph);
         await visit(inner, [...path, [n.subgraph, n.id]]);
         await open('main');
         for (const [name, id] of path) await open(name, id);

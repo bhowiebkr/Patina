@@ -122,17 +122,21 @@ function arrangeEdits(nodes: GraphNode[], edges: Edge<WireData>[], flow: ReactFl
 /** The public pins of the open subgraph (6.4). The editor moves, connects, renames and removes them. */
 function buildPorts(view: View, run: RunState, old: Map<string, GraphNode>): PortNode[] {
   const types = portTypes(view);
-  const port = (id: string, name: string, pos: Point | undefined, input: boolean): PortNode => {
+  const port = (id: string, name: string, pos: Point | undefined, input: boolean, from?: string): PortNode => {
     const position = { x: pos?.[0] ?? 0, y: pos?.[1] ?? 0 };
     const key = id.slice(id.indexOf(':') + 1);
     // An input shows its test value, and an output shows the value of the use (15.9).
     const value = input ? view.test?.[key] : run.values.get(`${id}.pin`)?.text;
-    const data = { name, ty: types.get(id) ?? '?', input, value, testing: view.test != null };
+    const ty = types.get(id) ?? '?';
+    // The socket of an input gives its lanes to all of its wires. An output gets the lanes of its one wire.
+    const pin = `${id}.pin`;
+    const socket = socketOf(kindOf(view.kinds, ty), name, run.values.get(pin), valueStale(run, input ? pin : (from ?? pin)), input ? pin : (from ?? ''), input ? null : pin);
+    const data = { name, ty, input, value, testing: view.test != null, socket };
     const before = old.get(id);
     return before?.type === 'port' ? { ...before, position, data } : { id, type: 'port', position, deletable: false, data };
   };
   const inputs = (view.graph.input ?? []).map((p) => port(`in:${p.key}`, p.name, p.pos, true));
-  return [...inputs, ...(view.graph.output ?? []).map((p) => port(`out:${p.key}`, p.name, p.pos, false))];
+  return [...inputs, ...(view.graph.output ?? []).map((p) => port(`out:${p.key}`, p.name, p.pos, false, p.from))];
 }
 
 /** Keeps the selection and the measured size of the nodes that stay. */
