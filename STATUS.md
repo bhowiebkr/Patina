@@ -1,6 +1,7 @@
 # Status
 
-The current work is milestone 11, the audio domain. Its step 5 was done on 2026-11-16.
+Milestone 11, the audio domain, ended on 2026-11-16. Its step 3, the GUI of audio nodes, stays
+deferred by the owner. The next work is milestone 12, the event domain.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
 complete since 2026-11-16. Milestone 10, views,
 ended on 2026-11-15. Milestone 9, the GPU, ended on 2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
@@ -168,8 +169,12 @@ at each block of samples (spec 9.3).
    of audio nodes are deferred (step 3), so the milestone check uses a slow frame node: it does
    not make a block late.
 5. Done on 2026-11-16: the editor runs the audio domain with the frames. **Stop** stops it.
-   The blocks run on the engine thread between the frames, because the views and the node GUIs
-   need all of the cluster. The device code moved from `patina-cli` to `patina-engine`.
+   The editor splits the cluster as the CLI does. The engine thread runs the frames, the node
+   GUIs and the views with the frame part (`Cluster::frame_part`). The device code moved from
+   `patina-cli` to `patina-engine`.
+
+Milestone 11 ended on 2026-11-16 without step 3. Audio nodes have no GUI yet, so the milestone
+check used a slow `ui` function of a frame node while the audio thread ran.
 
 ### Checked
 
@@ -183,6 +188,9 @@ at each block of samples (spec 9.3).
 - The same test runs `--blocks 9` without `--frames`. The frames stop when the blocks are done.
 - The same test splits the cluster. An audio thread runs blocks while the main thread runs one
   frame, in which meter sleeps 20 ms. Blocks ran during the frame.
+- The same test calls the `ui` function of meter on the frame part during the split. Meter
+  sleeps 20 ms in its `ui` function, and blocks ran during the call. The audio thread takes no
+  lock of the frame part. The editor calls the same `Frames::ui`.
 - Unit tests check the buffer of three values, the pool of `AudioBlock`, the order of the
   frames and the blocks, and the domain of a node with a frame input and the audio domain.
 - The witness block now builds with a delay before an import. A delay gets the type of its
@@ -193,7 +201,8 @@ at each block of samples (spec 9.3).
   blocks took 8.009 s on the device clock (8.000 s expected). This run was silent.
 - CI does not open a device: no test graph plays in the CLI.
 - On Windows 11, the editor selfcheck makes the node of the hello example an audio node and
-  runs it. The blocks print with the frames, the status bar shows the frame number, and no block
+  runs it. The cluster splits, so the blocks run on the audio thread. The blocks print with the
+  frames, the status bar shows the frame number, and no block
   or frame runs after **Stop**. The node does not play, so no device opened.
 - A unit test of the editor checks that the blocks since a frame keep all problems and the last
   value of each output.
@@ -202,9 +211,14 @@ at each block of samples (spec 9.3).
 
 - These shortcuts are open in the code:
   - `device.rs` of `patina-engine`: a fixed wait of 50 ms for the buffer of the device at the end.
-  - `engine.rs` of `patina-editor`: the blocks run on the engine thread between the frames, so a
-    slow frame or node GUI makes them late. Split the cluster when the views and the node GUIs
-    can use its frame part.
+  - `engine.rs` of `patina-editor`: the audio thread copies the results of each block for the
+    frames, so it allocates.
+  - `engine.rs` of `patina-editor`: when a library is not parallel, the blocks run on the engine
+    thread between the frames, so a slow frame or node GUI makes them late.
+- While the audio thread of the editor runs, a view reads no output of an audio node, and the
+  GUI of an audio node does not draw. The badges of the audio outputs still show.
+- The audio thread has its own `Control`. So the editor does not show an audio node as the node
+  that runs, and **Stop** stops the audio thread only at the end of a block (15.2).
 - `patina-capi` does not run audio blocks yet.
 - No check played a sound in the editor. The editor uses the same device code as the CLI.
 - When an audio node keeps a value that is not `Sync`, the blocks run on the thread of the

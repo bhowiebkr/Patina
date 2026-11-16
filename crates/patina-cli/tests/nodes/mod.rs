@@ -49,12 +49,28 @@ pub fn tone(level: &f64) -> patina_sdk::AudioBlock {
 }
 ";
 
-/// A frame node of the test that reads an audio block (9.3). It is slow, so that a test sees
-/// the blocks run during a frame.
+/// A frame node of the test that reads an audio block (9.3). Its frame and its GUI are slow, so
+/// that a test sees the blocks run during a frame and during a `ui` call (4.3).
 pub const METER: &str = "#[patina_sdk::node(domain = frame)]
-pub fn meter(sound: &patina_sdk::AudioBlock) -> f64 {
-    std::thread::sleep(std::time::Duration::from_millis(20));
-    f64::from(sound.peak())
+pub struct Meter {
+    peak: f64,
+}
+
+impl Meter {
+    pub fn init() -> Self {
+        Meter { peak: 0.0 }
+    }
+
+    pub fn process(&mut self, sound: &patina_sdk::AudioBlock) -> f64 {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        self.peak = f64::from(sound.peak());
+        self.peak
+    }
+
+    pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        ui.label(\"Meter\");
+    }
 }
 ";
 

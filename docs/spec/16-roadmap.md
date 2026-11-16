@@ -51,7 +51,7 @@ Ask the owner. Do not decide these alone.
 8. **Packaging.**
 9. **GPU:** shared context, GPU types, shader nodes with WESL (10.1).
 10. **Views:** the `Graph` handle and the viewport (15.8).
-11. **Audio domain.** Paused after step 2 on 2026-11-15: the owner put the circuit graphs first (question 13). Check: a slow `ui` function of an audio node while audio runs. The audio domain misses no deadline, and the GUI holds no lock that the audio thread waits for (4.3).
+11. **Audio domain.** Ended on 2026-11-16. The owner deferred the GUI of audio nodes (4.3), so the check used a slow `ui` function of a frame node. Check: a slow `ui` function of an audio node while audio runs. The audio domain misses no deadline, and the GUI holds no lock that the audio thread waits for (4.3).
 12. **Event domain:** async nodes and trigger nodes.
 
 Each milestone gives a tool that works.

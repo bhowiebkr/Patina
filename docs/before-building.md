@@ -73,7 +73,9 @@ Milestone 4, automatic parallelism and the frame domain:
 Later milestones:
 
 - [ ] **Q7, fuse time.** Milestone 6 measures it.
-- [ ] **Q3, audio block size and number of audio threads.** Milestone 11.
+- [x] **Q3, audio block size and number of audio threads.** Agent decision of 2026-11-15:
+  256 samples at 48 kHz, and one audio thread for all audio nodes (9.3). Milestone 11 ended on
+  2026-11-16 with this design.
 - [ ] **Q4, process isolation on or off by default.** An optional target (16).
 - [ ] **Q5, Zig and Xcode on macOS.** A test on macOS can answer it.
 - [ ] **Q6, app mode.** Milestones 8 and 10, packaging and views.

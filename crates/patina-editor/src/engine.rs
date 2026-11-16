@@ -1,15 +1,15 @@
-//! The engine thread. It owns the loaded cluster, which stays on one thread, and builds and runs
-//! the graph (spec 7.2, 15.10).
+//! The engine thread. It owns the loaded cluster, and builds and runs the graph (spec 7.2,
+//! 15.10). During a frame run, an audio thread can run the audio domain of the cluster (9.3).
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SendError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock, frame_due};
 use patina_engine::device::{Notice, Pace};
-use patina_engine::{Checked, Cluster, Control, Diagnostic, Error, Mode, NodeLog, NodeTime, Outcome, Report, Toolchain, Value, package};
+use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Outcome, Report, Toolchain, Value, package};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -249,7 +249,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Bake => fuse = true,
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-                        rerun |= gui(app, &mut loaded.cluster, serial, &input, &mut shown).is_some();
+                        rerun |= gui(app, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
                     }
                 }
                 Job::Rerun => rerun = true,
@@ -257,7 +257,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Package { root, out, reply } => {
                     let _ = reply.send(make_package(folder, &mut toolchain, &root, &out));
                 }
-                Job::View(input) => views.ui(folder, &mut toolchain, *input, loaded.as_mut().map(|l| &mut l.cluster)),
+                Job::View(input) => views.ui(folder, &mut toolchain, *input, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
                 Job::CloseView(name) => views.close(&name),
                 Job::DropView(instance, reply) => {
                     views.drop_instance(&instance);
@@ -266,7 +266,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             }
         }
         if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-            frame(app, (&mut loaded.cluster, &shown, &loaded.aliases), shared, serial, &mut no_blocks());
+            frame(app, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, serial, &mut no_blocks());
             let _ = app.emit("engine", Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -304,9 +304,10 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
         let ran = matches!(event, Event::Ran { .. });
         let _ = app.emit("engine", event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
-            draw(app, &mut loaded.cluster, run.serial, &shown);
+            draw(app, &mut loaded.cluster.frame_part(), run.serial, &shown);
             if frames {
-                next = run_frames(app, jobs, (&mut loaded.cluster, &mut shown, &loaded.aliases), (&mut views, folder, &mut toolchain), shared, (run.serial, fuse_at));
+                let live = Live { app, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
+                next = run_frames(live, &mut loaded.cluster);
             }
         }
         last = Some(run);
@@ -325,14 +326,14 @@ fn wait(jobs: &Receiver<Job>, fuse_at: Option<Instant>) -> Option<Job> {
 
 /// Gives the GUI input to node `input.id`, and sends its new widget lines. Returns `Some` when
 /// the change must run the graph again: `Some(true)` when the node is in the frame domain.
-fn gui(app: &AppHandle, cluster: &mut Cluster, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
+fn gui(app: &AppHandle, part: &mut Frames, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
     if let Some(node) = (input.mode as usize).checked_sub(1).and_then(|i| shown.get_mut(i)) {
         *node = (!input.id.is_empty()).then(|| input.id.clone());
     }
-    let (tree, out) = cluster.ui(&input.id, input.mode, &input.events);
+    let (tree, out) = part.ui(&input.id, input.mode, &input.events);
     let trees = tree.map(|tree| Tree { id: input.id.clone(), mode: input.mode, tree }).into_iter().collect();
     let _ = app.emit("engine", Event::Gui { serial, trees, reports: out.reports });
-    let frame = cluster.guis().iter().find(|(id, _)| *id == input.id).map(|&(_, frame)| frame)?;
+    let frame = part.guis().iter().find(|(id, _)| *id == input.id).map(|&(_, frame)| frame)?;
     (input.rerun && !input.events.is_empty()).then_some(frame)
 }
 
@@ -341,13 +342,13 @@ type Shown = [Option<String>; 2];
 
 /// Sends the widget lines of each node GUI (4.3): the node body size of each node, and the
 /// larger sizes of the nodes in `shown`.
-fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, shown: &Shown) {
+fn draw(app: &AppHandle, part: &mut Frames, serial: u64, shown: &Shown) {
     let (mut trees, mut reports) = (Vec::new(), Vec::new());
     // shortcut: the engine draws all node GUIs, also the nodes out of view (4.3 rule 3). Send the visible nodes from the page when graphs get large.
-    for n in 0..cluster.guis().len() {
-        let id = cluster.guis()[n].0.clone();
+    for n in 0..part.guis().len() {
+        let id = part.guis()[n].0.clone();
         for mode in [0, 1, 2].into_iter().filter(|&m| m == 0 || shown[m as usize - 1].as_ref() == Some(&id)) {
-            let (tree, out) = cluster.ui(&id, mode, "");
+            let (tree, out) = part.ui(&id, mode, "");
             reports.extend(out.reports);
             trees.extend(tree.map(|tree| Tree { id: id.clone(), mode, tree }));
         }
@@ -357,62 +358,156 @@ fn draw(app: &AppHandle, cluster: &mut Cluster, serial: u64, shown: &Shown) {
     }
 }
 
-/// Runs the frame domain at 60 FPS and the audio domain at each block (9.3) until a job comes,
-/// the user stops the run, a frame or a block fails or the time of the fuse comes (9.1, 7.2).
-/// Returns the job that ended the run.
-fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): (&mut Cluster, &mut Shown, &[(String, String)]), (views, folder, toolchain): (&mut Views, &Path, &mut Option<Toolchain>), shared: &Shared, (serial, fuse_at): (u64, Option<Instant>)) -> Option<Job> {
-    // shortcut: the blocks run on the engine thread between the frames, so a slow frame or node GUI makes them late; split the cluster (`Cluster::split`) when the views and the node GUIs can use its frame part.
-    let mut clock = (!cluster.blocks()).then(|| Clock::new(clock::FRAME));
-    let (mut pace, mut blocks, mut frames, mut block) = (Pace::default(), no_blocks(), 0, 0);
-    let job = loop {
-        match &mut clock {
-            Some(clock) => clock.wait(),
-            None => pace.wait(),
+/// What a frame run needs besides the cluster.
+struct Live<'a> {
+    app: &'a AppHandle,
+    jobs: &'a Receiver<Job>,
+    shown: &'a mut Shown,
+    aliases: &'a [(String, String)],
+    views: &'a mut Views,
+    folder: &'a Path,
+    toolchain: &'a mut Option<Toolchain>,
+    shared: &'a Shared,
+    serial: u64,
+    fuse_at: Option<Instant>,
+    /// The number of frames of the run.
+    frames: u64,
+}
+
+impl Live<'_> {
+    /// Takes the next job. Returns `Some` when the job ends the run, with the job for the engine.
+    fn job(&mut self, part: &mut Frames) -> Option<Option<Job>> {
+        if self.fuse_at.is_some_and(|at| Instant::now() >= at) {
+            return Some(Some(Job::Bake));
         }
-        if fuse_at.is_some_and(|at| Instant::now() >= at) {
-            break Some(Job::Bake);
-        }
-        match jobs.try_recv() {
+        match self.jobs.try_recv() {
             // A change of a frame node applies at the next frame. A batch node needs a batch run.
             Ok(Job::Gui(input)) => {
-                if gui(app, cluster, serial, &input, shown) == Some(false) {
-                    break Some(Job::Rerun);
+                if gui(self.app, part, self.serial, &input, self.shown) == Some(false) {
+                    return Some(Some(Job::Rerun));
                 }
             }
             // A view reads the live values, so the frames go on.
-            Ok(Job::View(input)) => views.ui(folder, toolchain, *input, Some(&mut *cluster)),
-            Ok(Job::CloseView(name)) => views.close(&name),
+            Ok(Job::View(input)) => self.views.ui(self.folder, self.toolchain, *input, Some(part)),
+            Ok(Job::CloseView(name)) => self.views.close(&name),
             Ok(Job::DropView(instance, reply)) => {
-                views.drop_instance(&instance);
+                self.views.drop_instance(&instance);
                 let _ = reply.send(Ok(()));
             }
-            Ok(job) => break Some(job),
-            Err(TryRecvError::Disconnected) => break None,
-            Err(TryRecvError::Empty) if shared.control.stopped() => break None,
+            Ok(job) => return Some(Some(job)),
+            Err(TryRecvError::Disconnected) => return Some(None),
+            Err(TryRecvError::Empty) if self.shared.control.stopped() => return Some(None),
             Err(TryRecvError::Empty) => {}
         }
-        if clock.is_none() {
-            gather(&mut blocks, cluster.block(&shared.control));
-            block += 1;
-            blocks.logs.extend(pace.play(cluster.sound().map(|s| s.as_slice())).map(device_log));
+        None
+    }
+
+    /// Runs one frame with the results of `blocks`. Returns false when the frame or a block failed.
+    fn frame(&mut self, part: &mut Frames, blocks: &mut Outcome) -> bool {
+        self.frames += 1;
+        frame(self.app, (part, self.shown, self.aliases), self.shared, self.serial, blocks)
+    }
+}
+
+/// Runs the frame domain at 60 FPS and the audio domain at each block (9.3) until a job comes,
+/// the user stops the run, a frame or a block fails or the time of the fuse comes (9.1, 7.2).
+/// Returns the job that ended the run.
+fn run_frames(mut live: Live, cluster: &mut Cluster) -> Option<Job> {
+    let job = match cluster.blocks() {
+        false => frames_only(&mut live, &mut cluster.frame_part()),
+        true => match cluster.split() {
+            Some((mut part, audio)) => split(&mut live, &mut part, audio),
+            None => between(&mut live, cluster),
+        },
+    };
+    let _ = live.app.emit("engine", Event::Ended { serial: live.serial, frames: live.frames });
+    job
+}
+
+/// The frames of a graph with no audio nodes.
+fn frames_only(live: &mut Live, part: &mut Frames) -> Option<Job> {
+    let mut clock = Clock::new(clock::FRAME);
+    loop {
+        clock.wait();
+        if let Some(end) = live.job(part) {
+            return end;
         }
-        // A failed block ends the run at once, with a frame that shows its results.
-        if clock.is_some() || !blocks.ok || frame_due(frames, block) {
-            frames += 1;
-            if !frame(app, (&mut *cluster, &*shown, aliases), shared, serial, &mut blocks) {
+        if !live.frame(part, &mut no_blocks()) {
+            return None;
+        }
+    }
+}
+
+/// The frames, while an audio thread runs the blocks (9.3), so a slow frame or node GUI does not
+/// make the blocks late. Each frame shows the results of the blocks since the last frame.
+fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
+    let (stop, out) = (&AtomicBool::new(false), &Mutex::new(no_blocks()));
+    let shared = live.shared;
+    std::thread::scope(|s| {
+        s.spawn(move || play(audio, shared, stop, out));
+        let mut clock = Clock::new(clock::FRAME);
+        let job = loop {
+            clock.wait();
+            if let Some(end) = live.job(part) {
+                break end;
+            }
+            let mut blocks = std::mem::replace(&mut *lock(out), no_blocks());
+            if !live.frame(part, &mut blocks) {
                 break None;
             }
+        };
+        stop.store(true, Ordering::Relaxed);
+        job
+    })
+}
+
+/// The audio thread: runs the blocks until `stop`, **Stop** or a failed block. It gives their
+/// results to the frames in `out`, and never waits for the lock while the blocks run (4.3).
+fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Outcome>) {
+    // Each thread has its own control: the control keeps the node that runs (15.2).
+    let (control, mut pace, mut blocks) = (Control::default(), Pace::default(), no_blocks());
+    while !stop.load(Ordering::Relaxed) && !shared.control.stopped() {
+        pace.wait();
+        let block = audio.block(&control);
+        let ok = block.ok;
+        // shortcut: the audio thread copies the results of each block for the frames, so it allocates; give the frames a ring of results when the audio thread must not allocate.
+        gather(&mut blocks, block);
+        blocks.logs.extend(pace.play(audio.sound().map(|s| s.as_slice())).map(device_log));
+        if let Ok(mut out) = out.try_lock() {
+            gather(&mut out, &std::mem::replace(&mut blocks, no_blocks()));
         }
-    };
-    let _ = app.emit("engine", Event::Ended { serial, frames });
-    job
+        if !ok {
+            break;
+        }
+    }
+    gather(&mut lock(out), &blocks);
+}
+
+/// The frames and the blocks on the engine thread, when the cluster cannot split: a library keeps
+/// a value that is not `Sync` (9.3).
+fn between(live: &mut Live, cluster: &mut Cluster) -> Option<Job> {
+    // shortcut: the blocks run between the frames when a library is not parallel, so a slow frame or node GUI makes them late; give such a graph its own thread for all domains when this gets common.
+    let (mut pace, mut blocks, mut block) = (Pace::default(), no_blocks(), 0);
+    loop {
+        pace.wait();
+        if let Some(end) = live.job(&mut cluster.frame_part()) {
+            return end;
+        }
+        gather(&mut blocks, cluster.block(&live.shared.control));
+        block += 1;
+        blocks.logs.extend(pace.play(cluster.sound().map(|s| s.as_slice())).map(device_log));
+        // A failed block ends the run at once, with a frame that shows its results.
+        if (!blocks.ok || frame_due(live.frames, block)) && !live.frame(&mut cluster.frame_part(), &mut blocks) {
+            return None;
+        }
+    }
 }
 
 /// Runs one frame, and sends its values, the results of `blocks` and the node GUIs. Then
 /// empties `blocks`. Returns false when the frame or a block failed.
-fn frame(app: &AppHandle, (cluster, shown, aliases): (&mut Cluster, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Outcome) -> bool {
+fn frame(app: &AppHandle, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Outcome) -> bool {
     let start = Instant::now();
-    let outcome = cluster.frame(&shared.control);
+    let outcome = part.frame(&shared.control);
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     // shortcut: the editor copies each frame and its blocks into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
     let mut values: Vec<Value> = outcome.values.iter().chain(&blocks.values).cloned().collect();
@@ -429,7 +524,7 @@ fn frame(app: &AppHandle, (cluster, shown, aliases): (&mut Cluster, &Shown, &[(S
     *blocks = no_blocks();
     let values = badges(&values);
     let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
-    draw(app, cluster, serial, shown);
+    draw(app, part, serial, shown);
     ok
 }
 

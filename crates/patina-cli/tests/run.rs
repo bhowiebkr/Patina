@@ -258,8 +258,8 @@ builtin = \"delay\"
     assert!(cluster.block(&control).ok);
     assert_eq!(cluster.sound().map(|s| (s[0], s[1])), Some((15.0, 0.0)));
 
-    // A slow frame does not make the blocks late: the audio thread runs blocks during the 20 ms
-    // of meter in a frame.
+    // A slow frame or node GUI does not make the blocks late: the audio thread runs blocks during
+    // the 20 ms of meter in a frame and in a `ui` call (4.3).
     let (mut frames, mut audio) = cluster.split().unwrap();
     let (stop, blocks) = (AtomicBool::new(false), AtomicU64::new(0));
     std::thread::scope(|s| {
@@ -275,6 +275,10 @@ builtin = \"delay\"
         let out = frames.frame(&control);
         assert!(out.ok && out.skipped.is_empty() && start.elapsed().as_millis() >= 20);
         assert!(blocks.load(Relaxed) > before, "no block ran during the frame");
+        let (before, start) = (blocks.load(Relaxed), Instant::now());
+        let (tree, out) = frames.ui("00000000000000a2", 0, "");
+        assert!(out.ok && tree.is_some_and(|t| t.contains("Meter")) && start.elapsed().as_millis() >= 20);
+        assert!(blocks.load(Relaxed) > before, "no block ran during the ui");
         stop.store(true, Relaxed);
     });
 }
@@ -649,7 +653,7 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     cluster.set_params(opened.graph());
     let mut sum = || {
         assert!(cluster.run(&Control::default()).ok);
-        view.ui(0, "", &graph, Some(&mut cluster)).unwrap().tree
+        view.ui(0, "", &graph, Some(&mut cluster.frame_part())).unwrap().tree
     };
     assert!(sum().contains("clicks, None"));
     assert!(sum().contains("clicks, Some(6.5)"));

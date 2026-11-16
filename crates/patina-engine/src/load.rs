@@ -4,17 +4,17 @@ use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering::Relaxed;
 
 use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter, SlotRef};
 use serde::Serialize;
 
-use crate::library::{Library, Sink, collect, lock};
+use crate::library::{Library, Sink, collect};
 use crate::node::Domain;
 use crate::plan::Plan;
-use crate::pool::{self, Work};
+use crate::pool;
 use crate::project::GraphFile;
+use crate::run::{Audio, Calls, Frames, Nodes, Run};
 use crate::{Error, generate};
 
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -367,44 +367,46 @@ impl Cluster {
         if !audio.is_some_and(|audio| audio.parallel) || self.slot.as_ref().is_some_and(|(slot, _)| !slot.parallel) {
             return None;
         }
+        let mix = self.mix;
+        let (frames, run, sound) = self.parts(false);
+        Some((frames, Audio { run, mix, sound }))
+    }
+
+    /// The frame part of the cluster: the frames, the node GUIs and the reads of the views,
+    /// between two runs of the other domains.
+    pub fn frame_part(&mut self) -> Frames<'_> {
+        self.parts(true).0
+    }
+
+    /// The frame part, the run of the audio domain and the samples of the last block. `audio` is
+    /// false when the audio thread runs the audio domain, so the frame part refuses audio nodes.
+    fn parts(&mut self, audio: bool) -> (Frames<'_>, Run<'_>, &mut [f32; BLOCK]) {
         let [_, frame_work, audio_work] = &mut self.work;
-        let [_, frame, audio] = &self.libraries;
+        let [_, frame, audio_library] = &self.libraries;
         let (names, probes) = (&self.names, &self.probes);
-        let frames = Run { library: frame.as_ref(), pool: true, names, probes, calls: &mut self.calls, work: frame_work };
-        let blocks = Run { library: audio.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, work: audio_work };
-        Some((Frames(frames), Audio { run: blocks, mix: self.mix, sound: &mut self.sound }))
-    }
-
-    /// Calls the `ui` function of node `id` between two runs (4.3), in mode `mode` (0 compact,
-    /// 1 large, 2 full). `events` has a line for each user input: the widget index and the value.
-    /// Returns the widget lines, or `None` when the node has no GUI or failed (see the outcome).
-    pub fn ui(&mut self, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
-        let Some(n) = self.names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
-        let (Some(library), Ok(node)) = (self.owner(n), u32::try_from(n)) else { return (None, Outcome::default()) };
-        let (state, ui) = (library.state, library.ui);
-        self.calls.sink.clear();
-        // SAFETY: `state` is live, `&mut self` shows that no run is active, and `events` and the
-        // reporter are valid during the call.
-        self.call(std::ptr::null(), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
-        let tree = self.calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
-        (tree, std::mem::take(&mut self.calls.out))
-    }
-
-    /// The kept copy of output `key` of node `id` for a view (15.8 rule 3), as a pointer to a
-    /// `Box<dyn Any + Send>`, or null. The first read of an output only asks the cluster to keep
-    /// copies. The pointer is valid until the next run.
-    pub fn read(&mut self, id: &str, key: &str) -> *const c_void {
-        let is = |probe: &String| probe.strip_prefix(id).and_then(|rest| rest.strip_prefix('.')) == Some(key);
-        let (Some(index), Some(n)) = (self.probes.iter().position(is), self.names.iter().position(|(n, _)| n == id)) else {
-            return std::ptr::null();
+        // The frames use the pool only when the slot library allows it (9.2).
+        let pool = self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel);
+        let nodes = Nodes {
+            libraries: &self.libraries,
+            slot: self.slot.as_ref().map(|(library, _)| library),
+            slotted: &self.slotted,
+            domains: &self.domains,
+            guis: &self.guis,
+            audio,
         };
-        let (Some(library), Ok(index)) = (self.library(n), u32::try_from(index)) else { return std::ptr::null() };
-        // A sink of its own, so the outcome of the last run stays.
-        let mut sink = Sink::default();
-        let rep = Reporter { ctx: (&raw mut sink).cast(), report: collect, control: std::ptr::null() };
-        // SAFETY: the state is live, `&mut self` shows that no run is active, and the reporter is
-        // valid during the call.
-        unsafe { (library.read)(library.state, index, &rep) }
+        let run = Run { library: frame.as_ref(), pool, names, probes, calls: &mut self.calls, work: frame_work };
+        let blocks = Run { library: audio_library.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, work: audio_work };
+        (Frames { run, nodes }, blocks, &mut self.sound)
+    }
+
+    /// Calls the `ui` function of node `id` between two runs, as `Frames::ui` (4.3).
+    pub fn ui(&mut self, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
+        self.frame_part().ui(id, mode, events)
+    }
+
+    /// The kept copy of output `key` of node `id` for a view, as `Frames::read` (15.8).
+    pub fn read(&mut self, id: &str, key: &str) -> *const c_void {
+        self.frame_part().read(id, key)
     }
 
     /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).
@@ -460,107 +462,6 @@ impl Cluster {
     }
 }
 
-/// The reports and the outcome of the calls of one thread. A run fills them again, so it does
-/// not allocate (9.1).
-#[derive(Default)]
-struct Calls {
-    sink: Sink,
-    out: Outcome,
-}
-
-impl Calls {
-    /// Calls `f` with a reporter that adds to the sink. Then fills the outcome from the sink.
-    fn call(&mut self, names: &[(String, String)], probes: &[String], control: *const Control, f: impl FnOnce(*const Reporter) -> bool) {
-        let reporter = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
-        let ok = f(&reporter);
-        fill(&mut self.out, ok, &self.sink, names, probes);
-    }
-}
-
-/// What one thread needs for a run of one domain.
-struct Run<'a> {
-    library: Option<&'a Library>,
-    /// False when the worker pool must not run the tasks.
-    pool: bool,
-    names: &'a [(String, String)],
-    probes: &'a [String],
-    calls: &'a mut Calls,
-    /// The sum of the node run times of the last run, in ms.
-    work: &'a mut f64,
-}
-
-impl Run<'_> {
-    fn domain(&mut self, domain: Domain, control: &Control) {
-        let Some(library) = self.library else {
-            self.calls.sink.clear();
-            self.calls.call(self.names, self.probes, control, |_| true);
-            return;
-        };
-        let rep = Reporter { ctx: (&raw mut self.calls.sink).cast(), report: collect, control };
-        // SAFETY: `state` is live, no task runs, and the reporter is valid during the call.
-        let begun = unsafe { (library.begin)(library.state, domain as u32, &rep) };
-        let tasks = &library.tasks;
-        tasks.state.store(library.state, Relaxed);
-        tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
-        tasks.ok.store(true, Relaxed);
-        if use_pool(self.pool && library.parallel, tasks.inputs.len(), *self.work) {
-            pool::run(tasks.clone());
-        } else {
-            (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
-        }
-        tasks.control.store(std::ptr::null_mut(), Relaxed);
-        self.calls.sink.clear();
-        for task in &tasks.sinks {
-            self.calls.sink.append(&mut lock(task));
-        }
-        let (state, end, ok) = (library.state, library.end, tasks.ok.load(Relaxed));
-        // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
-        // during the call.
-        self.calls.call(self.names, self.probes, control, |rep| unsafe { end(state, domain as u32, rep) });
-        self.calls.out.ok &= ok && begun;
-        *self.work = self.calls.out.times.iter().map(|t| t.ms).sum();
-    }
-}
-
-/// The frame domain of a split cluster (`Cluster::split`).
-pub struct Frames<'a>(Run<'a>);
-
-impl Frames<'_> {
-    /// Runs one frame, as `Cluster::frame`.
-    pub fn frame(&mut self, control: &Control) -> &Outcome {
-        self.0.domain(Domain::Frame, control);
-        &self.0.calls.out
-    }
-}
-
-/// The audio domain of a split cluster, for the audio thread (9.3).
-pub struct Audio<'a> {
-    run: Run<'a>,
-    mix: &'static Mix,
-    sound: &'a mut [f32; BLOCK],
-}
-
-// SAFETY: while the split lasts, only the thread that holds `Audio` calls the audio cluster, and
-// `Frames` never calls it. `Cluster::split` allows a split only when the audio library and the
-// slot library are parallel, so each value that the audio thread keeps or reads is `Sync`. The
-// two domains share only the latest-value wires, which take one writer and one reader without a
-// lock (9.3), the batch values, which do not change while the split lasts, and the slot.
-unsafe impl Send for Audio<'_> {}
-
-impl Audio<'_> {
-    /// Runs one block, as `Cluster::block`.
-    pub fn block(&mut self, control: &Control) -> &Outcome {
-        self.run.domain(Domain::Audio, control);
-        self.mix.take(self.sound);
-        &self.run.calls.out
-    }
-
-    /// The samples of the last block, as `Cluster::sound`.
-    pub fn sound(&self) -> Option<&[f32; BLOCK]> {
-        self.mix.played().then_some(&*self.sound)
-    }
-}
-
 /// Loads a slot library (7.1) and makes the reference that the clusters call it with.
 fn slot_library(path: &Path, root: &Path) -> Result<(Library, Box<SlotRef>), Error> {
     let library = Library::load(path, root, &[], Domain::Batch)?;
@@ -591,7 +492,7 @@ fn link(libraries: &[Option<Library>; 3], links: &[(Domain, Domain, u32)], slot:
 
 /// Splits the reports of one call into the problems of nodes and the live values. It fills the
 /// lists of `out` again and keeps their texts, so it does not allocate after the first frames.
-fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, String)], probes: &[String]) {
+pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, String)], probes: &[String]) {
     let (mut reports, mut values, mut skipped, mut stopped, mut times, mut logs) = (0, 0, 0, 0, 0, 0);
     let mut items = sink.iter().peekable();
     while let Some((index, kind, text)) = items.next() {
@@ -672,12 +573,6 @@ fn put(to: &mut String, text: &str) {
     to.push_str(text);
 }
 
-/// Spec 9.2: the pool runs the tasks only when the nodes of the last run took 0.1 ms or more.
-/// Under that, the wake of the workers costs more time than the pool saves.
-fn use_pool(parallel: bool, tasks: usize, last_ms: f64) -> bool {
-    parallel && tasks > 1 && last_ms >= 0.1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -711,12 +606,6 @@ mod tests {
         }
         assert_eq!(out.values.len(), n as usize);
         println!("{n} live values: {:.0} ns each", start.elapsed().as_secs_f64() * 1e9 / f64::from(100 * n));
-    }
-
-    #[test]
-    fn only_heavy_runs_use_the_pool() {
-        assert!(use_pool(true, 2, f64::INFINITY), "the first run");
-        assert!(!use_pool(true, 2, 0.05) && !use_pool(true, 1, 1.0) && !use_pool(false, 2, 1.0));
     }
 
     #[test]

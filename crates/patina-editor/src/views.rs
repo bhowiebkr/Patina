@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 
 use patina_engine::view::{Frame, View};
-use patina_engine::{Cluster, Project, Toolchain};
+use patina_engine::{Frames, Project, Toolchain};
 
 use crate::engine::find_toolchain;
 
@@ -26,12 +26,12 @@ pub struct ViewInput {
 pub struct Views(Vec<(String, String, View)>);
 
 impl Views {
-    /// Calls the view of `input`. It reads the typed outputs of `cluster`, when one is loaded.
-    pub fn ui(&mut self, folder: &Path, toolchain: &mut Option<Toolchain>, input: ViewInput, cluster: Option<&mut Cluster>) {
-        let _ = input.reply.send(self.frame(folder, toolchain, &input, cluster));
+    /// Calls the view of `input`. It reads the typed outputs of `frames`, when a cluster is loaded.
+    pub fn ui(&mut self, folder: &Path, toolchain: &mut Option<Toolchain>, input: ViewInput, frames: Option<&mut Frames>) {
+        let _ = input.reply.send(self.frame(folder, toolchain, &input, frames));
     }
 
-    fn frame(&mut self, folder: &Path, toolchain: &mut Option<Toolchain>, input: &ViewInput, cluster: Option<&mut Cluster>) -> Result<Frame, String> {
+    fn frame(&mut self, folder: &Path, toolchain: &mut Option<Toolchain>, input: &ViewInput, frames: Option<&mut Frames>) -> Result<Frame, String> {
         // A slot that shows another view now drops the old instance.
         self.0.retain(|(name, instance, _)| *instance != input.instance || *name == input.name);
         let index = match self.0.iter().position(|(_, instance, _)| *instance == input.instance) {
@@ -44,7 +44,7 @@ impl Views {
                 self.0.len() - 1
             }
         };
-        self.0[index].2.ui(0, &input.events, &input.graph, cluster)
+        self.0[index].2.ui(0, &input.events, &input.graph, frames)
     }
 
     /// Drops each instance of view `name`, so the next input builds it again, for example after a
