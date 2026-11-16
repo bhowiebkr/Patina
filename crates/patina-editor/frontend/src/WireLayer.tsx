@@ -19,7 +19,7 @@ import type { Corners, Edit, KindInfo, Point, Style, Value } from './api';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
 import type { Router } from './route';
-import { insertAt, midpoint, shape, wirePath, type WireStore } from './wires';
+import { insertAt, labelRoom, midpoint, shape, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */
 const HIT_WIDTH = 12;
@@ -99,7 +99,9 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   // A bus shows its name and width in place of the type label, above its lanes.
   const bus = data!.bus ?? kind?.label ?? value?.lanes?.label ?? data!.ty ?? 'bus';
   // One line shows its wire name in place of the type label.
-  const label = ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? (data!.name ?? data!.ty) : undefined;
+  // A label with no room hides. The sockets and the pin tooltips at the two ends show the names.
+  const room = selected ? Infinity : labelRoom(sourceX, targetX, mx);
+  const label = room < 24 ? undefined : ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? (data!.name ?? data!.ty) : undefined;
   const above = 12 + (ribbon && !far ? ((n - 1) * PITCH) / 2 : 0);
   // The lane under the pointer (15.9). The hit area covers the full ribbon.
   const leave = () => {
@@ -130,7 +132,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
           <div
             className={`wire-type${data!.name ? ' named' : ''}${selected ? ' selected' : ''}`}
             title={data!.ty}
-            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))` }}
+            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))`, maxWidth: selected ? undefined : room }}
           >
             {label}
           </div>

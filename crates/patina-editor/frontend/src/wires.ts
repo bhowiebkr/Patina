@@ -207,6 +207,12 @@ export function midpoint(sx: number, sy: number, tx: number, ty: number, shape: 
   return [mid(0), mid(1)];
 }
 
+/** The width at most of a label centered at x = mx, so the nodes at the two ends do not cover it. */
+export function labelRoom(sx: number, tx: number, mx: number): number {
+  return Math.min(LABEL_WIDTH, tx > sx ? 2 * Math.min(mx - sx, tx - mx) - 8 : LABEL_WIDTH);
+}
+const LABEL_WIDTH = 160;
+
 /** The index in the route for a new point at (x, y): the place of the nearest straight segment through the route points. */
 export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number): number {
   let best = 0;

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, midpoint, normals, orthogonal, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import { FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, labelRoom, LIT, MAX_POINTS, MAX_ROUTE, midpoint, normals, orthogonal, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Style } from './api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -78,6 +78,12 @@ test('a short S-bend of a wide ribbon makes two flat arcs, so no lane folds back
   near([[out[(n - 1) * STRIDE], out[(n - 1) * STRIDE + 1]]], [[200, 6]]);
   assert.ok(wirePath(0, 0, 200, 6, s).startsWith('M0 0L70 0Q'), 'the SVG path has the same arcs');
   assert.equal(path(100, 40, [], 'orthogonal').length, 2 + 2 * 12, 'a long leg keeps two corners');
+});
+
+test('a wire label fits between the two nodes', () => {
+  assert.equal(labelRoom(0, 1000, 500), 160);
+  assert.equal(labelRoom(0, 100, 30), 52, 'the nearer node limits the label');
+  assert.equal(labelRoom(100, 0, 50), 160, 'a wire that goes back keeps the full width');
 });
 
 test('the largest route fits in a row, and a longer route gets fewer points for each corner', () => {
