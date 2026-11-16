@@ -313,17 +313,12 @@ impl<T> std::ops::Deref for Link<T> {
     }
 }
 
-/// A value of the type of `value`, for a block that never runs (see `Link::witness`).
-pub fn like<T>(_value: &T) -> T {
+/// A value of the type in `witness`, for a block that never runs (see `Link::witness`).
+pub fn like<T>(_witness: &Option<T>) -> T {
     unreachable!("the witness block never runs")
 }
 
-/// Gives a value of a type that `same` gives later, in the witness block.
-pub fn later<T>() -> T {
-    unreachable!("the witness block never runs")
-}
-
-/// Gives two values the same type, in the witness block.
+/// Gives two values the same type, in a block that never runs.
 pub fn same<T>(_a: &T, _b: &T) {}
 
 /// The value of a delay node (9.2), with the type of its input. The first frame gives the default.

@@ -119,25 +119,31 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         );
         shared.push(format!("p{i}"));
     }
+    witness(&mut s, plan, domain);
     // A value that another domain reads is in an `Arc`, which the other cluster links to (8.2).
     // A wire into or out of the audio domain is a buffer without a lock (9.3).
     for (n, k) in plan.held().filter(|&(n, k)| is_shared(plan, n, k)) {
+        let empty = format!(
+            "if false {{ ::std::option::Option::Some(::patina_sdk::glue::like(&w{n}).{k}) }} else {{ ::std::option::Option::None }}"
+        );
         let value = if !mine(n) {
             if !reads(plan, n, k, domain) {
                 continue;
             }
-            if is_latest(plan, n, k) { "::patina_sdk::glue::LatestLink::new()" } else { "::patina_sdk::glue::Link::new()" }
+            if is_latest(plan, n, k) { "::patina_sdk::glue::LatestLink::new()".to_owned() } else { "::patina_sdk::glue::Link::new()".to_owned() }
         } else if is_latest(plan, n, k) {
-            "::patina_sdk::glue::Latest::new()"
+            "::patina_sdk::glue::Latest::new()".to_owned()
         } else if is_kept(plan, n, k) {
-            "::std::sync::Arc::new(::patina_sdk::glue::Shared::new(::std::option::Option::None))"
+            format!("::std::sync::Arc::new(::patina_sdk::glue::Shared::new({empty}))")
         } else {
-            "::patina_sdk::glue::Shared::new(::std::option::Option::None)"
+            format!("::patina_sdk::glue::Shared::new({empty})")
         };
         let _ = writeln!(s, "    let n{n}_{k} = {value};");
+        if !mine(n) {
+            let _ = writeln!(s, "    if false {{ n{n}_{k}.witness(::patina_sdk::glue::like(&w{n}).{k}); }}");
+        }
         shared.push(format!("n{n}_{k}"));
     }
-    witness(&mut s, plan, domain);
     let slotted = (0..plan.steps.len()).any(|n| mine(n) && plan.in_slot(n));
     if slotted {
         s.push_str("    let slot = ::patina_sdk::glue::Slot::new();\n");
@@ -274,23 +280,24 @@ fn ui_arms(s: &mut String, plan: &Plan, steps: &[usize]) {
     }
 }
 
-/// Writes a block that never runs. It calls each step before the imports of `domain`, so Rust
-/// gives each link the type of the value of the other cluster (8.2). A slot gives its default.
-/// A delay runs before the step of its input, so its value gets the type of that input at the end.
+/// Writes a witness `w{m}` for each step of `domain` and each step before its imports: `None` at
+/// run time, with the type of the tuple of the step outputs. Each value then gets its type where
+/// it is made, and Rust does not carry thousands of open types through the closure (8.2). A slot
+/// gives its default. A delay runs before the step of its input, so it gets that type at the end.
 fn witness(s: &mut String, plan: &Plan, domain: Domain) {
-    let imports = imports(plan, domain);
-    if imports.is_empty() {
-        return;
-    }
-    s.push_str("    if false {\n");
     let mut ties = String::new();
-    for m in ancestors(plan, domain) {
+    let own = (0..plan.steps.len()).filter(|&n| plan.steps[n].domain == domain);
+    let steps: std::collections::BTreeSet<usize> = own.chain(ancestors(plan, domain)).collect();
+    for m in steps {
         let step = &plan.steps[m];
         if plan.is_delay(m) {
             if let Source::Wire { step: from, output } = step.inputs[0] {
-                let _ = writeln!(ties, "        ::patina_sdk::glue::same(&w{m}_0, &w{from}_{output});");
+                let _ = writeln!(
+                    ties,
+                    "    if false {{ ::patina_sdk::glue::same(&::patina_sdk::glue::like(&w{m}).0, &::patina_sdk::glue::like(&w{from}).{output}); }}"
+                );
             }
-            let _ = writeln!(s, "        let w{m}_0 = ::patina_sdk::glue::later(); // {}", step.id);
+            let _ = writeln!(s, "    let w{m}: ::std::option::Option<(_,)> = ::std::option::Option::None; // {}", step.id);
             continue;
         }
         let (name, node) = &plan.nodes[step.node];
@@ -304,7 +311,7 @@ fn witness(s: &mut String, plan: &Plan, domain: Domain) {
             let owned = match source {
                 Source::Slot(i) if plan.slots[*i].is_str => "::patina_sdk::glue::default_value::<::std::string::String>()".to_owned(),
                 Source::Slot(_) => "::patina_sdk::glue::default_value()".to_owned(),
-                Source::Wire { step: from, output } => format!("::patina_sdk::glue::like(&w{from}_{output})"),
+                Source::Wire { step: from, output } => format!("::patina_sdk::glue::like(&w{from}).{output}"),
             };
             match input.pass {
                 Pass::Ref => args.push(format!("&{owned}")),
@@ -328,20 +335,17 @@ fn witness(s: &mut String, plan: &Plan, domain: Domain) {
             }
         };
         values.extend(node.inputs.iter().filter(|i| i.pass == Pass::Mut).map(|i| format!("m_{}", i.key)));
-        let names: Vec<String> = (0..values.len()).map(|k| format!("w{m}_{k}")).collect();
+        if values.is_empty() {
+            continue;
+        }
         let _ = writeln!(
             s,
-            "        let ({},) = {{ {lets}let r = {call}; {unpack}({},) }}; // {}",
-            names.join(", "),
+            "    let w{m} = if false {{ ::std::option::Option::Some({{ {lets}let r = {call}; {unpack}({},) }}) }} else {{ ::std::option::Option::None }}; // {}",
             values.join(", "),
             step.id
         );
     }
     s.push_str(&ties);
-    for (n, k) in imports {
-        let _ = writeln!(s, "        n{n}_{k}.witness(w{n}_{k});");
-    }
-    s.push_str("    }\n");
 }
 
 /// True when a node of another task or a delay reads output `k` of step `n`. The value is then in

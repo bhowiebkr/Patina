@@ -67,6 +67,11 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 - On Linux and macOS, rustc crashed in the DWARF debug info of the large frame cluster
   (CI run 43803351311). The clusters now build with no debug info in edit mode (8.3). The
   frame cluster rebuild of the CPU went from 22.2 s to 19.9 s on Windows.
+- The type check of the CPU frame cluster took 12.4 of 17.8 s, because each shared value had
+  an open type. Now dead code gives each value its type where the cluster makes it (8.2). The
+  clean build of the frame cluster took 8.5 s, with a type check of 2.4 s. A `patina-cli`
+  build of the CPU after an SDK change took 11.5 s, against 19.9 s before. The 1400 values
+  still agree with the emulator.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first
