@@ -1,14 +1,31 @@
-// The wire steps of the self-check: selection, route points, the look of a wire, the routing
-// conflict mark and the cross-domain dash (15.1, 15.3, 15.9).
+// The wire steps of the self-check: a node drag, selection, route points, the look of a wire, the routing
+// conflict mark, the cross-domain dash and the switch of a bool input (15.1, 15.3, 15.9).
 
 import { api, type View } from './api';
-import { A, B, BUILD_MS, RUN_MS, amber, anyPixel, gray, icon, wireColumn } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, SWITCH_NODE, amber, anyPixel, gray, icon, wireColumn } from './check-fixtures';
 
 type Step = (name: string, job: () => Promise<View>) => Promise<View>;
 type Until = (what: string, ms: number, test: () => boolean) => Promise<void>;
 
 /** Runs the wire steps on the graph of A to B, and returns the last view. */
 export async function checkWires(step: Step, until: Until, steps: string[], v: View): Promise<View> {
+  // A mouse drag moves a node (15.2). The drop is one edit with undo, and the wire follows the node.
+  const nodeB = () => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${B}"]`)!;
+  const posB = (view: View) => JSON.stringify(view.graph.node?.find((n) => n.id === B)?.pos);
+  const [startPos, topB, startRoute] = [posB(v), nodeB().getBoundingClientRect().top, document.querySelector('.wire-hit')?.getAttribute('d')];
+  if (document.querySelector<HTMLButtonElement>('button[aria-label="Undo"]')?.disabled !== true) throw new Error('the drag check needs a project with no undo history');
+  const grip = nodeB().querySelector('.title')!.getBoundingClientRect();
+  const mouse = (dy: number) => ({ bubbles: true, cancelable: true, view: window, button: 0, clientX: grip.left + 10, clientY: grip.top + grip.height / 2 + dy });
+  nodeB().querySelector('.title')!.dispatchEvent(new MouseEvent('mousedown', mouse(0)));
+  for (const dy of [10, 40, 80]) document.dispatchEvent(new MouseEvent('mousemove', mouse(dy)));
+  document.dispatchEvent(new MouseEvent('mouseup', mouse(80)));
+  await until('the node at the drop point', RUN_MS, () => nodeB().getBoundingClientRect().top - topB > 40 && !nodeB().classList.contains('dragging'));
+  await until('the wire to the moved node', RUN_MS, () => document.querySelector('.wire-hit')?.getAttribute('d') !== startRoute);
+  // The open project has no undo history, so the Undo button turns on when the move edit arrives.
+  await until('the move edit', RUN_MS, () => document.querySelector<HTMLButtonElement>('button[aria-label="Undo"]')?.disabled === false);
+  v = await step('undo the node drag', () => api.undo());
+  if (posB(v) !== startPos) throw new Error(`undo did not give the node its place: ${posB(v)}, not ${startPos}`);
+  steps.push('node dragged');
   // The wire draws in WebGL (15.1). Its hit area is wider than the line, and a click selects it (15.9).
   const wire = await wireColumn();
   if (!anyPixel(wire.column, gray) || anyPixel(wire.column, amber)) throw new Error('the wire is not a neutral line');
@@ -150,5 +167,30 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   v = await step('undo the removal of the route point', () => api.undo());
   v = await step('undo the delay', () => api.undo());
   steps.push('domain icons, a wire end moved to a ringed socket, a dashed cross-domain wire and a junction dot');
+  // An unwired bool input is a switch in the node row (15.3) and a check box in the Inspector (15.7).
+  // A click on the switch also selects the node. Each click is an edit, and the live graph runs again.
+  v = await step('make a node with a switch', () => api.edit({ kind: 'SetCode', path: 'nodes/number/src/lib.rs', text: SWITCH_NODE }));
+  const pinSwitch = () => document.querySelector<HTMLInputElement>(`.react-flow__node[data-id="${A}"] input.pin-switch`);
+  v = await step('run the switch node', () => api.run());
+  await until('the switch of the bool input and the value of the build', BUILD_MS, () => pinSwitch()?.disabled === false && values().join() === '2.5');
+  pinSwitch()!.click();
+  await until('the double value after the switch', RUN_MS, () => values().join() === '5.0').catch((e: Error) => {
+    throw new Error(`${e.message} (values ${values().join()}, switch ${pinSwitch()?.checked})`);
+  });
+  // An earlier step can leave the Inspector on its Code tab.
+  const inspector = 'aside[aria-label="Inspector"]';
+  [...document.querySelectorAll<HTMLElement>(`${inspector} [role=tab]`)].find((t) => t.textContent === 'Parameters')?.click();
+  const box = () =>
+    [...document.querySelectorAll(`${inspector} .param`)]
+      .find((p) => p.querySelector('.label')?.textContent === 'double')
+      ?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  await until('the set check box in the Inspector', RUN_MS, () => box()?.checked === true);
+  box()!.click();
+  await until('the value after the Inspector check box', BUILD_MS, () => values().join() === '2.5' && pinSwitch()?.checked === false);
+  v = await step('undo the Inspector check box', () => api.undo());
+  v = await step('undo the switch', () => api.undo());
+  if (v.graph.node?.find((n) => n.id === A)?.params?.double !== undefined) throw new Error('undo did not remove the switch value');
+  v = await step('undo the switch node', () => api.undo());
+  steps.push('a bool input set with the switch in the node and the Inspector check box');
   return v;
 }

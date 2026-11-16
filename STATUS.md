@@ -123,7 +123,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   clean build of the frame cluster took 8.5 s, with a type check of 2.4 s. A `patina-cli`
   build of the CPU after an SDK change took 11.5 s, against 19.9 s before. The 1400 values
   still agree with the emulator.
-- The editor self-check passes with the check box for `bool` parameters. No test clicks it.
+- The editor self-check clicks the switch of a bool input in a node and the check box in the
+  **Inspector**. The live graph runs again after each click.
 - `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first
   use. On `examples/computer`, it wrote 18 screenshots in about 25 s. They show the lit wires
@@ -133,8 +134,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 - The package tool keeps `data/` of `target/package/Patina`, so the recent projects stay. The
   tool did not run after this change.
 - The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
-- A `patina --shot` screenshot shows the check box in the row of each `switch` node. No test
-  clicks it.
+- A `patina --shot` screenshot shows the check box in the row of each `switch` node. The editor
+  self-check clicks a switch of the same kind in a node row.
 - A `patina --shot` screenshot shows the `clock` node and the waveforms of the `analyzer`
   node: one clock pulse each 4 frames, and PC0 toggles at each pulse. A unit test checks the
   samples of the analyzer. No test checks its drawing.
@@ -153,8 +154,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   **Arrange**: the columns go from left to right, the nodes of a column do not overlap, and a
   gap gets a lane only for a wire with a bend. A `patina --shot` run with **Shift+L** arranged
   the 25 graphs of `examples/computer`. In Node, a test graph of 217 nodes and 210 wires took
-  5 ms to arrange and 27 ms to route. A graph of 400 nodes and 500 wires took 84 ms to route. No
-  test drags a node, and no check measured the route time in the window.
+  5 ms to arrange and 27 ms to route. A graph of 400 nodes and 500 wires took 84 ms to route. The
+  editor self-check drags a node, and the wire follows it. No check measured the route time in
+  the window.
 
 ## Milestone 12: the event domain
 
@@ -1247,8 +1249,8 @@ To run the editor from a checkout:
   toolchain. The self-check does not click **Remove**. The data test covers the removal.
 - No check opened the folder dialog, the fatal message box or the WebView2 message. A person
   must click them. The message of a missing WebView2 Runtime did not run.
-- The check does not drag nodes. It pushes only Ctrl+S and Delete. A person did not use the
-  editor yet.
+- The check drags one node with mouse events of the page, not with the real mouse. A person
+  did not use the editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.
 - The content security policy was not tested with a page that breaks it.
 - The check did not test the SVG wires or a lost WebGL context.

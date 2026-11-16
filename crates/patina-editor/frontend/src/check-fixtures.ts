@@ -16,6 +16,15 @@ pub fn number(value: f64, text: &String) -> f64 {
 }
 `;
 
+/** A number node with a bool input: the switch doubles the value. */
+export const SWITCH_NODE = `use patina_sdk::node;
+
+#[node]
+pub fn number(value: f64, double: bool) -> f64 {
+    if double { value * 2.0 } else { value }
+}
+`;
+
 /** A stateful number node with a GUI (4.2, 4.3): its button adds 1 to the output. It also shows each value widget. */
 // A view (15.8) that shows a parameter of node A, and sets it with a button. Its other button
 // fires the trigger node T with the text "abcd" (9.4).
