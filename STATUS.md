@@ -29,7 +29,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 5. Done: look at the circuit in the editor. A 1-bit wire is lit when it is true. A subgraph
    that opens with a double-click on a use shows the live values of that use, also for a use
    inside a use. The generator stacks the nodes by their pin count, so they do not overlap.
-6. Next: a tool to place the nodes of a large subgraph.
+6. Done: the generator puts each node in a column by its signal depth. An unwired `bool`
+   input shows a check box in the node row, so a click sets a switch (4.8).
+7. Next: a 7-segment display of NAND gates for the OUT register of the CPU.
 
 ### Checked
 
@@ -45,6 +47,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   use. On `examples/computer`, it wrote 18 screenshots in about 25 s. They show the lit wires
   in the subgraphs and the lamps of the readouts at a near zoom.
 - The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
+- A `patina --shot` screenshot shows the check box in the row of each `switch` node. No test
+  clicks it.
 
 ## Milestone 11: the audio domain
 

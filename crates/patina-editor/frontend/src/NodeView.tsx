@@ -1,8 +1,8 @@
 // A node of the graph: a neutral header with the state icon, and a row for each pin (spec 15.3).
 
-import { memo } from 'react';
+import { createContext, memo, useContext } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type NodeEntry, type NodeInfo, type NodeLog, type Report, type Value, type View } from './api';
+import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Report, type Value, type View } from './api';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
 
@@ -100,6 +100,9 @@ export type PatinaNode = Node<NodeData, 'patina'>;
 
 /** A public pin of the open subgraph (6.4): an input gives a value to the inner nodes. */
 export type PortNode = Node<{ name: string; ty: string; input: boolean }, 'port'>;
+
+/** Applies an edit from a control in a node body, for example a check box of a `bool` input. */
+export const NodeEdit = createContext<(edit: Edit) => void>(() => {});
 
 const HEADER = 32;
 const ROW = 24;
@@ -212,6 +215,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
   const pinTop = (i: number) => HEADER + PAD + i * ROW + ROW / 2;
   // At a far zoom, the rows keep their size but have no text, so the page has fewer elements (15.1).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
+  const edit = useContext(NodeEdit);
   const classes = ['patina-node', state];
   if (selected) classes.push('selected');
   if (far) classes.push('far');
@@ -233,12 +237,26 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
       <div className="patina-rows" style={{ height: rows * ROW + 2 * PAD }}>
         {!far && Array.from({ length: rows }, (_, i) => {
           const [input, output] = [inputs[i], outputs[i]];
-          const text = input && !wired.includes(input.key) ? entry.params?.[input.key] : undefined;
+          const free = input && !wired.includes(input.key);
+          const text = free ? entry.params?.[input.key] : undefined;
+          // An unwired bool input is a switch that the user clicks in the node, as in a logic simulator.
+          const box = free && input.ty === 'bool';
           return (
             <div key={i} className="patina-row">
               <span title={input && `${input.name ?? input.key}: ${input.ty}`}>
                 {input && (input.name ?? input.key)}
-                {text !== undefined && <span className="param-text"> {text}</span>}
+                {box ? (
+                  <input
+                    type="checkbox"
+                    className="nodrag pin-switch"
+                    aria-label={input.name ?? input.key}
+                    checked={text === 'true'}
+                    disabled={!editable}
+                    onChange={(e) => edit({ kind: 'SetParam', id: entry.id, key: input.key, text: String(e.currentTarget.checked) })}
+                  />
+                ) : (
+                  text !== undefined && <span className="param-text"> {text}</span>
+                )}
               </span>
               <span title={output && `${output.name ?? output.key}: ${output.ty}`}>{output && (output.name ?? output.key)}</span>
             </div>

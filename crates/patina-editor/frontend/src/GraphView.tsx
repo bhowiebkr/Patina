@@ -19,7 +19,7 @@ import { AddNode } from './AddNode';
 import { NameField } from './NameField';
 import { newId, type Edit, type NodeInfo, type Point, type View } from './api';
 import { savedViewport, saveViewport } from './Dock';
-import { NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
+import { NodeEdit, NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { matchPin } from './palette';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { WireStore } from './wires';
@@ -303,76 +303,78 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
 
   return (
     <WireContext.Provider value={tools}>
-      <ReactFlow
-        className={glOk ? undefined : 'svg-wires'}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        edgeTypes={EDGE_TYPES}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onSelectionChange={onSelectionChange}
-        onNodeDragStop={onNodeDragStop}
-        onConnect={onConnect}
-        onConnectEnd={onConnectEnd}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        onDoubleClick={onDoubleClick}
-        onNodeDoubleClick={(e, n) => {
-          if (n.type === 'patina' && n.data.entry.subgraph) onOpen(n.data.entry.subgraph, n.id);
-          else if (n.type === 'port' && view.trusted) setRenaming({ key: portKey(n.id)!, name: n.data.name, x: e.clientX, y: e.clientY });
-        }}
-        onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
-        onPointerLeave={() => (pointer.current = null)}
-        nodesDraggable={view.trusted}
-        nodesConnectable={view.trusted}
-        panOnDrag={PAN_BUTTONS}
-        selectionOnDrag
-        panActivationKeyCode="Space"
-        multiSelectionKeyCode={MULTI_KEYS}
-        selectionKeyCode={null}
-        deleteKeyCode={null}
-        zoomOnDoubleClick={false}
-        minZoom={0.1}
-        maxZoom={4}
-        fitView={!viewport}
-        fitViewOptions={FIT}
-        defaultViewport={viewport}
-        onMoveEnd={(_, v) => saveViewport(view.graphName, v)}
-        colorMode="dark"
-      >
-        <Background id="minor" variant={BackgroundVariant.Lines} gap={20} color="#202020" />
-        <Background id="major" variant={BackgroundVariant.Lines} gap={100} color="#292929" bgColor="transparent" />
-        <WireLayer store={wires} onReady={setGlOk} />
-      </ReactFlow>
-      {palette && (
-        <AddNode
-          x={palette.x}
-          y={palette.y}
-          nodes={choices}
-          none={end && `No node has a pin of type ${end.ty}.`}
-          onAdd={(n) =>
-            n === PUBLIC_INPUT || n === PUBLIC_OUTPUT
-              ? addPin(n === PUBLIC_INPUT, palette.x, palette.y, end)
-              : addNode(n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`, palette.x, palette.y, end, n)
-          }
-          onClose={() => setPalette(null)}
-        />
-      )}
-      {collapsing && (
-        <div className="menu-layer">
-          <div className="menu collapse-name" role="dialog" aria-label="Collapse into a subgraph" style={{ left: Math.min(collapsing.x, innerWidth - 250), top: Math.min(collapsing.y, innerHeight - 80) }}>
-            <NameField label="Subgraph name" onMake={(name) => onCollapse(name, collapsing.ids)} onClose={() => setCollapsing(null)} />
+      <NodeEdit.Provider value={onEdit}>
+        <ReactFlow
+          className={glOk ? undefined : 'svg-wires'}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onSelectionChange={onSelectionChange}
+          onNodeDragStop={onNodeDragStop}
+          onConnect={onConnect}
+          onConnectEnd={onConnectEnd}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          onDoubleClick={onDoubleClick}
+          onNodeDoubleClick={(e, n) => {
+            if (n.type === 'patina' && n.data.entry.subgraph) onOpen(n.data.entry.subgraph, n.id);
+            else if (n.type === 'port' && view.trusted) setRenaming({ key: portKey(n.id)!, name: n.data.name, x: e.clientX, y: e.clientY });
+          }}
+          onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
+          onPointerLeave={() => (pointer.current = null)}
+          nodesDraggable={view.trusted}
+          nodesConnectable={view.trusted}
+          panOnDrag={PAN_BUTTONS}
+          selectionOnDrag
+          panActivationKeyCode="Space"
+          multiSelectionKeyCode={MULTI_KEYS}
+          selectionKeyCode={null}
+          deleteKeyCode={null}
+          zoomOnDoubleClick={false}
+          minZoom={0.1}
+          maxZoom={4}
+          fitView={!viewport}
+          fitViewOptions={FIT}
+          defaultViewport={viewport}
+          onMoveEnd={(_, v) => saveViewport(view.graphName, v)}
+          colorMode="dark"
+        >
+          <Background id="minor" variant={BackgroundVariant.Lines} gap={20} color="#202020" />
+          <Background id="major" variant={BackgroundVariant.Lines} gap={100} color="#292929" bgColor="transparent" />
+          <WireLayer store={wires} onReady={setGlOk} />
+        </ReactFlow>
+        {palette && (
+          <AddNode
+            x={palette.x}
+            y={palette.y}
+            nodes={choices}
+            none={end && `No node has a pin of type ${end.ty}.`}
+            onAdd={(n) =>
+              n === PUBLIC_INPUT || n === PUBLIC_OUTPUT
+                ? addPin(n === PUBLIC_INPUT, palette.x, palette.y, end)
+                : addNode(n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`, palette.x, palette.y, end, n)
+            }
+            onClose={() => setPalette(null)}
+          />
+        )}
+        {collapsing && (
+          <div className="menu-layer">
+            <div className="menu collapse-name" role="dialog" aria-label="Collapse into a subgraph" style={{ left: Math.min(collapsing.x, innerWidth - 250), top: Math.min(collapsing.y, innerHeight - 80) }}>
+              <NameField label="Subgraph name" onMake={(name) => onCollapse(name, collapsing.ids)} onClose={() => setCollapsing(null)} />
+            </div>
           </div>
-        </div>
-      )}
-      {renaming && (
-        <div className="menu-layer">
-          <div className="menu collapse-name" role="dialog" aria-label="Rename the public pin" style={{ left: Math.min(renaming.x, innerWidth - 250), top: Math.min(renaming.y, innerHeight - 80) }}>
-            <NameField label="Pin name" initial={renaming.name} onMake={(name) => onEdit({ kind: 'RenamePin', key: renaming.key, name })} onClose={() => setRenaming(null)} />
+        )}
+        {renaming && (
+          <div className="menu-layer">
+            <div className="menu collapse-name" role="dialog" aria-label="Rename the public pin" style={{ left: Math.min(renaming.x, innerWidth - 250), top: Math.min(renaming.y, innerHeight - 80) }}>
+              <NameField label="Pin name" initial={renaming.name} onMake={(name) => onEdit({ kind: 'RenamePin', key: renaming.key, name })} onClose={() => setRenaming(null)} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </NodeEdit.Provider>
     </WireContext.Provider>
   );
 }

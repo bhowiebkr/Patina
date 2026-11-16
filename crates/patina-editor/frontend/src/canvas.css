@@ -111,6 +111,11 @@
   color: var(--muted);
 }
 
+.patina-row .pin-switch {
+  margin: 0 0 0 6px;
+  vertical-align: middle;
+}
+
 .patina-row .param-text {
   max-width: 70px;
   padding: 0 6px;
@@ -420,6 +425,7 @@ html.native-viewport .gui-viewport {
 }
 
 .node-gui input[type='checkbox'],
+.patina-row .pin-switch,
 .param input[type='checkbox'] {
   accent-color: var(--muted);
 }

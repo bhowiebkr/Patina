@@ -193,6 +193,7 @@ pub async fn fetch(url: &str) -> Result<String, FetchError> { ... }
 
 - A parameter is an input pin with no wire. Each input pin with a value type is a parameter until the user connects a wire to it. The wire then gives the value.
 - The Parameters panel shows a control for each parameter. Numbers get a slider, `bool` gets a check box, and strings get a text field. An enum with `#[derive(Param)]` gets a dropdown.
+- A `bool` parameter also shows its check box in the row of its pin in the node body. A click sets it, as in a logic simulator, so a switch node needs no Inspector. (Agent decision, 2026-11-15. The owner can change it.)
 - A type crate gives parameter support to its own types with the `Param` trait from `patina-sdk`. The trait gives a default value, a control (a built-in or a custom widget), and a text form for save and undo. The engine stays free of types (2).
 - An input whose type has no parameter support needs a wire. Until it has one, the node shows an error and does not run.
 - The project file saves the text form of each value (6.4).
