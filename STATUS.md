@@ -952,6 +952,9 @@ To run the editor from a checkout:
 - During a wire drag, the sockets that fit get an accent ring and the other sockets dim (15.9).
   A unit test checks the type keys and the style. The selfcheck checks the ring on the delay
   input and the dim order socket during the drag, and that the drop removes the dim.
+- A dot marks each point where the wires of one output part, and a ring marks it on a bus
+  (15.9). Unit tests check the junction points and the router marks. The selfcheck adds a
+  second wire from one output and checks one dot, and that undo removes it.
 - Each node header shows a kind icon and a clock-domain icon, and a wire between two domains is
   dashed (15.3). A unit test checks the kinds of the engine. Frontend tests check the domains
   of a scope and the dash flag of the wire store. The selfcheck connects a batch value to a

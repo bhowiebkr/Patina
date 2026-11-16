@@ -36,6 +36,7 @@ The editor has these mockup features. They are not gaps.
 - A drag on the end of a wire moves it to another socket (connections guide).
 - During a wire drag, the compatible sockets get a ring and the other sockets dim (connections
   guide).
+- A junction dot where the wires of one output part (connections guide).
 - The SDK `Ui` widgets: label, button, toggle, slider, number, text field, dropdown, color,
   plot, waveform, table, curve, image, 2D canvas and GPU viewport.
 
@@ -47,7 +48,6 @@ The editor has these mockup features. They are not gaps.
 | A **Subgraph interface** list of the public pins in order, with a preview of the collapsed node | 11 | The public pins are graph objects. Their order and names change on the canvas. |
 | A collapsed navigation rail that gives the graph more room | 6 | A panel closes or moves to another area. |
 | A gap or a raised bridge where two wires cross and do not join (optional in the guide) | 16 | The wires cross with no gap. |
-| A junction mark where a trunk branches | Connections guide | The branches leave the trunk with no mark. |
 | **Lock bends** (optional in the guide) | Connections guide | The route points are fixed, and the router moves the free segments. |
 
 ## Shared widget gaps

@@ -155,7 +155,8 @@ A wire shows the value that it carries while the graph runs, as a node shows its
   because a bend is in a node body. Move the node or the bend. The graph still runs.
 - Press Shift+L to arrange the selected nodes in columns, with the signal from left to right.
   With fewer than two nodes selected, Shift+L arranges the full graph.
-- One output can feed many inputs. Splitting or joining a value takes a node.
+- One output can feed many inputs. Splitting or joining a value takes a node. The wires of one
+  output share a trunk, and a dot shows where they part.
 - During a wire drag, the sockets that fit the type get an amber ring, and the other sockets
   dim. The build does the full type check.
 - To connect a wire to another socket, drag its end from next to the socket to the new socket.

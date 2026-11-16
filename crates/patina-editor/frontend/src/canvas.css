@@ -383,6 +383,25 @@
 }
 
 /* The live value of a wire (15.9). The selected wire shows the full text. */
+/* A junction (15.9): the wires of one output part here. */
+.wire-joint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  background: var(--wire);
+  border: 1.5px solid var(--canvas);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.wire-joint.bus {
+  background: none;
+  border: 2px solid var(--wire);
+}
+
 /* A routing conflict (15.9): the wire has no clear path around the nodes. It is not a run error. */
 .route-conflict {
   position: absolute;

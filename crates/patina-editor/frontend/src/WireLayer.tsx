@@ -90,6 +90,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   useLayoutEffect(() => () => router.removeWire(id), [router, id]);
   const routed = useSyncExternalStore(router.subscribe, () => (auto ? router.bends(id) : undefined));
   const conflict = useSyncExternalStore(router.subscribe, () => (auto ? router.conflict(id) : undefined));
+  const joints = useSyncExternalStore(router.subscribe, () => (auto ? router.junctions(id) : undefined));
   const path = useMemo(
     () =>
       auto
@@ -197,6 +198,15 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
             !
           </div>
         )}
+        {/* A dot where the wires of one output part, a ring on a bus (15.9). */}
+        {joints?.map(([x, y]) => (
+          <div
+            key={`${x} ${y}`}
+            className={width > 2 ? 'wire-joint bus' : 'wire-joint'}
+            aria-hidden
+            style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`, ...(width > 2 && { width: width + 6, height: width + 6 }) }}
+          />
+        ))}
         {badge !== undefined && !badgeCovered && (
           <div
             className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}

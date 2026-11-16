@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Point } from './api.ts';
-import { GAP, route, Router, type Rect, type WireIn } from './route.ts';
+import { GAP, junctions, route, Router, type Rect, type WireIn } from './route.ts';
 
 const A: Rect = { l: 0, t: 0, r: 100, b: 100 };
 const C: Rect = { l: 400, t: 0, r: 500, b: 100 };
@@ -73,4 +73,32 @@ test('a wire with a route point in a node body has a conflict mark, which goes w
   router.setWire('w', wire(50, 50, 'a', [[250, 200]]));
   await Promise.resolve();
   assert.equal(router.conflict('w'), undefined);
+});
+
+test('a junction is where the paths of one output part, not at a shared bend or a pin', () => {
+  const trunk: Point[] = [[0, 0], [100, 0], [100, 100], [200, 100]];
+  assert.deepEqual(junctions([trunk]), [], 'one path has no junction');
+  assert.deepEqual(junctions([trunk, [[0, 0], [100, 0], [100, 50], [200, 50]]]), [[100, 50]], 'the branch leaves the side of the trunk');
+  assert.deepEqual(junctions([trunk, [[0, 0], [100, 0], [100, -50], [200, -50]]]), [[100, 0]], 'the two paths turn apart at one bend');
+  assert.deepEqual(junctions([trunk, [[0, 0], [300, 0]]]), [[100, 0]], 'one path goes on, and the other turns');
+  assert.deepEqual(junctions([trunk, [[0, 0], [100, 0], [100, 100], [300, 100]]]), [], 'the same bends and a shared end segment');
+  const spur: Point[] = [[0, 0], [50, 0], [50, 50], [50, 0], [100, 0]];
+  assert.deepEqual(junctions([spur, [[0, 0], [40, 0], [40, 300], [100, 300]]]), [[40, 0]], 'a path out to a route point and back is no junction');
+});
+
+test('the router gives the junction marks of an output on one wire', async () => {
+  const D: Rect = { l: 400, t: 200, r: 500, b: 300 };
+  const router = new Router();
+  router.setObstacles([A, C, D]);
+  router.setWire('near', wire(50, 30, 'a'));
+  router.setWire('far', wire(50, 250, 'a'));
+  router.setWire('lone', wire(80, 80, 'b'));
+  await Promise.resolve();
+  const [near, far] = [router.junctions('near'), router.junctions('far')];
+  assert.equal([near, far].filter(Boolean).length, 1, 'only one wire of the output has the marks');
+  assert.equal((near ?? far)!.length, 1);
+  assert.equal(router.junctions('lone'), undefined);
+  router.removeWire('far');
+  await Promise.resolve();
+  assert.equal(router.junctions('near') ?? router.junctions('far'), undefined, 'one wire has no junction');
 });

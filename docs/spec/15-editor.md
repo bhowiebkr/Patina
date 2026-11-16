@@ -470,6 +470,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - The automatic route:
   - It keeps 6 px or more from each node body and finds a path with few bends (A* on a sparse grid around the bodies).
   - The wires of one output share a trunk, and each next wire branches from the nearest point of the trunk.
+  - A junction mark shows each point where the wires of one output part: a small dot in the wire color, or a ring on a bus. A point where the segments go in 3 or more directions is a junction. The mark is only a view, and a click goes through it. (Agent decision, 2026-11-16. The owner can change it.)
   - Its route points are waypoints. The wire goes through each point in turn.
   - Two pins less than 1 px apart in y route as one straight line, with no small step. (Agent decision, 2026-11-16. The owner can change it.)
   - Parallel segments of different outputs move apart by 8 px, plus the width of a bus. A segment goes to the middle of its channel when the channel is 800 px wide or less.

@@ -554,6 +554,40 @@ export function conflictAt(path: readonly Point[], rects: readonly Rect[]): Poin
   return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
 }
 
+/** True when the point is on the segment between its ends, 0.5 px or nearer. */
+function onSegment([x, y]: Point, [x0, y0]: Point, [x1, y1]: Point): boolean {
+  const [dx, dy] = [x1 - x0, y1 - y0];
+  const t = ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy);
+  return t > 0 && t < 1 && Math.abs((x - x0) * dy - (y - y0) * dx) < 0.5 * Math.hypot(dx, dy);
+}
+
+/**
+ * The points where the paths of one output part (15.9): a point on 2 or more paths, with segments in
+ * 3 or more directions. A path that goes out to a route point and back is not a junction.
+ */
+export function junctions(paths: readonly (readonly Point[])[]): Point[] {
+  if (paths.length < 2) return [];
+  const segs = paths.flatMap((p, i) => p.slice(1).map((q, k): [Point, Point, number] => [p[k], q, i]));
+  const near = (a: Point, b: Point) => Math.abs(a[0] - b[0]) < 0.5 && Math.abs(a[1] - b[1]) < 0.5;
+  const dir = (a: Point, b: Point) => Math.round(Math.atan2(b[1] - a[1], b[0] - a[0]) / (Math.PI / 4)) & 7;
+  const out: Point[] = [];
+  for (const v of paths.flatMap((p) => p.slice(1, -1))) {
+    if (out.some((o) => near(o, v))) continue;
+    const dirs = new Set<number>();
+    const on = new Set<number>();
+    for (const [a, b, i] of segs) {
+      if (near(a, b)) continue;
+      if (near(v, a)) dirs.add(dir(a, b));
+      else if (near(v, b)) dirs.add(dir(b, a));
+      else if (onSegment(v, a, b)) dirs.add(dir(v, a)).add(dir(v, b));
+      else continue;
+      on.add(i);
+    }
+    if (dirs.size >= 3 && on.size >= 2) out.push(v);
+  }
+  return out;
+}
+
 const samePoints = (a: readonly Point[], b: readonly Point[]) => a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1]);
 
 /**
@@ -568,6 +602,7 @@ export class Router {
   private out = new Map<string, readonly Point[]>();
   private conflicts = new Set<string>();
   private marks = new Map<string, Point>();
+  private joints = new Map<string, readonly Point[]>();
   private listeners = new Set<() => void>();
   private queued = false;
   private moved = false;
@@ -597,6 +632,9 @@ export class Router {
 
   /** The place of the conflict mark of a wire with no clear path (15.9), the same array until it moves. */
   conflict = (id: string): Point | undefined => this.marks.get(id);
+
+  /** The junction marks of the output of a wire, on the first routed wire of the output only (15.9). */
+  junctions = (id: string): readonly Point[] | undefined => this.joints.get(id);
 
   subscribe = (f: () => void) => {
     this.listeners.add(f);
@@ -648,8 +686,27 @@ export class Router {
       marks.set(id, same ? was : at);
       changed ||= !same;
     });
+    const byNet = new Map<string, number[]>();
+    ids.forEach((id, i) => {
+      const net = this.wires.get(id)!.net;
+      const list = byNet.get(net);
+      if (list) list.push(i);
+      else byNet.set(net, [i]);
+    });
+    const joints = new Map<string, readonly Point[]>();
+    for (const list of byNet.values()) {
+      const at = junctions(list.map((i) => paths[i]));
+      if (!at.length) continue;
+      const id = ids[list[0]];
+      const was = this.joints.get(id);
+      const same = was !== undefined && samePoints(was, at);
+      joints.set(id, same ? was : at);
+      changed ||= !same;
+    }
+    changed ||= joints.size !== this.joints.size;
     this.out = out;
     this.marks = marks;
+    this.joints = joints;
     if (changed) for (const f of this.listeners) f();
   }
 }
