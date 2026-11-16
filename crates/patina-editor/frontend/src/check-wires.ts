@@ -62,6 +62,22 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   const added = (await step('undo the drag', () => api.undo())).graph.wire?.[0]?.points;
   const moved = (await step('redo the drag', () => api.redo())).graph.wire?.[0]?.points;
   if (added?.length !== 1 || moved?.length !== 1 || !(moved[0][1] > added[0][1])) throw new Error(`the drag did not move the point: ${JSON.stringify([added, moved])}`);
+  // Esc during a drag puts the point back and sends no edit. An arrow key moves the point.
+  await until('the route point after the redo', RUN_MS, () => Math.abs(center()[1] - (cy + 60)) < 2);
+  const [ex, ey] = center();
+  const pointer = (type: string, y: number) => new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: ex, clientY: y });
+  handle().focus();
+  handle().dispatchEvent(pointer('pointerdown', ey));
+  handle().dispatchEvent(pointer('pointermove', ey + 60));
+  await until('the route point under the pointer during the drag', RUN_MS, () => Math.abs(center()[1] - (ey + 60)) < 2);
+  handle().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  await until('the route point back after Esc', RUN_MS, () => Math.abs(center()[1] - ey) < 2 && !handle().classList.contains('dragging'));
+  handle().dispatchEvent(pointer('pointerup', ey + 60));
+  handle().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+  await until('the route point below after the arrow key', RUN_MS, () => center()[1] > ey + 2);
+  v = await step('undo the arrow key on the route point', () => api.undo());
+  if (JSON.stringify(v.graph.wire?.[0]?.points) !== JSON.stringify(moved)) throw new Error(`Esc or the arrow key did not give one edit: ${JSON.stringify(v.graph.wire)}`);
+  steps.push('route point drag stopped with Esc');
   handle().focus();
   handle().dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
   await until('no route point', RUN_MS, () => document.querySelectorAll('.route-point').length === 0);
@@ -113,6 +129,16 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   bar().focus();
   bar().dispatchEvent(new KeyboardEvent('keydown', { key: across === 0 ? 'ArrowRight' : 'ArrowDown', bubbles: true, cancelable: true }));
   await until('the segment bar after the arrow key', RUN_MS, () => barAt() > [sx0, sy0][across] + 2);
+  // Esc during a drag puts the segment back and sends no edit, so the next undo takes back the arrow key.
+  const from = (({ left, top, width, height }) => [left + width / 2, top + height / 2])(bar().getBoundingClientRect());
+  const away = across === 0 ? [from[0] + 40, from[1]] : [from[0], from[1] + 40];
+  for (const [type, [x, y]] of [['pointerdown', from], ['pointermove', away]] as const) {
+    bar().dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: x, clientY: y }));
+  }
+  await until('the segment bar under the pointer during the drag', RUN_MS, () => Math.abs(barAt() - away[across]) < 2);
+  bar().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  await until('the segment bar back after Esc', RUN_MS, () => Math.abs(barAt() - from[across]) < 2);
+  bar().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: away[0], clientY: away[1] }));
   v = await step('undo the arrow key on the segment', () => api.undo());
   v = await step('undo the orthogonal style', () => api.undo());
   if (v.graph.wire?.[0]?.style !== undefined || JSON.stringify(v.graph.wire?.[0]?.points) !== before) throw new Error('undo did not give the wire before the segment moves');

@@ -986,6 +986,9 @@ To run the editor from a checkout:
 - A selected orthogonal wire shows a bar on each middle segment (15.9). A drag on a bar moves
   the segment sideways, and the segments next to it stretch. A unit test checks the moves. The
   selfcheck drags a bar 40 px and pushes an arrow key on it, and checks each undo.
+- Esc during a drag of a route point or a segment bar puts it back and sends no edit (15.9).
+  The selfcheck presses Esc during each drag and checks the place and the undo history. It also
+  pushes an arrow key on a route point.
 - A wire with the graph default look and no clear path shows a yellow conflict mark on the
   first segment through a node body (15.9). A unit test checks the mark and its removal. The
   selfcheck puts a route point in a node body, and checks the mark and that the undo removes it.
@@ -1293,8 +1296,8 @@ To run the editor from a checkout:
   saved. The route changes when a node moves, and the wires of a large graph can jump.
   **Arrange** puts all nodes of a layer in one column, so a wide layer makes a tall column, for
   example the 112 switches of `rom-16x7`.
-- The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG
-  wires.
+- The check does not run the SVG wires, the fallback when WebGL does not start (15.1). The
+  route handles are the same in the two modes.
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did
   not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
   old recovery file, and its new changes do not go into the file until the user answers.
@@ -1399,10 +1402,9 @@ The projects are very small, so these times do not predict real projects.
 - A node panic shows two messages: the default panic message of the cluster, and the report.
 - A `Result` output is found by the type name `Result` only. A type alias with another name is
   not found, and then an `Err` is a value, not a failure.
-- The editor does not compare the pin types when the user connects two pins (5.1). A wire
-  between two types that do not agree gives a compile error at the next build. The type key
-  check needs the type crates of 5.1. The type label is the text of the code, so `String` and
-  `std::string::String` show differently.
+- The editor compares the pin types only for the ring of a wire drag (15.9). A drop on a socket
+  of another type still adds the wire, and the next build gives the compile error. The type
+  label is the text of the code, so `String` and `std::string::String` show differently.
 - The CLI runs the graph one time. The clock domains (9.1) come later.
 - These shortcuts are open in the code:
   - The CLI finds only the toolchain folder next to it (`crates/patina-cli/src/main.rs`).
