@@ -51,7 +51,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     bar node is not necessary, because a readout shows 8 lamps.
 15. Done: a `clock` node gives the ticks of the CPU, one tick each **every** frames. **halt**
     stops it, and its **Step** button then gives one tick. Each load, write and PC change of the
-    CPU is "and clk". The example ticks each 4 frames.
+    CPU is "and clk". The example ticks each 4 frames. The LED is lit for the first half of
+    each period, so a slow clock blinks visibly.
 16. Done: an `analyzer` node draws the last 96 frames of 8 signals as waveforms. In the
     example, it shows the clock, the strobe, the PC bits, A0 and OUT0.
 17. Done: byte buses. A `join` node puts 8 bits into a byte, and the `byte` connection kind

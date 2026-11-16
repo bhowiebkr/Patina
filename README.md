@@ -288,7 +288,7 @@ carry of the next sum, it writes 0 to OUT and starts again.
 The `clock` node gives the ticks of the CPU. It gives one tick each **every** frames, so the
 example runs 15 instructions each second at 60 frames each second. Set **every** in the
 **Inspector** to change the speed. Set **halt** to stop the clock, then click **Step** on the node
-to give one tick.
+to give one tick. The LED of the node is lit for the first half of each period.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
 puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8

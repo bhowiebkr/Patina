@@ -12,29 +12,32 @@ pub struct Clock {
     frame: u32,
     tick: bool,
     step: bool,
+    lit: bool,
 }
 
 impl Clock {
     pub fn init() -> Self {
-        Clock { frame: 0, tick: false, step: false }
+        Clock { frame: 0, tick: false, step: false, lit: false }
     }
 
     pub fn process(&mut self, every: u32, halt: bool) -> bool {
         let step = std::mem::take(&mut self.step);
-        self.tick = if halt {
-            step
+        if halt {
+            (self.tick, self.lit) = (step, step);
         } else {
-            let tick = self.frame == 0;
-            self.frame = (self.frame + 1) % every.max(1);
-            tick
-        };
+            let every = every.max(1);
+            self.tick = self.frame == 0;
+            // The LED is lit for the first half of the period, so a slow clock blinks visibly.
+            self.lit = self.frame < every.div_ceil(2);
+            self.frame = (self.frame + 1) % every;
+        }
         self.tick
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
         {
             let mut canvas = ui.canvas(if self.tick { "tick" } else { "wait" }, [96.0, 36.0]);
-            canvas.circle([18.0, 18.0], 9.0, if self.tick { ON } else { OFF }, self.tick);
+            canvas.circle([18.0, 18.0], 9.0, if self.lit { ON } else { OFF }, self.lit);
             canvas.text([36.0, 23.0], TEXT, "CLK");
         }
         if ui.button("Step").clicked() {
@@ -52,6 +55,11 @@ mod tests {
         let mut clock = Clock::init();
         let ticks: Vec<bool> = (0..6).map(|_| clock.process(3, false)).collect();
         assert_eq!(ticks, [true, false, false, true, false, false]);
+        let lit: Vec<bool> = (0..4).map(|_| {
+            clock.process(4, false);
+            clock.lit
+        }).collect();
+        assert_eq!(lit, [true, true, false, false]);
         assert!(!clock.process(3, true));
         clock.step = true;
         assert!(clock.process(3, true));
