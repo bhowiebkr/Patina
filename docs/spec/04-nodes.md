@@ -20,6 +20,7 @@ pub fn split(text: &str) -> (String, String) { ... }
 - A node function has at most 16 parameters, with the `&mut self` of `process` (4.2). The fused cluster calls each node through a tuple of its arguments, with no closure, so a large graph builds fast. (Agent decision, 2026-11-15. The owner can change it.)
 - The return type is the output pin. A tuple gives one output pin for each element.
 - The source of a node can also have helper functions and `use` statements.
+- `syn` parses with recursion, so Patina parses node code on a thread with a 64 MB stack. A debug build then parses types with about 1000 levels of nesting. Code that nests deeper can still stop the process. (Agent decision, 2026-11-16. The owner can change it.)
 
 ### 4.2 Stateful nodes
 
@@ -83,6 +84,7 @@ impl CurveEditor {
 - A layer stack shows one row for each layer, with the first layer at the top. A row has a handle, a visibility toggle, a swatch, the name and an amount from 0 to 1. A layer without an amount, for example a base, has no amount field. A drag of the handle or the up and down arrows move a layer, and a move selects it. The SDK keeps the selected layer. The node shows the properties of the selected layer below the stack, for example in a section. The node adds and removes layers, so the stack has no add or remove control. (Agent decision, 2026-11-16. The owner can change it.)
 - A file path field has a **Browse** button and a kind: open a file, save a file or select a folder. The button opens the dialog of the platform at the folder of the current path. A path in the project comes back relative to the project root, with `/`. A path outside the project stays absolute. The node gives the path to `patina_sdk::project_path` to get the full path. A path pick needs no trust, because no project code runs. (Agent decision, 2026-11-16. The owner can change it.)
 - An asset picker is a dropdown of the project files with one of its extensions, for example `glb`. The editor lists the files again when the dropdown gets the focus. The list skips `build/`, the `target` folders and hidden files, and has 1000 files at most. The value is a path relative to the project root, as for a file path field, and empty for **None**. A path that is not in the list stays as an option. (Agent decision, 2026-11-16. The owner can change it.)
+- The widget lines of one GUI or view have 1 MB at most. When the lines are longer, the node or the view shows an error and no widgets, so a draw loop with no end cannot freeze the editor. (Agent decision, 2026-11-16. The owner can change it.)
 - The GUI state is the node state, except in audio nodes (below). A GUI change can change the node output, so downstream nodes get the new value.
 
 **Audio nodes**
@@ -215,6 +217,7 @@ pub async fn fetch(url: &str) -> Result<String, FetchError> { ... }
 - Builds use `panic = "unwind"`. The generated glue code wraps each call into node code in `catch_unwind`: `init`, `process`, `ui`, viewers, and drop. The catch is inside the library, so a panic never crosses the C ABI. A panic that leaves an `extern "C"` function stops the process.
 - In a fused cluster, each node call has its own catch. A panic shows as an error on the node that panicked. It does not stop the engine.
 - The error of a panic has the panic message and the place in the code, for example `panic: no input (src/lib.rs:12:5)`. The standard error does not get the standard panic message of Rust too, so each panic shows one time. When `RUST_BACKTRACE` is set, the standard error also gets the standard message with the backtrace. A panic on a thread that a node starts is not caught, so it keeps the standard message. A panic that gives no report, for example in a viewer text, a connection kind or the defaults of a cluster, also keeps it. A panic that node code catches itself gives no standard message. (Agent decision, 2026-11-16. The owner can change it.)
+- The engine keeps the first 16 KB of the text of an error or a panic, and adds `...` to a longer text. A view edit stays whole. (Agent decision, 2026-11-16. The owner can change it.)
 - A panic can break the state of the node. The engine drops it, and calls `init` before the next run. If drop panics too, the engine leaks the state.
 - Limit: an abort, a stack overflow, or a native crash, for example an access violation in C code, stops the process that runs the node. In the editor, that is the node process (16.1), so the editor shows the crash and does not stop. In `patina-cli` and a package, the run stops.
 

@@ -69,7 +69,7 @@ impl View {
     }
 
     /// Calls `ui` in mode `mode` with the user input `events` and the graph lines of `snapshot`.
-    /// `Graph::value` reads the typed outputs of `frames` (15.8 rule 3). After an error, the next
+    /// `Graph::value` reads the typed outputs of `frames` (15.8 rule 3). After a failure, the next
     /// call makes a new state.
     pub fn ui(&mut self, mode: u32, events: &str, graph: &str, frames: Option<&mut Frames>) -> Result<Frame, String> {
         if self.state.is_null() {
@@ -100,11 +100,15 @@ impl View {
                 _ => {}
             }
         }
-        if ok {
-            return Ok(frame);
+        // An error with `ok` comes from too many widget lines (`Sink::push`), and the state is good.
+        match (ok, error) {
+            (true, None) => Ok(frame),
+            (true, Some(error)) => Err(error),
+            (false, error) => {
+                self.free_state();
+                Err(error.unwrap_or_else(|| "the view failed".to_owned()))
+            }
         }
-        self.free_state();
-        Err(error.unwrap_or_else(|| "the view failed".to_owned()))
     }
 
     fn free_state(&mut self) {

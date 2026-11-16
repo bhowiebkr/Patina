@@ -113,8 +113,26 @@ impl Node {
     }
 }
 
+/// The stack of the thread that parses node code. syn parses with recursion, so deeply nested
+/// code needs a large stack. The memory is used only when the parse needs it.
+const PARSE_STACK: usize = 64 << 20;
+
+/// Runs `parse` on a thread with a large stack, so that nested code cannot overflow the stack of
+/// the editor or the CLI.
+// shortcut: code that nests deeper than 64 MB of stack allows still overflows, parse in a child process if a real project needs it.
+fn deep<T: Send>(parse: impl FnOnce() -> Result<T, String> + Send) -> Result<T, String> {
+    std::thread::scope(|scope| match std::thread::Builder::new().name("parse".to_owned()).stack_size(PARSE_STACK).spawn_scoped(scope, parse) {
+        Ok(thread) => thread.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+        Err(e) => Err(format!("cannot start the thread that parses the code: {e}")),
+    })
+}
+
 /// Finds the one `#[node]` item of a node crate and reads its pins.
 pub fn parse(source: &str) -> Result<Node, String> {
+    deep(|| parse_node(source))
+}
+
+fn parse_node(source: &str) -> Result<Node, String> {
     let file = syn::parse_file(source).map_err(|e| format!("the code does not parse: {e}"))?;
     let mut found = None;
     for item in &file.items {
@@ -421,6 +439,10 @@ fn read_kind_attr(attr: &Attribute, kind: &mut Kind) -> syn::Result<()> {
 
 /// Finds the one `#[connection]` function of a connection kind crate and reads its value type.
 pub fn parse_kind(source: &str) -> Result<Kind, String> {
+    deep(|| kind_of(source))
+}
+
+fn kind_of(source: &str) -> Result<Kind, String> {
     let file = syn::parse_file(source).map_err(|e| format!("the code does not parse: {e}"))?;
     let mut found = None;
     for item in &file.items {
@@ -510,6 +532,12 @@ fn type_text(ty: &Type) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deeply_nested_code_does_not_overflow_the_stack() {
+        let source = format!("#[node] pub fn f(v: {}f64{}) -> f64 {{ 1.0 }}", "Option<".repeat(500), ">".repeat(500));
+        assert_eq!(parse(&source).unwrap().inputs.len(), 1);
+    }
 
     #[test]
     fn reads_pins_and_refuses_unsupported_forms() {

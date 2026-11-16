@@ -113,6 +113,11 @@ impl Drop for Library {
     }
 }
 
+/// The longest widget lines of one node GUI or view (4.3). Longer lines can freeze the web view.
+const MAX_TREE: usize = 1 << 20;
+/// The longest text of an error or a panic (4.7). Live values and log lines have their own limit.
+const MAX_TEXT: usize = 16 * 1024;
+
 /// The reports of one call: the node, the kind and the text range of each report, and the texts
 /// in one buffer. It is the context of the reporter. The buffers keep their capacity.
 #[derive(Default)]
@@ -122,9 +127,29 @@ pub(crate) struct Sink {
 }
 
 impl Sink {
+    /// Adds a report. Node code can send a text of any size, so a long error is cut, and too many
+    /// widget lines become an error. A view edit stays whole.
     pub fn push(&mut self, node: u32, kind: u32, text: &str) {
         let start = self.text.len();
-        self.text.push_str(text);
+        let kind = match kind {
+            glue::UI if text.len() > MAX_TREE => {
+                self.text.push_str("the GUI has more than 1 MB of widget lines, so it does not show");
+                glue::ERROR
+            }
+            glue::UI => {
+                self.text.push_str(text);
+                kind
+            }
+            glue::ERROR | glue::PANIC | glue::BAD_PARAM if text.len() > MAX_TEXT => {
+                self.text.push_str(&text[..text.floor_char_boundary(MAX_TEXT)]);
+                self.text.push_str("...");
+                kind
+            }
+            _ => {
+                self.text.push_str(text);
+                kind
+            }
+        };
         self.items.push((node, kind, start..self.text.len()));
     }
 
@@ -241,4 +266,24 @@ pub(crate) fn open(path: &Path) -> Result<libloading::Library, libloading::Error
     // SAFETY: the load runs the init code of the library. Patina built it from a project that
     // the owner trusts (11).
     unsafe { libloading::Library::new(path) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_long_report_is_cut() {
+        let mut sink = Sink::default();
+        sink.push(1, glue::UI, &"x".repeat(MAX_TREE + 1));
+        sink.push(2, glue::PANIC, &"\u{e9}".repeat(MAX_TEXT));
+        sink.push(3, glue::UI, "ok");
+        sink.push(4, glue::EDIT, &"e".repeat(MAX_TEXT + 1));
+        let items: Vec<_> = sink.iter().collect();
+        assert_eq!((items[0].0, items[0].1), (1, glue::ERROR));
+        assert!(items[0].2.starts_with("the GUI has more than 1 MB"));
+        assert_eq!(items[1].2, format!("{}...", "\u{e9}".repeat(MAX_TEXT / 2)));
+        assert_eq!(items[2], (3, glue::UI, "ok"));
+        assert_eq!(items[3].2.len(), MAX_TEXT + 1);
+    }
 }

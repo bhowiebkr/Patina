@@ -29,6 +29,10 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - The next run or edit of a live graph starts a new node process.
 - After "Node X does not stop", a second **Stop** ends the node process.
 - The views, the node GUIs, the triggers, the values and the package job cross the pipe.
+- A node GUI or a view with more than 1 MB of widget lines shows an error. The engine cuts the text
+  of an error or a panic to 16 KB (spec 4.3 and 4.7).
+- Patina parses node code on a thread with a 64 MB stack (spec 4.1). A node type with 200 levels
+  of nesting stopped `patina-cli` before this change.
 
 ### What was checked
 
@@ -47,6 +51,8 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - A native viewport across the two processes is not checked.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.
+- Node code that nests deeper than about 1000 levels still overflows the parse stack in a debug
+  build. A child process for the parse is the full fix.
 
 ## Circuit graphs
 

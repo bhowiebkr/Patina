@@ -177,7 +177,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             continue;
         }
         if entry.settings.is_some() {
-            fail("node settings (4.3) come at milestone 5".to_owned());
+            fail("node settings (4.3) are not ready yet, so remove the settings of the node".to_owned());
         }
         let node_index = match (&entry.folder, &entry.builtin) {
             (None, Some(name)) => match Builtin::parse(name) {
