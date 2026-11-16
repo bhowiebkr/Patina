@@ -98,9 +98,9 @@ mod crash {
         if let Some((shared, file)) = CRASH.get() {
             shared.try_running(|id| {
                 let mut file = file;
-                let _ = file.write_all(b"patina: the engine thread ran node `");
+                let _ = file.write_all(b"patina: node `");
                 let _ = file.write_all(id.as_bytes());
-                let _ = file.write_all(b"` when the node process crashed.\n");
+                let _ = file.write_all(b"` ran when the node process crashed.\n");
             });
         }
         // EXCEPTION_EXECUTE_HANDLER: the process ends with the code of the crash, without the error report dialog.

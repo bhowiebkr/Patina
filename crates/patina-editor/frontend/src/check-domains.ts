@@ -123,8 +123,36 @@ export async function checkDomains(c: DomainCheck, v: View, lib: string, changed
   topButton('Stop')!.click();
   await until('the end of the event runs', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
   if (!(await api.fire(T, '').then(() => false, () => true))) throw new Error('a fire after Stop did not fail');
+
+  // The text "hang" makes a run that does not read the stop request. The second Stop ends it (16.1).
+  from = mark();
+  v = await step('run the triggers again', () => api.run());
+  await until('a second run with triggers that listen', BUILD_MS, () => ofRun().some((e) => e.state === 'ran' && e.events));
+  await api.fire(T, 'hang');
+  const waitEnd = Date.now() + RUN_MS;
+  while ((await api.running()) !== A) {
+    if (Date.now() > waitEnd) throw new Error(`no event run of node ${A} after ${RUN_MS} ms`);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  topButton('Stop')!.click();
+  await until('the event node that does not stop in the status bar', RUN_MS, () => statusText().includes(`Node ${A} does not stop`));
+  topButton('Stop')!.click();
+  await until('the end of the node process after the event run', RUN_MS, () => statusText().includes(`Patina ended the node process, because node \`${A}\` did not stop.`));
+
+  // The text "crash" writes to a bad address in an event run. On Windows, the crash note names the node.
+  from = mark();
+  v = await step('run the triggers in a new node process', () => api.run());
+  await until('a third run with triggers that listen', BUILD_MS, () => ofRun().some((e) => e.state === 'ran' && e.events));
+  await api.fire(T, 'crash').catch(() => undefined);
+  let lost = '';
+  await until('the crash of an event run', RUN_MS, () => {
+    const e = ofRun().find((e) => e.state === 'lost');
+    lost = e?.state === 'lost' ? e.text : '';
+    return lost !== '';
+  });
+  if (navigator.userAgent.includes('Windows') && !lost.includes(`node \`${A}\` ran`)) throw new Error(`the crash text has no node: ${lost}`);
   v = await step('undo the trigger', () => api.undo());
   v = await step('undo the event node', () => api.undo());
-  steps.push('fire a trigger node');
+  steps.push('fire a trigger node', 'the second Stop and a crash end an event run');
   return v;
 }

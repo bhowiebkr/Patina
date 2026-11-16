@@ -39,7 +39,7 @@ export async function checkIsolation({ step, until, mark, result, events, steps 
     from = mark();
     v = await step(`run a node that crashes with ${code}`, () => api.run());
     const crash = await failure(v, from);
-    for (const text of ['without a request', ...(windows ? [code, `ran node \`${A}\``] : [])]) {
+    for (const text of ['without a request', ...(windows ? [code, `node \`${A}\` ran`] : [])]) {
       if (!crash.text.includes(text)) throw new Error(`the crash text has no "${text}": ${crash.text}`);
     }
     await until('the crash in the status bar', RUN_MS, () => statusText().includes('The node process stopped without a request ('));

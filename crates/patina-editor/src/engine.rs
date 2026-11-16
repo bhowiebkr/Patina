@@ -221,17 +221,19 @@ pub struct Shared {
 }
 
 impl Shared {
-    /// The ID of the node that runs, or that ran last in the active run. None between runs.
+    /// The ID of the node that runs, or that ran last in the active run, on the engine thread or in
+    /// an event run. None between runs.
     pub fn running(&self) -> Option<String> {
-        let node = self.control.node()?;
+        let node = self.control.node().or_else(|| lock(&self.remote).as_ref()?.running())?;
         lock(&self.ids).get(node as usize).cloned()
     }
 
-    /// Gives the ID of the node that runs on the engine thread to `f`, for a crash handler. It
-    /// never waits for a lock and never allocates.
+    /// Gives the ID of the node that runs, on the engine thread or else in an event run, to `f`, for
+    /// a crash handler. It never waits for a lock and never allocates.
     #[cfg(windows)]
     pub fn try_running(&self, f: impl FnOnce(&str)) {
-        if let (Some(node), Ok(ids)) = (self.control.node(), self.ids.try_lock())
+        let node = self.control.node().or_else(|| self.remote.try_lock().ok()?.as_ref()?.try_running());
+        if let (Some(node), Ok(ids)) = (node, self.ids.try_lock())
             && let Some(id) = ids.get(node as usize)
         {
             f(id);

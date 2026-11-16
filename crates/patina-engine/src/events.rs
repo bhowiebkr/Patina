@@ -164,17 +164,34 @@ enum Msg {
 
 /// Fires the `trigger` nodes of a live event domain from other threads (9.4).
 #[derive(Clone)]
-pub struct Remote(mpsc::Sender<Msg>);
+pub struct Remote {
+    send: mpsc::Sender<Msg>,
+    runs: Runs,
+}
+
+/// The ID and the control of each active event run.
+type Runs = Arc<Mutex<Vec<(u64, Arc<Control>)>>>;
 
 impl Remote {
     /// Fires the `trigger` node `id` with `text`. Returns false when the event domain does not run.
     pub fn fire(&self, id: &str, text: String) -> bool {
-        self.0.send(Msg::Outside(id.to_owned(), text)).is_ok()
+        self.send.send(Msg::Outside(id.to_owned(), text)).is_ok()
     }
 
     /// Ends the event domain: no new run starts, and the active runs finish.
     pub fn end(&self) {
-        let _ = self.0.send(Msg::End);
+        let _ = self.send.send(Msg::End);
+    }
+
+    /// The index of the node that runs in an active event run, so the editor can name a node that
+    /// does not stop (15.2). None when no event run is in a node.
+    pub fn running(&self) -> Option<u32> {
+        lock(&self.runs).iter().find_map(|(_, control)| control.node())
+    }
+
+    /// As `running`, but it never waits for a lock, for a crash handler.
+    pub fn try_running(&self) -> Option<u32> {
+        self.runs.try_lock().ok()?.iter().find_map(|(_, control)| control.node())
     }
 }
 
@@ -182,12 +199,13 @@ impl Remote {
 pub struct Inbox {
     send: mpsc::Sender<Msg>,
     receive: mpsc::Receiver<Msg>,
+    runs: Runs,
 }
 
 /// A remote and the inbox that gets its messages.
 pub fn remote() -> (Remote, Inbox) {
-    let (send, receive) = mpsc::channel();
-    (Remote(send.clone()), Inbox { send, receive })
+    let ((send, receive), runs) = (mpsc::channel(), Runs::default());
+    (Remote { send: send.clone(), runs: Arc::clone(&runs) }, Inbox { send, receive, runs })
 }
 
 /// The event domain of a cluster (9.4), ready to run on its own threads.
@@ -248,9 +266,11 @@ impl<'a> Events<'a> {
         };
         let mut live: Vec<Live> = triggers.iter().map(|t| Live { next: first(t), ..Live::default() }).collect();
         let (endless, quit) = (remote || !listeners.is_empty(), AtomicBool::new(false));
-        let (send, receive) = inbox.map_or_else(mpsc::channel::<Msg>, |inbox| (inbox.send, inbox.receive));
+        let Inbox { send, receive, runs: controls } = inbox.unwrap_or_else(|| {
+            let ((send, receive), runs) = (mpsc::channel(), Runs::default());
+            Inbox { send, receive, runs }
+        });
         let (mut started, mut next_id, mut all_ok, mut ended) = (0u64, 1u64, true, false);
-        let mut controls: Vec<(u64, Arc<Control>)> = Vec::new();
         // The text of each fire. None gives the run ID, for a schedule.
         let mut fires: Vec<(usize, Option<String>)> = Vec::new();
         std::thread::scope(|scope| {
@@ -258,10 +278,10 @@ impl<'a> Events<'a> {
                 let (back, quit, path) = (send.clone(), &quit, triggers[t].path.as_str());
                 scope.spawn(move || webhook::serve(&listener, path, quit, |text| back.send(Msg::Fire(t, text)).is_ok()));
             }
-            let spawn = |t: usize, id: u64, text: String, controls: &mut Vec<(u64, Arc<Control>)>| {
+            let spawn = |t: usize, id: u64, text: String| {
                 let (shared, back, task) = (&shared, send.clone(), triggers[t].task);
                 let run_control = Arc::new(Control::default());
-                controls.push((id, Arc::clone(&run_control)));
+                lock(&controls).push((id, Arc::clone(&run_control)));
                 // shortcut: one thread for each run (9.4), change it to a pool when runs are short and many.
                 let thread = std::thread::Builder::new().name(format!("patina-run-{id}")).spawn_scoped(scope, move || {
                     let out = shared.run(task, &text, &run_control);
@@ -306,11 +326,11 @@ impl<'a> Events<'a> {
                         live[t].waiting.push_back((id, text));
                     } else {
                         live[t].active += 1;
-                        spawn(t, id, text, &mut controls);
+                        spawn(t, id, text);
                     }
                 }
                 if stopped {
-                    controls.iter().for_each(|(_, c)| c.set_stop(true));
+                    lock(&controls).iter().for_each(|(_, c)| c.set_stop(true));
                 }
                 if stopped || ended {
                     live.iter_mut().for_each(|l| l.waiting.clear());
@@ -325,12 +345,12 @@ impl<'a> Events<'a> {
                 match receive.recv_timeout(wait) {
                     Ok(Msg::Done(t, id, out)) => {
                         live[t].active -= 1;
-                        controls.retain(|(c, _)| *c != id);
+                        lock(&controls).retain(|(c, _)| *c != id);
                         all_ok &= out.ok;
                         done(&EventRun { id, trigger: names[triggers[t].node].0.clone(), out });
                         if let Some((id, text)) = live[t].waiting.pop_front() {
                             live[t].active += 1;
-                            spawn(t, id, text, &mut controls);
+                            spawn(t, id, text);
                         }
                     }
                     Ok(Msg::Fire(t, text)) => fires.push((t, Some(text))),
@@ -396,5 +416,41 @@ mod tests {
         assert!(ok);
         assert_eq!(runs, [(0, "x".to_owned(), false, 1), (1, "t".to_owned(), true, 0)]);
         assert!(!remote.fire("t", String::new()), "the inbox is gone after the run");
+    }
+
+    static HOLD: AtomicBool = AtomicBool::new(true);
+
+    /// Gives a run that is in node 0 until the test clears `HOLD`.
+    unsafe extern "C" fn hold(_: *const c_void, _: u32, _: *const u8, _: usize, rep: *const Reporter) -> bool {
+        // SAFETY: the run gives a reporter that is valid during the call.
+        unsafe { &*rep }.enter(0, true);
+        while HOLD.load(Relaxed) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        true
+    }
+
+    #[test]
+    fn the_remote_names_the_node_of_an_active_run() {
+        let triggers = [Trigger::new(0, 0, Builtin::Trigger)];
+        let names = [("t".to_owned(), "trigger".to_owned())];
+        let entry = Entry { fire: hold, state: std::ptr::null_mut() };
+        let events = Events { entry, parallel: true, triggers: &triggers, names: &names, probes: &[], root: Path::new(".") };
+        let (remote, inbox) = remote();
+        std::thread::scope(|s| {
+            s.spawn(|| events.run(u64::MAX, &Control::default(), Some(inbox), |_| {}));
+            assert_eq!(remote.running(), None);
+            assert!(remote.fire("t", "go".to_owned()));
+            let end = Instant::now() + Duration::from_secs(10);
+            while remote.running().is_none() {
+                assert!(Instant::now() < end, "the remote names the node of the run");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            assert_eq!(remote.running(), Some(0));
+            assert_eq!(remote.try_running(), Some(0));
+            HOLD.store(false, Relaxed);
+            remote.end();
+        });
+        assert_eq!(remote.running(), None);
     }
 }

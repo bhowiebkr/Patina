@@ -12,6 +12,12 @@ export const EVENT_NODE = `use patina_sdk::node;
 
 #[node(domain = event)]
 pub fn number(value: f64, text: &String) -> f64 {
+    while text == "hang" {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    if text == "crash" {
+        unsafe { (8usize as *mut u8).write_volatile(1) }
+    }
     value + text.len() as f64
 }
 `;

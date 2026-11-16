@@ -28,7 +28,8 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   exit code and the last error text. On Windows, a crash handler adds the node that ran.
 - The next run or edit of a live graph starts a new node process.
 - After "Node X does not stop", a second **Stop** ends the node process. This also applies to a
-  node GUI that does not return. **Stop** stays ready after a run for this.
+  node GUI that does not return, and to an event run that does not stop. **Stop** stays ready
+  after a run for this.
 - The views, the node GUIs, the triggers, the values and the package job cross the pipe.
 - A node GUI or a view with more than 1 MB of widget lines shows an error. The engine cuts the text
   of an error or a panic to 16 KB (spec 4.3 and 4.7).
@@ -58,12 +59,15 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   The hidden selfcheck passed with the job, with its crash, second **Stop** and flood steps.
 - `cargo test -p patina-sdk`: the run control keeps the node while its GUI draws. The second
   **Stop** on a node GUI that does not return was not run end to end.
+- `cargo test -p patina-engine`: the remote names the node of an active event run. The hidden
+  selfcheck fires a trigger with an event node that does not stop. The second **Stop** ends it.
+  Then an event node writes to a bad address, and the crash text names the node.
 - Linux and macOS did not run.
 
 ### Known limits
 
-- The crash handler is only on Windows, and it names only the node of the engine thread. A Rust
-  abort skips it.
+- The crash handler is only on Windows. It names the node of the engine thread, or else the node
+  of an event run. When both run, it can name the node of the other thread. A Rust abort skips it.
 - A native viewport across the two processes is not checked.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.

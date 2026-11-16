@@ -17,7 +17,7 @@ pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, even
     let (out, shared, serial, aliases) = (live.out, live.shared, live.serial, live.aliases);
     *lock(&shared.remote) = Some(remote.clone());
     let ended = AtomicBool::new(false);
-    std::thread::scope(|s| {
+    let job = std::thread::scope(|s| {
         let dispatch = std::thread::Builder::new().name("patina-events".to_owned()).spawn_scoped(s, || {
             events.run(u64::MAX, &shared.control, Some(inbox), |run| done(out, shared, serial, aliases, run));
             ended.store(true, Ordering::Relaxed);
@@ -31,10 +31,12 @@ pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, even
             (None, true) => frames_only(live, part),
             (None, false) => jobs_only(live, part, &ended),
         };
-        *lock(&shared.remote) = None;
         remote.end();
         job
-    })
+    });
+    // Until the last event run ends, the remote names its node for a second Stop (15.2).
+    *lock(&shared.remote) = None;
+    job
 }
 
 /// Sends a warning line of Patina to the output, as a report of no event run.
