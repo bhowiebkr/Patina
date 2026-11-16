@@ -689,3 +689,43 @@ halt = "false"
 [[wire]]
 from = "c10c0c1a5e7b2d48.out"
 to = "a3efcc2ce595017a.4654170b"
+
+[[node]]
+id = "a7a1c0de5c09e3b1"
+folder = "nodes/analyzer"
+pos = [-150.0, 2750.0]
+
+[node.params]
+names = "clk,strobe,pc0,pc1,pc2,pc3,a0,out0"
+
+[[wire]]
+from = "c10c0c1a5e7b2d48.out"
+to = "a7a1c0de5c09e3b1.d0"
+
+[[wire]]
+from = "a3efcc2ce595017a.5e1f0a7c"
+to = "a7a1c0de5c09e3b1.d1"
+
+[[wire]]
+from = "a3efcc2ce595017a.ccd3b184"
+to = "a7a1c0de5c09e3b1.d2"
+
+[[wire]]
+from = "a3efcc2ce595017a.56a3d4e9"
+to = "a7a1c0de5c09e3b1.d3"
+
+[[wire]]
+from = "a3efcc2ce595017a.654124ac"
+to = "a7a1c0de5c09e3b1.d4"
+
+[[wire]]
+from = "a3efcc2ce595017a.17a92216"
+to = "a7a1c0de5c09e3b1.d5"
+
+[[wire]]
+from = "a3efcc2ce595017a.3ed09d0c"
+to = "a7a1c0de5c09e3b1.d6"
+
+[[wire]]
+from = "a3efcc2ce595017a.f6341638"
+to = "a7a1c0de5c09e3b1.d7"

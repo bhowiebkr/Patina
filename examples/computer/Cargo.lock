@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "analyzer"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
 name = "clock"
 version = "0.1.0"
 dependencies = [
@@ -22,6 +29,7 @@ dependencies = [
 name = "cluster-frame"
 version = "0.0.0"
 dependencies = [
+ "analyzer",
  "clock",
  "display",
  "lcd",

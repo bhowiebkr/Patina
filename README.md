@@ -296,6 +296,10 @@ instruction. The `lcd-writer` subgraph then writes the two hex digits of OUT and
 LCD, one character at each step. Its `hex-ascii` subgraph gives the ASCII code of a hex digit,
 `0` to `9` or `A` to `F`.
 
+The `analyzer` node is a logic analyzer. It draws the last 96 frames of its 8 inputs as
+waveforms, the newest at the right. Its **names** text labels the channels, separated by commas.
+In the example, it shows the clock, the strobe, the PC bits, A0 and OUT0.
+
 ## Install
 
 Patina will come in two editions, on GitHub Releases.

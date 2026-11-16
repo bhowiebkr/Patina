@@ -52,6 +52,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 15. Done: a `clock` node gives the ticks of the CPU, one tick each **every** frames. **halt**
     stops it, and its **Step** button then gives one tick. Each load, write and PC change of the
     CPU is "and clk". The example ticks each 4 frames.
+16. Done: an `analyzer` node draws the last 96 frames of 8 signals as waveforms. In the
+    example, it shows the clock, the strobe, the PC bits, A0 and OUT0.
 
 ### Checked
 
@@ -88,6 +90,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 - The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
 - A `patina --shot` screenshot shows the check box in the row of each `switch` node. No test
   clicks it.
+- A `patina --shot` screenshot shows the `clock` node and the waveforms of the `analyzer`
+  node: one clock pulse each 4 frames, and PC0 toggles at each pulse. A unit test checks the
+  samples of the analyzer. No test checks its drawing.
 
 ## Milestone 11: the audio domain
 
