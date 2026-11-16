@@ -588,6 +588,13 @@ fn broken() -> u32 {
     if (end.state !== 'ended' || end.frames !== count) throw new Error(`the end of the frames does not count ${count} frames: ${JSON.stringify(end)}`);
     await new Promise((r) => setTimeout(r, 100));
     if (frameCount() !== count) throw new Error('a frame ran after Stop');
+    // Step (9.1): one click runs one frame of the paused graph.
+    await until('the Step button', RUN_MS, () => topButton('Step')?.disabled === false);
+    from = mark();
+    topButton('Step')!.click();
+    await until('the frame of Step', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+    const stepEnd = ofRun().find((e) => e.state === 'ended');
+    if (frameCount() !== 1 || stepEnd?.state !== 'ended' || stepEnd.frames !== 1) throw new Error(`Step did not run one frame: ${JSON.stringify(ofRun())}`);
     v = await step('undo the frame node', () => api.undo());
     steps.push(`frames until Stop: ${count}`);
 

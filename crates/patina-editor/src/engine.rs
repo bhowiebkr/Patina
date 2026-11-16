@@ -20,6 +20,8 @@ pub enum Job {
     Unload,
     /// Ends the frame run (9.1). **Pause** and **Stop** send it.
     Pause,
+    /// Ends the frame run, and runs one frame of the last run (9.1). **Step** sends it.
+    Step,
     /// User input to the GUI of a node, or a request for its widget lines (4.3).
     Gui(GuiInput),
     /// Runs the batch domain again after a GUI change of a batch node. Only the frame run sends it.
@@ -215,16 +217,18 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
     let (mut last, mut shown) = (None::<Box<Run>>, Shown::default());
     // The time of the fuse while the graph is live and the clusters are not fused (7.2).
     let mut fuse_at = None;
+    // True when the last run has frame nodes, so a step can run one frame.
+    let mut framed = false;
     while let Some(first) = next.take().or_else(|| wait(jobs, fuse_at)) {
         // Only the newest run starts. A build that a skipped run asked for still happens.
         let mut newest = None;
-        let (mut build, mut rerun, mut fuse) = (false, false, false);
+        let (mut build, mut rerun, mut fuse, mut step) = (false, false, false, false);
         // The slot holds a node only when all the changes that need a build are in its code.
         let mut slot = None;
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
                 Job::Unload => {
-                    (loaded, newest, build, last, fuse_at) = (None, None, false, None, None);
+                    (loaded, newest, build, last, fuse_at, framed) = (None, None, false, None, None, false);
                     views = Views::default();
                     lock(&shared.values).clear();
                     lock(&shared.reports).clear();
@@ -238,6 +242,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                     newest = Some(run);
                 }
                 Job::Pause => (newest, build, rerun, fuse, fuse_at) = (None, false, false, false, None),
+                Job::Step => (newest, build, rerun, fuse, fuse_at, step) = (None, false, false, false, None, true),
                 Job::Bake => fuse = true,
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
@@ -256,6 +261,10 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                     let _ = reply.send(Ok(()));
                 }
             }
+        }
+        if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
+            frame(app, (&mut loaded.cluster, &shown, &loaded.aliases), shared, serial);
+            let _ = app.emit("engine", Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
         if (rerun || fuse) && newest.is_none() {
@@ -288,6 +297,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             fuse_at = edit.then(|| Instant::now() + FUSE_IDLE);
         }
         let frames = matches!(event, Event::Ran { frames: true, .. });
+        framed = frames;
         let ran = matches!(event, Event::Ran { .. });
         let _ = app.emit("engine", event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
@@ -372,28 +382,33 @@ fn run_frames(app: &AppHandle, jobs: &Receiver<Job>, (cluster, shown, aliases): 
             Err(TryRecvError::Empty) if shared.control.stopped() => break None,
             Err(TryRecvError::Empty) => {}
         }
-        let start = Instant::now();
-        let outcome = cluster.frame(&shared.control);
-        let run_ms = start.elapsed().as_secs_f64() * 1000.0;
         frames += 1;
-        let extra = alias(&outcome.values, aliases);
-        let mut values = badges(&outcome.values);
-        values.extend(badges(&extra));
-        keep(&mut lock(&shared.values), &outcome.values);
-        keep(&mut lock(&shared.values), &extra);
-        lock(&shared.reports).clone_from(&outcome.reports);
-        let ok = outcome.ok;
-        // shortcut: the editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
-        let (skipped, stopped, times) = (outcome.skipped.clone(), outcome.stopped.clone(), outcome.times.clone());
-        let (logs, reports) = (outcome.logs.clone(), outcome.reports.clone());
-        let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
-        draw(app, cluster, serial, shown);
-        if !ok {
+        if !frame(app, (&mut *cluster, &*shown, aliases), shared, serial) {
             break None;
         }
     };
     let _ = app.emit("engine", Event::Ended { serial, frames });
     job
+}
+
+/// Runs one frame, and sends its values and the node GUIs. Returns false when the frame failed.
+fn frame(app: &AppHandle, (cluster, shown, aliases): (&mut Cluster, &Shown, &[(String, String)]), shared: &Shared, serial: u64) -> bool {
+    let start = Instant::now();
+    let outcome = cluster.frame(&shared.control);
+    let run_ms = start.elapsed().as_secs_f64() * 1000.0;
+    let extra = alias(&outcome.values, aliases);
+    let mut values = badges(&outcome.values);
+    values.extend(badges(&extra));
+    keep(&mut lock(&shared.values), &outcome.values);
+    keep(&mut lock(&shared.values), &extra);
+    lock(&shared.reports).clone_from(&outcome.reports);
+    let ok = outcome.ok;
+    // shortcut: the editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
+    let (skipped, stopped, times) = (outcome.skipped.clone(), outcome.stopped.clone(), outcome.times.clone());
+    let (logs, reports) = (outcome.logs.clone(), outcome.reports.clone());
+    let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
+    draw(app, cluster, serial, shown);
+    ok
 }
 
 /// Puts the values of a frame in place of the old values of the same outputs. The values of the

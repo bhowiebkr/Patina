@@ -63,6 +63,20 @@ pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
     })
 }
 
+/// Runs one frame of the last run, and stops the live runs (9.1, 15.2).
+#[tauri::command(async)]
+pub fn step(editor: State<'_, Editor>) -> Result<View, String> {
+    editor.with(|session| {
+        if !session.trusted {
+            return Err("Trust the project before you run it (11).".to_owned());
+        }
+        editor.shared.control.set_stop(false);
+        session.live = false;
+        let _ = editor.engine.send(Job::Step);
+        Ok(session.view(&editor.engine, None, None))
+    })
+}
+
 /// Stops the live runs, and asks the active run to stop (15.2). **Run** removes the request.
 #[tauri::command(async)]
 pub fn stop(editor: State<'_, Editor>) -> Result<View, String> {

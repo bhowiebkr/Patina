@@ -36,6 +36,8 @@ export interface RunState {
   logs: NodeLog[];
   /** The number of frames of the frame run after the last batch run (9.1). */
   frames: number;
+  /** True when the last run has frame nodes, so **Step** can run one frame (9.1). */
+  framed: boolean;
   /** True for clusters in bake mode with no slot (7.3). */
   fused: boolean;
   /** The node folder in the slot (7.1), or null. */
@@ -59,6 +61,7 @@ export const NO_RUN: RunState = {
   times: new Map(),
   logs: [],
   frames: 0,
+  framed: false,
   fused: false,
   slot: null,
 };

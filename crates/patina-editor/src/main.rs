@@ -248,6 +248,7 @@ fn main() {
             session::expand,
             session::run,
             session::pause,
+            session::step,
             session::test,
             session::bake,
             session::stop,

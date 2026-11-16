@@ -158,6 +158,7 @@ export function useRun(serial: RefObject<number>) {
           times: new Map(e.times.map((t) => [t.id, t.ms])),
           logs: e.logs,
           frames: 0,
+          framed: e.frames,
           fused: e.fused,
           slot: e.slot,
         };

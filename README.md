@@ -426,6 +426,7 @@ the name, for example `rand` or `rand@0.9`, and push Enter. The `Cargo.toml` tab
 dependency, and the next build downloads the crate. Undo removes it.
 
 While the graph runs, a change of a parameter runs it again. Click **Pause** to stop the runs.
+Click **Step** to run one frame of the paused graph, for example one clock tick of a computer.
 Click **Stop** to also end the active run: Patina starts no new node call. The nodes that did
 not start show **Stale**. A node with a long loop can read `patina_sdk::stop_requested()` and
 return early.

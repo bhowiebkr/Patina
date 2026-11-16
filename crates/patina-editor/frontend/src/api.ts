@@ -326,6 +326,7 @@ export const api = {
   expand: (ids: string[]) => invoke<View>('expand', { ids }),
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
+  step: () => invoke<View>('step'),
   /** Runs the open subgraph alone with these public input values. Null ends the test (15.9). */
   test: (inputs: Record<string, string> | null) => invoke<View>('test', { inputs }),
   /** Fuses the node in the slot back into the base now (7.2). */

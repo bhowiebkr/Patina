@@ -41,7 +41,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 11. Done: an `lcd` node shows 2 lines of 16 characters. The CPU writes the character '0' plus
     OUT at each step. A node GUI keeps its size: a canvas sets the node width, a label clips on
     one line, and nothing draws outside the node (4.3).
-12. Next: an 8-bit data path, so the CPU counts past 15.
+12. Done: the **Step** button runs one frame of the paused graph, as the clock step of a
+    breadboard computer. The start screen network is blurred and fills large screens.
+13. Next: an 8-bit data path, so the CPU counts past 15.
 
 ### Checked
 
@@ -613,7 +615,8 @@ milestone 5 (9.2).
   at 60 FPS. Without `--frames`, it runs frames until Ctrl+C. A late frame skips the missed
   ticks.
 - In the editor, **Run** runs the batch domain and then the frames. **Pause**, **Stop**, a
-  failed frame or a change that runs the graph again ends the frames. The engine sends an event
+  failed frame or a change that runs the graph again ends the frames. **Step** runs one frame
+  of the paused graph. The engine sends an event
   for each frame. The status bar shows the frame number, and the badges and the run times of
   the frame nodes change at each frame.
 - The editor refuses a connection that makes a cycle of wires or order wires, and names the

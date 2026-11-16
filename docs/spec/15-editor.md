@@ -27,7 +27,7 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 
 | Area | Default contents |
 |---|---|
-| Top bar | Project and graph path, Live indicator, Run, Pause, Stop, Bake, undo, redo, zoom, fit, grid, Views menu |
+| Top bar | Project and graph path, Live indicator, Run, Pause, Step, Stop, Bake, undo, redo, zoom, fit, grid, Views menu |
 | Left panel | Layers tab: the base and the slot, with build state and build time (7.3). Project tab |
 | Center | Graph view, or the full-size GUI of a node (4.3) |
 | Right panel (inspector) | Selected node: Parameters, Code, Logs tabs, and the large node GUI |
@@ -139,10 +139,11 @@ The **Add node** palette is the second way to add a node, after a drag from the 
 - Tab does not open the palette, because Tab moves the focus between the controls.
 - An untrusted project has no palette, as it has no drag of a node.
 
-**Run, Pause, Stop, and Bake:**
+**Run, Pause, Step, Stop, and Bake:**
 
 - Run starts the graph. Batch nodes run one time. Frame and audio domains start their clocks. Triggers start to listen.
 - Pause stops the frame and audio clocks and stops new event runs. Active event runs finish.
+- Step runs one frame of the frame domain of the last run, and the graph stays paused. A live graph pauses first. Node states stay, so each click moves a clocked circuit one tick, as the clock step of a breadboard computer. Step is ready after a run with frame nodes, and not while an edit waits for a run. This is an agent decision of 2026-11-15. The owner can change it.
 - Stop does all that Pause does, and it also asks the active runs to stop. This is an agent decision of 2026-11-15 for question 10 (18). The owner can change it:
   - The engine starts no new node call. The nodes that did not run show **Stale** (15.3).
   - An async node (4.6) drops at its next wait.

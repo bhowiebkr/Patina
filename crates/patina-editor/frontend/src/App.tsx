@@ -372,6 +372,9 @@ export function App() {
         <button className="btn" disabled={!live} onClick={() => act(api.pause())}>
           Pause
         </button>
+        <button className="btn" title="Run one frame of the paused graph" disabled={!view.trusted || live || !run.framed || run.stale} onClick={() => act(api.step())}>
+          Step
+        </button>
         <button className="btn" disabled={!live && !busy} onClick={stop}>
           Stop
         </button>
