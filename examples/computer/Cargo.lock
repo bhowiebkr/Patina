@@ -30,6 +30,7 @@ dependencies = [
  "byte",
  "nand",
  "patina-sdk",
+ "segment-bus",
  "switch",
 ]
 
@@ -46,6 +47,8 @@ dependencies = [
  "nand",
  "patina-sdk",
  "readout",
+ "seg-join",
+ "segment-bus",
  "split",
  "switch",
 ]
@@ -55,6 +58,7 @@ name = "display"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",
+ "segments",
 ]
 
 [[package]]
@@ -95,6 +99,26 @@ version = "0.1.0"
 dependencies = [
  "patina-sdk",
 ]
+
+[[package]]
+name = "seg-join"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "segments",
+]
+
+[[package]]
+name = "segment-bus"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "segments",
+]
+
+[[package]]
+name = "segments"
+version = "0.1.0"
 
 [[package]]
 name = "split"

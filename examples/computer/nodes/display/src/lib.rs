@@ -1,4 +1,5 @@
 use patina_sdk::{Ui, node};
+use segments::Segments;
 
 const ON: [u8; 3] = [223, 166, 75];
 const OFF: [u8; 3] = [60, 60, 57];
@@ -14,7 +15,7 @@ const SEGMENTS: [([f32; 2], [f32; 2]); 7] = [
     ([16.0, 42.0], [28.0, 6.0]),
 ];
 
-/// Shows segments a to g as a 7-segment digit, and writes them to the standard output.
+/// Shows the segments a to g of a bus as a 7-segment digit, and writes them to the standard output.
 #[node(color = "#59366f")]
 pub struct Display {
     on: [bool; 7],
@@ -25,8 +26,8 @@ impl Display {
         Display { on: [false; 7] }
     }
 
-    pub fn process(&mut self, a: &bool, b: &bool, c: &bool, d: &bool, e: &bool, f: &bool, g: &bool) {
-        self.on = [*a, *b, *c, *d, *e, *f, *g];
+    pub fn process(&mut self, seg: &Segments) {
+        self.on = std::array::from_fn(|i| seg.on(i));
         println!("{}", self.text());
     }
 

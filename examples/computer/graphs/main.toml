@@ -294,32 +294,8 @@ from = "2504c53cbf24694b.ab784846"
 to = "21a01203787a27d0.76ccaf24"
 
 [[wire]]
-from = "21a01203787a27d0.416c04a5"
-to = "ba4fbf2be96592c8.a"
-
-[[wire]]
-from = "21a01203787a27d0.f23fd070"
-to = "ba4fbf2be96592c8.b"
-
-[[wire]]
-from = "21a01203787a27d0.e6d81467"
-to = "ba4fbf2be96592c8.c"
-
-[[wire]]
-from = "21a01203787a27d0.b8852500"
-to = "ba4fbf2be96592c8.d"
-
-[[wire]]
-from = "21a01203787a27d0.fb614519"
-to = "ba4fbf2be96592c8.e"
-
-[[wire]]
-from = "21a01203787a27d0.25f20984"
-to = "ba4fbf2be96592c8.f"
-
-[[wire]]
-from = "21a01203787a27d0.7677cc81"
-to = "ba4fbf2be96592c8.g"
+from = "21a01203787a27d0.c4e1a7b2"
+to = "ba4fbf2be96592c8.seg"
 
 [[wire]]
 from = "a3efcc2ce595017a.f6341638"
@@ -338,32 +314,8 @@ from = "a3efcc2ce595017a.30556757"
 to = "f5158e2151afe01b.76ccaf24"
 
 [[wire]]
-from = "f5158e2151afe01b.416c04a5"
-to = "d415f2b47c52f4e8.a"
-
-[[wire]]
-from = "f5158e2151afe01b.f23fd070"
-to = "d415f2b47c52f4e8.b"
-
-[[wire]]
-from = "f5158e2151afe01b.e6d81467"
-to = "d415f2b47c52f4e8.c"
-
-[[wire]]
-from = "f5158e2151afe01b.b8852500"
-to = "d415f2b47c52f4e8.d"
-
-[[wire]]
-from = "f5158e2151afe01b.fb614519"
-to = "d415f2b47c52f4e8.e"
-
-[[wire]]
-from = "f5158e2151afe01b.25f20984"
-to = "d415f2b47c52f4e8.f"
-
-[[wire]]
-from = "f5158e2151afe01b.7677cc81"
-to = "d415f2b47c52f4e8.g"
+from = "f5158e2151afe01b.c4e1a7b2"
+to = "d415f2b47c52f4e8.seg"
 
 [[order]]
 before = "9bfefb001a1ae7a9"
@@ -429,32 +381,8 @@ from = "a3efcc2ce595017a.8d314c02"
 to = "3be1bbc4818ab673.76ccaf24"
 
 [[wire]]
-from = "3be1bbc4818ab673.416c04a5"
-to = "d72d0630056e81d1.a"
-
-[[wire]]
-from = "3be1bbc4818ab673.f23fd070"
-to = "d72d0630056e81d1.b"
-
-[[wire]]
-from = "3be1bbc4818ab673.e6d81467"
-to = "d72d0630056e81d1.c"
-
-[[wire]]
-from = "3be1bbc4818ab673.b8852500"
-to = "d72d0630056e81d1.d"
-
-[[wire]]
-from = "3be1bbc4818ab673.fb614519"
-to = "d72d0630056e81d1.e"
-
-[[wire]]
-from = "3be1bbc4818ab673.25f20984"
-to = "d72d0630056e81d1.f"
-
-[[wire]]
-from = "3be1bbc4818ab673.7677cc81"
-to = "d72d0630056e81d1.g"
+from = "3be1bbc4818ab673.c4e1a7b2"
+to = "d72d0630056e81d1.seg"
 
 [[order]]
 before = "d72d0630056e81d1"

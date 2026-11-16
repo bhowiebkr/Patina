@@ -263,6 +263,8 @@ to return. The **Graphs** group of the **Project** panel lists the subgraphs. Cl
 it, or drag it into the graph to add a use.
 A `switch` node shows a check box in its **on** row. Click it to set the bit. Three `display`
 nodes show the count, and the OUT register of the CPU as two hex digits on 7 segments.
+Each display gets one copper bus with the lanes a to g. Put the pointer on a lane or on a
+contact of a bus socket to see the name and the state of that lane.
 
 Each frame writes ten lines: the count, the count plus 3, an accumulator that adds 5 at each
 step, a memory, the three registers of the CPU and the segments of the three displays. A

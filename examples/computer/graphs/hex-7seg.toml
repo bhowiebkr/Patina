@@ -175,6 +175,11 @@ id = "6891614d736a6c48"
 subgraph = "not"
 pos = [1880.0, 704.0]
 
+[[node]]
+id = "5e9a7c31d04b28f6"
+folder = "nodes/seg-join"
+pos = [2160.0, 470.0]
+
 [[wire]]
 from = "1155dbbcf82bf9cd.e4823330"
 to = "3fd38563134a2615.37c6cc47"
@@ -419,6 +424,34 @@ to = "8534d764463dc69f.3fbd40e4"
 from = "8534d764463dc69f.67d0fbe0"
 to = "2c66b2a839b79dcc.5ade65ce"
 
+[[wire]]
+from = "3eed09020a5dcc01.7ff633ef"
+to = "5e9a7c31d04b28f6.a"
+
+[[wire]]
+from = "dfc015b52e037bdb.7ff633ef"
+to = "5e9a7c31d04b28f6.b"
+
+[[wire]]
+from = "79570bc351105a64.7ff633ef"
+to = "5e9a7c31d04b28f6.c"
+
+[[wire]]
+from = "7ae704f340002b46.7ff633ef"
+to = "5e9a7c31d04b28f6.d"
+
+[[wire]]
+from = "6891614d736a6c48.7ff633ef"
+to = "5e9a7c31d04b28f6.e"
+
+[[wire]]
+from = "3dbf7ce0f84df413.7ff633ef"
+to = "5e9a7c31d04b28f6.f"
+
+[[wire]]
+from = "2c66b2a839b79dcc.7ff633ef"
+to = "5e9a7c31d04b28f6.g"
+
 [[input]]
 key = "2e8b5c4e"
 name = "b0"
@@ -444,43 +477,7 @@ pos = [-300.0, 552.0]
 to = ["1155dbbcf82bf9cd.9df7e54e"]
 
 [[output]]
-key = "416c04a5"
-name = "a"
-pos = [2160.0, 386.0]
-from = "3eed09020a5dcc01.7ff633ef"
-
-[[output]]
-key = "f23fd070"
-name = "b"
-pos = [2160.0, 945.0]
-from = "dfc015b52e037bdb.7ff633ef"
-
-[[output]]
-key = "e6d81467"
-name = "c"
-pos = [2160.0, 1018.0]
-from = "79570bc351105a64.7ff633ef"
-
-[[output]]
-key = "b8852500"
-name = "d"
-pos = [2160.0, 592.0]
-from = "7ae704f340002b46.7ff633ef"
-
-[[output]]
-key = "fb614519"
-name = "e"
-pos = [2160.0, 738.0]
-from = "6891614d736a6c48.7ff633ef"
-
-[[output]]
-key = "25f20984"
-name = "f"
-pos = [2160.0, 251.0]
-from = "3dbf7ce0f84df413.7ff633ef"
-
-[[output]]
-key = "7677cc81"
-name = "g"
-pos = [2160.0, 110.0]
-from = "2c66b2a839b79dcc.7ff633ef"
+key = "c4e1a7b2"
+name = "seg"
+pos = [2460.0, 560.0]
+from = "5e9a7c31d04b28f6.out"
