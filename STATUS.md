@@ -36,6 +36,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - The editor sends the output to **Output** at most each 100 ms, and skips the oldest lines when
   more than 256 KB waits (spec 16.1). Before this change, a node that printed without a pause
   made the editor use more than 2 GB and stop.
+- On Windows, the node process runs in a job object (spec 16.1). The processes that it started
+  end with it and with the editor. The job limits the memory to three quarters of the physical
+  memory, so a node that leaks memory ends its node process, not the editor.
 
 ### What was checked
 
@@ -49,6 +52,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   60 ms or less, **Output** shows the skip note, and **Stop** ends the run. The peak memory was
   58 MB for the editor and 232 MB for the web view. Before the fix, it was 2.3 GB and 3.3 GB, and
   the check stopped at its 180 s limit.
+- `cargo test -p patina-editor` on Windows: in a job with a 64 MB limit, an allocation of 256 MB
+  ends the process. A process ends when its job closes.
+  The hidden selfcheck passed with the job, with its crash, second **Stop** and flood steps.
 - Linux and macOS did not run.
 
 ### Known limits
@@ -60,6 +66,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - A crash outside a run shows on the serial of the last run or open.
 - Node code that nests deeper than about 1000 levels still overflows the parse stack in a debug
   build. A child process for the parse is the full fix.
+- When the memory limit stops a node, **Output** shows only the allocation error, not the limit.
+- On Linux and macOS, the processes that a node starts do not end with the node process, and the
+  memory has no limit.
 
 ## Circuit graphs
 

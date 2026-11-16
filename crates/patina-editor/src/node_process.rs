@@ -3,6 +3,8 @@
 //! lines of JSON on the standard input and the standard output of the node process.
 
 pub mod child;
+#[cfg(windows)]
+mod job;
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -145,6 +147,9 @@ struct Proc {
     child: Arc<Mutex<Child>>,
     pending: Pending,
     killed: Arc<AtomicBool>,
+    /// When it drops, the processes that the node process started end too.
+    #[cfg(windows)]
+    _job: Option<job::Job>,
 }
 
 /// The reply channels of the open asks. None after the process ended.
@@ -256,6 +261,9 @@ impl Host {
         #[cfg(windows)]
         std::os::windows::process::CommandExt::creation_flags(&mut command, 0x0800_0000);
         let mut child = command.spawn()?;
+        // The node process starts no process before its first job, so a job after the start is in time.
+        #[cfg(windows)]
+        let job = job::Job::new(&child, job::memory_limit()).inspect_err(|e| eprintln!("patina: the node process has no job object: {e}")).ok();
         let stdin = child.stdin.take().expect("the standard input is piped");
         let stdout = child.stdout.take().expect("the standard output is piped");
         let stderr = child.stderr.take().expect("the standard error is piped");
@@ -289,7 +297,14 @@ impl Host {
                 fail(&inner, serial, &exit_text(status), &lock(&tail));
             }
         })?;
-        Ok(Proc { stdin, child, pending, killed })
+        Ok(Proc {
+            stdin,
+            child,
+            pending,
+            killed,
+            #[cfg(windows)]
+            _job: job,
+        })
     }
 }
 
