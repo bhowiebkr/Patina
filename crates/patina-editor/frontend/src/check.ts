@@ -372,6 +372,32 @@ fn broken() -> u32 {
     if (v.graph.wire?.[0]?.style !== 'curved' || v.graph.wire[0].points?.length !== 1) throw new Error(`the route style or Reset route failed: ${JSON.stringify(v.graph.wire)}`);
     v = await step('undo the route style', () => api.undo());
     if (v.graph.wire?.[0]?.style !== undefined) throw new Error('undo did not give the graph default route');
+    // An orthogonal wire shows a bar on each middle segment. A drag on the bar moves the segment
+    // sideways, and an arrow key moves it by 10 px. Both are edits with undo.
+    const before = JSON.stringify(v.graph.wire?.[0]?.points);
+    await until('the Route field for the orthogonal wire', RUN_MS, () => !!field('Route'));
+    field('Route')!.value = 'orthogonal';
+    field('Route')!.dispatchEvent(new Event('change', { bubbles: true }));
+    const bar = () => document.querySelector<HTMLElement>('.segment-handle')!;
+    await until('a segment bar of the orthogonal wire', RUN_MS, () => !!document.querySelector('.segment-handle'));
+    const across = bar().classList.contains('vertical') ? 0 : 1;
+    const [sx0, sy0] = (({ left, top, width, height }) => [left + width / 2, top + height / 2])(bar().getBoundingClientRect());
+    const to = across === 0 ? [sx0 + 40, sy0] : [sx0, sy0 + 40];
+    for (const [type, [x, y]] of [['pointerdown', [sx0, sy0]], ['pointermove', to], ['pointerup', to]] as const) {
+      bar().dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: x, clientY: y }));
+    }
+    const barAt = () => (({ left, top, width, height }) => [left + width / 2, top + height / 2])(bar().getBoundingClientRect())[across];
+    await until('the segment bar under the pointer after the edit', RUN_MS, () => Math.abs(barAt() - to[across]) < 2);
+    v = await step('undo the segment move', () => api.undo());
+    if (JSON.stringify(v.graph.wire?.[0]?.points) !== before) throw new Error('undo did not give the route before the segment move');
+    await until('the segment bar after the undo', RUN_MS, () => Math.abs(barAt() - [sx0, sy0][across]) < 2);
+    bar().focus();
+    bar().dispatchEvent(new KeyboardEvent('keydown', { key: across === 0 ? 'ArrowRight' : 'ArrowDown', bubbles: true, cancelable: true }));
+    await until('the segment bar after the arrow key', RUN_MS, () => barAt() > [sx0, sy0][across] + 2);
+    v = await step('undo the arrow key on the segment', () => api.undo());
+    v = await step('undo the orthogonal style', () => api.undo());
+    if (v.graph.wire?.[0]?.style !== undefined || JSON.stringify(v.graph.wire?.[0]?.points) !== before) throw new Error('undo did not give the wire before the segment moves');
+    steps.push('orthogonal segment moved sideways');
     // While the graph is paused, an edit makes the value of the last run stale (15.3, 15.9).
     await step('pause', () => api.pause());
     v = await step('edit while paused', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '3' }));

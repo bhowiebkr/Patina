@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { anchor, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, normals, orthogonal, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import { anchor, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Style } from './api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -188,6 +188,23 @@ test('an orthogonal path has only horizontal and vertical segments, and is horiz
   assert.equal(all[1][1], 0);
   assert.equal(all[all.length - 2][1], 40);
   for (const p of [[30, 10], [70, -20], [70, 5]]) assert.ok(bends.some((b) => b[0] === p[0] && b[1] === p[1]), 'each route point is on the path');
+});
+
+test('a middle segment of an orthogonal path moves sideways, and the path stays connected', () => {
+  assert.deepEqual(segments(0, 0, 100, 0, []), [], 'a straight path has no segment that can move');
+  assert.deepEqual(segments(0, 0, 100, 40, []), [{ k: 1, x: 50, y: 20, vertical: true }], 'the segments at the pins stay');
+  const moved = moveSegment(0, 0, 100, 40, [], 1, 20);
+  assert.deepEqual(orthogonal(0, 0, 100, 40, moved), [[70, 0], [70, 40]], 'the vertical leg moved right');
+  const back = [100, 0, 0, 40] as const;
+  const legs = segments(...back, []);
+  assert.deepEqual(legs.map((s) => s.vertical), [true, false, true]);
+  const down = moveSegment(...back, [], legs[1].k, 15);
+  assert.deepEqual(orthogonal(...back, down), [[120, 0], [120, 35], [-20, 35], [-20, 40]], 'the horizontal leg moved down');
+  assert.deepEqual(moveSegment(...back, [], 0, 15), [], 'a segment at a pin does not move');
+  // A move that makes a segment empty merges the runs next to it.
+  const flat = moveSegment(0, 0, 100, 40, [[30, 10], [70, 10]], 2, -10);
+  assert.deepEqual(flat, [[85, 40]]);
+  assert.deepEqual(orthogonal(0, 0, 100, 40, flat), [[85, 0], [85, 40]]);
 });
 
 test('sharp corners add no points, and rounded corners add points', () => {

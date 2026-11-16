@@ -61,6 +61,57 @@ export function orthogonal(sx: number, sy: number, tx: number, ty: number, route
   return bends;
 }
 
+/** The pins and the corners of an orthogonal path. */
+function legs(sx: number, sy: number, tx: number, ty: number, route: readonly Point[]): Point[] {
+  return tidy([[sx, sy], ...orthogonal(sx, sy, tx, ty, route), [tx, ty]]);
+}
+
+/** The points with no empty segment and no point inside a straight run. The two ends stay. */
+function tidy(points: readonly Point[]): Point[] {
+  const v: Point[] = [points[0]];
+  for (const p of points.slice(1)) {
+    const [a, b] = [v[v.length - 1], v[v.length - 2]];
+    if (p[0] === a[0] && p[1] === a[1]) continue;
+    if (b && ((b[0] === a[0] && a[0] === p[0]) || (b[1] === a[1] && a[1] === p[1]))) v[v.length - 1] = p;
+    else v.push(p);
+  }
+  return v;
+}
+
+/** A segment of an orthogonal path that can move sideways (15.9): the index of its first corner and its middle. */
+export interface Segment {
+  k: number;
+  x: number;
+  y: number;
+  vertical: boolean;
+}
+
+/** The segments of an orthogonal path that can move sideways: all except the segments at the pins. */
+export function segments(sx: number, sy: number, tx: number, ty: number, route: readonly Point[]): Segment[] {
+  const v = legs(sx, sy, tx, ty, route);
+  const out: Segment[] = [];
+  for (let k = 1; k < v.length - 2; k++) {
+    out.push({ k, x: (v[k][0] + v[k + 1][0]) / 2, y: (v[k][1] + v[k + 1][1]) / 2, vertical: v[k][0] === v[k + 1][0] });
+  }
+  return out;
+}
+
+/**
+ * The route after segment k of an orthogonal path moves sideways by d. The two segments next to
+ * it stretch, so the path stays connected. The route keeps the corner at the end of each vertical
+ * run, because orthogonal() adds the corner before it. A route that gets too long does not change.
+ */
+export function moveSegment(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], k: number, d: number): Point[] {
+  let v = legs(sx, sy, tx, ty, route);
+  if (k < 1 || k >= v.length - 2) return [...route];
+  const axis = v[k][0] === v[k + 1][0] ? 0 : 1;
+  for (const i of [k, k + 1]) v[i] = axis === 0 ? [v[i][0] + d, v[i][1]] : [v[i][0], v[i][1] + d];
+  v = tidy(v);
+  const flat = (i: number) => v[i][1] === v[i + 1][1];
+  const out = v.slice(1, -1).filter((_, j) => j + 1 === v.length - 2 || !flat(j) || flat(j + 1));
+  return out.length > MAX_ROUTE ? [...route] : out;
+}
+
 /** The horizontal reach of the control points of the default curve. */
 function reach(sx: number, tx: number): number {
   return Math.max(40, Math.abs(tx - sx) * 0.5);

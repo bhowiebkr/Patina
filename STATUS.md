@@ -936,6 +936,9 @@ To run the editor from a checkout:
   point. The arrow keys move a focused handle by 10 px, or by 1 px with Shift. Esc cancels a
   drag. A route has rounded corners. The + or Insert key on a focused wire adds a route point
   at its middle. The selfcheck presses + on the wire and checks the new point and its undo.
+- A selected orthogonal wire shows a bar on each middle segment (15.9). A drag on a bar moves
+  the segment sideways, and the segments next to it stretch. A unit test checks the moves. The
+  selfcheck drags a bar 40 px and pushes an arrow key on it, and checks each undo.
 - The **Look** section of the **Inspector** sets the look of the selected wire (15.9). **Route**
   is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded**
   or **Sharp**. **Reset route** removes the route points. The graph file keeps the style, and
@@ -1200,7 +1203,8 @@ To run the editor from a checkout:
 - The editor has no bench with 500 nodes, so the far zoom form was not measured for frame
   drops. Two badges can cover each other. After each run, the engine copies the text of each
   value into a new `String`, and the badge text into a second `String`.
-- An orthogonal segment cannot move sideways (15.9). A double-click on an orthogonal or curved
+- The segments at the two pins of an orthogonal wire cannot move, and a wire with the graph
+  default style has no segment bars (15.9). A double-click on an orthogonal or curved
   wire puts the new point on the nearest straight line through the route points. The graph has
   no setting for the default style. **Bus**, **Lock bends** and the crossing bridges are not
   made. A wire with a fixed style can go under a node.

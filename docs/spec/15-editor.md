@@ -485,6 +485,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 **Routing and interaction**
 
 - Let the user add, drag and remove route points. Orthogonal segments can move sideways while keeping their endpoints connected.
+- A selected wire with the **Orthogonal** style shows a bar on each middle segment. A drag on the bar moves the segment sideways, and the two segments next to it stretch. The arrow keys move a focused bar by 10 px, or by 1 px with Shift, and Esc cancels a drag. The segments at the pins do not move, because a pin is fixed. Each move is one **SetRoute** edit with undo. (Agent decision, 2026-11-16. The owner can change it.)
 - A double-click on a connection adds a route point on the nearest segment. The **+** or **Insert** key on a focused connection adds a route point at its middle. (Agent decision, 2026-11-16. The owner can change it.) A selected connection shows square handles on its points. A double-click or the Delete key on a focused handle removes that point, and the arrow keys move it by 10 px, or by 1 px with Shift. Esc cancels a drag. With no style, the route points are waypoints of the automatic route. (Agent decision, 2026-11-15, changed 2026-11-16. The owner can change it.)
 - Keep routes clear of unrelated node bodies, expanded GUIs, pins and controls. Allow room for the whole ribbon and its bends.
 - Moving a route point changes geometry only. Reconnecting an endpoint is a separate action with the normal graph checks.
