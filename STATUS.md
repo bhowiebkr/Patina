@@ -1347,8 +1347,9 @@ To run the editor from a checkout:
   the waits of async nodes (4.6) stop.
 - The self-check does not run a node with the `log` crate, because that needs crates.io. The
   type check covers the log lines of the page, but no check showed them in the editor yet.
-- The log lines show only the levels Info, Warn and Error. The logger drops a record from a
-  thread that a node starts. A run shows 1000 log lines at most.
+- The log lines show only the levels Info, Warn and Error. A run shows 1000 log lines at most.
+  A record from a thread that a node starts, or from outside a node call, goes to the standard
+  error with no node (fixed 2026-11-16). The glue test checks the three cases.
 - A `log` crate with another name or in a target table now turns on the logger (fixed
   2026-11-16). The plan test reads four manifests. No build ran with such a node.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail

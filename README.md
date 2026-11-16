@@ -76,7 +76,8 @@ pub fn exposure(
 - After a run, each node that ran shows its run time at the bottom, for example **Run 0.42 ms**.
 - A node can write log lines with the `log` crate. Add the crate with **Add crate**, then call
   `log::info!`, `log::warn!` or `log::error!`. The **Logs** panel shows the lines of each run.
-  Debug and trace lines do not show.
+  Debug and trace lines do not show. A line from a thread that the node starts shows in the
+  **Output** panel.
 - `#[node(color = "#175c59")]` gives the node a colored header. The **Project** panel shows the
   color next to the node. A node with no color has a gray header.
 

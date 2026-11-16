@@ -158,20 +158,30 @@ pub(crate) fn stop_requested() -> bool {
 }
 
 /// Sends a record of the `log` crate as a log line of the node that runs (15.7). The logger that
-/// Patina generates in a cluster calls it. It does not send a record outside a node call.
+/// Patina generates in a cluster calls it. A record from another thread or from outside a node
+/// call goes to the standard error.
 pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
+    if !log_to_run(level, message) {
+        use std::io::Write as _;
+        // A logger must not panic, so a failed write is ignored.
+        let _ = writeln!(std::io::stderr().lock(), "{level} {message}");
+    }
+}
+
+/// Sends the record to the node that runs on this thread. Gives false when no node runs here.
+fn log_to_run(level: &str, message: &fmt::Arguments<'_>) -> bool {
     with_run(|rep| {
-        let (node, Some(control)) = (NODE.get(), rep.control()) else { return };
+        let (node, Some(control)) = (NODE.get(), rep.control()) else { return false };
         if node == IDLE {
-            return;
+            return false;
         }
         // The first check stops the count near the limit, so it cannot overflow.
         if control.lines.load(Relaxed) > LOG_LINES {
-            return;
+            return true;
         }
         let lines = control.lines.fetch_add(1, Relaxed);
         if lines > LOG_LINES {
-            return;
+            return true;
         }
         let mut buf = [0; TEXT_LEN + 3];
         let mut out = Text::new(&mut buf);
@@ -181,7 +191,9 @@ pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
             write!(out, "WARN the run has more than {LOG_LINES} log lines. Patina shows the first {LOG_LINES}")
         };
         rep.send(node, LOG, out.finish());
-    });
+        true
+    })
+    .unwrap_or(false)
 }
 
 /// A command to a cluster.

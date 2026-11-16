@@ -211,14 +211,18 @@ fn stop_and_missing_inputs_start_no_node_call() {
 fn log_lines_go_to_the_node_that_runs() {
     fn make() -> Cluster {
         let f = typed(|cmd, rep| {
+            let mut ok = true;
             if let Cmd::Task(_) = cmd {
-                log_line("INFO", &format_args!("before the first node"));
+                ok = !log_to_run("INFO", &format_args!("before the first node"));
                 rep.enter(3, true);
                 for i in 0..=LOG_LINES {
                     log_line("WARN", &format_args!("line {i}"));
                 }
+                ok &= log_to_run("WARN", &format_args!("after the limit"));
+                // A thread that the node starts has no node, so its record goes to the standard error.
+                ok &= !std::thread::scope(|s| s.spawn(|| log_to_run("INFO", &format_args!("thread"))).join().unwrap());
             }
-            true
+            ok
         });
         cluster(f, false)
     }
@@ -232,7 +236,7 @@ fn log_lines_go_to_the_node_that_runs() {
         assert!(run(state, &rep));
         free(state);
     }
-    log_line("INFO", &format_args!("outside a run"));
+    assert!(!log_to_run("INFO", &format_args!("outside a run")));
     let max = LOG_LINES as usize;
     assert_eq!(sent.len(), 2 * (max + 1));
     assert_eq!(sent[0], (3, LOG, "WARN line 0".to_owned()));
