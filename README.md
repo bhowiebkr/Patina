@@ -425,7 +425,8 @@ its ID. The nodes after it do not run, and each one gives a `skipped` message. T
 then 1.
 
 A graph with frame nodes runs its batch nodes one time. Then it runs the frame nodes at 60
-frames each second, until you push Ctrl+C. To run a number of frames and then stop, add
+frames each second, until you push Ctrl+C. Ctrl+C stops the graph cleanly, and the exit code
+is 130. Push Ctrl+C again to end the CLI at once. To run a number of frames and then stop, add
 `--frames <count>`:
 
 ```

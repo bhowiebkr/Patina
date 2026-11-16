@@ -12,6 +12,8 @@ use patina_engine::device::{Notice, Pace};
 use patina_engine::project::GraphFile;
 use patina_engine::{Audio, Cluster, Control, EventRun, Mode, Outcome, Project, Toolchain, package};
 
+mod interrupt;
+
 const USAGE: &str = "usage: patina-cli run <project folder> [--frames <count>] [--blocks <count>] [--events <count>] [--edit]
        patina-cli package <project folder> <package folder> [--edit]";
 
@@ -45,6 +47,10 @@ fn main() -> ExitCode {
         },
     };
     match result {
+        Ok(_) if interrupt::stopped() => {
+            eprintln!("Stopped by Ctrl+C");
+            ExitCode::from(130)
+        }
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::FAILURE,
         Err(e) => {
@@ -139,19 +145,20 @@ fn run_package(dir: &Path, args: &[String]) -> Result<bool, String> {
 /// `counts`. The blocks run on their own thread, at the same time as the frames (9.3). Returns
 /// false when a node failed.
 fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
-    let control = Control::default();
+    interrupt::catch();
+    let control: &Control = &interrupt::CONTROL;
     // A node with a bad parameter does not run, so the graph does not run.
-    if !show(&cluster.set_params(graph)) || !show(&cluster.run(&control)) {
+    if !show(&cluster.set_params(graph)) || !show(&cluster.run(control)) {
         return false;
     }
     // shortcut: the event runs come before the frames and blocks, change it when the event domain gets its own part (9.4).
-    if cluster.events() && !cluster.run_events(counts.events.unwrap_or(u64::MAX), &control, |run| _ = show_run(run)) {
+    if cluster.events() && !cluster.run_events(counts.events.unwrap_or(u64::MAX), control, |run| _ = show_run(run)) {
         return false;
     }
     let has_frames = cluster.frames();
     if !cluster.blocks() {
         let count = if has_frames { counts.frames } else { Some(0) };
-        return frames(|| show(cluster.frame(&control)), count, &AtomicBool::new(false));
+        return frames(|| show(cluster.frame(control)), count, &AtomicBool::new(false));
     }
     let Some((mut frame, mut audio)) = cluster.split() else {
         return between(cluster, counts, has_frames);
@@ -166,7 +173,7 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
     };
     std::thread::scope(|scope| {
         let thread = scope.spawn(|| done(blocks(&mut audio, counts.blocks, &stop), counts.frames.filter(|_| has_frames)));
-        let framed = !has_frames || done(frames(|| show(frame.frame(&control)), counts.frames, &stop), counts.blocks);
+        let framed = !has_frames || done(frames(|| show(frame.frame(control)), counts.frames, &stop), counts.blocks);
         // A panic of the audio thread is a failure of the run.
         thread.join().unwrap_or(false) && framed
     })
@@ -180,7 +187,7 @@ fn frames(mut frame: impl FnMut() -> bool, count: Option<u64>, stop: &AtomicBool
         if n > 0 {
             clock.wait();
         }
-        if stop.load(Relaxed) {
+        if stop.load(Relaxed) || interrupt::stopped() {
             break;
         }
         if !frame() {
@@ -198,7 +205,7 @@ fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
         if block > 0 {
             pace.wait();
         }
-        if stop.load(Relaxed) {
+        if stop.load(Relaxed) || interrupt::stopped() {
             break;
         }
         if !show(audio.block(&control)) {
@@ -214,31 +221,31 @@ fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
 /// thread (9.3). A frame runs before the first block that starts at or after its time. Returns
 /// false when a node failed.
 fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool) -> bool {
-    let (control, mut pace) = (Control::default(), Pace::default());
+    let (control, mut pace): (&Control, _) = (&interrupt::CONTROL, Pace::default());
     let limit = if has_frames { counts.frames.unwrap_or(u64::MAX) } else { 0 };
     let mut frame = 0;
     for block in 0..counts.blocks.unwrap_or(u64::MAX) {
         // A domain without a count runs until each domain with a count is done.
-        if counts.blocks.is_none() && has_frames && counts.frames == Some(frame) {
+        if interrupt::stopped() || (counts.blocks.is_none() && has_frames && counts.frames == Some(frame)) {
             break;
         }
         if block > 0 {
             pace.wait();
         }
         while frame < limit && frame_due(frame, block) {
-            if !show(cluster.frame(&control)) {
+            if !show(cluster.frame(control)) {
                 return false;
             }
             frame += 1;
         }
-        if !show(cluster.block(&control)) {
+        if !show(cluster.block(control)) {
             return false;
         }
         notice(pace.play(cluster.sound().map(|s| s.as_slice())));
     }
     pace.drain();
     let rest = counts.frames.filter(|_| has_frames).map_or(0, |count| count - frame);
-    frames(|| show(cluster.frame(&control)), Some(rest), &AtomicBool::new(false))
+    frames(|| show(cluster.frame(control)), Some(rest), &AtomicBool::new(false))
 }
 
 /// Shows a change of the audio device.

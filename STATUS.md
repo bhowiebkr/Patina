@@ -907,6 +907,10 @@ milestone 5 (9.2).
 - `patina-cli run <folder> --frames <count>` runs the batch domain one time and then the frames
   at 60 FPS. Without `--frames`, it runs frames until Ctrl+C. A late frame skips the missed
   ticks.
+- The first Ctrl+C stops the runs of the CLI. The values that the graph keeps drop, and the
+  exit code is 130. A second Ctrl+C ends the process at once (fixed 2026-11-16). On Windows, a
+  probe sent Ctrl+C to a run without `--frames`. The drop of a frame node ran, and the CLI
+  ended after 0.2 s. The Unix path and a run with audio blocks were not probed.
 - In the editor, **Run** runs the batch domain and then the frames. **Pause**, **Stop**, a
   failed frame or a change that runs the graph again ends the frames. **Step** runs one frame
   of the paused graph. The engine sends an event
@@ -982,7 +986,6 @@ domain free of locks. These limits are still open:
 - A latest-value wire between the batch and the frame domain uses a slot with a lock (9.1).
   The batch run ends before the frames start, so the lock never waits.
 - A batch value that a frame node reads stays after the frames end, until the next batch run.
-- Ctrl+C stops the CLI at once. The values that the frame domain keeps do not drop.
 - These shortcuts are open in the code:
   - The editor copies each frame into a JSON event (`crates/patina-editor/src/engine.rs`).
 
