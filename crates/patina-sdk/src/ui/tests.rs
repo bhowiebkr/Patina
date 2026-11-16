@@ -151,3 +151,42 @@ fn value_widgets_write_their_data_and_take_their_edits() {
     assert_eq!((lines[1].len(), lines[1].contains(&"9")), (2 * WAVE_COLUMNS, true));
     assert!(ui.tree().contains("waveform\tLong\t\t0 0"));
 }
+
+#[test]
+fn a_color_ramp_sorts_its_stops_and_keeps_the_selected_stop_on_a_move() {
+    let mut ramp = ColorRamp { stops: vec![(1.0, [255, 255, 255]), (0.0, [0, 0, 0])], blend: Blend::Linear };
+    let mut selected = 5;
+    let mut ui = Ui::new(0, "0 move 0 0.75");
+    assert!(ui.color_ramp("Ramp", &mut ramp, &mut selected).changed());
+    assert_eq!(ui.tree(), "ramp\tRamp\tlinear\t1\t0 #000000\t1 #ffffff");
+    assert_eq!(ramp.stops, vec![(0.75, [0, 0, 0]), (1.0, [255, 255, 255])]);
+    assert_eq!(selected, 0);
+    assert_eq!(ramp.color(0.875), [128, 128, 128]);
+    for (event, stops, at) in [
+        ("0 add 0.875", 3, 1),
+        ("0 color 1 #ff8000", 2, 1),
+        ("0 remove 1", 1, 0),
+        ("0 select 1", 2, 1),
+    ] {
+        let mut copy = ramp.clone();
+        let mut ui = Ui::new(0, event);
+        assert!(ui.color_ramp("", &mut copy, &mut selected).changed(), "{event}");
+        assert_eq!((copy.stops.len(), selected), (stops, at), "{event}");
+    }
+    let mut ui = Ui::new(0, "0 blend constant");
+    ui.color_ramp("", &mut ramp, &mut selected);
+    assert_eq!(ramp.color(0.99), [0, 0, 0]);
+}
+
+#[test]
+fn a_bad_ramp_event_changes_nothing_and_a_ramp_keeps_one_stop() {
+    let one = ColorRamp { stops: vec![(0.5, [1, 2, 3])], blend: Blend::Ease };
+    for event in ["0 remove 0", "0 move 3 0.5", "0 move 0 NaN", "0 color 0 #ff80", "0 blend smooth", "0 select x", "0 jump 0"] {
+        let (mut ramp, mut selected) = (one.clone(), 0);
+        let mut ui = Ui::new(0, event);
+        assert!(!ui.color_ramp("", &mut ramp, &mut selected).changed(), "{event}");
+        assert_eq!(ramp, one, "{event}");
+    }
+    assert_eq!(ColorRamp::default().color(0.5), [0, 0, 0]);
+    assert_eq!(one.color(0.0), [1, 2, 3]);
+}

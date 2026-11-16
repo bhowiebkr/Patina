@@ -5,22 +5,22 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, typ
 import type { Widget } from './gui';
 
 type Of<K extends Widget['kind']> = Extract<Widget, { kind: K }>;
-interface Input<K extends Widget['kind']> {
+export interface Input<K extends Widget['kind']> {
   w: Of<K>;
   send: (value: number | string) => void;
   disabled: boolean;
 }
 
-const round = (v: number) => Math.round(v * 1000) / 1000;
-const clamp = (v: number) => Math.min(Math.max(v, 0), 1);
+export const round = (v: number) => Math.round(v * 1000) / 1000;
+export const clamp = (v: number) => Math.min(Math.max(v, 0), 1);
 
 /** A key that a widget uses does not also select, move or delete the node (GraphView, React Flow). */
-function own(e: KeyboardEvent) {
+export function own(e: KeyboardEvent) {
   e.preventDefault();
   e.stopPropagation();
 }
 
-function Titled({ text, children }: { text: string; children: ReactNode }) {
+export function Titled({ text, children }: { text: string; children: ReactNode }) {
   return (
     <div className="gui-canvas-row">
       {text && <span className="label">{text}</span>}
@@ -29,21 +29,25 @@ function Titled({ text, children }: { text: string; children: ReactNode }) {
   );
 }
 
-/** The native change event comes when the picker closes, so a pick runs the graph one time. */
-export function ColorPicker({ w, send, disabled }: Input<'color'>) {
+/** A color input. The native change event comes when the picker closes, so a pick runs the graph one time. */
+export function ColorInput({ value, label, send, disabled }: { value: string; label?: string; send: (value: string) => void; disabled: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const input = ref.current;
     if (!input) return;
-    if (document.activeElement !== input) input.value = w.value;
-    const change = () => input.value !== w.value && send(input.value);
+    if (document.activeElement !== input) input.value = value;
+    const change = () => input.value !== value && send(input.value);
     input.addEventListener('change', change);
     return () => input.removeEventListener('change', change);
-  }, [w.value, send]);
+  }, [value, send]);
+  return <input ref={ref} type="color" className="gui-color" defaultValue={value} aria-label={label} disabled={disabled} />;
+}
+
+export function ColorPicker({ w, send, disabled }: Input<'color'>) {
   return (
     <label className="gui-row">
       <span className="label">{w.text}</span>
-      <input ref={ref} type="color" className="gui-color" defaultValue={w.value} disabled={disabled} />
+      <ColorInput value={w.value} send={send} disabled={disabled} />
       <span className="gui-value">{w.value}</span>
     </label>
   );

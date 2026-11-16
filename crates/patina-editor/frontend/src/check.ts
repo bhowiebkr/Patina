@@ -585,6 +585,18 @@ fn broken() -> u32 {
     if (!rotate()?.querySelector('svg')) throw new Error('the icon button has no icon');
     rotate()!.click();
     await until('the progress bar after a click on the icon button', RUN_MS, () => document.querySelector(`${gui} [role="progressbar"]`)?.getAttribute('aria-valuenow') === '25');
+    const stops = () => document.querySelectorAll<HTMLElement>(`${gui} .ramp-stop`);
+    if (stops().length !== 3) throw new Error(`the color ramp has ${stops().length} stops, not 3`);
+    const bar = document.querySelector<HTMLElement>(`${gui} .ramp-bar`)!.getBoundingClientRect();
+    const quarter = { bubbles: true, button: 0, pointerId: 1, isPrimary: true, detail: 1, clientX: bar.left + bar.width / 4, clientY: bar.top + 5 };
+    document.querySelector(`${gui} .ramp-bar`)!.dispatchEvent(new PointerEvent('pointerdown', quarter));
+    await until('the stop that a click on the ramp adds', RUN_MS, () => stops().length === 4 && stops()[1].classList.contains('selected') && stops()[1].getAttribute('aria-valuenow') === '0.25');
+    stops()[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    await until('the ramp after a remove of the stop', RUN_MS, () => stops().length === 3);
+    const blend = () => document.querySelector<HTMLSelectElement>(`${gui} select[aria-label="Ramp blend"]`)!;
+    blend().value = 'constant';
+    blend().dispatchEvent(new Event('change', { bubbles: true }));
+    await until('the constant blend of the ramp', RUN_MS, () => blend().value === 'constant');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

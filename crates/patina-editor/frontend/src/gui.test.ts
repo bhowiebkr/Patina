@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { eventLine, nest, nodeWidth, parseTree, stepped } from './gui.ts';
+import { eventLine, nest, nodeWidth, parseTree, rampGradient, stepped } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
   const tree = 'label\tTick\nwheel\tX\nbutton\tReset\ntoggle\tOn\t1\nslider\tCount\t2.5\t0\t10\nslider\tBad\tx\t0\t1';
@@ -117,6 +117,22 @@ test('icon buttons on adjacent lines share a row, and a progress bar is from 0 t
     { kind: 'icons', index: 3, items: [{ kind: 'icon', index: 3, text: 'Play', icon: 'play' }] },
     { kind: 'progress', index: 4, text: 'Frames', done: 0.5 },
   ]);
+});
+
+test('a color ramp reads its stops in the limits, and a bad blend or color drops the line', () => {
+  const tree = ['ramp\tMap\tease\t1\t0 #000000\t1.5 #ffffff', 'ramp\tBad\tsmooth\t0\t0 #000000', 'ramp\tBad\tlinear\t0\t0 #fff', 'ramp\tBad\tlinear\t0.5\t0 #000000'].join('\n');
+  assert.deepEqual(parseTree(tree), [
+    { kind: 'ramp', index: 0, text: 'Map', blend: 'ease', selected: 1, stops: [[0, '#000000'], [1, '#ffffff']] },
+  ]);
+});
+
+test('a ramp gradient has hard edges for a constant blend and spans the bar for one stop', () => {
+  assert.equal(rampGradient([], 'linear'), 'none');
+  assert.equal(rampGradient([[0.5, '#ff0000']], 'linear'), 'linear-gradient(to right, #ff0000 0%, #ff0000 50%, #ff0000 100%)');
+  assert.equal(
+    rampGradient([[0, '#000000'], [0.5, '#ffffff']], 'constant'),
+    'linear-gradient(to right, #000000 0%, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
+  );
 });
 
 test('a viewport has a height in the limits', () => {

@@ -2,8 +2,10 @@
 
 import { createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from './api';
-import { eventLine, nest, parseTree, stepped, type Block, type Shape, type Widget } from './gui';
+import { Field } from './Field';
+import { eventLine, nest, parseTree, type Block, type Shape, type Widget } from './gui';
 import { guiIcon } from './icons';
+import { ColorRamp } from './Ramp';
 import { ColorPicker, Curve, Picture, Plot, Progress, Table, Waveform } from './ValueWidgets';
 import { ViewportView } from './Viewport';
 
@@ -116,63 +118,6 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
     </div>
   );
 }
-
-/** A field that sends its value on Enter or when it loses the focus, and Esc restores it. A number
- * field with a step also has step buttons, and the up and down arrows step it. */
-function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 'text' }>; send: (value: number | string) => void; disabled: boolean }) {
-  const shown = String(w.value);
-  const [draft, setDraft] = useState<string | null>(null);
-  const commit = () => {
-    if (draft === null) return;
-    setDraft(null);
-    if (draft === shown) return;
-    if (w.kind === 'text') send(draft);
-    else if (draft.trim() !== '' && Number.isFinite(Number(draft))) send(Number(draft));
-  };
-  const step = w.kind === 'number' ? w.step : 0;
-  const by = (count: number) => {
-    setDraft(null);
-    if (w.kind === 'number') send(stepped(w.value, w.step, count));
-  };
-  return (
-    <label className="gui-row">
-      <span className="label">{w.text}</span>
-      <input
-        className="field gui-field"
-        inputMode={w.kind === 'number' ? 'decimal' : undefined}
-        value={draft ?? shown}
-        disabled={disabled}
-        onChange={(e) => setDraft(e.currentTarget.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit();
-          else if (e.key === 'Escape') setDraft(null);
-          else if (step && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-            e.preventDefault();
-            by(e.key === 'ArrowUp' ? 1 : -1);
-          }
-        }}
-      />
-      {w.kind === 'number' && w.unit && <span className="gui-unit">{w.unit}</span>}
-      {step > 0 && (
-        <span className="gui-steps">
-          <button className="icon-btn gui-step" aria-label={`Decrease ${w.text}`} title={`-${step}`} disabled={disabled} onClick={() => by(-1)}>
-            <Icon d="M3 6h6" />
-          </button>
-          <button className="icon-btn gui-step" aria-label={`Increase ${w.text}`} title={`+${step}`} disabled={disabled} onClick={() => by(1)}>
-            <Icon d="M3 6h6M6 3v6" />
-          </button>
-        </span>
-      )}
-    </label>
-  );
-}
-
-const Icon = ({ d }: { d: string }) => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-    <path d={d} />
-  </svg>
-);
 
 /** A row of tabs (controls guide). The node shows the widgets of the selected tab after it. */
 function Tabs({ w, send, disabled }: { w: Extract<Widget, { kind: 'tabs' }>; send: (value: number) => void; disabled: boolean }) {
@@ -301,6 +246,8 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
             return <Table key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'curve':
             return <Curve key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'ramp':
+            return <ColorRamp key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'image':
             return <Picture key={w.index} w={w} />;
         }

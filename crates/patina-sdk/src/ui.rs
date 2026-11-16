@@ -4,6 +4,9 @@
 use std::fmt::Write;
 use std::ops::RangeInclusive;
 
+mod ramp;
+pub use ramp::{Blend, ColorRamp};
+
 /// The most values of a plot line. A longer line sends the lowest and the highest value of parts.
 const MAX_PLOT: usize = 1024;
 /// The columns of a waveform.

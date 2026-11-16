@@ -691,7 +691,7 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   two runs, with the user input as events, and gives the widget lines. The `Ui` has the basic
   widgets (a label, a button, an icon button, a toggle, a slider, a number field with an optional unit and step
   buttons, a text field, a dropdown, tabs and a section that opens and closes)
-  and the value widgets (a color picker, a plot with optional axes and units, a scatter plot, a
+  and the value widgets (a color picker, a color ramp, a plot with optional axes and units, a scatter plot, a
   waveform with optional trim handles, a table, a curve with an optional histogram, a progress
   bar and an image).
   After the events, `ui` runs one more time, so the widget lines show the new state. A panic in `ui` drops the state, as in `process`.
@@ -740,6 +740,11 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - The `Ui` test writes an icon button and a progress bar, and keeps a bad progress value at 0.
   The frontend test puts icon buttons on adjacent lines into one row and drops a progress
   value above 1.
+- The `Ui` test sorts the stops of a color ramp, keeps the selected stop on a move, and adds,
+  colors, removes and selects stops. A bad ramp event changes nothing, and a ramp keeps one
+  stop. The frontend test drops a ramp line with a bad blend or color, and draws the gradient.
+- An engine test finds each source file of the SDK crates in the files that the engine writes
+  into a project. A new SDK file that is not in the list fails the test, not the project build.
 - The hello test moves the **Count** slider of the tick node to 7. The widget lines after the
   event showed 7, not the old count.
 - The editor selfcheck shows the value widgets in the node body. A click on a table row
@@ -759,7 +764,7 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
   value widget, selects a table row, steps a number field, selects a tab, opens a section, moves a trim
-  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, and shows the large size in the **Inspector**. No check
+  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, and shows the large size in the **Inspector**. No check
   drags a curve point or a trim handle, or picks a color in the editor.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The

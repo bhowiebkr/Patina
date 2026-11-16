@@ -22,7 +22,15 @@ export type Widget =
   | { kind: 'waveform'; index: number; text: string; playhead: number | null; columns: [number, number][]; trim: [number, number] | null }
   | { kind: 'table'; index: number; text: string; headings: string[]; rows: string[][]; selected: number | null }
   | { kind: 'curve'; index: number; text: string; points: [number, number][]; histogram: number[] }
+  | { kind: 'ramp'; index: number; text: string; blend: Blend; selected: number; stops: Stop[] }
   | { kind: 'image'; index: number; text: string; width: number; height: number; rgba: string };
+
+/** The position from 0 to 1 and the color of a color ramp stop. */
+export type Stop = [number, string];
+
+/** How a color ramp blends the colors between two stops, as `patina_sdk::Blend`. */
+export const BLENDS = ['linear', 'ease', 'constant'] as const;
+export type Blend = (typeof BLENDS)[number];
 
 /** The x range and the units of x and y of a plot. */
 export interface Axes {
@@ -38,6 +46,7 @@ export type Shape =
   | { kind: 'text'; x: number; y: number; color: string; text: string };
 
 const COUNTS: Record<string, number> = { line: 4, rect: 4, circle: 3, text: 2 };
+const COLOR = /^#[0-9a-f]{6}$/;
 // The largest canvas side in pixels, so a bad tree cannot make a huge element.
 const MAX_SIDE = 4096;
 // The limits of the value widgets. `patina_sdk::Ui` keeps to them, and a bad tree cannot pass them.
@@ -47,6 +56,7 @@ const MAX_COLUMNS = 32;
 const MAX_POINTS = 256;
 const MAX_BINS = 256;
 const MAX_PIXELS = 256 * 256;
+const MAX_STOPS = 32;
 // The deepest section in a section. A deeper section shows its widgets in its parent.
 const MAX_DEPTH = 8;
 
@@ -57,7 +67,7 @@ function parseShape(field: string): Shape | null {
   if (count === undefined) return null;
   const n = words.slice(0, count).map(Number);
   const color = words[count] ?? '';
-  if (n.length < count || !n.every(Number.isFinite) || !/^#[0-9a-f]{6}$/.test(color)) return null;
+  if (n.length < count || !n.every(Number.isFinite) || !COLOR.test(color)) return null;
   const fill = words[count + 1] === '1';
   if (kind === 'line') return { kind, x1: n[0], y1: n[1], x2: n[2], y2: n[3], color };
   if (kind === 'rect') return n[2] >= 0 && n[3] >= 0 ? { kind, x: n[0], y: n[1], w: n[2], h: n[3], color, fill } : null;
@@ -72,7 +82,7 @@ function numbers(field: string | undefined, max: number): number[] {
 
 /** Reads a value widget line, or null when it is bad. */
 function parseValue(kind: string, index: number, text: string, rest: string[]): Widget | null {
-  if (kind === 'color') return /^#[0-9a-f]{6}$/.test(rest[0] ?? '') ? { kind, index, text, value: rest[0] } : null;
+  if (kind === 'color') return COLOR.test(rest[0] ?? '') ? { kind, index, text, value: rest[0] } : null;
   if (kind === 'plot' || kind === 'scatter') {
     const [low, high, , xLow, xHigh] = rest.map(Number);
     const axes: Axes | null = rest.length > 3 ? { x: [xLow, xHigh], units: [rest[5] ?? '', rest[6] ?? ''] } : null;
@@ -102,6 +112,13 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
     // A bar that is not a positive number is empty.
     const histogram = numbers(rest[0], MAX_BINS).map((v) => (v > 0 && Number.isFinite(v) ? v : 0));
     return { kind, index, text, points: points.map(([x, y]): [number, number] => [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)]), histogram };
+  }
+  if (kind === 'ramp') {
+    const blend = BLENDS.find((b) => b === rest[0]);
+    const selected = Number(rest[1]);
+    const stops = rest.slice(2, 2 + MAX_STOPS).map((f): Stop => [Number(f.split(' ')[0]), f.split(' ')[1] ?? '']);
+    if (!blend || !Number.isInteger(selected) || !stops.every(([at, color]) => Number.isFinite(at) && COLOR.test(color))) return null;
+    return { kind, index, text, blend, selected, stops: stops.map(([at, color]): Stop => [Math.min(Math.max(at, 0), 1), color]) };
   }
   if (kind === 'image') {
     const [width, height] = rest.map(Number);
@@ -186,6 +203,33 @@ export function nest(widgets: Widget[]): Block[] {
     }
   }
   return root;
+}
+
+/** A color between `a` and `b`, at `t` from 0 to 1. */
+function mix(a: string, b: string, t: number): string {
+  const channel = (c: string, i: number) => parseInt(c.slice(1 + 2 * i, 3 + 2 * i), 16);
+  return `#${[0, 1, 2].map((i) => Math.round(channel(a, i) + (channel(b, i) - channel(a, i)) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** The CSS gradient of a color ramp, with the colors of `patina_sdk::ColorRamp::color`. An ease
+ * blend gets 8 parts between two stops. */
+export function rampGradient(stops: Stop[], blend: Blend): string {
+  if (stops.length === 0) return 'none';
+  const pct = (at: number) => `${Math.round(at * 10000) / 100}%`;
+  const parts = [`${stops[0][1]} 0%`];
+  stops.forEach(([at, color], i) => {
+    const before = stops[i - 1];
+    if (before && blend === 'constant') parts.push(`${before[1]} ${pct(at)}`);
+    if (before && blend === 'ease') {
+      for (let k = 1; k < 8; k++) {
+        const t = k / 8;
+        parts.push(`${mix(before[1], color, t * t * (3 - 2 * t))} ${pct(before[0] + (at - before[0]) * t)}`);
+      }
+    }
+    parts.push(`${color} ${pct(at)}`);
+  });
+  parts.push(`${stops[stops.length - 1][1]} 100%`);
+  return `linear-gradient(to right, ${parts.join(', ')})`;
 }
 
 /** `value` plus `count` steps. The rounding to 12 digits removes the float error, so 0.1 + 0.2 is 0.3. */

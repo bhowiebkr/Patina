@@ -3,7 +3,7 @@
 /// The SDK crates that a project builds with. The engine carries their source.
 /// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
 /// projects do not build `wgpu` or `cudarc`.
-pub(super) const SDK_FILES: [(&str, &str); 25] = [
+pub(super) const SDK_FILES: [(&str, &str); 26] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -21,6 +21,7 @@ pub(super) const SDK_FILES: [(&str, &str); 25] = [
     ("build/sdk/patina-sdk/src/graph.rs", include_str!("../../../patina-sdk/src/graph.rs")),
     ("build/sdk/patina-sdk/src/view.rs", include_str!("../../../patina-sdk/src/view.rs")),
     ("build/sdk/patina-sdk/src/ui.rs", include_str!("../../../patina-sdk/src/ui.rs")),
+    ("build/sdk/patina-sdk/src/ui/ramp.rs", include_str!("../../../patina-sdk/src/ui/ramp.rs")),
     (
         "build/sdk/patina-macros/Cargo.toml",
         "[package]\nname = \"patina-macros\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -54,3 +55,32 @@ pub(super) const SDK_FILES: [(&str, &str); 25] = [
     ),
     ("build/sdk/patina-event/src/lib.rs", include_str!("../../../patina-event/src/lib.rs")),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::SDK_FILES;
+    use std::path::Path;
+
+    /// Each source file of an SDK crate goes into the project, or the project does not compile.
+    /// The `tests.rs` files are only for the tests of the SDK.
+    #[test]
+    fn the_engine_carries_each_source_file_of_the_sdk_crates() {
+        let crates = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut dirs: Vec<_> = ["patina-sdk", "patina-macros", "patina-gpu", "patina-cuda", "patina-event"]
+            .iter()
+            .map(|name| (format!("build/sdk/{name}/src/"), crates.join(name).join("src")))
+            .collect();
+        while let Some((prefix, dir)) = dirs.pop() {
+            for entry in std::fs::read_dir(&dir).unwrap() {
+                let path = entry.unwrap().path();
+                let file = path.file_name().unwrap().to_str().unwrap();
+                let want = format!("{prefix}{file}");
+                if path.is_dir() {
+                    dirs.push((want + "/", path));
+                } else if file != "tests.rs" {
+                    assert!(SDK_FILES.iter().any(|(p, _)| *p == want), "{want} is not in SDK_FILES");
+                }
+            }
+        }
+    }
+}

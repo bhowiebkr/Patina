@@ -11,7 +11,7 @@ mod view;
 pub use audio::AudioBlock;
 pub use graph::Graph;
 pub use patina_macros::{connection, node, view};
-pub use ui::{Canvas, Key, Mode, Number, Pointer, Response, Ui, Viewport, Widget};
+pub use ui::{Blend, Canvas, ColorRamp, Key, Mode, Number, Pointer, Response, Ui, Viewport, Widget};
 pub use view::{Lanes, Text, Viewer};
 
 /// One value of type `T` for the whole process, also across clusters (10.2). The first call makes

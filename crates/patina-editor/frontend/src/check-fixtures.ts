@@ -54,11 +54,13 @@ pub struct Number {
     more: bool,
     trim: [f32; 2],
     turns: u32,
+    ramp: patina_sdk::ColorRamp,
+    stop: usize,
 }
 
 impl Number {
     pub fn init() -> Self {
-        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0], turns: 0 }
+        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0], turns: 0, ramp: patina_sdk::ColorRamp { stops: vec![(0.0, [24, 32, 96]), (0.62, [232, 163, 61]), (1.0, [250, 240, 220])], blend: patina_sdk::Blend::Linear }, stop: 1 }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -75,6 +77,7 @@ impl Number {
         ui.progress("Turns", self.turns as f32 / 4.0);
         ui.color("Tint", &mut self.tint);
         ui.number_unit("Gain", &mut self.gain, 0.5, "dB");
+        ui.color_ramp("Ramp", &mut self.ramp, &mut self.stop);
         ui.tabs("Pages", &mut self.page, &["Values", "Shape"]);
         ui.section("More", &mut self.more, |ui| ui.label("Hidden detail"));
         let wave: Vec<f32> = (0..400).map(|i| (i as f32 * 0.2).sin() * (1.0 - i as f32 / 400.0)).collect();
