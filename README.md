@@ -156,6 +156,8 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 - Press Shift+L to arrange the selected nodes in columns, with the signal from left to right.
   With fewer than two nodes selected, Shift+L arranges the full graph.
 - One output can feed many inputs. Splitting or joining a value takes a node.
+- During a wire drag, the sockets that fit the type get an amber ring, and the other sockets
+  dim. The build does the full type check.
 - To connect a wire to another socket, drag its end from next to the socket to the new socket.
   The wire keeps its name and its look. Undo puts it back.
 - An order wire carries no data. It makes one node run before another node, for example for

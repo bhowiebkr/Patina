@@ -7,7 +7,7 @@ import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
-import { outputTypeOf } from './palette';
+import { outputTypeOf, socketKey } from './palette';
 import { nodeWidth } from './gui';
 import { DomainIcon, KindIcon } from './icons';
 
@@ -329,10 +329,10 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
       {inputs.map((pin, i) => (
-        <PinHandle key={`i-${pin.key}`} pin={pin} output={false} editable={editable} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />
+        <PinHandle key={`i-${pin.key}`} pin={pin} generics={info?.generics} output={false} editable={editable} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />
       ))}
       {outputs.map((pin, i) => (
-        <PinHandle key={`o-${pin.key}`} pin={pin} output editable={editable} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
+        <PinHandle key={`o-${pin.key}`} pin={pin} generics={info?.generics} output editable={editable} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
       ))}
       <Handle id={ORDER} type="target" position={Position.Left} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Order wire from a node that runs before this node" />
       <Handle id={ORDER} type="source" position={Position.Right} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Drag to a node that must run after this node" />
@@ -368,7 +368,7 @@ function PinLabel({ pin }: { pin: Pin | undefined }) {
 }
 
 /** The pin of a row: a dot, or a bar as wide as the ribbon of a bus socket (15.9). */
-function PinHandle({ pin, output, editable, top, socket }: { pin: Pin; output: boolean; editable: boolean; top: number; socket: Socket | undefined }) {
+function PinHandle({ pin, generics = [], output, editable, top, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; top: number; socket: Socket | undefined }) {
   const style = socket ? { top, height: socketBar(socket.bits.length) } : { top };
   return (
     <Handle
@@ -378,6 +378,7 @@ function PinHandle({ pin, output, editable, top, socket }: { pin: Pin; output: b
       isConnectable={editable}
       className={socket ? 'bus-pin' : undefined}
       style={style}
+      data-ty={socketKey(pin.ty, generics)}
     />
   );
 }
@@ -417,6 +418,7 @@ export function PortView({ id, data }: NodeProps<PortNode>) {
         position={input ? Position.Right : Position.Left}
         className={socket ? 'bus-pin' : undefined}
         style={socket ? { top: socketPin(HEADER + PAD, socket.bits.length), height: socketBar(socket.bits.length) } : { top: HEADER / 2 }}
+        data-ty={socketKey(ty, ['?'])}
       />
     </div>
   );

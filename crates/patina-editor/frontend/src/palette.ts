@@ -27,14 +27,27 @@ interface Pins {
   generics: readonly string[];
 }
 
-/**
- * The key of the first pin of `node` that a wire can join to a pin of type `ty`, an output when
- * `output`. A pin whose type is a type parameter of the node joins all types (4.5).
- */
+/** The type key of a socket, or '*' for a type parameter of the node, which joins all types (4.5). */
+export function socketKey(ty: string, generics: readonly string[]): string {
+  return generics.includes(ty) ? '*' : typeKey(ty);
+}
+
+/** The key of the first pin of `node` that a wire can join to a pin of type `ty`, an output when `output`. */
 export function matchPin(node: Pins, output: boolean, ty: string): string | undefined {
   // shortcut: drops the module paths, so two types of one name in two modules match; rustc checks at build time.
-  const fits = (pinTy: string) => node.generics.includes(pinTy) || typeKey(pinTy) === typeKey(ty);
+  const fits = (pinTy: string) => [typeKey(ty), '*'].includes(socketKey(pinTy, node.generics));
   return (output ? node.inputs : node.outputs).find((p) => fits(p.ty))?.key;
+}
+
+/**
+ * The CSS of a wire drag from a `side` socket with the type key `key`, or 'order' (15.9). The
+ * sockets of the other side that fit get an accent ring, and all other sockets dim.
+ */
+export function dragStyle(side: 'source' | 'target', key: string): string {
+  const h = `.react-flow .react-flow__handle.${side === 'source' ? 'target' : 'source'}`;
+  const quote = (s: string) => `"${s.replace(/["\\]/g, '\\$&')}"`;
+  const fit = key === 'order' ? `${h}.order-pin` : `${h}:not(.order-pin)${key === '*' ? '' : `:is([data-ty="*"], [data-ty=${quote(key)}])`}`;
+  return `.react-flow .react-flow__handle:not(.connectingfrom) { opacity: 0.3; }\n${fit} { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }`;
 }
 
 /**

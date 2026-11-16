@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { matchNodes, matchPin, outputTypeOf, wireType } from './palette.ts';
+import { dragStyle, matchNodes, matchPin, outputTypeOf, socketKey, wireType } from './palette.ts';
 
 const nodes = ['show', 'number', 'sum', 'Noise'].map((name) => ({ name }));
 const names = (query: string) => matchNodes(nodes, query).map((n) => n.name);
@@ -58,4 +58,15 @@ test('a delay output has the type of its input wire, also through a loop of dela
   const wires = new Map([['d1.value', 'a.out'], ['d2.value', 'd1.out'], ['d3.value', 'd4.out'], ['d4.value', 'd3.out']]);
   const ty = (from: string) => outputTypeOf(from, pins, (to) => wires.get(to));
   assert.deepEqual(['a.out', 'd1.out', 'd2.out', 'd3.out', 'd5.out'].map(ty), ['f64', 'f64', 'f64', 'T', 'T']);
+});
+
+test('a wire drag rings the sockets of the other side that fit, and an order drag rings order sockets', () => {
+  assert.deepEqual(['T', 'std::vec::Vec<u8>', '&str'].map((ty) => socketKey(ty, ['T'])), ['*', 'Vec<u8>', 'String']);
+  const fit = (css: string) => css.split('\n')[1].replace(' { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }', '');
+  const h = '.react-flow .react-flow__handle';
+  assert.equal(fit(dragStyle('source', 'f64')), `${h}.target:not(.order-pin):is([data-ty="*"], [data-ty="f64"])`);
+  assert.equal(fit(dragStyle('target', '*')), `${h}.source:not(.order-pin)`);
+  assert.equal(fit(dragStyle('source', 'order')), `${h}.target.order-pin`);
+  assert.equal(fit(dragStyle('source', 'a"b\\c')), `${h}.target:not(.order-pin):is([data-ty="*"], [data-ty="a\\"b\\\\c"])`);
+  assert.match(dragStyle('source', 'f64'), /^\.react-flow \.react-flow__handle:not\(\.connectingfrom\) \{ opacity: 0\.3; \}\n/);
 });

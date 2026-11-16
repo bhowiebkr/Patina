@@ -112,14 +112,19 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   const D = 'd000000000000004';
   v = await step('add a delay', () => api.edit({ kind: 'AddNode', id: D, folder: 'delay', builtin: true, pos: [300, 300] }));
   await until('the kind icons', RUN_MS, () => icon(A, 'kind-icon.function') && icon(D, 'kind-icon.stateful'));
-  // A drag on the end of the wire moves it to the delay (15.9). The batch value to the delay goes
-  // on a dashed wire (15.3). One undo gives the wire to B again.
+  // A drag on the end of the wire moves it to the delay (15.9). During the drag, the sockets that
+  // fit get an accent ring and the order sockets dim. The batch value to the delay goes on a dashed
+  // wire (15.3). One undo gives the wire to B again.
   const mid = (el: Element, b = el.getBoundingClientRect()) => ({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
   const end = document.querySelector(`.react-flow__edge[data-id="${A}.out>${B}.value"] .react-flow__edgeupdater-target`)!;
   const socket = document.querySelector(`.react-flow__node[data-id="${D}"] .react-flow__handle.target[data-handleid="value"]`)!;
   end.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ...mid(end) }));
+  const order = document.querySelector(`.react-flow__node[data-id="${D}"] .react-flow__handle.target.order-pin`)!;
+  const look = (el: Element) => getComputedStyle(el);
   document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...mid(socket) }));
+  await until('a ring on the fit socket and a dim order socket', RUN_MS, () => look(socket).boxShadow.includes('223, 166, 75') && look(socket).opacity === '1' && look(order).opacity === '0.3');
   socket.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...mid(socket) }));
+  await until('no dim socket after the drop', RUN_MS, () => look(order).opacity === '1');
   await until('the wire moved to the delay', RUN_MS, () => !!document.querySelector(`.react-flow__edge[data-id="${A}.out>${D}.value"]`) && !document.querySelector(`.react-flow__edge[data-id="${A}.out>${B}.value"]`));
   await until('the domain icons', RUN_MS, () => icon(A, 'domain-icon.batch') && icon(D, 'domain-icon.frame'));
   await until('a dashed cross-domain wire', RUN_MS, () => document.querySelectorAll('.wire-line.cross').length === 1);
@@ -127,6 +132,6 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   if (v.graph.wire?.length !== 1 || v.graph.wire[0].to !== `${B}.value`) throw new Error(`undo did not give the wire to B: ${JSON.stringify(v.graph.wire)}`);
   await until('no dashed wire after the undo', RUN_MS, () => document.querySelector('.wire-line.cross') === null);
   v = await step('undo the delay', () => api.undo());
-  steps.push('domain icons, a wire end moved and a dashed cross-domain wire');
+  steps.push('domain icons, a wire end moved to a ringed socket and a dashed cross-domain wire');
   return v;
 }

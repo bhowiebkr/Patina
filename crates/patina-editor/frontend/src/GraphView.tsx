@@ -7,6 +7,7 @@ import {
   ReactFlow,
   applyEdgeChanges,
   applyNodeChanges,
+  useConnection,
   useReactFlow,
   type Connection,
   type Edge,
@@ -23,7 +24,7 @@ import { newId, type Domain, type Edit, type KindInfo, type NodeInfo, type Pin, 
 import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
 import { savedViewport, saveViewport } from './Dock';
 import { NodeEdit, NodeView, ORDER, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
-import { matchPin } from './palette';
+import { dragStyle, matchPin, socketKey } from './palette';
 import { OrderEdge, WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { Labels } from './labels';
 import { Router } from './route';
@@ -220,6 +221,16 @@ function disconnectEdit(edge: Edge<WireData>): Edit {
   return { kind: 'Disconnect', from, to };
 }
 
+/** The type key of the socket `key` of `node` for the drag highlight (15.9): 'order', a type key or '*'. */
+function dragKey(view: View, node: string, key: string, output: boolean): string {
+  if (key === ORDER) return 'order';
+  if (portKey(node)) return socketKey(portTypes(view).get(node) ?? '?', ['?']);
+  const entry = view.graph.node?.find((n) => n.id === node);
+  const info = entry && infoOf(entry, view.nodes);
+  const ty = output ? outputType(view, `${node}.${key}`) : info?.inputs.find((p) => p.key === key)?.ty;
+  return ty === undefined ? '*' : socketKey(ty, info?.generics ?? []);
+}
+
 /** An order socket connects only to an order socket (9.2). */
 function orderMatch(c: Edge | Connection): boolean {
   return (c.sourceHandle === ORDER) === (c.targetHandle === ORDER);
@@ -259,6 +270,13 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const [labels] = useState(() => new Labels());
   const [hover] = useState(() => new HoverStore());
   const [glOk, setGlOk] = useState(true);
+  // The socket of a wire drag, as a string so that a pointer move does not render the graph again.
+  const from = useConnection((c) => (c.inProgress ? JSON.stringify([c.fromHandle.type, c.fromHandle.nodeId, c.fromHandle.id ?? '']) : ''));
+  const dragCss = useMemo(() => {
+    if (!from) return '';
+    const [side, node, key] = JSON.parse(from) as ['source' | 'target', string, string];
+    return dragStyle(side, dragKey(view, node, key, side === 'source'));
+  }, [from, view]);
   // The screen point of the open Add node palette, with the pin of a wire that it ends, and the
   // last pointer point over the canvas.
   const [palette, setPalette] = useState<{ x: number; y: number; end?: FreeEnd } | null>(null);
@@ -487,6 +505,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           <Background id="major" variant={BackgroundVariant.Lines} gap={100} color="#292929" bgColor="transparent" />
           <WireLayer store={wires} onReady={setGlOk} />
         </ReactFlow>
+        {dragCss && <style>{dragCss}</style>}
         {palette && (
           <AddNode
             x={palette.x}
