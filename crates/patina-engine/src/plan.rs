@@ -405,10 +405,13 @@ fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -
 
 /// True when the crate folder `<group>/<name>` has the `log` crate in `[dependencies]` (15.7).
 // shortcut: a renamed `log` or a `log` of a target table does not count, read them when a person needs it.
+/// True when a folder depends on the `log` crate (15.7), also in a target table or with another name.
 fn uses_log(root: &Path, group: &str, name: &str) -> bool {
     let text = std::fs::read_to_string(root.join(group).join(name).join("Cargo.toml")).unwrap_or_default();
     let manifest: toml::Table = text.parse().unwrap_or_default();
-    manifest.get("dependencies").and_then(|d| d.as_table()).is_some_and(|d| d.contains_key("log"))
+    let is_log = |(key, dep): (&String, &toml::Value)| dep.get("package").and_then(|p| p.as_str()).unwrap_or(key) == "log";
+    let has_log = |t: &toml::Table| t.get("dependencies").and_then(|d| d.as_table()).is_some_and(|d| d.iter().any(is_log));
+    has_log(&manifest) || manifest.get("target").and_then(|t| t.as_table()).is_some_and(|t| t.values().filter_map(|v| v.as_table()).any(has_log))
 }
 
 /// Reads each connection kind in `connections/` (6.3), sorted by folder name. A kind folder with
@@ -761,5 +764,32 @@ to = \"000000000000000f.value\"
         let latest = latest.unwrap_or_else(|p| panic!("{p:?}"));
         let parts: Vec<(Domain, &[usize])> = latest.tasks.iter().map(|t| (t.domain, &t.steps[..])).collect();
         assert_eq!(parts, [(Domain::Batch, &[0][..]), (Domain::Frame, &[1][..])], "a task holds the steps of one domain");
+    }
+
+    #[test]
+    fn the_log_crate_is_found_in_a_target_table_and_under_another_name() {
+        let root = std::env::temp_dir().join(format!("patina-log-{}", std::process::id()));
+        let manifests = [
+            ("plain", "[dependencies]
+log = \"0.4\"
+"),
+            ("target", "[target.'cfg(windows)'.dependencies]
+log = \"0.4\"
+"),
+            ("renamed", "[dependencies]
+logging = { package = \"log\", version = \"0.4\" }
+"),
+            ("other", "[dependencies]
+log = { package = \"not-log\", version = \"1\" }
+logos = \"0.15\"
+"),
+        ];
+        for (name, text) in manifests {
+            std::fs::create_dir_all(root.join("nodes").join(name)).unwrap();
+            std::fs::write(root.join("nodes").join(name).join("Cargo.toml"), text).unwrap();
+        }
+        let found: Vec<bool> = manifests.iter().map(|(name, _)| uses_log(&root, "nodes", name)).collect();
+        std::fs::remove_dir_all(&root).unwrap();
+        assert_eq!(found, [true, true, true, false]);
     }
 }

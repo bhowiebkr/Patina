@@ -1336,8 +1336,9 @@ To run the editor from a checkout:
 - The self-check does not run a node with the `log` crate, because that needs crates.io. The
   type check covers the log lines of the page, but no check showed them in the editor yet.
 - The log lines show only the levels Info, Warn and Error. The logger drops a record from a
-  thread that a node starts. A `log` crate with another name, or in a target table, does not
-  turn on the logger. A run shows 1000 log lines at most.
+  thread that a node starts. A run shows 1000 log lines at most.
+- A `log` crate with another name or in a target table now turns on the logger (fixed
+  2026-11-16). The plan test reads four manifests. No build ran with such a node.
 - The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
   come later (5.3). The **Inspector** reads the full text one time after each run.
 - The editor has no bench with 500 nodes, so the far zoom form was not measured for frame
