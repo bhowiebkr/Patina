@@ -84,14 +84,27 @@ fn copy(stream: impl std::os::fd::AsFd) -> io::Result<File> {
 }
 
 /// Puts `file` in place of standard stream `fd`: 0 for input, 1 for output and 2 for error. Rust
-/// code gets the standard handle at each write, also in a cluster library with its own std.
+/// code gets the standard handle at each write, also in a cluster library with its own std. C code
+/// (`printf`) uses the file descriptor of the C runtime, so it gets the file too.
 #[cfg(windows)]
 fn redirect(fd: i32, file: impl Into<std::os::windows::io::OwnedHandle>) -> io::Result<()> {
     use std::os::windows::io::IntoRawHandle;
+    unsafe extern "C" {
+        fn _open_osfhandle(handle: isize, flags: i32) -> i32;
+        fn _dup2(old: i32, new: i32) -> i32;
+    }
+    const O_BINARY: i32 = 0x8000;
     let handle = file.into().into_raw_handle();
     // SAFETY: the handle is open. The process owns it from now on and never closes it.
     if unsafe { SetStdHandle((-10 - fd) as u32, handle) } == 0 {
         return Err(io::Error::last_os_error());
+    }
+    // SAFETY: the handle is open. The new file descriptor owns it and never closes, so the
+    // standard handle stays valid. Binary mode keeps each end of line as Rust writes it.
+    let crt = unsafe { _open_osfhandle(handle as isize, O_BINARY) };
+    // SAFETY: `crt` is open. _dup2 puts a copy of the file in place of `fd`.
+    if crt < 0 || unsafe { _dup2(crt, fd) } < 0 {
+        return Err(io::Error::other("the C runtime did not take the new standard stream"));
     }
     Ok(())
 }
@@ -124,5 +137,41 @@ mod tests {
         let mut sent = Vec::new();
         read_lines(&b"end"[..], |text| sent.push(text));
         assert_eq!(sent, ["end"], "the text after the last end of line goes out at the end");
+    }
+
+    /// C code reads and writes the redirected streams, not the message pipes (16.1). The test runs
+    /// in a child process, because a redirect changes the whole process.
+    #[cfg(windows)]
+    #[test]
+    fn c_code_uses_the_redirected_streams() {
+        unsafe extern "C" {
+            fn _read(fd: i32, buf: *mut u8, len: u32) -> i32;
+            fn _write(fd: i32, buf: *const u8, len: u32) -> i32;
+        }
+        const NAME: &str = "output::tests::c_code_uses_the_redirected_streams";
+        if let Some(path) = std::env::var_os("PATINA_REDIRECT_TEST") {
+            redirect(0, File::open("NUL").unwrap()).unwrap();
+            redirect(1, File::create(path).unwrap()).unwrap();
+            let mut buf = [0; 8];
+            // SAFETY: the buffer has 8 bytes.
+            let read = unsafe { _read(0, buf.as_mut_ptr(), 8) };
+            let text = format!("from C, read {read}\n");
+            // SAFETY: the text has `len` bytes.
+            unsafe { _write(1, text.as_ptr(), text.len() as u32) };
+            return;
+        }
+        let path = std::env::temp_dir().join(format!("patina-redirect-{}.txt", std::process::id()));
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", NAME, "--test-threads=1"])
+            .env("PATINA_REDIRECT_TEST", &path)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        std::io::Write::write_all(child.stdin.as_mut().unwrap(), b"message\n").unwrap();
+        let status = child.wait().unwrap();
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let _ = std::fs::remove_file(&path);
+        assert!(status.success() && text.contains("from C, read 0\n"), "{status}: {text}");
     }
 }

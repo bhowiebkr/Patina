@@ -322,8 +322,6 @@ fn read_messages(app: &AppHandle, stdout: ChildStdout, pending: &Pending) {
                     let _ = reply.send(result);
                 }
             }
-            // shortcut: on Windows, C code that writes with printf writes into the message pipe, so
-            // its text shows as text and can break a message. Redirect the C runtime when a node needs it.
             Err(_) => {
                 let _ = app.emit("output", OutputText { text: text.into_owned(), err: false });
             }

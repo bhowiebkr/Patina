@@ -43,8 +43,6 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 
 - The crash handler is only on Windows, and it names only the node of the engine thread. A Rust
   abort and a stack overflow skip it.
-- On Windows, `printf` of C code in a node writes into the message pipe (a `shortcut:` in
-  `node_process.rs`).
 - A native viewport across the two processes is not checked.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.

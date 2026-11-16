@@ -17,7 +17,7 @@ Patina is a development tool, so users often run nodes that fail. A node that fa
 - **Stop** asks the nodes to stop (15.2). When "Node X does not stop" shows, **Stop** ends the node process. The node states are lost.
 - Views and node GUIs send text, so they cross the process boundary with no change. A native viewport (15.8) needs a shared GPU texture between the two processes, or the copy path.
 - The node process sends the same events as before, so the cost is one copy of each event into JSON and through a pipe.
-- Limit: on Windows, the C runtime keeps the original standard output. So `printf` of C code in a node writes into the message pipe. The editor shows each line that is not a message in **Output**, but such text can break a message.
+- The node process also gives the new standard input and output to the C runtime. So `printf` of C code in a node shows in **Output**, and C code cannot read or write the message pipes. The editor shows each line that is not a message in **Output**.
 
 ### 16.2 WASM sandbox
 
