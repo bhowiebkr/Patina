@@ -31,6 +31,8 @@ The editor has these mockup features. They are not gaps.
   (connections guide and mockups 12 to 16).
 - Subgraphs with public pins as graph objects, **Collapse** of a selection and the expansion of
   uses into the graph (mockups 10 and 11).
+- An **Open subgraph** button on each use, and a path bar with each use of a nested path
+  (mockups 10 and 11).
 - The SDK `Ui` widgets: label, button, toggle, slider, number, text field, dropdown, color,
   plot, waveform, table, curve, image, 2D canvas and GPU viewport.
 
@@ -39,8 +41,6 @@ The editor has these mockup features. They are not gaps.
 | Gap | Mockup | What the editor does now |
 |---|---|---|
 | An expanded subgraph in the parent graph, in a neutral frame with a collapse control | 3, 11 | A double-click opens the subgraph as its own graph. |
-| A visible **Open subgraph** action on a subgraph node | 10 | Only a double-click opens it. |
-| Breadcrumbs with each use of a nested path | 11 | The path shows **main** and the open graph only. |
 | A **Subgraph interface** list of the public pins in order, with a preview of the collapsed node | 11 | The public pins are graph objects. Their order and names change on the canvas. |
 | A collapsed navigation rail that gives the graph more room | 6 | A panel closes or moves to another area. |
 | Highlights on the compatible and the incompatible sockets during a wire drag | Connections guide | The type check runs after the drop. The drag keeps order sockets apart from data sockets. |

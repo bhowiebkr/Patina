@@ -943,6 +943,9 @@ To run the editor from a checkout:
 - A wire with the graph default look and no clear path shows a yellow conflict mark on the
   first segment through a node body (15.9). A unit test checks the mark and its removal. The
   selfcheck puts a route point in a node body, and checks the mark and that the undo removes it.
+- Each use of a subgraph has an **Open subgraph** button, and the path bar shows each use of a
+  nested path (15.9). Unit tests check the use names and the use path. The selfcheck opens a use
+  with the button, checks the path bar, and goes back with its **main** button.
 - Each node header shows a kind icon and a clock-domain icon, and a wire between two domains is
   dashed (15.3). A unit test checks the kinds of the engine. Frontend tests check the domains
   of a scope and the dash flag of the wire store. The selfcheck connects a batch value to a

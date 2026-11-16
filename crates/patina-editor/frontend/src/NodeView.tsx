@@ -133,6 +133,9 @@ export const NodeEdit = createContext<(edit: Edit) => void>(() => {});
 /** Fires a `trigger` node of the live run (9.4). Null while the graph is paused. */
 export const FireTrigger = createContext<((id: string) => void) | null>(null);
 
+/** Opens a subgraph through one of its uses, as a double-click on the use does (15.9). */
+export const OpenUse = createContext<((graph: string, use: string) => void) | null>(null);
+
 /** The handle ID of the order sockets in the header of a node (9.2). No pin key starts with "@". */
 export const ORDER = '@order';
 
@@ -269,6 +272,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
         <span className="title">{folderName(entry)}</span>
         {info?.full && <ExpandButton id={entry.id} />}
         {entry.builtin === 'trigger' && <FireButton id={entry.id} />}
+        {entry.subgraph !== undefined && <OpenButton graph={entry.subgraph} use={entry.id} />}
         {slot && (
           <span className="state-icon" role="img" title="In the slot" aria-label="In the slot">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -342,6 +346,18 @@ function FireButton({ id }: { id: string }) {
     <button className="icon-btn expand nodrag" aria-label="Fire the trigger" title={fire ? 'Fire' : 'Run the graph, and open a subgraph through its use, to fire the trigger'} disabled={!fire} onClick={() => fire?.(id)}>
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
         <path d="M9.5 1.5 3.5 9h4l-1 5.5 6-7.5h-4z" />
+      </svg>
+    </button>
+  );
+}
+
+/** The **Open subgraph** button of a use, in the node header and the Inspector (15.9). */
+export function OpenButton({ graph, use }: { graph: string; use: string }) {
+  const open = useContext(OpenUse);
+  return (
+    <button className="icon-btn expand nodrag open-subgraph" aria-label="Open subgraph" title={`Open subgraph ${graph} (double-click)`} disabled={!open} onClick={() => open?.(graph, use)}>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
+        <path d="M9 2.5h3.5a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9M2 8h8M7 5l3 3-3 3" />
       </svg>
     </button>
   );

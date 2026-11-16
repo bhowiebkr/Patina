@@ -275,7 +275,9 @@ cargo run -p patina-cli -- run examples/computer --frames 16
 ```
 
 In the editor, a 1-bit wire is lit when it is true. Run the project and double-click a use of a
-subgraph, for example the `cpu` node. The subgraph opens with the live values of that use.
+subgraph, for example the `cpu` node, or click its **Open subgraph** button. The subgraph opens
+with the live values of that use. The path bar shows each use from the main graph, for example
+**main / cpu / alu**. Click a name to go back to that graph.
 To test a subgraph alone, open it and click **Test** in the path bar. Click the switch at the left
 of an input to toggle it. The lamp at the right of an output shows its value. Click **End test**
 to return. The **Graphs** group of the **Project** panel lists the subgraphs. Click one to open

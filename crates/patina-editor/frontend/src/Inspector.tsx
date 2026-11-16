@@ -5,7 +5,7 @@ import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { KindIcon } from './icons';
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
-import { STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
+import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
 import { ExpandButton, NodeGui } from './NodeGui';
 import type { Inspect } from './ProjectPanel';
 
@@ -229,6 +229,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         {folderName(entry)}
         <span className="spacer" />
         {info?.full && <ExpandButton id={entry.id} />}
+        {entry.subgraph !== undefined && <OpenButton graph={entry.subgraph} use={entry.id} />}
         <span className={state === 'compile-error' || state === 'run-error' ? 'error-text' : 'label'}>{STATE_NAMES[state]}</span>
       </div>
       <Tabs tab={shown} only={hasCode ? undefined : 'parameters'} onTab={onTab} />

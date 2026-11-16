@@ -1,7 +1,7 @@
 // The editor window (spec 15.1): the top bar, the dock with the graph and the panels (15.2), and
 // the status bar. The start screen shows when no project is open.
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
 import { api, folderName, newId, onCloseRequested, scopeDomains, type Edit, type StartInfo, type View } from './api';
 import { HelpMenu } from './About';
@@ -10,6 +10,7 @@ import { runShot } from './shot';
 import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
 import type { Reveal } from './CodeTab';
 import { Confirm } from './Confirm';
+import { crumbLabel, trailOf, usePathOf, type Crumb } from './crumbs';
 import { Dock, endLayout, flushLayout, loadLayout, useLayoutSerial, ViewsMenu, type Panel } from './Dock';
 import { useFloatHost } from './Floats';
 import { GraphView, useFit } from './GraphView';
@@ -22,7 +23,7 @@ import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { useProjectActions } from './ProjectActions';
 import { StatusBar, useRun } from './RunStatus';
-import { FireTrigger, PortTest, scopeRun, TEST_USE } from './NodeView';
+import { FireTrigger, OpenUse, PortTest, scopeRun, TEST_USE } from './NodeView';
 import { ViewPanel } from './ViewPanel';
 import { SettingsScreen } from './SettingsScreen';
 import { StartScreen } from './StartScreen';
@@ -130,21 +131,31 @@ export function App() {
   }, [show, markStale]);
 
   // Only the open graph can have unsaved changes, so a change of graph saves all first (6.1).
-  // A double-click on a use opens the subgraph with the live values of that use (15.9).
-  const [scope, setScope] = useState('');
-  const openGraph = useCallback(
-    async (name: string, use?: string) => {
+  // A use opens the subgraph with the live values of that use. The path bar keeps each use (15.9).
+  const [trail, setTrail] = useState<Crumb[]>([]);
+  const goTo = useCallback(
+    async (name: string, next: (trail: Crumb[]) => Crumb[]) => {
       if (current.current?.dirty && !(await saveAll())) return undefined;
-      setScope((s) => (use === undefined ? '' : s ? `${s}/${use}` : use));
+      setTrail(next);
       let opened: View | undefined;
       await act(api.openGraph(name), (v) => (opened = v));
       return opened;
     },
     [act, saveAll],
   );
+  const openGraph = useCallback(
+    (name: string, use?: string) => {
+      const at = current.current;
+      if (use === undefined || !at) return goTo(name, () => trailOf([], name));
+      const crumb = { graph: name, use, label: crumbLabel(at.graph.node ?? [], use) };
+      return goTo(name, (t) => [...trailOf(t, at.graphName), crumb]);
+    },
+    [goTo],
+  );
+  const path = view ? trailOf(trail, view.graphName) : [];
   const testing = view?.test != null;
   // The run IDs of the open graph start with this use path (6.4). A subgraph with no use has none.
-  const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : scope;
+  const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : usePathOf(path);
   const scoped = useMemo(() => scopeRun(run, usePath), [run, usePath]);
   // A subgraph with no use has no checked nodes, so its nodes show no domain.
   const domains = useMemo(() => scopeDomains(view && (view.graphName === 'main' || usePath) ? view.domains : {}, usePath), [view, usePath]);
@@ -390,6 +401,7 @@ export function App() {
       {/* The dock waits for the layout of the project, so the graph opens at its saved pan and zoom. */}
       {layoutSerial === view.serial ? (
         <ExpandGui.Provider value={expand}>
+          <OpenUse.Provider value={openGraph}>
           <Dock panels={panels} view={viewPanel}>
             {!view.trusted && (
               <div className="banner" role="alert">
@@ -410,7 +422,20 @@ export function App() {
                   <button className="btn" onClick={() => openGraph('main')}>
                     main
                   </button>
-                  <span>/ {view.graphName}</span>
+                  {path.map((c, i) =>
+                    i < path.length - 1 ? (
+                      <Fragment key={i}>
+                        <span>/</span>
+                        <button className="btn" title={`Open ${c.graph}`} onClick={() => goTo(c.graph, () => path.slice(0, i + 1))}>
+                          {c.label}
+                        </button>
+                      </Fragment>
+                    ) : (
+                      <span key={i} aria-current="page" title={c.label === c.graph ? undefined : c.graph}>
+                        / {c.label}
+                      </span>
+                    ),
+                  )}
                   <button
                     className={testing ? 'btn primary' : 'btn'}
                     aria-pressed={testing}
@@ -432,6 +457,7 @@ export function App() {
               )}
             </div>
           </Dock>
+          </OpenUse.Provider>
         </ExpandGui.Provider>
       ) : (
         <div className="middle" />
