@@ -5,7 +5,7 @@ const OFF: [u8; 3] = [102, 102, 97];
 const TEXT: [u8; 3] = [238, 238, 235];
 
 /// Shows a byte as 8 lamps and as a number, and writes it to the standard output.
-#[node]
+#[node(color = "#59366f")]
 pub struct Readout {
     value: u8,
 }

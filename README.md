@@ -76,6 +76,8 @@ pub fn exposure(
 - A node can write log lines with the `log` crate. Add the crate with **Add crate**, then call
   `log::info!`, `log::warn!` or `log::error!`. The **Logs** panel shows the lines of each run.
   Debug and trace lines do not show.
+- `#[node(color = "#175c59")]` gives the node a colored header. The **Project** panel shows the
+  color next to the node. A node with no color has a gray header.
 
 A node that keeps data between runs is a struct:
 

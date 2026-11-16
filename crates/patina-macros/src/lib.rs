@@ -5,13 +5,14 @@ use proc_macro::{Delimiter, TokenStream, TokenTree};
 
 /// Marks the function of a node, or the state struct of a stateful node (spec 4.2). A function
 /// gets `#[inline]`, so small nodes inline into each other inside one cluster (8.3).
-/// `#[node(domain = frame)]` sets the clock domain (9.1), and `#[node(full_gui)]` gives the GUI a
-/// full size (4.3). The engine reads these arguments.
+/// `#[node(domain = frame)]` sets the clock domain (9.1), `#[node(full_gui)]` gives the GUI a
+/// full size (4.3), and `#[node(color = "#175c59")]` sets the header color (15.3). The engine reads
+/// these arguments.
 #[proc_macro_attribute]
 pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args: Vec<String> = attr.into_iter().map(|t| t.to_string()).collect();
     if !node_args(&args) {
-        return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`, and `full_gui`");
+        return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`, `full_gui` and `color = \"#rrggbb\"`");
     }
     match keyword(&item).as_deref() {
         Some("fn") => {}
@@ -23,15 +24,22 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     out
 }
 
-/// True when the tokens of `#[node(...)]` are a list of `domain = <name>` and `full_gui`.
+/// True when the tokens of `#[node(...)]` are a list of `domain = <name>`, `full_gui` and `color = "#rrggbb"`.
 fn node_args(args: &[String]) -> bool {
     let domains = ["batch", "frame", "audio", "event"];
     args.is_empty()
         || args.split(|a| a == ",").all(|arg| match arg {
             [full] => full == "full_gui",
-            [key, eq, name] => key == "domain" && eq == "=" && domains.contains(&name.as_str()),
+            [key, eq, name] if key == "domain" => eq == "=" && domains.contains(&name.as_str()),
+            [key, eq, lit] => key == "color" && eq == "=" && is_color(lit),
             _ => false,
         })
+}
+
+/// True for a string literal of the form `"#rrggbb"`.
+fn is_color(lit: &str) -> bool {
+    let hex = lit.strip_prefix("\"#").and_then(|l| l.strip_suffix('"'));
+    hex.is_some_and(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
 /// Marks the function of a connection kind (6.3). The function takes `&T` and returns
@@ -120,10 +128,11 @@ fn error(message: &str) -> TokenStream {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn node_takes_a_domain_and_full_gui() {
+    fn node_takes_a_domain_full_gui_and_color() {
         let args = |text: &str| super::node_args(&text.split(' ').filter(|t| !t.is_empty()).map(str::to_owned).collect::<Vec<_>>());
         assert!(args("") && args("full_gui") && args("domain = frame , full_gui"));
         assert!(!args("domain = gpu") && !args("full") && !args("full_gui ,") && !args("domain frame"));
+        assert!(args(r##"full_gui , color = "#175C59""##) && !args(r##"color = "175c59""##) && !args(r##"color = "#17c5g9""##));
     }
 
     #[test]

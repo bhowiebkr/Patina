@@ -7,7 +7,7 @@ const TEXT: [u8; 3] = [238, 238, 235];
 /// Gives one tick each `every` frames, as the clock of a computer. 0 counts as 1. `halt` stops
 /// the clock. Then the **Step** button gives one tick. It has no wired inputs, so it names its
 /// domain.
-#[node(domain = frame)]
+#[node(domain = frame, color = "#655219")]
 pub struct Clock {
     frame: u32,
     tick: bool,

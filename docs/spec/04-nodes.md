@@ -150,6 +150,16 @@ pub struct CurveEditor { points: Vec<[f32; 2]> }
 - The graph keeps running. The other panels stay, and the inspector shows the node.
 - A full-size GUI can use a viewport (15.8).
 
+A node can set the color of its header (15.3):
+
+```rust
+#[node(color = "#175c59")]
+pub fn blur(image: &Image, radius: f32) -> Image { ... }
+```
+
+- The color is "#" and 6 hex digits. Other text is an error on the node.
+- The arguments go into one list, for example `#[node(domain = frame, color = "#655219")]`.
+
 ### 4.4 Input forms
 
 | Form | Meaning | Engine rule |

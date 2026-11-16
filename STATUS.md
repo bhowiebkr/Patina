@@ -61,6 +61,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 18. Done: byte ribbons in the data path of the `cpu`. `register-8`, `ram-4x8`, `adder-8` and
     `mux-8` have byte pins, with `split` and `join` nodes inside. One ribbon replaces each group
     of 8 bit wires, so the `cpu` graph has 103 wires in place of 161.
+19. Done: node header colors (15.3). `#[node(color = "#rrggbb")]` colors the header, tints the
+    border and gives the selection a lighter shade. The **Project** panel shows a swatch. The
+    example colors its gates, inputs, outputs and bus nodes by the families of the GUI guide.
 
 ### Checked
 
@@ -106,6 +109,10 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 - With the byte ribbons in the `cpu` data path, `patina-cli` ran the example for 560 frames.
   All 5600 readout values and the LCD text are the same as before. A unit test checks the bit
   order of `split`.
+- With the node header colors, `patina-cli` ran the example for 560 frames. All 5600 readout
+  values and the LCD text are the same. A `patina --shot` screenshot shows the colored headers
+  and the swatches in the **Project** panel. Unit tests check the color attribute in the engine
+  and the macro. No test checks the colors on the screen.
 
 ## Milestone 11: the audio domain
 

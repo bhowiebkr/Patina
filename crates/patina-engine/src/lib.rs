@@ -119,6 +119,8 @@ pub struct NodeInfo {
     pub generics: Vec<String>,
     /// True when the node GUI has a full size (4.3).
     pub full: bool,
+    /// The header color of `#[node(color = "#rrggbb")]` (15.3).
+    pub color: Option<String>,
     /// True for a subgraph in `graphs/` (6.1). Its name is the file name.
     pub subgraph: bool,
 }
@@ -128,7 +130,7 @@ impl NodeInfo {
         let keys = node.output_keys().into_iter();
         let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty, name: None }).collect();
         let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty, name: None }).collect();
-        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, subgraph: false }
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, color: node.color, subgraph: false }
     }
 }
 
@@ -372,7 +374,7 @@ impl Project {
             }
             nodes.push(match plan::read_node(&self.root, &name) {
                 Ok(node) => NodeInfo::new(name, node, false),
-                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, subgraph: false },
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, color: None, subgraph: false },
             });
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));

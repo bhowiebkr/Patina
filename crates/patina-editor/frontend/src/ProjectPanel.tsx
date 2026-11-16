@@ -90,6 +90,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNewNode, onNewWidget,
             onClick={() => onInspect({ kind: 'type', name: n.name })}
             title={view.trusted ? 'Drag to the graph to add the node' : undefined}
           >
+            <span className="swatch" style={{ background: n.color ?? undefined }} aria-hidden="true" />
             {n.name}
             {n.error && <span className="hint error-text">error</span>}
           </button>

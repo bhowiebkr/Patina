@@ -4,7 +4,7 @@
 
 use quote::ToTokens;
 use syn::{
-    Attribute, FnArg, GenericArgument, GenericParam, Generics, Ident, ImplItem, Item, ItemStruct, Meta, Pat, PathArguments, ReturnType, Signature, Type,
+    Attribute, FnArg, GenericArgument, GenericParam, Generics, Ident, ImplItem, Item, ItemStruct, LitStr, Meta, Pat, PathArguments, ReturnType, Signature, Type,
     Visibility,
 };
 
@@ -88,6 +88,8 @@ pub struct Node {
     pub ui: bool,
     /// `#[node(full_gui)]`: the GUI has a full size (4.3).
     pub full: bool,
+    /// `#[node(color = "#rrggbb")]`: the header color (15.3).
+    pub color: Option<String>,
 }
 
 impl Node {
@@ -123,7 +125,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
         }
     }
     let (attr, item) = found.ok_or("the crate has no #[node] function or struct")?;
-    let (domain, full) = read_attr(attr)?;
+    let (domain, full, color) = read_attr(attr)?;
     let (sig, state, generics, ui) = match item {
         Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None, type_params(&func.sig.generics)?, false),
         Item::Fn(func) => return Err(format!("make the node function `{}` pub", func.sig.ident)),
@@ -184,7 +186,7 @@ pub fn parse(source: &str) -> Result<Node, String> {
     if full && !ui {
         return Err("a node with `full_gui` needs `pub fn ui(&mut self, ui: &mut Ui)` (spec 4.3)".to_owned());
     }
-    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, ui, full })
+    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, ui, full, color })
 }
 
 /// The most arguments of a node call: the cluster calls nodes through tuples (generate.rs).
@@ -197,7 +199,7 @@ pub fn delay() -> Node {
     let t = "T".to_owned();
     let input = Input { key: "value".to_owned(), pass: Pass::Take, is_str: false, ty: t.clone(), value: t.clone() };
     let (generics, output_types) = (vec![t.clone()], vec![t]);
-    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame), ui: false, full: false }
+    Node { func: "delay".to_owned(), state: None, generics, inputs: vec![input], output: Output::One, fallible: false, output_types, domain: Some(Domain::Frame), ui: false, full: false, color: None }
 }
 
 /// The names of the type parameters. A node has no lifetime or const parameters (4.5).
@@ -266,26 +268,34 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
     Ok((process, ui.is_some()))
 }
 
-/// Reads `domain = <name>` (9.1) and `full_gui` (4.3) of `#[node(...)]`.
-fn read_attr(attr: &Attribute) -> Result<(Option<Domain>, bool), String> {
+/// Reads `domain = <name>` (9.1), `full_gui` (4.3) and `color = "#rrggbb"` (15.3) of `#[node(...)]`.
+fn read_attr(attr: &Attribute) -> Result<(Option<Domain>, bool, Option<String>), String> {
     if matches!(attr.meta, Meta::Path(_)) {
-        return Ok((None, false));
+        return Ok((None, false, None));
     }
-    let (mut domain, mut full) = (None, false);
+    let (mut domain, mut full, mut color) = (None, false, None);
     attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("full_gui") {
             full = true;
             return Ok(());
         }
+        if meta.path.is_ident("color") {
+            let text = meta.value()?.parse::<LitStr>()?.value();
+            if !text.strip_prefix('#').is_some_and(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit())) {
+                return Err(meta.error("write the node color as \"#rrggbb\", for example \"#175c59\" (spec 15.3)"));
+            }
+            color = Some(text.to_ascii_lowercase());
+            return Ok(());
+        }
         if !meta.path.is_ident("domain") {
-            return Err(meta.error("#[node] takes only `domain = <name>` and `full_gui`"));
+            return Err(meta.error("#[node] takes only `domain = <name>`, `full_gui` and `color = \"#rrggbb\"`"));
         }
         let name: Ident = meta.value()?.parse()?;
         domain = Some(Domain::parse(&name.to_string()).map_err(|e| meta.error(e))?);
         Ok(())
     })
     .map_err(|e| e.to_string())?;
-    Ok((domain, full))
+    Ok((domain, full, color))
 }
 
 /// The function of a connection kind (6.3).
@@ -438,6 +448,10 @@ mod tests {
         assert!(parse(&gui).unwrap().ui);
         let full = gui.replace("#[node(domain = frame)]", "#[node(domain = frame, full_gui)]");
         assert!(parse(&full).unwrap().full);
+        let colored = counter.replace("#[node(domain = frame)]", "#[node(domain = frame, color = \"#175C59\")]");
+        assert_eq!(parse(&colored).unwrap().color.as_deref(), Some("#175c59"));
+        assert!(parse(&colored.replace("#175C59", "175c59")).is_err());
+        assert!(parse(&colored.replace("#175C59", "#17c5g9")).is_err());
         assert!(parse(&counter.replace("#[node(domain = frame)]", "#[node(full_gui)]")).is_err());
         let hold = "#[node] pub struct Hold<T, U> { v: Option<(T, U)> }\n\
                     impl<T: Clone, U> Hold<T, U> { pub fn init() -> Hold<T, U> { todo!() } }\n\

@@ -15,7 +15,7 @@ const SEGMENTS: [([f32; 2], [f32; 2]); 7] = [
 ];
 
 /// Shows segments a to g as a 7-segment digit, and writes them to the standard output.
-#[node]
+#[node(color = "#59366f")]
 pub struct Display {
     on: [bool; 7],
 }

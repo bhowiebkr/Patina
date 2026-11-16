@@ -72,6 +72,8 @@ export interface NodeInfo {
   generics: string[];
   /** True when the node GUI has a full size, from `#[node(full_gui)]` (4.3). */
   full: boolean;
+  /** The header color "#rrggbb" of `#[node(color = ...)]`, or null for the gray header (15.3). */
+  color: string | null;
   /** True for a subgraph in `graphs/` (6.1). Its name is the file name. */
   subgraph: boolean;
 }

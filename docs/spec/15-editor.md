@@ -173,6 +173,7 @@ Node bodies fit their contents; their widths and heights need not match. A node 
 
 - The node code sets the header color, for example `#[node(color = "#175c59")]`. Nodes for one kind of work usually share a color, for example teal for image filters. The guide proposes a header color for each common kind of work. The **Project** panel shows the color next to each node folder.
 - A node with no header color has a neutral gray header. The accent color shows its selection.
+- A node with a header color has a border of the header color with 25% white. Its selection has the hue of the header color, a lightness of 0.8 in OKLCH and 1.25 times the chroma. A browser without relative colors uses the header color with 60% white. A subgraph has the gray header. (Agent decision, 2026-11-16. The owner can change it.)
 - A header color never means a state. The state shows only with the state dot, its icon, and the red error border (the table below).
 - [mockup-1-main-editor-colored-headers.png](../mockups/mockup-1-main-editor-colored-headers.png) shows the direction for header colors. Its selected node has the accent outline. Patina uses a lighter shade of the header color instead.
 - Subgraph borders and other structure use neutral gray.

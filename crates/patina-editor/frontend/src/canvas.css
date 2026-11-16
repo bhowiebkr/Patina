@@ -6,14 +6,14 @@
   position: relative;
   width: 200px;
   background: var(--node);
-  border: 1px solid var(--border);
+  border: 1px solid var(--edge, var(--border));
   border-radius: 6px;
   /* A soft shadow lifts the node off the canvas, as in mockup 9. */
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .patina-node:hover {
-  border-color: var(--control-border);
+  border-color: var(--edge-hover, var(--control-border));
 }
 
 /* A public pin of the open subgraph (6.4). */
@@ -82,8 +82,26 @@
 }
 
 .patina-node.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(223, 166, 75, 0.28), 0 6px 16px rgba(0, 0, 0, 0.45);
+  border-color: var(--focus, var(--accent));
+  box-shadow: 0 0 0 1px var(--focus, var(--accent)), 0 0 16px color-mix(in srgb, var(--focus, var(--accent)) 28%, transparent),
+    0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* A node with a header color has a tinted border and a lighter shade of the color as its selection (15.3). */
+.patina-node.colored {
+  --edge: color-mix(in srgb, var(--head) 75%, white);
+  --edge-hover: color-mix(in srgb, var(--head) 55%, white);
+  --focus: color-mix(in srgb, var(--head) 40%, white);
+}
+
+@supports (color: oklch(from red l c h)) {
+  .patina-node.colored {
+    --focus: oklch(from var(--head) 0.8 calc(c * 1.25) h);
+  }
+}
+
+.patina-node.colored > .patina-node-header {
+  background: linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 80%), var(--head);
 }
 
 /* At a far zoom, a node has no shadow, so a large graph paints less (15.1). */
@@ -92,7 +110,7 @@
 }
 
 .patina-node.far.selected {
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1px var(--focus, var(--accent));
 }
 
 .patina-node.compile-error,

@@ -174,7 +174,7 @@ pub(crate) fn infos(root: &Path) -> Vec<NodeInfo> {
         let path = entry.path();
         let toml = path.extension().is_some_and(|e| e == "toml");
         let Some(name) = path.file_stem().and_then(|s| s.to_str()).filter(|n| toml && *n != "main") else { continue };
-        let mut info = NodeInfo { name: name.to_owned(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, subgraph: true };
+        let mut info = NodeInfo { name: name.to_owned(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, color: None, subgraph: true };
         match project::read(&path, |g: &GraphFile| g.format) {
             Ok(graph) => {
                 let stack = &mut vec![name.to_owned()];

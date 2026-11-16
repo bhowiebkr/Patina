@@ -13,7 +13,7 @@ const DEFAULT: [&str; 8] = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"];
 
 /// A logic analyzer: draws the last 96 frames of 8 signals as waveforms, the newest at the
 /// right. `names` labels the channels, separated by commas.
-#[node]
+#[node(color = "#59366f")]
 pub struct Analyzer {
     samples: [u8; N],
     next: usize,

@@ -64,7 +64,7 @@ const UNKNOWN: [u8; 7] = [0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F];
 /// A display of 2 lines of 16 characters, as a character LCD. When `write` is on, it puts the
 /// ASCII character of bits d7 to d0 at the cursor. After the last cell, the lines move up one
 /// line. `clear` empties the display first. It writes the two lines to the standard output.
-#[node]
+#[node(color = "#59366f")]
 pub struct Lcd {
     cells: [u8; 2 * COLS],
     cursor: usize,

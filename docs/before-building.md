@@ -143,5 +143,6 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
   List each control and behavior that the editor does not have yet. The owner asked for it on
   2026-11-15, for later. The first pass on 2026-11-15 added only visual polish: shadows, card
   panels, header gradients, pins, sliders and the selected rows.
-- [ ] Add the node header colors of spec 15.3 (`#[node(color = ...)]`), with the tinted node
-  border of the Material Layers node of mockup 9 and the swatches of the Project panel.
+- [x] Add the node header colors of spec 15.3 (`#[node(color = ...)]`), with the tinted node
+  border of the Material Layers node of mockup 9 and the swatches of the Project panel. Done
+  on 2026-11-16.
