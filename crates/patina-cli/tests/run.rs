@@ -12,7 +12,7 @@ use std::time::Instant;
 use patina_engine::{Control, Lanes, Mode, Project, Toolchain};
 
 mod nodes;
-use nodes::{HOLD, KIND, METER, MIX, SPEAKER, TICK, TONE};
+use nodes::{HOLD, KIND, METER, MIX, SPEAKER, TICK, TONE, ZERO};
 
 mod common;
 use common::{copy, run};
@@ -83,9 +83,10 @@ fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     // delay f5 to mix f4, then tick f1, then mix f3 (sum 6.5 + tick) and show f2. Tick is a
     // stateful frame node (4.2) that adds its input to its count at each frame. Delay f5 gives
     // the tick of the previous frame (9.2), first 0, so the counts are 1, 3 and 7. The wires
-    // give the type parameters of tick, mix and delay (4.5). The counts stay under 10, so the
-    // texts stop growing after a few frames.
-    for (name, code) in [("tick", TICK), ("mix", MIX)] {
+    // give the type parameters of tick, mix and delay (4.5). Zero f6 is in the batch domain, and
+    // number f7 of the frame domain gives its type. The counts stay under 10, so the texts stop
+    // growing after a few frames.
+    for (name, code) in [("tick", TICK), ("mix", MIX), ("zero", ZERO)] {
         let folder = project.join("nodes").join(name);
         fs::create_dir_all(folder.join("src")).unwrap();
         fs::write(folder.join("Cargo.toml"), manifest.replace("whole", name)).unwrap();
@@ -112,6 +113,9 @@ builtin = \"delay\"
         wire("f89c6e329e8ea336.out", "00000000000000f3.a"),
         wire("00000000000000f1.out", "00000000000000f3.b"),
         wire("00000000000000f3.out", "00000000000000f2.value"),
+        node("f6", "zero"),
+        node("f7", "number") + "domain = \"frame\"\n",
+        wire("00000000000000f6.out", "00000000000000f7.value"),
     ]
     .concat();
     fs::write(&graph, fs::read_to_string(&graph).unwrap() + &more).unwrap();

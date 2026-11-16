@@ -51,6 +51,8 @@ pub struct Step {
     pub consumers: Vec<usize>,
     /// The type of each output, with the types of the wires in the parameters of a generic node (4.5).
     pub types: Vec<String>,
+    /// The steps that read an output and give a type parameter that no input wire gives (4.5).
+    pub pins: Vec<usize>,
     /// The index in `Plan::tasks`.
     pub task: usize,
     pub domain: Domain,
@@ -295,6 +297,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             inputs: Vec::new(),
             consumers: vec![0; nodes[entries[e].node].1.output_keys().len()],
             types: Vec::new(),
+            pins: Vec::new(),
             task: 0,
             domain: Domain::Batch,
         })
@@ -319,7 +322,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             steps[step].inputs.push(source);
         }
     }
-    resolve(&mut steps, &nodes)?;
+    resolve(&mut steps, &nodes, fires)?;
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
     domains(&mut steps, &edges, |n| entries[order[n]].domain)?;
     for step in steps.iter().filter(|s| is_delay(s.node)) {
@@ -339,12 +342,12 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     Ok(plan)
 }
 
-/// Sets the output types of each step. The wires give the type parameters of a generic node (4.5).
-/// The compiler then makes a copy of the node for each set of types. A delay comes before the node
-/// of its input (9.2), so a step that waits for a type goes to the next pass.
-// shortcut: the types go only from an output to an input, so a parameter that only an output uses
-// stays unresolved. Infer it from the input at the other end of the wire when a node needs it.
-fn resolve(steps: &mut [Step], nodes: &[(String, Node)]) -> Result<(), Vec<String>> {
+/// Sets the output types of each step. The wires give the type parameters of a generic node (4.5):
+/// first the input wires, then the wires from the outputs to inputs of a known type. A trigger does
+/// not run its inputs in the witness (8.2), so it gives no type. The compiler then makes a copy of
+/// the node for each set of types. A delay comes before the node of its input (9.2), so a step that
+/// waits for a type goes to the next pass.
+fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -> bool) -> Result<(), Vec<String>> {
     let mut problems = Vec::new();
     let mut done = vec![false; steps.len()];
     let mut progress = true;
@@ -366,12 +369,27 @@ fn resolve(steps: &mut [Step], nodes: &[(String, Node)]) -> Result<(), Vec<Strin
                     conflicts.push(format!("node {}: the wires give two types: {text}", steps[n].id));
                 }
             }
-            let open: Vec<&str> = node.generics.iter().zip(&bound).filter(|(_, b)| b.is_none()).map(|(g, _)| g.as_str()).collect();
-            if waits && !open.is_empty() {
+            if waits && bound.contains(&None) {
                 continue;
             }
             (done[n], progress) = (true, true);
+            let (mut pins, open) = (Vec::new(), bound.contains(&None));
+            for (r, reader) in steps.iter().enumerate().filter(|(_, s)| open && !fires(s.node)) {
+                let to = &nodes[reader.node].1;
+                for (input, source) in to.inputs.iter().zip(&reader.inputs) {
+                    let Source::Wire { step, output } = *source else { continue };
+                    if step != n || types::mentions(&input.value, &to.generics) {
+                        continue;
+                    }
+                    pins.push(r);
+                    if let Err(text) = types::unify(&node.output_types[output], &input.value, &node.generics, &mut bound) {
+                        conflicts.push(format!("node {}: the wires give two types: {text}", steps[n].id));
+                    }
+                }
+            }
+            steps[n].pins = pins;
             problems.extend(conflicts);
+            let open: Vec<&str> = node.generics.iter().zip(&bound).filter(|(_, b)| b.is_none()).map(|(g, _)| g.as_str()).collect();
             if !open.is_empty() {
                 problems.push(format!("node {}: connect a wire that gives the type of {} (spec 4.5)", steps[n].id, open.join(", ")));
                 continue;
@@ -590,7 +608,7 @@ mod tests {
 
     #[test]
     fn chains_become_one_task_and_branches_split() {
-        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), task: 0, domain: Domain::Batch }).collect();
+        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain: Domain::Batch }).collect();
         // 0 -> 1 -> 2 is a chain. 2 feeds 3 and 4, and both feed 5. An order wire 1 -> 2 doubles a data wire.
         let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)], &[None; 6]);
         let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
@@ -607,6 +625,8 @@ mod tests {
             ("nodes/tick", "node(domain = frame)", "pub fn tick() -> f64 { 0.0 }", ""),
             ("nodes/bits", "node", "pub fn bits() -> u8 { 0 }", ""),
             ("nodes/pick", "node", "pub fn pick<T: Copy>(a: T, b: &T) -> (T, Vec<T>) { todo!() }", ""),
+            ("nodes/zero", "node", "pub fn zero<T: Default>() -> T { T::default() }", ""),
+            ("nodes/count", "node", "pub fn count(n: u8) {}", ""),
             ("connections/wide", "connection", "pub fn wide(v: &f64) -> Lanes { todo!() }", ""),
             ("connections/byte", "connection", "pub fn byte(v: &u8) -> Lanes { todo!() }", ""),
         ];
@@ -676,6 +696,27 @@ builtin = \"echo\"
 id = \"000000000000000f\"
 builtin = \"delay\"
 ");
+        // Zero 11 has no input, so the readers of its output give its type: num a takes f64.
+        let zero = |more: &str| {
+            let to_a = "[[wire]]
+from = \"0000000000000011.out\"
+to = \"000000000000000a.v\"
+";
+            generic(&format!("[[node]]
+id = \"0000000000000011\"
+folder = \"nodes/zero\"
+{to_a}{more}"))
+        };
+        let backward = zero(&(wire("11.out", "a") + &wire("11.out", "b")));
+        let clash = zero(
+            "[[node]]
+id = \"0000000000000012\"
+folder = \"nodes/count\"
+             [[wire]]
+from = \"0000000000000011.out\"
+to = \"0000000000000012.n\"
+",
+        );
         std::fs::create_dir_all(root.join("connections/show")).unwrap();
         let named = check(&root, &graph(""));
         let num_logs = uses_log(&root, "nodes", "num");
@@ -717,6 +758,14 @@ builtin = \"delay\"
         assert!(untyped.err().unwrap()[0].contains("A cycle of generic nodes gives none"));
         assert!(unknown.err().unwrap()[0].contains("no built-in node \"echo\""));
         assert!(unwired.err().unwrap()[0].contains("connect a wire to the input `value` of the delay"));
+        let backward = backward.unwrap_or_else(|p| panic!("{p:?}"));
+        let step = |id: &str| backward.steps.iter().find(|s| s.id.ends_with(id)).unwrap();
+        let types = |id: &str| Some(step(id).types.clone());
+        let num = backward.steps.iter().position(|s| s.id.ends_with("0a")).unwrap();
+        assert_eq!((&step("11").pins[..], &step("0e").pins[..]), (&[num][..], &[][..]), "num a gives the type of zero, zero gives the type of pick");
+        assert_eq!((types("11"), types("0e")), (Some(vec!["f64".to_owned()]), Some(vec!["f64".to_owned(), "Vec<f64>".to_owned()])));
+        let clash = clash.err().unwrap();
+        assert!(clash.iter().any(|p| p.ends_with("0000000000000011: the wires give two types: `T` is `f64` and `u8`")), "{clash:?}");
         let latest = latest.unwrap_or_else(|p| panic!("{p:?}"));
         let parts: Vec<(Domain, &[usize])> = latest.tasks.iter().map(|t| (t.domain, &t.steps[..])).collect();
         assert_eq!(parts, [(Domain::Batch, &[0][..]), (Domain::Frame, &[1][..])], "a task holds the steps of one domain");

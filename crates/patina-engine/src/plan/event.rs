@@ -39,7 +39,7 @@ mod tests {
     fn each_event_step_has_one_trigger() {
         let domains = [Domain::Batch, Domain::Event, Domain::Event, Domain::Event, Domain::Event, Domain::Event, Domain::Event];
         let steps: Vec<Step> = (domains.iter().enumerate())
-            .map(|(n, &domain)| Step { id: n.to_string(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), task: 0, domain })
+            .map(|(n, &domain)| Step { id: n.to_string(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain })
             .collect();
         // Steps 1 and 3 are triggers. Batch 0 and trigger 1 feed 2.
         let fires = |n: usize| n == 1 || n == 3;

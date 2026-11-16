@@ -85,6 +85,11 @@ pub fn unify(pattern: &str, actual: &str, params: &[String], bound: &mut [Option
     Ok(())
 }
 
+/// True when the type text names one of `params`.
+pub fn mentions(ty: &str, params: &[String]) -> bool {
+    tokens(ty).iter().any(|t| params.iter().any(|p| p == t))
+}
+
 /// Puts the bound type of each parameter into `ty`.
 pub fn substitute(ty: &str, params: &[String], bound: &[String]) -> String {
     join(tokens(ty).into_iter().map(|t| params.iter().position(|n| n == t).map_or(t, |k| &bound[k])))
@@ -107,5 +112,6 @@ mod tests {
         let bound = bound.map(Option::unwrap);
         assert_eq!(substitute("Vec<(T, U)>", &params, &bound), "Vec<(HashMap<u8, f64>, &'static str)>");
         assert_eq!(substitute("Box<dyn Fn(T)>", &params, &bound), "Box<dyn Fn(HashMap<u8, f64>)>");
+        assert!(mentions("Vec<(u8, U)>", &params) && !mentions("Vec<Tx>", &params));
     }
 }

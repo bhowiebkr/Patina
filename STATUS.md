@@ -853,18 +853,17 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   - The engine draws all node GUIs after each run and frame, also the nodes out of view (4.3,
     `crates/patina-editor/src/engine.rs`). Send the visible nodes from the page when graphs get
     large.
-  - The types of a generic node go only from an output to an input, so a type parameter that
-    only an output uses makes an error (`crates/patina-engine/src/plan.rs`).
   - The **Add node** palette compares the type text with no module paths, so two types of one
     name in two modules match (`crates/patina-editor/frontend/src/palette.ts`). rustc checks the
     types at build time.
 - The delay runs only in the frame domain.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
+- A generic node with no input gets its type from the readers of its output (4.5). The hello
+  test runs a generic zero node in the batch domain, and a number node of the frame domain gives
+  its type. No check runs this with the node in the slot or with an async reader.
 - Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
   the worker pool for the first time inside the counted frames. A parallel cluster now prepares
   the pool when it loads. One CI run with this fix passed on all three platforms.
-- The types go only from an output to an input. A type parameter that only an output uses
-  stays unresolved, also when a wire goes from that output to a pin of a known type.
 
 ## Milestone 4: automatic parallelism and the frame domain
 

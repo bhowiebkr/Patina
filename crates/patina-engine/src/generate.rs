@@ -54,16 +54,19 @@ fn imports(plan: &Plan, domain: Domain) -> Vec<(usize, usize)> {
     links(plan).into_iter().filter(|&(n, k)| plan.steps[n].domain != domain && reads(plan, n, k, domain)).collect()
 }
 
-/// The steps that make the imports of `domain`, and the steps before them, in run order.
-fn ancestors(plan: &Plan, domain: Domain) -> std::collections::BTreeSet<usize> {
+/// The steps that the witness of `domain` calls, in run order: the steps of the domain, the steps
+/// before its imports, and the readers that give a type parameter of one of them (4.5).
+fn witnessed(plan: &Plan, domain: Domain) -> std::collections::BTreeSet<usize> {
     let mut steps = std::collections::BTreeSet::new();
-    let mut todo: Vec<usize> = imports(plan, domain).into_iter().map(|(n, _)| n).collect();
+    let own = (0..plan.steps.len()).filter(|&n| plan.steps[n].domain == domain);
+    let mut todo: Vec<usize> = own.chain(imports(plan, domain).into_iter().map(|(n, _)| n)).collect();
     while let Some(n) = todo.pop() {
         if steps.insert(n) {
             todo.extend(plan.steps[n].inputs.iter().filter_map(|source| match source {
                 Source::Wire { step, .. } => Some(*step),
                 Source::Slot(_) => None,
             }));
+            todo.extend(&plan.steps[n].pins);
         }
     }
     steps
@@ -76,10 +79,10 @@ pub fn manifest(plan: &Plan, domain: Domain) -> String {
          publish = false\n\n[lib]\ncrate-type = [\"cdylib\"]\npath = \"lib.rs\"\n\n\
          [dependencies]\npatina-sdk = {{ workspace = true }}\n"
     );
-    // The witness of the links calls the steps before them, so it needs their crates too.
-    let steps = (0..plan.steps.len()).filter(|&n| plan.steps[n].domain == domain).chain(ancestors(plan, domain));
+    // The witness calls steps of other domains too, so it needs their crates.
+    let steps = witnessed(plan, domain);
     let mut names: Vec<&str> =
-        steps.map(|n| plan.steps[n].node).filter(|&i| !plan.is_builtin_node(i)).map(|i| plan.nodes[i].0.as_str()).collect();
+        steps.iter().map(|&n| plan.steps[n].node).filter(|&i| !plan.is_builtin_node(i)).map(|i| plan.nodes[i].0.as_str()).collect();
     names.sort_unstable();
     names.dedup();
     for name in names {
@@ -91,7 +94,7 @@ pub fn manifest(plan: &Plan, domain: Domain) -> String {
     if plan.log {
         text.push_str("patina-log = { package = \"log\", version = \"0.4\" }\n");
     }
-    if domain == Domain::Event {
+    if domain == Domain::Event || steps.iter().any(|&n| plan.nodes[plan.steps[n].node].1.is_async) {
         text.push_str("patina-event = { workspace = true }\n");
     }
     text
@@ -287,15 +290,13 @@ fn ui_arms(s: &mut String, plan: &Plan, steps: &[usize]) {
     }
 }
 
-/// Writes a witness `w{m}` for each step of `domain` and each step before its imports: `None` at
+/// Writes a witness `w{m}` for each step that `witnessed` gives: `None` at
 /// run time, with the type of the tuple of the step outputs. Each value then gets its type where
 /// it is made, and Rust does not carry thousands of open types through the closure (8.2). A slot
 /// gives its default. A delay runs before the step of its input, so it gets that type at the end.
 fn witness(s: &mut String, plan: &Plan, domain: Domain) {
     let mut ties = String::new();
-    let own = (0..plan.steps.len()).filter(|&n| plan.steps[n].domain == domain);
-    let steps: std::collections::BTreeSet<usize> = own.chain(ancestors(plan, domain)).collect();
-    for m in steps {
+    for m in witnessed(plan, domain) {
         let step = &plan.steps[m];
         if plan.is_trigger(m) {
             let ty = if plan.builtin(m) == Some(Builtin::Schedule) { "0u64" } else { "::std::string::String::new()" };
@@ -351,6 +352,10 @@ fn witness(s: &mut String, plan: &Plan, domain: Domain) {
         };
         values.extend(node.inputs.iter().filter(|i| i.pass == Pass::Mut).map(|i| format!("m_{}", i.key)));
         if values.is_empty() {
+            // A reader with no output still gives the type parameters of its input step (4.5).
+            if plan.steps.iter().any(|other| other.pins.contains(&m)) {
+                let _ = writeln!(s, "    if false {{ {lets}let _ = {call}; }} // {}", step.id);
+            }
             continue;
         }
         let _ = writeln!(

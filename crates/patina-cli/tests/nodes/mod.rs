@@ -42,6 +42,13 @@ pub fn mix<T: std::ops::Add<Output = T> + Copy>(a: &T, b: T) -> T {
 }
 ";
 
+/// A generic node with no input: the readers of its output give its type (4.5).
+pub const ZERO: &str = "#[patina_sdk::node]
+pub fn zero<T: Default>() -> T {
+    T::default()
+}
+";
+
 /// An audio node of the test (9.3): a block with the peak two times the level.
 pub const TONE: &str = "#[patina_sdk::node(domain = audio)]
 pub fn tone(level: &f64) -> patina_sdk::AudioBlock {
