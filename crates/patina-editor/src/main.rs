@@ -267,6 +267,7 @@ fn main() {
             session::capture,
             toolchain::install_toolchain,
             dialog::pick_folder,
+            dialog::pick_path,
         ])
         .on_window_event(|window, event| {
             floats::window_event(window, event);

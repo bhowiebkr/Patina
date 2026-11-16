@@ -1,7 +1,9 @@
-// A text or number field of a node GUI (spec 4.3, GUI guide controls).
+// A text, number or file path field of a node GUI (spec 4.3, GUI guide controls).
 
 import { useState } from 'react';
+import { api } from './api';
 import { stepped, type Widget } from './gui';
+import { guiIcon } from './icons';
 
 const Icon = ({ d }: { d: string }) => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -10,15 +12,16 @@ const Icon = ({ d }: { d: string }) => (
 );
 
 /** A field that sends its value on Enter or when it loses the focus, and Esc restores it. A number
- * field with a step also has step buttons, and the up and down arrows step it. */
-export function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 'text' }>; send: (value: number | string) => void; disabled: boolean }) {
+ * field with a step also has step buttons, and the up and down arrows step it. A path field has a
+ * **Browse** button. */
+export function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'number' | 'text' | 'path' }>; send: (value: number | string) => void; disabled: boolean }) {
   const shown = String(w.value);
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
     if (draft === null) return;
     setDraft(null);
     if (draft === shown) return;
-    if (w.kind === 'text') send(draft);
+    if (w.kind !== 'number') send(draft);
     else if (draft.trim() !== '' && Number.isFinite(Number(draft))) send(Number(draft));
   };
   const step = w.kind === 'number' ? w.step : 0;
@@ -46,6 +49,20 @@ export function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'numbe
         }}
       />
       {w.kind === 'number' && w.unit && <span className="gui-unit">{w.unit}</span>}
+      {w.kind === 'path' && (
+        <button
+          className="icon-btn gui-browse"
+          aria-label={`Browse ${w.text}`}
+          title="Browse"
+          disabled={disabled}
+          onClick={() => {
+            setDraft(null);
+            api.pickPath(w.pick, w.value).then((path) => path !== null && path !== w.value && send(path), () => {});
+          }}
+        >
+          {guiIcon('folder')}
+        </button>
+      )}
       {step > 0 && (
         <span className="gui-steps">
           <button className="icon-btn gui-step" aria-label={`Decrease ${w.text}`} title={`-${step}`} disabled={disabled} onClick={() => by(-1)}>

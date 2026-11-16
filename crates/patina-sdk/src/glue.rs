@@ -498,6 +498,14 @@ fn asset_in(root: Option<&str>, crate_dir: &str, file: &str) -> std::path::PathB
     std::path::Path::new(root).join(group).join(name).join("assets").join(file)
 }
 
+/// The body of `patina_sdk::project_path`. An absolute path stays the same.
+pub fn project_path(path: &str) -> std::path::PathBuf {
+    match HOST.get() {
+        Some((_, root)) => std::path::Path::new(root).join(path),
+        None => path.into(),
+    }
+}
+
 /// The `ShareFn` of the engine. A cluster with no engine, as in a test, uses its own copy.
 ///
 /// # Safety

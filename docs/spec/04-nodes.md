@@ -80,6 +80,8 @@ impl CurveEditor {
 - A plot can have axes: the x range and a unit for each axis. The editor labels the ends of each axis with the value and the unit. A scatter plot has the same axes and sends at most 1024 points: a longer list sends points at equal steps. A curve can have a histogram behind it, with at most 256 bars: a longer histogram sends the sum of equal parts. The editor scales the bars to the highest bar. (Agent decision, 2026-11-16. The owner can change it.)
 - An icon button has an icon name and a text. The editor shows the icon and uses the text as the accessible name and the tooltip. An unknown icon name shows the text. Icon buttons on adjacent lines share one row. A progress bar shows a value from 0 to 1 as a percent, and a value that is not finite shows 0. (Agent decision, 2026-11-16. The owner can change it.)
 - A color ramp has stops with a position from 0 to 1 and a color, in the order of position, and a blend: linear, ease or constant. The SDK keeps the selected stop, so the node body and the **Inspector** show the same stop. A click on the bar adds a stop with the color of the ramp at that point. A drag or an arrow key moves a stop, and Delete or a double-click removes it. A ramp keeps 1 stop and has 32 stops at most. A row below the bar shows the color, the blend and the position of the selected stop. (Agent decision, 2026-11-16. The owner can change it.)
+- A layer stack shows one row for each layer, with the first layer at the top. A row has a handle, a visibility toggle, a swatch, the name and an amount from 0 to 1. A layer without an amount, for example a base, has no amount field. A drag of the handle or the up and down arrows move a layer, and a move selects it. The SDK keeps the selected layer. The node shows the properties of the selected layer below the stack, for example in a section. The node adds and removes layers, so the stack has no add or remove control. (Agent decision, 2026-11-16. The owner can change it.)
+- A file path field has a **Browse** button and a kind: open a file, save a file or select a folder. The button opens the dialog of the platform at the folder of the current path. A path in the project comes back relative to the project root, with `/`. A path outside the project stays absolute. The node gives the path to `patina_sdk::project_path` to get the full path. A path pick needs no trust, because no project code runs. (Agent decision, 2026-11-16. The owner can change it.)
 - The GUI state is the node state, except in audio nodes (below). A GUI change can change the node output, so downstream nodes get the new value.
 
 **Audio nodes**
@@ -116,8 +118,8 @@ impl AdsrEnvelope {
 
 | Group | Widgets |
 |---|---|
-| Basic | Label, button, icon button, toggle, slider, number field (with a unit and step buttons), text field, dropdown, tabs, section |
-| Values | Color picker, color ramp, curve with an optional histogram, plot with optional axes, scatter plot, progress bar, table, image, waveform |
+| Basic | Label, button, icon button, toggle, slider, number field (with a unit and step buttons), text field, file path field (with a **Browse** button), dropdown, tabs, section |
+| Values | Color picker, color ramp, layer stack, curve with an optional histogram, plot with optional axes, scatter plot, progress bar, table, image, waveform |
 | Canvas | Lines, rectangles, circles, text, images. Mouse and key events |
 | Viewport | A GPU surface that the code draws into with `wgpu` (15.8). Not in the node body |
 | Custom | Widgets from widget folders (6.2) |

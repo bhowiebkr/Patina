@@ -597,6 +597,18 @@ fn broken() -> u32 {
     blend().value = 'constant';
     blend().dispatchEvent(new Event('change', { bubbles: true }));
     await until('the constant blend of the ramp', RUN_MS, () => blend().value === 'constant');
+    const layers = () => document.querySelectorAll<HTMLElement>(`${gui} .gui-layer`);
+    if (layers().length !== 3) throw new Error(`the layer stack has ${layers().length} rows, not 3`);
+    layers()[0].querySelector<HTMLButtonElement>('.layer-eye')!.click();
+    await until('the hidden layer', RUN_MS, () => layers()[0].querySelector('.layer-eye')?.getAttribute('aria-pressed') === 'false');
+    const handle = layers()[0].querySelector<HTMLButtonElement>('.layer-handle')!;
+    handle.focus();
+    handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    await until('the layer that the down arrow moves', RUN_MS, () => layers()[1].textContent?.includes('Edge polish') === true && layers()[1].classList.contains('selected'));
+    // The dialog of the Browse button needs a person, so the check types the path (4.3).
+    const pathField = () => document.querySelector(`${gui} [aria-label="Browse Path"]`)?.parentElement?.querySelector('input');
+    enterText(pathField()!, 'out/b c.png');
+    await until('the typed file path', RUN_MS, () => pathField()?.value === 'out/b c.png');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

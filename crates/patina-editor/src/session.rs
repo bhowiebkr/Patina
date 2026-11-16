@@ -157,6 +157,11 @@ impl Editor {
         f(self.lock().as_mut().ok_or("No project is open.")?)
     }
 
+    /// The root of the open project. A path pick needs no trust, because no project code runs.
+    pub fn project_root(&self) -> Result<PathBuf, String> {
+        self.with(|session| Ok(session.project.root().to_owned()))
+    }
+
     /// The root of the open project, when the user trusts it (11). `to` says what needs the trust.
     fn trusted_root(&self, to: &str) -> Result<PathBuf, String> {
         self.with(|session| match session.trusted {

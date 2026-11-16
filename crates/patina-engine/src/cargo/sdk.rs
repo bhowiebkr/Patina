@@ -3,7 +3,7 @@
 /// The SDK crates that a project builds with. The engine carries their source.
 /// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
 /// projects do not build `wgpu` or `cudarc`.
-pub(super) const SDK_FILES: [(&str, &str); 26] = [
+pub(super) const SDK_FILES: [(&str, &str); 28] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -21,6 +21,8 @@ pub(super) const SDK_FILES: [(&str, &str); 26] = [
     ("build/sdk/patina-sdk/src/graph.rs", include_str!("../../../patina-sdk/src/graph.rs")),
     ("build/sdk/patina-sdk/src/view.rs", include_str!("../../../patina-sdk/src/view.rs")),
     ("build/sdk/patina-sdk/src/ui.rs", include_str!("../../../patina-sdk/src/ui.rs")),
+    ("build/sdk/patina-sdk/src/ui/layers.rs", include_str!("../../../patina-sdk/src/ui/layers.rs")),
+    ("build/sdk/patina-sdk/src/ui/path.rs", include_str!("../../../patina-sdk/src/ui/path.rs")),
     ("build/sdk/patina-sdk/src/ui/ramp.rs", include_str!("../../../patina-sdk/src/ui/ramp.rs")),
     (
         "build/sdk/patina-macros/Cargo.toml",

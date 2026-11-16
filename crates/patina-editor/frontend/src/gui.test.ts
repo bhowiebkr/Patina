@@ -126,6 +126,26 @@ test('a color ramp reads its stops in the limits, and a bad blend or color drops
   ]);
 });
 
+test('a layer stack reads its rows, keeps a base without an amount, and drops a bad row', () => {
+  const tree = ['layers\tLayers\t1\t1 0.35 #e8b080 Edge polish\t0 - #b46438 ', 'layers\tBad\t0\t2 0.5 #000000 X', 'layers\tBad\t0\t1 x #000000 X', 'layers\tBad\tx\t1 0.5 #000000 X'].join('\n');
+  assert.deepEqual(parseTree(tree), [
+    {
+      kind: 'layers',
+      index: 0,
+      text: 'Layers',
+      selected: 1,
+      layers: [
+        { visible: true, amount: 0.35, color: '#e8b080', name: 'Edge polish' },
+        { visible: false, amount: null, color: '#b46438', name: '' },
+      ],
+    },
+  ]);
+});
+
+test('a file path reads its dialog kind and drops an unknown kind', () => {
+  assert.deepEqual(parseTree('path\tPath\tsave\tout/b c.png\npath\tBad\tdelete\tx'), [{ kind: 'path', index: 0, text: 'Path', pick: 'save', value: 'out/b c.png' }]);
+});
+
 test('a ramp gradient has hard edges for a constant blend and spans the bar for one stop', () => {
   assert.equal(rampGradient([], 'linear'), 'none');
   assert.equal(rampGradient([[0.5, '#ff0000']], 'linear'), 'linear-gradient(to right, #ff0000 0%, #ff0000 50%, #ff0000 100%)');

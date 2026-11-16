@@ -11,12 +11,9 @@ mod view;
 pub use audio::AudioBlock;
 pub use graph::Graph;
 pub use patina_macros::{connection, node, view};
-pub use ui::{Blend, Canvas, ColorRamp, Key, Mode, Number, Pointer, Response, Ui, Viewport, Widget};
+pub use ui::{Blend, Canvas, ColorRamp, Key, Layer, Mode, Number, PathKind, Pointer, Response, Ui, Viewport, Widget};
 pub use view::{Lanes, Text, Viewer};
 
-/// One value of type `T` for the whole process, also across clusters (10.2). The first call makes
-/// the value with `make`. The value stays until the process ends. A type crate keeps the reference
-/// in its own `OnceLock`, because each call formats the key.
 /// The path of a file in the `assets/` folder of the node crate (6.2), for example a WESL
 /// shader. The engine gives the project root, so the path is also correct in a package (14.1).
 #[macro_export]
@@ -26,6 +23,15 @@ macro_rules! asset {
     };
 }
 
+/// The full path of `path`. A relative path, as `Ui::file_path` gives for a file in the project,
+/// starts at the project root. With no engine, as in a test, it starts at the current folder.
+pub fn project_path(path: &str) -> std::path::PathBuf {
+    glue::project_path(path)
+}
+
+/// One value of type `T` for the whole process, also across clusters (10.2). The first call makes
+/// the value with `make`. The value stays until the process ends. A type crate keeps the reference
+/// in its own `OnceLock`, because each call formats the key.
 pub fn shared<T: Send + Sync + 'static>(make: impl FnOnce() -> T) -> &'static T {
     glue::shared(make)
 }

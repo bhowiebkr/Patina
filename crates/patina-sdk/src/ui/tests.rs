@@ -190,3 +190,47 @@ fn a_bad_ramp_event_changes_nothing_and_a_ramp_keeps_one_stop() {
     assert_eq!(ColorRamp::default().color(0.5), [0, 0, 0]);
     assert_eq!(one.color(0.0), [1, 2, 3]);
 }
+
+#[test]
+fn a_layer_stack_moves_hides_and_sets_the_amount_of_a_layer() {
+    let layer = |name: &str, amount| Layer { name: name.into(), color: [0, 128, 255], visible: true, amount };
+    let mut layers = vec![layer("Edge\tpolish", Some(0.35)), layer("Verdigris", Some(0.62)), layer("Copper", None)];
+    let mut selected = 9;
+    let mut ui = Ui::new(0, "0 move 0 2");
+    assert!(ui.layer_stack("Layers", &mut layers, &mut selected).changed());
+    assert_eq!(ui.tree(), "layers\tLayers\t2\t1 0.35 #0080ff Edge polish\t1 0.62 #0080ff Verdigris\t1 - #0080ff Copper");
+    let names: Vec<_> = layers.iter().map(|l| l.name.as_str()).collect();
+    assert_eq!((names, selected), (vec!["Verdigris", "Copper", "Edge\tpolish"], 2));
+    for (event, to) in [("0 move 2 0", ["Edge\tpolish", "Verdigris", "Copper"]), ("0 select 1", ["Verdigris", "Copper", "Edge\tpolish"])] {
+        let mut copy = layers.clone();
+        let mut ui = Ui::new(0, event);
+        assert!(ui.layer_stack("", &mut copy, &mut selected).changed(), "{event}");
+        assert_eq!(copy.iter().map(|l| l.name.as_str()).collect::<Vec<_>>(), to, "{event}");
+    }
+    assert_eq!(selected, 1);
+    let mut ui = Ui::new(0, "0 visible 0 0\n1 amount 0 7");
+    ui.layer_stack("", &mut layers, &mut selected);
+    ui.layer_stack("", &mut layers, &mut selected);
+    assert_eq!((layers[0].visible, layers[0].amount, selected), (false, Some(1.0), 1));
+}
+
+#[test]
+fn a_bad_layer_event_changes_nothing() {
+    let first = vec![Layer { name: "Base".into(), color: [1, 2, 3], visible: true, amount: None }];
+    for event in ["0 amount 0 0.5", "0 move 0 1", "0 visible 0 2", "0 amount 0 NaN", "0 select 1", "0 select", "0 hide 0"] {
+        let (mut layers, mut selected) = (first.clone(), 0);
+        let mut ui = Ui::new(0, event);
+        assert!(!ui.layer_stack("", &mut layers, &mut selected).changed(), "{event}");
+        assert_eq!(layers, first, "{event}");
+    }
+}
+
+#[test]
+fn a_file_path_writes_its_kind_and_takes_the_new_path() {
+    let mut path = String::from("out/a.png");
+    let mut ui = Ui::new(0, "0 out/b c.png");
+    assert!(ui.file_path("Path", &mut path, PathKind::Save).changed());
+    assert_eq!(ui.tree(), "path\tPath\tsave\tout/a.png");
+    assert_eq!(path, "out/b c.png");
+    assert_eq!(crate::project_path("/abs/x"), std::path::PathBuf::from("/abs/x"));
+}

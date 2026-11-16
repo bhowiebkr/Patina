@@ -10,6 +10,7 @@ export type Widget =
   | { kind: 'slider'; index: number; text: string; value: number; low: number; high: number }
   | { kind: 'number'; index: number; text: string; value: number; step: number; unit: string }
   | { kind: 'text'; index: number; text: string; value: string }
+  | { kind: 'path'; index: number; text: string; pick: 'open' | 'save' | 'folder'; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'tabs'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'section'; index: number; text: string; open: boolean }
@@ -23,10 +24,19 @@ export type Widget =
   | { kind: 'table'; index: number; text: string; headings: string[]; rows: string[][]; selected: number | null }
   | { kind: 'curve'; index: number; text: string; points: [number, number][]; histogram: number[] }
   | { kind: 'ramp'; index: number; text: string; blend: Blend; selected: number; stops: Stop[] }
+  | { kind: 'layers'; index: number; text: string; selected: number; layers: Layer[] }
   | { kind: 'image'; index: number; text: string; width: number; height: number; rgba: string };
 
 /** The position from 0 to 1 and the color of a color ramp stop. */
 export type Stop = [number, string];
+
+/** A row of a layer stack. A layer without an amount, for example a base, has no amount field. */
+export interface Layer {
+  visible: boolean;
+  amount: number | null;
+  color: string;
+  name: string;
+}
 
 /** How a color ramp blends the colors between two stops, as `patina_sdk::Blend`. */
 export const BLENDS = ['linear', 'ease', 'constant'] as const;
@@ -47,6 +57,8 @@ export type Shape =
 
 const COUNTS: Record<string, number> = { line: 4, rect: 4, circle: 3, text: 2 };
 const COLOR = /^#[0-9a-f]{6}$/;
+// A layer: visible (0 or 1), the amount or '-', the color and the name.
+const LAYER = /^([01]) (\S+) (#[0-9a-f]{6}) (.*)$/;
 // The largest canvas side in pixels, so a bad tree cannot make a huge element.
 const MAX_SIDE = 4096;
 // The limits of the value widgets. `patina_sdk::Ui` keeps to them, and a bad tree cannot pass them.
@@ -120,6 +132,12 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
     if (!blend || !Number.isInteger(selected) || !stops.every(([at, color]) => Number.isFinite(at) && COLOR.test(color))) return null;
     return { kind, index, text, blend, selected, stops: stops.map(([at, color]): Stop => [Math.min(Math.max(at, 0), 1), color]) };
   }
+  if (kind === 'layers') {
+    const selected = Number(rest[0]);
+    const layers = rest.slice(1, 1 + MAX_ROWS).map(layer);
+    if (!Number.isInteger(selected) || !layers.every((l): l is Layer => l !== null)) return null;
+    return { kind, index, text, selected, layers };
+  }
   if (kind === 'image') {
     const [width, height] = rest.map(Number);
     const rgba = rest[2] ?? '';
@@ -158,6 +176,7 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'slider' && [value, low, high].every(Number.isFinite) && low <= high) widgets.push({ kind, index, text, value, low, high });
     else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value, step: low > 0 && Number.isFinite(low) ? low : 0, unit: rest[2] ?? '' });
     else if (kind === 'text') widgets.push({ kind, index, text, value: rest[0] ?? '' });
+    else if (kind === 'path' && (rest[0] === 'open' || rest[0] === 'save' || rest[0] === 'folder')) widgets.push({ kind, index, text, pick: rest[0], value: rest[1] ?? '' });
     else if ((kind === 'dropdown' || kind === 'tabs') && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });
     else if (kind === 'section' && Number.isFinite(value)) widgets.push({ kind, index, text, open: value !== 0 });
     else if (kind === 'end') widgets.push({ kind, index, text });
@@ -209,6 +228,13 @@ export function nest(widgets: Widget[]): Block[] {
 function mix(a: string, b: string, t: number): string {
   const channel = (c: string, i: number) => parseInt(c.slice(1 + 2 * i, 3 + 2 * i), 16);
   return `#${[0, 1, 2].map((i) => Math.round(channel(a, i) + (channel(b, i) - channel(a, i)) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function layer(field: string): Layer | null {
+  const m = LAYER.exec(field);
+  const amount = m?.[2] === '-' ? null : Number(m?.[2]);
+  if (!m || (amount !== null && !Number.isFinite(amount))) return null;
+  return { visible: m[1] === '1', amount: amount === null ? null : Math.min(Math.max(amount, 0), 1), color: m[3], name: m[4] };
 }
 
 /** The CSS gradient of a color ramp, with the colors of `patina_sdk::ColorRamp::color`. An ease

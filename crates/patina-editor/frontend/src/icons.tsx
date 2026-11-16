@@ -75,6 +75,8 @@ const GUI_ICONS: Record<string, string> = {
   remove: 'M3 8h10',
   folder: 'M1.5 3.5h4.5l1.5 1.5h7v7.5h-13z',
   eye: 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 6a2 2 0 1 1 0 4 2 2 0 1 1 0-4z',
+  'eye-off': 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM2.5 2.5l11 11',
+  grip: 'M5.5 3h1v1h-1zM9.5 3h1v1h-1zM5.5 7.5h1v1h-1zM9.5 7.5h1v1h-1zM5.5 12h1v1h-1zM9.5 12h1v1h-1z',
 };
 
 /** The drawing of a node GUI icon, or null for an unknown name. */

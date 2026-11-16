@@ -132,10 +132,16 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   if (v.graph.wire?.length !== 1 || v.graph.wire[0].to !== `${B}.value`) throw new Error(`undo did not give the wire to B: ${JSON.stringify(v.graph.wire)}`);
   await until('no dashed wire after the undo', RUN_MS, () => document.querySelector('.wire-line.cross') === null);
   // A second wire from the output shares the trunk, and a junction dot marks where the two part (15.9).
+  // The route point of the first wire can make the two wires part at a second place, so remove it first.
+  v = await step('remove the route point of the first wire', () => api.edit({ kind: 'SetRoute', to: `${B}.value`, points: [] }));
   v = await step('a second wire from A', () => api.edit({ kind: 'Connect', from: `${A}.out`, to: `${D}.value` }));
-  await until('one junction dot', RUN_MS, () => document.querySelectorAll('.wire-joint').length === 1);
+  let joints = 0;
+  await until('one junction dot', RUN_MS, () => (joints = document.querySelectorAll('.wire-joint').length) === 1).catch((e: Error) => {
+    throw new Error(`${e.message} (${joints} dots, wires ${JSON.stringify(v.graph.wire)})`);
+  });
   v = await step('undo the second wire', () => api.undo());
   await until('no junction dot after the undo', RUN_MS, () => document.querySelector('.wire-joint') === null);
+  v = await step('undo the removal of the route point', () => api.undo());
   v = await step('undo the delay', () => api.undo());
   steps.push('domain icons, a wire end moved to a ringed socket, a dashed cross-domain wire and a junction dot');
   return v;

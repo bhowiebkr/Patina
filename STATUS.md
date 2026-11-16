@@ -690,8 +690,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - A stateful node can have `pub fn ui(&mut self, ui: &mut Ui)`. `Cluster::ui` calls it between
   two runs, with the user input as events, and gives the widget lines. The `Ui` has the basic
   widgets (a label, a button, an icon button, a toggle, a slider, a number field with an optional unit and step
-  buttons, a text field, a dropdown, tabs and a section that opens and closes)
-  and the value widgets (a color picker, a color ramp, a plot with optional axes and units, a scatter plot, a
+  buttons, a text field, a file path field with a **Browse** button, a dropdown, tabs and a
+  section that opens and closes)
+  and the value widgets (a color picker, a color ramp, a layer stack, a plot with optional axes and units, a scatter plot, a
   waveform with optional trim handles, a table, a curve with an optional histogram, a progress
   bar and an image).
   After the events, `ui` runs one more time, so the widget lines show the new state. A panic in `ui` drops the state, as in `process`.
@@ -743,6 +744,12 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - The `Ui` test sorts the stops of a color ramp, keeps the selected stop on a move, and adds,
   colors, removes and selects stops. A bad ramp event changes nothing, and a ramp keeps one
   stop. The frontend test drops a ramp line with a bad blend or color, and draws the gradient.
+- The `Ui` test moves, selects and hides layers of a layer stack, and sets an amount in the
+  limits. A bad layer event and an amount for a layer without an amount change nothing. The
+  frontend test reads a base without an amount and drops a bad layer row.
+- The `Ui` test writes the kind of a file path field and takes a new path. The editor test makes
+  a path in the project relative, also with another case on Windows. The frontend test drops a
+  path line with an unknown kind.
 - An engine test finds each source file of the SDK crates in the files that the engine writes
   into a project. A new SDK file that is not in the list fails the test, not the project build.
 - The hello test moves the **Count** slider of the tick node to 7. The widget lines after the
@@ -764,8 +771,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
   value widget, selects a table row, steps a number field, selects a tab, opens a section, moves a trim
-  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, and shows the large size in the **Inspector**. No check
-  drags a curve point or a trim handle, or picks a color in the editor.
+  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, and shows the large size in the **Inspector**. No check
+  drags a curve point, a trim handle, a ramp stop or a layer, picks a color, or clicks
+  **Browse** in the editor. The dialog of the platform needs a person.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. Nobody opened a full size in the editor.

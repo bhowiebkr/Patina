@@ -56,11 +56,18 @@ pub struct Number {
     turns: u32,
     ramp: patina_sdk::ColorRamp,
     stop: usize,
+    layers: Vec<patina_sdk::Layer>,
+    layer: usize,
+    path: String,
 }
 
 impl Number {
     pub fn init() -> Self {
-        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0], turns: 0, ramp: patina_sdk::ColorRamp { stops: vec![(0.0, [24, 32, 96]), (0.62, [232, 163, 61]), (1.0, [250, 240, 220])], blend: patina_sdk::Blend::Linear }, stop: 1 }
+        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0], turns: 0, ramp: patina_sdk::ColorRamp { stops: vec![(0.0, [24, 32, 96]), (0.62, [232, 163, 61]), (1.0, [250, 240, 220])], blend: patina_sdk::Blend::Linear }, stop: 1, layers: vec![
+            patina_sdk::Layer { name: "Edge polish".into(), color: [232, 176, 128], visible: true, amount: Some(0.35) },
+            patina_sdk::Layer { name: "Verdigris".into(), color: [52, 190, 160], visible: true, amount: Some(0.62) },
+            patina_sdk::Layer { name: "Copper".into(), color: [180, 100, 56], visible: true, amount: None },
+        ], layer: 1, path: "out/frame_####.png".into() }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -78,6 +85,8 @@ impl Number {
         ui.color("Tint", &mut self.tint);
         ui.number_unit("Gain", &mut self.gain, 0.5, "dB");
         ui.color_ramp("Ramp", &mut self.ramp, &mut self.stop);
+        ui.layer_stack("Layers", &mut self.layers, &mut self.layer);
+        ui.file_path("Path", &mut self.path, patina_sdk::PathKind::Save);
         ui.tabs("Pages", &mut self.page, &["Values", "Shape"]);
         ui.section("More", &mut self.more, |ui| ui.label("Hidden detail"));
         let wave: Vec<f32> = (0..400).map(|i| (i as f32 * 0.2).sin() * (1.0 - i as f32 / 400.0)).collect();

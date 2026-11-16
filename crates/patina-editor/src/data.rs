@@ -230,6 +230,16 @@ pub fn same_path(a: &Path, b: &Path) -> bool {
     path_key(a) == path_key(b)
 }
 
+/// `path` relative to `root` with `/`, or "." for `root` itself. A path outside `root` stays the same.
+pub fn relative_path(root: &Path, path: &Path) -> String {
+    let key = path_key(root);
+    if !path_key(path).starts_with(&key) {
+        return path.display().to_string();
+    }
+    let rest: Vec<_> = path.components().skip(key.len()).map(|c| c.as_os_str().to_string_lossy()).collect();
+    if rest.is_empty() { ".".to_owned() } else { rest.join("/") }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,5 +313,14 @@ mod tests {
         assert_eq!(found, Some((Some(graph), Some("half".to_owned()), code)));
         assert!(moved.is_ok() && large.is_err());
         assert_eq!(data.recovery_path(Path::new("/A/b")) == data.recovery_path(Path::new("/a/b/")), cfg!(windows));
+    }
+
+    #[test]
+    fn a_path_in_the_project_becomes_relative() {
+        let root = Path::new("/p/proj");
+        assert_eq!(relative_path(root, Path::new("/p/proj/out/a b.png")), "out/a b.png");
+        assert_eq!(relative_path(root, Path::new("/p/proj/")), ".");
+        assert_eq!(relative_path(root, Path::new("/p/projx/a.png")), Path::new("/p/projx/a.png").display().to_string());
+        assert_eq!(relative_path(root, Path::new("/P/Proj/a")) == "a", cfg!(windows));
     }
 }

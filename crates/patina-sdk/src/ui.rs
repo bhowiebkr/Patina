@@ -4,7 +4,11 @@
 use std::fmt::Write;
 use std::ops::RangeInclusive;
 
+mod layers;
+mod path;
 mod ramp;
+pub use layers::Layer;
+pub use path::PathKind;
 pub use ramp::{Blend, ColorRamp};
 
 /// The most values of a plot line. A longer line sends the lowest and the highest value of parts.

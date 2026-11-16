@@ -5,6 +5,7 @@ import { api } from './api';
 import { Field } from './Field';
 import { eventLine, nest, parseTree, type Block, type Shape, type Widget } from './gui';
 import { guiIcon } from './icons';
+import { LayerStack } from './LayerStack';
 import { ColorRamp } from './Ramp';
 import { ColorPicker, Curve, Picture, Plot, Progress, Table, Waveform } from './ValueWidgets';
 import { ViewportView } from './Viewport';
@@ -209,6 +210,7 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
             return <Slider key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'number':
           case 'text':
+          case 'path':
             return <Field key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'tabs':
             return <Tabs key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
@@ -248,6 +250,8 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
             return <Curve key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'ramp':
             return <ColorRamp key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'layers':
+            return <LayerStack key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'image':
             return <Picture key={w.index} w={w} />;
         }
