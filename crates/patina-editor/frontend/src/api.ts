@@ -237,7 +237,7 @@ export function logKind(level: string): 'err' | 'warn' | 'out' {
 
 /** When `errors` of a run is not empty, the build failed and the last build that compiled ran. */
 export type EngineEvent =
-  | { state: 'building'; serial: number }
+  | { state: 'building'; serial: number; base: boolean; slot: string | null }
   | { state: 'started'; serial: number }
   | { state: 'ran'; serial: number; builtMs: number | null; slotOnly: boolean; fused: boolean; slot: string | null; runMs: number; ok: boolean; frames: boolean; events: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] }

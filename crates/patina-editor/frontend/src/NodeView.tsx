@@ -49,6 +49,8 @@ export interface RunState {
   fused: boolean;
   /** The node folder in the slot (7.1), or null. */
   slot: string | null;
+  /** The layers of the current build: the base, and the node folder of the slot library (7.3). */
+  building: { base: boolean; slot: string | null };
 }
 
 export const NO_RUN: RunState = {
@@ -72,6 +74,7 @@ export const NO_RUN: RunState = {
   eventReports: [],
   fused: false,
   slot: null,
+  building: { base: true, slot: null },
 };
 
 /** The values and idle nodes of one use of a subgraph, with the IDs inside the use (6.4, 15.9). */

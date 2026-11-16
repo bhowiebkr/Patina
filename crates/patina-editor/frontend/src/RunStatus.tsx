@@ -147,9 +147,9 @@ export function useRun(serial: RefObject<number>) {
       return;
     }
     if (e.state === 'building') {
-      setRun((r) => ({ ...r, phase: 'building' }));
+      setRun((r) => ({ ...r, phase: 'building', building: { base: e.base, slot: e.slot } }));
       setGuis(new Map());
-      log([{ text: 'Building the graph', kind: 'info' }]);
+      log([{ text: e.base ? 'Building the graph' : `Building the slot ${e.slot}`, kind: 'info' }]);
     } else if (e.state === 'ran') {
       const failed = e.errors.length > 0;
       const idle = idleOf(e.skipped, e.stopped);
@@ -180,6 +180,7 @@ export function useRun(serial: RefObject<number>) {
           eventReports: [],
           fused: e.fused,
           slot: e.slot,
+          building: r.building,
         };
       });
       const lines: Line[] = [];

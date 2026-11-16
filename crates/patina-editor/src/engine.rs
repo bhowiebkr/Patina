@@ -104,7 +104,9 @@ struct Build {
 #[derive(Serialize, Clone)]
 #[serde(tag = "state", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Event {
-    Building { serial: u64 },
+    /// A build starts. `base` is true when it builds the base, and `slot` has the node folder of
+    /// the slot library that it builds (7.3).
+    Building { serial: u64, base: bool, slot: Option<String> },
     /// A run starts, so **Stop** can stop it (15.2).
     Started { serial: u64 },
     /// When the build failed, `errors` has its compile errors, and the last build that compiled ran.
@@ -304,9 +306,6 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             (false, true) => Some(Build { mode: Mode::Edit, slot }),
             (false, false) => None,
         };
-        if build.is_some() {
-            let _ = app.emit("engine", Event::Building { serial: run.serial });
-        }
         // shortcut: the fuse builds on the engine thread, so a change waits for it; build in a background thread when bake builds get slow.
         let event = match run_one(app, (folder, &mut toolchain), &mut loaded, &mut run, build.as_ref(), shared) {
             Ok(Some(event)) => event,
@@ -597,17 +596,21 @@ fn badges(values: &[Value]) -> Vec<Value> {
 
 /// Builds the clusters for a run (7.2). A save of the code of one node puts the node into the
 /// slot, and builds the slot library alone when the base can stay. Gives None when only the slot
-/// library changed.
-fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, mut loaded: Option<&mut Loaded>) -> Result<Option<Cluster>, Error> {
+/// library changed. `building` gets the layers of each build before it starts.
+fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, mut loaded: Option<&mut Loaded>, building: impl Fn(bool, Option<&str>)) -> Result<Option<Cluster>, Error> {
     // A generic node or the delay node does not go into the slot, so its change builds all (7.1).
     let slotted = build.slot.is_some() && checked.set_slot(build.slot.as_deref()).is_ok();
     let swapped = match loaded.as_deref_mut().filter(|l| slotted && !l.stale && l.slot == build.slot) {
-        Some(loaded) => checked.build_slot(toolchain, &mut loaded.cluster),
+        Some(loaded) => {
+            building(false, build.slot.as_deref());
+            checked.build_slot(toolchain, &mut loaded.cluster)
+        }
         None => Ok(false),
     };
     let built = match swapped {
         Ok(true) => Ok(None),
         Ok(false) => {
+            building(true, build.slot.as_deref().filter(|_| slotted));
             // Until a full build loads, the base can be older than the code. A failed slot build keeps the base.
             if let Some(loaded) = loaded {
                 loaded.stale = true;
@@ -650,7 +653,11 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
         let start = Instant::now();
         let wiring = run.checked.wiring();
         let toolchain = find_toolchain(folder, toolchain)?;
-        let built = compile(&mut run.checked, toolchain, build, loaded.as_mut());
+        let serial = run.serial;
+        let building = |base, slot: Option<&str>| {
+            let _ = app.emit("engine", Event::Building { serial, base, slot: slot.map(str::to_owned) });
+        };
+        let built = compile(&mut run.checked, toolchain, build, loaded.as_mut(), building);
         if shared.builds.load(Ordering::SeqCst) > 0 {
             return Ok(None);
         }

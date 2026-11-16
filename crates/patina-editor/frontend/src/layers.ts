@@ -11,16 +11,19 @@ export interface LayerRow {
   ms: number | null;
 }
 
-type Layers = Pick<RunState, 'phase' | 'errors' | 'fused' | 'slot' | 'baseMs' | 'slotMs'>;
+type Layers = Pick<RunState, 'phase' | 'errors' | 'fused' | 'slot' | 'baseMs' | 'slotMs' | 'building'>;
 
-/** A build or an error goes to the slot row when a node is in the slot, else to the base row. */
+/** A build shows on the rows of the layers that it builds. An error goes to the slot row when a
+ * node is in the slot, else to the base row. */
 export function layerRows(run: Layers): LayerRow[] {
   const failed = run.phase === 'failed' || run.errors.length > 0;
-  const own = (layer: boolean, done: string) => (layer && run.phase === 'building' ? 'Building' : layer && failed ? 'Build failed' : done);
+  const building = run.phase === 'building';
   const inSlot = run.slot !== null;
-  const base = run.phase === 'none' ? 'Not built' : own(!inSlot, run.fused ? 'Fused' : 'Edit build');
+  const done = (layer: boolean, state: string) => (layer && failed ? 'Build failed' : state);
+  const base = building && run.building.base ? 'Building' : run.phase === 'none' ? 'Not built' : done(!inSlot, run.fused ? 'Fused' : 'Edit build');
+  const slot = building && run.building.slot !== null ? `${run.building.slot} - Building` : inSlot ? `${run.slot} - ${done(true, 'Edit build')}` : 'Empty';
   return [
     { name: 'Base', state: base, failed: !inSlot && failed, ms: run.baseMs },
-    { name: 'Slot', state: inSlot ? `${run.slot} - ${own(true, 'Edit build')}` : 'Empty', failed: inSlot && failed, ms: inSlot ? run.slotMs : null },
+    { name: 'Slot', state: slot, failed: inSlot && failed, ms: inSlot ? run.slotMs : null },
   ];
 }

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { layerRows } from './layers.ts';
 
 type Layers = Parameters<typeof layerRows>[0];
-const run: Layers = { phase: 'ran', errors: [], fused: false, slot: null, baseMs: 1800, slotMs: null };
+const run: Layers = { phase: 'ran', errors: [], fused: false, slot: null, baseMs: 1800, slotMs: null, building: { base: true, slot: null } };
 const states = (r: Layers) => layerRows(r).map((row) => [row.state, row.failed, row.ms]);
 
 test('the base row shows the build mode, and an empty slot has no time', () => {
@@ -14,10 +14,20 @@ test('the base row shows the build mode, and an empty slot has no time', () => {
   assert.deepEqual(states({ ...run, phase: 'none', baseMs: null }), [['Not built', false, null], ['Empty', false, null]]);
 });
 
-test('a build and its errors show on the slot row when a node is in the slot', () => {
+test('a build shows on the rows of the layers that it builds', () => {
+  assert.deepEqual(states({ ...run, phase: 'building' }), [['Building', false, 1800], ['Empty', false, null]]);
+  const slotted: Layers = { ...run, slot: 'number', slotMs: 400 };
+  const slotOnly = { base: false, slot: 'number' };
+  assert.deepEqual(states({ ...slotted, phase: 'building', building: slotOnly }), [['Edit build', false, 1800], ['number - Building', false, 400]]);
+  // A first save of a node folder builds the base with the new slot (7.1).
+  assert.deepEqual(states({ ...run, phase: 'building', building: { base: true, slot: 'mix' } }), [['Building', false, 1800], ['mix - Building', false, null]]);
+  // A fuse builds the base with no slot.
+  assert.deepEqual(states({ ...slotted, phase: 'building' }), [['Building', false, 1800], ['number - Edit build', false, 400]]);
+});
+
+test('the errors show on the slot row when a node is in the slot', () => {
   const slotted: Layers = { ...run, slot: 'number', slotMs: 400 };
   assert.deepEqual(states(slotted), [['Edit build', false, 1800], ['number - Edit build', false, 400]]);
-  assert.deepEqual(states({ ...slotted, phase: 'building' }), [['Edit build', false, 1800], ['number - Building', false, 400]]);
   const errors = [{ rendered: 'x' }] as unknown as Layers['errors'];
   assert.deepEqual(states({ ...slotted, errors }), [['Edit build', false, 1800], ['number - Build failed', true, 400]]);
   assert.deepEqual(states({ ...run, phase: 'failed' }), [['Build failed', true, 1800], ['Empty', false, null]]);

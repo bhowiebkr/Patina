@@ -614,7 +614,8 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - After 30 s with no change, the editor fuses the live graph in bake mode (Q7). The **Bake**
   button fuses at once.
 - The **Layers** tab of the left area shows a **Base** row and a **Slot** row. Each row shows
-  its build state and the time of its last build that compiled (7.3).
+  its build state and the time of its last build that compiled (7.3). Before each build, the
+  engine tells which layers it builds, and only their rows show **Building** (2026-11-16).
 - When a newer build waits after a build, the editor drops the older build. It does not run
   it, and its errors do not show (7.2).
 
@@ -671,8 +672,6 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - Nobody ran the state move in the editor. The editor calls the same engine code as the test.
 - A layout that an older editor saved has no **Layers** tab. **Views** or **Reset layout**
   shows it.
-- The **Layers** panel shows a build as **Building** on the slot row when a node is in the slot.
-  The engine does not tell the frontend before the build which layer it builds.
 - The fuse builds on the engine thread, so the graph does not run during a fuse
   (`crates/patina-editor/src/engine.rs`).
 - A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a
