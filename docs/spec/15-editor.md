@@ -340,6 +340,8 @@ change it.)
   When one write is not valid, no write applies, and the panel shows the error.
 - `add_node` makes a random ID of 16 hex digits (6.4) and returns it. Thus the same call can
   connect the new node.
+- `selected` reads the selected nodes of the graph view. `select` selects nodes in the graph
+  view. A selection is not an edit, so undo does not remove it.
 - The editor has one **View** panel. The **Views** menu lists the views of the project and opens
   one in the panel. The panel asks for the widget lines at the display rate while it shows.
 - A save of the code of a view drops the loaded view and does not build the clusters. The next
@@ -364,7 +366,8 @@ The limits of version 1:
 
 - One instance of each view, in one panel. No float window.
 - No typed outputs through type crates (rule 3). A view reads the text of an output.
-- No trigger (9.4), no selection, no subgraph edits and no reads of node states or errors.
+- No trigger (9.4), because the event domain does not exist yet. No subgraph edits and no reads
+  of node states or errors.
 - One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node
   GUIs. No key events on the viewport.
 - No bake build of a view.

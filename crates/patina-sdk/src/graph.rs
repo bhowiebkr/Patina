@@ -9,28 +9,31 @@ use std::str::FromStr;
 /// editor, so undo removes it.
 ///
 /// ```
-/// let mut graph = patina_sdk::Graph::new("node\tclock\tclock\nout\tclock\tframe\t42\nparam\tclock\trate\t60\nwire\tclock.frame\tshow.value");
+/// let mut graph = patina_sdk::Graph::new("node\tclock\tclock\nout\tclock\tframe\t42\nparam\tclock\trate\t60\nwire\tclock.frame\tshow.value\nselected\tclock");
 /// assert_eq!(graph.nodes().collect::<Vec<_>>(), ["clock"]);
 /// assert_eq!(graph.output::<u64>("clock", "frame"), Some(42));
 /// assert_eq!(graph.param("clock", "rate"), Some("60"));
 /// assert_eq!(graph.wires().collect::<Vec<_>>(), [("clock.frame", "show.value")]);
+/// assert_eq!(graph.selected().collect::<Vec<_>>(), ["clock"]);
 /// graph.set_param("clock", "rate", 30);
 /// let id = graph.add_node("nodes/show", [10.0, 20.5]);
 /// graph.connect("clock.frame", &format!("{id}.value"));
 /// graph.disconnect("clock.frame", "show.value");
 /// graph.remove_node("show");
+/// graph.select(["clock", "show"]);
 /// let edits = graph.edits().collect::<Vec<_>>();
 /// assert_eq!(edits[0], "set\tclock\trate\t30");
 /// assert_eq!(edits[1], format!("add\t{id}\tnodes/show\t10\t20.5"));
-/// assert_eq!(edits[2..], [format!("connect\tclock.frame\t{id}.value"), "disconnect\tclock.frame\tshow.value".into(), "remove\tshow".into()]);
+/// assert_eq!(edits[2..5], [format!("connect\tclock.frame\t{id}.value"), "disconnect\tclock.frame\tshow.value".into(), "remove\tshow".into()]);
+/// assert_eq!(edits[5], "select\tclock\tshow");
 /// assert!(id.len() == 16 && id.bytes().all(|b| b.is_ascii_hexdigit()));
 /// ```
 pub struct Graph {
     /// One line for each item, with tabs between the fields: `node <id> <folder>`,
-    /// `param <id> <key> <text>`, `out <id> <output> <text>` and `wire <from> <to>`.
+    /// `param <id> <key> <text>`, `out <id> <output> <text>`, `wire <from> <to>` and `selected <id>`.
     lines: String,
     /// One line for each write: `set <id> <key> <text>`, `add <id> <folder> <x> <y>`,
-    /// `remove <id>`, `connect <from> <to>` and `disconnect <from> <to>`.
+    /// `remove <id>`, `connect <from> <to>`, `disconnect <from> <to>` and `select <id>...`.
     edits: Vec<String>,
 }
 
@@ -70,6 +73,17 @@ impl Graph {
     /// Each wire of the open graph, as `(from, to)`: from `<node>.<output>` to `<node>.<input>` (6.4).
     pub fn wires(&self) -> impl Iterator<Item = (&str, &str)> {
         self.items("wire").map(|[from, to, _]| (from, to))
+    }
+
+    /// The ID of each selected node of the graph view.
+    pub fn selected(&self) -> impl Iterator<Item = &str> {
+        self.items("selected").map(|[id, _, _]| id)
+    }
+
+    /// Selects the nodes `ids` in the graph view, and no other node. A selection is not an edit, so
+    /// undo does not remove it. The last call of a `ui` call wins.
+    pub fn select<'a>(&mut self, ids: impl IntoIterator<Item = &'a str>) {
+        self.write(&std::iter::once("select").chain(ids).collect::<Vec<_>>());
     }
 
     /// Sets the parameter `key` of node `id` from the text of `value` (6.4). It applies on the

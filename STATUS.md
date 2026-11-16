@@ -18,7 +18,7 @@ change the graph (spec 15.8).
    **View** panel. This part works.
 2. More instances of a view, and float windows.
 3. More edits from a view: add a node, connect a wire, start a trigger and select nodes. Add,
-   remove, connect and disconnect work. Trigger and select do not.
+   remove, connect, disconnect and select work. Trigger waits for the event domain (9.4).
 4. Typed outputs through type crates (15.8 rule 3).
 5. A viewport in a view (15.8), on the native path of the viewport prototype. Version 1
    works on Windows. A render thread and more viewports in a window do not.
@@ -33,6 +33,7 @@ change the graph (spec 15.8).
   makes a view folder. The **View** panel shows the widgets of the open view.
 - A view reads the wires. It sets parameters, adds and removes nodes, and connects and
   disconnects wires. The writes of one call go through the edit path as one step of undo.
+- A view reads the selected nodes and selects nodes in the graph view.
 - A save of the code of a view builds only the view again.
 - `Ui::viewport` and `patina_gpu::ViewportSurface` draw a viewport into the editor window under
   the transparent page, on Windows. The `scene` view of `examples/gpu` colors its viewport with
@@ -53,7 +54,7 @@ change the graph (spec 15.8).
 ### Known limits
 
 - The limits of version 1 are in spec 15.8: one instance, no float window, text outputs only,
-  no trigger, no selection, one viewport on Windows only, and no bake build.
+  no trigger, one viewport on Windows only, and no bake build.
 - Nobody looked at a viewport in the editor yet. The self-check keeps its window hidden, so it
   cannot show the surface. The colors, the resize and the scroll clip need a check on screen.
 - A viewport draws in the `ui` call on the engine thread, so a slow run delays its frames.

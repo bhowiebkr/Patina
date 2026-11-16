@@ -33,6 +33,8 @@ pub struct Frame {
     pub tree: String,
     /// The writes to the graph, as edits for the edit path of the editor (15.8 rule 2).
     pub edits: Vec<Edit>,
+    /// The nodes to select in the graph view, when the view selected nodes.
+    pub select: Option<Vec<String>>,
 }
 
 impl View {
@@ -83,7 +85,10 @@ impl View {
         for (_, kind, text) in self.sink.iter() {
             match kind {
                 glue::UI => frame.tree = text.to_owned(),
-                glue::EDIT => frame.edits.extend(edit(text)),
+                glue::EDIT => match select(text) {
+                    Some(ids) => frame.select = Some(ids),
+                    None => frame.edits.extend(edit(text)),
+                },
                 glue::ERROR | glue::PANIC => error = Some(text.to_owned()),
                 _ => {}
             }
@@ -111,8 +116,8 @@ impl Drop for View {
 }
 
 /// The graph lines that a view reads (`patina_sdk::Graph`): the nodes, the parameters and the wires
-/// of `graph`, and the live values of the last run.
-pub fn snapshot(graph: &GraphFile, values: &[Value]) -> String {
+/// of `graph`, the live values of the last run and the `selected` nodes of the graph view.
+pub fn snapshot(graph: &GraphFile, values: &[Value], selected: &[String]) -> String {
     let clean = |text: &str| text.chars().map(|c| if c.is_control() { ' ' } else { c }).collect::<String>();
     let mut lines = String::new();
     for node in &graph.node {
@@ -129,7 +134,16 @@ pub fn snapshot(graph: &GraphFile, values: &[Value]) -> String {
         let Some((id, key)) = value.from.split_once('.') else { continue };
         lines.push_str(&format!("out\t{id}\t{key}\t{}\n", clean(&value.text)));
     }
+    for id in selected {
+        lines.push_str(&format!("selected\t{}\n", clean(id)));
+    }
     lines
+}
+
+/// The IDs of a select line of a view (`patina_sdk::Graph::select`). None for another line.
+fn select(line: &str) -> Option<Vec<String>> {
+    let ids = line.strip_prefix("select")?;
+    (ids.is_empty() || ids.starts_with('\t')).then(|| ids.split('\t').filter(|id| !id.is_empty()).map(str::to_owned).collect())
 }
 
 /// The edit of a write line of a view (`patina_sdk::Graph`). None for a bad line.
@@ -157,7 +171,11 @@ mod tests {
         graph.node[0].params.insert("text".to_owned(), "x\ty".to_owned());
         graph.wire = toml::from_str::<GraphFile>("format = 1\n[[wire]]\nfrom = \"a.out\"\nto = \"b.in\"\n").unwrap().wire;
         let values = [Value { from: "a.out".to_owned(), text: "2.0".to_owned(), lanes: None }];
-        assert_eq!(snapshot(&graph, &values), "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nwire\ta.out\tb.in\nout\ta\tout\t2.0\n");
+        let lines = "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nwire\ta.out\tb.in\nout\ta\tout\t2.0\nselected\ta\n";
+        assert_eq!(snapshot(&graph, &values, &["a".to_owned()]), lines);
+        assert_eq!(select("select\ta\tb"), Some(vec!["a".to_owned(), "b".to_owned()]));
+        assert_eq!(select("select"), Some(Vec::new()));
+        assert_eq!(select("selected\ta"), None);
         let set = edit("set\ta\tvalue\t3 4");
         assert!(matches!(set, Some(Edit::SetParam { id, key, text: Some(text) }) if id == "a" && key == "value" && text == "3 4"));
         assert!(matches!(edit("add\tb\tnodes/show\t1\t-2.5"), Some(Edit::AddNode { id, folder, builtin: false, pos: [1.0, -2.5] }) if id == "b" && folder == "nodes/show"));

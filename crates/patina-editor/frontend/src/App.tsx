@@ -95,7 +95,8 @@ export function App() {
   const [ask, setAsk] = useState<'close' | 'quit' | null>(null);
   const [tab, setTab] = useState<InspectorTab>('parameters');
   const [reveal, setReveal] = useState<Reveal | null>(null);
-  const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
+  const [focus, setFocus] = useState<{ ids: string[]; n: number } | null>(null);
+  const selected = useRef<string[]>([]);
   // True while a build or a run is active, so Stop can stop it after Pause (15.2).
   const [busy, setBusy] = useState(false);
   const [stuck, setStuck] = useState('');
@@ -203,7 +204,7 @@ export function App() {
     const entry = current.current?.graph.node?.find((n) => n.folder === `nodes/${name}`);
     const folder = group === 'widgets' ? 'widget' : group === 'views' ? 'view' : null;
     setInspect(folder ? { kind: folder, name } : entry ? { kind: 'node', id: entry.id } : { kind: 'type', name });
-    if (entry) setFocus({ id: entry.id, n: at.n });
+    if (entry) setFocus({ ids: [entry.id], n: at.n });
     setTab('code');
     setReveal(at);
   }, []);
@@ -431,8 +432,10 @@ export function App() {
     setInspect({ kind: 'node', id });
   }, []);
   const closeFull = useCallback(() => setFull(null), []);
+  const selectNodes = useCallback((ids: string[]) => setFocus({ ids, n: 0 }), []);
 
   const onSelect = useCallback((ids: string[], wires: WireData[]) => {
+    selected.current = ids;
     setInspect((old) => {
       if (ids.length === 1) return { kind: 'node', id: ids[0] };
       if (ids.length === 0 && wires.length === 1) return { kind: 'wire', from: wires[0].from, to: wires[0].to };
@@ -509,7 +512,7 @@ export function App() {
     },
     logs: { body: <Lines lines={logs} label="Logs" onPick={pick} />, actions: clear(() => setLogs([])) },
     output: { body: <Lines lines={output} label="Output" onPick={pick} />, actions: clear(() => setOutput([])) },
-    view: { body: <ViewPanel name={openView && view.views.includes(openView) ? openView : null} revision={view.codeRevision} trusted={view.trusted} onView={show} /> },
+    view: { body: <ViewPanel name={openView && view.views.includes(openView) ? openView : null} revision={view.codeRevision} trusted={view.trusted} onView={show} selected={selected} onSelect={selectNodes} /> },
   };
 
   return (

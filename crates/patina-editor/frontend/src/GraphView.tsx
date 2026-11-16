@@ -127,7 +127,8 @@ interface Props {
   onEdit: (edit: Edit) => Promise<void>;
   onSelect: (ids: string[], wires: WireData[]) => void;
   /** A request to select one node, for example from a click on a compile error. */
-  focus: { id: string; n: number } | null;
+  /** The nodes to select, for example from a view (15.8). */
+  focus: { ids: string[]; n: number } | null;
   /** Opens a subgraph, from a double-click on a use (6.1). */
   onOpen: (name: string) => void;
   /** Moves the nodes into a new subgraph. It fails with the problem. */
@@ -159,7 +160,8 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);
   useEffect(() => {
     if (!focus) return;
-    setNodes((list) => list.map((x) => (x.selected === (x.id === focus.id) ? x : { ...x, selected: x.id === focus.id })));
+    const ids = new Set(focus.ids);
+    setNodes((list) => list.map((x) => (x.selected === ids.has(x.id) ? x : { ...x, selected: ids.has(x.id) })));
     setEdges((list) => list.map((x) => (x.selected ? { ...x, selected: false } : x)));
   }, [focus]);
 

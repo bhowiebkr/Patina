@@ -1,7 +1,7 @@
 // The View panel (spec 15.8): the widgets of a project view. The panel asks the view for its widget
 // lines at the display rate while it shows, and sends the user input with the next ask.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { api, type View } from './api';
 import { GuiWidgets } from './NodeGui';
 
@@ -13,9 +13,13 @@ interface Props {
   trusted: boolean;
   /** Shows the project after a write of the view to the graph. */
   onView: (view: View) => void;
+  /** The IDs of the selected nodes, which the view reads. */
+  selected: RefObject<string[]>;
+  /** Selects nodes in the graph view for the view. */
+  onSelect: (ids: string[]) => void;
 }
 
-export function ViewPanel({ name, revision, trusted, onView }: Props) {
+export function ViewPanel({ name, revision, trusted, onView, selected, onSelect }: Props) {
   const [tree, setTree] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -23,6 +27,8 @@ export function ViewPanel({ name, revision, trusted, onView }: Props) {
   const events = useRef<string[]>([]);
   const show = useRef(onView);
   show.current = onView;
+  const pick = useRef(onSelect);
+  pick.current = onSelect;
 
   useEffect(() => {
     // Without the handle, a viewport shows a note in place of the scene.
@@ -37,11 +43,12 @@ export function ViewPanel({ name, revision, trusted, onView }: Props) {
     setError(null);
     const ask = () => {
       const lines = events.current.splice(0).join('\n');
-      api.viewUi(name, lines).then(
+      api.viewUi(name, lines, selected.current).then(
         (f) => {
           if (!live) return;
           setTree(f.tree);
           if (f.view) show.current(f.view);
+          if (f.select) pick.current(f.select);
           frame = requestAnimationFrame(ask);
         },
         // A failed build stops the asks, so the view does not build at each frame.
@@ -53,7 +60,7 @@ export function ViewPanel({ name, revision, trusted, onView }: Props) {
       live = false;
       cancelAnimationFrame(frame);
     };
-  }, [name, revision, trusted, attempt]);
+  }, [name, revision, trusted, attempt, selected]);
 
   let body;
   if (!name) body = <div className="item empty">Open a view from the Views menu.</div>;

@@ -526,14 +526,16 @@ pub fn new_view(editor: State<'_, Editor>, name: String) -> Result<View, String>
 pub struct ViewFrame {
     tree: String,
     view: Option<View>,
+    /// The nodes to select in the graph view, when the view selected nodes.
+    select: Option<Vec<String>>,
 }
 
 /// Gives user input to view `name`, or asks for its widget lines when `events` is empty (15.8).
 /// The first input builds the view. Its writes go through the edit path, so undo works.
 #[tauri::command(async)]
-pub fn view_ui(editor: State<'_, Editor>, name: String, events: String) -> Result<ViewFrame, String> {
+pub fn view_ui(editor: State<'_, Editor>, name: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
     let (root, graph) = editor.with(|session| match session.trusted {
-        true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values)))),
+        true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &selected))),
         false => Err("Trust the project before you open a view.".to_owned()),
     })?;
     let (reply, answer) = std::sync::mpsc::channel();
@@ -545,7 +547,7 @@ pub fn view_ui(editor: State<'_, Editor>, name: String, events: String) -> Resul
         // The writes of one call are one step of undo.
         false => Some(editor.change(|project| project.apply(&Edit::Group { edits: frame.edits }))?),
     };
-    Ok(ViewFrame { tree: frame.tree, view })
+    Ok(ViewFrame { tree: frame.tree, view, select: frame.select })
 }
 
 /// Drops view `name`, so the next input builds it again (15.8).

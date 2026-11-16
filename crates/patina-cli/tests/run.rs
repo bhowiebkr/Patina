@@ -545,7 +545,7 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     // The scene view shows a viewport. Without a window, it reads the wheel and draws nothing (15.8).
     let library = opened.build_view(&Toolchain::detect().unwrap(), "scene").unwrap();
     let mut view = patina_engine::view::View::load(&library, &project).unwrap();
-    let tree = view.ui(0, "0 wheel 100", &patina_engine::view::snapshot(opened.graph(), &[])).unwrap().tree;
+    let tree = view.ui(0, "0 wheel 100", &patina_engine::view::snapshot(opened.graph(), &[], &[])).unwrap().tree;
     assert!(tree.starts_with("viewport	Scene	320
 label	") && tree.contains("40 %"), "{tree}");
 }
@@ -568,6 +568,7 @@ impl Panel {
         if ui.button(\"Set\").clicked() {
             self.clicks += 1;
             graph.set_param(\"9bc1790966687030\", \"value\", 5.0);
+            graph.select([\"9bc1790966687030\"]);
         }
     }
 }
@@ -581,17 +582,18 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     opened.new_view("panel").unwrap();
     fs::write(project.join("views/panel/src/lib.rs"), VIEW).unwrap();
     let library = opened.build_view(&Toolchain::detect().unwrap(), "panel").unwrap();
-    let graph = snapshot(opened.graph(), &[]);
+    let graph = snapshot(opened.graph(), &[], &[]);
     let mut view = View::load(&library, &project).unwrap();
     let frame = view.ui(0, "", &graph).unwrap();
     assert_eq!(frame.tree, "label\t4 nodes, Some(\"2.5\"), 0 clicks\nbutton\tSet");
-    assert!(frame.edits.is_empty());
+    assert!(frame.edits.is_empty() && frame.select.is_none());
 
     // A click writes the parameter as an edit, and the view draws again with its new state.
     let frame = view.ui(0, "1 1", &graph).unwrap();
     assert!(frame.tree.contains("1 clicks"), "{}", frame.tree);
     let [patina_engine::Edit::SetParam { id, key, text: Some(text) }] = &frame.edits[..] else { panic!("{:?}", frame.edits) };
     assert_eq!((id.as_str(), key.as_str(), text.as_str()), ("9bc1790966687030", "value", "5"));
+    assert_eq!(frame.select, Some(vec!["9bc1790966687030".to_owned()]));
 
     // Each instance has its own state.
     assert!(View::load(&library, &project).unwrap().ui(0, "", &graph).unwrap().tree.contains("0 clicks"));
