@@ -26,6 +26,8 @@ export interface Wire {
   style?: Style;
   corners?: Corners;
   points?: Point[];
+  /** The bus name that replaces the default name (15.9). */
+  name?: string;
 }
 
 /** A public input of a subgraph and the inner inputs that it goes to (spec 6.4). */
@@ -106,6 +108,8 @@ export interface View {
   recovery: boolean;
   /** The values of the public inputs while the open subgraph runs alone, or null (15.9). */
   test: Record<string, string> | null;
+  /** The connection kinds (6.3). */
+  kinds: KindInfo[];
 }
 
 /** The unsaved text of the Code tab, by path. */
@@ -149,6 +153,14 @@ export interface Report {
 }
 
 /** The lanes of a value from its connection kind (spec 6.3): one '0' or '1' for each lane, the most significant first. */
+/** A connection kind (6.3). `lanes` is empty when the lanes come only with the live values. */
+export interface KindInfo {
+  ty: string;
+  lanes: string[];
+  label: string | null;
+  color: string | null;
+}
+
 export interface Lanes {
   bits: string;
   label: string;
@@ -231,6 +243,7 @@ export type Edit =
   | { kind: 'Disconnect'; from: string; to: string }
   | { kind: 'SetRoute'; to: string; points: Point[] }
   | { kind: 'SetLook'; to: string; style?: Style; corners?: Corners }
+  | { kind: 'NameWire'; to: string; name: string | null }
   | { kind: 'SetParam'; id: string; key: string; text: string | null }
   | { kind: 'SetCode'; path: string; text: string }
   | { kind: 'AddPin'; key: string; name: string; input: boolean; pos: Point }

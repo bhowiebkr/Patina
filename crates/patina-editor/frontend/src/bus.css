@@ -1,0 +1,147 @@
+/* The bus sockets on the nodes and the lane tooltip of a bus (spec 15.9). */
+
+.bus-socket {
+  position: absolute;
+  width: 50%;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.bus-socket.in {
+  left: 0;
+}
+
+.bus-socket.out {
+  right: 0;
+}
+
+/* The pin name and the lane range, for example "data[7:0]". */
+.bus-socket-head {
+  height: 18px;
+  padding: 0 12px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bus-socket.out .bus-socket-head {
+  text-align: right;
+}
+
+.bus-range {
+  margin-left: 3px;
+  color: var(--subtle);
+  font: 10px Consolas, 'Cascadia Mono', monospace;
+}
+
+/* The leads fan in from the contacts to the lanes at the node edge. An output mirrors them. */
+.bus-leads {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+}
+
+.bus-socket.out .bus-leads {
+  left: auto;
+  right: 0;
+  transform: scaleX(-1);
+}
+
+.bus-leads path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--lane) 30%, var(--node));
+  stroke-width: 1.5;
+}
+
+.bus-leads path.on {
+  stroke: var(--lane);
+}
+
+.bus-leads path.hot {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.bus-contact {
+  position: absolute;
+  left: 14px;
+  right: 4px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  font: 10px Consolas, 'Cascadia Mono', monospace;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.bus-socket.out .bus-contact {
+  left: 4px;
+  right: 14px;
+  flex-direction: row-reverse;
+}
+
+.bus-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* An off LED is a dark tint of the lane color, so the state never shows by brightness alone in the dark. */
+.bus-led {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--lane) 38%, black);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.bus-contact.on {
+  color: var(--text);
+}
+
+.bus-contact.on .bus-led {
+  background: var(--lane);
+  box-shadow: 0 0 5px var(--lane);
+}
+
+.bus-socket.stale .bus-contact.on .bus-led {
+  background: color-mix(in srgb, var(--lane) 65%, black);
+  box-shadow: none;
+}
+
+.bus-contact.hot {
+  color: var(--accent-hover);
+}
+
+.bus-contact.hot .bus-led {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* The pin of a bus socket is a bar as wide as the ribbon. */
+.react-flow__node-patina .react-flow__handle.bus-pin {
+  width: 7px;
+  min-height: 0;
+  border-radius: 3px;
+}
+
+.lane-tip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  padding: 2px 6px;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  font: 11px Consolas, 'Cascadia Mono', monospace;
+  pointer-events: none;
+}

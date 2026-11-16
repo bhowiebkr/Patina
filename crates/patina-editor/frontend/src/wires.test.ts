@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { HAS_LANES, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, midpoint, normals, orthogonal, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import { FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, midpoint, normals, orthogonal, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Style } from './api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -126,6 +126,22 @@ test('a bus draws each lane of each segment, and a selected bus draws one ribbon
   for (let k = 0; k < 20; k++) store.set(`w${k}`, 0, 0, 10, 0, shape(0, 0, 10, 0, []), false, '1');
   assert.equal(store.bits.length, store.counts.length, 'the lanes grow with the slots');
   assert.equal(store.bits[21], '1');
+  assert.equal(store.family.length, store.counts.length, 'the families grow with the slots');
+  assert.equal(store.hover[21], -1);
+});
+
+test('a bus keeps its color family, and the hovered lane is marked', () => {
+  const store = new WireStore();
+  store.set('bus', 0, 0, 100, 0, shape(0, 0, 100, 0, [], 'polyline'), false, '10', false, 3, 1);
+  const flags = 1 | HAS_LANES | (3 << FAMILY_SHIFT);
+  assert.deepEqual([...instances(store, false)], [0, 0, 0, flags | LIT, 0, 0, 1, flags | HOVER]);
+  store.layout = false;
+  store.set('bus', 0, 0, 100, 0, shape(0, 0, 100, 0, [], 'polyline'), false, '10', false, 3, -1);
+  assert.ok(store.layout, 'a new hover needs new instances');
+  // The wire goes right, so its left side is up: negative y gives a negative distance.
+  assert.equal(store.across('bus', 40, -3), -3);
+  assert.equal(store.across('bus', 140, 4), 4, 'beyond the end, the nearest segment');
+  assert.equal(store.across('none', 0, 0), null);
 });
 
 test('the value badge sits at the middle of the curve or of the longest segment', () => {

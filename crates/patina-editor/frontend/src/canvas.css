@@ -168,6 +168,7 @@
 
 .patina-row {
   height: 24px;
+  line-height: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;

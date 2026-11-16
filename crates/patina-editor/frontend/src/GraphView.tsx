@@ -19,7 +19,8 @@ import {
 import { arrange, type Box, type Link } from './arrange';
 import { AddNode } from './AddNode';
 import { NameField } from './NameField';
-import { newId, type Edit, type NodeInfo, type Point, type View } from './api';
+import { newId, type Edit, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
+import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
 import { savedViewport, saveViewport } from './Dock';
 import { NodeEdit, NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { matchPin } from './palette';
@@ -47,6 +48,28 @@ type GraphNode = PatinaNode | PortNode;
 function portTypes(view: View): Map<string, string> {
   const info = view.nodes.find((n) => n.subgraph && n.name === view.graphName);
   return new Map([...(info?.inputs ?? []).map((p) => [`in:${p.key}`, p.ty] as const), ...(info?.outputs ?? []).map((p) => [`out:${p.key}`, p.ty] as const)]);
+}
+
+/** The name of a pin in a bus name (15.9): a public pin, a pin of a subgraph use, or the key of an input. */
+function pinName(view: View, infos: ReadonlyMap<string, NodeInfo | null>, pin: string, output: boolean): string | undefined {
+  const [id, key] = splitPin(pin);
+  const port = portKey(id);
+  if (port !== null) return (output ? view.graph.input : view.graph.output)?.find((p) => p.key === port)?.name;
+  const p = (output ? infos.get(id)?.outputs : infos.get(id)?.inputs)?.find((q) => q.key === key);
+  // An output key, for example `out`, says nothing, so only the name of a public pin counts.
+  return output ? p?.name : p && (p.name ?? p.key);
+}
+
+/** The bus sockets of a node (15.9), or undefined when no pin has a kind with lanes. */
+function socketsOf(id: string, info: NodeInfo | null, kinds: readonly KindInfo[], run: RunState, sources: ReadonlyMap<string, string>) {
+  let out: Record<string, Socket> | undefined;
+  const add = (key: string, pin: Pin, from: string, to: string | null) => {
+    const s = socketOf(kindOf(kinds, pin.ty), pin.name ?? pin.key, run.values.get(from), from !== '' && valueStale(run, from), from, to);
+    if (s) (out ??= {})[key] = s;
+  };
+  for (const p of info?.outputs ?? []) add(`o:${p.key}`, p, `${id}.${p.key}`, null);
+  for (const p of info?.inputs ?? []) add(`i:${p.key}`, p, sources.get(`${id}.${p.key}`) ?? '', `${id}.${p.key}`);
+  return out;
 }
 
 /** What an AddNode edit names: a built-in node, a subgraph or a node folder. */
@@ -116,6 +139,8 @@ function buildPorts(view: View, run: RunState, old: Map<string, GraphNode>): Por
 function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, prev: GraphNode[]): GraphNode[] {
   const old = new Map(prev.map((n) => [n.id, n]));
   const wires = view.graph.wire ?? [];
+  // The output that gives the value of each input, for the bus sockets.
+  const sources = new Map([...wires.map((w) => [w.to, w.from] as const), ...(view.graph.input ?? []).flatMap((p) => (p.to ?? []).map((to) => [to, `in:${p.key}.pin`] as const))]);
   const nodes: GraphNode[] = (view.graph.node ?? []).map((entry) => {
     const info = infoOf(entry, view.nodes);
     const [state, message] = nodeState(entry, info, view, run);
@@ -123,7 +148,8 @@ function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     const position = { x: entry.pos?.[0] ?? 0, y: entry.pos?.[1] ?? 0 };
     const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
-    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot };
+    const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
+    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets };
     const before = old.get(entry.id);
     return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });
@@ -133,10 +159,12 @@ function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
 function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
   const selected = new Set(prev.filter((e) => e.selected).map((e) => e.id));
   const types = portTypes(view);
+  const infos = new Map((view.graph.node ?? []).map((n) => [n.id, infoOf(n, view.nodes)]));
+  const bus = (from: string, to: string, name?: string) => name ?? pinName(view, infos, from, true) ?? pinName(view, infos, to, false);
   const fixed = (from: string, to: string, ty: string | undefined): Edge<WireData> => {
     const [[source, sourceHandle], [target, targetHandle]] = [splitPin(from), splitPin(to)];
     const id = `${from}>${to}`;
-    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from, to, route: NO_POINTS, ty, fixed: true } };
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from, to, route: NO_POINTS, ty, fixed: true, bus: bus(from, to) } };
   };
   const ports = [
     ...(view.graph.input ?? []).flatMap((p) => (p.to ?? []).map((to) => fixed(`in:${p.key}.pin`, to, types.get(`in:${p.key}`)))),
@@ -146,7 +174,7 @@ function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
     const [source, sourceHandle] = splitPin(w.from);
     const [target, targetHandle] = splitPin(w.to);
     const id = `${w.from}>${w.to}`;
-    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from) } };
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from), bus: bus(w.from, w.to, w.name) } };
   });
   return [...wires, ...ports];
 }
@@ -187,6 +215,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
   const [router] = useState(() => new Router());
+  const [hover] = useState(() => new HoverStore());
   const [glOk, setGlOk] = useState(true);
   // The screen point of the open Add node palette, with the pin of a wire that it ends, and the
   // last pointer point over the canvas.
@@ -197,8 +226,8 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport(view.graphName));
   const tools = useMemo(
-    () => ({ store: wires, router, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from) }),
-    [wires, router, onEdit, view.trusted, run],
+    () => ({ store: wires, router, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from), kinds: view.kinds }),
+    [wires, router, onEdit, view.trusted, run, view.kinds],
   );
   // The node bodies that the automatic routes go around (15.9).
   useLayoutEffect(() => {
@@ -358,6 +387,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
 
   return (
     <WireContext.Provider value={tools}>
+      <HoverContext.Provider value={hover}>
       <NodeEdit.Provider value={onEdit}>
         <ReactFlow
           className={glOk ? undefined : 'svg-wires'}
@@ -430,6 +460,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
           </div>
         )}
       </NodeEdit.Provider>
+      </HoverContext.Provider>
     </WireContext.Provider>
   );
 }

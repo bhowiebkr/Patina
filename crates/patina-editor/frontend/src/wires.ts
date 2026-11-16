@@ -265,10 +265,13 @@ export function normals(p: Float32Array, at: number, n: number) {
   }
 }
 
-/** The flags of a draw instance. Bits 0 to 5 hold the number of lanes - 1. */
+/** The flags of a draw instance. Bits 0 to 5 hold the number of lanes - 1, and bits 10 to 12 the color family (15.9). */
 export const HAS_LANES = 64;
 export const LIT = 128;
 export const STALE = 256;
+/** The lane under the pointer. */
+export const HOVER = 512;
+export const FAMILY_SHIFT = 10;
 
 /**
  * The draw instances of the wires: slot, segment, lane and flags. Each lane of each segment of
@@ -283,13 +286,13 @@ export function instances(store: WireStore, selectedOnly: boolean): Uint16Array 
   for (let s = 0; s < store.counts.length; s++) {
     if (selectedOnly && !store.selected[s]) continue;
     const bits = store.bits[s];
-    const flags = (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0);
+    const flags = (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0) | (store.family[s] << FAMILY_SHIFT);
     for (let k = 0; k < store.counts[s] - 1; k++) {
       for (let lane = 0; lane < lanesOf(s); lane++, at += 4) {
         out[at] = s;
         out[at + 1] = k;
         out[at + 2] = lane;
-        out[at + 3] = flags | (bits[lane] === '1' ? LIT : 0);
+        out[at + 3] = flags | (bits[lane] === '1' ? LIT : 0) | (store.hover[s] === lane ? HOVER : 0);
       }
     }
   }
@@ -304,6 +307,10 @@ export class WireStore {
   /** The lanes of each wire (6.3), the most significant first, or "" for one plain line. */
   bits: string[] = Array<string>(16).fill('');
   stale = new Uint8Array(16);
+  /** The color family of each wire: 0 for neutral, else 1 to 5 (15.9). */
+  family = new Uint8Array(16);
+  /** The lane under the pointer in each wire, or -1. */
+  hover = new Int8Array(16).fill(-1);
   /** The slots that changed since the last draw. All slots changed when `grown` is true. */
   readonly changed = new Set<number>();
   grown = true;
@@ -318,7 +325,7 @@ export class WireStore {
     this.notify = fn;
   }
 
-  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false) {
+  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false, family = 0, hover = -1) {
     let slot = this.slots.get(id);
     if (slot === undefined) {
       slot = this.free.pop() ?? this.slots.size;
@@ -329,10 +336,12 @@ export class WireStore {
     const sel = selected ? 1 : 0;
     const old = stale ? 1 : 0;
     // shortcut: a new lane state rebuilds the instances of all wires; put the lane states in a texture when values come at the display rate (15.6).
-    if (this.selected[slot] !== sel || this.bits[slot] !== bits || this.stale[slot] !== old) this.layout = true;
+    if (this.selected[slot] !== sel || this.bits[slot] !== bits || this.stale[slot] !== old || this.family[slot] !== family || this.hover[slot] !== hover) this.layout = true;
     this.selected[slot] = sel;
     this.bits[slot] = bits;
     this.stale[slot] = old;
+    this.family[slot] = family;
+    this.hover[slot] = hover;
     const at = slot * MAX_POINTS * STRIDE;
     const n = wirePoints(sx, sy, tx, ty, shape, this.points, at);
     // A new number of points needs new segment lists, or the old segments read stale points.
@@ -351,8 +360,39 @@ export class WireStore {
     this.selected[slot] = 0;
     this.bits[slot] = '';
     this.stale[slot] = 0;
+    this.family[slot] = 0;
+    this.hover[slot] = -1;
     this.layout = true;
     this.notify();
+  }
+
+  /**
+   * The signed distance from (x, y) to the nearest segment of a wire, along the normal of the
+   * segment: negative on the left side of the direction of the wire, where lane 0 is. Null for an unknown wire.
+   */
+  across(id: string, x: number, y: number): number | null {
+    const slot = this.slots.get(id);
+    if (slot === undefined || this.counts[slot] < 2) return null;
+    const p = this.points;
+    const at = slot * MAX_POINTS * STRIDE;
+    let best = Infinity;
+    let signed = 0;
+    for (let k = 0; k < this.counts[slot] - 1; k++) {
+      const ax = p[at + k * STRIDE];
+      const ay = p[at + k * STRIDE + 1];
+      const dx = p[at + (k + 1) * STRIDE] - ax;
+      const dy = p[at + (k + 1) * STRIDE + 1] - ay;
+      const len2 = dx * dx + dy * dy;
+      if (len2 < 1e-9) continue;
+      const t = Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / len2));
+      const distance = Math.hypot(ax + t * dx - x, ay + t * dy - y);
+      if (distance < best) {
+        best = distance;
+        // The normal (-dy, dx) of normals(): (x - a) . n / |d|.
+        signed = ((x - ax) * -dy + (y - ay) * dx) / Math.sqrt(len2);
+      }
+    }
+    return signed;
   }
 
   get size(): number {
@@ -369,10 +409,16 @@ export class WireStore {
     selected.set(this.selected);
     const stale = new Uint8Array(n);
     stale.set(this.stale);
+    const family = new Uint8Array(n);
+    family.set(this.family);
+    const hover = new Int8Array(n).fill(-1);
+    hover.set(this.hover);
     this.points = points;
     this.counts = counts;
     this.selected = selected;
     this.stale = stale;
+    this.family = family;
+    this.hover = hover;
     this.bits = this.bits.concat(Array<string>(n - this.bits.length).fill(''));
     this.grown = true;
   }

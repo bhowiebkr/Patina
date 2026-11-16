@@ -1,16 +1,15 @@
 // The WebGL2 renderer of the connections (spec 15.1): one instanced draw of line segments on a
 // canvas under the nodes. A texture row holds the points and the miter normals of each wire.
 
-import { HAS_LANES, instances, LIT, MAX_POINTS, STALE, STRIDE, type WireStore } from './wires';
+import { LANE_COLORS, PITCH } from './bus';
+import { FAMILY_SHIFT, HAS_LANES, HOVER, instances, LIT, MAX_POINTS, STALE, STRIDE, type WireStore } from './wires';
 
 /** The line widths and the lane pitch, in graph pixels, and the colors of docs/gui-visual-guide.md. */
 const WIRE_WIDTH = 2;
 const SELECT_WIDTH = 8;
 const LANE_WIDTH = 3;
 /** The dark edge on each side of a lane. Two edges fill the gap between two lanes. */
-const EDGE = 1;
-/** The distance between the centers of two lanes. */
-export const PITCH = LANE_WIDTH + 2 * EDGE;
+const EDGE = (PITCH - LANE_WIDTH) / 2;
 /** The soft shadow on each side of a ribbon, and its darkest alpha. */
 const SHADOW = 4;
 const SHADOW_ALPHA = 0.55;
@@ -19,10 +18,11 @@ export const FAR_ZOOM = 0.5;
 const FAR_WIDTH = 4;
 const WIRE = [187, 187, 181];
 const ACCENT = [223, 166, 75];
-/** A lane with the bit 1, and with the bit 0. An off lane stays visible (15.9). */
-const LANE_ON = [238, 238, 235];
+/** A neutral lane with the bit 0. An off lane stays visible (15.9). The lit lanes have LANE_COLORS. */
 const LANE_OFF = [85, 85, 81];
 const LANE_EDGE = [12, 12, 11];
+/** An off lane of a family is a dark tint of its lit color. */
+const OFF_TINT = 0.38;
 /** Above this number of changed wires, one upload of the whole texture is faster. */
 const ROW_UPLOADS = 64;
 
@@ -37,6 +37,7 @@ uniform vec3 view;
 uniform vec2 size;
 // 0: the accent under a selected wire, 1: the shadow under a ribbon, 2: the wires.
 uniform int mode;
+const vec3 FAMILY[${LANE_COLORS.length}] = vec3[${LANE_COLORS.length}](${LANE_COLORS.map(vec3).join(', ')});
 out float vAcross;
 out float vHalf;
 out float vCore;
@@ -54,6 +55,7 @@ void main() {
   float width = ${float(LANE_WIDTH)};
   float offset = 0.0;
   float edge = 0.0;
+  uint family = (inst.w >> ${FAMILY_SHIFT}u) & 7u;
   vKind = 0;
   if (mode == 0) {
     width = ribbon ? full + 4.0 : ${float(SELECT_WIDTH)};
@@ -73,7 +75,7 @@ void main() {
     vColor = ${vec3(WIRE)};
   } else if (far) {
     width = ${float(FAR_WIDTH)};
-    vColor = ${vec3(WIRE)};
+    vColor = family == 0u ? ${vec3(WIRE)} : FAMILY[family];
     // One line: the other lanes have no area.
     if (inst.z > 0u) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -83,10 +85,12 @@ void main() {
     // Lane 0 is the most significant bit, on the left side of the direction of the wire.
     offset = float(inst.z) * ${float(PITCH)} - bus * 0.5;
     bool lit = (inst.w & ${LIT}u) != 0u;
-    vec3 on = (inst.w & ${STALE}u) != 0u ? mix(${vec3(LANE_OFF)}, ${vec3(LANE_ON)}, 0.5) : ${vec3(LANE_ON)};
-    vColor = lit ? on : ${vec3(LANE_OFF)};
+    vec3 off = family == 0u ? ${vec3(LANE_OFF)} : FAMILY[family] * ${float(OFF_TINT)};
+    vec3 on = (inst.w & ${STALE}u) != 0u ? mix(off, FAMILY[family], 0.5) : FAMILY[family];
+    vColor = lit ? on : off;
     edge = ${float(EDGE)};
-    vKind = 1;
+    // 3: the lane under the pointer (15.9).
+    vKind = (inst.w & ${HOVER}u) != 0u ? 3 : 1;
   }
   // The two ends of a segment use the miter normals, so the next segment starts at the same edge.
   int v = gl_VertexID;
@@ -120,11 +124,13 @@ void main() {
     // The shadow fades from the edge of the ribbon to its outer side.
     float s = clamp((vHalf - d) / max(vHalf - vCore, 1.0), 0.0, 1.0);
     a = ${float(SHADOW_ALPHA)} * s * s;
-  } else if (vKind == 1) {
+  } else if (vKind != 0) {
     // A round lane: darker sides, a narrow highlight at the center and a dark edge.
     float u = clamp(d / vCore, 0.0, 1.0);
     c = vColor * (1.0 - 0.4 * u * u + 0.2 * (1.0 - smoothstep(0.0, 0.45, u)));
-    c = mix(c, ${vec3(LANE_EDGE)}, clamp(d - vCore + 0.5, 0.0, 1.0));
+    // The lane under the pointer is brighter and has an accent edge.
+    if (vKind == 3) c = mix(c, vec3(1.0), 0.3);
+    c = mix(c, vKind == 3 ? ${vec3(ACCENT)} : ${vec3(LANE_EDGE)}, clamp(d - vCore + 0.5, 0.0, 1.0));
   }
   outColor = vec4(min(c, 1.0) * a, a);
 }`;

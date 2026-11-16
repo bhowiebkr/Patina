@@ -153,7 +153,13 @@ The SDK form of a connection kind is not fixed. Start with the lanes, the label 
 - `Lanes::bits` holds 1 to 64 lanes. Lane 0 is the most significant bit. The label has 64 bytes at most.
 - The cluster calls the kind each time it sends the live value of such a wire, and it sends the lanes with the value. The badge stays the viewer text (5.3).
 - A panic in a kind gives no lanes for that value, and the wire shows one line. A compile error in a kind stops the build, as an error in a node does.
-- Lane names, lane groups, socket contacts and a custom badge are not in the first form.
+- `#[connection]` takes optional arguments. The engine reads them from the code before a build, so the editor shows the lanes and the sockets before a run (15.9). (Agent decision, 2026-11-16, after the owner asked that each lane show what it is. The owner can change it.)
+  - `lanes = 8` gives the number of lanes. `lanes = ["HLT", "MI", "RI"]` gives a name for each lane, lane 0 first. With a number, each lane has its bit number as its name, for example 7 to 0.
+  - `label = "data"` gives the bus name when the wire and its pins give none.
+  - `color = "green"` gives the color family of the lanes: `green`, `teal`, `violet`, `pink` or `copper`. With no color, the lanes are neutral.
+  - A lane name has 16 bytes at most and the label has 64 bytes at most. A bad argument is a problem of the kind folder, as a code that does not parse is.
+  - When a live value has a different number of lanes, the editor shows the live lanes with their bit numbers.
+- Lane groups, a color for each lane and a custom badge are not in the first form.
 
 ### 6.4 Project file format
 
@@ -204,6 +210,7 @@ to = "a01d77c3e5b9f210.image"
 style = "orthogonal"             # curved, orthogonal or polyline; only to override the graph default (15.9)
 corners = "sharp"                # rounded or sharp; only for sharp corners (15.9)
 points = [[200.0, -40.0], [200.0, 80.0]]   # the manual route points (15.9)
+name = "addr"                    # the name of a bus, only to override the default name (15.9)
 
 [[order]]                        # an order wire (9.2)
 before = "5c0e9b2a7f13d846"
@@ -238,6 +245,7 @@ from = "e1d4c2b7a9f03856.out"
 - A public pin of a subgraph has a key of 8 random hexadecimal characters. The key does not change when the pin gets a new name or a new order, so the connections of each use stay. The order of the `[[input]]` and `[[output]]` tables is the order of the pins.
 - A parameter value and a settings value are the text form that their type gives (4.8). The engine stores the text and does not read it, so it stays free of types (2).
 - A wire has 12 route points at most. A route edit with more points fails with a message. The editor draws each wire in one row of 64 points on the GPU, and 12 rounded corners fit in this row. A path with more corners, for example an orthogonal path, gets fewer points for each corner. (Agent decision, 2026-11-15. The owner can change it.)
+- A wire name has 32 bytes at most. It changes only the look, so the build does not read it. (Agent decision, 2026-11-16. The owner can change it.)
 - The route points, collars and cables are in the graph file, so the project owns them. The dock layout, the camera of the graph and the selection are not in the graph file. Each user keeps them (15.2).
 - A wire to a pin that no longer exists stays in the file. The node shows an error until the user removes the wire or the pin comes back (15.5). Patina never deletes a wire without a user action.
 

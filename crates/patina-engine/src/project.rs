@@ -78,6 +78,9 @@ pub struct NodeEntry {
 pub struct Wire {
     pub from: String,
     pub to: String,
+    /// The bus name that replaces the default name (15.9). Only the editor reads it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<Style>,
     #[serde(skip_serializing_if = "Option::is_none")]

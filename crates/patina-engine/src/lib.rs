@@ -125,6 +125,17 @@ pub struct NodeInfo {
     pub subgraph: bool,
 }
 
+/// A connection kind (6.3), for the lanes, the bus sockets and the colors of the editor (15.9).
+#[derive(Serialize, Debug)]
+pub struct KindInfo {
+    /// The Rust type that the kind shows.
+    pub ty: String,
+    /// The lane names of `lanes = ...`, lane 0 first. With none, the lanes come with the live values.
+    pub lanes: Vec<String>,
+    pub label: Option<String>,
+    pub color: Option<String>,
+}
+
 impl NodeInfo {
     fn new(name: String, node: node::Node, builtin: bool) -> NodeInfo {
         let keys = node.output_keys().into_iter();
@@ -379,6 +390,13 @@ impl Project {
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(nodes)
+    }
+
+    /// The connection kinds in `connections/` that read. A kind with a problem stops the build, so
+    /// the build shows its problem.
+    pub fn kinds(&self) -> Vec<KindInfo> {
+        let kinds = plan::read_kinds(&self.root, &mut Vec::new());
+        kinds.into_iter().map(|(_, k)| KindInfo { ty: k.ty, lanes: k.lanes, label: k.label, color: k.color }).collect()
     }
 
     /// The subgraphs in `graphs/` (6.1), sorted by name, with their public pins as the pins.

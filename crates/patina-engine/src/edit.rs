@@ -34,6 +34,9 @@ pub enum Edit {
     /// Sets the path style and the corners of the wire to the input `to` (15.9). `None` uses the
     /// graph default.
     SetLook { to: String, style: Option<Style>, corners: Option<Corners> },
+    /// Sets the bus name of the wire to the input `to` (15.9). `None` or a blank name gives the
+    /// default name.
+    NameWire { to: String, name: Option<String> },
     /// `None` removes the text, so the input gets its default value (4.8).
     SetParam { id: String, key: String, text: Option<String> },
     /// Applies the edits in order as one step of undo, for example a move of many nodes.
@@ -207,7 +210,7 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                 return Err(format!("the wire makes a cycle through these nodes: {}", ids.join(", ")));
             }
             free_input(graph, to);
-            graph.wire.push(Wire { from: from.clone(), to: to.clone(), style: None, corners: None, points: Vec::new() });
+            graph.wire.push(Wire { from: from.clone(), to: to.clone(), name: None, style: None, corners: None, points: Vec::new() });
         }
         Edit::Disconnect { from, to } => {
             let count = graph.wire.len();
@@ -229,6 +232,14 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         Edit::SetLook { to, style, corners } => {
             let wire = graph.wire.iter_mut().find(|w| &w.to == to).ok_or(format!("no wire goes to {to}"))?;
             (wire.style, wire.corners) = (*style, *corners);
+        }
+        Edit::NameWire { to, name } => {
+            let name = name.as_deref().map(str::trim).filter(|n| !n.is_empty());
+            if name.is_some_and(|n| n.len() > 32 || n.chars().any(char::is_control)) {
+                return Err("a wire name has 32 bytes at most and no control characters".to_owned());
+            }
+            let wire = graph.wire.iter_mut().find(|w| &w.to == to).ok_or(format!("no wire goes to {to}"))?;
+            wire.name = name.map(str::to_owned);
         }
         Edit::SetParam { id, key, text } => {
             let index = find(graph, id)?;
@@ -512,6 +523,14 @@ corners = \"sharp\""), "{text}");
         assert!(serde_json::from_str::<Edit>(r#"{"kind":"SetLook","to":"x","style":"zigzag"}"#).is_err());
         assert!(history.undo(no_code).unwrap());
         assert_eq!(history.graph.wire[0].style, None, "undo gives the graph default again");
+
+        let name = |name: Option<&str>| Edit::NameWire { to: "000000000000000b.value".to_owned(), name: name.map(str::to_owned) };
+        history.apply(&name(Some(" addr "))).unwrap();
+        assert_eq!(history.graph.wire[0].name.as_deref(), Some("addr"));
+        assert!(toml::to_string(&history.graph).unwrap().contains("name = \"addr\""));
+        assert!(history.apply(&name(Some(&"x".repeat(33)))).is_err());
+        history.apply(&name(Some("  "))).unwrap();
+        assert_eq!(history.graph.wire[0].name, None, "a blank name gives the default name");
     }
 
     #[test]

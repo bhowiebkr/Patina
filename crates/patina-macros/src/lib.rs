@@ -43,12 +43,10 @@ fn is_color(lit: &str) -> bool {
 }
 
 /// Marks the function of a connection kind (6.3). The function takes `&T` and returns
-/// `patina_sdk::Lanes`. The editor calls it for each live value of type `T`.
+/// `patina_sdk::Lanes`. The editor calls it for each live value of type `T`. The engine reads and
+/// checks the arguments `lanes`, `label` and `color` before the build.
 #[proc_macro_attribute]
-pub fn connection(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if !attr.is_empty() {
-        return error("#[connection] takes no arguments");
-    }
+pub fn connection(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if keyword(&item).as_deref() != Some("fn") {
         return error("a connection kind is a function (spec 6.3)");
     }

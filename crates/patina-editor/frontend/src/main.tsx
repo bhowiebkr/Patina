@@ -7,6 +7,7 @@ import './code.css';
 import './start.css';
 import './dock.css';
 import './canvas.css';
+import './bus.css';
 import { App } from './App';
 import { reportError } from './api';
 import { FloatView } from './Floats';

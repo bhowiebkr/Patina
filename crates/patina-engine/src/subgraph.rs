@@ -266,7 +266,7 @@ pub(crate) fn collapse(graph: &GraphFile, ids: &[String], use_id: &str, name: &s
             (false, false) => outer.wire.push(w.clone()),
             (false, true) => {
                 if let Some(k) = input(w.from.clone(), &w.to, &mut inner, &mut names) {
-                    outer.wire.push(Wire { from: w.from.clone(), to: format!("{use_id}.{k}"), style: w.style, corners: w.corners, points: Vec::new() });
+                    outer.wire.push(Wire { from: w.from.clone(), to: format!("{use_id}.{k}"), name: w.name.clone(), style: w.style, corners: w.corners, points: Vec::new() });
                 }
             }
             (true, false) => {}
@@ -622,7 +622,7 @@ after = "00000000000000b2"
         // a1 and c1 around b1 make a cycle through the use. An empty selection does nothing.
         let ends = ["00000000000000a1".to_owned(), "00000000000000c1".to_owned()];
         let mut main = main;
-        main.wire.push(Wire { from: "00000000000000c1.out".to_owned(), to: "00000000000000b1.c".to_owned(), style: None, corners: None, points: Vec::new() });
+        main.wire.push(Wire { from: "00000000000000c1.out".to_owned(), to: "00000000000000b1.c".to_owned(), name: None, style: None, corners: None, points: Vec::new() });
         assert!(collapse(&main, &ends, "00000000000000d1", "part", String::new).unwrap_err().contains("cycle"));
         assert!(collapse(&main, &[], "00000000000000d1", "part", String::new).is_err());
         assert!(collapse(&main, &ids, "00000000000000a1", "part", String::new).is_err(), "the use ID is new");

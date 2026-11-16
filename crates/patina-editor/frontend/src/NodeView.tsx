@@ -2,7 +2,9 @@
 
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Report, type Value, type View } from './api';
+import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Pin, type Report, type Value, type View } from './api';
+import type { Socket } from './bus';
+import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
 import { nodeWidth } from './gui';
@@ -102,6 +104,8 @@ export interface NodeData extends Record<string, unknown> {
   gui?: string;
   /** True when the node runs in the slot library (7.3). */
   slot?: boolean;
+  /** The bus sockets (15.9) by "i:<input key>" or "o:<output key>". */
+  sockets?: Readonly<Record<string, Socket>>;
 }
 
 export type PatinaNode = Node<NodeData, 'patina'>;
@@ -222,11 +226,18 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable, time, gui, slot } = data;
+  const { entry, info, wired, state, message, editable, time, gui, slot, sockets } = data;
   const inputs = info?.inputs ?? [];
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
-  const pinTop = (i: number) => HEADER + PAD + i * ROW + ROW / 2;
+  const socket = (side: 'i' | 'o', pin: Pin | undefined) => (pin ? sockets?.[`${side}:${pin.key}`] : undefined);
+  // A row with a bus socket is as tall as its contacts (15.9).
+  const tops = [HEADER + PAD];
+  for (let i = 0; i < rows; i++) {
+    const [a, b] = [socket('i', inputs[i]), socket('o', outputs[i])];
+    tops.push(tops[i] + Math.max(ROW, a ? socketHeight(a.bits.length) : 0, b ? socketHeight(b.bits.length) : 0));
+  }
+  const pinTop = (i: number, s: Socket | undefined) => (s ? socketPin(tops[i], s.bits.length) : tops[i] + ROW / 2);
   // At a far zoom, the rows keep their size but have no text, so the page has fewer elements (15.1).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
   const edit = useContext(NodeEdit);
@@ -250,15 +261,20 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
         )}
         <StateIcon state={state} />
       </div>
-      <div className="patina-rows" style={{ height: rows * ROW + 2 * PAD }}>
+      <div className="patina-rows" style={{ height: tops[rows] - HEADER + PAD }}>
         {!far && Array.from({ length: rows }, (_, i) => {
           const [input, output] = [inputs[i], outputs[i]];
+          const height = tops[i + 1] - tops[i];
+          const row = { height, alignItems: height > ROW ? 'flex-start' : undefined };
+          // A socket replaces the label of its pin.
+          const [busIn, busOut] = [socket('i', input), socket('o', output)];
+          if (busIn) return <div key={i} className="patina-row" style={row}><span />{!busOut && <PinLabel pin={output} />}</div>;
           const free = input && !wired.includes(input.key);
           const text = free ? entry.params?.[input.key] : undefined;
           // An unwired bool input is a switch that the user clicks in the node, as in a logic simulator.
           const box = free && input.ty === 'bool';
           return (
-            <div key={i} className="patina-row">
+            <div key={i} className="patina-row" style={row}>
               <span title={input && `${input.name ?? input.key}: ${input.ty}`}>
                 {input && (input.name ?? input.key)}
                 {box ? (
@@ -274,21 +290,47 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
                   text !== undefined && <span className="param-text"> {text}</span>
                 )}
               </span>
-              <span title={output && `${output.name ?? output.key}: ${output.ty}`}>{output && (output.name ?? output.key)}</span>
+              {busOut ? <span /> : <PinLabel pin={output} />}
             </div>
           );
         })}
+        {!far &&
+          Array.from({ length: rows }, (_, i) =>
+            (['i', 'o'] as const).map((side) => {
+              const s = socket(side, side === 'i' ? inputs[i] : outputs[i]);
+              return s && <BusSocket key={`${side}${i}`} socket={s} output={side === 'o'} top={tops[i] - HEADER} />;
+            }),
+          )}
       </div>
       {gui !== undefined && !far && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
-      {inputs.map(({ key }, i) => (
-        <Handle key={`i-${key}`} id={key} type="target" position={Position.Left} isConnectable={editable} style={{ top: pinTop(i) }} />
+      {inputs.map((pin, i) => (
+        <PinHandle key={`i-${pin.key}`} pin={pin} output={false} editable={editable} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />
       ))}
-      {outputs.map(({ key }, i) => (
-        <Handle key={`o-${key}`} id={key} type="source" position={Position.Right} isConnectable={editable} style={{ top: pinTop(i) }} />
+      {outputs.map((pin, i) => (
+        <PinHandle key={`o-${pin.key}`} pin={pin} output editable={editable} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
       ))}
     </div>
+  );
+}
+
+function PinLabel({ pin }: { pin: Pin | undefined }) {
+  return <span title={pin && `${pin.name ?? pin.key}: ${pin.ty}`}>{pin && (pin.name ?? pin.key)}</span>;
+}
+
+/** The pin of a row: a dot, or a bar as wide as the ribbon of a bus socket (15.9). */
+function PinHandle({ pin, output, editable, top, socket }: { pin: Pin; output: boolean; editable: boolean; top: number; socket: Socket | undefined }) {
+  const style = socket ? { top, height: socketBar(socket.bits.length) } : { top };
+  return (
+    <Handle
+      id={pin.key}
+      type={output ? 'source' : 'target'}
+      position={output ? Position.Right : Position.Left}
+      isConnectable={editable}
+      className={socket ? 'bus-pin' : undefined}
+      style={style}
+    />
   );
 }
 
@@ -315,6 +357,7 @@ export function PortView({ id, data }: NodeProps<PortNode>) {
         />
       )}
       {!input && bit && <span className={`port-lamp${on ? ' on' : ''}`} role="img" aria-label={`${name} is ${on ? 'on' : 'off'}`} />}
+      {/* shortcut: a public pin of a bus type keeps a round pin and no socket; give it a socket when the ports of a subgraph need lane names. */}
       <Handle id="pin" type={input ? 'source' : 'target'} position={input ? Position.Right : Position.Left} style={{ top: HEADER / 2 }} />
     </div>
   );

@@ -7,7 +7,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
-use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain, package};
+use patina_engine::{Edit, Error, KindInfo, NodeInfo, Project, Toolchain, package};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
@@ -67,6 +67,8 @@ pub struct View {
     /// The name of the open graph: `main` or a subgraph (6.1).
     graph_name: String,
     nodes: Vec<NodeInfo>,
+    /// The connection kinds (6.3).
+    kinds: Vec<KindInfo>,
     /// The widget folders (6.2).
     widgets: Vec<String>,
     /// The view folders (15.8).
@@ -284,6 +286,7 @@ impl Session {
             graph: project.graph().clone(),
             graph_name: project.graph_name().to_owned(),
             nodes,
+            kinds: project.kinds(),
             widgets: project.widgets(),
             views: project.views(),
             imports: project.imports(),

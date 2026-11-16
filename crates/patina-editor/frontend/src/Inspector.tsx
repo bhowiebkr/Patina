@@ -93,6 +93,27 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
           <span className="label">To</span>
           <span>{end(to)}</span>
         </div>
+        <label className="param">
+          <span className="label">Name</span>
+          <input
+            key={`${to}=${wire?.name ?? ''}`}
+            className="field"
+            defaultValue={wire?.name ?? ''}
+            placeholder="Default"
+            maxLength={32}
+            disabled={locked}
+            title="The bus name that the label and the lane tooltips show"
+            onBlur={(e) => {
+              const name = e.currentTarget.value.trim();
+              if (name !== (wire?.name ?? '')) void onEdit({ kind: 'NameWire', to, name: name || null });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') e.currentTarget.value = wire?.name ?? '';
+              if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+            }}
+            spellCheck={false}
+          />
+        </label>
         <div className="param">
           <span className="label">Type</span>
           <span>{outputType(view, from) ?? 'Unknown'}</span>

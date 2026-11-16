@@ -353,7 +353,7 @@ fn uses_log(root: &Path, group: &str, name: &str) -> bool {
 
 /// Reads each connection kind in `connections/` (6.3), sorted by folder name. A kind folder with
 /// an error is a problem of the graph, because the cargo workspace of the project contains it.
-fn read_kinds(root: &Path, problems: &mut Vec<String>) -> Vec<(String, Kind)> {
+pub(crate) fn read_kinds(root: &Path, problems: &mut Vec<String>) -> Vec<(String, Kind)> {
     let mut names: Vec<String> = match std::fs::read_dir(root.join("connections")) {
         Ok(entries) => entries
             .filter_map(Result::ok)

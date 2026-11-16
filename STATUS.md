@@ -68,6 +68,13 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     the nodes, the wires of one output share a trunk, and parallel wires keep a gap. Route
     points are waypoints. **Shift+L** arranges the nodes in columns by the signal flow, and
     the example graphs are arranged.
+21. Done: lane identity (15.9). `#[connection(lanes = [...], label = "...", color = "...")]`
+    gives each lane a name and the bus a color family. A pin of such a kind is a bus socket: it
+    shows the pin name, the lane range, and a contact with an LED and a name for each lane. The
+    leads fan in from the contacts to the lanes of the ribbon. A pointer on a lane or a contact
+    marks the lane along the wire and at the two sockets, with a tooltip such as
+    `ctrl[15] HLT = 1`. The **Inspector** gives a wire a **Name**. The example `byte` kind is
+    green.
 
 ### Checked
 
@@ -1068,8 +1075,8 @@ To run the editor from a checkout:
 - A connection kind matches a type by the type text that the node code writes, not by the type
   crates of 5.1. A panic in a kind gives no lanes and no message. A compile error in a kind
   stops the build of all of the graph.
-- The lanes have no names and no groups, and a bus socket has no contact for each lane (15.9).
-  The badge is always the viewer text. The **Code** tab does not open the files of
+- The lanes have no groups. The lane hover works only on the WebGL wires, at a zoom of 0.5 or
+  more. The badge is always the viewer text. The **Code** tab does not open the files of
   `connections/`.
 - The self-check project has no connection kind. The lanes ran in the CLI test, and the look
   had one manual check with fake lanes in the page. No check zoomed a bus out below 0.5.
@@ -1094,6 +1101,7 @@ To run the editor from a checkout:
     (15.6) (`crates/patina-sdk/src/glue.rs`).
   - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
   - The SVG wires draw a bus as one line (`frontend/src/WireLayer.tsx`).
+  - A public pin of a bus type keeps a round pin and no socket (`frontend/src/NodeView.tsx`).
   - A graph with a route grid of more than 2 million cells gets the simple orthogonal paths
     (`frontend/src/route.ts`).
   - A wire with no clear path gets the simple orthogonal path and no conflict mark
