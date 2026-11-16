@@ -53,9 +53,15 @@ function route(...points: [number, number][]): number[][] {
 
 test('a route keeps its ends and rounds each corner with a radius of 12 px', () => {
   const p = route([50, 0], [50, 40]);
-  assert.equal(p.length, 2 + 5 + 5);
-  near([p[0], p[1], p[3], p[5], p[6], p[11]], [[0, 0], [38, 0], [47, 3], [50, 12], [50, 28], [100, 0]]);
-  near([p[10]], [[50 + (50 / Math.hypot(50, 40)) * 12, 40 - (40 / Math.hypot(50, 40)) * 12]]);
+  assert.equal(p.length, 2 + 12 + 12);
+  near([p[0], p[1], p[12], p[13], p[25]], [[0, 0], [38, 0], [50, 12], [50, 28], [100, 0]]);
+  near([p[24]], [[50 + (50 / Math.hypot(50, 40)) * 12, 40 - (40 / Math.hypot(50, 40)) * 12]]);
+});
+
+test('a wide ribbon gets a larger corner, and sharp corners stay sharp', () => {
+  assert.equal(shape(0, 0, 100, 0, [[50, 0], [50, 80]], undefined, undefined, 40).radius, 30);
+  assert.equal(shape(0, 0, 100, 0, [[50, 0], [50, 80]], undefined, undefined, 2).radius, 12);
+  assert.equal(shape(0, 0, 100, 0, [[50, 0], [50, 80]], undefined, 'sharp', 40).radius, 0);
 });
 
 test('a short segment makes a smaller corner', () => {
@@ -146,7 +152,7 @@ test('an orthogonal path has only horizontal and vertical segments, and is horiz
 
 test('sharp corners add no points, and rounded corners add points', () => {
   assert.equal(path(100, 40, [], 'orthogonal', 'sharp').length, 4);
-  assert.equal(path(100, 40, [], 'orthogonal').length, 2 + 2 * 5);
+  assert.equal(path(100, 40, [], 'orthogonal').length, 2 + 2 * 12);
   assert.equal(path(100, 40, [[50, 20]], 'polyline', 'sharp').length, 3);
   assert.equal(path(100, 40, [], 'polyline').length, 2, 'a polyline with no points is straight');
 });

@@ -125,6 +125,7 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | Double-click on an empty area, Shift+A | Open the **Add node** palette |
 | Ctrl+G | Collapse the selected nodes into a new subgraph |
 | Ctrl+Shift+G | Expand the selected uses of subgraphs |
+| Shift+L | Arrange the selected nodes, or all nodes, in columns (15.9) |
 | Drag from a pin into an empty area | Open the **Add node** palette for that pin |
 
 The owner asked for the standard controls. The table, the zoom range and the wheel steps are an agent decision of 2026-11-15.
@@ -425,7 +426,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - A lane that is off stays visible. Brightness alone never carries a meaning (15.3): the badge or a viewer shows the value as text too.
 - Lanes show in a fixed order, the most significant bit first. A route bend never changes the order.
 - At a far zoom, a bus shows as one line with a width badge. At a near zoom, it shows each lane.
-- A bus draws each lane as a line of 2 px at a pitch of 3 px, so a dark gap separates the lanes. Lane 0 is on the left of the wire direction. A lit lane is light, an off lane is dark gray, and a stale lit lane is between the two. The label "name[n-1:0] / n" is above the ribbon, and its tooltip shows the type. Below a zoom of 0.5, the bus is one line of 4 px and the label is "/ n". A selected bus has one accent ribbon under its lanes. The lanes come with the live values, so a bus shows one line and its type label before a run and after a failed build. (Agent decision, 2026-11-15. The owner can change it.)
+- A bus draws each lane as a round line of 3 px with a dark edge of 1 px on each side, at a pitch of 5 px. The edges make a dark gap between the lanes. Each lane has a narrow highlight at its center, and a soft shadow of 4 px surrounds the ribbon. Lane 0 is on the left of the wire direction. A lit lane is light, an off lane is dark gray, and a stale lit lane is between the two. The label "name[n-1:0] / n" is above the ribbon, and its tooltip shows the type. Below a zoom of 0.5, the bus is one line of 4 px and the label is "/ n". A selected bus has one accent ribbon under its lanes. The lanes come with the live values, so a bus shows one line and its type label before a run and after a failed build. (Agent decision, 2026-11-15. The lane width, edges, highlight and shadow: agent decision, 2026-11-16, after the owner asked for thicker buses. The owner can change it.)
 - A stale value (15.3) shows dim, on the wire as on the node.
 - The badge of a wire with one value is at the middle of the default curve, or at the middle of the longest segment of a route. A route point never covers it. (Agent decision, 2026-11-15. The owner can change it.)
 - The badge shows the text of the value by the viewer rules (5.3). The engine cuts the badge text at 64 bytes, and the **Inspector** shows the full text. The badge cuts its text at 160 px with "...", and a selected wire shows all of the badge text. A stale badge has dim text and a dashed border. A failed build removes the badges. (Agent decision, 2026-11-15. The owner can change it.)
@@ -438,10 +439,18 @@ A connection shows the value that it carries while the graph runs. Connections a
 
 - Provide curved, orthogonal and manually routed polyline paths. Keep route geometry, corner treatment and compact or ribbon display as separate choices.
 - Allow a graph default and a connection override. Changing a style does not change execution.
-- The **Inspector** shows the look of the selected wire in its **Look** section. There is no toolbar on the canvas. **Route** is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded** or **Sharp**, and a curve has no corners. **Reset route** removes the route points and keeps the style. Each change is one edit with undo. (Agent decision, 2026-11-15. The owner can change it.)
-- The graph default is fixed for now: a wire with no route points is curved, and a wire with route points is a polyline with rounded corners. A graph setting for the default comes later. (Agent decision, 2026-11-15. The owner can change it.)
+- The **Inspector** shows the look of the selected wire in its **Look** section. There is no toolbar on the canvas. **Route** is **Automatic** (the graph default), **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded** or **Sharp**, and a curve has no corners. **Reset route** removes the route points and keeps the style. Each change is one edit with undo. (Agent decision, 2026-11-15. The owner can change it.)
+- The graph default is the automatic route: an orthogonal wire that goes around the node bodies. A graph setting for the default comes later. (Agent decision, 2026-11-16. It replaces the curved default of 2026-11-15. The owner can change it.)
+- The automatic route:
+  - It keeps 6 px or more from each node body and finds a path with few bends (A* on a sparse grid around the bodies).
+  - The wires of one output share a trunk, and each next wire branches from the nearest point of the trunk.
+  - Its route points are waypoints. The wire goes through each point in turn.
+  - Parallel segments of different outputs move apart by 8 px, plus the width of a bus. A segment goes to the middle of its channel when the channel is 800 px wide or less.
+  - The wires route again when a node moves. During a drag, only the wires that the change touches route again. All wires route again 250 ms after the last change.
+  - A wire with no clear path, or a graph with more than 2 million grid points, gets the simple orthogonal path. There is no routing conflict mark yet.
+- **Shift+L** (**Arrange**) puts the selected nodes, or all nodes when fewer than two are selected, in columns from left to right. Public inputs go to the first column and public outputs to the last column. A loop has wires that go back, from right to left, and the layout keeps these wires few. The nodes of a column keep an order that cuts the crossings. The space between two columns grows with the outputs that have a wire with a bend in it. The layout keeps the top left corner of the arranged nodes, and the moves are one edit with undo. (Agent decision, 2026-11-16. The owner can change it.)
 - An orthogonal wire is horizontal at its pins. It turns at a right angle before each route point that is not in line, and its last leg turns at the middle between the last point and the target. A leg that goes back leaves the pin by 20 px first. A curved wire with route points is a smooth curve through the points. (Agent decision, 2026-11-15. The owner can change it.)
-- **Bus** (compact or ribbon display), **Lock bends** and the crossing controls come with the automatic router (see the optional refinements below). (Agent decision, 2026-11-15. The owner can change it.)
+- **Bus** (compact or ribbon display), **Lock bends** and the crossing controls are later refinements of the automatic route (see the optional refinements below). (Agent decision, 2026-11-15. The owner can change it.)
 - Use neutral wires by default. A project can use named color families for signal groups. Keep type labels, direction and lane identity available.
 - Selection uses the application accent without erasing the signal colors. Keep errors and stale values distinguishable from signal state.
 - Cross-domain connections remain dashed (15.3). An order wire remains identifiable as carrying no data (9.2).
@@ -449,7 +458,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 **Routing and interaction**
 
 - Let the user add, drag and remove route points. Orthogonal segments can move sideways while keeping their endpoints connected.
-- A double-click on a connection adds a route point on the nearest segment. A selected connection shows square handles on its points. A double-click or the Delete key on a focused handle removes that point, and the arrow keys move it by 10 px, or by 1 px with Shift. Esc cancels a drag. With no style, a manual route is a polyline with rounded corners. (Agent decision, 2026-11-15. The owner can change it.)
+- A double-click on a connection adds a route point on the nearest segment. A selected connection shows square handles on its points. A double-click or the Delete key on a focused handle removes that point, and the arrow keys move it by 10 px, or by 1 px with Shift. Esc cancels a drag. With no style, the route points are waypoints of the automatic route. (Agent decision, 2026-11-15, changed 2026-11-16. The owner can change it.)
 - Keep routes clear of unrelated node bodies, expanded GUIs, pins and controls. Allow room for the whole ribbon and its bends.
 - Moving a route point changes geometry only. Reconnecting an endpoint is a separate action with the normal graph checks.
 - Preserve manual route points when nodes move or resize. Recalculate only the affected unfixed sections where possible.
@@ -459,8 +468,8 @@ A connection shows the value that it carries while the graph runs. Connections a
 
 **Optional refinements**
 
-Automatic routing around nodes, crossing minimization, fixed-bend locks and
-raised crossing bridges are later refinements. They are not gates for the first
+Fixed-bend locks and raised crossing bridges are later refinements. The automatic
+route and the Arrange command came first (2026-11-16). They are not gates for the first
 editor prototype. A simple gap can distinguish crossing wires. A bridge changes
 only their visual over/under order; it is not a graph node or an execution step.
 

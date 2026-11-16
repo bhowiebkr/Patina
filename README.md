@@ -141,10 +141,14 @@ A wire shows the value that it carries while the graph runs, as a node shows its
   and its type name.
 - Hold the pointer on a pin name to see its Rust type. The **Inspector** shows the type of the
   selected wire.
-- A wire can be curved, or straight with rounded or sharp corners. You can add bends and route
-  a wire around a node. The look of a wire never changes what it connects.
-- Double-click a wire to add a bend. Select the wire to set its look in the **Look** section of
-  the **Inspector**: **Route**, **Corners** and **Reset route**.
+- By default, a wire goes around the nodes with straight lines and right angles. The wires of
+  one output share a trunk. A wire can also be curved, orthogonal or a polyline with your bends.
+  The look of a wire never changes what it connects.
+- Double-click a wire to add a bend. A default wire goes through each bend. Select the wire to
+  set its look in the **Look** section of the **Inspector**: **Route**, **Corners** and **Reset
+  route**.
+- Press Shift+L to arrange the selected nodes in columns, with the signal from left to right.
+  With fewer than two nodes selected, Shift+L arranges the full graph.
 - One output can feed many inputs. Splitting or joining a value takes a node.
 
 To add a connection kind:

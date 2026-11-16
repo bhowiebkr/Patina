@@ -75,8 +75,8 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
   const wire = view.graph.wire?.find((w) => w.to === to);
   const locked = !view.trusted || !wire;
   const look = (style?: Style, corners?: Corners) => onEdit({ kind: 'SetLook', to, style, corners });
-  // A curve has no corners. With no style, a wire with no points is a curve.
-  const curved = wire?.style === 'curved' || (wire?.style === undefined && !wire?.points?.length);
+  // A curve has no corners.
+  const curved = wire?.style === 'curved';
   return (
     <aside className="panel" aria-label="Inspector">
       <div className="panel-title">
@@ -116,7 +116,7 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
             disabled={locked}
             onChange={(e) => look((e.currentTarget.value || undefined) as Style | undefined, wire?.corners)}
           >
-            <option value="">Graph default</option>
+            <option value="">Automatic</option>
             <option value="curved">Curved</option>
             <option value="orthogonal">Orthogonal</option>
             <option value="polyline">Polyline</option>

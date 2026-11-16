@@ -3,33 +3,27 @@ format = 1
 [[node]]
 id = "6108fac9645ec022"
 subgraph = "mux-4"
-pos = [0.0, 557.8]
+pos = [0.0, 294.0]
 
 [[node]]
 id = "946192b5f3d2c0ee"
 subgraph = "mux-4"
-pos = [0.0, 1017.8]
+pos = [0.0, 0.0]
 
 [[node]]
 id = "ece3024a6beff771"
 folder = "nodes/split"
-pos = [-300.0, 100.0]
+pos = [-388.0, 15.0]
 
 [[node]]
 id = "c9f3af3b6ca90852"
 folder = "nodes/split"
-pos = [-300.0, 900.0]
+pos = [-388.0, 305.0]
 
 [[node]]
 id = "f53e723c4f78799b"
 folder = "nodes/join"
-pos = [300.0, 0.0]
-
-[[output]]
-key = "29d06052"
-name = "out"
-pos = [600.0, 0.0]
-from = "f53e723c4f78799b.out"
+pos = [328.0, 99.0]
 
 [[wire]]
 from = "ece3024a6beff771.out0"
@@ -130,17 +124,23 @@ to = "f53e723c4f78799b.b7"
 [[input]]
 key = "b7e6186b"
 name = "sel"
-pos = [-300.0, 0.0]
+pos = [-600.0, 244.0]
 to = ["6108fac9645ec022.862de0f4", "946192b5f3d2c0ee.862de0f4"]
 
 [[input]]
 key = "6d215f9b"
 name = "a"
-pos = [-600.0, 100.0]
+pos = [-600.0, 31.0]
 to = ["ece3024a6beff771.value"]
 
 [[input]]
 key = "c1c03e99"
 name = "b"
-pos = [-600.0, 900.0]
+pos = [-600.0, 321.0]
 to = ["c9f3af3b6ca90852.value"]
+
+[[output]]
+key = "29d06052"
+name = "out"
+pos = [608.0, 133.0]
+from = "f53e723c4f78799b.out"

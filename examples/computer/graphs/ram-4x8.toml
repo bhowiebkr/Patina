@@ -3,28 +3,22 @@ format = 1
 [[node]]
 id = "24e5b22567ba0121"
 subgraph = "ram-4x4"
-pos = [0.0, 280.0]
+pos = [24.0, 246.0]
 
 [[node]]
 id = "7c6e16c878afd22c"
 subgraph = "ram-4x4"
-pos = [0.0, 660.0]
+pos = [24.0, 0.0]
 
 [[node]]
 id = "098b7f7749c285ae"
 folder = "nodes/split"
-pos = [-300.0, 300.0]
+pos = [-376.0, 32.0]
 
 [[node]]
 id = "1dd31414edca91f5"
 folder = "nodes/join"
-pos = [300.0, 0.0]
-
-[[output]]
-key = "ee38bb71"
-name = "value"
-pos = [600.0, 0.0]
-from = "1dd31414edca91f5.out"
+pos = [352.0, 78.0]
 
 [[wire]]
 from = "098b7f7749c285ae.out0"
@@ -93,23 +87,29 @@ to = "1dd31414edca91f5.b7"
 [[input]]
 key = "cd54aa93"
 name = "write"
-pos = [-300.0, 0.0]
+pos = [-600.0, 197.0]
 to = ["24e5b22567ba0121.8279ad7a", "7c6e16c878afd22c.8279ad7a"]
 
 [[input]]
 key = "854ec2ea"
 name = "a0"
-pos = [-300.0, 100.0]
+pos = [-600.0, 263.0]
 to = ["24e5b22567ba0121.027cf6c0", "7c6e16c878afd22c.027cf6c0"]
 
 [[input]]
 key = "09ec663f"
 name = "a1"
-pos = [-300.0, 200.0]
+pos = [-600.0, 329.0]
 to = ["24e5b22567ba0121.325c9b79", "7c6e16c878afd22c.325c9b79"]
 
 [[input]]
 key = "426d4927"
 name = "d"
-pos = [-600.0, 300.0]
+pos = [-600.0, 30.0]
 to = ["098b7f7749c285ae.value"]
+
+[[output]]
+key = "ee38bb71"
+name = "value"
+pos = [632.0, 112.0]
+from = "1dd31414edca91f5.out"

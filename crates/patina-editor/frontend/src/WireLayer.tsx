@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -16,6 +17,7 @@ import {
 import { EdgeLabelRenderer, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
 import { laneLabel, type Corners, type Edit, type Point, type Style, type Value } from './api';
 import { FAR_ZOOM, GlWires, PITCH } from './gl';
+import type { Router } from './route';
 import { insertAt, midpoint, shape, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */
@@ -28,6 +30,8 @@ export type WireData = { from: string; to: string; route: readonly Point[]; styl
 
 export interface WireTools {
   store: WireStore;
+  /** The automatic routes of the wires with the graph default look (15.9). */
+  router: Router;
   onEdit: (edit: Edit) => Promise<void>;
   editable: boolean;
   /** Each live value by output (15.9), and true when it is from an old run. */
@@ -38,7 +42,7 @@ export interface WireTools {
 export const WireContext = createContext<WireTools | null>(null);
 
 export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
-  const { store, onEdit, editable, values, stale } = useContext(WireContext)!;
+  const { store, router, onEdit, editable, values, stale } = useContext(WireContext)!;
   const flow = useReactFlow();
   // The route during a drag. It stays until the edit gives the new graph, so the wire does not jump back.
   const [draft, setDraft] = useState<readonly Point[] | null>(null);
@@ -49,8 +53,23 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const old = stale(data!.from);
   // A bus shows one line with its width at a far zoom (15.9).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
-  const { style, corners } = data!;
-  const path = useMemo(() => shape(sourceX, sourceY, targetX, targetY, route, style, corners), [sourceX, sourceY, targetX, targetY, route, style, corners]);
+  const { from, style, corners } = data!;
+  // A wire with the graph default look goes around the node bodies. Its route points are waypoints (15.9).
+  const auto = style === undefined;
+  const width = Math.max(2, bits.length * PITCH);
+  useLayoutEffect(() => {
+    if (auto) router.setWire(id, { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, via: route, net: from, width });
+    else router.removeWire(id);
+  }, [router, id, auto, sourceX, sourceY, targetX, targetY, route, from, width]);
+  useLayoutEffect(() => () => router.removeWire(id), [router, id]);
+  const routed = useSyncExternalStore(router.subscribe, () => (auto ? router.bends(id) : undefined));
+  const path = useMemo(
+    () =>
+      auto
+        ? shape(sourceX, sourceY, targetX, targetY, routed ?? route, routed ? 'polyline' : 'orthogonal', corners, width)
+        : shape(sourceX, sourceY, targetX, targetY, route, style, corners, width),
+    [auto, sourceX, sourceY, targetX, targetY, routed, route, style, corners, width],
+  );
   useLayoutEffect(
     () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old),
     [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old],

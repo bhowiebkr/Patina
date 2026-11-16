@@ -3,7 +3,7 @@ format = 1
 [[node]]
 id = "2b8e27d7337ff02e"
 folder = "nodes/switch"
-pos = [0.0, 0.0]
+pos = [0.0, 195.0]
 
 [node.params]
 on = "true"
@@ -11,47 +11,47 @@ on = "true"
 [[node]]
 id = "3f2d1c238b37761f"
 builtin = "delay"
-pos = [0.0, 200.0]
+pos = [620.0, 303.0]
 
 [[node]]
 id = "ef86dc2557a79b93"
 builtin = "delay"
-pos = [300.0, 0.0]
+pos = [948.0, 255.0]
 
 [[node]]
 id = "d2e0e0a15a05b769"
 subgraph = "half-adder"
-pos = [300.0, 140.0]
+pos = [292.0, 216.0]
 
 [[node]]
 id = "3de03997df5bc8ba"
 builtin = "delay"
-pos = [600.0, 0.0]
+pos = [1252.0, 108.0]
 
 [[node]]
 id = "acf9a11c76f4c17e"
 subgraph = "half-adder"
-pos = [600.0, 140.0]
+pos = [620.0, 157.0]
 
 [[node]]
 id = "2eeebe4df7ab7e20"
 builtin = "delay"
-pos = [900.0, 0.0]
+pos = [0.0, 297.0]
 
 [[node]]
 id = "5d85349a8f6ec1e4"
 subgraph = "half-adder"
-pos = [900.0, 140.0]
+pos = [948.0, 109.0]
 
 [[node]]
 id = "b3748e4c7ceb8cd3"
 subgraph = "half-adder"
-pos = [1200.0, 50.0]
+pos = [1252.0, 210.0]
 
 [[node]]
 id = "c55c53d74e5a9eed"
 folder = "nodes/join"
-pos = [1500.0, 500.0]
+pos = [1580.0, 0.0]
 
 [[wire]]
 from = "2b8e27d7337ff02e.out"
@@ -120,29 +120,29 @@ to = "c55c53d74e5a9eed.b3"
 [[output]]
 key = "f6bc0840"
 name = "q0"
-pos = [1500.0, 0.0]
+pos = [1872.0, 353.0]
 from = "3f2d1c238b37761f.out"
 
 [[output]]
 key = "f6f4f8a5"
 name = "q1"
-pos = [1500.0, 100.0]
+pos = [1872.0, 287.0]
 from = "ef86dc2557a79b93.out"
 
 [[output]]
 key = "095c6111"
 name = "q2"
-pos = [1500.0, 200.0]
+pos = [1872.0, 221.0]
 from = "3de03997df5bc8ba.out"
 
 [[output]]
 key = "ab784846"
 name = "q3"
-pos = [1500.0, 300.0]
+pos = [1872.0, 419.0]
 from = "2eeebe4df7ab7e20.out"
 
 [[output]]
 key = "ece70590"
 name = "value"
-pos = [1800.0, 500.0]
+pos = [1872.0, 34.0]
 from = "c55c53d74e5a9eed.out"

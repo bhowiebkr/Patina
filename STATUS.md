@@ -64,6 +64,10 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 19. Done: node header colors (15.3). `#[node(color = "#rrggbb")]` colors the header, tints the
     border and gives the selection a lighter shade. The **Project** panel shows a swatch. The
     example colors its gates, inputs, outputs and bus nodes by the families of the GUI guide.
+20. Done: readable layouts (15.9). The default wire is now the automatic route: it goes around
+    the nodes, the wires of one output share a trunk, and parallel wires keep a gap. Route
+    points are waypoints. **Shift+L** arranges the nodes in columns by the signal flow, and
+    the example graphs are arranged.
 
 ### Checked
 
@@ -113,6 +117,13 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   values and the LCD text are the same. A `patina --shot` screenshot shows the colored headers
   and the swatches in the **Project** panel. Unit tests check the color attribute in the engine
   and the macro. No test checks the colors on the screen.
+- Unit tests check the automatic route: it goes around a node, parallel wires keep a gap, the
+  wires of one output share a trunk, and a route goes through its route points. Unit tests check
+  **Arrange**: the columns go from left to right, the nodes of a column do not overlap, and a
+  gap gets a lane only for a wire with a bend. A `patina --shot` run with **Shift+L** arranged
+  the 25 graphs of `examples/computer`. In Node, a test graph of 217 nodes and 210 wires took
+  5 ms to arrange and 27 ms to route. A graph of 400 nodes and 500 wires took 84 ms to route. No
+  test drags a node, and no check measured the route time in the window.
 
 ## Milestone 11: the audio domain
 
@@ -1043,9 +1054,12 @@ To run the editor from a checkout:
   value into a new `String`, and the badge text into a second `String`.
 - An orthogonal segment cannot move sideways (15.9). A double-click on an orthogonal or curved
   wire puts the new point on the nearest straight line through the route points. The graph has
-  no setting for the default style. **Bus**, **Lock bends** and the crossings wait for the
-  automatic router. The keyboard cannot add a route point. The editor does not warn when a wire
-  goes under a node.
+  no setting for the default style. **Bus**, **Lock bends** and the crossing bridges are not
+  made. The keyboard cannot add a route point. A wire with a fixed style can go under a node.
+- The automatic route and **Arrange** have no undo of a route change, because a route is not
+  saved. The route changes when a node moves, and the wires of a large graph can jump.
+  **Arrange** puts all nodes of a layer in one column, so a wide layer makes a tall column, for
+  example the 112 switches of `rom-16x7`.
 - The check did not test Esc during a drag, the arrow keys, or the route handles with the SVG
   wires.
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did
@@ -1080,6 +1094,10 @@ To run the editor from a checkout:
     (15.6) (`crates/patina-sdk/src/glue.rs`).
   - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
   - The SVG wires draw a bus as one line (`frontend/src/WireLayer.tsx`).
+  - A graph with a route grid of more than 2 million cells gets the simple orthogonal paths
+    (`frontend/src/route.ts`).
+  - A wire with no clear path gets the simple orthogonal path and no conflict mark
+    (`frontend/src/route.ts`).
 
 ## Milestone 1: engine and CLI
 

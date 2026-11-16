@@ -3,33 +3,33 @@ format = 1
 [[node]]
 id = "8cc7c34fb0e0708a"
 subgraph = "xor"
-pos = [0.0, 30.0]
+pos = [-76.0, 0.0]
 
 [[node]]
 id = "33890740e6f55ffa"
 subgraph = "and"
-pos = [0.0, 210.0]
+pos = [-76.0, 126.0]
 
 [[input]]
 key = "9131f68f"
 name = "a"
-pos = [-300.0, 0.0]
+pos = [-300.0, 76.0]
 to = ["8cc7c34fb0e0708a.135fe2ff", "33890740e6f55ffa.665555f1"]
 
 [[input]]
 key = "1e8b06d1"
 name = "b"
-pos = [-300.0, 100.0]
+pos = [-300.0, 142.0]
 to = ["8cc7c34fb0e0708a.c42c0fcf", "33890740e6f55ffa.072eae79"]
 
 [[output]]
 key = "301a2640"
 name = "sum"
-pos = [300.0, 0.0]
+pos = [204.0, 34.0]
 from = "8cc7c34fb0e0708a.a5f715a1"
 
 [[output]]
 key = "d84ec94f"
 name = "carry"
-pos = [300.0, 100.0]
+pos = [204.0, 160.0]
 from = "33890740e6f55ffa.72b5072c"

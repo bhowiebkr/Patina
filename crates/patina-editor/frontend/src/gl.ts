@@ -6,9 +6,14 @@ import { HAS_LANES, instances, LIT, MAX_POINTS, STALE, STRIDE, type WireStore } 
 /** The line widths and the lane pitch, in graph pixels, and the colors of docs/gui-visual-guide.md. */
 const WIRE_WIDTH = 2;
 const SELECT_WIDTH = 8;
-const LANE_WIDTH = 2;
-/** The distance between the centers of two lanes. The dark gap between them is 1 px. */
-export const PITCH = 3;
+const LANE_WIDTH = 3;
+/** The dark edge on each side of a lane. Two edges fill the gap between two lanes. */
+const EDGE = 1;
+/** The distance between the centers of two lanes. */
+export const PITCH = LANE_WIDTH + 2 * EDGE;
+/** The soft shadow on each side of a ribbon, and its darkest alpha. */
+const SHADOW = 4;
+const SHADOW_ALPHA = 0.55;
 /** Below this zoom, a bus draws as one line of FAR_WIDTH (15.9). */
 export const FAR_ZOOM = 0.5;
 const FAR_WIDTH = 4;
@@ -17,6 +22,7 @@ const ACCENT = [223, 166, 75];
 /** A lane with the bit 1, and with the bit 0. An off lane stays visible (15.9). */
 const LANE_ON = [238, 238, 235];
 const LANE_OFF = [85, 85, 81];
+const LANE_EDGE = [12, 12, 11];
 /** Above this number of changed wires, one upload of the whole texture is faster. */
 const ROW_UPLOADS = 64;
 
@@ -29,21 +35,39 @@ layout(location = 0) in uvec4 inst; // wire slot, segment, lane, flags
 uniform highp sampler2D points;
 uniform vec3 view;
 uniform vec2 size;
-uniform bool chosen;
+// 0: the accent under a selected wire, 1: the shadow under a ribbon, 2: the wires.
+uniform int mode;
 out float vAcross;
 out float vHalf;
+out float vCore;
 out vec3 vColor;
+flat out int vKind;
 void main() {
   uint count = (inst.w & 63u) + 1u;
   bool lanes = (inst.w & ${HAS_LANES}u) != 0u;
   bool far = view.z < ${float(FAR_ZOOM)} && count > 1u;
   // The distance between the outer lanes of a bus.
   float bus = far ? 0.0 : float(count - 1u) * ${float(PITCH)};
+  bool ribbon = lanes && !far;
+  // The full width of a ribbon, with the outer edges.
+  float full = bus + ${float(PITCH)};
   float width = ${float(LANE_WIDTH)};
   float offset = 0.0;
-  if (chosen) {
-    width = ${float(SELECT_WIDTH)} + bus;
+  float edge = 0.0;
+  vKind = 0;
+  if (mode == 0) {
+    width = ribbon ? full + 4.0 : ${float(SELECT_WIDTH)};
     vColor = ${vec3(ACCENT)};
+  } else if (mode == 1) {
+    // Lane 0 draws the one shadow of the ribbon.
+    if (!ribbon || inst.z > 0u) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+    width = full;
+    edge = ${float(SHADOW)};
+    vColor = vec3(0.0);
+    vKind = 2;
   } else if (!lanes) {
     width = ${float(WIRE_WIDTH)};
     vColor = ${vec3(WIRE)};
@@ -61,30 +85,48 @@ void main() {
     bool lit = (inst.w & ${LIT}u) != 0u;
     vec3 on = (inst.w & ${STALE}u) != 0u ? mix(${vec3(LANE_OFF)}, ${vec3(LANE_ON)}, 0.5) : ${vec3(LANE_ON)};
     vColor = lit ? on : ${vec3(LANE_OFF)};
+    edge = ${float(EDGE)};
+    vKind = 1;
   }
   // The two ends of a segment use the miter normals, so the next segment starts at the same edge.
   int v = gl_VertexID;
   float along = (v == 1 || v == 4 || v == 5) ? 1.0 : 0.0;
   float side = (v == 2 || v == 3 || v == 5) ? 1.0 : -1.0;
   vec4 p = texelFetch(points, ivec2(int(inst.y) + int(along), int(inst.x)), 0);
-  float halfW = max(width * view.z, 1.0) * 0.5;
+  float core = max(width * view.z, 1.0) * 0.5;
+  float halfW = core + edge * view.z;
   float ext = halfW + 1.0;
   vec2 pos = p.xy * view.z + view.xy + p.zw * (offset * view.z + side * ext);
   vec2 clip = pos / size * 2.0 - 1.0;
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
   vAcross = side * ext;
   vHalf = halfW;
+  vCore = core;
 }`;
 
 const FRAGMENT = `#version 300 es
 precision mediump float;
 in float vAcross;
 in float vHalf;
+in float vCore;
 in vec3 vColor;
+flat in int vKind;
 out vec4 outColor;
 void main() {
-  float a = clamp(vHalf + 0.5 - abs(vAcross), 0.0, 1.0);
-  outColor = vec4(vColor * a, a);
+  float d = abs(vAcross);
+  float a = clamp(vHalf + 0.5 - d, 0.0, 1.0);
+  vec3 c = vColor;
+  if (vKind == 2) {
+    // The shadow fades from the edge of the ribbon to its outer side.
+    float s = clamp((vHalf - d) / max(vHalf - vCore, 1.0), 0.0, 1.0);
+    a = ${float(SHADOW_ALPHA)} * s * s;
+  } else if (vKind == 1) {
+    // A round lane: darker sides, a narrow highlight at the center and a dark edge.
+    float u = clamp(d / vCore, 0.0, 1.0);
+    c = vColor * (1.0 - 0.4 * u * u + 0.2 * (1.0 - smoothstep(0.0, 0.45, u)));
+    c = mix(c, ${vec3(LANE_EDGE)}, clamp(d - vCore + 0.5, 0.0, 1.0));
+  }
+  outColor = vec4(min(c, 1.0) * a, a);
 }`;
 
 function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
@@ -127,7 +169,7 @@ class Instances {
 export class GlWires {
   private readonly gl: WebGL2RenderingContext;
   private program!: WebGLProgram;
-  private uniforms!: Record<'points' | 'view' | 'size' | 'chosen', WebGLUniformLocation | null>;
+  private uniforms!: Record<'points' | 'view' | 'size' | 'mode', WebGLUniformLocation | null>;
   private texture!: WebGLTexture;
   private all!: Instances;
   private chosen!: Instances;
@@ -157,7 +199,7 @@ export class GlWires {
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(`program: ${gl.getProgramInfoLog(program)}`);
     this.program = program;
     const u = (name: string) => gl.getUniformLocation(program, name);
-    this.uniforms = { points: u('points'), view: u('view'), size: u('size'), chosen: u('chosen') };
+    this.uniforms = { points: u('points'), view: u('view'), size: u('size'), mode: u('mode') };
     this.maxRows = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
     this.texture = gl.createTexture()!;
     gl.activeTexture(gl.TEXTURE0);
@@ -225,14 +267,15 @@ export class GlWires {
     gl.uniform1i(this.uniforms.points, 0);
     gl.uniform3f(this.uniforms.view, tx, ty, zoom);
     gl.uniform2f(this.uniforms.size, this.width, this.height);
-    const pass = (b: Instances, chosen: boolean) => {
+    const pass = (b: Instances, mode: number) => {
       if (b.count === 0) return;
-      gl.uniform1i(this.uniforms.chosen, chosen ? 1 : 0);
+      gl.uniform1i(this.uniforms.mode, mode);
       gl.bindVertexArray(b.vao);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, b.count);
     };
-    pass(this.chosen, true);
-    pass(this.all, false);
+    pass(this.all, 1);
+    pass(this.chosen, 0);
+    pass(this.all, 2);
     gl.bindVertexArray(null);
     this.last[0] = tx;
     this.last[1] = ty;

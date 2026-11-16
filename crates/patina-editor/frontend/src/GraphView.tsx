@@ -1,6 +1,6 @@
 // The graph canvas (spec 15.2). Navigation is snappy: no animation between two views.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -14,7 +14,9 @@ import {
   type FinalConnectionState,
   type NodeChange,
   type OnSelectionChangeParams,
+  type ReactFlowInstance,
 } from '@xyflow/react';
+import { arrange, type Box, type Link } from './arrange';
 import { AddNode } from './AddNode';
 import { NameField } from './NameField';
 import { newId, type Edit, type NodeInfo, type Point, type View } from './api';
@@ -22,6 +24,7 @@ import { savedViewport, saveViewport } from './Dock';
 import { NodeEdit, NodeView, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { matchPin } from './palette';
 import { WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
+import { Router } from './route';
 import { WireStore } from './wires';
 
 export const NODE_MIME = 'application/patina-node';
@@ -60,6 +63,38 @@ function portKey(id: string): string | null {
 const PIN_ENTRY = { inputs: [], outputs: [], error: null, builtin: false, generics: ['?'], full: false, color: null, subgraph: false };
 const PUBLIC_INPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public input', outputs: [{ key: 'pin', ty: '?' }] };
 const PUBLIC_OUTPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public output', inputs: [{ key: 'pin', ty: '?' }] };
+
+/** The moves of the Arrange command (15.9): the selected nodes, or all nodes when fewer than two are selected. */
+function arrangeEdits(nodes: GraphNode[], edges: Edge<WireData>[], flow: ReactFlowInstance<GraphNode, Edge<WireData>>): Edit[] {
+  const picked = nodes.filter((n) => n.selected);
+  const chosen = picked.length > 1 ? picked : nodes;
+  if (chosen.length === 0) return [];
+  const ids = new Set(chosen.map((n) => n.id));
+  const size = (n: GraphNode) => [n.measured?.width ?? 0, n.measured?.height ?? 0];
+  const pinY = (id: string, handle: string | null | undefined, kind: 'source' | 'target') => {
+    const b = flow.getInternalNode(id)?.internals.handleBounds?.[kind]?.find((h) => h.id === handle);
+    return b ? b.y + b.height / 2 : (flow.getInternalNode(id)?.measured.height ?? 0) / 2;
+  };
+  const boxes = chosen.map((n): Box => {
+    const [w, h] = size(n);
+    return { id: n.id, w, h, side: n.id.startsWith('in:') ? 'first' : n.id.startsWith('out:') ? 'last' : undefined };
+  });
+  const links = edges.flatMap((e): Link[] =>
+    ids.has(e.source) && ids.has(e.target)
+      ? [{ from: e.source, fy: pinY(e.source, e.sourceHandle, 'source'), to: e.target, ty: pinY(e.target, e.targetHandle, 'target'), net: e.data!.from }]
+      : [],
+  );
+  const at = arrange(boxes, links);
+  const x0 = Math.min(...chosen.map((n) => n.position.x));
+  const y0 = Math.min(...chosen.map((n) => n.position.y));
+  return chosen.flatMap((n): Edit[] => {
+    const [x, y] = at.get(n.id)!;
+    const pos: Point = [Math.round(x0 + x), Math.round(y0 + y)];
+    if (pos[0] === Math.round(n.position.x) && pos[1] === Math.round(n.position.y)) return [];
+    const key = portKey(n.id);
+    return [key ? { kind: 'MovePin', key, pos } : { kind: 'MoveNode', id: n.id, pos }];
+  });
+}
 
 /** The public pins of the open subgraph (6.4). The editor moves, connects, renames and removes them. */
 function buildPorts(view: View, run: RunState, old: Map<string, GraphNode>): PortNode[] {
@@ -151,6 +186,7 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
   const [wires] = useState(() => new WireStore());
+  const [router] = useState(() => new Router());
   const [glOk, setGlOk] = useState(true);
   // The screen point of the open Add node palette, with the pin of a wire that it ends, and the
   // last pointer point over the canvas.
@@ -161,9 +197,17 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport(view.graphName));
   const tools = useMemo(
-    () => ({ store: wires, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from) }),
-    [wires, onEdit, view.trusted, run],
+    () => ({ store: wires, router, onEdit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from) }),
+    [wires, router, onEdit, view.trusted, run],
   );
+  // The node bodies that the automatic routes go around (15.9).
+  useLayoutEffect(() => {
+    const body = (n: GraphNode) => {
+      const { width, height } = n.measured ?? {};
+      return width && height ? [{ l: n.position.x, t: n.position.y, r: n.position.x + width, b: n.position.y + height }] : [];
+    };
+    router.setObstacles(nodes.flatMap(body));
+  }, [nodes, router]);
 
   useEffect(() => setNodes((prev) => buildNodes(view, run, guis, prev)), [view, run, guis]);
   useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);
@@ -254,6 +298,9 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
         if (edits.length > 0) onEdit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
       } else if (e.key === 'f' || e.key === 'F') {
         flow.fitView(FIT);
+      } else if (e.shiftKey && e.key.toLowerCase() === 'l' && view.trusted) {
+        const moves = arrangeEdits(nodes, edges, flow);
+        if (moves.length > 0) onEdit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
       } else if (e.shiftKey && e.key.toLowerCase() === 'a' && view.trusted) {
         const r = document.querySelector('.react-flow')!.getBoundingClientRect();
         setPalette(pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 });

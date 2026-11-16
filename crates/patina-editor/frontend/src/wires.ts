@@ -10,8 +10,10 @@ const BEZIER_SEGMENTS = 32;
 /** The route points of one wire at most, as in the engine (spec 6.4). */
 export const MAX_ROUTE = 12;
 const CORNER_RADIUS = 12;
-/** 2 + MAX_ROUTE x CORNER_POINTS fits in MAX_POINTS. A path with more bends gets fewer points for each corner. */
-const CORNER_POINTS = 5;
+/** The space between the inner edge of a ribbon and the center of its corner. */
+const INNER_RADIUS = 10;
+/** The points of a corner at most. A path with many bends gets fewer points for each corner, so it fits in MAX_POINTS. */
+const CORNER_POINTS = 12;
 /** The horizontal length at both ends of an orthogonal leg that goes back. */
 const STUB = 20;
 const NO_ROUTE: readonly Point[] = [];
@@ -27,11 +29,12 @@ const CURVE: Shape = { bends: NO_ROUTE, radius: SMOOTH };
 
 /**
  * The path of a wire from its style, its corners and its route points. With no style, a wire
- * with no points is curved, and a wire with points is a polyline.
+ * with no points is curved, and a wire with points is a polyline. A wide ribbon gets a larger
+ * corner, so its inner lane does not fold.
  */
-export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Style, corners?: Corners): Shape {
+export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Style, corners?: Corners, width = 0): Shape {
   if (style === 'curved' || (style === undefined && route.length === 0)) return { bends: route, radius: SMOOTH };
-  const radius = corners === 'sharp' ? 0 : CORNER_RADIUS;
+  const radius = corners === 'sharp' ? 0 : Math.max(CORNER_RADIUS, width / 2 + INNER_RADIUS);
   return { bends: style === 'orthogonal' ? orthogonal(sx, sy, tx, ty, route) : route, radius };
 }
 

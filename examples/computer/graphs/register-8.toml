@@ -3,22 +3,22 @@ format = 1
 [[node]]
 id = "df8a1ce010e39ba7"
 subgraph = "register-4"
-pos = [0.0, 180.0]
+pos = [-48.0, 129.0]
 
 [[node]]
 id = "4c66882cdb40b8b7"
 subgraph = "register-4"
-pos = [0.0, 500.0]
+pos = [-48.0, 327.0]
 
 [[node]]
 id = "d3ad34682b8aa64d"
 folder = "nodes/join"
-pos = [300.0, 900.0]
+pos = [328.0, 43.0]
 
 [[node]]
 id = "22dc08492b85e2a9"
 folder = "nodes/split"
-pos = [-300.0, 100.0]
+pos = [-388.0, 158.0]
 
 [[wire]]
 from = "df8a1ce010e39ba7.608ab439"
@@ -87,65 +87,65 @@ to = "4c66882cdb40b8b7.ba62d0fb"
 [[input]]
 key = "97c51e0d"
 name = "load"
-pos = [-300.0, 0.0]
+pos = [-600.0, 363.0]
 to = ["df8a1ce010e39ba7.9a4aecd8", "4c66882cdb40b8b7.9a4aecd8"]
 
 [[input]]
 key = "3dc1d708"
 name = "d"
-pos = [-600.0, 100.0]
+pos = [-600.0, 149.0]
 to = ["22dc08492b85e2a9.value"]
 
 [[output]]
 key = "95c9a4ac"
 name = "q0"
-pos = [300.0, 0.0]
+pos = [632.0, 0.0]
 from = "df8a1ce010e39ba7.608ab439"
 
 [[output]]
 key = "f02f59d1"
 name = "q1"
-pos = [300.0, 100.0]
+pos = [632.0, 162.0]
 from = "df8a1ce010e39ba7.fbae7ec2"
 
 [[output]]
 key = "a8dea38f"
 name = "q2"
-pos = [300.0, 200.0]
+pos = [632.0, 228.0]
 from = "df8a1ce010e39ba7.f5c7996c"
 
 [[output]]
 key = "ec463444"
 name = "q3"
-pos = [300.0, 300.0]
+pos = [632.0, 294.0]
 from = "df8a1ce010e39ba7.3dca83af"
 
 [[output]]
 key = "2edf2b00"
 name = "q4"
-pos = [300.0, 400.0]
+pos = [632.0, 360.0]
 from = "4c66882cdb40b8b7.608ab439"
 
 [[output]]
 key = "465e89cb"
 name = "q5"
-pos = [300.0, 500.0]
+pos = [632.0, 426.0]
 from = "4c66882cdb40b8b7.fbae7ec2"
 
 [[output]]
 key = "d2365a4a"
 name = "q6"
-pos = [300.0, 600.0]
+pos = [632.0, 492.0]
 from = "4c66882cdb40b8b7.f5c7996c"
 
 [[output]]
 key = "32d35827"
 name = "q7"
-pos = [300.0, 700.0]
+pos = [632.0, 558.0]
 from = "4c66882cdb40b8b7.3dca83af"
 
 [[output]]
 key = "a1a82dd8"
 name = "value"
-pos = [600.0, 900.0]
+pos = [632.0, 77.0]
 from = "d3ad34682b8aa64d.out"

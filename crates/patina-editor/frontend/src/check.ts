@@ -437,7 +437,8 @@ fn broken() -> u32 {
     await until('the route point under the pointer after the edit', RUN_MS, () =>
       Math.abs(center()[1] - (cy + 60)) < 2 && !handle().classList.contains('dragging'),
     );
-    if (anyPixel((await wireColumn({ x: cx, y: cy })).column, () => true)) throw new Error('the wire still draws at the old place of the route point');
+    // The automatic route goes through the point, and before the drag no wire was 60 px below the line.
+    if (!anyPixel((await wireColumn({ x: cx, y: cy + 60 })).column, () => true)) throw new Error('the wire does not draw at the new place of the route point');
     steps.push('route point dragged');
     const added = (await step('undo the drag', () => api.undo())).graph.wire?.[0]?.points;
     const moved = (await step('redo the drag', () => api.redo())).graph.wire?.[0]?.points;
@@ -452,14 +453,14 @@ fn broken() -> u32 {
     const field = (name: string) =>
       [...document.querySelectorAll('.param')].find((p) => p.querySelector('.label')?.textContent === name)?.querySelector('select');
     const rounded = () => (document.querySelector('.wire-hit')?.getAttribute('d')?.match(/Q/g) ?? []).length;
-    await until('the Route field', RUN_MS, () => !!field('Route') && rounded() === 1);
-    field('Route')!.value = 'orthogonal';
+    await until('the Route field and the corners of the automatic route', RUN_MS, () => !!field('Route') && rounded() >= 2);
+    field('Route')!.value = 'curved';
     field('Route')!.dispatchEvent(new Event('change', { bubbles: true }));
-    await until('the corners of the orthogonal wire', RUN_MS, () => rounded() >= 3);
+    await until('the curved wire', RUN_MS, () => rounded() === 0 && !!document.querySelector('.wire-hit')?.getAttribute('d')?.includes('C'));
     [...document.querySelectorAll<HTMLButtonElement>('.panel button')].find((b) => b.textContent === 'Reset route')!.click();
     await until('no route point after Reset route', RUN_MS, () => document.querySelectorAll('.route-point').length === 0);
     v = await step('undo Reset route', () => api.undo());
-    if (v.graph.wire?.[0]?.style !== 'orthogonal' || v.graph.wire[0].points?.length !== 1) throw new Error(`the route style or Reset route failed: ${JSON.stringify(v.graph.wire)}`);
+    if (v.graph.wire?.[0]?.style !== 'curved' || v.graph.wire[0].points?.length !== 1) throw new Error(`the route style or Reset route failed: ${JSON.stringify(v.graph.wire)}`);
     v = await step('undo the route style', () => api.undo());
     if (v.graph.wire?.[0]?.style !== undefined) throw new Error('undo did not give the graph default route');
     // While the graph is paused, an edit makes the value of the last run stale (15.3, 15.9).

@@ -3,7 +3,7 @@ format = 1
 [[node]]
 id = "fb5967f7f626ecb6"
 folder = "nodes/switch"
-pos = [0.0, 0.0]
+pos = [-388.0, 540.0]
 
 [node.params]
 on = "false"
@@ -11,57 +11,57 @@ on = "false"
 [[node]]
 id = "255784be866c2954"
 subgraph = "full-adder"
-pos = [300.0, 246.7]
+pos = [0.0, 373.0]
 
 [[node]]
 id = "206fd27a848deeb3"
 subgraph = "full-adder"
-pos = [600.0, 395.6]
+pos = [316.0, 332.0]
 
 [[node]]
 id = "70d3fa2621748401"
 subgraph = "full-adder"
-pos = [900.0, 511.9]
+pos = [632.0, 290.0]
 
 [[node]]
 id = "8a337deb685e077f"
 subgraph = "full-adder"
-pos = [1200.0, 617.3]
+pos = [948.0, 249.0]
 
 [[node]]
 id = "92211aca9ee93eaa"
 subgraph = "full-adder"
-pos = [1500.0, 719.1]
+pos = [1264.0, 207.0]
 
 [[node]]
 id = "5f01d01759c79444"
 subgraph = "full-adder"
-pos = [1800.0, 819.7]
+pos = [1580.0, 165.0]
 
 [[node]]
 id = "534a3ffdb33676d3"
 subgraph = "full-adder"
-pos = [2100.0, 919.9]
+pos = [1896.0, 120.0]
 
 [[node]]
 id = "a24a62f0c02e522d"
 subgraph = "full-adder"
-pos = [2400.0, 1020.0]
+pos = [2200.0, 190.0]
 
 [[node]]
 id = "24cd9364084f5007"
 folder = "nodes/split"
-pos = [-300.0, 0.0]
+pos = [-388.0, 0.0]
 
 [[node]]
 id = "af6cdc0b8ca34017"
 folder = "nodes/split"
-pos = [-300.0, 800.0]
+pos = [-388.0, 270.0]
 
 [[node]]
 id = "142ca85ed392e41f"
 folder = "nodes/join"
-pos = [2700.0, 0.0]
+pos = [2564.0, 113.0]
 
 [[wire]]
 from = "fb5967f7f626ecb6.out"
@@ -194,23 +194,23 @@ to = "142ca85ed392e41f.b7"
 [[input]]
 key = "c3016a3d"
 name = "a"
-pos = [-600.0, 0.0]
+pos = [-600.0, 37.0]
 to = ["24cd9364084f5007.value"]
 
 [[input]]
 key = "3723c0a4"
 name = "b"
-pos = [-600.0, 800.0]
+pos = [-600.0, 307.0]
 to = ["af6cdc0b8ca34017.value"]
 
 [[output]]
 key = "bd4ae8e8"
 name = "carry out"
-pos = [2700.0, 800.0]
+pos = [2844.0, 360.0]
 from = "a24a62f0c02e522d.3273375a"
 
 [[output]]
 key = "797e287f"
 name = "sum"
-pos = [3000.0, 0.0]
+pos = [2844.0, 147.0]
 from = "142ca85ed392e41f.out"
