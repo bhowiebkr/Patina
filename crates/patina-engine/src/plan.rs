@@ -403,8 +403,6 @@ fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -
     if problems.is_empty() { Ok(()) } else { Err(problems) }
 }
 
-/// True when the crate folder `<group>/<name>` has the `log` crate in `[dependencies]` (15.7).
-// shortcut: a renamed `log` or a `log` of a target table does not count, read them when a person needs it.
 /// True when a folder depends on the `log` crate (15.7), also in a target table or with another name.
 fn uses_log(root: &Path, group: &str, name: &str) -> bool {
     let text = std::fs::read_to_string(root.join(group).join(name).join("Cargo.toml")).unwrap_or_default();
