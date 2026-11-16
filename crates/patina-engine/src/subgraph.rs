@@ -79,6 +79,10 @@ fn expand(root: &Path, graph: &GraphFile, open: Option<(&str, &GraphFile)>, stac
         let prefix = |end: &str| format!("{id}/{end}");
         // The editor shows the values inside a use, so the uses inside it keep their aliases (15.9).
         nested.extend(inner_aliases.iter().map(|(outer, from)| (prefix(outer), prefix(from))));
+        // The keys come from a file, and a wire end splits at the dot (6.4).
+        if let Some(bad) = inner.input.iter().map(|p| &p.key).chain(inner.output.iter().map(|p| &p.key)).find(|k| !project::is_key(k)) {
+            fail(format!("the subgraph {name} has the pin key {bad:?}, not 8 lowercase hexadecimal characters"));
+        }
         let mut one = Use { inputs: HashMap::new(), outputs: HashMap::new(), nodes: Vec::new() };
         for pin in &inner.input {
             if one.inputs.insert(pin.key.clone(), pin.to.iter().map(|to| prefix(to)).collect()).is_some() {
@@ -569,10 +573,12 @@ to = \"f1.0000000e\"
         let (flat, aliases) = flatten(&root, &open, None).unwrap();
         assert!(flat.wire.is_empty() && aliases.is_empty(), "{:?}", flat.wire);
 
-        // A subgraph that uses itself and a pin that does not exist give problems.
+        // A subgraph that uses itself, a pin that does not exist and a bad pin key give problems.
         std::fs::write(root.join("graphs/cycle.toml"), "format = 1\n[[node]]\nid = \"00000000000000e1\"\nsubgraph = \"cycle\"\n").unwrap();
-        let bad = graph("format = 1\n[[node]]\nid = \"00000000000000d1\"\nsubgraph = \"cycle\"\n[[node]]\nid = \"00000000000000d2\"\nsubgraph = \"half\"\n[[wire]]\nfrom = \"00000000000000d2.nothing\"\nto = \"00000000000000d2.0000000a\"\n");
+        std::fs::write(root.join("graphs/dotted.toml"), "format = 1\n[[output]]\nkey = \"a.b\"\nname = \"y\"\npos = [0.0, 0.0]\n").unwrap();
+        let bad = graph("format = 1\n[[node]]\nid = \"00000000000000d1\"\nsubgraph = \"cycle\"\n[[node]]\nid = \"00000000000000d2\"\nsubgraph = \"half\"\n[[node]]\nid = \"00000000000000d3\"\nsubgraph = \"dotted\"\n[[wire]]\nfrom = \"00000000000000d2.nothing\"\nto = \"00000000000000d2.0000000a\"\n");
         let problems = flatten(&root, &bad, None).unwrap_err();
+        std::fs::remove_file(root.join("graphs/dotted.toml")).unwrap();
         // The node list shows each subgraph with its public pins. The add folder is missing here.
         let infos = infos(&root);
         std::fs::remove_dir_all(&root).unwrap();
@@ -582,6 +588,7 @@ to = \"f1.0000000e\"
         assert_eq!((input.key.as_str(), input.name.as_deref(), input.ty.as_str()), ("0000000a", Some("x"), "?"));
         assert!(problems.iter().any(|p| p.contains("the subgraph cycle uses itself")), "{problems:?}");
         assert!(problems.iter().any(|p| p.contains("has no output `nothing`")), "{problems:?}");
+        assert!(problems.iter().any(|p| p.contains("the subgraph dotted has the pin key \"a.b\"")), "{problems:?}");
     }
 
     #[test]

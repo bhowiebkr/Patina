@@ -685,23 +685,23 @@ mod tests {
 id = \"00000000000000a1\"
 folder = \"nodes/number\"
 [[input]]
-key = \"x\"
+key = \"0000000a\"
 name = \"x\"
 pos = [0.0, 0.0]
 to = [\"00000000000000a1.value\"]
 [[output]]
-key = \"y\"
+key = \"0000000b\"
 name = \"y\"
 pos = [0.0, 0.0]
 from = \"00000000000000a1.out\"
 ";
         fs::write(root.join("graphs/half.toml"), half).unwrap();
-        let params = BTreeMap::from([("x".to_owned(), "7".to_owned())]);
+        let params = BTreeMap::from([("0000000a".to_owned(), "7".to_owned())]);
         assert!(project.check_test(&params).unwrap().graph.node.is_empty(), "the main graph has no use");
         project.open_graph("half").unwrap();
         let checked = project.check_test(&params).unwrap();
         fs::remove_dir_all(&root).unwrap();
         assert_eq!((checked.graph.node[0].id.as_str(), checked.graph.node[0].params["value"].as_str()), ("7e57000000000000/00000000000000a1", "7"));
-        assert_eq!(checked.aliases, [("7e57000000000000.y".to_owned(), "7e57000000000000/00000000000000a1.out".to_owned())]);
+        assert_eq!(checked.aliases, [("7e57000000000000.0000000b".to_owned(), "7e57000000000000/00000000000000a1.out".to_owned())]);
     }
 }
