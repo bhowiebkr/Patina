@@ -32,3 +32,7 @@ test('the errors show on the slot row when a node is in the slot', () => {
   assert.deepEqual(states({ ...slotted, errors }), [['Edit build', false, 1800], ['number - Build failed', true, 400]]);
   assert.deepEqual(states({ ...run, phase: 'failed' }), [['Build failed', true, 1800], ['Empty', false, null]]);
 });
+
+test('the end of the node process keeps the build state', () => {
+  assert.deepEqual(states({ ...run, phase: 'lost' }), [['Edit build', false, 1800], ['Empty', false, null]]);
+});

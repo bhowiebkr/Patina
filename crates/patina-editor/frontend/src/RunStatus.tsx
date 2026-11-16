@@ -190,6 +190,9 @@ export function useRun(serial: RefObject<number>) {
       lines.push({ text: `Ran in ${millis(e.runMs)}`, kind: 'info' });
       if (e.stopped.length > 0) lines.push({ text: 'Stop ended the run before all nodes ran.', kind: 'info' });
       log([...lines, ...nodeLines(e)]);
+    } else if (e.state === 'lost') {
+      setRun((r) => ({ ...r, phase: 'lost', text: e.text, values: NO_RUN.values }));
+      log([{ text: e.text, kind: 'err' }]);
     } else {
       setRun((r) => ({ ...r, phase: 'failed', text: e.text, values: NO_RUN.values, errors: e.errors }));
       log(e.errors.length > 0 ? [{ text: 'The build failed.', kind: 'err' }, ...errorLines(e.errors)] : [{ text: e.text, kind: 'err' }]);
@@ -207,7 +210,8 @@ export function useRun(serial: RefObject<number>) {
 /** The text of the run in the status bar. */
 function runText(run: RunState): string {
   if (run.phase === 'building') return 'Building';
-  // A failure without compile errors, for example a crash of the node process (16.1), shows its first sentence.
+  // The end of the node process (16.1) and a failure without compile errors show their first sentence.
+  if (run.phase === 'lost') return firstSentence(run.text);
   if (run.phase === 'failed') return run.errors.length > 0 ? 'Build failed' : firstSentence(run.text);
   if (run.phase !== 'ran') return '';
   const parts: string[] = [];

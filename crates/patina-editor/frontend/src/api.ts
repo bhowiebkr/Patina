@@ -241,6 +241,7 @@ export type EngineEvent =
   | { state: 'started'; serial: number }
   | { state: 'ran'; serial: number; builtMs: number | null; slotOnly: boolean; fused: boolean; slot: string | null; runMs: number; ok: boolean; frames: boolean; events: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; errors: Diagnostic[] }
   | { state: 'failed'; serial: number; text: string; errors: Diagnostic[] }
+  | { state: 'lost'; serial: number; text: string }
   /** One frame of the frame domain (9.1). Only the nodes of the frame domain ran. */
   | { state: 'frame'; serial: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
   /** One event run ended (9.4). Only the nodes of the run ran. `id` is 0 for a report of a trigger or of Patina. */

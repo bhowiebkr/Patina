@@ -48,7 +48,6 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - A native viewport across the two processes is not checked.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.
-- After a crash, the **Layers** panel shows "Build failed".
 
 ## Circuit graphs
 

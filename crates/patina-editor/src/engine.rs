@@ -142,6 +142,8 @@ pub enum Event {
         errors: Vec<Diagnostic>,
     },
     Failed { serial: u64, text: String, errors: Vec<Diagnostic> },
+    /// The node process ended (16.1). The build did not fail, but the node states are lost.
+    Lost { serial: u64, text: String },
     /// The result of one frame (9.1). The fields are as in `Ran`, for the nodes of the frame domain
     /// and for the blocks of the audio domain since the last frame (9.3).
     Frame {

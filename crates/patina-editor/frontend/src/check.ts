@@ -46,6 +46,7 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
       for (const e of events.slice(from)) {
         if (e.serial !== v.serial) continue;
         if (e.state === 'failed') throw new Error(`the build failed: ${e.text}`);
+        if (e.state === 'lost') throw new Error(`the node process ended: ${e.text}`);
         if (e.state === 'ran') {
           if (!e.ok) throw new Error(`the run failed: ${JSON.stringify(e.reports)}`);
           ran = e;

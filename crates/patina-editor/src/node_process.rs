@@ -339,7 +339,7 @@ fn fail(app: &AppHandle, serial: u64, text: &str, tail: &str) {
         "" => text.to_owned(),
         tail => format!("{text}\n{tail}"),
     };
-    let _ = app.emit("engine", Event::Failed { serial, text, errors: Vec::new() });
+    let _ = app.emit("engine", Event::Lost { serial, text });
 }
 
 fn exit_text(status: std::io::Result<ExitStatus>) -> String {

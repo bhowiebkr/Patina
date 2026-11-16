@@ -4,7 +4,7 @@
 import { api, type EngineEvent, type View } from './api';
 import { A, BUILD_MS, RUN_MS } from './check-fixtures';
 
-type Failed = Extract<EngineEvent, { state: 'failed' }>;
+type Lost = Extract<EngineEvent, { state: 'lost' }>;
 
 export type Helpers = {
   step: (name: string, job: () => Promise<View>) => Promise<View>;
@@ -20,12 +20,12 @@ export async function checkIsolation({ step, until, mark, result, events, steps 
   const statusText = () => document.querySelector('.statusbar')?.textContent ?? '';
   const topButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === label);
   const failure = async (v: View, from: number) => {
-    let failed: Failed | undefined;
+    let lost: Lost | undefined;
     await until('the failure of the node process', RUN_MS, () => {
-      failed = events.slice(from).find((e): e is Failed => e.serial === v.serial && e.state === 'failed');
-      return failed !== undefined;
+      lost = events.slice(from).find((e): e is Lost => e.serial === v.serial && e.state === 'lost');
+      return lost !== undefined;
     });
-    return failed!;
+    return lost!;
   };
 
   // The value 66 writes to a bad address. The crash handler names the node only on Windows.

@@ -16,7 +16,8 @@ export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-
 
 /** The last result of the engine for the open project. */
 export interface RunState {
-  phase: 'none' | 'building' | 'ran' | 'failed';
+  /** 'lost' is the end of the node process after a run (16.1). The build stays. */
+  phase: 'none' | 'building' | 'ran' | 'failed' | 'lost';
   builtMs: number | null;
   /** The time of the last build that compiled. */
   lastBuildMs: number | null;
@@ -173,7 +174,7 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
   if (run.phase === 'building') return ['compiling', ''];
   const errors = info.subgraph ? [] : nodeErrors(run, info.name);
   if (errors.length > 0) return ['compile-error', errors.map((e) => `line ${e.start[0]}: ${errorText(e)}`).join('\n')];
-  if (run.phase === 'failed') return ['stale', ''];
+  if (run.phase === 'failed' || run.phase === 'lost') return ['stale', ''];
   if (run.phase !== 'ran') return ['none', ''];
   // A node of a subgraph use has the ID `<use ID>/<node ID>` (6.4).
   const reports = run.reports.filter((r) => r.id === entry.id || r.id.startsWith(`${entry.id}/`));
