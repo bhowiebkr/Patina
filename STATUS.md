@@ -652,6 +652,8 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The editor selfcheck saves two compile errors, the second during the build of the first. No
   run shows the errors of the first save. It saves the code of a node and expects the node in
   the slot, with the slot icon. It does not click **Bake** or wait for the fuse. The CLI slot test builds in bake mode.
+- The selfcheck then saves a compile error in the node of the slot, and saves the fix. The
+  fix builds the slot alone, because a failed slot build keeps the base (2026-11-16).
 
 ### Known limits
 
@@ -673,8 +675,6 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   The engine does not tell the frontend before the build which layer it builds.
 - The fuse builds on the engine thread, so the graph does not run during a fuse
   (`crates/patina-editor/src/engine.rs`).
-- When a build of the slot alone fails, the editor marks the base as stale. The next save builds
-  all clusters with the slot, not the slot alone.
 - A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a
   type alias in the node folder needs a full build, because the base compares the signature
   text.

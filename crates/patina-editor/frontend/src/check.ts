@@ -172,6 +172,21 @@ fn broken() -> u32 {
     );
     steps.push('fix with Ctrl+S');
 
+    // A failed build of the slot alone keeps the base, so the next save builds the slot alone (7.1).
+    from = mark();
+    v = await step('break the slot', () => api.edit({ kind: 'SetCode', path: lib, text: `${stoppable}
+fn broken() -> u32 {
+    "x"
+}
+` }));
+    const slotBroken = await result(v, from, '2.5', BUILD_MS);
+    if (!slotBroken.errors.some((e) => e.file === lib)) throw new Error(`no compile error in the slot: ${JSON.stringify(slotBroken.errors)}`);
+    from = mark();
+    v = await step('fix the slot', () => api.edit({ kind: 'SetCode', path: lib, text: stoppable }));
+    const slotFixed = await result(v, from, '2.5', BUILD_MS);
+    if (!slotFixed.slotOnly || slotFixed.errors.length > 0) throw new Error(`the save after a slot error built all: ${JSON.stringify(slotFixed.errors)}`);
+    await until('no compile error on the node', RUN_MS, () => document.querySelector('.patina-node.compile-error') === null);
+
     const statusText = () => document.querySelector('.statusbar')?.textContent ?? '';
     const nodeClass = (id: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .patina-node`)?.classList;
     const endOf = async (v: View, from: number) => {

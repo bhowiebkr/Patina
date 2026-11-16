@@ -173,8 +173,8 @@ struct Loaded {
     wiring: String,
     /// The node folder in the slot (7.1).
     slot: Option<String>,
-    /// True after a build of the clusters failed, so the base is older than the code. Then a
-    /// save does not build the slot alone.
+    /// True from the start of a full build until a full build loads, so the base can be older
+    /// than the code. Then a save does not build the slot alone. A failed slot build keeps it.
     stale: bool,
     /// The output pins of the subgraph uses, with the inner outputs that give their values (6.4).
     aliases: Vec<(String, String)>,
@@ -598,16 +598,22 @@ fn badges(values: &[Value]) -> Vec<Value> {
 /// Builds the clusters for a run (7.2). A save of the code of one node puts the node into the
 /// slot, and builds the slot library alone when the base can stay. Gives None when only the slot
 /// library changed.
-fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, loaded: Option<&mut Loaded>) -> Result<Option<Cluster>, Error> {
+fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, mut loaded: Option<&mut Loaded>) -> Result<Option<Cluster>, Error> {
     // A generic node or the delay node does not go into the slot, so its change builds all (7.1).
     let slotted = build.slot.is_some() && checked.set_slot(build.slot.as_deref()).is_ok();
-    let swapped = match loaded.filter(|l| slotted && !l.stale && l.slot == build.slot) {
+    let swapped = match loaded.as_deref_mut().filter(|l| slotted && !l.stale && l.slot == build.slot) {
         Some(loaded) => checked.build_slot(toolchain, &mut loaded.cluster),
         None => Ok(false),
     };
     let built = match swapped {
         Ok(true) => Ok(None),
-        Ok(false) => checked.build(toolchain, build.mode).map(Some),
+        Ok(false) => {
+            // Until a full build loads, the base can be older than the code. A failed slot build keeps the base.
+            if let Some(loaded) = loaded {
+                loaded.stale = true;
+            }
+            checked.build(toolchain, build.mode).map(Some)
+        }
         Err(e) => Err(e),
     };
     // The run stays for a rerun and for the fuse, which builds with no slot.
@@ -661,11 +667,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
                 *loaded = Some(Loaded { cluster, wiring, slot, stale: false, aliases: run.checked.aliases().to_vec() });
             }
             // The last build that compiled keeps running only with the same wiring (7.2, 15.10).
-            Err(Error::Compile(list)) if loaded.as_ref().is_some_and(|l| l.wiring == wiring) => {
-                // shortcut: a failed build of the slot alone also marks the base as old, so the next save builds all; keep the slot build when saves after an error get slow.
-                loaded.as_mut().expect("the cluster is checked above").stale = true;
-                errors = list;
-            }
+            Err(Error::Compile(list)) if loaded.as_ref().is_some_and(|l| l.wiring == wiring) => errors = list,
             Err(e) => {
                 *loaded = None;
                 return Err(e);
