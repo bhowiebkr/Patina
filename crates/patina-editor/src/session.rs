@@ -444,9 +444,16 @@ pub fn edit(editor: State<'_, Editor>, edit: Edit) -> Result<View, String> {
     editor.change(|project| project.apply(&edit))
 }
 
-/// Undo and redo with nothing to do give the same view.
+/// Undo and redo with nothing to do give the same view. Undo does not remove a new folder while
+/// the Code tab has unsaved changes in it (15.2).
 #[tauri::command(async)]
 pub fn undo(editor: State<'_, Editor>) -> Result<View, String> {
+    editor.with(|session| match session.project.undo_folder() {
+        Some(folder) if session.code.keys().any(|path| path.strip_prefix(folder).is_some_and(|rest| rest.starts_with('/'))) => {
+            Err(format!("Save or undo the changes of {folder} first."))
+        }
+        _ => Ok(()),
+    })?;
     editor.change(|project| project.undo().map(drop))
 }
 
@@ -501,31 +508,31 @@ pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Res
     })
 }
 
-/// Makes the node folder `nodes/<name>` (15.2). Undo does not remove the folder.
+/// Makes the node folder `nodes/<name>` (15.2). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_node(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_node(&name))
 }
 
-/// Makes the widget folder `widgets/<name>` (4.3). Undo does not remove the folder.
+/// Makes the widget folder `widgets/<name>` (4.3). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_widget(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_widget(&name))
 }
 
-/// Makes the view folder `views/<name>` (15.8). Undo does not remove the folder.
+/// Makes the view folder `views/<name>` (15.8). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_view(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_view(&name))
 }
 
-/// Makes the connection folder `connections/<name>` (6.3). Undo does not remove the folder.
+/// Makes the connection folder `connections/<name>` (6.3). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_connection(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_connection(&name))
 }
 
-/// Makes the type folder `types/<name>` (5.1). Undo does not remove the folder.
+/// Makes the type folder `types/<name>` (5.1). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_type(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_type(&name))

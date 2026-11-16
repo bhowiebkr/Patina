@@ -500,7 +500,7 @@ To make your first graph:
 
 To make a new node, click **+** in the title of the **Nodes** group of the **Project** panel.
 Type a name and push Enter. The **Inspector** shows the code of the new node. Edit the code
-and push Ctrl+S.
+and push Ctrl+S. Undo removes the new folder while it has only its start files.
 
 To use a crate of crates.io in a node, click **Add crate** in the **Code** tab of the node. Type
 the name, for example `rand` or `rand@0.9`, and push Enter. The `Cargo.toml` tab shows the new

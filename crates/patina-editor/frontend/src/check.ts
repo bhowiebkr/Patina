@@ -453,6 +453,14 @@ fn broken() -> u32 {
     crateField()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await until('the closed crate field', RUN_MS, () => !crateField());
     steps.push('refuse a bad crate name');
+    // Undo removes a new folder that has only its start files, and redo makes it again (15.2).
+    const typeListed = () => [...document.querySelectorAll('[aria-label=Project] .item')].some((b) => b.textContent === 'made-type');
+    const typeShown = () => document.querySelector('[aria-label=Inspector] .panel-title')?.textContent === 'made-type';
+    v = await step('undo the new type folder', () => api.undo());
+    await until('the type folder that undo removes', RUN_MS, () => !typeListed() && !typeShown());
+    v = await step('redo the new type folder', () => api.redo());
+    await until('the type folder that redo makes again', RUN_MS, () => typeListed() && typeShown() && codeTab());
+    steps.push('undo and redo a new folder');
     v = await step('save the route', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');
 

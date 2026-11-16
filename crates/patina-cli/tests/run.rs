@@ -610,7 +610,7 @@ impl Panel {
 fn a_view_reads_the_graph_and_sets_a_parameter() {
     use patina_engine::view::{View, snapshot};
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "view");
-    let opened = Project::open(&project).unwrap();
+    let mut opened = Project::open(&project).unwrap();
     opened.new_view("panel").unwrap();
     fs::write(project.join("views/panel/src/lib.rs"), VIEW).unwrap();
     let library = opened.build_view(&Toolchain::detect().unwrap(), "panel").unwrap();

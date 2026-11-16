@@ -32,6 +32,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use edit::Disk;
 use folders::{code_file, code_folder, swap_code, write_file};
 pub(crate) use folders::list_files;
 
@@ -217,28 +218,41 @@ impl Project {
     }
 
     /// Makes the node folder `nodes/<name>` with a start node (15.2).
-    pub fn new_node(&self, name: &str) -> Result<(), String> {
-        folders::new_folder(&self.root, "nodes", name)
+    pub fn new_node(&mut self, name: &str) -> Result<(), String> {
+        self.new_folder("nodes", name)
     }
 
     /// Makes the widget folder `widgets/<name>` with a start widget (4.3, 6.2).
-    pub fn new_widget(&self, name: &str) -> Result<(), String> {
-        folders::new_folder(&self.root, "widgets", name)
+    pub fn new_widget(&mut self, name: &str) -> Result<(), String> {
+        self.new_folder("widgets", name)
     }
 
     /// Makes the view folder `views/<name>` with a start view (15.8).
-    pub fn new_view(&self, name: &str) -> Result<(), String> {
-        folders::new_folder(&self.root, "views", name)
+    pub fn new_view(&mut self, name: &str) -> Result<(), String> {
+        self.new_folder("views", name)
     }
 
     /// Makes the connection folder `connections/<name>` with a start connection kind (6.3).
-    pub fn new_connection(&self, name: &str) -> Result<(), String> {
-        folders::new_folder(&self.root, "connections", name)
+    pub fn new_connection(&mut self, name: &str) -> Result<(), String> {
+        self.new_folder("connections", name)
     }
 
     /// Makes the type folder `types/<name>` with a start type (5.1).
-    pub fn new_type(&self, name: &str) -> Result<(), String> {
-        folders::new_folder(&self.root, "types", name)
+    pub fn new_type(&mut self, name: &str) -> Result<(), String> {
+        self.new_folder("types", name)
+    }
+
+    /// Makes a crate folder as one step of undo. Undo removes the folder while it has only its
+    /// start files (15.2).
+    fn new_folder(&mut self, group: &str, name: &str) -> Result<(), String> {
+        folders::new_folder(&self.root, group, name)?;
+        self.history.push_disk(Disk::Folder { path: format!("{group}/{name}"), made: true });
+        Ok(())
+    }
+
+    /// The folder that the next undo removes, for example `nodes/number`.
+    pub fn undo_folder(&self) -> Option<&str> {
+        self.history.undo_folder()
     }
 
     pub fn root(&self) -> &Path {
@@ -348,7 +362,7 @@ impl Project {
         if old == *text {
             return Err("the edit changes nothing".to_owned());
         }
-        self.history.push_code(path.clone(), old);
+        self.history.push_disk(Disk::Code { path: path.clone(), text: old });
         self.code_revision += 1;
         self.last_code = Some(path.clone());
         Ok(())
@@ -373,9 +387,13 @@ impl Project {
     fn step(&mut self, undo: bool) -> Result<bool, String> {
         let root = &self.root;
         let mut wrote = None;
-        let write = |path: &str, text: &str| {
-            wrote = Some(path.to_owned());
-            swap_code(root, path, text)
+        let write = |disk: &Disk| {
+            // A new or removed folder changes the crates, as a change of its Cargo.toml does.
+            wrote = Some(match disk {
+                Disk::Code { path, .. } => path.clone(),
+                Disk::Folder { path, .. } => format!("{path}/Cargo.toml"),
+            });
+            folders::write_disk(root, disk)
         };
         let done = if undo { self.history.undo(write) } else { self.history.redo(write) };
         if let (Some(path), true) = (wrote, done.is_ok()) {
@@ -385,7 +403,8 @@ impl Project {
         done
     }
 
-    /// Changes when an edit, undo or redo writes a code file. Each step writes one file.
+    /// Changes when an edit, undo or redo writes a code file, or when undo or redo removes or makes
+    /// a folder. Each step writes one file or one folder.
     pub fn code_revision(&self) -> u64 {
         self.code_revision
     }

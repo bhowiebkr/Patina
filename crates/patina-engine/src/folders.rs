@@ -4,13 +4,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::edit::Disk;
 use crate::{Error, plan};
 
 /// Makes the crate folder `<group>/<name>` with the start code in `src/lib.rs`. No other folder of the
 /// project can have the same crate name (6.2).
 pub(crate) fn new_folder(root: &Path, group: &str, name: &str) -> Result<(), String> {
     plan::check_name(name)?;
-    let code = start_code(group, name);
     let key = plan::name_key(name);
     for group in ["nodes", "views", "widgets", "connections", "types"] {
         for entry in fs::read_dir(root.join(group)).into_iter().flatten().flatten() {
@@ -25,16 +25,49 @@ pub(crate) fn new_folder(root: &Path, group: &str, name: &str) -> Result<(), Str
     // create_dir fails when the folder exists, so the files of another folder stay.
     let dir = parent.join(name);
     fs::create_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    // A view compiles as its own library (15.8). A type crate is plain Rust (5.1).
-    let lib = if group == "views" { "[lib]\ncrate-type = [\"cdylib\"]\n\n" } else { "" };
-    let sdk = if group == "types" { "" } else { "patina-sdk = { workspace = true }\n" };
-    let manifest = format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n{lib}[dependencies]\n{sdk}");
-    let written = write_file(&dir.join("Cargo.toml"), &manifest).and_then(|()| write_file(&dir.join("src/lib.rs"), &code));
+    let written = start_files(group, name).iter().try_for_each(|(file, text)| write_file(&dir.join(file), text));
     if let Err(e) = written {
         let _ = fs::remove_dir_all(&dir);
         return Err(e.to_string());
     }
     Ok(())
+}
+
+/// The files of a new crate folder with their start text.
+fn start_files(group: &str, name: &str) -> [(&'static str, String); 2] {
+    // A view compiles as its own library (15.8). A type crate is plain Rust (5.1).
+    let lib = if group == "views" { "[lib]\ncrate-type = [\"cdylib\"]\n\n" } else { "" };
+    let sdk = if group == "types" { "" } else { "patina-sdk = { workspace = true }\n" };
+    let manifest = format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n{lib}[dependencies]\n{sdk}");
+    [("Cargo.toml", manifest), ("src/lib.rs", start_code(group, name))]
+}
+
+/// Removes a new crate folder for undo (15.2). A folder with other files or changed files stays,
+/// because they are work of the user.
+fn remove_new_folder(root: &Path, group: &str, name: &str) -> Result<(), String> {
+    let dir = root.join(group).join(name);
+    let names = |dir: &Path| {
+        let mut names: Vec<String> = fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        names
+    };
+    let same = start_files(group, name).iter().all(|(file, text)| fs::read_to_string(dir.join(file)).is_ok_and(|old| old == *text));
+    if !same || names(&dir) != ["Cargo.toml", "src"] || names(&dir.join("src")) != ["lib.rs"] {
+        return Err(format!("Undo kept the folder {group}/{name}, because it has changes. Delete it in the file manager."));
+    }
+    fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))
+}
+
+/// Writes a change of the files for undo or redo, and returns the change that reverses it.
+pub(crate) fn write_disk(root: &Path, disk: &Disk) -> Result<Disk, String> {
+    match disk {
+        Disk::Code { path, text } => Ok(Disk::Code { path: path.clone(), text: swap_code(root, path, text)? }),
+        Disk::Folder { path, made } => {
+            let (group, name) = path.split_once('/').ok_or_else(|| format!("{path} is not a crate folder"))?;
+            if *made { remove_new_folder(root, group, name)? } else { new_folder(root, group, name)? }
+            Ok(Disk::Folder { path: path.clone(), made: !made })
+        }
+    }
 }
 
 /// The start code of a node, widget, view, connection or type folder.
@@ -194,4 +227,35 @@ pub(crate) fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) ->
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Edit, Project};
+
+    #[test]
+    fn undo_removes_a_new_folder_only_while_it_has_its_start_files() {
+        let root = std::env::temp_dir().join(format!("patina-folder-undo-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut project = Project::create(&root, "1.94.0").unwrap();
+        let dir = root.join("views/panel");
+        project.new_view("panel").unwrap();
+        let code = Edit::SetCode { path: "views/panel/src/lib.rs".to_owned(), text: "// mine\n".to_owned() };
+        project.apply(&code).unwrap();
+        assert_eq!(project.undo_folder(), None, "the code edit comes first");
+        assert!(project.undo().unwrap());
+        assert_eq!(project.undo_folder(), Some("views/panel"));
+        assert!(project.undo().unwrap());
+        assert!(!dir.exists(), "undo removes the new folder");
+        assert_eq!(project.last_code(), Some("views/panel/Cargo.toml"));
+        assert!(project.redo().unwrap() && project.redo().unwrap());
+        assert_eq!(project.read_code("views/panel/src/lib.rs").unwrap(), "// mine\n", "redo makes the folder and writes the code");
+
+        std::fs::write(dir.join("notes.txt"), "mine").unwrap();
+        assert!(project.undo().unwrap());
+        let kept = project.undo().unwrap_err();
+        assert!(kept.contains("views/panel") && dir.join("notes.txt").is_file(), "{kept}");
+        assert!(!project.can_undo(), "the folder step goes, so undo goes on with the edits before it");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 }

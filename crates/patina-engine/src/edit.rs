@@ -62,11 +62,22 @@ pub enum Edit {
     DisconnectPin { key: String, end: String },
 }
 
-/// One entry of undo or redo: a full copy of the graph, or the text of a code file, before or
-/// after an edit. Full copies keep undo and redo always correct.
+/// One entry of undo or redo: a full copy of the graph, or a change of the project files, before
+/// or after an edit. Full copies keep undo and redo always correct.
 enum Step {
     Graph(GraphFile),
+    Disk(Disk),
+}
+
+/// A change of the project files that undo and redo reverse (6.2, 15.2). A path is relative to
+/// the project root.
+#[derive(Debug, PartialEq)]
+pub(crate) enum Disk {
+    /// The text of a code file, for example `nodes/number/src/lib.rs`.
     Code { path: String, text: String },
+    /// A new crate folder, for example `nodes/number`. `made` is true when the folder exists, so
+    /// the step removes it.
+    Folder { path: String, made: bool },
 }
 
 pub(crate) struct History {
@@ -101,9 +112,17 @@ impl History {
         }
     }
 
-    /// Records a code edit that is written. `text` is the old text of the file.
-    pub fn push_code(&mut self, path: String, text: String) {
-        self.push(Step::Code { path, text });
+    /// Records a change of the files that is written: the old text of a code file, or a new folder.
+    pub fn push_disk(&mut self, disk: Disk) {
+        self.push(Step::Disk(disk));
+    }
+
+    /// The folder that the next undo removes.
+    pub fn undo_folder(&self) -> Option<&str> {
+        match self.undo.last() {
+            Some(Step::Disk(Disk::Folder { path, made: true })) => Some(path),
+            _ => None,
+        }
     }
 
     fn push(&mut self, step: Step) {
@@ -115,13 +134,13 @@ impl History {
     }
 
     /// Removes the last edit. Returns false when there is no edit to remove. `write` writes a
-    /// code file and returns its old text.
-    pub fn undo(&mut self, write: impl FnOnce(&str, &str) -> Result<String, String>) -> Result<bool, String> {
+    /// change of the files and returns the change that reverses it.
+    pub fn undo(&mut self, write: impl FnOnce(&Disk) -> Result<Disk, String>) -> Result<bool, String> {
         step(&mut self.graph, &mut self.undo, &mut self.redo, write)
     }
 
     /// Applies the last removed edit again. Returns false when there is no such edit.
-    pub fn redo(&mut self, write: impl FnOnce(&str, &str) -> Result<String, String>) -> Result<bool, String> {
+    pub fn redo(&mut self, write: impl FnOnce(&Disk) -> Result<Disk, String>) -> Result<bool, String> {
         step(&mut self.graph, &mut self.redo, &mut self.undo, write)
     }
 
@@ -143,20 +162,23 @@ impl History {
     }
 }
 
-/// Moves the last step of `from` to `to`. A step that does not write stays in `from`.
+/// Moves the last step of `from` to `to`. A code step that does not write stays in `from`. A
+/// folder step that does not write goes, so undo goes on with the edits before it.
 fn step(
     graph: &mut GraphFile,
     from: &mut Vec<Step>,
     to: &mut Vec<Step>,
-    write: impl FnOnce(&str, &str) -> Result<String, String>,
+    write: impl FnOnce(&Disk) -> Result<Disk, String>,
 ) -> Result<bool, String> {
     let Some(step) = from.pop() else { return Ok(false) };
     let back = match step {
         Step::Graph(other) => Step::Graph(std::mem::replace(graph, other)),
-        Step::Code { path, text } => match write(&path, &text) {
-            Ok(old) => Step::Code { path, text: old },
+        Step::Disk(disk) => match write(&disk) {
+            Ok(back) => Step::Disk(back),
             Err(e) => {
-                from.push(Step::Code { path, text });
+                if let Disk::Code { .. } = disk {
+                    from.push(Step::Disk(disk));
+                }
                 return Err(e);
             }
         },
@@ -439,7 +461,7 @@ mod tests {
         Edit::AddNode { id: id.to_owned(), folder: "nodes/number".to_owned(), builtin: false, pos: [0.0, 0.0] }
     }
 
-    fn no_code(_: &str, _: &str) -> Result<String, String> {
+    fn no_code(_: &Disk) -> Result<Disk, String> {
         unreachable!("these edits change no code")
     }
 
@@ -609,17 +631,34 @@ corners = \"sharp\""), "{text}");
     fn code_edits_undo_and_redo_through_the_writer() {
         let mut history = History::new(toml::from_str("format = 1").unwrap());
         let mut file = "new".to_owned();
-        history.push_code("nodes/a/src/lib.rs".to_owned(), "old".to_owned());
-        let mut write = |path: &str, text: &str| {
+        history.push_disk(Disk::Code { path: "nodes/a/src/lib.rs".to_owned(), text: "old".to_owned() });
+        let mut write = |disk: &Disk| {
+            let Disk::Code { path, text } = disk else { unreachable!() };
             assert_eq!(path, "nodes/a/src/lib.rs");
-            Ok(std::mem::replace(&mut file, text.to_owned()))
+            Ok(Disk::Code { path: path.clone(), text: std::mem::replace(&mut file, text.clone()) })
         };
         assert!(history.undo(&mut write).unwrap());
         assert!(history.redo(&mut write).unwrap());
         assert!(history.undo(&mut write).unwrap());
         assert!(!history.dirty(), "a code edit does not change the graph");
-        assert!(history.redo(|_, _| Err("the disk is full".to_owned())).is_err());
+        assert!(history.redo(|_| Err("the disk is full".to_owned())).is_err());
         assert!(history.can_redo(), "a step that does not write stays");
         assert_eq!(file, "old");
+    }
+
+    #[test]
+    fn a_folder_that_undo_cannot_remove_leaves_the_history() {
+        let mut history = History::new(toml::from_str("format = 1").unwrap());
+        history.push_disk(Disk::Folder { path: "nodes/a".to_owned(), made: true });
+        assert_eq!(history.undo_folder(), Some("nodes/a"));
+        let flip = |disk: &Disk| {
+            let Disk::Folder { path, made } = disk else { unreachable!() };
+            Ok(Disk::Folder { path: path.clone(), made: !made })
+        };
+        assert!(history.undo(flip).unwrap());
+        assert_eq!(history.undo_folder(), None);
+        assert!(history.redo(flip).unwrap());
+        assert!(history.undo(|_| Err("the folder has other files".to_owned())).is_err());
+        assert!(!history.can_undo() && !history.can_redo(), "the step goes");
     }
 }

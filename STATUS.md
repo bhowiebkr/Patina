@@ -1308,7 +1308,6 @@ To run the editor from a checkout:
   (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type
   alias does not match its type, and two types of one name in two modules match.
-- Undo does not remove a new node, widget or view folder (15.2).
 - `stop_requested()` is false on a thread that a node starts. The limits of milestone 12 tell how
   the waits of async nodes (4.6) stop.
 - The self-check does not run a node with the `log` crate, because that needs crates.io. The

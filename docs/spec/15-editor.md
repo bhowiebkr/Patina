@@ -88,7 +88,10 @@ The **+** button in the title of the **Nodes** group makes a new node folder. (A
 - These names do not pass: the keywords of Rust, the crate names of Rust and Patina, the folder names of Cargo (`build`, `deps`, `examples`, `incremental`) and the device names of Windows (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`).
 - A name also does not pass when a folder in `nodes`, `views`, `widgets`, `connections` or `types` has the same crate name. The compare ignores case and reads `-` as `_`, as Cargo and Windows do.
 - The new folder has a `Cargo.toml` and a `src/lib.rs` with a start node: a `#[node]` function with the crate name, an `f64` input `value` and an `f64` output. The **Inspector** shows the new `src/lib.rs`.
-- Undo does not remove the folder. The user deletes it in the file manager.
+- Undo removes the new folder while it has only its start files with the start text. Redo makes the folder again. (Agent decision, 2026-11-16. The owner can change it.)
+  - A folder with other files or changed files stays, because these files are work of the user. Undo shows a message and goes on with the edits before the folder at the next undo.
+  - Undo does not remove a folder while the **Code** tab has unsaved changes in it. The message tells the user to save or undo the changes first.
+  - Undo and redo of a folder change the crates, as a change of its `Cargo.toml` does. A live run builds again.
 - The **Widgets** group has the same **+** button. A new widget folder has a start widget: a struct that implements `Widget` and draws a bar on a canvas (4.3). The **Inspector** shows its code with the **Code** tab only.
 - An untrusted project has no **+** button. The **Views** group has the same button (15.8).
 

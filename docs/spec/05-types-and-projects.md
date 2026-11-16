@@ -102,7 +102,7 @@ The import rules of the first version. (Agent decision, 2026-11-15. The owner ca
 - A folder with the same path and the same files is not copied. A name conflict with a folder in another group, for example `nodes/image` for `types/image`, allows only a rename.
 - Patina copies the folders to `build/import/`, moves each replaced folder there, and moves the copies into the project. Then it writes the records and builds the copied node, widget and connection crates and the folders that use a replaced folder. A failed build moves the old folders back and writes the old `patina.toml`.
 - A renamed folder gets a new `Cargo.toml` from the parsed file, without its comments.
-- The record hash is the hash of the folder in the other project, before a rename. Undo does not remove an import, as it does not remove a new node folder (15.2).
+- The record hash is the hash of the folder in the other project, before a rename. Undo does not remove an import.
 - Reason: a trust rule for one folder needs a second trust list and a filter of the workspace members. The trusted source keeps the first version small and safe.
 
 The update rules of the first version. (Agent decision, 2026-11-15. The owner can change it.)

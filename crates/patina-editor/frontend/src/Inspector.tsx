@@ -174,6 +174,13 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
   );
 }
 
+/** False after undo removed the folder (15.2). Then the Inspector shows no folder. */
+function hasFolder(view: View, folder: string): boolean {
+  const [group, name] = folder.split('/');
+  if (group === 'nodes') return view.nodes.some((n) => n.name === name);
+  return (view[group as 'widgets' | 'views' | 'connections' | 'types'] ?? []).includes(name);
+}
+
 export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick }: Props) {
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
   // A node with a GUI draws it in the Inspector size after each run, once the engine knows (4.3).
@@ -184,8 +191,8 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   const code = (folder: string) => (
     <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
   );
-  if (inspect?.kind === 'type' || inspect?.kind === 'folder') {
-    const folder = inspect.kind === 'type' ? `nodes/${inspect.name}` : inspect.folder;
+  const folder = inspect?.kind === 'type' ? `nodes/${inspect.name}` : inspect?.kind === 'folder' ? inspect.folder : '';
+  if (folder && hasFolder(view, folder)) {
     return (
       <aside className="panel" aria-label="Inspector">
         <div className="panel-title">{folder.slice(folder.indexOf('/') + 1)}</div>
