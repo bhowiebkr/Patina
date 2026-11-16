@@ -8,6 +8,7 @@ import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
 import { ExpandButton, NodeGui } from './NodeGui';
 import type { Inspect } from './ProjectPanel';
+import { SubgraphInterface } from './SubgraphInterface';
 
 export type InspectorTab = 'parameters' | 'code' | 'logs';
 
@@ -199,6 +200,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
       <aside className="panel" aria-label="Inspector">
         <div className="panel-title">Inspector</div>
         <div className="section label">Select a node to see its parameters and code, or a wire to see its value.</div>
+        {view.graphName !== 'main' && <SubgraphInterface view={view} onEdit={onEdit} />}
       </aside>
     );
   }

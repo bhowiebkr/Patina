@@ -471,6 +471,8 @@ A connection shows the value that it carries while the graph runs. Connections a
   - It keeps 6 px or more from each node body and finds a path with few bends (A* on a sparse grid around the bodies).
   - The wires of one output share a trunk, and each next wire branches from the nearest point of the trunk.
   - A junction mark shows each point where the wires of one output part: a small dot in the wire color, or a ring on a bus. A point where the segments go in 3 or more directions is a junction. The mark is only a view, and a click goes through it. (Agent decision, 2026-11-16. The owner can change it.)
+  - Where two automatic routes of different outputs cross at a right angle, the narrower wire goes under and has a gap: the width of the upper wire and 3 px of clear space on each side. Of two wires of one width, the vertical wire goes under. A crossing near a rounded corner of either wire has no gap. The gap is only a view: a click on it still selects the wire. (Agent decision, 2026-11-16. The owner can change it.)
+    - Reason: the connections guide makes a simple gap the first way to tell a crossing from a junction. The order comes from the routes only, so a pan or a selection does not change it.
   - Its route points are waypoints. The wire goes through each point in turn.
   - Two pins less than 1 px apart in y route as one straight line, with no small step. (Agent decision, 2026-11-16. The owner can change it.)
   - Parallel segments of different outputs move apart by 8 px, plus the width of a bus. A segment goes to the middle of its channel when the channel is 800 px wide or less.
@@ -502,8 +504,8 @@ A connection shows the value that it carries while the graph runs. Connections a
 **Optional refinements**
 
 Fixed-bend locks and raised crossing bridges are later refinements. The automatic
-route and the Arrange command came first (2026-11-16). They are not gates for the first
-editor prototype. A simple gap can distinguish crossing wires. A bridge changes
+route, the Arrange command and the simple gap at a crossing came first (2026-11-16). They are
+not gates for the first editor prototype. A bridge changes
 only their visual over/under order; it is not a graph node or an execution step.
 
 Future connection styles must preserve the same type, endpoint, selection,
@@ -534,6 +536,8 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - Reason: a nested use, for example one full adder of four, is clear only with each use of its path. The number tells two uses of the same subgraph apart.
 - The graph view shows each public pin of the subgraph as a small node with the pin name, and a wire to each inner end (6.4).
 - The user edits the public pins as nodes. A drag moves a pin. A wire from a public input or to a public output connects the pin, and the editor refuses a wire between two pins. Delete removes the selected pins and pin wires. A double-click on a pin opens a field for its name.
+- When no node or wire is selected in an open subgraph, the **Inspector** shows the **Subgraph interface**. It lists the **Inputs** and the **Outputs** in pin order (6.4), each with a name field, the type, **Move up**, **Move down** and **Remove**. **Add input** and **Add output** add a pin below the last pin of the list. A **Public node preview** shows the names of the pins as each use shows them. Each change is one undo step. (Agent decision, 2026-11-16. The owner can change it.)
+- Reason: the order of the pins is the order on each use, and the canvas does not show it. The list uses the **Inspector**, so it needs no new panel.
 - The **Add node** palette of an open subgraph has the entries **Public input** and **Public output**. A new pin gets a random key. When the palette opens from a wire drag, the pin connects to that pin and takes its key as the name.
 - A removed pin also removes its wires in the subgraph. A wire of a use to a removed pin stays in the outer graph, and the check shows a problem for it.
 - Only the open graph can have unsaved changes. Thus a change of graph saves all first, as Ctrl+S does. Each graph keeps its undo history while the project is open.

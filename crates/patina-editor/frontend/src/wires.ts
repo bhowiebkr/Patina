@@ -2,6 +2,7 @@
 // layer draws the slots, and each edge of React Flow keeps an invisible hit path on the same curve.
 
 import type { Corners, Point, Style } from './api';
+import type { Gap } from './marks.ts';
 
 export const MAX_POINTS = 64;
 /** x, y, nx, ny for each point. (nx, ny) is the miter normal, so two segments touch at a joint. */
@@ -27,6 +28,9 @@ export interface Shape {
 export const SMOOTH = -1;
 const CURVE: Shape = { bends: NO_ROUTE, radius: SMOOTH };
 
+/** The radius of the rounded corners of a wire of this width. */
+export const cornerRadius = (width: number) => Math.max(CORNER_RADIUS, width / 2 + INNER_RADIUS);
+
 /**
  * The path of a wire from its style, its corners and its route points. With no style, a wire
  * with no points is curved, and a wire with points is a polyline. A wide ribbon gets a larger
@@ -34,7 +38,7 @@ const CURVE: Shape = { bends: NO_ROUTE, radius: SMOOTH };
  */
 export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Style, corners?: Corners, width = 0): Shape {
   if (style === 'curved' || (style === undefined && route.length === 0)) return { bends: route, radius: SMOOTH };
-  const radius = corners === 'sharp' ? 0 : Math.max(CORNER_RADIUS, width / 2 + INNER_RADIUS);
+  const radius = corners === 'sharp' ? 0 : cornerRadius(width);
   return { bends: style === 'orthogonal' ? orthogonal(sx, sy, tx, ty, route) : route, radius };
 }
 
@@ -390,6 +394,38 @@ export function normals(p: Float32Array, at: number, n: number) {
   }
 }
 
+/**
+ * Puts a gap of 2 x `half` around (x, y) into a straight axis segment of the points, and marks the
+ * gap segment in `holes`. A gap that is not fully in one segment, or not in MAX_POINTS, is left out.
+ * Returns the number of points.
+ */
+export function cutGap(p: Float32Array, at: number, holes: Uint8Array, n: number, x: number, y: number, half: number): number {
+  if (n + 2 > MAX_POINTS) return n;
+  for (let k = 0; k < n - 1; k++) {
+    if (holes[k]) continue;
+    const ax = p[at + k * STRIDE];
+    const ay = p[at + k * STRIDE + 1];
+    const dx = p[at + (k + 1) * STRIDE] - ax;
+    const dy = p[at + (k + 1) * STRIDE + 1] - ay;
+    const len = Math.hypot(dx, dy);
+    if ((Math.abs(dx) >= 0.5 && Math.abs(dy) >= 0.5) || len < 1) continue;
+    const [ux, uy] = [dx / len, dy / len];
+    const t = (x - ax) * ux + (y - ay) * uy;
+    if (Math.abs((x - ax) * uy - (y - ay) * ux) >= 0.5 || t - half <= 0 || t + half >= len) continue;
+    p.copyWithin(at + (k + 3) * STRIDE, at + (k + 1) * STRIDE, at + n * STRIDE);
+    holes.copyWithin(k + 3, k + 1, n - 1);
+    put(p, at, k + 1, ax + ux * (t - half), ay + uy * (t - half));
+    put(p, at, k + 2, ax + ux * (t + half), ay + uy * (t + half));
+    holes[k + 1] = 1;
+    holes[k + 2] = 0;
+    return n + 2;
+  }
+  return n;
+}
+
+const NO_GAPS: readonly Gap[] = [];
+const cuts = new Uint8Array(MAX_POINTS);
+
 /** The flags of a draw instance. Bits 0 to 5 hold the number of lanes - 1, and bits 10 to 12 the color family (15.9). */
 export const HAS_LANES = 64;
 export const LIT = 128;
@@ -407,7 +443,8 @@ export const DASHED = 8192;
 export function instances(store: WireStore, selectedOnly: boolean): Uint16Array {
   const lanesOf = (s: number) => (selectedOnly ? 1 : Math.max(1, store.bits[s].length));
   let n = 0;
-  for (let s = 0; s < store.counts.length; s++) if (!selectedOnly || store.selected[s]) n += Math.max(0, store.counts[s] - 1) * lanesOf(s);
+  const drawn = (s: number, k: number) => !store.holes[s * MAX_POINTS + k];
+  for (let s = 0; s < store.counts.length; s++) if (!selectedOnly || store.selected[s]) for (let k = 0; k < store.counts[s] - 1; k++) if (drawn(s, k)) n += lanesOf(s);
   const out = new Uint16Array(n * 4);
   let at = 0;
   for (let s = 0; s < store.counts.length; s++) {
@@ -415,6 +452,7 @@ export function instances(store: WireStore, selectedOnly: boolean): Uint16Array 
     const bits = store.bits[s];
     const flags = (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0) | (store.family[s] << FAMILY_SHIFT) | (store.dashed[s] ? DASHED : 0);
     for (let k = 0; k < store.counts[s] - 1; k++) {
+      if (!drawn(s, k)) continue;
       for (let lane = 0; lane < lanesOf(s); lane++, at += 4) {
         out[at] = s;
         out[at + 1] = k;
@@ -440,6 +478,8 @@ export class WireStore {
   family = new Uint8Array(16);
   /** The lane under the pointer in each wire, or -1. */
   hover = new Int8Array(16).fill(-1);
+  /** 1 for each segment that is not drawn: a gap where the wire goes under a wire of another output (15.9). */
+  holes = new Uint8Array(16 * MAX_POINTS);
   /** The slots that changed since the last draw. All slots changed when `grown` is true. */
   readonly changed = new Set<number>();
   grown = true;
@@ -454,7 +494,7 @@ export class WireStore {
     this.notify = fn;
   }
 
-  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false, family = 0, hover = -1, dashed = false) {
+  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false, family = 0, hover = -1, dashed = false, gaps: readonly Gap[] = NO_GAPS) {
     let slot = this.slots.get(id);
     if (slot === undefined) {
       slot = this.free.pop() ?? this.slots.size;
@@ -474,9 +514,16 @@ export class WireStore {
     this.family[slot] = family;
     this.hover[slot] = hover;
     const at = slot * MAX_POINTS * STRIDE;
-    const n = wirePoints(sx, sy, tx, ty, shape, this.points, at);
-    // A new number of points needs new segment lists, or the old segments read stale points.
+    let n = wirePoints(sx, sy, tx, ty, shape, this.points, at);
+    cuts.fill(0);
+    for (const [x, y, half] of gaps) n = cutGap(this.points, at, cuts, n, x, y, half);
+    if (gaps.length) normals(this.points, at, n);
+    // A new number of points or new gaps need new segment lists, or the old segments read stale points.
     if (this.counts[slot] !== n) this.layout = true;
+    for (let k = 0, base = slot * MAX_POINTS; k < MAX_POINTS; k++) {
+      if (this.holes[base + k] !== cuts[k]) this.layout = true;
+      this.holes[base + k] = cuts[k];
+    }
     this.counts[slot] = n;
     this.changed.add(slot);
     this.notify();
@@ -547,6 +594,9 @@ export class WireStore {
     family.set(this.family);
     const hover = new Int8Array(n).fill(-1);
     hover.set(this.hover);
+    const holes = new Uint8Array(n * MAX_POINTS);
+    holes.set(this.holes);
+    this.holes = holes;
     this.points = points;
     this.counts = counts;
     this.selected = selected;

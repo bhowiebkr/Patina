@@ -126,6 +126,24 @@ test('a route with a new number of points rebuilds the segment lists', () => {
   assert.ok(!store.layout, 'a moved point keeps the number of points');
 });
 
+test('a gap where the wire goes under another wire is a segment that is not drawn', () => {
+  const store = new WireStore();
+  const line = shape(0, 0, 100, 0, [], 'polyline');
+  store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, false, [[50, 0, 4]]);
+  assert.equal(store.counts[0], 4);
+  assert.deepEqual([store.points[STRIDE], store.points[2 * STRIDE]], [46, 54]);
+  assert.deepEqual([...store.holes.subarray(0, 3)], [0, 1, 0]);
+  assert.deepEqual([...instances(store, false)].filter((_, i) => i % 4 === 1), [0, 2], 'the segment in the gap is not drawn');
+  store.layout = false;
+  store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, false, [[60, 0, 4]]);
+  assert.ok(!store.layout, 'a moved gap in the same segment keeps the instances');
+  store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, false, [[30, 0, 4], [70, 0, 4]]);
+  assert.deepEqual([...store.holes.subarray(0, 5)], [0, 1, 0, 1, 0], 'two gaps in one segment');
+  store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, false, [[98, 0, 4], [50, 5, 4]]);
+  assert.equal(store.counts[0], 2, 'a gap past the end or off the wire is left out');
+  assert.equal(store.holes[1], 0);
+});
+
 test('a bus draws each lane of each segment, and a selected bus draws one ribbon', () => {
   const store = new WireStore();
   store.set('plain', 0, 0, 100, 0, shape(0, 0, 100, 0, []), false);

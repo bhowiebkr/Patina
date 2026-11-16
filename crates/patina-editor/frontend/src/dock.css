@@ -204,3 +204,42 @@
 .param input[type='checkbox'] {
   justify-self: start;
 }
+
+/* The Subgraph interface (mockup 11): one row for each public pin, and the preview of the use. */
+.pin-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.pin-type {
+  min-width: 40px;
+  font: 11px Consolas, 'Cascadia Mono', monospace;
+}
+
+.pin-preview {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--raised);
+  font-size: 12px;
+}
+
+.pin-preview-title {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.pin-preview-body {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 10px;
+  color: var(--muted);
+}
+
+.pin-preview-body > :last-child {
+  text-align: right;
+}

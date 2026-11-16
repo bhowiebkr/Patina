@@ -280,6 +280,7 @@ export type Edit =
   | { kind: 'RemovePin'; key: string }
   | { kind: 'MovePin'; key: string; pos: Point }
   | { kind: 'RenamePin'; key: string; name: string }
+  | { kind: 'OrderPin'; key: string; index: number }
   | { kind: 'ConnectPin'; key: string; end: string }
   | { kind: 'DisconnectPin'; key: string; end: string }
   | { kind: 'Group'; edits: Edit[] };

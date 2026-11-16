@@ -91,6 +91,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const routed = useSyncExternalStore(router.subscribe, () => (auto ? router.bends(id) : undefined));
   const conflict = useSyncExternalStore(router.subscribe, () => (auto ? router.conflict(id) : undefined));
   const joints = useSyncExternalStore(router.subscribe, () => (auto ? router.junctions(id) : undefined));
+  const gaps = useSyncExternalStore(router.subscribe, () => (auto ? router.gaps(id) : undefined));
   const path = useMemo(
     () =>
       auto
@@ -99,8 +100,8 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     [auto, sourceX, sourceY, targetX, targetY, routed, route, style, corners, width],
   );
   useLayoutEffect(
-    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross),
-    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane, cross],
+    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross, gaps),
+    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane, cross, gaps],
   );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
@@ -169,6 +170,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   return (
     <>
       {/* shortcut: the SVG fallback draws a bus as one line; draw its lanes when a GPU without WebGL2 matters. */}
+      {/* shortcut: the SVG fallback has no crossing gaps (15.9); add a mask when the fallback is more than a lost context. */}
       <path className={cross ? 'wire-line cross' : 'wire-line'} d={d} />
       <path ref={hitRef} className="wire-hit" d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
       <EdgeLabelRenderer>

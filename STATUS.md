@@ -521,6 +521,9 @@ and 6.4).
   with their wires, and the path bar goes back to the main graph. A change of graph saves first.
 - In an open subgraph, the editor adds, moves, connects, renames and removes the public pins.
   Unit tests check the pin edits and an output with no source.
+- The **Subgraph interface** of the **Inspector** lists the public pins in pin order, with the
+  edit `OrderPin`. A unit test checks the order and its undo. The selfcheck adds, moves, renames
+  and undoes a public output.
 - The engine plans an **Import** with the type and widget folders that the folder depends on, and
   finds the name conflicts. It copies, renames with the `package` key, replaces and records the
   hash. A failed build check puts the project back. A unit test checks a rename, a replace and
@@ -955,6 +958,9 @@ To run the editor from a checkout:
 - A dot marks each point where the wires of one output part, and a ring marks it on a bus
   (15.9). Unit tests check the junction points and the router marks. The selfcheck adds a
   second wire from one output and checks one dot, and that undo removes it.
+- Where two automatic routes of different outputs cross, the narrower wire has a gap, and the
+  vertical wire goes under a wire of the same width (15.9). Unit tests check the crossing gaps
+  of the router and the segments that the WebGL layer does not draw.
 - Each node header shows a kind icon and a clock-domain icon, and a wire between two domains is
   dashed (15.3). A unit test checks the kinds of the engine. Frontend tests check the domains
   of a scope and the dash flag of the wire store. The selfcheck connects a batch value to a
@@ -1265,7 +1271,8 @@ To run the editor from a checkout:
   - Each run formats and sends each held value, also when a graph runs faster than the display
     (15.6) (`crates/patina-sdk/src/glue/probe.rs`).
   - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
-  - The SVG wires draw a bus as one line (`frontend/src/WireLayer.tsx`).
+  - The SVG wires draw a bus as one line, and have no gap at a crossing (`frontend/src/WireLayer.tsx`).
+  - A wire with more than 62 points after its gaps draws without its last gaps (`frontend/src/wires.ts`).
   - A graph with a route grid of more than 2 million cells gets the simple orthogonal paths
     (`frontend/src/route.ts`).
 

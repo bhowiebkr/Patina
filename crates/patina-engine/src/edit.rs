@@ -53,6 +53,9 @@ pub enum Edit {
     RemovePin { key: String },
     MovePin { key: String, pos: [f64; 2] },
     RenamePin { key: String, name: String },
+    /// Moves a public pin to the place `index` of its list, the inputs or the outputs. The order is
+    /// the pin order of each use (6.4).
+    OrderPin { key: String, index: usize },
     /// Connects a public input to the inner input `end`, which loses its other wire, or a public
     /// output to the inner output `end`.
     ConnectPin { key: String, end: String },
@@ -300,6 +303,13 @@ fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         }
         Edit::MovePin { key, pos } => *pin_mut(graph, key)?.1 = finite(pos)?,
         Edit::RenamePin { key, name } => *pin_mut(graph, key)?.0 = pin_name(name)?,
+        Edit::OrderPin { key, index } => match graph.input.iter().position(|p| &p.key == key) {
+            Some(at) => move_to(&mut graph.input, at, *index)?,
+            None => {
+                let at = graph.output.iter().position(|p| &p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
+                move_to(&mut graph.output, at, *index)?;
+            }
+        },
         Edit::ConnectPin { key, end } => {
             check_end(graph, end)?;
             if let Some(pin) = graph.output.iter_mut().find(|p| &p.key == key) {
@@ -356,6 +366,15 @@ fn pin_mut<'a>(graph: &'a mut GraphFile, key: &str) -> Result<(&'a mut String, &
     }
     let pin = graph.output.iter_mut().find(|p| p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
     Ok((&mut pin.name, &mut pin.pos))
+}
+
+fn move_to<T>(list: &mut Vec<T>, from: usize, to: usize) -> Result<(), String> {
+    if to >= list.len() {
+        return Err(format!("the list of {} pins has no place {to}", list.len()));
+    }
+    let pin = list.remove(from);
+    list.insert(to, pin);
+    Ok(())
 }
 
 fn pin_name(name: &str) -> Result<String, String> {
@@ -507,6 +526,15 @@ mod tests {
         assert!(history.apply(&pin("0000000a", false)).is_err(), "two pins cannot have one key");
         assert!(history.apply(&pin("0000000G", true)).is_err());
         assert!(history.apply(&Edit::RenamePin { key: "0000000a".to_owned(), name: " ".to_owned() }).is_err());
+        let order = |key: &str, index| Edit::OrderPin { key: key.to_owned(), index };
+        history.apply(&pin("0000000c", true)).unwrap();
+        history.apply(&order("0000000c", 0)).unwrap();
+        assert_eq!(history.graph.input.iter().map(|p| p.key.as_str()).collect::<Vec<_>>(), ["0000000c", "0000000a"]);
+        assert!(history.apply(&order("0000000c", 2)).is_err(), "the inputs have no third place");
+        assert!(history.apply(&order("0000000b", 1)).is_err(), "the outputs have no second place");
+        assert!(history.undo(no_code).unwrap());
+        assert_eq!(history.graph.input[0].key, "0000000a");
+        assert!(history.undo(no_code).unwrap());
         history.apply(&connect("000000000000000a.out", "000000000000000b.value")).unwrap();
         history.apply(&to("0000000a", "000000000000000b.value")).unwrap();
         assert!(history.graph.wire.is_empty(), "the pin replaces the wire to the input");

@@ -6,7 +6,7 @@ import { bufferOf, flushCode, openFile, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
 import { emit, listen } from '@tauri-apps/api/event';
 import { changeLayout, flushLayout, savedViewport } from './Dock';
-import { floatPanel, layoutText, parseLayout } from './layout';
+import { floatPanel, layoutText, openPanel, parseLayout } from './layout';
 import { checkWires } from './check-wires';
 import { A, B, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, icon } from './check-fixtures';
 
@@ -668,6 +668,28 @@ fn broken() -> u32 {
     await until('the event run of the trigger in the use', RUN_MS, () => eventRuns().some((e) => e.trigger === `${use}/${T}`) && output.slice(outputFrom).includes('2.5'));
     topButton('Stop')!.click();
     await until('the end of the event runs in the subgraph', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+    // The Subgraph interface (mockup 11): the Inspector lists the public pins in pin order (6.4).
+    const rows = () => [...document.querySelectorAll<HTMLElement>('aside[aria-label="Inspector"] .pin-row')];
+    // A view tab can cover the Inspector. The click on Fire selected the trigger, and a click on the
+    // pane clears the selection. With selection on drag, the pane takes a pointer down and up.
+    changeLayout((l) => openPanel(l, 'inspector'));
+    const flow = document.querySelector('.react-flow__pane')!;
+    const corner = flow.getBoundingClientRect();
+    for (const type of ['pointerdown', 'pointerup']) flow.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: corner.left + 5, clientY: corner.top + 5 }));
+    await until('the subgraph interface', RUN_MS, () => rows().length === 1);
+    const firstPin = rows()[0].dataset.pin;
+    [...document.querySelectorAll<HTMLButtonElement>('aside[aria-label="Inspector"] .btn')].find((b) => b.textContent === 'Add output')!.click();
+    await until('a new public output', BUILD_MS, () => rows().length === 2);
+    const added = rows()[1].dataset.pin;
+    rows()[1].querySelector<HTMLButtonElement>('button[title="Move up"]')!.click();
+    await until('the new output first in the pin order', BUILD_MS, () => rows()[0].dataset.pin === added);
+    const field = rows()[0].querySelector('input')!;
+    field.value = 'sum';
+    field.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await until('the new name in the preview', BUILD_MS, () => document.querySelector('.pin-preview-body > :last-child > :first-child')?.textContent === 'sum');
+    for (const what of ['name', 'order', 'output']) v = await step(`undo the ${what} of the public output`, () => api.undo());
+    await until('the old public pins', BUILD_MS, () => rows().length === 1 && rows()[0].dataset.pin === firstPin);
+    steps.push('subgraph interface');
     [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
     await until('the main graph from the path bar', BUILD_MS, () => document.querySelector('.graph-path') === null);
     steps.push('open a subgraph use and fire its trigger');

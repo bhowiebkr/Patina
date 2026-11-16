@@ -37,6 +37,10 @@ The editor has these mockup features. They are not gaps.
 - During a wire drag, the compatible sockets get a ring and the other sockets dim (connections
   guide).
 - A junction dot where the wires of one output part (connections guide).
+- A gap in the narrower wire where two wires of different outputs cross (mockup 16). A raised
+  bridge stays an optional refinement.
+- The **Subgraph interface** in the **Inspector**: the public pins in pin order, with their
+  names, types and a preview of the use (mockup 11).
 - The SDK `Ui` widgets: label, button, toggle, slider, number, text field, dropdown, color,
   plot, waveform, table, curve, image, 2D canvas and GPU viewport.
 
@@ -45,9 +49,7 @@ The editor has these mockup features. They are not gaps.
 | Gap | Mockup | What the editor does now |
 |---|---|---|
 | An expanded subgraph in the parent graph, in a neutral frame with a collapse control | 3, 11 | A double-click opens the subgraph as its own graph. |
-| A **Subgraph interface** list of the public pins in order, with a preview of the collapsed node | 11 | The public pins are graph objects. Their order and names change on the canvas. |
 | A collapsed navigation rail that gives the graph more room | 6 | A panel closes or moves to another area. |
-| A gap or a raised bridge where two wires cross and do not join (optional in the guide) | 16 | The wires cross with no gap. |
 | **Lock bends** (optional in the guide) | Connections guide | The route points are fixed, and the router moves the free segments. |
 
 ## Shared widget gaps

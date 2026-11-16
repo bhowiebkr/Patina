@@ -156,7 +156,8 @@ A wire shows the value that it carries while the graph runs, as a node shows its
 - Press Shift+L to arrange the selected nodes in columns, with the signal from left to right.
   With fewer than two nodes selected, Shift+L arranges the full graph.
 - One output can feed many inputs. Splitting or joining a value takes a node. The wires of one
-  output share a trunk, and a dot shows where they part.
+  output share a trunk, and a dot shows where they part. Where two wires of different outputs
+  cross, the narrower wire has a small gap, so a crossing does not look like a join.
 - During a wire drag, the sockets that fit the type get an amber ring, and the other sockets
   dim. The build does the full type check.
 - To connect a wire to another socket, drag its end from next to the socket to the new socket.
@@ -287,6 +288,9 @@ To test a subgraph alone, open it and click **Test** in the path bar. Click the 
 of an input to toggle it. The lamp at the right of an output shows its value. Click **End test**
 to return. The **Graphs** group of the **Project** panel lists the subgraphs. Click one to open
 it, or drag it into the graph to add a use.
+In an open subgraph, click an empty part of the graph to see the **Subgraph interface** in the
+**Inspector**. It lists the public pins in the order of each use. Use it to rename, move, add
+and remove pins. The **Public node preview** shows the use.
 A `switch` node shows a check box in its **on** row. Click it to set the bit. Three `display`
 nodes show the count, and the OUT register of the CPU as two hex digits on 7 segments.
 Each display gets one copper bus with the lanes a to g. Put the pointer on a lane or on a
