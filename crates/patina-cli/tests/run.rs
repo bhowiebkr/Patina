@@ -680,14 +680,14 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
     // With b = 0011, the four full adders get all 8 input vectors. The register of readout C
     // loads its value plus 5 at each step. The memory of readout D writes C to address n % 4, so D
     // shows C of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. Its
-    // program adds 4 to A and stores A until the carry, then loads A from the RAM. The display
+    // program adds 4 to A, and loads A from the RAM at the carry. JZ skips an LDI. The display
     // shows the count as a hex digit, segments a to g, and the second display shows OUT.
     const SEGMENTS: [&str; 16] = [
         "1111110", "0110000", "1101101", "1111001", "0110011", "1011011", "1011111", "1110000", "1111111", "1111011", "1110111", "0011111",
         "1001110", "0111101", "1001111", "1000111",
     ];
-    const PROGRAM: [(u8, u8); 8] = [(0, 3), (1, 4), (5, 1), (4, 5), (3, 1), (0, 0), (6, 1), (2, 0)];
-    let (mut pc, mut acc, mut out, mut carry, mut ram) = (0u8, 0u8, 0u8, false, [0u8; 4]);
+    const PROGRAM: [(u8, u8); 8] = [(6, 2), (7, 6), (0, 4), (1, 4), (2, 5), (4, 0), (5, 2), (3, 3)];
+    let (mut pc, mut acc, mut out, mut carry, mut zero, mut ram) = (0u8, 0u8, 0u8, false, false, [0u8; 4]);
     let mut expected = Vec::new();
     for n in 0..24u8 {
         let readouts = [n % 16, (n + 3) % 16, n * 5 % 16, n.saturating_sub(4) * 5 % 16, pc, acc, out];
@@ -703,7 +703,11 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
             4 if carry => pc = k,
             5 => ram[k as usize % 4] = acc,
             6 => acc = ram[k as usize % 4],
+            7 if zero => pc = k,
             _ => {}
+        }
+        if matches!(op, 0 | 1 | 6) {
+            zero = acc == 0;
         }
     }
     assert_eq!(stdout.lines().collect::<Vec<_>>(), expected);

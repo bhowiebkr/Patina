@@ -23,8 +23,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 3. Done: a memory of 4 words of 4 bits, with a decoder of the address. It writes the
    accumulator at each step, and readout D shows the word that it wrote 4 steps before.
 4. Done: a CPU of NAND gates and delays. It runs one instruction at each step from a ROM of 8
-   words of 7 bits. Each ROM bit is a switch. The 7 instructions are LDI, ADD, OUT, JMP, JC, ST
-   and LD. JC uses a carry flag, and ST and LD use the RAM of step 3. The CPU has no
+   words of 7 bits. Each ROM bit is a switch. The 8 instructions are LDI, ADD, OUT, JMP, JC, ST,
+   LD and JZ. JC uses a carry flag, JZ a zero flag, and ST and LD use the RAM of step 3. The CPU has no
    instruction register, because each instruction takes one step.
 5. Done: look at the circuit in the editor. A 1-bit wire is lit when it is true. A subgraph
    that opens with a double-click on a use shows the live values of that use, also for a use
@@ -34,7 +34,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 7. Done: a `display` node shows 7 segments. The `hex-7seg` subgraph of NAND gates decodes the
    count to the segments of its hex digit.
 8. Done: a second display shows the OUT register of the CPU.
-9. Next: a zero flag and a JZ instruction, with the free opcode 7.
+9. Done: a zero flag and a JZ instruction, with opcode 7. The new program uses all 8 opcodes.
+10. Next: an 8-bit data path, so the CPU counts past 15.
 
 ### Checked
 
@@ -43,8 +44,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   accumulator: 0, 5, 10, 15, 4 and so on. Readout D shows the memory: 0 for 4 steps, then the
   accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the CPU. The
   test compares them with a small emulator of the 7 instructions. The program
-  takes the conditional jump and reads a stored word from the RAM. The first display gives the
-  segments of the 16 hex digits, and the second the segments of OUT. The test took 11.9 s.
+  takes each conditional jump and skips it, and reads a stored word from the RAM. The first display gives the
+  segments of the 16 hex digits, and the second the segments of OUT. The test took 12.2 s.
 - The editor self-check passes with the check box for `bool` parameters. No test clicks it.
 - `patina --shot <project> <folder>` runs a project in a hidden window, and writes a
   screenshot of the main graph and of each subgraph. It opens each subgraph through its first
