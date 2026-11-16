@@ -357,8 +357,9 @@ impl<T> State<T> {
 }
 
 /// Calls the `ui` function of a stateful node between two runs (4.3), and sends its widget lines.
-/// A panic drops the state, as in `process` (4.7).
+/// A panic drops the state, as in `process` (4.7). The control keeps the node during the call (15.2).
 pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &mut crate::Ui), cmd: (u32, &str), rep: &Reporter, node: u32) -> bool {
+    rep.set_node(node);
     let mut st = state.lock();
     let mut gui = crate::Ui::new(cmd.0, cmd.1);
     let caught = catch_quiet(AssertUnwindSafe(|| {
@@ -375,6 +376,7 @@ pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &
     if ok {
         rep.send(node, UI, gui.tree());
     }
+    rep.set_node(IDLE);
     ok
 }
 

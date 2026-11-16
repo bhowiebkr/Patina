@@ -388,7 +388,8 @@ export function App() {
         <button className="btn" title="Run one frame of the paused graph" disabled={!view.trusted || live || !run.framed || run.stale} onClick={() => act(api.step())}>
           Step
         </button>
-        <button className="btn" disabled={!live && !busy} onClick={stop}>
+        {/* After a run, a node GUI or a state drop can still run and not return (15.2). */}
+        <button className="btn" disabled={!live && !busy && run.phase !== 'ran'} onClick={stop}>
           Stop
         </button>
         <button className="btn" title="Fuse the node in the slot back into the base now" disabled={!live || run.fused} onClick={() => act(api.bake())}>

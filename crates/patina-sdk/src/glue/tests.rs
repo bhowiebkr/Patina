@@ -62,6 +62,17 @@ fn a_panic_drops_the_state_and_an_error_keeps_it() {
 }
 
 #[test]
+fn the_control_keeps_the_node_while_its_gui_draws() {
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let control = Control::default();
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: &raw const control };
+    let (state, during) = (State::new(), std::cell::Cell::new(None));
+    assert!(draw(&state, || 0, |_: &mut i32, _| during.set(control.node()), (0, ""), &rep, 3));
+    assert_eq!((during.get(), control.node()), (Some(3), None));
+    assert_eq!(sent.iter().filter(|s| s.1 == UI).count(), 1);
+}
+
+#[test]
 fn node_calls_catch_errors_and_panics_with_the_copies_in_the_catch() {
     struct Bad;
     impl Clone for Bad {

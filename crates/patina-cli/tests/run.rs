@@ -141,13 +141,13 @@ builtin = \"delay\"
 
     // The GUI of tick (4.3): its widget lines, then a click on Reset. Mix has no GUI. The lines
     // after an event show the new state.
-    let tree = cluster.ui("00000000000000f1", 0, "").0.unwrap();
+    let tree = cluster.ui(&Control::default(), "00000000000000f1", 0, "").0.unwrap();
     assert!(tree.starts_with("label\tTick\nbutton\tReset\nslider\tCount\t"), "{tree}");
-    let (tree, out) = cluster.ui("00000000000000f1", 0, "1 1");
+    let (tree, out) = cluster.ui(&Control::default(), "00000000000000f1", 0, "1 1");
     assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t0\t0\t10"));
-    let (tree, out) = cluster.ui("00000000000000f1", 0, "2 7");
+    let (tree, out) = cluster.ui(&Control::default(), "00000000000000f1", 0, "2 7");
     assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t7\t0\t10"));
-    assert!(cluster.ui("00000000000000f3", 0, "").0.is_none());
+    assert!(cluster.ui(&Control::default(), "00000000000000f3", 0, "").0.is_none());
     assert_eq!(cluster.guis(), [("00000000000000f1".to_owned(), true)]);
 
     // After an edit of mix, the new cluster gets the state of tick (7.2). An edit of tick changes
@@ -157,7 +157,7 @@ builtin = \"delay\"
         let mut new = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Edit).unwrap();
         assert_eq!(new.adopt(&mut cluster), moved, "{name}");
         cluster = new;
-        let tree = cluster.ui("00000000000000f1", 0, "").0.unwrap();
+        let tree = cluster.ui(&Control::default(), "00000000000000f1", 0, "").0.unwrap();
         assert!(tree.ends_with(&format!("slider\tCount\t{count}\t0\t10")), "{name}: {tree}");
     }
 
@@ -269,7 +269,7 @@ builtin = \"delay\"
         let out = frames.frame(&control);
         let frame = (out.ok && out.skipped.is_empty(), start.elapsed(), blocks.load(Relaxed) - before);
         let (before, start) = (blocks.load(Relaxed), Instant::now());
-        let (tree, out) = frames.ui("00000000000000a2", 0, "");
+        let (tree, out) = frames.ui(&Control::default(), "00000000000000a2", 0, "");
         let ui = (out.ok && tree.is_some_and(|t| t.contains("Meter")), start.elapsed(), blocks.load(Relaxed) - before);
         stop.store(true, Relaxed);
         (frame, ui)
@@ -415,7 +415,7 @@ to = \"00000000000000a3.value\"
     assert_eq!(value(&mut cluster, "extra"), "4.0");
     assert_eq!(value(&mut cluster, "out"), "26.0");
     // The GUI of the node draws through the slot library too (4.3).
-    let gui = |cluster: &mut patina_engine::Cluster| cluster.ui("00000000000000a1", 0, "").0.unwrap();
+    let gui = |cluster: &mut patina_engine::Cluster| cluster.ui(&Control::default(), "00000000000000a1", 0, "").0.unwrap();
     assert!(gui(&mut cluster).ends_with("slider\tTotal\t26\t0\t1000"), "{}", gui(&mut cluster));
 
     // An edit of the body builds the slot alone. The node gets a new state and the new GUI.
@@ -446,7 +446,7 @@ to = \"00000000000000a3.value\"
     assert!(fused.set_params(&lost).ok);
     let out = fused.run(&control);
     assert!(!out.ok && out.reports.iter().any(|r| r.text.contains("the note is boom")), "{:?}", out.reports);
-    let _ = fused.ui("00000000000000a1", 0, "");
+    let _ = fused.ui(&Control::default(), "00000000000000a1", 0, "");
     assert!(fused.set_params(opened.graph()).ok);
     assert_eq!(value(&mut fused, "out"), "130.0");
     assert!(!slotted().build_slot(&toolchain, &mut fused).unwrap(), "a fused cluster has no slot");
@@ -610,7 +610,7 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     cluster.set_params(opened.graph());
     let outcome = cluster.run(&Control::default());
     assert!(outcome.ok, "{:?}", outcome.reports);
-    let tree = cluster.ui("4d5e6f708192a3b4", 0, "").0.unwrap();
+    let tree = cluster.ui(&Control::default(), "4d5e6f708192a3b4", 0, "").0.unwrap();
     assert!(tree.starts_with("image	Preview	64	16	"), "{tree}");
 
     // The scene view shows a viewport. Without a window, it reads the wheel and draws nothing (15.8).

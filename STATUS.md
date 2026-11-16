@@ -27,7 +27,8 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - A crash of a node ends only the node process. **Output**, the Logs and the status bar show the
   exit code and the last error text. On Windows, a crash handler adds the node that ran.
 - The next run or edit of a live graph starts a new node process.
-- After "Node X does not stop", a second **Stop** ends the node process.
+- After "Node X does not stop", a second **Stop** ends the node process. This also applies to a
+  node GUI that does not return. **Stop** stays ready after a run for this.
 - The views, the node GUIs, the triggers, the values and the package job cross the pipe.
 - A node GUI or a view with more than 1 MB of widget lines shows an error. The engine cuts the text
   of an error or a panic to 16 KB (spec 4.3 and 4.7).
@@ -55,6 +56,8 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - `cargo test -p patina-editor` on Windows: in a job with a 64 MB limit, an allocation of 256 MB
   ends the process. A process ends when its job closes.
   The hidden selfcheck passed with the job, with its crash, second **Stop** and flood steps.
+- `cargo test -p patina-sdk`: the run control keeps the node while its GUI draws. The second
+  **Stop** on a node GUI that does not return was not run end to end.
 - Linux and macOS did not run.
 
 ### Known limits

@@ -302,7 +302,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                 Job::Bake => fuse = true,
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-                        rerun |= gui(out, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
+                        rerun |= gui(out, &shared.control, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
                     }
                 }
                 Job::Rerun => rerun = true,
@@ -354,7 +354,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
         let ran = matches!(event, Event::Ran { .. });
         out.emit(&event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
-            draw(out, &mut loaded.cluster.frame_part(), run.serial, &shown, true);
+            draw(out, &shared.control, &mut loaded.cluster.frame_part(), run.serial, &shown, true);
             if goes_on {
                 let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
                 next = run_frames(live, &mut loaded.cluster);
@@ -376,11 +376,11 @@ fn wait(jobs: &Receiver<Job>, fuse_at: Option<Instant>) -> Option<Job> {
 
 /// Gives the GUI input to node `input.id`, and sends its new widget lines. Returns `Some` when
 /// the change must run the graph again: `Some(true)` when the node is in the frame domain.
-fn gui(out: &Out, part: &mut Frames, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
+fn gui(out: &Out, control: &Control, part: &mut Frames, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
     if let Some(node) = (input.mode as usize).checked_sub(1).and_then(|i| shown.sizes.get_mut(i)) {
         *node = (!input.id.is_empty()).then(|| input.id.clone());
     }
-    let (tree, done) = part.ui(&input.id, input.mode, &input.events);
+    let (tree, done) = part.ui(control, &input.id, input.mode, &input.events);
     let trees = tree.map(|tree| Tree { id: input.id.clone(), mode: input.mode, tree }).into_iter().collect();
     out.emit(&Event::Gui { serial, trees, reports: done.reports });
     let frame = part.guis().iter().find(|(id, _)| *id == input.id).map(|&(_, frame)| frame)?;
@@ -410,7 +410,7 @@ impl Shown {
 /// Sends the widget lines of the node GUIs (4.3): the node body size of the nodes in view, and
 /// the larger sizes of the nodes in `shown`. After a run, `all` draws each node one time, so that
 /// each node gets its size.
-fn draw(out: &Out, part: &mut Frames, serial: u64, shown: &Shown, all: bool) {
+fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64, shown: &Shown, all: bool) {
     let (mut trees, mut reports) = (Vec::new(), Vec::new());
     for n in 0..part.guis().len() {
         let modes = [0, 1, 2].map(|m| shown.draws(&part.guis()[n].0, m, all));
@@ -419,7 +419,7 @@ fn draw(out: &Out, part: &mut Frames, serial: u64, shown: &Shown, all: bool) {
         }
         let id = part.guis()[n].0.clone();
         for mode in (0..3).filter(|&m| modes[m as usize]) {
-            let (tree, done) = part.ui(&id, mode, "");
+            let (tree, done) = part.ui(control, &id, mode, "");
             reports.extend(done.reports);
             trees.extend(tree.map(|tree| Tree { id: id.clone(), mode, tree }));
         }
@@ -454,7 +454,7 @@ impl Live<'_> {
         match self.jobs.try_recv() {
             // A change of a frame node applies at the next frame. A batch node needs a batch run.
             Ok(Job::Gui(input)) => {
-                if gui(self.out, part, self.serial, &input, self.shown) == Some(false) {
+                if gui(self.out, &self.shared.control, part, self.serial, &input, self.shown) == Some(false) {
                     return Some(Some(Job::Rerun));
                 }
             }
@@ -615,7 +615,7 @@ fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(String, Str
     blocks.clear();
     let values = badges(&values);
     out.emit(&Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
-    draw(out, part, serial, shown, false);
+    draw(out, &shared.control, part, serial, shown, false);
     ok
 }
 

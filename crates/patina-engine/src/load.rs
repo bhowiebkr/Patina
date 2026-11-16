@@ -439,8 +439,8 @@ impl Cluster {
     }
 
     /// Calls the `ui` function of node `id` between two runs, as `Frames::ui` (4.3).
-    pub fn ui(&mut self, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
-        self.frame_part().ui(id, mode, events)
+    pub fn ui(&mut self, control: &Control, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
+        self.frame_part().ui(control, id, mode, events)
     }
 
     /// The kept copy of output `key` of node `id` for a view, as `Frames::read` (15.8).

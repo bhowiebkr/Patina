@@ -91,8 +91,9 @@ impl Frames<'_> {
     /// Calls the `ui` function of node `id` (4.3), in mode `mode` (0 compact, 1 large, 2 full).
     /// `events` has a line for each user input: the widget index and the value. Returns the
     /// widget lines, or `None` when the node has no GUI or failed (see the outcome). While the
-    /// audio thread runs, an audio node gives `None` (4.3).
-    pub fn ui(&mut self, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
+    /// audio thread runs, an audio node gives `None` (4.3). During the call, `control` keeps the
+    /// node, so a second **Stop** can end a GUI that does not return (15.2).
+    pub fn ui(&mut self, control: &Control, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
         let (names, probes) = (self.run.names, self.run.probes);
         let Some(n) = names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
         let (Some(library), Ok(node)) = (self.nodes.owner(n), u32::try_from(n)) else { return (None, Outcome::default()) };
@@ -102,7 +103,7 @@ impl Frames<'_> {
         // SAFETY: `state` is live, `&mut self` shows that no run of this thread is active, the
         // audio thread never calls the library of a node that is not an audio node, and `events`
         // and the reporter are valid during the call.
-        calls.call(names, probes, std::ptr::null(), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
+        calls.call(names, probes, control, |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
         let tree = calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
         (tree, std::mem::take(&mut calls.out))
     }

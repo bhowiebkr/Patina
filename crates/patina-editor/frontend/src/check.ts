@@ -268,7 +268,7 @@ fn broken() -> u32 {
       throw new Error(`Stop did not keep node ${B} from its start: ${JSON.stringify(ended)}`);
     }
     await until('a paused graph with one stale node and no run', RUN_MS, () =>
-      topButton('Stop')?.disabled === true &&
+      topButton('Stop')?.disabled === false &&
       topButton('Run')?.disabled === false &&
       statusText().includes('1 stale node') &&
       nodeClass(B)?.contains('stale') === true &&
