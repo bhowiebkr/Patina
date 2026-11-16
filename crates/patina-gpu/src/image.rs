@@ -70,6 +70,11 @@ impl GpuImage {
         let mapped = state.clone();
         buffer.map_async(wgpu::MapMode::Read, .., move |r| mapped.store(if r.is_ok() { 1 } else { 2 }, Ordering::SeqCst));
         gpu.device.poll(wgpu::PollType::Wait { submission_index: Some(index), timeout: None }).map_err(|e| e.to_string())?;
+        // The device is shared: a poll on another thread can run the callback after this poll returns.
+        while state.load(Ordering::SeqCst) == 0 {
+            std::thread::yield_now();
+            gpu.device.poll(wgpu::PollType::Poll).map_err(|e| e.to_string())?;
+        }
         if state.load(Ordering::SeqCst) != 1 {
             return Err("Patina could not read the image from the GPU".to_owned());
         }
