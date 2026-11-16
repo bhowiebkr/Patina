@@ -92,12 +92,11 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const conflict = useSyncExternalStore(router.subscribe, () => (auto ? router.conflict(id) : undefined));
   const joints = useSyncExternalStore(router.subscribe, () => (auto ? router.junctions(id) : undefined));
   const gaps = useSyncExternalStore(router.subscribe, () => (auto ? router.gaps(id) : undefined));
+  // The style of the drawn path. An automatic wire is orthogonal until the router gives its bends.
+  const drawn = auto ? (routed ? 'polyline' : 'orthogonal') : style;
   const path = useMemo(
-    () =>
-      auto
-        ? shape(sourceX, sourceY, targetX, targetY, routed ?? route, routed ? 'polyline' : 'orthogonal', corners, width)
-        : shape(sourceX, sourceY, targetX, targetY, route, style, corners, width),
-    [auto, sourceX, sourceY, targetX, targetY, routed, route, style, corners, width],
+    () => shape(sourceX, sourceY, targetX, targetY, (auto && routed) || route, drawn, corners, width),
+    [auto, sourceX, sourceY, targetX, targetY, routed, route, drawn, corners, width],
   );
   useLayoutEffect(
     () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross, gaps),
@@ -107,7 +106,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
   const insert = (x: number, y: number) => {
     if (!editable || data!.fixed) return;
-    const k = insertAt(sourceX, sourceY, targetX, targetY, route, x, y);
+    const k = insertAt(sourceX, sourceY, targetX, targetY, route, x, y, drawn);
     void send([...route.slice(0, k), [Math.round(x), Math.round(y)], ...route.slice(k)]);
   };
   const add = (e: MouseEvent) => {

@@ -1044,7 +1044,9 @@ To run the editor from a checkout:
 - A double-click on a wire adds a route point (15.9). A selected wire shows square handles on
   its points. Drag a handle to move its point. Delete or a double-click on a handle removes the
   point. The arrow keys move a focused handle by 10 px, or by 1 px with Shift. Esc cancels a
-  drag. A route has rounded corners. The + or Insert key on a focused wire adds a route point
+  drag. The new point goes into the nearest segment of the drawn path, also on an orthogonal
+  elbow or a curve bulge (fixed 2026-11-16). A unit test checks the three styles. A route has
+  rounded corners. The + or Insert key on a focused wire adds a route point
   at its middle. The selfcheck presses + on the wire and checks the new point and its undo.
 - A selected orthogonal wire shows a bar on each middle segment (15.9). A drag on a bar moves
   the segment sideways, and the segments next to it stretch. A unit test checks the moves. The
@@ -1355,10 +1357,8 @@ To run the editor from a checkout:
   drops. Two badges can cover each other. After each run, the engine copies the text of each
   value into a new `String`, and the badge text into a second `String`.
 - The segments at the two pins of an orthogonal wire cannot move, and a wire with the graph
-  default style has no segment bars (15.9). A double-click on an orthogonal or curved
-  wire puts the new point on the nearest straight line through the route points. The graph has
-  no setting for the default style. **Bus**, **Lock bends** and the crossing bridges are not
-  made. A wire with a fixed style can go under a node.
+  default style has no segment bars (15.9). The graph has no setting for the default style.
+  **Bus**, **Lock bends** and the crossing bridges are not made. A wire with a fixed style can go under a node.
 - The automatic route and **Arrange** have no undo of a route change, because a route is not
   saved. The route changes when a node moves, and the wires of a large graph can jump.
   **Arrange** puts all nodes of a layer in one column, so a wide layer makes a tall column, for

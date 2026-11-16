@@ -106,6 +106,17 @@ test('a new point goes into the nearest segment', () => {
   assert.equal(insertAt(0, 0, 100, 0, r, 20, 2), 0);
   assert.equal(insertAt(0, 0, 100, 0, r, 52, 20), 1);
   assert.equal(insertAt(0, 0, 100, 0, r, 80, 15), 2);
+  // On the elbow leg before the point of an orthogonal path, nearer to the chord after it.
+  const p: [number, number][] = [[100, 100]];
+  assert.equal(insertAt(-200, 0, 200, 0, p, 100, 60), 1, 'the chords');
+  assert.equal(insertAt(-200, 0, 200, 0, p, 100, 60, 'orthogonal'), 0);
+  assert.equal(insertAt(-200, 0, 200, 0, p, 125, 100, 'orthogonal'), 1);
+  assert.equal(insertAt(-200, 0, 200, 0, p, 150, 50, 'orthogonal'), 1);
+  assert.equal(insertAt(-200, 0, 200, 0, [], 0, 0, 'orthogonal'), 0);
+  // On the bulge of a curve past its first point, where the chord before that point is nearer.
+  const c: [number, number][] = [[300, 0], [250, 40]];
+  assert.equal(insertAt(0, 0, 0, 200, c, 317, 5), 0, 'the chords');
+  assert.equal(insertAt(0, 0, 0, 200, c, 317, 5, 'curved'), 1);
 });
 
 test('the SVG path of a route has the same corners', () => {

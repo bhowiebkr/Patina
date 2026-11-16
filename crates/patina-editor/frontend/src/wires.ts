@@ -274,21 +274,51 @@ export function anchor(sx: number, sy: number, tx: number, ty: number, shape: Sh
 }
 const LABEL_WIDTH = 160;
 
-/** The index in the route for a new point at (x, y): the place of the nearest straight segment through the route points. */
-export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number): number {
+/** The distance from (x, y) to the segment from (ax, ay) to (bx, by). */
+function segmentDistance(ax: number, ay: number, bx: number, by: number, x: number, y: number): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 > 0 ? Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
+  return Math.hypot(ax + t * dx - x, ay + t * dy - y);
+}
+
+/**
+ * The index in the route for a new point at (x, y), from the nearest part of the drawn path in
+ * this style (15.9). For an orthogonal path, it is the number of route points before the nearest
+ * leg, so the new point does not change the legs around it.
+ */
+export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number, style?: Style): number {
   let best = 0;
   let bestDistance = Infinity;
+  const near = (k: number, ax: number, ay: number, bx: number, by: number) => {
+    const distance = segmentDistance(ax, ay, bx, by, x, y);
+    if (distance < bestDistance) [best, bestDistance] = [k, distance];
+  };
+  if (style === 'orthogonal') {
+    const bends = orthogonal(sx, sy, tx, ty, route);
+    let before = 0;
+    for (let j = 0; j <= bends.length; j++) {
+      const b = bends[j - 1];
+      if (b && before < route.length && b[0] === route[before][0] && b[1] === route[before][1]) before++;
+      near(before, vertex(sx, sy, tx, ty, bends, j, 0), vertex(sx, sy, tx, ty, bends, j, 1), vertex(sx, sy, tx, ty, bends, j + 1, 0), vertex(sx, sy, tx, ty, bends, j + 1, 1));
+    }
+    return best;
+  }
   for (let k = 0; k <= route.length; k++) {
-    const ax = vertex(sx, sy, tx, ty, route, k, 0);
-    const ay = vertex(sx, sy, tx, ty, route, k, 1);
-    const dx = vertex(sx, sy, tx, ty, route, k + 1, 0) - ax;
-    const dy = vertex(sx, sy, tx, ty, route, k + 1, 1) - ay;
-    const len2 = dx * dx + dy * dy;
-    const t = len2 > 0 ? Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
-    const distance = Math.hypot(ax + t * dx - x, ay + t * dy - y);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = k;
+    if (style !== 'curved') {
+      near(k, vertex(sx, sy, tx, ty, route, k, 0), vertex(sx, sy, tx, ty, route, k, 1), vertex(sx, sy, tx, ty, route, k + 1, 0), vertex(sx, sy, tx, ty, route, k + 1, 1));
+      continue;
+    }
+    smooth(sx, sy, tx, ty, route, k);
+    let [px, py] = [ctl[0], ctl[1]];
+    for (let j = 1; j <= BEZIER_SEGMENTS; j++) {
+      const t = j / BEZIER_SEGMENTS;
+      const u = 1 - t;
+      const qx = u * u * u * ctl[0] + 3 * u * u * t * ctl[2] + 3 * u * t * t * ctl[4] + t * t * t * ctl[6];
+      const qy = u * u * u * ctl[1] + 3 * u * u * t * ctl[3] + 3 * u * t * t * ctl[5] + t * t * t * ctl[7];
+      near(k, px, py, qx, qy);
+      [px, py] = [qx, qy];
     }
   }
   return best;
