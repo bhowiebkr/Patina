@@ -637,6 +637,8 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   input in the slot. Two runs keep its state. An edit of its body builds the slot alone and
   resets the state. A fused build in bake mode takes the state from the slot library. A change
   of the signature makes `build_slot` refuse. The glue test calls a node in a slot library.
+- The slot test draws the node GUI through the slot library. The edited GUI shows the new
+  slider name and total, and the fused cluster shows the adopted total (2026-11-16).
 - The CI run of the slot change failed one time on Linux: a frame allocated. The time text of
   a slow node had more digits, so the report buffer grew. The time text now has a fixed width.
 - The CI run of the slot change also failed on Linux in a test of the cluster folders: the
@@ -677,7 +679,6 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   type alias in the node folder needs a full build, because the base compares the signature
   text.
 - The modes have no debug assertions, so a `debug_assert!` in a node does not run (8.3).
-- A node GUI of a node in the slot calls the slot library. No test draws one.
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
 

@@ -319,6 +319,10 @@ impl Acc {
         *extra += note.len() as f64;
         self.total
     }
+
+    pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
+        ui.slider(\"Total\", &mut self.total, 0.0..=1000.0);
+    }
 }
 ";
 
@@ -382,14 +386,18 @@ to = \"00000000000000a3.value\"
     cluster.set_params(opened.graph());
     assert_eq!(value(&mut cluster, "extra"), "4.0");
     assert_eq!(value(&mut cluster, "out"), "26.0");
+    // The GUI of the node draws through the slot library too (4.3).
+    let gui = |cluster: &mut patina_engine::Cluster| cluster.ui("00000000000000a1", 0, "").0.unwrap();
+    assert!(gui(&mut cluster).ends_with("slider\tTotal\t26\t0\t1000"), "{}", gui(&mut cluster));
 
-    // An edit of the body builds the slot alone. The node gets a new state.
-    let edited = ACC.replace("*value * scale", "*value * scale * 10.0");
+    // An edit of the body builds the slot alone. The node gets a new state and the new GUI.
+    let edited = ACC.replace("*value * scale", "*value * scale * 10.0").replace("\"Total\"", "\"Sum\"");
     fs::write(folder.join("src/lib.rs"), &edited).unwrap();
     let start = Instant::now();
     assert!(slotted().build_slot(&toolchain, &mut cluster).unwrap());
     eprintln!("slot build {:.1} s", start.elapsed().as_secs_f64());
     assert_eq!(value(&mut cluster, "out"), "130.0");
+    assert!(gui(&mut cluster).ends_with("slider\tSum\t130\t0\t1000"), "{}", gui(&mut cluster));
 
     // Fuse back in bake mode: the fused cluster gets the state of the slot library (7.2).
     let start = Instant::now();
@@ -399,6 +407,7 @@ to = \"00000000000000a3.value\"
     assert!(cluster.slotted() && !fused.slotted() && fused.mode() == Mode::Bake);
     assert_eq!(fused.adopt(&mut cluster), 1);
     assert_eq!(value(&mut fused, "out"), "260.0");
+    assert!(gui(&mut fused).ends_with("slider\tSum\t260\t0\t1000"), "{}", gui(&mut fused));
     assert!(!slotted().build_slot(&toolchain, &mut fused).unwrap(), "a fused cluster has no slot");
 
     // A change of the signature changes the base, so the slot alone does not build.
