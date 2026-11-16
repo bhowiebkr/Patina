@@ -73,11 +73,17 @@ impl Number {
         ui.tabs("Pages", &mut self.page, &["Values", "Shape"]);
         ui.section("More", &mut self.more, |ui| ui.label("Hidden detail"));
         let wave: Vec<f32> = (0..400).map(|i| (i as f32 * 0.2).sin() * (1.0 - i as f32 / 400.0)).collect();
-        ui.plot("Wave plot", &wave[..100], -1.0..=1.0);
+        ui.plot_axes("Wave plot", &wave[..100], -1.0..=1.0, 0.0..=99.0, ["ms", ""]);
+        let dots: Vec<[f32; 2]> = (0..40).map(|i| [i as f32, (i as f32 * 0.7).sin()]).collect();
+        ui.scatter("Scatter", &dots, 0.0..=39.0, -1.0..=1.0, ["s", "V"]);
         ui.waveform_trim("Waveform", &wave, Some(0.3), &mut self.trim);
         let added = self.added.to_string();
         ui.table("Values", &["Name", "Value"], &["added", added.as_str(), "points", "3"], &mut self.row);
-        ui.curve("Curve", &mut self.points);
+        let mut levels = [0.0_f32; 32];
+        for v in &wave {
+            levels[((v.abs() * 31.0) as usize).min(31)] += 1.0;
+        }
+        ui.curve_histogram("Curve", &mut self.points, &levels);
         let pixels: Vec<u8> = (0..256_u32).flat_map(|i| [(i % 32 * 8) as u8, 96, (255 - i % 32 * 8) as u8, 255]).collect();
         ui.image("Image", [32, 8], &pixels);
     }

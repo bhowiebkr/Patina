@@ -576,6 +576,11 @@ fn broken() -> u32 {
     const trimStart = () => document.querySelector<HTMLElement>(`${gui} [aria-label="Waveform trim start"]`);
     trimStart()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     await until('the moved trim handle', RUN_MS, () => trimStart()?.getAttribute('aria-valuenow') === '0.05');
+    const axisX = [...document.querySelectorAll(`${gui} .gui-axis-x span`)].map((s) => s.textContent).join(', ');
+    if (axisX !== '0 ms, 99 ms, 0 s, 39 s') throw new Error(`the x axes of the plots show ${axisX}`);
+    const dots = document.querySelector(`${gui} .dots`)?.getAttribute('d')?.split('M').length ?? 0;
+    if (dots !== 41) throw new Error(`the scatter plot has ${dots - 1} dots, not 40`);
+    if (!document.querySelector(`${gui} .gui-curve .histogram`)) throw new Error('the curve has no histogram');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

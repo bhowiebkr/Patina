@@ -61,20 +61,42 @@ function linePath(ys: number[], width: number): string {
   return path;
 }
 
-export function Plot({ w }: { w: Of<'plot'> }) {
+const fmt = (v: number, unit: string) => `${Number(v.toPrecision(4))}${unit ? ` ${unit}` : ''}`;
+
+/** A line plot, or the dots of a scatter plot. The axes label the ranges with their units. */
+export function Plot({ w }: { w: Of<'plot'> | Of<'scatter'> }) {
   const span = w.high - w.low || 1;
   // A margin of 8% keeps the peaks of the trace inside the box.
-  const ys = w.values.map((v) => 0.08 + (0.84 * (w.high - v)) / span);
+  const y = (v: number) => 0.08 + (0.84 * (w.high - v)) / span;
+  const [x0, x1] = w.axes?.x ?? [0, 1];
+  const [xUnit, yUnit] = w.axes?.units ?? ['', ''];
+  let trace = <path className="trace" d={linePath(w.values.map(y), 1)} />;
+  let label = `${w.values.length} values`;
+  if (w.kind === 'scatter') {
+    let d = '';
+    for (let i = 0; i + 1 < w.values.length; i += 2) {
+      const [vx, vy] = [w.values[i], w.values[i + 1]];
+      if (Number.isFinite(vx) && Number.isFinite(vy)) d += `M${0.04 + (0.92 * (vx - x0)) / (x1 - x0 || 1)} ${y(vy)}h0`;
+    }
+    trace = <path className="dots" d={d} />;
+    label = `${Math.floor(w.values.length / 2)} points`;
+  }
   return (
     <Titled text={w.text}>
       <div className="gui-chart">
-        <svg viewBox="0 0 1 1" preserveAspectRatio="none" role="img" aria-label={`${w.text || 'Plot'}: ${w.values.length} values from ${w.low} to ${w.high}`}>
+        <svg viewBox="0 0 1 1" preserveAspectRatio="none" role="img" aria-label={`${w.text || 'Plot'}: ${label} from ${fmt(w.low, yUnit)} to ${fmt(w.high, yUnit)}`}>
           <path className="grid" d="M0 0.5H1" />
-          <path className="trace" d={linePath(ys, 1)} />
+          {trace}
         </svg>
-        <span className="axis top">{w.high}</span>
-        <span className="axis bottom">{w.low}</span>
+        <span className="axis top">{fmt(w.high, yUnit)}</span>
+        <span className="axis bottom">{fmt(w.low, yUnit)}</span>
       </div>
+      {w.axes && (
+        <div className="gui-axis-x">
+          <span>{fmt(x0, xUnit)}</span>
+          <span>{fmt(x1, xUnit)}</span>
+        </div>
+      )}
     </Titled>
   );
 }
@@ -260,6 +282,9 @@ export function Curve({ w, send, disabled }: Input<'curve'>) {
     }
   };
   const shown = selected !== null ? points[selected] : undefined;
+  const bins = w.histogram.length;
+  const tallest = Math.max(...w.histogram, 0) || 1;
+  const bars = w.histogram.map((v, i) => `M${px(i / bins)} ${py(0)}V${py(v / tallest)}H${px((i + 1) / bins)}V${py(0)}Z`).join('');
   return (
     <Titled text={w.text}>
       <svg
@@ -273,6 +298,7 @@ export function Curve({ w, send, disabled }: Input<'curve'>) {
         onPointerUp={disabled ? undefined : up}
         onPointerCancel={() => setDrag(null)}
       >
+        {bins > 0 && <path className="histogram" d={bars} />}
         <path className="grid" d={`M${CW / 2} 0V${CH}M0 ${CH / 2}H${CW}`} />
         <polyline className="trace" points={points.map(([x, y]) => `${px(x)},${py(y)}`).join(' ')} />
         {points.map(([x, y], i) => (

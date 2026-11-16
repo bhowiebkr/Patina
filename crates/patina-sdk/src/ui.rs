@@ -10,6 +10,10 @@ const MAX_PLOT: usize = 1024;
 const WAVE_COLUMNS: usize = 256;
 /// The most points of a curve.
 const MAX_CURVE: usize = 256;
+/// The most bars of a histogram. A longer histogram sends the sum of parts.
+const MAX_BINS: usize = 256;
+/// The most points of a scatter plot. A longer list sends points at equal steps.
+const MAX_SCATTER: usize = 1024;
 /// The most pixels of an image, so that the widget lines stay fast to send.
 const MAX_PIXELS: u32 = 256 * 256;
 
@@ -353,6 +357,30 @@ impl Ui {
         );
     }
 
+    /// Shows `values` as a line on labeled axes. `range` is the y axis, `x` is the x axis and
+    /// `units` are the units of x and y.
+    pub fn plot_axes(&mut self, text: &str, values: &[f32], range: RangeInclusive<f32>, x: RangeInclusive<f32>, units: [&str; 2]) {
+        self.plot(text, values, range);
+        self.axes(x, units);
+    }
+
+    /// Shows `points` as dots on labeled axes, with the ranges `x` and `y` and the `units` of x
+    /// and y.
+    pub fn scatter(&mut self, text: &str, points: &[[f32; 2]], x: RangeInclusive<f32>, y: RangeInclusive<f32>, units: [&str; 2]) {
+        self.push("scatter", text);
+        let _ = write!(self.tree, "\t{}\t{}\t", y.start(), y.end());
+        let step = points.len().div_ceil(MAX_SCATTER).max(1);
+        push_numbers(&mut self.tree, points.iter().step_by(step).flatten().copied());
+        self.axes(x, units);
+    }
+
+    fn axes(&mut self, x: RangeInclusive<f32>, [x_unit, y_unit]: [&str; 2]) {
+        let _ = write!(self.tree, "\t{}\t{}\t", x.start(), x.end());
+        push_clean(&mut self.tree, x_unit);
+        self.tree.push('\t');
+        push_clean(&mut self.tree, y_unit);
+    }
+
     /// Shows audio `samples` from -1 to 1. `playhead` is a position from 0 (the start) to 1 (the
     /// end).
     pub fn waveform(&mut self, text: &str, samples: &[f32], playhead: Option<f32>) {
@@ -401,7 +429,15 @@ impl Ui {
     /// Shows a curve editor for `points`, with x and y from 0 to 1. The user can move, add and
     /// remove points. After a change, the points are in the order of x.
     pub fn curve(&mut self, text: &str, points: &mut Vec<[f32; 2]>) -> Response {
+        self.curve_histogram(text, points, &[])
+    }
+
+    /// Shows a curve editor with the bars of `histogram` behind the curve, for example the counts
+    /// of the values of an image. The editor scales the bars to the highest bar.
+    pub fn curve_histogram(&mut self, text: &str, points: &mut Vec<[f32; 2]>, histogram: &[f32]) -> Response {
         let edit = self.push("curve", text).and_then(curve_edit);
+        self.tree.push('\t');
+        push_numbers(&mut self.tree, parts(histogram, histogram.len().min(MAX_BINS)).map(|part| part.iter().sum()));
         for [x, y] in points.iter() {
             let _ = write!(self.tree, "\t{x} {y}");
         }
@@ -621,6 +657,27 @@ mod tests {
     }
 
     #[test]
+    fn axes_a_scatter_plot_and_a_histogram_write_their_lines() {
+        let mut points = vec![[0.5, 0.5]];
+        let mut ui = Ui::new(0, "");
+        ui.plot_axes("Response", &[1.0, 2.0], -1.0..=2.0, 20.0..=20000.0, ["Hz", "d\tB"]);
+        ui.scatter("Dots", &[[1.0, 2.0], [3.0, 4.0]], 0.0..=4.0, 0.0..=5.0, ["s", ""]);
+        ui.curve_histogram("Levels", &mut points, &[1.0, 2.0, 3.0]);
+        let lines: Vec<_> = ui.tree().lines().collect();
+        assert_eq!(lines, ["plot\tResponse\t-1\t2\t1 2\t20\t20000\tHz\td B", "scatter\tDots\t0\t5\t1 2 3 4\t0\t4\ts\t", "curve\tLevels\t1 2 3\t0.5 0.5"]);
+
+        // A long histogram keeps its total, and a long scatter plot sends points at equal steps.
+        let (bars, dots) = (vec![1.0; 1000], vec![[0.0, 0.0]; 3000]);
+        let mut ui = Ui::new(0, "");
+        ui.curve_histogram("Long", &mut points, &bars);
+        ui.scatter("Long", &dots, 0.0..=1.0, 0.0..=1.0, ["", ""]);
+        let lines: Vec<Vec<&str>> = ui.tree().lines().map(|l| l.split('\t').collect()).collect();
+        let total: f32 = lines[0][2].split(' ').map(|v| v.parse::<f32>().unwrap()).sum();
+        assert_eq!((lines[0][2].split(' ').count(), total), (MAX_BINS, 1000.0));
+        assert_eq!(lines[1][4].split(' ').count(), 2 * 1000);
+    }
+
+    #[test]
     fn a_trim_event_sets_a_sorted_range_in_the_limits() {
         let (mut trim, mut bad) = ([0.2_f32, 0.8], [f32::NAN, 0.5]);
         let mut ui = Ui::new(0, "0 0.9 -1\n1 x 0.5");
@@ -683,7 +740,7 @@ mod tests {
         ui.image("Bad", [2, 1], &[0; 4]);
         assert_eq!((color, row, points), ([0, 255, 128], Some(1), vec![[0.0, 0.0], [1.0, 0.0]]));
         let lines: Vec<_> = ui.tree().lines().collect();
-        assert_eq!(lines[..6], ["color\tTint\t#ff0010", "plot\tLevel\t0\t2\t0 1.5 NaN", "table\tNotes\t2\t\tNote\tHz\tA\t440\tC", "curve\tShape\t0.5 0.5\t0 0", "color\tBad\t#00ff80", "table\tEmpty\t0\t1\tx"]);
+        assert_eq!(lines[..6], ["color\tTint\t#ff0010", "plot\tLevel\t0\t2\t0 1.5 NaN", "table\tNotes\t2\t\tNote\tHz\tA\t440\tC", "curve\tShape\t\t0.5 0.5\t0 0", "color\tBad\t#00ff80", "table\tEmpty\t0\t1\tx"]);
         assert_eq!(lines[7..], ["waveform\tWave\t1\t0 0 -0.5 -0.5 1 1 inf -inf", "image\tDot\t1\t1\tAQID/w==", "image\tBad\t0\t0\t"]);
 
         // A long plot line keeps its peak, and a long waveform has a fixed number of columns.

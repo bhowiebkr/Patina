@@ -280,6 +280,7 @@ export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }
           case 'color':
             return <ColorPicker key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'plot':
+          case 'scatter':
             return <Plot key={w.index} w={w} />;
           case 'waveform':
             return <Waveform key={w.index} w={w} send={send(w.index)} disabled={disabled} />;

@@ -64,12 +64,12 @@ test('value widgets read their data, and a bad line keeps its index', () => {
     'color\tTint\t#ff0010',
     'plot\tLevel\t0\t2\t0 1.5 NaN',
     'table\tNotes\t2\t1\tNote\tHz\tA\t440\tC',
-    'curve\tShape\t0.5 0.5\t2 -1',
+    'curve\tShape\t\t0.5 0.5\t2 -1',
     'waveform\tWave\t1\t0 0 -0.5 0.5 inf -inf',
     'image\tDot\t1\t1\tAQID/w==',
     'color\tBad\tred',
     'image\tBad\t2\t1\tAQID/w==',
-    'curve\tBad\t0.5',
+    'curve\tBad\t\t0.5',
     'waveform\tBad\t2\t',
     'table\tBad\t1\tx\tA',
     'waveform\tTrim\t\t0 0\t0.25 1',
@@ -78,13 +78,27 @@ test('value widgets read their data, and a bad line keeps its index', () => {
   ].join('\n');
   assert.deepEqual(parseTree(tree), [
     { kind: 'color', index: 0, text: 'Tint', value: '#ff0010' },
-    { kind: 'plot', index: 1, text: 'Level', low: 0, high: 2, values: [0, 1.5, NaN] },
+    { kind: 'plot', index: 1, text: 'Level', low: 0, high: 2, values: [0, 1.5, NaN], axes: null },
     { kind: 'table', index: 2, text: 'Notes', headings: ['Note', 'Hz'], rows: [['A', '440'], ['C']], selected: 1 },
-    { kind: 'curve', index: 3, text: 'Shape', points: [[0.5, 0.5], [1, 0]] },
+    { kind: 'curve', index: 3, text: 'Shape', points: [[0.5, 0.5], [1, 0]], histogram: [] },
     { kind: 'waveform', index: 4, text: 'Wave', playhead: 1, columns: [[0, 0], [-0.5, 0.5], [NaN, NaN]], trim: null },
     { kind: 'image', index: 5, text: 'Dot', width: 1, height: 1, rgba: 'AQID/w==' },
     { kind: 'waveform', index: 11, text: 'Trim', playhead: null, columns: [[0, 0]], trim: [0.25, 1] },
     { kind: 'image', index: 13, text: 'Empty', width: 0, height: 0, rgba: '' },
+  ]);
+});
+
+test('a plot can have axes, a scatter plot has points, and a curve can have a histogram', () => {
+  const tree = [
+    'plot\tResponse\t-1\t2\t1 2\t20\t20000\tHz\tdB',
+    'scatter\tDots\t0\t5\t1 2 3 4\t0\t4\ts\t',
+    'curve\tLevels\t1 -2 NaN 3\t0.5 0.5',
+    'plot\tBad axis\t0\t1\t\tx\t1\t\t',
+  ].join('\n');
+  assert.deepEqual(parseTree(tree), [
+    { kind: 'plot', index: 0, text: 'Response', low: -1, high: 2, values: [1, 2], axes: { x: [20, 20000], units: ['Hz', 'dB'] } },
+    { kind: 'scatter', index: 1, text: 'Dots', low: 0, high: 5, values: [1, 2, 3, 4], axes: { x: [0, 4], units: ['s', ''] } },
+    { kind: 'curve', index: 2, text: 'Levels', points: [[0.5, 0.5]], histogram: [1, 0, 0, 3] },
   ]);
 });
 

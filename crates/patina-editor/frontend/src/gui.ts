@@ -15,11 +15,18 @@ export type Widget =
   | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[] }
   | { kind: 'viewport'; index: number; text: string; height: number }
   | { kind: 'color'; index: number; text: string; value: string }
-  | { kind: 'plot'; index: number; text: string; low: number; high: number; values: number[] }
+  | { kind: 'plot'; index: number; text: string; low: number; high: number; values: number[]; axes: Axes | null }
+  | { kind: 'scatter'; index: number; text: string; low: number; high: number; values: number[]; axes: Axes | null }
   | { kind: 'waveform'; index: number; text: string; playhead: number | null; columns: [number, number][]; trim: [number, number] | null }
   | { kind: 'table'; index: number; text: string; headings: string[]; rows: string[][]; selected: number | null }
-  | { kind: 'curve'; index: number; text: string; points: [number, number][] }
+  | { kind: 'curve'; index: number; text: string; points: [number, number][]; histogram: number[] }
   | { kind: 'image'; index: number; text: string; width: number; height: number; rgba: string };
+
+/** The x range and the units of x and y of a plot. */
+export interface Axes {
+  x: [number, number];
+  units: [string, string];
+}
 
 /** A shape on a canvas, in pixels from its top left corner. */
 export type Shape =
@@ -36,6 +43,7 @@ const MAX_VALUES = 2048;
 const MAX_ROWS = 1000;
 const MAX_COLUMNS = 32;
 const MAX_POINTS = 256;
+const MAX_BINS = 256;
 const MAX_PIXELS = 256 * 256;
 // The deepest section in a section. A deeper section shows its widgets in its parent.
 const MAX_DEPTH = 8;
@@ -63,9 +71,11 @@ function numbers(field: string | undefined, max: number): number[] {
 /** Reads a value widget line, or null when it is bad. */
 function parseValue(kind: string, index: number, text: string, rest: string[]): Widget | null {
   if (kind === 'color') return /^#[0-9a-f]{6}$/.test(rest[0] ?? '') ? { kind, index, text, value: rest[0] } : null;
-  if (kind === 'plot') {
-    const [low, high] = rest.map(Number);
-    return Number.isFinite(low) && Number.isFinite(high) ? { kind, index, text, low, high, values: numbers(rest[2], MAX_VALUES) } : null;
+  if (kind === 'plot' || kind === 'scatter') {
+    const [low, high, , xLow, xHigh] = rest.map(Number);
+    const axes: Axes | null = rest.length > 3 ? { x: [xLow, xHigh], units: [rest[5] ?? '', rest[6] ?? ''] } : null;
+    if (![low, high, ...(axes?.x ?? [])].every(Number.isFinite)) return null;
+    return { kind, index, text, low, high, values: numbers(rest[2], MAX_VALUES), axes };
   }
   if (kind === 'waveform') {
     const at = rest[0] ? Number(rest[0]) : null;
@@ -85,9 +95,11 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
     return { kind, index, text, headings: rest.slice(2, 2 + count), rows, selected };
   }
   if (kind === 'curve') {
-    const points = rest.slice(0, MAX_POINTS).map((f) => numbers(f, 2));
+    const points = rest.slice(1, 1 + MAX_POINTS).map((f) => numbers(f, 2));
     if (!points.every((p) => p.length === 2 && p.every(Number.isFinite))) return null;
-    return { kind, index, text, points: points.map(([x, y]): [number, number] => [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)]) };
+    // A bar that is not a positive number is empty.
+    const histogram = numbers(rest[0], MAX_BINS).map((v) => (v > 0 && Number.isFinite(v) ? v : 0));
+    return { kind, index, text, points: points.map(([x, y]): [number, number] => [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)]), histogram };
   }
   if (kind === 'image') {
     const [width, height] = rest.map(Number);
