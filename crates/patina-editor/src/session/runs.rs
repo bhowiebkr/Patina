@@ -2,7 +2,7 @@
 
 use patina_engine::Edit;
 use serde::Serialize;
-use tauri::State;
+use tauri::{State, WebviewWindow};
 
 use super::{Editor, View};
 use crate::engine::{self, GuiInput, Job};
@@ -86,12 +86,12 @@ pub struct ViewFrame {
 /// Gives user input to view `name`, or asks for its widget lines when `events` is empty (15.8).
 /// The first input builds the view. Its writes go through the edit path, so undo works.
 #[tauri::command(async)]
-pub fn view_ui(editor: State<'_, Editor>, name: String, instance: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
+pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, instance: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
     let (root, graph) = editor.with(|session| match session.trusted {
         true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &engine::lock(&editor.shared.reports), &selected))),
         false => Err("Trust the project before you open a view.".to_owned()),
     })?;
-    let frame = editor.ask(|reply| Job::View(Box::new(ViewInput { root, name, instance, events, graph, reply })))?;
+    let frame = editor.window_ask(window.label(), |reply| Job::View(Box::new(ViewInput { root, name, instance, events, graph, reply })))?;
     let view = match frame.edits.is_empty() {
         true => None,
         // The writes of one call are one step of undo.
@@ -103,5 +103,5 @@ pub fn view_ui(editor: State<'_, Editor>, name: String, instance: String, events
 /// Drops the view instance of the dock slot `instance`, so the next input makes a new state (15.8).
 #[tauri::command(async)]
 pub fn close_view(editor: State<'_, Editor>, instance: String) -> Result<(), String> {
-    editor.engine.send(Job::DropView(instance)).map_err(super::stopped)
+    editor.ask(|reply| Job::DropView(instance, reply))
 }

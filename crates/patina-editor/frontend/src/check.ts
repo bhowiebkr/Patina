@@ -4,8 +4,9 @@
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from './api';
 import { bufferOf, flushCode, openFile, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
-import { flushLayout, savedViewport } from './Dock';
-import { layoutText, parseLayout } from './layout';
+import { emit, listen } from '@tauri-apps/api/event';
+import { changeLayout, flushLayout, savedViewport } from './Dock';
+import { floatPanel, layoutText, parseLayout } from './layout';
 
 const BUILD_MS = 150_000;
 const RUN_MS = 20_000;
@@ -646,6 +647,21 @@ fn broken() -> u32 {
     await until('the tab of a second instance', RUN_MS, () => !!second());
     await until('the widgets of the second instance', BUILD_MS, () => viewText().startsWith('value '));
     steps.push('a second instance of a view');
+
+    // A float window (15.8): the second instance opens in its own window, and Dock brings it back.
+    let ready = false;
+    const stopReady = await listen<string>('float-ready', (e) => (ready ||= e.payload === 'view2'));
+    try {
+      changeLayout((l) => floatPanel(l, 'view2'));
+      await until('the tab of the float view to go', RUN_MS, () => !second());
+      await until('the float window', BUILD_MS, () => ready);
+    } finally {
+      stopReady();
+    }
+    await emit('float-dock', 'view2');
+    await until('the docked tab of the float view', RUN_MS, () => !!second());
+    await until('the widgets of the docked view', BUILD_MS, () => viewText().startsWith('value '));
+    steps.push('a float window of a view');
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');

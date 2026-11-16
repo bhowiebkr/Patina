@@ -8,6 +8,7 @@
 mod data;
 mod dialog;
 mod engine;
+mod floats;
 mod output;
 mod session;
 #[cfg(windows)]
@@ -24,7 +25,7 @@ use tauri::http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE};
 use tauri::http::{Request, Response, StatusCode};
 #[cfg(not(windows))]
 use tauri::window::Color;
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry};
 
 use data::Data;
 use session::Editor;
@@ -128,18 +129,21 @@ fn serve(request: &Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
     }
 }
 
-fn build_window(app: &AppHandle, webview_dir: PathBuf, check: bool) -> tauri::Result<WebviewWindow> {
-    let url = format!("{ORIGIN}/index.html").parse().expect("the page URL is valid");
-    let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::CustomProtocol(url))
-        .title("Patina")
-        .data_directory(webview_dir)
-        .inner_size(1440.0, 900.0);
+/// The URL of the page of the editor.
+fn page_url() -> Url {
+    format!("{ORIGIN}/index.html").parse().expect("the page URL is valid")
+}
+
+/// A window of the editor: the editor window or a float window (15.8). The self-check keeps it
+/// hidden.
+fn window<'a>(app: &'a AppHandle, label: &str, url: Url, webview_dir: PathBuf, check: bool) -> WebviewWindowBuilder<'a, Wry, AppHandle> {
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::CustomProtocol(url)).data_directory(webview_dir);
     // A viewport draws on the window under the web view, so the web view is transparent (15.8).
     #[cfg(windows)]
     let builder = builder.transparent(true);
     #[cfg(not(windows))]
     let builder = builder.background_color(Color(0x14, 0x14, 0x14, 0xff));
-    let builder = if check {
+    if check {
         // Off-screen and not focused: the check must not take the desktop (AGENTS.md).
         builder
             .position(-20000.0, 0.0)
@@ -149,9 +153,8 @@ fn build_window(app: &AppHandle, webview_dir: PathBuf, check: bool) -> tauri::Re
             .decorations(false)
             .additional_browser_args(CHECK_BROWSER_ARGS)
     } else {
-        builder.maximized(true)
-    };
-    builder.build()
+        builder
+    }
 }
 
 /// The native handle of the editor window, for a viewport (15.8).
@@ -223,6 +226,7 @@ fn main() {
             session::new_view,
             session::view_ui,
             session::close_view,
+            floats::set_floats,
             window_handle,
             session::add_crate,
             session::import_folders,
@@ -255,6 +259,14 @@ fn main() {
             dialog::pick_folder,
         ])
         .on_window_event(|window, event| {
+            floats::window_event(window, event);
+            if window.label() != "main" {
+                return;
+            }
+            // The float windows close with the editor window.
+            if let WindowEvent::Destroyed = event {
+                window.app_handle().exit(0);
+            }
             // The page asks **Save**, **Discard** or **Cancel**, then calls `quit` (15.10).
             if let WindowEvent::CloseRequested { api, .. } = event
                 && window.state::<Editor>().dirty()
@@ -275,7 +287,11 @@ fn main() {
             }
             let is_check = check.is_some();
             app.manage(Editor::new(data, engine, check));
-            build_window(app.handle(), webview_dir, is_check)?;
+            let main = window(app.handle(), "main", page_url(), webview_dir, is_check).title("Patina").inner_size(1440.0, 900.0);
+            match is_check {
+                true => main.build()?,
+                false => main.maximized(true).build()?,
+            };
             Ok(())
         })
         .run(tauri::generate_context!())

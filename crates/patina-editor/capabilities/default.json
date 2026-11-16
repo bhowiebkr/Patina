@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "The commands and events of the editor window.",
-  "windows": ["main"],
+  "description": "The commands and events of the editor window and the float windows.",
+  "windows": ["main", "float-*"],
   "permissions": ["core:default"]
 }

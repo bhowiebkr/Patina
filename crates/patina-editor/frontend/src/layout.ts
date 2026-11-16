@@ -33,8 +33,18 @@ export interface Viewport {
   zoom: number;
 }
 
+/** The place and the size of a float window on the screen, in logical pixels. */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface Layout {
   areas: Record<AreaId, Area>;
+  /** The view slots in float windows (15.8), with the last place of each window. */
+  floats: Partial<Record<ViewSlot, Rect | null>>;
   /** The pan and zoom of each graph, by the graph name. */
   viewports: Record<string, Viewport>;
   /** The view folder of each open view slot, for example `views/scene`. */
@@ -49,6 +59,7 @@ export function defaultLayout(): Layout {
       right: { tabs: ['inspector'], active: 'inspector', size: 360 },
       bottom: { tabs: ['logs', 'output'], active: 'output', size: 200 },
     },
+    floats: {},
     viewports: {},
     views: {},
   };
@@ -62,18 +73,45 @@ const withArea = (layout: Layout, id: AreaId, area: Area): Layout => ({ ...layou
 
 const isSlot = (v: unknown): v is ViewSlot => VIEW_SLOTS.includes(v as ViewSlot);
 
+/** True when the panel shows: in a dock area or in a float window. */
+export const isOpen = (layout: Layout, panel: PanelId) => areaOf(layout, panel) !== null || (isSlot(panel) && panel in layout.floats);
+
+/** The layout without the float window of `slot`. */
+function unfloat(layout: Layout, slot: ViewSlot): Layout {
+  if (!(slot in layout.floats)) return layout;
+  const floats = { ...layout.floats };
+  delete floats[slot];
+  return { ...layout, floats };
+}
+
 /** Closes the panel. A closed view slot drops its view instance. */
 export function closePanel(layout: Layout, panel: PanelId): Layout {
   const out = removeTab(layout, panel);
-  if (!isSlot(panel) || !(panel in out.views)) return out;
+  if (!isSlot(panel)) return out;
   const views = { ...out.views };
   delete views[panel];
-  return { ...out, views };
+  return { ...unfloat(out, panel), views };
+}
+
+/** Moves a view slot that shows a view out of the dock, into its own window (15.8). */
+export function floatPanel(layout: Layout, slot: ViewSlot, rect: Rect | null = null): Layout {
+  if (!layout.views[slot]) return layout;
+  return { ...removeTab(layout, slot), floats: { ...layout.floats, [slot]: rect } };
+}
+
+/** Moves a float view slot back into its default dock area. */
+export function dockPanel(layout: Layout, slot: ViewSlot): Layout {
+  return slot in layout.floats ? movePanel(unfloat(layout, slot), slot, HOME[slot]) : layout;
+}
+
+/** Keeps the last place of a float window. */
+export function moveFloat(layout: Layout, slot: ViewSlot, rect: Rect): Layout {
+  return slot in layout.floats ? { ...layout, floats: { ...layout.floats, [slot]: rect } } : layout;
 }
 
 /** Opens a new instance of view `name` in the first closed view slot. All slots open: no change. */
 export function openView(layout: Layout, name: string): Layout {
-  const slot = VIEW_SLOTS.find((s) => !areaOf(layout, s));
+  const slot = VIEW_SLOTS.find((s) => !isOpen(layout, s));
   return slot ? openPanel({ ...layout, views: { ...layout.views, [slot]: name } }, slot) : layout;
 }
 
@@ -165,8 +203,17 @@ export function parseLayout(text: string | null): Layout {
       layout.viewports[graph] = { x: v.x, y: v.y, zoom: v.zoom };
     }
   }
+  for (const [slot, r] of Object.entries(isRaw(raw.floats) ? raw.floats : {})) {
+    if (!isSlot(slot) || seen.has(slot)) continue;
+    if (r === null) layout.floats[slot] = null;
+    else if (isRaw(r) && finite(r.x) && finite(r.y) && finite(r.w) && finite(r.h)) layout.floats[slot] = { x: r.x, y: r.y, w: clampSize(r.w), h: clampSize(r.h) };
+    else continue;
+    seen.add(slot);
+  }
   for (const [slot, name] of Object.entries(isRaw(raw.views) ? raw.views : {})) {
     if (isSlot(slot) && typeof name === 'string' && seen.has(slot)) layout.views[slot] = name;
   }
+  // A float window without a view has nothing to show.
+  for (const slot of VIEW_SLOTS) if (!layout.views[slot]) delete layout.floats[slot];
   return layout;
 }

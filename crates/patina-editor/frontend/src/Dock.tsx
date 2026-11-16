@@ -8,6 +8,8 @@ import {
   areaOf,
   closePanel,
   defaultLayout,
+  floatPanel,
+  isOpen,
   layoutText,
   MAX_SIZE,
   MIN_SIZE,
@@ -45,9 +47,24 @@ const subscribe = (f: () => void) => {
 const getLayout = () => state.layout;
 const getSerial = () => state.serial;
 
+let floatKey = '';
+
 function set(next: typeof state) {
   state = next;
   for (const f of listeners) f();
+  // The windows follow the float slots of the layout (15.8). A move of a window changes no window.
+  const { layout } = state;
+  const floats = VIEW_SLOTS.filter((s) => s in layout.floats).map((s) => ({ slot: s, name: layout.views[s] ?? '', title: viewTitle(layout, s), rect: layout.floats[s] ?? null }));
+  const key = floats.map((f) => `${f.slot} ${f.name} ${f.title}`).join('\n');
+  if (key === floatKey) return;
+  floatKey = key;
+  api.setFloats(floats).catch(reportError);
+}
+
+/** Closes the float windows and forgets the layout, when the project closes. */
+export async function endLayout() {
+  await flushLayout();
+  set({ id: '', serial: -1, layout: defaultLayout() });
 }
 
 /** Changes the layout of the open project and saves it after a short time. */
@@ -156,7 +173,7 @@ export const below = (el: HTMLElement) => {
 export function ViewsMenu({ views }: { views: string[] }) {
   const layout = useSyncExternalStore(subscribe, getLayout);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
-  const full = VIEW_SLOTS.every((s) => areaOf(layout, s));
+  const full = VIEW_SLOTS.every((s) => isOpen(layout, s));
   const items: Item[] = PANELS.filter((p) => !VIEW_SLOTS.includes(p as ViewSlot)).map((p) => ({
     label: TITLES[p],
     checked: areaOf(layout, p) !== null,
@@ -165,7 +182,7 @@ export function ViewsMenu({ views }: { views: string[] }) {
   if (views.length > 0) items.push('line');
   for (const name of views) {
     // Each click opens a new instance (15.8).
-    const open = VIEW_SLOTS.some((s) => layout.views[s] === name && areaOf(layout, s));
+    const open = VIEW_SLOTS.some((s) => layout.views[s] === name && isOpen(layout, s));
     items.push({ label: name, checked: open, disabled: full, run: () => changeLayout((l) => openView(l, name)) });
   }
   items.push('line', { label: 'Reset layout', run: () => changeLayout(resetLayout) });
@@ -261,6 +278,7 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
       disabled: to === id,
       run: () => changeLayout((l) => movePanel(l, panel, to)),
     })),
+    ...(layout.views[panel as ViewSlot] ? [{ label: 'Float in a window', run: () => changeLayout((l) => floatPanel(l, panel as ViewSlot)) }] : []),
     'line',
     { label: 'Close', run: () => changeLayout((l) => closePanel(l, panel)) },
   ];
@@ -286,7 +304,14 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
               // A change of the page in dragstart can stop the drag, so the drop zones show after it.
               setTimeout(() => onDrag(true));
             }}
-            onDragEnd={() => onDrag(false)}
+            onDragEnd={(e) => {
+              onDrag(false);
+              // A view tab that drops out of the window floats there (15.2).
+              const out = e.clientX < 0 || e.clientY < 0 || e.clientX > innerWidth || e.clientY > innerHeight;
+              if (out && e.dataTransfer.dropEffect === 'none' && layout.views[t as ViewSlot]) {
+                changeLayout((l) => floatPanel(l, t as ViewSlot, { x: e.screenX - 40, y: e.screenY - 10, w: 480, h: 640 }));
+              }
+            }}
             onDrop={(e) => drop(e, t)}
           >
             {panels[t].title ?? TITLES[t]}

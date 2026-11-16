@@ -16,8 +16,8 @@ change the graph (spec 15.8).
 
 1. Version 1 of views: the `#[view]` ABI, the `Graph` handle, the build of a view and the
    **View** panel. This part works.
-2. More instances of a view, and float windows. Up to four instances in dock panels work.
-   Float windows do not.
+2. More instances of a view, and float windows. This part works. The self-check floats a view,
+   waits for its window and docks it again. Nobody looked at a float window on screen yet.
 3. More edits from a view: add a node, connect a wire, start a trigger and select nodes. Add,
    remove, connect, disconnect and select work. Trigger waits for the event domain (9.4).
 4. Typed outputs through type crates (15.8 rule 3).
@@ -57,7 +57,7 @@ change the graph (spec 15.8).
 
 ### Known limits
 
-- The limits of version 1 are in spec 15.8: four instances, no float window, text outputs only,
+- The limits of version 1 are in spec 15.8: four instances, text outputs only,
   no trigger, one viewport on Windows only, and no bake build.
 - Nobody looked at a viewport in the editor yet. The self-check keeps its window hidden, so it
   cannot show the surface. The colors, the resize and the scroll clip need a check on screen.
@@ -867,7 +867,7 @@ To run the editor from a checkout:
 - The content security policy was not tested with a page that breaks it.
 - The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
-- These parts of spec 15 are not in the editor yet: float windows, view tabs in the center
+- These parts of spec 15 are not in the editor yet: view tabs in the center
   (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
 - The palette of a drag from a pin compares the type text (15.2). Two paths of one type, for
   example `String` and `std::string::String`, do not match.

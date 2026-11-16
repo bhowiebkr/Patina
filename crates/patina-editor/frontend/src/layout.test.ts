@@ -5,9 +5,13 @@ import { test } from 'node:test';
 import {
   closePanel,
   defaultLayout,
+  dockPanel,
+  floatPanel,
+  isOpen,
   layoutText,
   MAX_SIZE,
   MIN_SIZE,
+  moveFloat,
   movePanel,
   openPanel,
   openView,
@@ -74,4 +78,28 @@ test('sizes are clamped and reset keeps the pan and zoom', () => {
   assert.equal(l.areas.bottom.size, MIN_SIZE);
   assert.equal(resizeArea(l, 'bottom', MIN_SIZE), l);
   assert.deepEqual(resetLayout(l), { ...defaultLayout(), viewports: l.viewports });
+});
+
+test('a view slot floats, moves, docks and closes', () => {
+  const base = openView(defaultLayout(), 'views/scene');
+  assert.deepEqual(floatPanel(defaultLayout(), 'view').floats, {}, 'a slot without a view does not float');
+  let l = floatPanel(base, 'view');
+  assert.deepEqual(l.floats, { view: null });
+  assert.ok(isOpen(l, 'view') && !l.areas.right.tabs.includes('view'));
+  assert.deepEqual(openView(l, 'views/b').views, { view: 'views/scene', view2: 'views/b' }, 'a float slot is not free');
+  l = moveFloat(l, 'view', { x: 5, y: 6, w: 300, h: 200 });
+  assert.deepEqual(parseLayout(layoutText(l)).floats, { view: { x: 5, y: 6, w: 300, h: 200 } });
+  const docked = dockPanel(l, 'view');
+  assert.deepEqual(docked.floats, {});
+  assert.ok(docked.areas.right.tabs.includes('view'));
+  assert.equal(docked.views.view, 'views/scene');
+  const closed = closePanel(l, 'view');
+  assert.deepEqual([closed.floats, closed.views], [{}, {}]);
+});
+
+test('a bad float rect or a float without a view does not load', () => {
+  const text = (floats: unknown, views: unknown) => JSON.stringify({ version: 1, areas: {}, views, floats });
+  assert.deepEqual(parseLayout(text({ view: { x: 1 } }, { view: 'views/a' })).floats, {});
+  assert.deepEqual(parseLayout(text({ view: null }, {})).floats, {});
+  assert.deepEqual(parseLayout(text({ view: { x: 0, y: 0, w: 1, h: 99999 } }, { view: 'views/a' })).floats, { view: { x: 0, y: 0, w: MIN_SIZE, h: MAX_SIZE } });
 });

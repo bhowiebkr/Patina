@@ -9,7 +9,8 @@ import { runCheck } from './check';
 import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
 import type { Reveal } from './CodeTab';
 import { Confirm } from './Confirm';
-import { Dock, flushLayout, loadLayout, useLayoutSerial, ViewsMenu, type Panel } from './Dock';
+import { Dock, endLayout, flushLayout, loadLayout, useLayoutSerial, ViewsMenu, type Panel } from './Dock';
+import { useFloatHost } from './Floats';
 import { GraphView, useFit } from './GraphView';
 import { Inspector, type InspectorTab } from './Inspector';
 import type { PanelId, ViewSlot } from './layout';
@@ -192,7 +193,7 @@ export function App() {
   }, [view, saveAll, undo, redo]);
 
   const closeProject = useCallback(() => {
-    flushLayout()
+    endLayout()
       .then(() => api.closeProject())
       .then(() => {
         setView(null);
@@ -229,15 +230,17 @@ export function App() {
   }, []);
   const closeFull = useCallback(() => setFull(null), []);
   const selectNodes = useCallback((ids: string[]) => setFocus({ ids, n: 0 }), []);
+  const sendFloat = useFloatHost(view, selected, show, selectNodes);
 
   const onSelect = useCallback((ids: string[], wires: WireData[]) => {
     selected.current = ids;
+    sendFloat();
     setInspect((old) => {
       if (ids.length === 1) return { kind: 'node', id: ids[0] };
       if (ids.length === 0 && wires.length === 1) return { kind: 'wire', from: wires[0].from, to: wires[0].to };
       return old?.kind === 'type' || old?.kind === 'widget' || old?.kind === 'view' ? old : null;
     });
-  }, []);
+  }, [sendFloat]);
 
   if (!view) {
     if (settings) return <SettingsScreen onBack={closeSettings} />;

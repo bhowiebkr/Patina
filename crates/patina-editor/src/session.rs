@@ -30,6 +30,8 @@ pub struct Editor {
     /// The folder of the self-check (`--check`), or none in normal use.
     pub check: Option<PathBuf>,
     serial: AtomicU64,
+    /// The labels of the float windows that close. Their views get no more jobs (15.8).
+    closing: Mutex<Vec<String>>,
 }
 
 struct Session {
@@ -123,7 +125,7 @@ pub struct Recent {
 
 impl Editor {
     pub fn new(data: Data, (engine, shared): (Jobs, Arc<Shared>), check: Option<PathBuf>) -> Editor {
-        Editor { data, engine, shared, session: Mutex::new(None), check, serial: AtomicU64::new(0) }
+        Editor { data, engine, shared, session: Mutex::new(None), check, serial: AtomicU64::new(0), closing: Mutex::default() }
     }
 
     /// True when the open project or the Code tab has changes that are not saved.
@@ -153,6 +155,32 @@ impl Editor {
         let (reply, answer) = std::sync::mpsc::channel();
         self.engine.send(job(reply)).map_err(stopped)?;
         answer.recv().map_err(stopped)?
+    }
+
+    /// Sends a view job of window `label` and waits for its answer. A window that closes gets an
+    /// error. The check and the send hold one lock, so no job of a window comes after its drop.
+    fn window_ask<T>(&self, label: &str, job: impl FnOnce(Sender<Result<T, String>>) -> Job) -> Result<T, String> {
+        let (reply, answer) = std::sync::mpsc::channel();
+        {
+            let closing = crate::engine::lock(&self.closing);
+            if closing.iter().any(|l| l == label) {
+                return Err("The window closes.".to_owned());
+            }
+            self.engine.send(job(reply)).map_err(stopped)?;
+        }
+        answer.recv().map_err(stopped)?
+    }
+
+    /// Drops view instance `slot` of the float window `label` before the window closes, because
+    /// the surface of a viewport must go before its window (15.8).
+    pub fn drop_window_view(&self, label: &str, slot: &str) -> Result<(), String> {
+        crate::engine::lock(&self.closing).push(label.to_owned());
+        self.ask(|reply| Job::DropView(slot.to_owned(), reply))
+    }
+
+    /// Forgets a float window that closed, so a new window can use its label.
+    pub fn window_gone(&self, label: &str) {
+        crate::engine::lock(&self.closing).retain(|l| l != label);
     }
 
     fn open(&self, project: Project) -> Result<View, String> {

@@ -2,6 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { Rect } from './layout';
 
 export type Point = [number, number];
 
@@ -284,9 +285,10 @@ export const api = {
    */
   viewUi: (name: string, instance: string, events: string, selected: string[]) =>
     invoke<{ tree: string; view: View | null; select: string[] | null }>('view_ui', { name, instance, events, selected }),
-  /** Drops a view, so the next call builds it again. */
   /** Drops the view instance of a dock slot. */
   closeView: (instance: string) => invoke<void>('close_view', { instance }),
+  /** Opens a window for each float view slot and closes the other float windows (15.8). */
+  setFloats: (floats: { slot: string; name: string; title: string; rect: Rect | null }[]) => invoke<void>('set_floats', { floats }),
   /** The native handle of the editor window for a viewport, or 0 where a viewport cannot draw. */
   windowHandle: () => invoke<number>('window_handle'),
   /**

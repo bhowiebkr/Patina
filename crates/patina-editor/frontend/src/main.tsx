@@ -9,6 +9,7 @@ import './dock.css';
 import './canvas.css';
 import { App } from './App';
 import { reportError } from './api';
+import { FloatView } from './Floats';
 
 window.addEventListener('error', (e) => {
   // Monaco (automaticLayout) makes the browser defer a resize notice to the next frame. That is not a fault.
@@ -16,10 +17,18 @@ window.addEventListener('error', (e) => {
 });
 window.addEventListener('unhandledrejection', (e) => reportError(e.reason));
 
+// A float window (15.8) opens this page with the view slot and the view name in the query.
+const params = new URLSearchParams(location.search);
+const float = params.get('float');
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ReactFlowProvider>
-      <App />
-    </ReactFlowProvider>
+    {float ? (
+      <FloatView slot={float} name={params.get('name') ?? ''} />
+    ) : (
+      <ReactFlowProvider>
+        <App />
+      </ReactFlowProvider>
+    )}
   </StrictMode>,
 );

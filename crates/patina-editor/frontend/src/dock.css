@@ -187,3 +187,16 @@
   gap: 8px;
   margin-bottom: 6px;
 }
+
+/* A float window (15.8): a top bar with Dock, then the view. */
+.float-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--panel);
+}
+
+.float-shell > :last-child {
+  flex: 1;
+  min-height: 0;
+}
