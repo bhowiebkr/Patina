@@ -435,6 +435,11 @@ to = \"00000000000000a3.value\"
     assert_eq!(fused.adopt(&mut cluster), 1);
     assert_eq!(value(&mut fused, "out"), "260.0");
     assert!(gui(&mut fused).ends_with("slider\tSum\t260\t0\t1000"), "{}", gui(&mut fused));
+    // An input that loses its text gets its default value, and the state of the node stays (4.8).
+    let mut lost = opened.graph().clone();
+    lost.node.iter_mut().find(|n| n.id == "00000000000000a1").unwrap().params.remove("scale");
+    assert!(fused.set_params(&lost).ok);
+    assert_eq!(value(&mut fused, "out"), "260.0");
     assert!(!slotted().build_slot(&toolchain, &mut fused).unwrap(), "a fused cluster has no slot");
 
     // A change of the signature changes the base, so the slot alone does not build.

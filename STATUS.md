@@ -533,6 +533,8 @@ Milestone 8 started on 2026-11-15 and ended on 2026-11-15. It makes packages of 
 - During a package build, the editor does not run the graph.
 - No automated test loads `patina_capi.dll`. The test calls the functions through the Rust
   library of the crate. Only the manual `ctypes` check loaded the DLL, on Windows.
+  `cargo test` does not build the DLL, so a package from a checkout can carry an old DLL from
+  `target/debug`. Run `cargo build -p patina-capi` before such a package.
 - The Python module is not done. It needs the `pyo3` crate (a download) and a Python install.
 - The package ran only on Windows.
 
@@ -708,8 +710,8 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The state move depends on a hypothesis: rustc gives the same layout to the same type with the
   same compiler and cfg values, also at another optimization level (7.2). No test checks a state that holds a type of a
   dependency with changed features.
-- When a parameter loses its text, `set_params` makes all the states of all clusters again,
-  and links them again.
+- When a parameter loses its text, only that parameter gets its default value again (fixed
+  2026-11-16). The states of the nodes stay. The slot test in `run.rs` checks it.
 - There is one cluster for each clock domain. No cluster boundary is at a large node yet.
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.

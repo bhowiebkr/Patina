@@ -146,8 +146,6 @@ pub struct Cluster {
     pub(crate) mode: crate::Mode,
     /// The domain of each node, by node index.
     domains: Vec<Domain>,
-    /// The domain that gives, the domain that reads and the index of each link (8.2).
-    links: Vec<(Domain, Domain, u32)>,
     /// The state key of each node, by node index (7.2). A node with no state has none.
     keys: Vec<Option<u64>>,
     /// The sum of the node run times of the last run of each domain, in ms.
@@ -223,7 +221,6 @@ impl Cluster {
             base: 0,
             mode: crate::Mode::Edit,
             domains: plan.steps.iter().map(|s| s.domain).collect(),
-            links,
             keys,
             work: [f64::INFINITY; 4],
             names,
@@ -284,32 +281,22 @@ impl Cluster {
     }
 
     /// Sets each parameter from its text in the graph (4.8). An input that lost its text gets its
-    /// default value again.
+    /// default value again. The states of the nodes stay.
     pub fn set_params(&mut self, graph: &GraphFile) -> Outcome {
         let params: HashMap<&str, &BTreeMap<String, String>> =
             graph.node.iter().map(|n| (n.id.as_str(), &n.params)).collect();
         let texts: Vec<Option<&String>> =
             self.slots.iter().map(|(n, key)| params.get(self.names[*n].0.as_str()).and_then(|p| p.get(key))).collect();
-        if self.has_text.iter().zip(&texts).any(|(had, text)| *had && text.is_none()) {
-            // All clusters get new states, so that the links stay valid (8.2).
-            let states: Vec<*mut c_void> = self.libraries.iter().flatten().map(Library::make).collect();
-            if states.iter().any(|s| s.is_null()) {
-                self.libraries.iter().flatten().zip(&states).for_each(|(library, &state)| library.free_state(state));
-                return Outcome::default();
-            }
-            self.libraries.iter_mut().flatten().zip(states).for_each(|(library, state)| library.replace(state));
-            if !link(&self.libraries, &self.links, self.slot.as_ref().map(|(_, r)| &**r), &mut self.calls.sink) {
-                return Outcome::default();
-            }
-        }
         let mut all = Outcome { ok: true, ..Outcome::default() };
         self.triggers.iter_mut().for_each(Trigger::reset);
         for (slot, text) in (0u32..).zip(&texts) {
-            let Some(text) = text else { continue };
+            if text.is_none() && !self.has_text[slot as usize] {
+                continue;
+            }
             let (n, key) = &self.slots[slot as usize];
-            // The engine reads the settings of a trigger (9.4).
+            // The engine reads the settings of a trigger (9.4). `reset` gave the defaults.
             if let Some(trigger) = self.triggers.iter_mut().find(|t| t.node == *n) {
-                if let Err(text) = trigger.set(key, text) {
+                if let Some(Err(text)) = text.map(|text| trigger.set(key, text)) {
                     let (id, folder) = self.names[*n].clone();
                     all.reports.push(Report { id, folder, kind: ReportKind::BadParam, text: format!("input `{key}`: {text}") });
                     all.ok = false;
@@ -319,8 +306,10 @@ impl Cluster {
             let Some(library) = self.library(self.slots[slot as usize].0) else { continue };
             let (state, set) = (library.state, library.set);
             self.calls.sink.clear();
-            // SAFETY: `state` is live, `text` is valid during the call, and so is the reporter.
-            self.call(std::ptr::null(), |rep| unsafe { set(state, slot, text.as_ptr(), text.len(), rep) });
+            // A null text gives the default value.
+            let (ptr, len) = text.map_or((std::ptr::null(), 0), |text| (text.as_ptr(), text.len()));
+            // SAFETY: `state` is live, `ptr` is null or valid during the call, and so is the reporter.
+            self.call(std::ptr::null(), |rep| unsafe { set(state, slot, ptr, len, rep) });
             let key = &self.slots[slot as usize].1;
             all.ok &= self.calls.out.ok;
             all.reports.extend(self.calls.out.reports.drain(..).map(|r| Report { text: format!("input `{key}`: {}", r.text), ..r }));

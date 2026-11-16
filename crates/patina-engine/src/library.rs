@@ -30,7 +30,6 @@ pub(crate) type SlotFn = unsafe extern "C" fn(*const c_void, *const SlotRef, *co
 /// The cluster of one clock domain: its library functions and its state (8.2).
 pub(crate) struct Library {
     pub state: *mut c_void,
-    new: NewFn,
     pub set: SetFn,
     pub ui: UiFn,
     pub begin: EndFn,
@@ -92,31 +91,19 @@ impl Library {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
             let tasks = Arc::new(Tasks::new(state, task, all, domain));
-            Library { state, new, set, ui, begin, end, free, take, put, export, import, read, slot, call, fire, parallel: parallel(state), tasks }
+            Library { state, set, ui, begin, end, free, take, put, export, import, read, slot, call, fire, parallel: parallel(state), tasks }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
         Ok(loaded)
     }
 
-    /// A new state with the default parameters, or null when a default panicked.
-    pub fn make(&self) -> *mut c_void {
-        // SAFETY: the function came from the loaded cluster.
-        unsafe { (self.new)() }
-    }
-
-    /// Frees a state of `make` that is not used. Null is not a state.
+    /// Frees a state that is not used. Null is not a state.
     pub fn free_state(&self, state: *mut c_void) {
         if !state.is_null() {
             // SAFETY: `state` came from `patina_cluster_new` of this library and is not used again.
             unsafe { (self.free)(state) }
         }
-    }
-
-    /// Puts a state of `make` in place of the active state, and frees the active state.
-    pub fn replace(&mut self, state: *mut c_void) {
-        let old = std::mem::replace(&mut self.state, state);
-        self.free_state(old);
     }
 }
 

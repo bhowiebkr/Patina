@@ -233,4 +233,5 @@ pub fn exposure(
 ```
 
 - During editing, parameters are data at run time. A parameter change does not need a compile.
+- When a parameter loses its text, for example after an undo, it gets the default value of its type again. The states of the nodes stay. The engine gives a null text to `patina_cluster_set` (C ABI version 18). (Agent decision, 2026-11-16. The owner can change it.)
 - In a package (14), the compiler can make parameters constants. The base (7) keeps them as run-time data, so a parameter change never needs a compile.

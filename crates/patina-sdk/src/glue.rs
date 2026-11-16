@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 17;
+pub const ABI_VERSION: u32 = 18;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -186,8 +186,9 @@ pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
 
 /// A command to a cluster.
 pub enum Cmd<'a> {
-    /// Sets the parameter with this index from its text form (6.4).
-    Set(u32, &'a str),
+    /// Sets the parameter with this index from its text form, or to its default value for
+    /// `None` (4.8, 6.4).
+    Set(u32, Option<&'a str>),
     /// Starts a run of the domain with this index: gets the newest values of the latest-value
     /// wires without a lock (9.3).
     Begin(u32),
@@ -398,8 +399,9 @@ pub fn default_value<T: Param>() -> T {
     T::default_value()
 }
 
-pub fn set_param<T: Param>(slot: &mut T, text: &str, rep: &Reporter, node: u32) -> bool {
-    let caught = catch_quiet(AssertUnwindSafe(|| T::from_text(text).map(|value| *slot = value)));
+pub fn set_param<T: Param>(slot: &mut T, text: Option<&str>, rep: &Reporter, node: u32) -> bool {
+    let value = || text.map_or_else(|| Ok(T::default_value()), T::from_text);
+    let caught = catch_quiet(AssertUnwindSafe(|| value().map(|value| *slot = value)));
     match caught {
         Ok(Ok(())) => true,
         Ok(Err(message)) => {
@@ -517,8 +519,8 @@ pub fn new_cluster(make: fn() -> Cluster) -> *mut Cluster {
 ///
 /// # Safety
 ///
-/// `cluster` comes from `new_cluster` and is not freed. `text` points to `len` bytes, and `rep`
-/// points to a valid reporter.
+/// `cluster` comes from `new_cluster` and is not freed. `text` is null for the default value, or
+/// points to `len` bytes. `rep` points to a valid reporter.
 pub unsafe fn set(
     cluster: *mut Cluster,
     index: u32,
@@ -527,9 +529,14 @@ pub unsafe fn set(
     rep: *const Reporter,
 ) -> bool {
     // SAFETY: the caller keeps the rules of this function.
-    let (cluster, rep, bytes) = unsafe { (&*cluster, &*rep, std::slice::from_raw_parts(text, len)) };
-    let Ok(text) = std::str::from_utf8(bytes) else {
-        return false;
+    let (cluster, rep) = unsafe { (&*cluster, &*rep) };
+    let text = match text.is_null() {
+        true => None,
+        // SAFETY: the caller keeps the rules of this function.
+        false => match std::str::from_utf8(unsafe { std::slice::from_raw_parts(text, len) }) {
+            Ok(text) => Some(text),
+            Err(_) => return false,
+        },
     };
     catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Set(index, text), rep))).unwrap_or(false)
 }
