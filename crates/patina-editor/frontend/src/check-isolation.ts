@@ -28,20 +28,25 @@ export async function checkIsolation({ step, until, mark, result, events, steps 
     return lost!;
   };
 
-  // The value 66 writes to a bad address. The crash handler names the node only on Windows.
-  v = await step('a value that crashes', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '66' }));
-  let from = mark();
-  v = await step('run a node that crashes', () => api.run());
-  const crash = await failure(v, from);
+  // The value 66 writes to a bad address, and 55 overflows the stack. The crash handler names the
+  // node only on Windows. A pause keeps the edit from a run, so each crash gives one lost event.
+  let from = 0;
   const windows = navigator.userAgent.includes('Windows');
-  for (const text of ['without a request', ...(windows ? ['0xc0000005', `ran node \`${A}\``] : [])]) {
-    if (!crash.text.includes(text)) throw new Error(`the crash text has no "${text}": ${crash.text}`);
+  for (const [value, code] of [['66', '0xc0000005'], ['55', '0xc00000fd']]) {
+    v = await step(`pause before ${code}`, () => api.pause());
+    v = await step(`a value that crashes with ${code}`, () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: value }));
+    from = mark();
+    v = await step(`run a node that crashes with ${code}`, () => api.run());
+    const crash = await failure(v, from);
+    for (const text of ['without a request', ...(windows ? [code, `ran node \`${A}\``] : [])]) {
+      if (!crash.text.includes(text)) throw new Error(`the crash text has no "${text}": ${crash.text}`);
+    }
+    await until('the crash in the status bar', RUN_MS, () => statusText().includes('The node process stopped without a request ('));
+    from = mark();
+    v = await step('undo the crash', () => api.undo());
+    if (!v.live) throw new Error('the graph is not live after the crash');
+    await result(v, from, '2.5', BUILD_MS);
   }
-  await until('the crash in the status bar', RUN_MS, () => statusText().includes('The node process stopped without a request ('));
-  from = mark();
-  v = await step('undo the crash', () => api.undo());
-  if (!v.live) throw new Error('the graph is not live after the crash');
-  await result(v, from, '2.5', BUILD_MS);
   steps.push('a crash ends only the node process');
 
   // The value 77 loops and does not read the stop request.

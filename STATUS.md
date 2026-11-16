@@ -34,15 +34,16 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 
 - `cargo test -p patina-editor`: the messages cross a pipe, and the error tail keeps the last
   text.
-- The hidden selfcheck on Windows: a node writes to a bad address. The editor shows the exit code
-  `0xc0000005` and the node, and the undo runs in a new node process. A node that does not read
-  the stop request ends at the second **Stop**, and the next **Run** works.
+- The hidden selfcheck on Windows: a node writes to a bad address, and a node overflows its
+  stack. The editor shows the exit codes `0xc0000005` and `0xc00000fd` and the node. Each undo runs
+  in a new node process. A node that does not read the stop request ends at the second **Stop**,
+  and the next **Run** works.
 - Linux and macOS did not run.
 
 ### Known limits
 
 - The crash handler is only on Windows, and it names only the node of the engine thread. A Rust
-  abort and a stack overflow skip it.
+  abort skips it.
 - A native viewport across the two processes is not checked.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.
