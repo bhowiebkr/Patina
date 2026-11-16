@@ -139,6 +139,13 @@ pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, i
         false => Err("Trust the project before you open a view.".to_owned()),
     })?;
     let frame = editor.window_ask(window.label(), |reply| Job::View(Box::new(ViewInput { root, name, instance, events, graph, reply })))?;
+    // The fires come before the edits, because an edit ends the event domain (9.4).
+    let remote = engine::lock(&editor.shared.remote).clone();
+    for (id, text) in frame.fires {
+        if !remote.as_ref().is_some_and(|remote| remote.fire(&id, text)) {
+            return Err(format!("The view fired `{id}`, but the event domain does not run. Click **Run** to start it."));
+        }
+    }
     let view = match frame.edits.is_empty() {
         true => None,
         // The writes of one call are one step of undo.

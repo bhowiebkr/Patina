@@ -179,8 +179,9 @@ tool.
 - A view uses the same GUI API as node GUIs, and it can draw with the GPU.
 - A view is not part of the graph, but it can read and change the graph: parameters, outputs,
   nodes and wires. It can also read and set the selected nodes.
-- Open a view from the **Views** menu. It docks like the other panels. Each click opens a new
-  instance with its own state, up to four. A float window comes later.
+- While the graph runs, a view can fire a `trigger` node with a text: `graph.fire(id, text)`.
+- Open a view from the **Views** menu. It docks like the other panels, and it can float in its
+  own window. Each click opens a new instance with its own state, up to four.
 - To make a view, click **+** in the **Views** group of the **Project** panel. Write the view in
   the **Code** tab. A save builds the view again.
 - A view can show a viewport with `ui.viewport` and draw into it with `wgpu`, through

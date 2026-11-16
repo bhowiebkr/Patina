@@ -24,7 +24,8 @@ pub fn number(value: f64, text: &String) -> f64 {
 `;
 
 /** A stateful number node with a GUI (4.2, 4.3): its button adds 1 to the output. It also shows each value widget. */
-// A view (15.8) that shows a parameter of node A, and sets it with a button.
+// A view (15.8) that shows a parameter of node A, and sets it with a button. Its other button
+// fires the trigger node T with the text "abcd" (9.4).
 const VIEW_CODE = `use patina_sdk::{Graph, Ui, view};
 
 #[view]
@@ -39,6 +40,9 @@ impl Panel {
         ui.label(&format!("value {}", graph.param("${A}", "value").unwrap_or_default()));
         if ui.button("Set").clicked() {
             graph.set_param("${A}", "value", 5.0);
+        }
+        if ui.button("Fire").clicked() {
+            graph.fire("${T}", "abcd");
         }
     }
 }
@@ -724,12 +728,39 @@ fn broken() -> u32 {
     };
     await until('the widgets of the view', BUILD_MS, () => viewText().startsWith('value '));
     if (!viewText().startsWith(`value ${v.graph.node?.find((n) => n.id === A)?.params?.value ?? ''}Set`)) throw new Error(`the view shows ${viewText()}`);
-    [...document.querySelectorAll<HTMLButtonElement>(`${panel} .node-gui button`)].find((b) => b.textContent === 'Set')!.click();
+    const viewButton = (text: string) => [...document.querySelectorAll<HTMLButtonElement>(`${panel} .node-gui button`)].find((b) => b.textContent === text);
+    viewButton('Set')!.click();
     await until('the write of the view', RUN_MS, () => viewText().startsWith('value 5Set'));
     await api.capture('view');
     v = await step('undo the view write', () => api.undo());
     if (v.graph.node?.find((n) => n.id === A)?.params?.value === '5') throw new Error('undo did not remove the write of the view');
     steps.push('a view sets a parameter');
+
+    // A view fires a `trigger` node of the live run with a text (9.4, 15.8).
+    v = await step('make an event node for the view', () => api.edit({ kind: 'SetCode', path: lib, text: EVENT_NODE }));
+    v = await step('add a trigger for the view', () =>
+      api.edit({
+        kind: 'Group',
+        edits: [
+          { kind: 'AddNode', id: T, folder: 'trigger', builtin: true, pos: [-300, 0] },
+          { kind: 'Connect', from: `${T}.out`, to: `${A}.text` },
+        ],
+      }),
+    );
+    from = mark();
+    v = await step('run the triggers for the view', () => api.run());
+    await until('a run with triggers that listen for the view', BUILD_MS, () => {
+      const failed = ofRun().find((e) => e.state === 'failed' || (e.state === 'ran' && !e.ok));
+      if (failed) throw new Error(`the run failed: ${JSON.stringify(failed)}`);
+      return ofRun().some((e) => e.state === 'ran' && e.events);
+    });
+    viewButton('Fire')!.click();
+    await until('the event run of the view that prints 6.5', RUN_MS, () => viewText() !== '' && output.slice(outputFrom).includes('6.5'));
+    topButton('Stop')!.click();
+    await until('the end of the event runs of the view', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+    v = await step('undo the trigger of the view', () => api.undo());
+    v = await step('undo the event node of the view', () => api.undo());
+    steps.push('a view fires a trigger node');
     button('Views')!.click();
     await until('the Views menu again', RUN_MS, () => !!item());
     item()!.click();

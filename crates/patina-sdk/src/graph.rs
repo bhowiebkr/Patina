@@ -24,11 +24,13 @@ use crate::glue::Reader;
 /// graph.disconnect("clock.frame", "show.value");
 /// graph.remove_node("show");
 /// graph.select(["clock", "show"]);
+/// graph.fire("tick", "a\tb");
 /// let edits = graph.edits().collect::<Vec<_>>();
 /// assert_eq!(edits[0], "set\tclock\trate\t30");
 /// assert_eq!(edits[1], format!("add\t{id}\tnodes/show\t10\t20.5"));
 /// assert_eq!(edits[2..5], [format!("connect\tclock.frame\t{id}.value"), "disconnect\tclock.frame\tshow.value".into(), "remove\tshow".into()]);
 /// assert_eq!(edits[5], "select\tclock\tshow");
+/// assert_eq!(edits[6], "fire\ttick\ta b");
 /// assert!(id.len() == 16 && id.bytes().all(|b| b.is_ascii_hexdigit()));
 /// ```
 pub struct Graph {
@@ -37,7 +39,8 @@ pub struct Graph {
     /// `error <id> <text>`.
     lines: String,
     /// One line for each write: `set <id> <key> <text>`, `add <id> <folder> <x> <y>`,
-    /// `remove <id>`, `connect <from> <to>`, `disconnect <from> <to>` and `select <id>...`.
+    /// `remove <id>`, `connect <from> <to>`, `disconnect <from> <to>`, `select <id>...` and
+    /// `fire <id> <text>`.
     edits: Vec<String>,
     /// The engine side of `value`, during a call of `ui`.
     reader: Option<Reader>,
@@ -141,6 +144,13 @@ impl Graph {
     /// Removes the wire from `from` to `to`.
     pub fn disconnect(&mut self, from: &str, to: &str) {
         self.write(&["disconnect", from, to]);
+    }
+
+    /// Fires the `trigger` node `id` of the live run with `text` (9.4). A control character in the
+    /// text becomes a space. When the graph is not live, no write of the call applies, and the
+    /// panel shows the error. A fire is not an edit, so undo does not remove it.
+    pub fn fire(&mut self, id: &str, text: &str) {
+        self.write(&["fire", id, text]);
     }
 
     /// Adds a write line. A control character in a field becomes a space, so it cannot split the line.

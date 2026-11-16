@@ -356,6 +356,10 @@ change it.)
   `selected`.
 - The write functions are `set_param`, `add_node`, `remove_node`, `connect` and `disconnect`.
   They become the edits `SetParam`, `AddNode`, `RemoveNode`, `Connect` and `Disconnect` (7.4).
+- `fire(id, text)` fires the `trigger` node `id` of the live run with `text` (9.4). It is not
+  an edit, so undo does not remove it. The fires of a call come before its edits, because an
+  edit ends the event domain. When the event domain does not run, no write of the call applies,
+  and the panel shows the error. (Agent decision, 2026-11-16. The owner can change it.)
 - The editor applies the writes of one `ui` call as one `Group` edit, so one undo removes them.
   When one write is not valid, no write applies, and the panel shows the error.
 - `add_node` makes a random ID of 16 hex digits (6.4) and returns it. Thus the same call can
@@ -398,8 +402,8 @@ The limits of version 1:
 - Up to four view instances at a time, each in a dock panel or a float window.
 - A view reads the typed value only of an output with a wire. A rebuild of the cluster
   stops the copies until the next read.
-- No trigger (9.4), because the event domain does not exist yet. No subgraph edits and no reads
-  of node states.
+- No subgraph edits and no reads of node states. `fire` finds only a `trigger` node of the
+  main graph.
 - One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node
   GUIs.
 - No bake build of a view.

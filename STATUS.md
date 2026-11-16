@@ -167,7 +167,8 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
 2. Done on 2026-11-16: the triggers `file_change` and `webhook`.
 3. Done on 2026-11-16: the editor runs the event domain with **Run**, **Pause** and **Stop**.
    The **Fire** button of a `trigger` node fires it. The selfcheck has a step for it.
-4. Views fire a `trigger` node through `Graph`. Record the limit of a code swap during a run.
+4. Done on 2026-11-16: a view fires a `trigger` node with `Graph::fire`. The limit of a code
+   swap during a run is in the known limits.
 
 ### Checked
 
@@ -189,6 +190,9 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
   with the text `abc` gave run 2, which printed 5.5. After **Stop**, a fire failed.
 - An editor unit test checks that an event run replaces only the reports of the nodes that it
   reached.
+- The selfcheck view has a **Fire** button that calls `graph.fire` with the text `abcd`. In a
+  live run, a click gave an event run that printed 6.5. Unit tests check the fire line of the
+  SDK and of the engine.
 - The same CLI test changes a file in a watched folder two times, and gets two runs with the
   path of the file. A `file_change` node with no path gives an error before a run.
 - The same CLI test sends a `POST` to a wrong path, which got 404, then a `POST` with the body
@@ -216,7 +220,7 @@ Milestone 12 started on 2026-11-16. It adds the event domain: async nodes and tr
 - While the event domain runs, a view reads no output of an event node, and the GUI of an event
   node does not draw.
 - The **Fire** button in a subgraph fires nothing, because the engine looks for the ID of the
-  node in the main graph. A report names the problem.
+  node in the main graph. A report names the problem. `Graph::fire` has the same limit.
 - The editor has no edit for an order wire, so an async node with no inputs cannot get its
   trigger in the editor. Edit the graph file.
 - The first build of a project with an async node needs `tokio` from crates.io or the cargo

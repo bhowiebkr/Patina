@@ -36,6 +36,8 @@ pub struct Frame {
     pub edits: Vec<Edit>,
     /// The nodes to select in the graph view, when the view selected nodes.
     pub select: Option<Vec<String>>,
+    /// The `trigger` nodes to fire, with their texts (9.4).
+    pub fires: Vec<(String, String)>,
 }
 
 impl View {
@@ -89,9 +91,10 @@ impl View {
         for (_, kind, text) in self.sink.iter() {
             match kind {
                 glue::UI => frame.tree = text.to_owned(),
-                glue::EDIT => match select(text) {
-                    Some(ids) => frame.select = Some(ids),
-                    None => frame.edits.extend(edit(text)),
+                glue::EDIT => match (select(text), fire(text)) {
+                    (Some(ids), _) => frame.select = Some(ids),
+                    (_, Some(fire)) => frame.fires.push(fire),
+                    _ => frame.edits.extend(edit(text)),
                 },
                 glue::ERROR | glue::PANIC => error = Some(text.to_owned()),
                 _ => {}
@@ -165,6 +168,12 @@ fn select(line: &str) -> Option<Vec<String>> {
     (ids.is_empty() || ids.starts_with('\t')).then(|| ids.split('\t').filter(|id| !id.is_empty()).map(str::to_owned).collect())
 }
 
+/// The trigger ID and the text of a fire line of a view (`patina_sdk::Graph::fire`). None for another line.
+fn fire(line: &str) -> Option<(String, String)> {
+    let (id, text) = line.strip_prefix("fire\t")?.split_once('\t')?;
+    Some((id.to_owned(), text.to_owned()))
+}
+
 /// The edit of a write line of a view (`patina_sdk::Graph`). None for a bad line.
 fn edit(line: &str) -> Option<Edit> {
     let mut fields = line.split('\t');
@@ -196,6 +205,9 @@ mod tests {
         assert_eq!(select("select\ta\tb"), Some(vec!["a".to_owned(), "b".to_owned()]));
         assert_eq!(select("select"), Some(Vec::new()));
         assert_eq!(select("selected\ta"), None);
+        assert_eq!(fire("fire\tt\ta b"), Some(("t".to_owned(), "a b".to_owned())));
+        assert_eq!(fire("fire\tt\t"), Some(("t".to_owned(), String::new())));
+        assert_eq!((fire("fire\tt"), fire("fired\tt\tx")), (None, None));
         let set = edit("set\ta\tvalue\t3 4");
         assert!(matches!(set, Some(Edit::SetParam { id, key, text: Some(text) }) if id == "a" && key == "value" && text == "3 4"));
         assert!(matches!(edit("add\tb\tnodes/show\t1\t-2.5"), Some(Edit::AddNode { id, folder, builtin: false, pos: [1.0, -2.5] }) if id == "b" && folder == "nodes/show"));
