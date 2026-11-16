@@ -189,6 +189,7 @@ copy = "sha256:<64 hex characters>"   # the copy in this project after the impor
 
 - Each graph and each subgraph is one file in `graphs/`. The file name is the graph name. `graphs/main.toml` is the main graph.
 - A subgraph file can have public pins. Each use of the subgraph is a node with these pins (6.1).
+- The type of a public pin is the value type of the inner pin that it ends at, without `&` or `&mut`. A pin that ends at a generic pin keeps the type parameter, and the use is generic in it (4.5). (Agent decision, 2026-11-16. The owner can change it.)
 
 ```toml
 format = 1

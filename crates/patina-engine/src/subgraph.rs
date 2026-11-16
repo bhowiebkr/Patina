@@ -178,14 +178,18 @@ pub(crate) fn infos(root: &Path) -> Vec<NodeInfo> {
         match project::read(&path, |g: &GraphFile| g.format) {
             Ok(graph) => {
                 let stack = &mut vec![name.to_owned()];
-                // shortcut: a pin that ends at a generic input gets the name of the type parameter, change it when the editor shows subgraphs with generic nodes.
-                let mut pin = |key: &str, pin: &str, end: Option<&String>, input| Pin {
-                    key: key.to_owned(),
-                    ty: end.and_then(|end| end_type(root, &graph, end, input, stack)).unwrap_or_else(|| "?".to_owned()),
-                    name: Some(pin.to_owned()),
+                let mut generics = Vec::new();
+                // A pin that ends at a generic pin is generic too, so the palette offers each type (4.5).
+                let mut pin = |key: &str, pin: &str, end: Option<&String>, input| {
+                    let (ty, of_node) = end.and_then(|end| end_type(root, &graph, end, input, stack)).unwrap_or_else(|| ("?".to_owned(), Vec::new()));
+                    if of_node.contains(&ty) && !generics.contains(&ty) {
+                        generics.push(ty.clone());
+                    }
+                    Pin { key: key.to_owned(), ty, name: Some(pin.to_owned()) }
                 };
                 info.inputs = graph.input.iter().map(|p| pin(&p.key, &p.name, p.to.first(), true)).collect();
                 info.outputs = graph.output.iter().map(|p| pin(&p.key, &p.name, Some(&p.from), false)).collect();
+                info.generics = generics;
             }
             Err(e) => info.error = Some(e.to_string()),
         }
@@ -195,8 +199,9 @@ pub(crate) fn infos(root: &Path) -> Vec<NodeInfo> {
     infos
 }
 
-/// The Rust type of the wire end `<node ID>.<pin key>` of a graph, through the uses of subgraphs.
-fn end_type(root: &Path, graph: &GraphFile, end: &str, input: bool, stack: &mut Vec<String>) -> Option<String> {
+/// The value type of the wire end `<node ID>.<pin key>` of a graph, through the uses of subgraphs,
+/// and the type parameters of its node. An input `&bool` gives `bool`.
+fn end_type(root: &Path, graph: &GraphFile, end: &str, input: bool, stack: &mut Vec<String>) -> Option<(String, Vec<String>)> {
     let (id, key) = end.split_once('.')?;
     let entry = graph.node.iter().find(|n| n.id == id)?;
     let node = match (&entry.folder, &entry.builtin, &entry.subgraph) {
@@ -215,10 +220,11 @@ fn end_type(root: &Path, graph: &GraphFile, end: &str, input: bool, stack: &mut 
         }
         _ => return None,
     };
-    match input {
-        true => node.inputs.into_iter().find(|i| i.key == key).map(|i| i.ty),
+    let ty = match input {
+        true => node.inputs.into_iter().find(|i| i.key == key).map(|i| i.value),
         false => node.output_keys().into_iter().zip(node.output_types).find(|(k, _)| k == key).map(|(_, ty)| ty),
-    }
+    };
+    Some((ty?, node.generics))
 }
 
 /// Moves the nodes `ids` of `graph` into a new subgraph `name` (6.1). Gives the outer graph, with
@@ -563,6 +569,43 @@ to = \"f1.0000000e\"
         assert_eq!((input.key.as_str(), input.name.as_deref(), input.ty.as_str()), ("0000000a", Some("x"), "?"));
         assert!(problems.iter().any(|p| p.contains("the subgraph cycle uses itself")), "{problems:?}");
         assert!(problems.iter().any(|p| p.contains("has no output `nothing`")), "{problems:?}");
+    }
+
+    #[test]
+    fn a_pin_of_a_subgraph_gets_the_value_type_and_stays_generic() {
+        let root = std::env::temp_dir().join(format!("patina-subgraph-types-{}", std::process::id()));
+        for (name, code) in [("gate", "pub fn gate(a: &bool) -> bool { *a }"), ("pick", "pub fn pick<T: Copy>(a: T) -> T { a }")] {
+            std::fs::create_dir_all(root.join("nodes").join(name).join("src")).unwrap();
+            std::fs::write(root.join("nodes").join(name).join("src/lib.rs"), format!("#[patina_sdk::node]
+{code}")).unwrap();
+            std::fs::write(root.join("nodes").join(name).join("Cargo.toml"), format!("[package]
+name = \"{name}\"
+")).unwrap();
+        }
+        std::fs::create_dir_all(root.join("graphs")).unwrap();
+        let pins = "[[node]]
+id = \"00000000000000a1\"
+folder = \"nodes/gate\"
+[[node]]
+id = \"00000000000000a2\"
+folder = \"nodes/pick\"
+                    [[input]]
+key = \"0000000a\"
+name = \"a\"
+pos = [0.0, 0.0]
+to = [\"00000000000000a1.a\"]
+[[input]]
+key = \"0000000b\"
+name = \"b\"
+pos = [0.0, 0.0]
+to = [\"00000000000000a2.a\"]
+";
+        std::fs::write(root.join("graphs/both.toml"), format!("format = 1
+{pins}")).unwrap();
+        let infos = infos(&root);
+        std::fs::remove_dir_all(&root).unwrap();
+        let types: Vec<&str> = infos[0].inputs.iter().map(|p| p.ty.as_str()).collect();
+        assert_eq!((types, &infos[0].generics[..]), (vec!["bool", "T"], &["T".to_owned()][..]));
     }
 
     #[test]

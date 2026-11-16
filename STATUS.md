@@ -417,6 +417,8 @@ and 6.4).
 - Ctrl+G collapses the selected nodes into a new subgraph file, with public pins for the wires
   that cross. An undo keeps the new file. Ctrl+Shift+G expands the selected uses.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
+  The use is generic in that parameter too, so the **Add node** palette offers it for each
+  type (fixed 2026-11-16). A pin that ends at `&bool` shows `bool`.
 - The engine checks the key of a new public pin, but not the keys in a file.
 - **Import** and **Update** work only from a trusted project. A renamed folder loses the comments
   of its `Cargo.toml`. A temporary test with the real toolchain on Windows imported a node and
