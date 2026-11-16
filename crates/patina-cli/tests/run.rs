@@ -233,6 +233,12 @@ builtin = \"delay\"
                 blocks.fetch_add(1, Relaxed);
             }
         });
+        // A slow start of the audio thread is not a late block, so the measure starts after its first block.
+        // A failed block ends the thread, so the wait has a time limit.
+        let wait = Instant::now();
+        while blocks.load(Relaxed) == 0 && wait.elapsed().as_secs() < 10 {
+            std::thread::yield_now();
+        }
         let (before, start) = (blocks.load(Relaxed), Instant::now());
         let out = frames.frame(&control);
         let frame = (out.ok && out.skipped.is_empty(), start.elapsed(), blocks.load(Relaxed) - before);

@@ -70,13 +70,13 @@ fn triggers_start_runs_and_their_rules_hold() {
         lines
     };
 
-    // With `both`, runs 2 and 3 start while run 1 waits. The schedule gives the run ID. Run 3
-    // sees run 2 too when the two fires come close together.
+    // With `both`, runs 2 and 3 start while run 1 waits. The schedule gives the run ID. When the
+    // two fires come close together, one of runs 2 and 3 sees the other too, but not both.
     fs::write(&main, graph("every_ms = \"20\"\noverlap = \"both\"")).unwrap();
     let (output, stdout, stderr) = run(&project, &["--events", "3"]);
     assert!(output.status.success(), "{stderr}");
     let both = lines(&stdout);
-    assert!(both[..2] == [11, 22] && [32, 33].contains(&both[2]), "{both:?}");
+    assert!(matches!(both[..], [11, 22 | 23, 32 | 33]) && both[1] + both[2] < 56, "{both:?}");
 
     // With `skip`, the fires during run 1 do not start a run. Each run is alone.
     fs::write(&main, graph("every_ms = \"20\"\noverlap = \"skip\"")).unwrap();
