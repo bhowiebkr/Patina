@@ -48,6 +48,21 @@ id = "a24a62f0c02e522d"
 subgraph = "full-adder"
 pos = [2400.0, 1020.0]
 
+[[node]]
+id = "24cd9364084f5007"
+folder = "nodes/split"
+pos = [-300.0, 0.0]
+
+[[node]]
+id = "af6cdc0b8ca34017"
+folder = "nodes/split"
+pos = [-300.0, 800.0]
+
+[[node]]
+id = "142ca85ed392e41f"
+folder = "nodes/join"
+pos = [2700.0, 0.0]
+
 [[wire]]
 from = "fb5967f7f626ecb6.out"
 to = "255784be866c2954.1395fdff"
@@ -80,152 +95,122 @@ to = "534a3ffdb33676d3.1395fdff"
 from = "534a3ffdb33676d3.3273375a"
 to = "a24a62f0c02e522d.1395fdff"
 
-[[input]]
-key = "adce4d8d"
-name = "a0"
-pos = [-300.0, 0.0]
-to = ["255784be866c2954.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out0"
+to = "255784be866c2954.47486110"
 
-[[input]]
-key = "67925483"
-name = "a1"
-pos = [-300.0, 100.0]
-to = ["206fd27a848deeb3.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out1"
+to = "206fd27a848deeb3.47486110"
 
-[[input]]
-key = "3374da13"
-name = "a2"
-pos = [-300.0, 200.0]
-to = ["70d3fa2621748401.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out2"
+to = "70d3fa2621748401.47486110"
 
-[[input]]
-key = "43b9218f"
-name = "a3"
-pos = [-300.0, 300.0]
-to = ["8a337deb685e077f.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out3"
+to = "8a337deb685e077f.47486110"
 
-[[input]]
-key = "1a780c62"
-name = "a4"
-pos = [-300.0, 400.0]
-to = ["92211aca9ee93eaa.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out4"
+to = "92211aca9ee93eaa.47486110"
 
-[[input]]
-key = "80c49174"
-name = "a5"
-pos = [-300.0, 500.0]
-to = ["5f01d01759c79444.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out5"
+to = "5f01d01759c79444.47486110"
 
-[[input]]
-key = "666ac4c7"
-name = "a6"
-pos = [-300.0, 600.0]
-to = ["534a3ffdb33676d3.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out6"
+to = "534a3ffdb33676d3.47486110"
 
-[[input]]
-key = "c7f4970f"
-name = "a7"
-pos = [-300.0, 700.0]
-to = ["a24a62f0c02e522d.47486110"]
+[[wire]]
+from = "24cd9364084f5007.out7"
+to = "a24a62f0c02e522d.47486110"
 
-[[input]]
-key = "ec2e1657"
-name = "b0"
-pos = [-300.0, 800.0]
-to = ["255784be866c2954.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out0"
+to = "255784be866c2954.27379ee4"
 
-[[input]]
-key = "b40c381c"
-name = "b1"
-pos = [-300.0, 900.0]
-to = ["206fd27a848deeb3.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out1"
+to = "206fd27a848deeb3.27379ee4"
 
-[[input]]
-key = "8ae6a6f4"
-name = "b2"
-pos = [-300.0, 1000.0]
-to = ["70d3fa2621748401.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out2"
+to = "70d3fa2621748401.27379ee4"
 
-[[input]]
-key = "b30eab32"
-name = "b3"
-pos = [-300.0, 1100.0]
-to = ["8a337deb685e077f.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out3"
+to = "8a337deb685e077f.27379ee4"
 
-[[input]]
-key = "b2195571"
-name = "b4"
-pos = [-300.0, 1200.0]
-to = ["92211aca9ee93eaa.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out4"
+to = "92211aca9ee93eaa.27379ee4"
 
-[[input]]
-key = "aa981dbd"
-name = "b5"
-pos = [-300.0, 1300.0]
-to = ["5f01d01759c79444.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out5"
+to = "5f01d01759c79444.27379ee4"
 
-[[input]]
-key = "f99c38b9"
-name = "b6"
-pos = [-300.0, 1400.0]
-to = ["534a3ffdb33676d3.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out6"
+to = "534a3ffdb33676d3.27379ee4"
 
-[[input]]
-key = "09af96be"
-name = "b7"
-pos = [-300.0, 1500.0]
-to = ["a24a62f0c02e522d.27379ee4"]
+[[wire]]
+from = "af6cdc0b8ca34017.out7"
+to = "a24a62f0c02e522d.27379ee4"
 
-[[output]]
-key = "1a6bac4a"
-name = "s0"
-pos = [2700.0, 0.0]
+[[wire]]
 from = "255784be866c2954.fc3b813e"
+to = "142ca85ed392e41f.b0"
 
-[[output]]
-key = "1732c8d5"
-name = "s1"
-pos = [2700.0, 100.0]
+[[wire]]
 from = "206fd27a848deeb3.fc3b813e"
+to = "142ca85ed392e41f.b1"
 
-[[output]]
-key = "22a102b8"
-name = "s2"
-pos = [2700.0, 200.0]
+[[wire]]
 from = "70d3fa2621748401.fc3b813e"
+to = "142ca85ed392e41f.b2"
 
-[[output]]
-key = "b172b4be"
-name = "s3"
-pos = [2700.0, 300.0]
+[[wire]]
 from = "8a337deb685e077f.fc3b813e"
+to = "142ca85ed392e41f.b3"
 
-[[output]]
-key = "868fd5d3"
-name = "s4"
-pos = [2700.0, 400.0]
+[[wire]]
 from = "92211aca9ee93eaa.fc3b813e"
+to = "142ca85ed392e41f.b4"
 
-[[output]]
-key = "c810f0ac"
-name = "s5"
-pos = [2700.0, 500.0]
+[[wire]]
 from = "5f01d01759c79444.fc3b813e"
+to = "142ca85ed392e41f.b5"
 
-[[output]]
-key = "0f2bd0a6"
-name = "s6"
-pos = [2700.0, 600.0]
+[[wire]]
 from = "534a3ffdb33676d3.fc3b813e"
+to = "142ca85ed392e41f.b6"
 
-[[output]]
-key = "6c75d03a"
-name = "s7"
-pos = [2700.0, 700.0]
+[[wire]]
 from = "a24a62f0c02e522d.fc3b813e"
+to = "142ca85ed392e41f.b7"
+
+[[input]]
+key = "c3016a3d"
+name = "a"
+pos = [-600.0, 0.0]
+to = ["24cd9364084f5007.value"]
+
+[[input]]
+key = "3723c0a4"
+name = "b"
+pos = [-600.0, 800.0]
+to = ["af6cdc0b8ca34017.value"]
 
 [[output]]
 key = "bd4ae8e8"
 name = "carry out"
 pos = [2700.0, 800.0]
 from = "a24a62f0c02e522d.3273375a"
+
+[[output]]
+key = "797e287f"
+name = "sum"
+pos = [3000.0, 0.0]
+from = "142ca85ed392e41f.out"

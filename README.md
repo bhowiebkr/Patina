@@ -295,6 +295,11 @@ puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ri
 lanes, with the label `bus[7:0] / 8`. Each readout gets one byte wire from an output of its
 subgraph, for example **value**, or **pc**, **a** and **out** of the `cpu`.
 
+The data path of the `cpu` also uses byte wires. The `register-8`, `ram-4x8`, `adder-8` and
+`mux-8` subgraphs have byte inputs and outputs. Inside them, a `split` node gives the 8 bits of
+a byte, and a `join` node makes the byte output. A `join` node gives k of the instruction to the
+data path, and a `split` node gives the bits of the new A value to the zero test.
+
 The `lcd` node shows 2 lines of 16 characters. The **strobe** output of the `cpu` is on in the tick of an OUT
 instruction. The `lcd-writer` subgraph then writes the two hex digits of OUT and a space to the
 LCD, one character at each step. Its `hex-ascii` subgraph gives the ASCII code of a hex digit,

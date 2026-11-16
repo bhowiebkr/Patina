@@ -58,6 +58,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 17. Done: byte buses. A `join` node puts 8 bits into a byte, and the `byte` connection kind
     draws a byte wire as a ribbon of 8 lanes. The 4-bit subgraphs, `register-8` and the `cpu`
     give byte outputs, so each readout gets one ribbon in place of 4 or 8 wires.
+18. Done: byte ribbons in the data path of the `cpu`. `register-8`, `ram-4x8`, `adder-8` and
+    `mux-8` have byte pins, with `split` and `join` nodes inside. One ribbon replaces each group
+    of 8 bit wires, so the `cpu` graph has 103 wires in place of 161.
 
 ### Checked
 
@@ -100,6 +103,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 - A `patina --shot` screenshot shows the byte wires of the `cpu` outputs **pc**, **a** and
   **out** as ribbons of lanes, with the label `bus[7:0] / 8`. The CLI test gives the same
   readout values with the byte wires. A unit test checks the bit order of `join`.
+- With the byte ribbons in the `cpu` data path, `patina-cli` ran the example for 560 frames.
+  All 5600 readout values and the LCD text are the same as before. A unit test checks the bit
+  order of `split`.
 
 ## Milestone 11: the audio domain
 

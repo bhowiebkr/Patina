@@ -46,6 +46,7 @@ dependencies = [
  "nand",
  "patina-sdk",
  "readout",
+ "split",
  "switch",
 ]
 
@@ -90,6 +91,13 @@ dependencies = [
 
 [[package]]
 name = "readout"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
+name = "split"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",
