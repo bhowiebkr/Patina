@@ -49,14 +49,18 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 14. Done: after each OUT instruction, the `lcd-writer` subgraph writes the two hex digits of OUT
     and a space to the LCD. The `hex-ascii` subgraph gives the ASCII code of a hex digit. An LED
     bar node is not necessary, because a readout shows 8 lamps.
+15. Done: a `clock` node gives the ticks of the CPU, one tick each **every** frames. **halt**
+    stops it, and its **Step** button then gives one tick. Each load, write and PC change of the
+    CPU is "and clk". The example ticks each 4 frames.
 
 ### Checked
 
-- On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 140 frames. Readout
+- On Windows 11 with Rust 1.100.0: the CLI test runs `examples/computer` for 560 frames. Readout
   A shows the count modulo 16, and readout B the count plus 3, modulo 16. Readout C shows the
   accumulator: 0, 5, 10, 15, 4 and so on. Readout D shows the memory: 0 for 4 steps, then the
   accumulator of 4 steps before. Readouts E, F and G show the PC, A and OUT of the 8-bit CPU.
-  The test compares them with a small emulator of the 8 instructions. OUT shows 1, 1, 2, 3, 5 to
+  The test compares them with a small emulator of the 8 instructions, which runs one
+  instruction each 4 frames, as the clock does. OUT shows 1, 1, 2, 3, 5 to
   233, then 0, 1, 1 after the carry. The first display gives the
   segments of the 16 hex digits. The second and third displays give the two hex digits of OUT.
   The LCD shows the last OUT values as hex digits, as the emulator gives them.

@@ -264,8 +264,8 @@ step, a memory, the three registers of the CPU and the segments of the three dis
 `ram-4x4` subgraph keeps 4 words of 4 bits. It writes the accumulator to the address of the
 count, so it shows the accumulator of 4 steps before.
 
-The `cpu` subgraph is a small 8-bit computer. Each step, it runs one instruction from the
-`rom-16x7` subgraph, which keeps 16 instructions. Lines 5 to 7 of a frame show its 4-bit program
+The `cpu` subgraph is a small 8-bit computer. At each tick of its **clk** input, it runs one
+instruction from the `rom-16x7` subgraph, which keeps 16 instructions. Lines 5 to 7 of a frame show its 4-bit program
 counter, its 8-bit register A and its 8-bit OUT register. The `ram-4x8` subgraph keeps 4 words of
 8 bits. The instructions have a 3-bit opcode and a 4-bit value k:
 
@@ -285,8 +285,13 @@ switches. Bits i0 to i3 are k, and bits i4 to i6 are the opcode. The example pro
 Fibonacci numbers 1, 1, 2, 3, 5 to 233 to OUT. It keeps the last two numbers in the RAM. At the
 carry of the next sum, it writes 0 to OUT and starts again.
 
+The `clock` node gives the ticks of the CPU. It gives one tick each **every** frames, so the
+example runs 15 instructions each second at 60 frames each second. Set **every** in the
+**Inspector** to change the speed. Set **halt** to stop the clock, then click **Step** on the node
+to give one tick.
+
 In the editor, the `readout` nodes show the 8 bits as lamps and as a number. The `lcd` node shows
-2 lines of 16 characters. The **strobe** output of the `cpu` is on in the step of an OUT
+2 lines of 16 characters. The **strobe** output of the `cpu` is on in the tick of an OUT
 instruction. The `lcd-writer` subgraph then writes the two hex digits of OUT and a space to the
 LCD, one character at each step. Its `hex-ascii` subgraph gives the ASCII code of a hex digit,
 `0` to `9` or `A` to `F`.

@@ -674,15 +674,18 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
 #[test]
 fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer");
-    let (output, stdout, stderr) = run(&project, &["--frames", "140"]);
+    // The clock of the CPU ticks each 4 frames, so 560 frames run 140 instructions.
+    const EVERY: u32 = 4;
+    let (output, stdout, stderr) = run(&project, &["--frames", "560"]);
     assert!(output.status.success(), "{stderr}");
-    // Each frame is one clock step: readout A shows the count, and readout B the count plus 3.
+    // Each frame is one step: readout A shows the count, and readout B the count plus 3.
     // With b = 0011, the four full adders get all 8 input vectors. The register of readout C
     // loads its value plus 5 at each step. The memory of readout D writes C to address n % 4, so D
-    // shows C of 4 steps before. Readouts E, F and G show the PC, A and OUT of the 8-bit CPU. Its
-    // program writes the Fibonacci numbers to OUT, and at the carry it shows 0 and starts again.
-    // The displays show the count, and OUT as two hex digits, segments a to g. One step after OUT
-    // loads, the LCD writer writes the two hex digits of OUT and a space, one character each step.
+    // shows C of 4 steps before. Readouts E, F and G show the PC, A and OUT of the 8-bit CPU. At
+    // each tick, it runs one instruction. Its program writes the Fibonacci numbers to OUT, and at
+    // the carry it shows 0 and starts again. The displays show the count, and OUT as two hex
+    // digits, segments a to g. One step after OUT loads, the LCD writer writes the two hex digits
+    // of OUT and a space, one character each step.
     const SEGMENTS: [&str; 16] = [
         "1111110", "0110000", "1101101", "1111001", "0110011", "1011011", "1011111", "1110000", "1111111", "1111011", "1110111", "0011111",
         "1001110", "0111101", "1001111", "1000111",
@@ -692,7 +695,7 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
     let (mut pc, mut acc, mut out, mut carry, mut zero, mut ram) = (0u8, 0u8, 0u8, false, false, [0u8; 4]);
     let (mut expected, mut lcd, mut shown, mut strobes) = (Vec::new(), String::new(), Vec::new(), 0u8);
     let hex = |d: u8| char::from_digit(d.into(), 16).unwrap().to_ascii_uppercase();
-    for n in 0..140u32 {
+    for n in 0..140 * EVERY {
         // Bit i of `strobes` is on when OUT loaded i + 1 steps before.
         if let Some(i) = (0..3).find(|i| strobes >> i & 1 != 0) {
             lcd.push([hex(out >> 4), hex(out % 16), ' '][i]);
@@ -700,6 +703,10 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_a_program() {
         let readouts = [n % 16, (n + 3) % 16, n * 5 % 16, n.saturating_sub(4) * 5 % 16, pc.into(), acc.into(), out.into()];
         expected.extend(readouts.map(|n| format!("{n:08b} {n}")));
         expected.extend([n as usize % 16, usize::from(out >> 4), usize::from(out % 16)].map(|d| SEGMENTS[d].to_string()));
+        if n % EVERY != 0 {
+            strobes = strobes << 1 & 7;
+            continue;
+        }
         let (op, k) = PROGRAM[usize::from(pc)];
         let word = usize::from(k % 4);
         pc = (pc + 1) % 16;

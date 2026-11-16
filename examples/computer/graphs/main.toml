@@ -676,3 +676,16 @@ to = "1cd0a5c11d15b1a7.d6"
 [[wire]]
 from = "6c2be0d93f4a1e57.32ce5f1f"
 to = "1cd0a5c11d15b1a7.write"
+
+[[node]]
+id = "c10c0c1a5e7b2d48"
+folder = "nodes/clock"
+pos = [-300.0, 1860.0]
+
+[node.params]
+every = "4"
+halt = "false"
+
+[[wire]]
+from = "c10c0c1a5e7b2d48.out"
+to = "a3efcc2ce595017a.4654170b"
