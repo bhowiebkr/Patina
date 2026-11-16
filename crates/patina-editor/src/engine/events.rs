@@ -5,21 +5,21 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use patina_engine::clock::{self, Clock};
 use patina_engine::{Audio, EventRun, Events, Frames, NodeLog, Outcome, Report, Value};
-use tauri::Emitter;
 
 use super::{Event, Job, Live, alias, badges, frames_only, keep, lock, split};
+use crate::node_process::Out;
 
 /// Runs the event domain until a job comes or the user stops the run, with the frames when the
 /// graph has frame nodes and with the blocks when `audio` is there. At the end, no new event run
 /// starts, and the engine waits for the active runs (15.2). Returns the job that ended the run.
 pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, events: Events, frames: bool) -> Option<Job> {
     let (remote, inbox) = patina_engine::remote();
-    let (app, shared, serial, aliases) = (live.app, live.shared, live.serial, live.aliases);
+    let (out, shared, serial, aliases) = (live.out, live.shared, live.serial, live.aliases);
     *lock(&shared.remote) = Some(remote.clone());
     let ended = AtomicBool::new(false);
     std::thread::scope(|s| {
         let dispatch = std::thread::Builder::new().name("patina-events".to_owned()).spawn_scoped(s, || {
-            events.run(u64::MAX, &shared.control, Some(inbox), |run| done(app, shared, serial, aliases, run));
+            events.run(u64::MAX, &shared.control, Some(inbox), |run| done(out, shared, serial, aliases, run));
             ended.store(true, Ordering::Relaxed);
         });
         if let Err(e) = dispatch {
@@ -41,7 +41,7 @@ pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, even
 pub(super) fn warn(live: &Live, text: String) {
     let log = NodeLog { id: "events".to_owned(), folder: "Patina".to_owned(), level: "WARN".to_owned(), text };
     let out = Outcome { ok: true, logs: vec![log], ..Outcome::default() };
-    send(live.app, live.serial, &EventRun { id: 0, trigger: String::new(), out }, Vec::new());
+    send(live.out, live.serial, &EventRun { id: 0, trigger: String::new(), out }, Vec::new());
 }
 
 /// Takes the jobs of a graph with only event nodes after batch, until a job ends the run or the
@@ -61,20 +61,20 @@ fn jobs_only(live: &mut Live, part: &mut Frames, ended: &AtomicBool) -> Option<J
 
 /// Keeps the values and the node errors of an event run for the **Inspector** and the views, and
 /// sends the run to the page.
-fn done(app: &tauri::AppHandle, shared: &super::Shared, serial: u64, aliases: &[(String, String)], run: &EventRun) {
+fn done(out: &Out, shared: &super::Shared, serial: u64, aliases: &[(String, String)], run: &EventRun) {
     let mut values = run.out.values.clone();
     let extra = alias(&values, aliases);
     values.extend(extra);
     keep(&mut lock(&shared.values), &values);
     merge(&mut lock(&shared.event_reports), &run.out);
-    send(app, serial, run, badges(&values));
+    send(out, serial, run, badges(&values));
 }
 
-fn send(app: &tauri::AppHandle, serial: u64, run: &EventRun, values: Vec<Value>) {
-    let out = &run.out;
-    let (id, trigger, ok) = (run.id, run.trigger.clone(), out.ok);
-    let (skipped, stopped, times, logs, reports) = (out.skipped.clone(), out.stopped.clone(), out.times.clone(), out.logs.clone(), out.reports.clone());
-    let _ = app.emit("engine", Event::Fired { serial, id, trigger, ok, skipped, stopped, times, logs, reports, values });
+fn send(out: &Out, serial: u64, run: &EventRun, values: Vec<Value>) {
+    let done = &run.out;
+    let (id, trigger, ok) = (run.id, run.trigger.clone(), done.ok);
+    let (skipped, stopped, times, logs, reports) = (done.skipped.clone(), done.stopped.clone(), done.times.clone(), done.logs.clone(), done.reports.clone());
+    out.emit(&Event::Fired { serial, id, trigger, ok, skipped, stopped, times, logs, reports, values });
 }
 
 /// Puts the reports of an event run in place of the old reports of the nodes that the run reached.

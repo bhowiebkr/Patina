@@ -9,6 +9,7 @@ import { changeLayout, flushLayout, savedViewport } from './Dock';
 import { floatPanel, layoutText, openPanel, parseLayout } from './layout';
 import { checkWires } from './check-wires';
 import { checkWidgets } from './check-gui';
+import { checkIsolation } from './check-isolation';
 import { A, B, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, enterText, icon } from './check-fixtures';
 
 export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void, edited: (v: View) => void) {
@@ -144,8 +145,14 @@ fn broken() -> u32 {
     await api.capture('code-error');
 
     // The fixed code also panics at 13 (15.3), and waits while the value is 99 until the user
-    // clicks Stop (15.2).
+    // clicks Stop (15.2). It crashes at 66 and does not stop at 77 (16.1).
     const stoppable = original.replace(/    value\r?\n\}/, `    assert!(value != 13.0, "the check panics at 13");
+    if value == 66.0 {
+        unsafe { (8usize as *mut u8).write_volatile(1) }
+    }
+    while value == 77.0 {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
     while value == 99.0 && !patina_sdk::stop_requested() {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
@@ -236,6 +243,7 @@ fn broken() -> u32 {
     v = await step('undo the wait', () => api.undo());
     if (v.live) throw new Error('the graph is live after Stop');
     steps.push('stop a node that waits');
+    v = await checkIsolation({ step, until, mark, result, events, steps }, v);
 
     v = await step('save', () => api.save());
     if (v.dirty) throw new Error('the project is still dirty after a save');

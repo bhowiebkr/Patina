@@ -1,6 +1,7 @@
 //! The engine thread. It owns the loaded cluster, and builds and runs the graph (spec 7.2,
 //! 15.10). During a frame run, an audio thread can run the audio domain of the cluster (9.3), and
-//! the event domain runs on its own threads (9.4).
+//! the event domain runs on its own threads (9.4). In the editor, the engine thread runs in the
+//! node process (16.1), and its events go to the editor as lines of JSON.
 
 mod blocks;
 mod events;
@@ -14,13 +15,16 @@ use std::time::{Duration, Instant};
 use patina_engine::clock::{self, Clock, frame_due};
 use patina_engine::device::Pace;
 use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Remote, Report, Toolchain, Value, package};
-use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use serde::{Deserialize, Serialize};
 
+use crate::node_process::Out;
 use crate::views::{ViewInput, Views};
 use blocks::{Blocks, Part};
 
+#[derive(Serialize, Deserialize)]
 pub enum Job {
+    /// Only the node process makes it, from the parts of the checked graph (16.1).
+    #[serde(skip)]
     Run(Box<Run>),
     /// Drops the cluster, for example when the project closes.
     Unload,
@@ -35,14 +39,15 @@ pub enum Job {
     /// Fuses the clusters now: a bake build with no slot (7.2). **Bake** sends it, and the engine
     /// makes it after `FUSE_IDLE` with no change.
     Bake,
-    /// Makes a package of the saved project `root` in `out` (14.1). `reply` gets the warnings.
-    Package { root: PathBuf, out: PathBuf, reply: Sender<Result<Vec<String>, String>> },
+    /// Makes a package of the saved project `root` in `out` (14.1). The reply to `ask` has the
+    /// warnings.
+    Package { root: PathBuf, out: PathBuf, ask: u64 },
     /// User input to a view (15.8). The first input builds the view.
     View(Box<ViewInput>),
     /// Drops a view, so the next input builds it again.
     CloseView(String),
-    /// Drops one view instance, by its dock slot. The reply comes after the drop.
-    DropView(String, Sender<Result<(), String>>),
+    /// Drops one view instance, by its dock slot. The reply to the ask comes after the drop.
+    DropView(String, u64),
 }
 
 /// Sends jobs to the engine thread. It counts the runs that wait for a build, so the engine
@@ -65,6 +70,7 @@ impl Jobs {
 /// The time with no change after which the engine fuses the clusters (7.2, roadmap question 7).
 const FUSE_IDLE: Duration = Duration::from_secs(30);
 
+#[derive(Serialize, Deserialize)]
 pub struct GuiInput {
     pub id: String,
     /// 0 for the node body, 1 for the **Inspector**, 2 for the full size. After each run, the
@@ -215,6 +221,16 @@ impl Shared {
         let node = self.control.node()?;
         lock(&self.ids).get(node as usize).cloned()
     }
+
+    /// Gives the ID of the node that runs on the engine thread to `f`, for a crash handler. It
+    /// never waits for a lock and never allocates.
+    pub fn try_running(&self, f: impl FnOnce(&str)) {
+        if let (Some(node), Ok(ids)) = (self.control.node(), self.ids.try_lock())
+            && let Some(id) = ids.get(node as usize)
+        {
+            f(id);
+        }
+    }
 }
 
 /// The longest text of a badge, in bytes. A longer text ends with "...".
@@ -225,19 +241,23 @@ pub fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// `toolchain` is the toolchain folder of Patina (13.3).
-pub fn start(app: AppHandle, toolchain: PathBuf) -> (Jobs, Arc<Shared>) {
+/// `toolchain` is the toolchain folder of Patina (13.3). The events go to `out`. When the engine
+/// thread ends, the process ends: with code 101 after a panic of the engine.
+pub fn start(out: Arc<Out>, toolchain: PathBuf) -> (Jobs, Arc<Shared>) {
     let (send, jobs) = std::sync::mpsc::channel();
     let shared = Arc::new(Shared::default());
     let kept = shared.clone();
     std::thread::Builder::new()
         .name("patina-engine".to_owned())
-        .spawn(move || run_jobs(&app, &jobs, &kept, &toolchain))
+        .spawn(move || {
+            let ok = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_jobs(&out, &jobs, &kept, &toolchain))).is_ok();
+            std::process::exit(if ok { 0 } else { 101 });
+        })
         .expect("the engine thread starts");
     (Jobs { send, shared: shared.clone() }, shared)
 }
 
-fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
+fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     let mut toolchain = None;
     let mut views = Views::default();
     let mut loaded: Option<Loaded> = None;
@@ -276,25 +296,23 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
                 Job::Bake => fuse = true,
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-                        rerun |= gui(app, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
+                        rerun |= gui(out, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
                     }
                 }
                 Job::Rerun => rerun = true,
                 // The engine thread makes the package, so no other build uses the build folder.
-                Job::Package { root, out, reply } => {
-                    let _ = reply.send(make_package(folder, &mut toolchain, &root, &out));
-                }
-                Job::View(input) => views.ui(folder, &mut toolchain, *input, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
+                Job::Package { root, out: to, ask } => out.reply(ask, make_package(folder, &mut toolchain, &root, &to)),
+                Job::View(input) => views.ui(out, shared, (folder, &mut toolchain), *input, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
                 Job::CloseView(name) => views.close(&name),
-                Job::DropView(instance, reply) => {
+                Job::DropView(instance, ask) => {
                     views.drop_instance(&instance);
-                    let _ = reply.send(Ok(()));
+                    out.reply(ask, Ok(()));
                 }
             }
         }
         if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-            frame(app, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, serial, &mut Blocks::default());
-            let _ = app.emit("engine", Event::Ended { serial, frames: 1 });
+            frame(out, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, serial, &mut Blocks::default());
+            out.emit(&Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
         if (rerun || fuse) && newest.is_none() {
@@ -307,7 +325,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             (false, false) => None,
         };
         // shortcut: the fuse builds on the engine thread, so a change waits for it; build in a background thread when bake builds get slow.
-        let event = match run_one(app, (folder, &mut toolchain), &mut loaded, &mut run, build.as_ref(), shared) {
+        let event = match run_one(out, (folder, &mut toolchain), &mut loaded, &mut run, build.as_ref(), shared) {
             Ok(Some(event)) => event,
             // A newer build waits, so this build does not run and its errors do not show (7.2).
             Ok(None) => continue,
@@ -327,11 +345,11 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
         framed = matches!(event, Event::Ran { frames: true, .. });
         let goes_on = matches!(event, Event::Ran { frames: true, .. } | Event::Ran { events: true, .. });
         let ran = matches!(event, Event::Ran { .. });
-        let _ = app.emit("engine", event);
+        out.emit(&event);
         if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
-            draw(app, &mut loaded.cluster.frame_part(), run.serial, &shown);
+            draw(out, &mut loaded.cluster.frame_part(), run.serial, &shown);
             if goes_on {
-                let live = Live { app, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
+                let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
                 next = run_frames(live, &mut loaded.cluster);
             }
         }
@@ -351,13 +369,13 @@ fn wait(jobs: &Receiver<Job>, fuse_at: Option<Instant>) -> Option<Job> {
 
 /// Gives the GUI input to node `input.id`, and sends its new widget lines. Returns `Some` when
 /// the change must run the graph again: `Some(true)` when the node is in the frame domain.
-fn gui(app: &AppHandle, part: &mut Frames, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
+fn gui(out: &Out, part: &mut Frames, serial: u64, input: &GuiInput, shown: &mut Shown) -> Option<bool> {
     if let Some(node) = (input.mode as usize).checked_sub(1).and_then(|i| shown.get_mut(i)) {
         *node = (!input.id.is_empty()).then(|| input.id.clone());
     }
-    let (tree, out) = part.ui(&input.id, input.mode, &input.events);
+    let (tree, done) = part.ui(&input.id, input.mode, &input.events);
     let trees = tree.map(|tree| Tree { id: input.id.clone(), mode: input.mode, tree }).into_iter().collect();
-    let _ = app.emit("engine", Event::Gui { serial, trees, reports: out.reports });
+    out.emit(&Event::Gui { serial, trees, reports: done.reports });
     let frame = part.guis().iter().find(|(id, _)| *id == input.id).map(|&(_, frame)| frame)?;
     (input.rerun && !input.events.is_empty()).then_some(frame)
 }
@@ -367,25 +385,25 @@ type Shown = [Option<String>; 2];
 
 /// Sends the widget lines of each node GUI (4.3): the node body size of each node, and the
 /// larger sizes of the nodes in `shown`.
-fn draw(app: &AppHandle, part: &mut Frames, serial: u64, shown: &Shown) {
+fn draw(out: &Out, part: &mut Frames, serial: u64, shown: &Shown) {
     let (mut trees, mut reports) = (Vec::new(), Vec::new());
     // shortcut: the engine draws all node GUIs, also the nodes out of view (4.3 rule 3). Send the visible nodes from the page when graphs get large.
     for n in 0..part.guis().len() {
         let id = part.guis()[n].0.clone();
         for mode in [0, 1, 2].into_iter().filter(|&m| m == 0 || shown[m as usize - 1].as_ref() == Some(&id)) {
-            let (tree, out) = part.ui(&id, mode, "");
-            reports.extend(out.reports);
+            let (tree, done) = part.ui(&id, mode, "");
+            reports.extend(done.reports);
             trees.extend(tree.map(|tree| Tree { id: id.clone(), mode, tree }));
         }
     }
     if !trees.is_empty() || !reports.is_empty() {
-        let _ = app.emit("engine", Event::Gui { serial, trees, reports });
+        out.emit(&Event::Gui { serial, trees, reports });
     }
 }
 
 /// What a frame run needs besides the cluster.
 struct Live<'a> {
-    app: &'a AppHandle,
+    out: &'a Out,
     jobs: &'a Receiver<Job>,
     shown: &'a mut Shown,
     aliases: &'a [(String, String)],
@@ -408,16 +426,16 @@ impl Live<'_> {
         match self.jobs.try_recv() {
             // A change of a frame node applies at the next frame. A batch node needs a batch run.
             Ok(Job::Gui(input)) => {
-                if gui(self.app, part, self.serial, &input, self.shown) == Some(false) {
+                if gui(self.out, part, self.serial, &input, self.shown) == Some(false) {
                     return Some(Some(Job::Rerun));
                 }
             }
             // A view reads the live values, so the frames go on.
-            Ok(Job::View(input)) => self.views.ui(self.folder, self.toolchain, *input, Some(part)),
+            Ok(Job::View(input)) => self.views.ui(self.out, self.shared, (self.folder, self.toolchain), *input, Some(part)),
             Ok(Job::CloseView(name)) => self.views.close(&name),
-            Ok(Job::DropView(instance, reply)) => {
+            Ok(Job::DropView(instance, ask)) => {
                 self.views.drop_instance(&instance);
-                let _ = reply.send(Ok(()));
+                self.out.reply(ask, Ok(()));
             }
             Ok(job) => return Some(Some(job)),
             Err(TryRecvError::Disconnected) => return Some(None),
@@ -430,7 +448,7 @@ impl Live<'_> {
     /// Runs one frame with the results of `blocks`. Returns false when the frame or a block failed.
     fn frame(&mut self, part: &mut Frames, blocks: &mut Blocks) -> bool {
         self.frames += 1;
-        frame(self.app, (part, self.shown, self.aliases), self.shared, self.serial, blocks)
+        frame(self.out, (part, self.shown, self.aliases), self.shared, self.serial, blocks)
     }
 }
 
@@ -456,7 +474,7 @@ fn run_frames(mut live: Live, cluster: &mut Cluster) -> Option<Job> {
             }
         }
     };
-    let _ = live.app.emit("engine", Event::Ended { serial: live.serial, frames: live.frames });
+    live.out.emit(&Event::Ended { serial: live.serial, frames: live.frames });
     job
 }
 
@@ -547,7 +565,7 @@ fn between(live: &mut Live, cluster: &mut Cluster) -> Option<Job> {
 
 /// Runs one frame, and sends its values, the results of `blocks` and the node GUIs. Then
 /// empties `blocks`. Returns false when the frame or a block failed.
-fn frame(app: &AppHandle, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Blocks) -> bool {
+fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Blocks) -> bool {
     let start = Instant::now();
     let outcome = part.frame(&shared.control);
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -566,8 +584,8 @@ fn frame(app: &AppHandle, (part, shown, aliases): (&mut Frames, &Shown, &[(Strin
     let logs = outcome.logs.iter().chain(b.logs).cloned().collect();
     blocks.clear();
     let values = badges(&values);
-    let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
-    draw(app, part, serial, shown);
+    out.emit(&Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
+    draw(out, part, serial, shown);
     ok
 }
 
@@ -645,7 +663,7 @@ fn make_package(folder: &Path, toolchain: &mut Option<Toolchain>, root: &Path, o
     package::make(root, toolchain, Mode::Bake, &runner, out).map_err(|e| e.to_string())
 }
 
-fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Option<Event>, Error> {
+fn run_one(out: &Out, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Option<Event>, Error> {
     let mut built_ms = None;
     let mut slot_only = false;
     let mut errors = Vec::new();
@@ -655,7 +673,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
         let toolchain = find_toolchain(folder, toolchain)?;
         let serial = run.serial;
         let building = |base, slot: Option<&str>| {
-            let _ = app.emit("engine", Event::Building { serial, base, slot: slot.map(str::to_owned) });
+            out.emit(&Event::Building { serial, base, slot: slot.map(str::to_owned) });
         };
         let built = compile(&mut run.checked, toolchain, build, loaded.as_mut(), building);
         if shared.builds.load(Ordering::SeqCst) > 0 {
@@ -687,7 +705,7 @@ fn run_one(app: &AppHandle, (folder, toolchain): (&Path, &mut Option<Toolchain>)
     let cluster = &mut loaded.cluster;
     let params = cluster.set_params(run.checked.graph());
     if params.ok {
-        let _ = app.emit("engine", Event::Started { serial: run.serial });
+        out.emit(&Event::Started { serial: run.serial });
     }
     let start = Instant::now();
     // A node with a bad parameter does not run, so the graph does not run (4.8).

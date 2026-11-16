@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duration, logKind, scopeDomains } from './api.ts';
+import { duration, firstSentence, logKind, scopeDomains } from './api.ts';
 
 test('a node run time uses seconds, milliseconds or microseconds', () => {
   assert.equal(duration(2400), '2.4 s');
@@ -22,4 +22,10 @@ test('the domains of a subgraph use keep only its own nodes, with the IDs inside
   assert.deepEqual([...scopeDomains(domains, '')], [['a', 'frame'], ['u', 'event']]);
   assert.deepEqual([...scopeDomains(domains, 'u')], [['b', 'audio']]);
   assert.deepEqual([...scopeDomains(domains, 'u/v')], [['c', 'batch']]);
+});
+
+test('the status bar shows the first sentence of a failure', () => {
+  const crash = 'The node process stopped without a request (exit code: 0xc0000005). The node states are lost.\nmore';
+  assert.equal(firstSentence(crash), 'The node process stopped without a request (exit code: 0xc0000005).');
+  assert.equal(firstSentence('no toolchain\nmore'), 'no toolchain');
 });

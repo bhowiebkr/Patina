@@ -36,6 +36,7 @@ use folders::{code_file, code_folder, swap_code, write_file};
 pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
+pub use checked::Parts;
 pub use edit::Edit;
 pub use events::{EventRun, Events, Inbox, Remote, remote};
 pub use run::{Audio, Frames};
@@ -175,6 +176,8 @@ pub struct Checked {
     plan: plan::Plan,
     graph: project::GraphFile,
     aliases: Vec<(String, String)>,
+    /// A use of the open subgraph alone (15.9): its public outputs send their values.
+    test: bool,
 }
 
 /// The files of a new project (15.10), from the hello example.
@@ -526,7 +529,7 @@ impl Project {
         let open = (self.name != MAIN).then_some((self.name.as_str(), &self.history.graph));
         let (graph, aliases) = subgraph::flatten(&self.root, main, open).map_err(fail)?;
         let plan = plan::check(&self.root, &graph).map_err(fail)?;
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases })
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases, test: false })
     }
 
     /// Checks one use of the open subgraph alone, with `params` for its public inputs (15.9). The
@@ -540,11 +543,8 @@ impl Project {
         let root = GraphFile { format: self.history.graph.format, node: vec![test], wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
         let (graph, aliases) = subgraph::flatten(&self.root, &root, Some((&self.name, &self.history.graph))).map_err(fail)?;
         let mut plan = plan::check(&self.root, &graph).map_err(fail)?;
-        // The cluster sends only the values of outputs with a wire, and a public output has none here.
-        for (_, inner) in &aliases {
-            plan.probe(inner);
-        }
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases })
+        plan.probe_all(&aliases);
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases, test: true })
     }
 }
 
@@ -705,9 +705,12 @@ from = \"00000000000000a1.out\"
         assert!(project.check_test(&params).unwrap().graph.node.is_empty(), "the main graph has no use");
         project.open_graph("half").unwrap();
         let checked = project.check_test(&params).unwrap();
-        fs::remove_dir_all(&root).unwrap();
         assert_eq!((checked.graph.node[0].id.as_str(), checked.graph.node[0].params["value"].as_str()), ("7e57000000000000/00000000000000a1", "7"));
         assert_eq!(checked.aliases, [("7e57000000000000.0000000b".to_owned(), "7e57000000000000/00000000000000a1.out".to_owned())]);
         assert_eq!(checked.plan.steps[0].consumers, [1], "the public output sends its value");
+        let json = serde_json::to_string(&checked.into_parts()).unwrap();
+        let again = serde_json::from_str::<Parts>(&json).unwrap().check().unwrap();
+        assert_eq!((again.plan.steps[0].consumers.as_slice(), again.aliases.len()), (&[1][..], 1), "the node process checks the same plan");
+        fs::remove_dir_all(&root).unwrap();
     }
 }

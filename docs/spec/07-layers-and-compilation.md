@@ -152,7 +152,7 @@ Section 7 describes the base and the slot. The base builds in bake mode. The slo
 - When a project opens, Patina deletes the old builds in `build/`, except the loaded builds and the builds in the cache.
 - Windows refuses to delete a loaded library, but it renames one. Thus a delete during a session skips the loaded builds.
 - The engine does not unload old builds. Rust libraries do not unload safely, and macOS often does not unload them. Memory and disk use grow with each reload until a restart. Milestone 0 measures the growth (19).
-- With process isolation (see 16), the engine can restart the node process and free all old builds.
+- In the editor, a crash or a second **Stop** starts a new node process (16.1), which frees all old builds.
 
 ### 8.6 Cache
 

@@ -4,9 +4,37 @@ use std::fs;
 use std::hash::{DefaultHasher, Hasher};
 use std::path::{Path, PathBuf};
 
-use crate::{Checked, Cluster, Error, Mode, Toolchain, cargo, generate, node, project};
+use serde::{Deserialize, Serialize};
+
+use crate::{Checked, Cluster, Error, Mode, Toolchain, cargo, generate, node, plan, project};
+
+/// A checked graph as data, for the node process (16.1). [`Parts::check`] checks it again there.
+#[derive(Serialize, Deserialize)]
+pub struct Parts {
+    root: PathBuf,
+    rust: String,
+    graph: project::GraphFile,
+    aliases: Vec<(String, String)>,
+    test: bool,
+}
+
+impl Parts {
+    /// Plans the graph again, with the node folders as they are now.
+    pub fn check(self) -> Result<Checked, Error> {
+        let mut plan = plan::check(&self.root, &self.graph).map_err(|problems| Error::Graph(crate::graph_path(&self.root, crate::MAIN), problems))?;
+        if self.test {
+            plan.probe_all(&self.aliases);
+        }
+        Ok(Checked { root: self.root, rust: self.rust, plan, graph: self.graph, aliases: self.aliases, test: self.test })
+    }
+}
 
 impl Checked {
+    /// The data of the checked graph, to send to the node process (16.1).
+    pub fn into_parts(self) -> Parts {
+        Parts { root: self.root, rust: self.rust, graph: self.graph, aliases: self.aliases, test: self.test }
+    }
+
     /// The checked graph, with each use of a subgraph replaced by its nodes (6.4).
     pub fn graph(&self) -> &project::GraphFile {
         &self.graph

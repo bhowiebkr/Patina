@@ -469,6 +469,8 @@ export function nodeProblems(problems: string[], id: string): string[] {
 
 export const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 export const millis = (ms: number) => `${ms < 10 ? ms.toFixed(2) : ms.toFixed(0)} ms`;
+/** The first sentence of an error text, for the status bar. */
+export const firstSentence = (text: string) => text.split('\n')[0].replace(/\. .*$/, '.');
 const micros = (us: number) => `${us < 10 ? us.toFixed(2) : us.toFixed(0)} us`;
 /** The run time of a node (15.7): seconds from 1 s, microseconds under 1 ms. */
 export const duration = (ms: number) => (ms >= 1000 ? seconds(ms) : ms >= 1 ? millis(ms) : micros(ms * 1000));

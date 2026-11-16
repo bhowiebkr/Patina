@@ -4,15 +4,74 @@ Part of the [Patina Specification](README.md).
 
 ## 16. Optional targets
 
-- **Process isolation:** run native nodes in a separate process. A node crash does not crash Patina.
-- **WASM:** sandboxed, portable nodes with wasmtime. Limits: no direct native libraries, 128-bit SIMD only, limited threads, 4 GB memory unless `memory64`.
+### 16.1 Process isolation
+
+Patina is a development tool, so users often run nodes that fail. A node that fails must never crash the editor UI. Owner decision of 2026-11-16 (18, question 4). The editor has this target since 2026-11-16.
+
+- The editor runs the engine in a second process, the node process. It is the same `patina` executable with a hidden argument. The node process does the builds, loads the clusters, and runs the nodes, the views, the node GUIs and the triggers.
+- The editor process keeps the window, the page, the project, the undo history and the trust. It sends jobs to the node process and gets events back. The messages are lines of JSON on the standard input and the standard output of the node process.
+- The node process sends its own standard output to the editor as messages, so the output of a node does not mix with the messages. Its standard error goes to the editor directly, so the last text of a crash is not lost. Both go to the **Output** tab (15.10).
+- Process isolation is always on in the editor. It has no setting. `patina-cli` and packages run the nodes in their own process, because a crash there ends only that run.
+- When the node process ends without a request, the editor shows the exit code and the last error text in the **Output** tab and on the run. The node states, the live values and the states of the open views are lost. The next run starts a new node process. The editor does not start it again in a loop.
+- On Windows, the node process records the node that runs before each call (15.2). A crash handler writes that node to the error text, so the editor can name the node. Then it ends the process at once, without the error report dialog of Windows. A Rust abort and a stack overflow skip the handler, so only their own message shows. On Linux and macOS, only the exit status shows.
+- **Stop** asks the nodes to stop (15.2). When "Node X does not stop" shows, **Stop** ends the node process. The node states are lost.
+- Views and node GUIs send text, so they cross the process boundary with no change. A native viewport (15.8) needs a shared GPU texture between the two processes, or the copy path.
+- The node process sends the same events as before, so the cost is one copy of each event into JSON and through a pipe.
+- Limit: on Windows, the C runtime keeps the original standard output. So `printf` of C code in a node writes into the message pipe. The editor shows each line that is not a message in **Output**, but such text can break a message.
+
+### 16.2 WASM sandbox
+
+The WASM sandbox runs a node with wasmtime, with no access to the computer outside the limits below. It adds security to trust (11) for code that is new to the computer, and a sandboxed node is portable. Section 17 keeps it out of version 1. The rules below are agent decisions of 2026-11-16, from the direction of the owner. The owner can change them.
+
+**Which nodes run in the sandbox.** The unit is a node folder (6.2).
+
+- A node folder that is new to the computer runs in the sandbox by default. This includes each node folder of a project that gets trust for the first time (11), each folder that **Import** adds and each folder that **Update** changes (6.2).
+- A node folder that the user makes in Patina runs native. So do the node folders of the example projects in the zip.
+- The **Inspector** of a node has a **Run native** check box for its node folder. The user selects it to run the folder native.
+- Patina keeps the choice in the data folder of the user, by project ID and folder, as the trusted list (11). A project cannot give itself native rights.
+- An **Update** from outside clears **Run native**, because the code is new again.
+- A sandboxed node runs in the node process (16.1), so a trap or a crash of wasmtime does not crash the editor.
+
+**Feedback to the user.**
+
+- A sandboxed node shows a sandbox mark on its header. The **Inspector** shows why the node is in the sandbox.
+- Code that was not written for WASM often fails in the sandbox. Then the node shows the error, and a notice shows: "Node X does not run in the sandbox: <reason>. Select **Run native** in the **Inspector** to run it native."
+- The reasons are: the wasm32 build failed, the module needs a missing import (for example a native library or a thread), a trap, a refused access to a file, the network or the environment, or a pin type with no byte form.
+- The notice shows one time for each folder. It shows again only after a change to the code of the folder.
+
+**Tracking in the project.** The `Cargo.toml` of a node folder records whether the node runs in the sandbox:
+
+```toml
+[package.metadata.patina]
+sandbox = false
+sandbox-reason = "uses the cpal native audio library"
+```
+
+- `sandbox = true` means that the node builds and runs in the sandbox. `sandbox = false` means that it does not, and `sandbox-reason` gives the reason.
+- The author can write the key. Patina writes it after the first result in the sandbox, when the project is not read-only. A key that Patina wrote is a normal code change, so it goes into Git with the folder.
+- A folder with `sandbox = false` does not try the sandbox. The node shows the notice at once, with the reason.
+- The key is information, not a right. Only the user gives native rights, with **Run native**.
+- **Import** shows the key of each folder before the import, so the user knows which nodes need native rights.
+
+**Limits of the sandbox.**
+
+- The node reads only its project folder. It writes only to the folders that the project gives to it. It has no network, no environment variables and no other processes.
+- It has no GPU context (10), no CUDA and no native libraries. A GPU node runs native.
+- The memory is 4 GB at most, unless the module uses `memory64`. SIMD is 128-bit only. Threads are limited.
+- Epoch interruption lets **Stop** end a call at once. A trap is a node error, not a crash.
+- Values cross the boundary as copies. A pin type needs a byte form: the scalars, `bool`, `String`, and `Vec` and arrays of these, or a type with `serde`. Large values are slower than in a native node.
+- Each sandboxed node folder builds as its own wasm32-wasip1 module, as the slot is its own library (7). The engine does not fuse it into the base. The toolchain needs the `wasm32-wasip1` target.
+
+**What the sandbox does not cover.** The build runs native. Build scripts and procedural macros run code on the computer (11). So trust still controls the build, and the sandbox protects only the run.
+
+**Downloads.** wasmtime makes the zip larger, and the `wasm32-wasip1` target makes the toolchain download larger. The owner approves these downloads before the work starts.
 
 ## 17. Out of scope for version 1
 
 - State migration after hot reload.
 - Breakpoints.
 - Retry rules and run history for event runs.
-- WASM target.
+- WASM target: the WASM sandbox (16.2).
 
 ## 18. Open questions
 
@@ -26,12 +85,12 @@ No question waits for a decision of the owner. This question waits for a test:
 
 **Decided**
 
-The agent decided these questions while it built the milestones, and the code follows each decision. The owner can change each decision. The agent does not ask about them again.
+The agent decided these questions while it built the milestones, except question 4, which the owner decided. The code follows each decision. The owner can change each decision. The agent does not ask about them again.
 
 - **1.** Project file format. Decided: TOML files that Patina writes in a fixed order, with stable keys for the public pins of a subgraph (6.4). Agent decision of 2026-11-15. The owner can change it.
 - **2.** React or Svelte. Decided: React, with React Flow (15.1). Agent decision from the connections prototype, 2026-11-15. The owner can change it.
 - **3.** Default audio block size and number of audio threads. Decided: 256 samples at 48 kHz, and one audio thread for all audio nodes (9.3). Agent decision of 2026-11-15. The owner can change it.
-- **4.** Process isolation: default on or off. Decided: off. Process isolation is an optional target (16), so version 1 runs the nodes in the engine process. When the target comes, a project setting turns it on. Reason: the native viewport path needs the GPU device and the window in one process (15.8), and each call to another process costs time. Trust (11) is the security boundary, not the process. Agent decision of 2026-11-16. The owner can change it.
+- **4.** Process isolation: default on or off. Decided: on in the editor, with no setting. Patina is a development tool, so users often run nodes that fail, and a node that fails must never crash the editor UI. The editor runs the engine in a node process (16.1). `patina-cli` and packages run in one process. A native viewport needs a shared GPU texture across the two processes (15.8). Owner decision of 2026-11-16. It replaces the agent decision "off" of the same day.
 - **6.** App mode: a layout that shows the views and the node GUIs without the graph, so a project becomes a tool for other users (15.8). Can a package include it, with its views? Decided: not in version 1. The views and the large node GUI in the **Inspector** already show a project without the code. An executable package (14.1) is a command-line runner with no window, so it cannot show views. App mode can come with a package that has a window. Agent decision of 2026-11-16. The owner can change it.
 - **7.** Fuse time: how long a node stays in the slot with no change before the engine fuses it back (7.2). Decided: 30 s with no change to the graph or the code. A bake build of a small cluster takes a few seconds, so a shorter time can build again while the user still edits. Agent decision of 2026-11-15. The owner can change it.
 - **8.** Dock layout. Decided: each user keeps their own layout for each project, in the data folder of the user, not in the project (15.2). Agent decision of 2026-11-15. The owner can change it.

@@ -11,6 +11,7 @@ mod data;
 mod dialog;
 mod engine;
 mod floats;
+mod node_process;
 mod output;
 mod session;
 #[cfg(windows)]
@@ -189,6 +190,9 @@ fn main() {
     if let Some(code) = patina_engine::install::run_wrapper() {
         std::process::exit(code);
     }
+    if let Some(toolchain) = node_process::arg() {
+        node_process::child::run(toolchain);
+    }
     let args = parse_args().unwrap_or_else(|e| fatal(&e));
     if page_file("index.html").is_none() {
         fatal("the page is not built. Run `npm run build` in crates/patina-editor/frontend, then build the editor again.");
@@ -289,10 +293,10 @@ fn main() {
         })
         .setup(move |app| {
             let handle = app.handle().clone();
-            output::capture(move |text, err| {
+            output::capture(&[false, true], move |text, err| {
                 let _ = handle.emit("output", OutputText { text, err });
             })?;
-            let engine = engine::start(app.handle().clone(), data.toolchain.clone());
+            let engine = node_process::Host::new(app.handle().clone(), data.toolchain.clone());
             let webview_dir = data.dir.join("webview");
             if let Some(dir) = &check {
                 limit_check(dir.clone());

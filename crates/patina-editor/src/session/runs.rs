@@ -7,8 +7,9 @@ use serde::Serialize;
 use tauri::{State, WebviewWindow};
 
 use super::{Editor, View};
-use crate::engine::{self, GuiInput, Job};
-use crate::views::ViewInput;
+use crate::engine::{GuiInput, Job};
+use crate::node_process::{Ask, ToNode};
+use crate::views::{ViewInput, ViewReply};
 
 /// Builds and runs the graph, and keeps it live (15.10).
 #[tauri::command(async)]
@@ -18,7 +19,7 @@ pub fn run(editor: State<'_, Editor>) -> Result<View, String> {
             return Err("Trust the project before you run it (11).".to_owned());
         }
         session.project.check().map_err(|e| e.to_string())?;
-        editor.shared.control.set_stop(false);
+        editor.engine.go();
         session.live = true;
         Ok(session.view(&editor.engine, Some(true), None))
     })
@@ -35,7 +36,7 @@ pub fn test(editor: State<'_, Editor>, inputs: Option<BTreeMap<String, String>>)
         // A new use needs a build. A change of an input value changes only the parameters.
         let build = session.test.is_some() != inputs.is_some();
         session.test = inputs;
-        editor.shared.control.set_stop(false);
+        editor.engine.go();
         session.live = true;
         Ok(session.view(&editor.engine, Some(build), None))
     })
@@ -47,7 +48,7 @@ pub fn test(editor: State<'_, Editor>, inputs: Option<BTreeMap<String, String>>)
 pub fn bake(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         if session.live {
-            let _ = editor.engine.send(Job::Bake);
+            editor.engine.send(Job::Bake);
         }
         Ok(session.view(&editor.engine, None, None))
     })
@@ -58,7 +59,7 @@ pub fn bake(editor: State<'_, Editor>) -> Result<View, String> {
 pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         session.live = false;
-        let _ = editor.engine.send(Job::Pause);
+        editor.engine.send(Job::Pause);
         Ok(session.view(&editor.engine, None, None))
     })
 }
@@ -70,17 +71,18 @@ pub fn step(editor: State<'_, Editor>) -> Result<View, String> {
         if !session.trusted {
             return Err("Trust the project before you run it (11).".to_owned());
         }
-        editor.shared.control.set_stop(false);
+        editor.engine.go();
         session.live = false;
-        let _ = editor.engine.send(Job::Step);
+        editor.engine.send(Job::Step);
         Ok(session.view(&editor.engine, None, None))
     })
 }
 
-/// Stops the live runs, and asks the active run to stop (15.2). **Run** removes the request.
+/// Stops the live runs, and asks the active run to stop (15.2). **Run** removes the request. When
+/// a node still runs at a later **Stop**, the node process ends (16.1).
 #[tauri::command(async)]
 pub fn stop(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.shared.control.set_stop(true);
+    editor.engine.stop();
     pause(editor)
 }
 
@@ -89,7 +91,7 @@ pub fn stop(editor: State<'_, Editor>) -> Result<View, String> {
 #[tauri::command(async)]
 pub fn gui(editor: State<'_, Editor>, id: String, mode: u32, events: String) -> Result<(), String> {
     editor.with(|session| {
-        let _ = editor.engine.send(Job::Gui(GuiInput { id, mode, events, rerun: session.live }));
+        editor.engine.send(Job::Gui(GuiInput { id, mode, events, rerun: session.live }));
         Ok(())
     })
 }
@@ -97,15 +99,14 @@ pub fn gui(editor: State<'_, Editor>, id: String, mode: u32, events: String) -> 
 /// The ID of the node that runs, or that ran last in the active run. None between runs (15.2).
 #[tauri::command(async)]
 pub fn running(editor: State<'_, Editor>) -> Option<String> {
-    editor.shared.running()
+    editor.engine.ask(false, |id| ToNode::Ask { id, ask: Ask::Running }).unwrap_or_default()
 }
 
 /// Fires the `trigger` node `id` of the live run with `text` (9.4). The event run starts on its own
 /// thread, and its result comes as a `Fired` event.
 #[tauri::command(async)]
 pub fn fire(editor: State<'_, Editor>, id: String, text: String) -> Result<(), String> {
-    let remote = engine::lock(&editor.shared.remote).clone();
-    match remote.is_some_and(|remote| remote.fire(&id, text)) {
+    match editor.engine.ask(false, |ask| ToNode::Ask { id: ask, ask: Ask::Fire { id, text } })? {
         true => Ok(()),
         false => Err("The event domain does not run. Click **Run** to start it.".to_owned()),
     }
@@ -115,7 +116,7 @@ pub fn fire(editor: State<'_, Editor>, id: String, text: String) -> Result<(), S
 /// (15.7). A read never changes the run (9.2).
 #[tauri::command(async)]
 pub fn value(editor: State<'_, Editor>, from: String) -> Option<String> {
-    engine::lock(&editor.shared.values).iter().find(|v| v.from == from).map(|v| v.text.clone())
+    editor.engine.ask(false, |id| ToNode::Ask { id, ask: Ask::Value(from) }).unwrap_or_default()
 }
 
 /// The widget lines of a view, and the new view of the project when the view wrote to the graph.
@@ -132,30 +133,21 @@ pub struct ViewFrame {
 #[tauri::command(async)]
 pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, instance: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
     let (root, graph) = editor.with(|session| match session.trusted {
-        true => {
-            let reports: Vec<_> = engine::lock(&editor.shared.reports).iter().chain(engine::lock(&editor.shared.event_reports).iter()).cloned().collect();
-            Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &reports, &selected)))
-        }
+        true => Ok((session.project.root().to_owned(), session.project.graph().clone())),
         false => Err("Trust the project before you open a view.".to_owned()),
     })?;
-    let frame = editor.window_ask(window.label(), |reply| Job::View(Box::new(ViewInput { root, name, instance, events, graph, reply })))?;
-    // The fires come before the edits, because an edit ends the event domain (9.4).
-    let remote = engine::lock(&editor.shared.remote).clone();
-    for (id, text) in frame.fires {
-        if !remote.as_ref().is_some_and(|remote| remote.fire(&id, text)) {
-            return Err(format!("The view fired `{id}`, but the event domain does not run. Click **Run** to start it."));
-        }
-    }
-    let view = match frame.edits.is_empty() {
+    let input = |ask| Job::View(Box::new(ViewInput { root, name, instance, events, graph, selected, ask }));
+    let reply: ViewReply = editor.window_ask(window.label(), input)?;
+    let view = match reply.edits.is_empty() {
         true => None,
         // The writes of one call are one step of undo.
-        false => Some(editor.change(|project| project.apply(&Edit::Group { edits: frame.edits }))?),
+        false => Some(editor.change(|project| project.apply(&Edit::Group { edits: reply.edits }))?),
     };
-    Ok(ViewFrame { tree: frame.tree, view, select: frame.select })
+    Ok(ViewFrame { tree: reply.tree, view, select: reply.select })
 }
 
 /// Drops the view instance of the dock slot `instance`, so the next input makes a new state (15.8).
 #[tauri::command(async)]
 pub fn close_view(editor: State<'_, Editor>, instance: String) -> Result<(), String> {
-    editor.ask(|reply| Job::DropView(instance, reply))
+    editor.engine.ask(false, |ask| ToNode::Job(Job::DropView(instance, ask)))
 }

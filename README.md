@@ -509,7 +509,12 @@ While the graph runs, a change of a parameter runs it again. Click **Pause** to 
 Click **Step** to run one frame of the paused graph, for example one clock tick of a computer.
 Click **Stop** to also end the active run: Patina starts no new node call. The nodes that did
 not start show **Stale**. A node with a long loop can read `patina_sdk::stop_requested()` and
-return early.
+return early. When the status bar shows that a node does not stop, click **Stop** again to end
+the node process. The node states are lost, and the next run starts a new node process.
+
+The editor runs the nodes in a separate node process. When a node crashes, the editor stays
+open. The **Output** tab and the status bar show the exit code, and on Windows also the node
+that ran. Click **Run** or change the graph to start a new node process.
 
 Click **Settings** on the start screen to see the Rust toolchain, the data folders and the
 trusted projects. When the toolchain folder is empty, Patina uses the Rust of your system. Click **Remove** to take a project off the trusted list. Patina then asks

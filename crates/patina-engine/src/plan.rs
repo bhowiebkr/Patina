@@ -59,6 +59,14 @@ pub struct Step {
 impl Plan {
     /// Makes the output `from`, "<step ID>.<output key>", send its value with no wire, as the
     /// public output of a test does (15.9). A wire count of 1 with no reader moves no value.
+    /// Probes the inner output of each alias: the cluster sends only the values of outputs with a
+    /// wire, and a public output of a test use has none (15.9).
+    pub(crate) fn probe_all(&mut self, aliases: &[(String, String)]) {
+        for (_, inner) in aliases {
+            self.probe(inner);
+        }
+    }
+
     pub(crate) fn probe(&mut self, from: &str) {
         let Some((id, key)) = from.rsplit_once('.') else { return };
         let Some(step) = self.steps.iter_mut().find(|s| s.id == id) else { return };

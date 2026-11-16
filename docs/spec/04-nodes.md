@@ -210,7 +210,7 @@ pub async fn fetch(url: &str) -> Result<String, FetchError> { ... }
 - Builds use `panic = "unwind"`. The generated glue code wraps each call into node code in `catch_unwind`: `init`, `process`, `ui`, viewers, and drop. The catch is inside the library, so a panic never crosses the C ABI. A panic that leaves an `extern "C"` function stops the process.
 - In a fused cluster, each node call has its own catch. A panic shows as an error on the node that panicked. It does not stop the engine.
 - A panic can break the state of the node. The engine drops it, and calls `init` before the next run. If drop panics too, the engine leaks the state.
-- Limit: an abort, a stack overflow, or a native crash, for example an access violation in C code, stops the engine process. Only process isolation (16) contains these.
+- Limit: an abort, a stack overflow, or a native crash, for example an access violation in C code, stops the process that runs the node. In the editor, that is the node process (16.1), so the editor shows the crash and does not stop. In `patina-cli` and a package, the run stops.
 
 ### 4.8 Parameters
 

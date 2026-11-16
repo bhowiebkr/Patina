@@ -3,16 +3,17 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
 use patina_engine::{Edit, Error, KindInfo, NodeInfo, Project, Toolchain, package};
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tauri::{AppHandle, State};
 
 use crate::data::{Data, Recovery, same_path};
-use crate::engine::{Job, Jobs, Run, Shared};
+use crate::engine::Job;
+use crate::node_process::{Host, ToNode, wait};
 
 mod check;
 mod imports;
@@ -24,8 +25,8 @@ pub use runs::*;
 
 pub struct Editor {
     pub data: Data,
-    pub engine: Jobs,
-    shared: Arc<Shared>,
+    /// The node process, which runs the engine (16.1).
+    pub engine: Host,
     session: Mutex<Option<Session>>,
     /// The folder of the self-check (`--check`), or none in normal use.
     pub check: Option<PathBuf>,
@@ -139,8 +140,8 @@ pub struct Recent {
 }
 
 impl Editor {
-    pub fn new(data: Data, (engine, shared): (Jobs, Arc<Shared>), check: Option<PathBuf>, shot: Option<PathBuf>) -> Editor {
-        Editor { data, engine, shared, session: Mutex::new(None), check, shot, serial: AtomicU64::new(0), closing: Mutex::default() }
+    pub fn new(data: Data, engine: Host, check: Option<PathBuf>, shot: Option<PathBuf>) -> Editor {
+        Editor { data, engine, session: Mutex::new(None), check, shot, serial: AtomicU64::new(0), closing: Mutex::default() }
     }
 
     /// True when the open project or the Code tab has changes that are not saved.
@@ -170,32 +171,24 @@ impl Editor {
         })
     }
 
-    /// Sends a job to the engine and waits for its answer.
-    fn ask<T>(&self, job: impl FnOnce(Sender<Result<T, String>>) -> Job) -> Result<T, String> {
-        let (reply, answer) = std::sync::mpsc::channel();
-        self.engine.send(job(reply)).map_err(stopped)?;
-        answer.recv().map_err(stopped)?
-    }
-
     /// Sends a view job of window `label` and waits for its answer. A window that closes gets an
     /// error. The check and the send hold one lock, so no job of a window comes after its drop.
-    fn window_ask<T>(&self, label: &str, job: impl FnOnce(Sender<Result<T, String>>) -> Job) -> Result<T, String> {
-        let (reply, answer) = std::sync::mpsc::channel();
-        {
+    fn window_ask<T: DeserializeOwned + Default>(&self, label: &str, job: impl FnOnce(u64) -> Job) -> Result<T, String> {
+        let answer = {
             let closing = crate::engine::lock(&self.closing);
             if closing.iter().any(|l| l == label) {
                 return Err("The window closes.".to_owned());
             }
-            self.engine.send(job(reply)).map_err(stopped)?;
-        }
-        answer.recv().map_err(stopped)?
+            self.engine.send_ask(true, |ask| ToNode::Job(job(ask)))?
+        };
+        wait(answer)
     }
 
     /// Drops view instance `slot` of the float window `label` before the window closes, because
     /// the surface of a viewport must go before its window (15.8).
     pub fn drop_window_view(&self, label: &str, slot: &str) -> Result<(), String> {
         crate::engine::lock(&self.closing).push(label.to_owned());
-        self.ask(|reply| Job::DropView(slot.to_owned(), reply))
+        self.engine.ask(false, |ask| ToNode::Job(Job::DropView(slot.to_owned(), ask)))
     }
 
     /// Forgets a float window that closed, so a new window can use its label.
@@ -211,7 +204,7 @@ impl Editor {
             Ok(recovery) => (recovery, None),
             Err(e) => (None, Some(e)),
         };
-        let _ = self.engine.send(Job::Unload);
+        self.engine.unload(serial);
         let mut session = self.lock();
         // A project opens paused (15.10).
         let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error };
@@ -227,7 +220,7 @@ impl Editor {
         {
             eprintln!("{e}");
         }
-        let _ = self.engine.send(Job::Unload);
+        self.engine.send(Job::Unload);
     }
 
     /// Applies a change to the graph or the code, then sends the graph to the engine when it is
@@ -245,7 +238,7 @@ impl Editor {
             // A view is not part of the clusters, so its code drops only the loaded view (15.8).
             let view = coded.then(|| session.project.last_code().and_then(view_folder)).flatten();
             if let Some(name) = view.clone() {
-                let _ = self.engine.send(Job::CloseView(name));
+                self.engine.send(Job::CloseView(name));
             }
             let built = (coded && view.is_none()).then_some(true);
             let build = old.and_then(|old| built.or(affects_run(&old, session.project.graph())));
@@ -267,7 +260,7 @@ impl Session {
 
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
     /// `slot` is the node folder of a code change, for the slot (7.1).
-    fn view(&self, engine: &Jobs, build: Option<bool>, slot: Option<String>) -> View {
+    fn view(&self, engine: &Host, build: Option<bool>, slot: Option<String>) -> View {
         let project = &self.project;
         let checked = match &self.test {
             Some(inputs) => project.check_test(inputs),
@@ -280,8 +273,7 @@ impl Session {
         };
         let domains = checked.iter().flat_map(|c| c.domains()).map(|(id, d)| (id.to_owned(), d)).collect();
         if let (Some(checked), Some(build), true) = (checked, build, self.live) {
-            let run = Run { serial: self.serial, checked, build, slot };
-            let _ = engine.send(Job::Run(Box::new(run)));
+            engine.run(self.serial, checked, build, slot);
         }
         let (mut nodes, mut problems) = match project.nodes() {
             Ok(nodes) => (nodes, problems),
@@ -316,10 +308,6 @@ impl Session {
             domains,
         }
     }
-}
-
-fn stopped<E>(_: E) -> String {
-    "The engine stopped.".to_owned()
 }
 
 /// The view of a code path in `views/<name>/`.

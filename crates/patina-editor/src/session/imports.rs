@@ -10,6 +10,7 @@ use tauri::State;
 
 use super::{Editor, View, folder_name};
 use crate::engine::Job;
+use crate::node_process::ToNode;
 
 /// The folders of another project that **Import** can copy (6.2).
 #[tauri::command(async)]
@@ -70,7 +71,7 @@ pub struct Packaged {
 pub fn make_package(editor: State<'_, Editor>, parent: PathBuf) -> Result<Packaged, String> {
     let root = editor.trusted_root("make a package")?;
     let out = parent.join(folder_name(&root));
-    let warnings = editor.ask(|reply| Job::Package { root, out: out.clone(), reply })?;
+    let warnings = editor.engine.ask(true, |ask| ToNode::Job(Job::Package { root, out: out.clone(), ask }))?;
     Ok(Packaged { out, warnings })
 }
 

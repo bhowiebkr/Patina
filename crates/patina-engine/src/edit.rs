@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::project::{Corners, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Style, Wire, is_id, is_key};
 
@@ -12,7 +12,7 @@ const UNDO_LIMIT: usize = 1000;
 pub const MAX_ROUTE_POINTS: usize = 12;
 
 /// One action of the user on a graph (7.4). A pin is `<node ID>.<pin key>`.
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum Edit {
     /// `folder` is the name of a built-in node when `builtin` is true (9.2).

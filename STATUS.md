@@ -13,6 +13,43 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Process isolation
+
+Process isolation (spec 16.1) works in the editor since 2026-11-16. The WASM sandbox (16.2) is
+specified only: it needs a download of wasmtime that the owner did not approve yet.
+
+### What works
+
+- The editor runs the engine in a node process: the same `patina` executable with the hidden
+  argument `--node-process`. The messages are lines of JSON on its standard input and output.
+- The output of the nodes goes to **Output** as messages. The standard error of the node process
+  goes to **Output** directly, and the editor keeps its last 1000 bytes for a crash.
+- A crash of a node ends only the node process. **Output**, the Logs and the status bar show the
+  exit code and the last error text. On Windows, a crash handler adds the node that ran.
+- The next run or edit of a live graph starts a new node process.
+- After "Node X does not stop", a second **Stop** ends the node process.
+- The views, the node GUIs, the triggers, the values and the package job cross the pipe.
+
+### What was checked
+
+- `cargo test -p patina-editor`: the messages cross a pipe, and the error tail keeps the last
+  text.
+- The hidden selfcheck on Windows: a node writes to a bad address. The editor shows the exit code
+  `0xc0000005` and the node, and the undo runs in a new node process. A node that does not read
+  the stop request ends at the second **Stop**, and the next **Run** works.
+- Linux and macOS did not run.
+
+### Known limits
+
+- The crash handler is only on Windows, and it names only the node of the engine thread. A Rust
+  abort and a stack overflow skip it.
+- On Windows, `printf` of C code in a node writes into the message pipe (a `shortcut:` in
+  `node_process.rs`).
+- A native viewport across the two processes is not checked.
+- The editor and the node process both check the graph of each run.
+- A crash outside a run shows on the serial of the last run or open.
+- After a crash, the **Layers** panel shows "Build failed".
+
 ## Circuit graphs
 
 The model is synchronous: one frame is one clock step, and a delay node is a D flip-flop (spec

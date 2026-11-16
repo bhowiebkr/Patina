@@ -77,8 +77,8 @@ Later milestones:
 - [x] **Q3, audio block size and number of audio threads.** Agent decision of 2026-11-15:
   256 samples at 48 kHz, and one audio thread for all audio nodes (9.3). Milestone 11 ended on
   2026-11-16 with this design.
-- [x] **Q4, process isolation on or off by default.** Agent decision of 2026-11-16: off. The
-  target is optional (16), and the native viewport needs one process (15.8).
+- [x] **Q4, process isolation on or off by default.** Owner decision of 2026-11-16: on in the
+  editor. A node that fails must never crash the editor UI (16.1).
 - [ ] **Q5, Zig and Xcode on macOS.** This is a test, not an owner decision. A build on a Mac
   without the Xcode tools answers it.
 - [x] **Q6, app mode.** Agent decision of 2026-11-16: not in version 1. An executable package

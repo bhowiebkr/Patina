@@ -160,7 +160,7 @@ The **Add node** palette is the second way to add a node, after a drag from the 
   - Stop sets a stop flag. A node with a long loop can read it with `patina_sdk::stop_requested()`, and return early.
   - The generated code reads the flag before each node call. The engine shares the flag and the index of the active node with the cluster (C ABI version 3), so the editor can name a node that does not stop.
   - Stop never kills a thread. Native code cannot stop safely in the middle of a call. A call that does not read the flag runs to its end.
-  - When a call runs for 2 s after Stop, the status bar shows "Node X does not stop" and the time. Only process isolation (16) can end it. Without process isolation, the user can close Patina.
+  - When a call runs for 2 s after Stop, the status bar shows "Node X does not stop" and the time. Then a click on **Stop** ends the node process (16.1). The node states are lost, and the next run starts a new node process.
   - Run after Stop starts the graph again. Node states stay.
 - Bake fuses the node in the slot back into the base now (7.2).
 
@@ -332,7 +332,7 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 - In the viewport prototype (19), the native path held 60 FPS on the RTX 4090 and the Intel UHD 770, and copied no bytes. A copy into the web view through WebView2 shared memory added about 16 to 33 ms of input latency, and copied 6.3 to 8.3 MB for each frame. With Vulkan, its page drew only 30 to 39 FPS. A copy through a Tauri channel drew 15 to 40 FPS.
 - On Windows, the native path uses the DX12 backend of `wgpu`. On the Intel UHD 770, the Vulkan swapchain often did not show under the web view for 1 s or more. DX12 showed in each check on both GPUs. (Agent decision, 2026-11-15. The owner can change it.)
 - The shared-memory copy is the fallback, for example on a platform where a web view cannot be transparent over a GPU surface. The native path ran only on Windows (13.5).
-- The native path needs the GPU device and the editor window in one process. Process isolation (16) moves native code into a different process. Then a viewport needs a shared GPU texture or the copy path.
+- The native path needs the GPU device and the editor window in one process. The node process (16.1) runs the native code in a different process, so a viewport needs a shared GPU texture or the copy path.
 - After a device loss, the render thread makes a new device, new surfaces and new GPU objects for each viewport. In the prototype, this took 150 to 340 ms.
 
 **Build**

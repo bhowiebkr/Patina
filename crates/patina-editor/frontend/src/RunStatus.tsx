@@ -5,6 +5,7 @@ import { useCallback, useRef, useState, type RefObject } from 'react';
 import {
   api,
   errorText,
+  firstSentence,
   logKind,
   millis,
   onEngine,
@@ -90,7 +91,7 @@ export function useRun(serial: RefObject<number>) {
       api.running().then((id) => {
         if (stopTimer.current !== timer) return;
         if (id === null) endStop();
-        else setStuck(`Node ${id} does not stop - ${s} s`);
+        else setStuck(`Node ${id} does not stop - ${s} s. Click Stop to end the node process.`);
       }, endStop);
     }, 1000);
     stopTimer.current = timer;
@@ -206,7 +207,8 @@ export function useRun(serial: RefObject<number>) {
 /** The text of the run in the status bar. */
 function runText(run: RunState): string {
   if (run.phase === 'building') return 'Building';
-  if (run.phase === 'failed') return 'Build failed';
+  // A failure without compile errors, for example a crash of the node process (16.1), shows its first sentence.
+  if (run.phase === 'failed') return run.errors.length > 0 ? 'Build failed' : firstSentence(run.text);
   if (run.phase !== 'ran') return '';
   const parts: string[] = [];
   if (run.errors.length > 0) parts.push('Running the last build that compiled');
