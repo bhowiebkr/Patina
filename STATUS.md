@@ -1333,12 +1333,13 @@ To run the editor from a checkout:
   not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
   old recovery file, and its new changes do not go into the file until the user answers.
 - A connection kind matches a type by the type text that the node code writes, not by the type
-  crates of 5.1. A panic in a kind gives no lanes and no message. A compile error in a kind
+  crates of 5.1. A panic in a kind gives no lanes. Its message shows only in the **Output**
+  panel, from the standard error (4.7). A compile error in a kind
   stops the build of all of the graph.
 - The lanes have no groups. The lane hover works only on the WebGL wires, at a zoom of 0.5 or
-  more. The badge is always the viewer text. The **Code** tab does not open the files of
-  `connections/`.
-- The self-check project has no connection kind. The lanes ran in the CLI test, and the look
+  more. The badge is always the viewer text.
+- The self-check makes a connection kind with **New connection**, but no value of the self-check
+  uses it. The lanes ran in the CLI test, and the look
   had one manual check with fake lanes in the page. No check zoomed a bus out below 0.5.
 - The check did not drag a tab or a splitter with the mouse. A layout change in the last
   300 ms before the window closes with no unsaved changes is not saved.
