@@ -209,6 +209,8 @@ Node bodies fit their contents; their widths and heights need not match. A node 
 | Skipped | Dim, with a "skipped" label. An upstream node failed |
 | Unresolved | Gray pins. A generic node with unknown types |
 
+A generic node is unresolved when no wire gives the type of a type parameter (4.5), for example a delay with no input wire (9.2). The node shows the problem as a muted message, and the graph does not run until a wire gives the type. (Agent decision, 2026-11-16. The owner can change it.)
+
 The engine reports a node as skipped when a wired input has no value, because an upstream node failed or was skipped. After **Stop**, each node that did not start is stale. A skipped or stale node keeps the old values of its outputs, and their badges show dim. The status bar counts the skipped and the stale nodes. (Agent decision, 2026-11-15. The owner can change it.)
 
 **Times:** build time and run time always have separate labels, for example "Built in 1.8 s" and "Run 0.42 ms".

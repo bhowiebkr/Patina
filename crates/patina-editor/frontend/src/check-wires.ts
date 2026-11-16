@@ -155,6 +155,9 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   const D = 'd000000000000004';
   v = await step('add a delay', () => api.edit({ kind: 'AddNode', id: D, folder: 'delay', builtin: true, pos: [300, 300] }));
   await until('the kind icons', RUN_MS, () => icon(A, 'kind-icon.function') && icon(D, 'kind-icon.stateful'));
+  // No wire gives the type of the delay (4.5), so it is unresolved, with gray pins (15.2).
+  const unresolved = () => document.querySelector(`.react-flow__node[data-id="${D}"] .patina-node.unresolved`) !== null;
+  await until('the unresolved delay', RUN_MS, unresolved);
   // A drag on the end of the wire moves it to the delay (15.9). During the drag, the sockets that
   // fit get an accent ring and the order sockets dim. The batch value to the delay goes on a dashed
   // wire (15.3). One undo gives the wire to B again.
@@ -170,6 +173,7 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   await until('no dim socket after the drop', RUN_MS, () => look(order).opacity === '1');
   await until('the wire moved to the delay', RUN_MS, () => !!document.querySelector(`.react-flow__edge[data-id="${A}.out>${D}.value"]`) && !document.querySelector(`.react-flow__edge[data-id="${A}.out>${B}.value"]`));
   await until('the domain icons', RUN_MS, () => icon(A, 'domain-icon.batch') && icon(D, 'domain-icon.frame'));
+  await until('the delay resolved by its wire', RUN_MS, () => !unresolved());
   await until('a dashed cross-domain wire', RUN_MS, () => document.querySelectorAll('.wire-line.cross').length === 1);
   // The delay is generic (4.5), and the wire from A gives it f64. The live graph runs A through the
   // delay to B, one frame late, so both wires show 2.5.

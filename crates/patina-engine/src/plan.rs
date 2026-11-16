@@ -312,6 +312,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
                     Source::Wire { step: step_of[from], output }
                 }
                 None if is_delay(entry.node) => {
+                    // The page shows a node with only this problem as unresolved (15.2), so keep the start of the text.
                     return Err(vec![format!("node {}: connect a wire to the input `value` of the delay (spec 9.2)", entry.id)]);
                 }
                 None => {
@@ -391,6 +392,7 @@ fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -
             problems.extend(conflicts);
             let open: Vec<&str> = node.generics.iter().zip(&bound).filter(|(_, b)| b.is_none()).map(|(g, _)| g.as_str()).collect();
             if !open.is_empty() {
+                // The page shows a node with only this problem as unresolved (15.2), so keep the start of the text.
                 problems.push(format!("node {}: connect a wire that gives the type of {} (spec 4.5)", steps[n].id, open.join(", ")));
                 continue;
             }
@@ -400,6 +402,7 @@ fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -
     }
     for n in (0..steps.len()).filter(|&n| !done[n]) {
         let open = nodes[steps[n].node].1.generics.join(", ");
+        // The page shows a node with only this problem as unresolved (15.2), so keep the start of the text.
         problems.push(format!("node {}: connect a wire that gives the type of {open} (spec 4.5). A cycle of generic nodes gives none", steps[n].id));
     }
     if problems.is_empty() { Ok(()) } else { Err(problems) }

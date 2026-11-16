@@ -2,7 +2,7 @@
 
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Pin, type Report, type Value, type View } from './api';
+import { duration, errorText, folderName, nodeProblems, openType, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Pin, type Report, type Value, type View } from './api';
 import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
@@ -170,7 +170,7 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
   if (!info) return ['unresolved', entry.subgraph !== undefined ? `The subgraph ${entry.subgraph} is missing.` : `The folder ${entry.folder ?? ''} is missing.`];
   if (info.error) return ['compile-error', info.error];
   const problems = nodeProblems(view.problems, entry.id);
-  if (problems.length > 0) return ['compile-error', problems.join('\n')];
+  if (problems.length > 0) return [problems.every(openType) ? 'unresolved' : 'compile-error', problems.join('\n')];
   if (run.phase === 'building') return ['compiling', ''];
   const errors = info.subgraph ? [] : nodeErrors(run, info.name);
   if (errors.length > 0) return ['compile-error', errors.map((e) => `line ${e.start[0]}: ${errorText(e)}`).join('\n')];

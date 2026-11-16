@@ -840,8 +840,10 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - No test makes a real cluster panic in `process`. The glue test checks the rule.
 - The editor selfcheck wires the built-in delay, a generic node, from A to B in the live graph.
   Both wires show 2.5. The editor uses the same engine code as the CLI.
-- The editor shows a generic pin with the name of its type parameter, not in gray. The Add node
-  palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
+- A generic node with no wire that gives its type is unresolved, with gray pins (fixed
+  2026-11-16). The editor selfcheck adds a delay with no wires, sees the unresolved state, and
+  sees the state go when a wire gives the type. A generic pin shows the name of its type
+  parameter in its tooltip. The Add node palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
   the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.
 - Only stateful nodes can have a GUI. The audio `ui` with `#[settings]` comes with the audio
   domain (milestone 11).

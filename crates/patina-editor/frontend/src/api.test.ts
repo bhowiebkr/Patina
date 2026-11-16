@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duration, firstSentence, logKind, scopeDomains } from './api.ts';
+import { duration, firstSentence, logKind, nodeProblems, openType, scopeDomains } from './api.ts';
 
 test('a node run time uses seconds, milliseconds or microseconds', () => {
   assert.equal(duration(2400), '2.4 s');
@@ -22,6 +22,17 @@ test('the domains of a subgraph use keep only its own nodes, with the IDs inside
   assert.deepEqual([...scopeDomains(domains, '')], [['a', 'frame'], ['u', 'event']]);
   assert.deepEqual([...scopeDomains(domains, 'u')], [['b', 'audio']]);
   assert.deepEqual([...scopeDomains(domains, 'u/v')], [['c', 'batch']]);
+});
+
+test('a generic node with no type is unresolved, not failed', () => {
+  const problems = [
+    'node d: connect a wire that gives the type of T (spec 4.5). A cycle of generic nodes gives none',
+    'node e: connect a wire to the input `value` of the delay (spec 9.2)',
+    'node a: no folder',
+  ];
+  assert.deepEqual(nodeProblems(problems, 'd').map(openType), [true]);
+  assert.deepEqual(nodeProblems(problems, 'e').map(openType), [true]);
+  assert.deepEqual(nodeProblems(problems, 'a').map(openType), [false]);
 });
 
 test('the status bar shows the first sentence of a failure', () => {

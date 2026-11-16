@@ -470,6 +470,9 @@ export function nodeProblems(problems: string[], id: string): string[] {
   return problems.filter((p) => p.startsWith(prefix)).map((p) => p.slice(prefix.length));
 }
 
+/** True for the problem of a generic node that has no type for a parameter (4.5, 9.2). The node is unresolved (15.2). */
+export const openType = (problem: string) => /^connect a wire (that gives the type of |to the input `value` of the delay)/.test(problem);
+
 export const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 export const millis = (ms: number) => `${ms < 10 ? ms.toFixed(2) : ms.toFixed(0)} ms`;
 /** The first sentence of an error text, for the status bar. */
