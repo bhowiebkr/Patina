@@ -296,6 +296,10 @@ fn main() {
             output::capture(&[false, true], move |text, err| {
                 let _ = handle.emit("output", OutputText { text, err });
             })?;
+            let wrapper = std::env::current_exe().map_err(|e| e.to_string());
+            if let Err(e) = wrapper.and_then(|exe| patina_engine::install::add_wrappers(&data.toolchain, &exe).map_err(|e| e.to_string())) {
+                eprintln!("Patina cannot add the Zig wrappers to the toolchain: {e}");
+            }
             let engine = node_process::Host::new(app.handle().clone(), data.toolchain.clone());
             let webview_dir = data.dir.join("webview");
             if let Some(dir) = &check {

@@ -696,8 +696,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 
 ### Known limits
 
-- A toolchain folder from before this change has no `zig-dlltool.exe`, so a build fails.
-  Delete the `toolchain` folder, then install the toolchain again.
+- A toolchain folder from before this change has no `zig-dlltool.exe`. The editor adds the
+  missing wrappers at each start (fixed 2026-11-16). A unit test checks the copy. The editor
+  selfcheck started with a toolchain folder that had only `zig.exe`, and the editor added the
+  three wrappers. The CLI does not add them, so it fails with such a folder until
+  the editor starts one time.
 - The rpath on Linux and macOS ran only in CI. Nobody compared the bytes of two builds yet.
 - The state move depends on a hypothesis: rustc gives the same layout to the same type with the
   same compiler and cfg values, also at another optimization level (7.2). No test checks a state that holds a type of a

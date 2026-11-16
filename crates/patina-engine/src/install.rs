@@ -23,6 +23,8 @@ const DIST: &str = "https://static.rust-lang.org";
 const PACKAGES: &[&str] = &["rustc", "cargo", "rust-std", "rust-mingw", "rust-analyzer-preview"];
 /// The Zig target for the C code of the Rust target `x86_64-pc-windows-gnu`.
 const ZIG_TARGET: &str = "x86_64-windows-gnu";
+/// The copies of the editor that start Zig (see [`run_wrapper`]).
+const WRAPPERS: [&str; 3] = ["zig-cc.exe", "zig-ar.exe", "zig-dlltool.exe"];
 
 /// Installs the toolchain into `folder` and returns its Rust version. The steps work in the
 /// folder `<folder>-install`, and the last step renames it, so Patina never uses a part install.
@@ -40,6 +42,7 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
         return Err(Error::Build("Install toolchain works only on Windows in this version".into()));
     }
     if Toolchain::installed(folder) {
+        add_wrappers(folder, wrapper)?;
         return Ok(Toolchain::find(folder)?.release);
     }
     let mut name = folder.as_os_str().to_owned();
@@ -55,7 +58,7 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
         unpack_zig(&work, &downloads, step)?;
     }
     step("Copy the Zig wrappers");
-    for name in ["zig-cc.exe", "zig-ar.exe", "zig-dlltool.exe"] {
+    for name in WRAPPERS {
         fs::copy(wrapper, zig.join(name)).map_err(|e| Error::Io(zig.join(name), e))?;
     }
     step("Check the toolchain");
@@ -73,6 +76,19 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
     }
     rename(&work, folder)?;
     Ok(release)
+}
+
+/// Copies `wrapper` to each Zig wrapper that the toolchain in `folder` does not have. A toolchain
+/// from an older Patina has no `zig-dlltool.exe`, and each build fails without it.
+pub fn add_wrappers(folder: &Path, wrapper: &Path) -> Result<(), Error> {
+    let zig = folder.join("zig");
+    if !zig.join("zig.exe").is_file() {
+        return Ok(());
+    }
+    for to in WRAPPERS.map(|name| zig.join(name)).into_iter().filter(|to| !to.is_file()) {
+        fs::copy(wrapper, &to).map_err(|e| Error::Io(to.clone(), e))?;
+    }
+    Ok(())
 }
 
 /// When this program is a Zig wrapper, runs Zig and returns its exit code. cc-rs takes `CC` as
@@ -308,6 +324,22 @@ fn rename(from: &Path, to: &Path) -> Result<(), Error> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn add_wrappers_copies_only_the_missing_wrappers() {
+        let folder = std::env::temp_dir().join(format!("patina-wrappers-{}", std::process::id()));
+        let (zig, wrapper) = (folder.join("zig"), folder.join("patina.exe"));
+        fs::create_dir_all(&zig).unwrap();
+        fs::write(&wrapper, "new").unwrap();
+        add_wrappers(&folder, &wrapper).unwrap();
+        assert!(!zig.join("zig-cc.exe").exists(), "a folder with no Zig gets no wrapper");
+        fs::write(zig.join("zig.exe"), "zig").unwrap();
+        fs::write(zig.join("zig-cc.exe"), "old").unwrap();
+        add_wrappers(&folder, &wrapper).unwrap();
+        let text = |name: &str| fs::read_to_string(zig.join(name)).unwrap();
+        assert_eq!([text("zig-cc.exe"), text("zig-ar.exe"), text("zig-dlltool.exe")], ["old", "new", "new"]);
+        fs::remove_dir_all(&folder).unwrap();
+    }
 
     #[test]
     fn the_zig_file_is_the_newest_release_on_ziglang_org() {
