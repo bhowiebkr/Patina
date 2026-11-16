@@ -3,17 +3,24 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use patina_engine::project::{self, GraphFile, NodeEntry, ProjectFile, PublicInput, PublicOutput, Wire};
-use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain, import, package};
+use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
+use patina_engine::{Edit, Error, NodeInfo, Project, Toolchain, package};
 use serde::Serialize;
-use serde_json::Value;
-use tauri::{AppHandle, State, WebviewWindow};
+use tauri::{AppHandle, State};
 
 use crate::data::{Data, Recovery, same_path};
-use crate::engine::{self, GuiInput, Job, Jobs, Run, Shared};
-use crate::views::ViewInput;
+use crate::engine::{Job, Jobs, Run, Shared};
+
+mod check;
+mod imports;
+mod runs;
+
+pub use check::*;
+pub use imports::*;
+pub use runs::*;
 
 pub struct Editor {
     pub data: Data,
@@ -133,6 +140,21 @@ impl Editor {
         f(self.lock().as_mut().ok_or("No project is open.")?)
     }
 
+    /// The root of the open project, when the user trusts it (11). `to` says what needs the trust.
+    fn trusted_root(&self, to: &str) -> Result<PathBuf, String> {
+        self.with(|session| match session.trusted {
+            true => Ok(session.project.root().to_owned()),
+            false => Err(format!("Trust the project before you {to}.")),
+        })
+    }
+
+    /// Sends a job to the engine and waits for its answer.
+    fn ask<T>(&self, job: impl FnOnce(Sender<Result<T, String>>) -> Job) -> Result<T, String> {
+        let (reply, answer) = std::sync::mpsc::channel();
+        self.engine.send(job(reply)).map_err(stopped)?;
+        answer.recv().map_err(stopped)?
+    }
+
     fn open(&self, project: Project) -> Result<View, String> {
         self.data.add_recent(project.root())?;
         let trusted = self.data.is_trusted(project.root());
@@ -238,13 +260,17 @@ impl Session {
     }
 }
 
-/// The node folder of a code file, when a change of the file can build in the slot: a Rust file of
-/// the node folder, not its `Cargo.toml`. A new crate can change the crates of the base (7.1).
+fn stopped<E>(_: E) -> String {
+    "The engine stopped.".to_owned()
+}
+
 /// The view of a code path in `views/<name>/`.
 fn view_folder(path: &str) -> Option<String> {
     path.strip_prefix("views/")?.split_once('/').map(|(name, _)| name.to_owned())
 }
 
+/// The node folder of a code file, when a change of the file can build in the slot: a Rust file of
+/// the node folder, not its `Cargo.toml`. A new crate can change the crates of the base (7.1).
 fn slot_folder(path: &str) -> Option<String> {
     let (name, file) = path.strip_prefix("nodes/")?.split_once('/')?;
     file.ends_with(".rs").then(|| name.to_owned())
@@ -422,87 +448,6 @@ pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Res
     })
 }
 
-/// The folders of another project that **Import** can copy (6.2).
-#[tauri::command(async)]
-pub fn import_folders(editor: State<'_, Editor>, other: PathBuf) -> Result<Vec<String>, String> {
-    import_source(&editor, &other)?;
-    Ok(import::folders(&other))
-}
-
-/// The folders that an import of `folder` copies, with the conflicts (6.2).
-#[tauri::command(async)]
-pub fn import_plan(editor: State<'_, Editor>, other: PathBuf, folder: String) -> Result<Vec<import::Item>, String> {
-    let root = import_source(&editor, &other)?;
-    import::plan(&root, &other, &folder)
-}
-
-/// Imports a folder with the choices of the user (6.2). The project stays locked during the
-/// build check, so no edit comes between the copy and an undo. Undo does not remove the copy.
-#[tauri::command(async)]
-pub fn import_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, choices: BTreeMap<String, import::Choice>) -> Result<View, String> {
-    import_source(&editor, &other)?;
-    let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
-    editor.change(|project| project.import(&toolchain, &other, &folder, &choices))
-}
-
-/// The trusted project that the imported `folder` came from, or None when Patina does not know
-/// its folder (6.2).
-#[tauri::command(async)]
-pub fn update_source(editor: State<'_, Editor>, folder: String) -> Result<Option<PathBuf>, String> {
-    let id = editor.with(|session| import::source_id(session.project.root(), &folder))?;
-    let id_of = |dir: &PathBuf| project::read(&dir.join("patina.toml"), |f: &ProjectFile| f.format).ok().map(|f: ProjectFile| f.id);
-    Ok(editor.data.trusted().into_iter().find(|dir| id_of(dir).as_deref() == Some(id.as_str())))
-}
-
-/// The differences between the imported `folder` and its folder in the project at `other` (6.2).
-#[tauri::command(async)]
-pub fn update_changes(editor: State<'_, Editor>, other: PathBuf, folder: String) -> Result<import::Changes, String> {
-    let root = import_source(&editor, &other)?;
-    import::changes(&root, &other, &folder)
-}
-
-/// Updates the imported `folder` with the picks of the user, and builds it first (6.2).
-#[tauri::command(async)]
-pub fn update_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, picks: BTreeMap<String, import::Pick>) -> Result<View, String> {
-    import_source(&editor, &other)?;
-    let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
-    editor.change(|project| project.update(&toolchain, &other, &folder, &picks))
-}
-
-/// The package folder and the warnings of a package build (14.1).
-#[derive(Serialize)]
-pub struct Packaged {
-    out: PathBuf,
-    warnings: Vec<String>,
-}
-
-/// Makes a package of the saved project in `<parent>/<project name>` (14.1). The page saves first.
-#[tauri::command(async)]
-pub fn make_package(editor: State<'_, Editor>, parent: PathBuf) -> Result<Packaged, String> {
-    let root = editor.with(|session| match session.trusted {
-        true => Ok(session.project.root().to_owned()),
-        false => Err("Trust the project before you make a package.".to_owned()),
-    })?;
-    let out = parent.join(folder_name(&root));
-    let (reply, answer) = std::sync::mpsc::channel();
-    let stopped = || "The engine stopped.".to_owned();
-    editor.engine.send(Job::Package { root, out: out.clone(), reply }).map_err(|_| stopped())?;
-    let warnings = answer.recv().map_err(|_| stopped())??;
-    Ok(Packaged { out, warnings })
-}
-
-/// The root of the open project. Patina imports only from a trusted project into a trusted
-/// project (11), because the build check compiles the copy.
-fn import_source(editor: &Editor, other: &Path) -> Result<PathBuf, String> {
-    if !editor.data.is_trusted(other) {
-        return Err("Open the other project and trust it before you import from it.".to_owned());
-    }
-    editor.with(|session| match session.trusted {
-        true => Ok(session.project.root().to_owned()),
-        false => Err("Trust the project before you change it.".to_owned()),
-    })
-}
-
 /// Makes the node folder `nodes/<name>` (15.2). Undo does not remove the folder.
 #[tauri::command(async)]
 pub fn new_node(editor: State<'_, Editor>, name: String) -> Result<View, String> {
@@ -519,41 +464,6 @@ pub fn new_widget(editor: State<'_, Editor>, name: String) -> Result<View, Strin
 #[tauri::command(async)]
 pub fn new_view(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project| project.new_view(&name))
-}
-
-/// The widget lines of a view, and the new view of the project when the view wrote to the graph.
-#[derive(Serialize)]
-pub struct ViewFrame {
-    tree: String,
-    view: Option<View>,
-    /// The nodes to select in the graph view, when the view selected nodes.
-    select: Option<Vec<String>>,
-}
-
-/// Gives user input to view `name`, or asks for its widget lines when `events` is empty (15.8).
-/// The first input builds the view. Its writes go through the edit path, so undo works.
-#[tauri::command(async)]
-pub fn view_ui(editor: State<'_, Editor>, name: String, instance: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
-    let (root, graph) = editor.with(|session| match session.trusted {
-        true => Ok((session.project.root().to_owned(), patina_engine::view::snapshot(session.project.graph(), &engine::lock(&editor.shared.values), &engine::lock(&editor.shared.reports), &selected))),
-        false => Err("Trust the project before you open a view.".to_owned()),
-    })?;
-    let (reply, answer) = std::sync::mpsc::channel();
-    let stopped = || "The engine stopped.".to_owned();
-    editor.engine.send(Job::View(Box::new(ViewInput { root, name, instance, events, graph, reply }))).map_err(|_| stopped())?;
-    let frame = answer.recv().map_err(|_| stopped())??;
-    let view = match frame.edits.is_empty() {
-        true => None,
-        // The writes of one call are one step of undo.
-        false => Some(editor.change(|project| project.apply(&Edit::Group { edits: frame.edits }))?),
-    };
-    Ok(ViewFrame { tree: frame.tree, view, select: frame.select })
-}
-
-/// Drops the view instance of the dock slot `instance`, so the next input makes a new state (15.8).
-#[tauri::command(async)]
-pub fn close_view(editor: State<'_, Editor>, instance: String) -> Result<(), String> {
-    editor.engine.send(Job::DropView(instance)).map_err(|_| "The engine stopped.".to_owned())
 }
 
 /// The page sends the unsaved text of the Code tab, so a close of the window asks first and the
@@ -619,72 +529,6 @@ pub fn read_code(editor: State<'_, Editor>, path: String) -> Result<String, Stri
     editor.with(|session| session.project.read_code(&path))
 }
 
-/// Builds and runs the graph, and keeps it live (15.10).
-#[tauri::command(async)]
-pub fn run(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.with(|session| {
-        if !session.trusted {
-            return Err("Trust the project before you run it (11).".to_owned());
-        }
-        session.project.check().map_err(|e| e.to_string())?;
-        editor.shared.control.set_stop(false);
-        session.live = true;
-        Ok(session.view(&editor.engine, Some(true), None))
-    })
-}
-
-/// Fuses the node in the slot back into the base now, in bake mode (7.2). Only a live graph runs
-/// a build, so a paused graph fuses at the next **Run** and the time after it.
-#[tauri::command(async)]
-pub fn bake(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.with(|session| {
-        if session.live {
-            let _ = editor.engine.send(Job::Bake);
-        }
-        Ok(session.view(&editor.engine, None, None))
-    })
-}
-
-/// Stops the live runs. The active run finishes (15.2).
-#[tauri::command(async)]
-pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.with(|session| {
-        session.live = false;
-        let _ = editor.engine.send(Job::Pause);
-        Ok(session.view(&editor.engine, None, None))
-    })
-}
-
-/// Stops the live runs, and asks the active run to stop (15.2). **Run** removes the request.
-#[tauri::command(async)]
-pub fn stop(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.shared.control.set_stop(true);
-    pause(editor)
-}
-
-/// Gives user input to the GUI of node `id` in size `mode` (0 node body, 1 **Inspector**, 2 full),
-/// or asks for its widget lines when `events` is empty (4.3). A change runs a live graph again.
-#[tauri::command(async)]
-pub fn gui(editor: State<'_, Editor>, id: String, mode: u32, events: String) -> Result<(), String> {
-    editor.with(|session| {
-        let _ = editor.engine.send(Job::Gui(GuiInput { id, mode, events, rerun: session.live }));
-        Ok(())
-    })
-}
-
-/// The ID of the node that runs, or that ran last in the active run. None between runs (15.2).
-#[tauri::command(async)]
-pub fn running(editor: State<'_, Editor>) -> Option<String> {
-    editor.shared.running()
-}
-
-/// The full text of the live value of output `from` ("<node id>.<output key>") after the last run
-/// (15.7). A read never changes the run (9.2).
-#[tauri::command(async)]
-pub fn value(editor: State<'_, Editor>, from: String) -> Option<String> {
-    engine::lock(&editor.shared.values).iter().find(|v| v.from == from).map(|v| v.text.clone())
-}
-
 /// The saved layout of a project (15.2). The page checks the text.
 #[tauri::command(async)]
 pub fn layout(editor: State<'_, Editor>, id: String) -> Result<Option<String>, String> {
@@ -701,49 +545,6 @@ pub fn save_layout(editor: State<'_, Editor>, id: String, text: String) -> Resul
 pub fn quit(app: AppHandle, editor: State<'_, Editor>) {
     editor.close();
     app.exit(0);
-}
-
-/// The result of the self-check goes to `<check folder>/check.json`. Then the editor stops.
-#[tauri::command(async)]
-pub fn check_done(app: AppHandle, editor: State<'_, Editor>, result: Value) {
-    let Some(dir) = &editor.check else { return };
-    let ok = result["ok"] == true;
-    write_check(dir, &result);
-    app.exit(if ok { 0 } else { 1 });
-}
-
-#[tauri::command(async)]
-pub fn page_error(app: AppHandle, editor: State<'_, Editor>, message: String) {
-    eprintln!("page error: {message}");
-    if let Some(dir) = &editor.check {
-        write_check(dir, &serde_json::json!({ "ok": false, "error": message }));
-        app.exit(1);
-    }
-}
-
-pub fn write_check(dir: &Path, result: &Value) {
-    let text = serde_json::to_vec_pretty(result).unwrap_or_default();
-    if let Err(e) = std::fs::write(dir.join("check.json"), text) {
-        eprintln!("cannot write check.json: {e}");
-    }
-}
-
-/// Writes a screenshot of the page to `<check folder>/<name>.png`, only in the self-check.
-#[tauri::command(async)]
-pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String) -> Result<(), String> {
-    let Some(dir) = &editor.check else { return Err("capture runs only in the self-check".to_owned()) };
-    if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-        return Err(format!("bad screenshot name {name}"));
-    }
-    #[cfg(windows)]
-    {
-        let png = crate::shot::capture(&window)?;
-        std::fs::write(dir.join(format!("{name}.png")), png).map_err(|e| e.to_string())?;
-    }
-    // shortcut: screenshots work on Windows only; add a path for Linux when the check runs there.
-    #[cfg(not(windows))]
-    let _ = (window, dir);
-    Ok(())
 }
 
 #[cfg(test)]

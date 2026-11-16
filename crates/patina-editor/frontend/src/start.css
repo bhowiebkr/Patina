@@ -1,0 +1,155 @@
+/* The start screen (spec 15.10) */
+
+.start {
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+  overflow: auto;
+}
+
+.start-card {
+  width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.hero {
+  position: relative;
+  height: 160px;
+  background:
+    url('/brand/splash.png') left center / auto 100% no-repeat,
+    radial-gradient(closest-side at 22% 50%, rgba(170, 110, 70, 0.1), transparent);
+}
+
+.hero h1 {
+  position: absolute;
+  left: 236px;
+  top: 34px;
+  margin: 0;
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px #000;
+}
+
+.hero .label {
+  position: absolute;
+  left: 240px;
+  top: 80px;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 2px #000, 0 0 8px #000;
+}
+
+.hero-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.about-art {
+  position: relative;
+  height: 90px;
+  background: url('/brand/banner.png') left center / auto 100% no-repeat;
+}
+
+.about-art h2 {
+  position: absolute;
+  left: 184px;
+  top: 30px;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px #000, 0 0 8px #000;
+}
+
+.start-box {
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.start-box h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.start-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.start-row > label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-head h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.settings-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.settings-list dt {
+  color: var(--subtle);
+}
+
+.settings-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.recent {
+  display: flex;
+  flex-direction: column;
+}
+
+.recent .item {
+  padding-left: 8px;
+  height: 40px;
+  margin: 0;
+  width: 100%;
+}
+
+.recent .item .path {
+  color: var(--subtle);
+  font-size: 12px;
+}
