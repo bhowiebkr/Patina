@@ -2,6 +2,7 @@
 //! 15.10). During a frame run, an audio thread can run the audio domain of the cluster (9.3), and
 //! the event domain runs on its own threads (9.4).
 
+mod blocks;
 mod events;
 
 use std::path::{Path, PathBuf};
@@ -11,12 +12,13 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock, frame_due};
-use patina_engine::device::{Notice, Pace};
-use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Outcome, Remote, Report, Toolchain, Value, package};
+use patina_engine::device::Pace;
+use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Remote, Report, Toolchain, Value, package};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 use crate::views::{ViewInput, Views};
+use blocks::{Blocks, Part};
 
 pub enum Job {
     Run(Box<Run>),
@@ -289,7 +291,7 @@ fn run_jobs(app: &AppHandle, jobs: &Receiver<Job>, shared: &Shared, folder: &Pat
             }
         }
         if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-            frame(app, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, serial, &mut no_blocks());
+            frame(app, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, serial, &mut Blocks::default());
             let _ = app.emit("engine", Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -427,7 +429,7 @@ impl Live<'_> {
     }
 
     /// Runs one frame with the results of `blocks`. Returns false when the frame or a block failed.
-    fn frame(&mut self, part: &mut Frames, blocks: &mut Outcome) -> bool {
+    fn frame(&mut self, part: &mut Frames, blocks: &mut Blocks) -> bool {
         self.frames += 1;
         frame(self.app, (part, self.shown, self.aliases), self.shared, self.serial, blocks)
     }
@@ -467,7 +469,7 @@ fn frames_only(live: &mut Live, part: &mut Frames) -> Option<Job> {
         if let Some(end) = live.job(part) {
             return end;
         }
-        if !live.frame(part, &mut no_blocks()) {
+        if !live.frame(part, &mut Blocks::default()) {
             return None;
         }
     }
@@ -476,17 +478,18 @@ fn frames_only(live: &mut Live, part: &mut Frames) -> Option<Job> {
 /// The frames, while an audio thread runs the blocks (9.3), so a slow frame or node GUI does not
 /// make the blocks late. Each frame shows the results of the blocks since the last frame.
 fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
-    let (stop, out) = (&AtomicBool::new(false), &Mutex::new(no_blocks()));
+    let (stop, out) = (&AtomicBool::new(false), &Mutex::new(Blocks::default()));
     let shared = live.shared;
     std::thread::scope(|s| {
         s.spawn(move || play(audio, shared, stop, out));
-        let mut clock = Clock::new(clock::FRAME);
+        let (mut clock, mut blocks) = (Clock::new(clock::FRAME), Blocks::default());
         let job = loop {
             clock.wait();
             if let Some(end) = live.job(part) {
                 break end;
             }
-            let mut blocks = std::mem::replace(&mut *lock(out), no_blocks());
+            // The swap gives the audio thread the emptied blocks of the last frame, with their texts.
+            std::mem::swap(&mut *lock(out), &mut blocks);
             if !live.frame(part, &mut blocks) {
                 break None;
             }
@@ -497,42 +500,47 @@ fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
 }
 
 /// The audio thread: runs the blocks until `stop`, **Stop** or a failed block. It gives their
-/// results to the frames in `out`, and never waits for the lock while the blocks run (4.3).
-fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Outcome>) {
+/// results to the frames in `out`, and never waits for the lock while the blocks run (4.3). It
+/// does not allocate after the first blocks.
+fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Blocks>) {
     // Each thread has its own control: the control keeps the node that runs (15.2).
-    let (control, mut pace, mut blocks) = (Control::default(), Pace::default(), no_blocks());
+    let (control, mut pace, mut blocks) = (Control::default(), Pace::default(), Blocks::default());
     while !stop.load(Ordering::Relaxed) && !shared.control.stopped() {
         pace.wait();
         let block = audio.block(&control);
         let ok = block.ok;
-        // shortcut: the audio thread copies the results of each block for the frames, so it allocates; give the frames a ring of results when the audio thread must not allocate.
-        gather(&mut blocks, block);
-        blocks.logs.extend(pace.play(audio.sound().map(|s| s.as_slice())).map(device_log));
+        blocks.gather(&Part::from(block));
+        if let Some(notice) = pace.play(audio.sound().map(|s| s.as_slice())) {
+            blocks.device(notice);
+        }
         if let Ok(mut out) = out.try_lock() {
-            gather(&mut out, &std::mem::replace(&mut blocks, no_blocks()));
+            out.gather(&blocks.part());
+            blocks.clear();
         }
         if !ok {
             break;
         }
     }
-    gather(&mut lock(out), &blocks);
+    lock(out).gather(&blocks.part());
 }
 
 /// The frames and the blocks on the engine thread, when the cluster cannot split: a library keeps
 /// a value that is not `Sync` (9.3).
 fn between(live: &mut Live, cluster: &mut Cluster) -> Option<Job> {
     // shortcut: the blocks run between the frames when a library is not parallel, so a slow frame or node GUI makes them late; give such a graph its own thread for all domains when this gets common.
-    let (mut pace, mut blocks, mut block) = (Pace::default(), no_blocks(), 0);
+    let (mut pace, mut blocks, mut block) = (Pace::default(), Blocks::default(), 0);
     loop {
         pace.wait();
         if let Some(end) = live.job(&mut cluster.frame_part()) {
             return end;
         }
-        gather(&mut blocks, cluster.block(&live.shared.control));
+        blocks.gather(&Part::from(cluster.block(&live.shared.control)));
         block += 1;
-        blocks.logs.extend(pace.play(cluster.sound().map(|s| s.as_slice())).map(device_log));
+        if let Some(notice) = pace.play(cluster.sound().map(|s| s.as_slice())) {
+            blocks.device(notice);
+        }
         // A failed block ends the run at once, with a frame that shows its results.
-        if (!blocks.ok || frame_due(live.frames, block)) && !live.frame(&mut cluster.frame_part(), &mut blocks) {
+        if (!blocks.part().ok || frame_due(live.frames, block)) && !live.frame(&mut cluster.frame_part(), &mut blocks) {
             return None;
         }
     }
@@ -540,50 +548,28 @@ fn between(live: &mut Live, cluster: &mut Cluster) -> Option<Job> {
 
 /// Runs one frame, and sends its values, the results of `blocks` and the node GUIs. Then
 /// empties `blocks`. Returns false when the frame or a block failed.
-fn frame(app: &AppHandle, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Outcome) -> bool {
+fn frame(app: &AppHandle, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Blocks) -> bool {
     let start = Instant::now();
     let outcome = part.frame(&shared.control);
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     // shortcut: the editor copies each frame and its blocks into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
-    let mut values: Vec<Value> = outcome.values.iter().chain(&blocks.values).cloned().collect();
+    let b = blocks.part();
+    let mut values: Vec<Value> = outcome.values.iter().chain(b.values).cloned().collect();
     let extra = alias(&values, aliases);
     values.extend(extra);
     keep(&mut lock(&shared.values), &values);
-    let reports: Vec<Report> = outcome.reports.iter().chain(&blocks.reports).cloned().collect();
+    let reports: Vec<Report> = outcome.reports.iter().chain(b.reports).cloned().collect();
     lock(&shared.reports).clone_from(&reports);
-    let ok = outcome.ok && blocks.ok;
+    let ok = outcome.ok && b.ok;
     let both = |a: &[String], b: &[String]| a.iter().chain(b).cloned().collect();
-    let (skipped, stopped) = (both(&outcome.skipped, &blocks.skipped), both(&outcome.stopped, &blocks.stopped));
-    let times = outcome.times.iter().chain(&blocks.times).cloned().collect();
-    let logs = outcome.logs.iter().chain(&blocks.logs).cloned().collect();
-    *blocks = no_blocks();
+    let (skipped, stopped) = (both(&outcome.skipped, b.skipped), both(&outcome.stopped, b.stopped));
+    let times = outcome.times.iter().chain(b.times).cloned().collect();
+    let logs = outcome.logs.iter().chain(b.logs).cloned().collect();
+    blocks.clear();
     let values = badges(&values);
     let _ = app.emit("engine", Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
     draw(app, part, serial, shown);
     ok
-}
-
-/// The results of no block.
-fn no_blocks() -> Outcome {
-    Outcome { ok: true, ..Outcome::default() }
-}
-
-/// Adds the results of one block to the results of the blocks since the last frame. The run
-/// times and the nodes that did not run are those of the last block.
-fn gather(blocks: &mut Outcome, block: &Outcome) {
-    blocks.ok &= block.ok;
-    keep(&mut blocks.values, &block.values);
-    blocks.reports.extend_from_slice(&block.reports);
-    blocks.logs.extend_from_slice(&block.logs);
-    blocks.skipped.clone_from(&block.skipped);
-    blocks.stopped.clone_from(&block.stopped);
-    blocks.times.clone_from(&block.times);
-}
-
-/// A log line for a change of the audio device (9.3).
-fn device_log(notice: Notice) -> NodeLog {
-    let level = if notice.warning() { "WARN" } else { "INFO" };
-    NodeLog { id: "audio device".to_owned(), folder: "Patina".to_owned(), level: level.to_owned(), text: notice.to_string() }
 }
 
 /// Puts the values of a frame in place of the old values of the same outputs. The values of the
@@ -742,22 +728,5 @@ mod tests {
         assert_eq!(texts, [("a.out", "1"), ("b.out", "3"), ("c.out", "4")]);
         let extra = alias(&kept, &[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
         assert_eq!((extra.len(), extra[0].from.as_str(), extra[0].text.as_str()), (1, "v.0000000a", "3"));
-    }
-
-    #[test]
-    fn the_blocks_since_a_frame_keep_all_problems_and_the_last_values() {
-        let value = |text: &str| Value { from: "t.out".to_owned(), text: text.to_owned(), lanes: None };
-        let block = |ok: bool, text: &str, ms: f64| Outcome {
-            ok,
-            values: vec![value(text)],
-            reports: (!ok).then(Report::default).into_iter().collect(),
-            times: vec![NodeTime { id: "t".to_owned(), ms }],
-            ..Outcome::default()
-        };
-        let mut blocks = no_blocks();
-        gather(&mut blocks, &block(false, "1", 1.0));
-        gather(&mut blocks, &block(true, "2", 2.0));
-        assert!(!blocks.ok && blocks.reports.len() == 1 && blocks.values.len() == 1);
-        assert_eq!((blocks.values[0].text.as_str(), blocks.times[0].ms), ("2", 2.0));
     }
 }

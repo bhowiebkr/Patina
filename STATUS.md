@@ -290,15 +290,17 @@ check used a slow `ui` function of a frame node while the audio thread ran.
   runs it. The cluster splits, so the blocks run on the audio thread. The blocks print with the
   frames, the status bar shows the frame number, and no block
   or frame runs after **Stop**. The node does not play, so no device opened.
-- A unit test of the editor checks that the blocks since a frame keep all problems and the last
-  value of each output.
+- A unit test of the editor checks that the blocks since a frame keep all problems and logs and
+  the last value of each output.
+- The audio thread of the editor gives its results to the frames in lists that keep their old
+  items and texts. The frames swap their emptied lists with the lists of the audio thread. A
+  unit test counted 0 allocations in 100 rounds of two blocks, a hand-over and a swap, after two
+  first rounds (2026-11-16).
 
 ### Known limits
 
 - These shortcuts are open in the code:
   - `device.rs` of `patina-engine`: a fixed wait of 50 ms for the buffer of the device at the end.
-  - `engine.rs` of `patina-editor`: the audio thread copies the results of each block for the
-    frames, so it allocates.
   - `engine.rs` of `patina-editor`: when a library is not parallel, the blocks run on the engine
     thread between the frames, so a slow frame or node GUI makes them late.
 - While the audio thread of the editor runs, a view reads no output of an audio node, and the
