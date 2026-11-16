@@ -143,7 +143,9 @@ export function App() {
     [act, saveAll],
   );
   const testing = view?.test != null;
-  const scoped = useMemo(() => scopeRun(run, view?.graphName === 'main' ? '' : testing ? TEST_USE : scope), [run, scope, view?.graphName, testing]);
+  // The run IDs of the open graph start with this use path (6.4). A subgraph with no use has none.
+  const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : scope;
+  const scoped = useMemo(() => scopeRun(run, usePath), [run, usePath]);
 
   // The subgraph runs alone. Each bool public input starts off, and a click switches it (15.9).
   const startTest = useCallback(() => {
@@ -169,7 +171,7 @@ export function App() {
   );
 
   const expandUses = useCallback((ids: string[]) => act(api.expand(ids), markStale), [act, markStale]);
-  const fire = useCallback((id: string) => api.fire(id, '').catch((e) => setError(String(e))), []);
+  const fire = useCallback((id: string) => api.fire(usePath ? `${usePath}/${id}` : id, '').catch((e) => setError(String(e))), [usePath]);
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
   const pick = useCallback((at: Reveal) => {
@@ -397,7 +399,7 @@ export function App() {
             )}
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
-                <FireTrigger.Provider value={view.live ? fire : null}>
+                <FireTrigger.Provider value={view.live && (view.graphName === 'main' || usePath) ? fire : null}>
                   <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
                 </FireTrigger.Provider>
               </PortTest.Provider>

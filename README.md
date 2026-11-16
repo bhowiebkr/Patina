@@ -184,6 +184,7 @@ tool.
 - A view is not part of the graph, but it can read and change the graph: parameters, outputs,
   nodes and wires. It can also read and set the selected nodes.
 - While the graph runs, a view can fire a `trigger` node with a text: `graph.fire(id, text)`.
+  For a node in a subgraph use, the ID is `<use ID>/<node ID>`.
 - Open a view from the **Views** menu. It docks like the other panels, and it can float in its
   own window. Each click opens a new instance with its own state, up to four.
 - To make a view, click **+** in the **Views** group of the **Project** panel. Write the view in

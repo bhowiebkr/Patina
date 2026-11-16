@@ -334,7 +334,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
 function FireButton({ id }: { id: string }) {
   const fire = useContext(FireTrigger);
   return (
-    <button className="icon-btn expand nodrag" aria-label="Fire the trigger" title={fire ? 'Fire' : 'Run the graph to fire the trigger'} disabled={!fire} onClick={() => fire?.(id)}>
+    <button className="icon-btn expand nodrag" aria-label="Fire the trigger" title={fire ? 'Fire' : 'Run the graph, and open a subgraph through its use, to fire the trigger'} disabled={!fire} onClick={() => fire?.(id)}>
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
         <path d="M9.5 1.5 3.5 9h4l-1 5.5 6-7.5h-4z" />
       </svg>

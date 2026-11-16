@@ -208,6 +208,8 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   The order wire showed, Delete removed it, and two undos removed it again. 88 steps passed.
 - A screenshot of the hello example with one order wire showed the dotted line between the
   two hollow diamonds.
+- In a subgraph that opened through a use, **Fire** sends `<use ID>/<node ID>`, the ID of the
+  flat graph. An engine test checks these IDs. The selfcheck fire step still passed.
 - The test machine has no network for the tests, so the local test run used
   `CARGO_NET_OFFLINE=true`. The `tokio` crate came from the cargo cache.
 
@@ -229,10 +231,9 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   swap does not keep the active runs on the old builds (9.4).
 - While the event domain runs, a view reads no output of an event node, and the GUI of an event
   node does not draw.
-- The **Fire** button in a subgraph fires nothing, because the engine looks for the ID of the
-  node in the main graph. A report names the problem. `Graph::fire` has the same limit.
 - The first build of a project with an async node needs `tokio` from crates.io or the cargo
   cache.
+- No check fired a `trigger` node in a subgraph use in the window.
 
 ## Milestone 11: the audio domain
 
