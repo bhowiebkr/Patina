@@ -26,8 +26,8 @@ const HIT_WIDTH = 12;
 /** The size of a route handle, in screen pixels. */
 const HANDLE = 10;
 
-/** The ends of a wire, its route points, its look, the type of its value and its bus name (spec 15.9). */
-export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; bus?: string };
+/** The ends of a wire, its route points, its look, the type of its value, its wire name and its bus name (spec 15.9). */
+export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string };
 
 export interface WireTools {
   store: WireStore;
@@ -98,7 +98,8 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const near = !far || selected;
   // A bus shows its name and width in place of the type label, above its lanes.
   const bus = data!.bus ?? kind?.label ?? value?.lanes?.label ?? data!.ty ?? 'bus';
-  const label = ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? data!.ty : undefined;
+  // One line shows its wire name in place of the type label.
+  const label = ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? (data!.name ?? data!.ty) : undefined;
   const above = 12 + (ribbon && !far ? ((n - 1) * PITCH) / 2 : 0);
   // The lane under the pointer (15.9). The hit area covers the full ribbon.
   const leave = () => {
@@ -127,7 +128,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
         {/* The type label or the bus label is above the badge (15.9). */}
         {label && (
           <div
-            className={selected ? 'wire-type selected' : 'wire-type'}
+            className={`wire-type${data!.name ? ' named' : ''}${selected ? ' selected' : ''}`}
             title={data!.ty}
             style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))` }}
           >

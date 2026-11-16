@@ -662,6 +662,11 @@ html.native-viewport .gui-viewport {
   max-width: none;
 }
 
+/* A wire name is brighter than a type label. */
+.wire-type.named {
+  color: var(--text);
+}
+
 .wire-value.selected {
   max-width: none;
   border-color: var(--accent);

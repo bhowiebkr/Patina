@@ -272,6 +272,7 @@ to = "151ba83788a47c6a.987c7f5a"
 [[wire]]
 from = "242ca5fc0b4cf5de.658a83ea"
 to = "4263423f7b251ba1.665555f1"
+name = "ADD"
 
 [[wire]]
 from = "4263423f7b251ba1.72b5072c"
@@ -292,6 +293,7 @@ to = "c8a39107189ba1a5.value"
 [[wire]]
 from = "242ca5fc0b4cf5de.8e8f4070"
 to = "78d4f9f25e1460f1.665555f1"
+name = "JC"
 
 [[wire]]
 from = "dc494c881d2e9e24.out"
@@ -300,6 +302,7 @@ to = "78d4f9f25e1460f1.072eae79"
 [[wire]]
 from = "242ca5fc0b4cf5de.1096a267"
 to = "aa5663fe0b934172.665555f1"
+name = "JZ"
 
 [[wire]]
 from = "c8a39107189ba1a5.out"
@@ -308,6 +311,7 @@ to = "aa5663fe0b934172.072eae79"
 [[wire]]
 from = "242ca5fc0b4cf5de.5b0924a0"
 to = "9dbe4a43c813b57e.37c6cc47"
+name = "JMP"
 
 [[wire]]
 from = "78d4f9f25e1460f1.72b5072c"
@@ -472,10 +476,12 @@ to = "151ba83788a47c6a.36ab6f8b"
 [[wire]]
 from = "242ca5fc0b4cf5de.7ffc17a5"
 to = "63e3a71baa1baa6c.37c6cc47"
+name = "LDI"
 
 [[wire]]
 from = "242ca5fc0b4cf5de.658a83ea"
 to = "63e3a71baa1baa6c.3fbd40e4"
+name = "ADD"
 
 [[wire]]
 from = "63e3a71baa1baa6c.67d0fbe0"
@@ -484,6 +490,7 @@ to = "597ebb1e99f12fba.37c6cc47"
 [[wire]]
 from = "242ca5fc0b4cf5de.aa05e46b"
 to = "597ebb1e99f12fba.3fbd40e4"
+name = "LD"
 
 [[wire]]
 from = "597ebb1e99f12fba.67d0fbe0"
@@ -540,6 +547,7 @@ to = "d291c16eda56e8d0.b7e6186b"
 [[wire]]
 from = "242ca5fc0b4cf5de.3061f316"
 to = "5391ca7e1e62a838.665555f1"
+name = "OUT"
 
 [[wire]]
 from = "5391ca7e1e62a838.72b5072c"
@@ -548,6 +556,7 @@ to = "0995919e5d3210f0.97c51e0d"
 [[wire]]
 from = "242ca5fc0b4cf5de.60eb7860"
 to = "c8ebb529ab154a72.665555f1"
+name = "ST"
 
 [[wire]]
 from = "c8ebb529ab154a72.72b5072c"

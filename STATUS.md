@@ -79,6 +79,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     one value. It is the first type crate of the example (5.1). The `segment-bus` kind draws it
     as a copper ribbon of 7 lanes with the names a to g. A `seg-join` node in `hex-7seg` joins
     the segments, so each display gets one bus in place of 7 wires.
+23. Done: wire names on one line. A named wire of one line shows its name in place of the
+    type label. In the `cpu` graph, the 8 opcode lines of the decoder have the names `LDI` to
+    `JZ`.
 
 ### Checked
 

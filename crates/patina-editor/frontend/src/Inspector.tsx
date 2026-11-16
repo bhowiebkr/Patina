@@ -102,7 +102,7 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
             placeholder="Default"
             maxLength={32}
             disabled={locked}
-            title="The bus name that the label and the lane tooltips show"
+            title="The wire name that the label and the lane tooltips show"
             onBlur={(e) => {
               const name = e.currentTarget.value.trim();
               if (name !== (wire?.name ?? '')) void onEdit({ kind: 'NameWire', to, name: name || null });
