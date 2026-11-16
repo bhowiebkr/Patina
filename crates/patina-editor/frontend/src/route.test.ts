@@ -23,6 +23,10 @@ test('a route goes around a node between the pins', () => {
   assert.equal(crosses(path, B), false);
 });
 
+test('a wire with pins less than 1 px apart in y has no jog', () => {
+  assert.equal(route([A, C], new Map([['w', wire(50, 50.5, 'a')]])).get('w')!.length, 2);
+});
+
 test('parallel wires of two outputs keep a gap', () => {
   const out = route([A, C], new Map([['p', wire(20, 80, 'a')], ['q', wire(40, 100, 'b')]]));
   const x = (id: string) => out.get(id)!.find((p, k, all) => k > 0 && all[k - 1][0] === p[0])![0];

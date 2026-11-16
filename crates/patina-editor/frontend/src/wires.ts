@@ -186,30 +186,36 @@ export function wirePath(sx: number, sy: number, tx: number, ty: number, shape: 
   return `${d}L${tx} ${ty}`;
 }
 
-/** The place of the value badge (15.9): the middle of the longest segment of the path. */
-export function midpoint(sx: number, sy: number, tx: number, ty: number, shape: Shape): Point {
+/**
+ * The place of the value badge and the label (15.9), and the width at most of the label above it.
+ * The place is the middle of the curve, or of the longest horizontal segment of a route. A route
+ * with no horizontal segment uses its longest segment. The label does not go over the nodes at
+ * the two ends or over a corner that turns up into it.
+ */
+export function anchor(sx: number, sy: number, tx: number, ty: number, shape: Shape): [number, number, number] {
   const route = shape.bends;
+  const at = (k: number, axis: 0 | 1) => vertex(sx, sy, tx, ty, route, k, axis);
+  const curve = shape.radius === SMOOTH;
   // The middle of a segment is never on a route point, so the handles of a selected wire do not hide the badge.
   let best = 0;
   let longest = -1;
+  let flat = false;
   for (let k = 0; k <= route.length; k++) {
-    const len = Math.hypot(vertex(sx, sy, tx, ty, route, k + 1, 0) - vertex(sx, sy, tx, ty, route, k, 0), vertex(sx, sy, tx, ty, route, k + 1, 1) - vertex(sx, sy, tx, ty, route, k, 1));
-    if (len > longest) {
-      longest = len;
-      best = k;
-    }
+    const dy = at(k + 1, 1) - at(k, 1);
+    const len = Math.hypot(at(k + 1, 0) - at(k, 0), dy);
+    const level = !curve && Math.abs(dy) < 1;
+    if ((level && !flat) || (level === flat && len > longest)) [best, longest, flat] = [k, len, level];
   }
-  if (shape.radius === SMOOTH) {
+  let x = (at(best, 0) + at(best + 1, 0)) / 2;
+  let y = (at(best, 1) + at(best + 1, 1)) / 2;
+  if (curve) {
     smooth(sx, sy, tx, ty, route, best);
-    return [(ctl[0] + 3 * ctl[2] + 3 * ctl[4] + ctl[6]) / 8, (ctl[1] + 3 * ctl[3] + 3 * ctl[5] + ctl[7]) / 8];
+    [x, y] = [(ctl[0] + 3 * ctl[2] + 3 * ctl[4] + ctl[6]) / 8, (ctl[1] + 3 * ctl[3] + 3 * ctl[5] + ctl[7]) / 8];
   }
-  const mid = (axis: 0 | 1) => (vertex(sx, sy, tx, ty, route, best, axis) + vertex(sx, sy, tx, ty, route, best + 1, axis)) / 2;
-  return [mid(0), mid(1)];
-}
-
-/** The width at most of a label centered at x = mx, so the nodes at the two ends do not cover it. */
-export function labelRoom(sx: number, tx: number, mx: number): number {
-  return Math.min(LABEL_WIDTH, tx > sx ? 2 * Math.min(mx - sx, tx - mx) - 8 : LABEL_WIDTH);
+  if (!flat) return [x, y, Math.min(LABEL_WIDTH, tx > sx ? 2 * Math.min(x - sx, tx - x) - 8 : LABEL_WIDTH)];
+  const up = (k: number) => k >= 0 && k <= route.length + 1 && at(k, 1) < y - 0.5;
+  const inset = Math.max(best > 0 && up(best - 1) ? shape.radius : 0, best < route.length && up(best + 2) ? shape.radius : 0);
+  return [x, y, Math.min(LABEL_WIDTH, longest - 2 * inset - 8)];
 }
 const LABEL_WIDTH = 160;
 

@@ -495,7 +495,9 @@ export function nudge(paths: readonly Point[][], wires: readonly WireIn[], rects
 
 function nets(wires: ReadonlyMap<string, WireIn>): Map<string, Leg[]> {
   const out = new Map<string, Leg[]>();
-  for (const [id, w] of wires) {
+  for (const [id, wire] of wires) {
+    // Pins less than 1 px apart in y route as one line, so the path gets no tiny jog.
+    const w = Math.abs(wire.ty - wire.sy) < 1 && wire.ty !== wire.sy ? { ...wire, ty: wire.sy } : wire;
     const legs = out.get(w.net);
     if (legs) legs.push({ id, w });
     else out.set(w.net, [{ id, w }]);

@@ -19,7 +19,7 @@ import type { Corners, Edit, KindInfo, Point, Style, Value } from './api';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
 import type { Router } from './route';
-import { insertAt, labelRoom, midpoint, shape, wirePath, type WireStore } from './wires';
+import { anchor, insertAt, shape, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */
 const HIT_WIDTH = 12;
@@ -91,7 +91,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     void send([...route.slice(0, k), [Math.round(p.x), Math.round(p.y)], ...route.slice(k)]);
   };
   const d = wirePath(sourceX, sourceY, targetX, targetY, path);
-  const [mx, my] = midpoint(sourceX, sourceY, targetX, targetY, path);
+  const [mx, my, fit] = anchor(sourceX, sourceY, targetX, targetY, path);
   const n = bits.length;
   const ribbon = n > 1;
   // At a far zoom, only a selected wire shows its badge and type label. A bus keeps its width (15.1, 15.9).
@@ -100,7 +100,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const bus = data!.bus ?? kind?.label ?? value?.lanes?.label ?? data!.ty ?? 'bus';
   // One line shows its wire name in place of the type label.
   // A label with no room hides. The sockets and the pin tooltips at the two ends show the names.
-  const room = selected ? Infinity : labelRoom(sourceX, targetX, mx);
+  const room = selected ? Infinity : fit;
   const label = room < 24 ? undefined : ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? (data!.name ?? data!.ty) : undefined;
   const above = 12 + (ribbon && !far ? ((n - 1) * PITCH) / 2 : 0);
   // The lane under the pointer (15.9). The hit area covers the full ribbon.

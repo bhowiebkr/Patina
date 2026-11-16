@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, labelRoom, LIT, MAX_POINTS, MAX_ROUTE, midpoint, normals, orthogonal, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import { anchor, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, normals, orthogonal, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Style } from './api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -80,10 +80,16 @@ test('a short S-bend of a wide ribbon makes two flat arcs, so no lane folds back
   assert.equal(path(100, 40, [], 'orthogonal').length, 2 + 2 * 12, 'a long leg keeps two corners');
 });
 
-test('a wire label fits between the two nodes', () => {
-  assert.equal(labelRoom(0, 1000, 500), 160);
-  assert.equal(labelRoom(0, 100, 30), 52, 'the nearer node limits the label');
-  assert.equal(labelRoom(100, 0, 50), 160, 'a wire that goes back keeps the full width');
+test('a wire label fits between the two nodes and keeps off the corners', () => {
+  assert.equal(anchor(0, 0, 1000, 0, shape(0, 0, 1000, 0, [], 'polyline'))[2], 160);
+  assert.equal(anchor(0, 0, 100, 40, shape(0, 0, 100, 40, []))[2], 92, 'the nodes limit the label of a curve');
+  // A Z route: the vertical leg is the longest, but the label goes on the longest horizontal leg.
+  const z = shape(0, 0, 60, 100, [[40, 0], [40, 100]], 'polyline', 'sharp');
+  assert.deepEqual(anchor(0, 0, 60, 100, z), [20, 0, 32]);
+  // A corner that turns up into the label takes its radius from each side.
+  const up = shape(0, 100, 60, 0, [[40, 100], [40, 0]], 'polyline');
+  assert.deepEqual(anchor(0, 100, 60, 0, up), [20, 100, 32 - 2 * up.radius]);
+  assert.equal(anchor(0, 0, 60, 100, shape(0, 0, 60, 100, [[40, 0], [40, 100]], 'polyline'))[2], 32, 'a corner that turns down is not in the way');
 });
 
 test('the largest route fits in a row, and a longer route gets fewer points for each corner', () => {
@@ -162,13 +168,13 @@ test('a bus keeps its color family, and the hovered lane is marked', () => {
   assert.equal(store.across('none', 0, 0), null);
 });
 
-test('the value badge sits at the middle of the curve or of the longest segment', () => {
-  assert.deepEqual(midpoint(0, 0, 100, 40, shape(0, 0, 100, 40, [])), [50, 20]);
+test('the value badge sits at the middle of the curve or of the longest horizontal segment', () => {
+  assert.deepEqual(anchor(0, 0, 100, 40, shape(0, 0, 100, 40, [])).slice(0, 2), [50, 20]);
   // Segments of 10, 10 and 20: the badge is at the middle of the last one, not on a route point.
-  assert.deepEqual(midpoint(0, 0, 30, 10, shape(0, 0, 30, 10, [[10, 0], [10, 10]])), [20, 10]);
+  assert.deepEqual(anchor(0, 0, 30, 10, shape(0, 0, 30, 10, [[10, 0], [10, 10]])).slice(0, 2), [20, 10]);
   // Two equal segments: the first one wins, so the badge is not on the route point between them.
-  assert.deepEqual(midpoint(0, 0, 20, 0, shape(0, 0, 20, 0, [[10, 0]])), [5, 0]);
-  assert.deepEqual(midpoint(0, 0, 0, 0, shape(0, 0, 0, 0, [[0, 0]])), [0, 0]);
+  assert.deepEqual(anchor(0, 0, 20, 0, shape(0, 0, 20, 0, [[10, 0]])).slice(0, 2), [5, 0]);
+  assert.deepEqual(anchor(0, 0, 0, 0, shape(0, 0, 0, 0, [[0, 0]])).slice(0, 2), [0, 0]);
 });
 
 test('an orthogonal path has only horizontal and vertical segments, and is horizontal at the pins', () => {
@@ -198,5 +204,5 @@ test('a curved path goes through its route points and keeps the default curve wi
   assert.ok(p.some(([x, y]) => Math.abs(x - 50) < 1e-4 && Math.abs(y - 40) < 1e-4), 'the curve passes the point');
   assert.ok(Math.abs(p[1][1]) < Math.abs(p[1][0]), 'the curve leaves the pin horizontally');
   assert.equal(path(100, 0, []).length, 33);
-  near([midpoint(0, 0, 100, 0, shape(0, 0, 100, 0, [[50, 40]], 'curved'))], [[33.75, 20]]);
+  near([anchor(0, 0, 100, 0, shape(0, 0, 100, 0, [[50, 40]], 'curved')).slice(0, 2)], [[33.75, 20]]);
 });
