@@ -28,6 +28,11 @@ id = "8a44d71f602bab23"
 subgraph = "full-adder"
 pos = [1200.0, 419.8]
 
+[[node]]
+id = "aa18a9888fa4fbf5"
+folder = "nodes/join"
+pos = [1500.0, 600.0]
+
 [[wire]]
 from = "9d80ec0320d455a5.out"
 to = "3742416f0d432a7a.1395fdff"
@@ -43,6 +48,22 @@ to = "28dc0bb3b6b3333f.1395fdff"
 [[wire]]
 from = "28dc0bb3b6b3333f.3273375a"
 to = "8a44d71f602bab23.1395fdff"
+
+[[wire]]
+from = "3742416f0d432a7a.fc3b813e"
+to = "aa18a9888fa4fbf5.b0"
+
+[[wire]]
+from = "a49caf04776a0e66.fc3b813e"
+to = "aa18a9888fa4fbf5.b1"
+
+[[wire]]
+from = "28dc0bb3b6b3333f.fc3b813e"
+to = "aa18a9888fa4fbf5.b2"
+
+[[wire]]
+from = "8a44d71f602bab23.fc3b813e"
+to = "aa18a9888fa4fbf5.b3"
 
 [[input]]
 key = "44be6e56"
@@ -121,3 +142,9 @@ key = "8f87e1af"
 name = "carry out"
 pos = [1500.0, 400.0]
 from = "8a44d71f602bab23.3273375a"
+
+[[output]]
+key = "4251439a"
+name = "value"
+pos = [1800.0, 600.0]
+from = "aa18a9888fa4fbf5.out"

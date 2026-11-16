@@ -10,6 +10,43 @@ id = "4c66882cdb40b8b7"
 subgraph = "register-4"
 pos = [0.0, 500.0]
 
+[[node]]
+id = "d3ad34682b8aa64d"
+folder = "nodes/join"
+pos = [300.0, 900.0]
+
+[[wire]]
+from = "df8a1ce010e39ba7.608ab439"
+to = "d3ad34682b8aa64d.b0"
+
+[[wire]]
+from = "df8a1ce010e39ba7.fbae7ec2"
+to = "d3ad34682b8aa64d.b1"
+
+[[wire]]
+from = "df8a1ce010e39ba7.f5c7996c"
+to = "d3ad34682b8aa64d.b2"
+
+[[wire]]
+from = "df8a1ce010e39ba7.3dca83af"
+to = "d3ad34682b8aa64d.b3"
+
+[[wire]]
+from = "4c66882cdb40b8b7.608ab439"
+to = "d3ad34682b8aa64d.b4"
+
+[[wire]]
+from = "4c66882cdb40b8b7.fbae7ec2"
+to = "d3ad34682b8aa64d.b5"
+
+[[wire]]
+from = "4c66882cdb40b8b7.f5c7996c"
+to = "d3ad34682b8aa64d.b6"
+
+[[wire]]
+from = "4c66882cdb40b8b7.3dca83af"
+to = "d3ad34682b8aa64d.b7"
+
 [[input]]
 key = "97c51e0d"
 name = "load"
@@ -111,3 +148,9 @@ key = "32d35827"
 name = "q7"
 pos = [300.0, 700.0]
 from = "4c66882cdb40b8b7.3dca83af"
+
+[[output]]
+key = "a1a82dd8"
+name = "value"
+pos = [600.0, 900.0]
+from = "d3ad34682b8aa64d.out"

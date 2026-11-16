@@ -105,6 +105,11 @@ id = "222aa90d06188daf"
 subgraph = "mux"
 pos = [1200.0, 1230.7]
 
+[[node]]
+id = "d47355aa6c20a799"
+folder = "nodes/join"
+pos = [1500.0, 500.0]
+
 [[wire]]
 from = "19d03f68203c7af6.0bce0f02"
 to = "f48fe8ee067a64fa.072eae79"
@@ -233,6 +238,22 @@ to = "222aa90d06188daf.987c7f5a"
 from = "1bb9d4b0b2194b5f.93be95a4"
 to = "222aa90d06188daf.36ab6f8b"
 
+[[wire]]
+from = "6851a085cd32b95e.93be95a4"
+to = "d47355aa6c20a799.b0"
+
+[[wire]]
+from = "f3c12b98e3d19a2d.93be95a4"
+to = "d47355aa6c20a799.b1"
+
+[[wire]]
+from = "4a6d698f4c6dd243.93be95a4"
+to = "d47355aa6c20a799.b2"
+
+[[wire]]
+from = "222aa90d06188daf.93be95a4"
+to = "d47355aa6c20a799.b3"
+
 [[input]]
 key = "8279ad7a"
 name = "write"
@@ -298,3 +319,9 @@ key = "2aee4b3c"
 name = "q3"
 pos = [1500.0, 300.0]
 from = "222aa90d06188daf.93be95a4"
+
+[[output]]
+key = "39cc0465"
+name = "value"
+pos = [1800.0, 500.0]
+from = "d47355aa6c20a799.out"

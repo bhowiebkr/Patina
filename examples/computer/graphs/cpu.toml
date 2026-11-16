@@ -246,6 +246,11 @@ id = "a49a664ddd98fa59"
 subgraph = "mux"
 pos = [3000.0, 817.7]
 
+[[node]]
+id = "f92afc3275dcfaae"
+folder = "nodes/join"
+pos = [3300.0, 2200.0]
+
 [[wire]]
 from = "c03d8aca7005e2e0.f0600ea7"
 to = "242ca5fc0b4cf5de.d24ca236"
@@ -874,6 +879,22 @@ to = "0995919e5d3210f0.14f28695"
 from = "145c8a556e8a4cf6.32d35827"
 to = "9e0d7645658b8d1c.8d8582a6"
 
+[[wire]]
+from = "e5136af71e75ea74.out"
+to = "f92afc3275dcfaae.b0"
+
+[[wire]]
+from = "e50f5c54fc617548.out"
+to = "f92afc3275dcfaae.b1"
+
+[[wire]]
+from = "e7c44e2b24c3d72f.out"
+to = "f92afc3275dcfaae.b2"
+
+[[wire]]
+from = "fa4c6d70eb7e50bb.out"
+to = "f92afc3275dcfaae.b3"
+
 [[input]]
 key = "4654170b"
 name = "clk"
@@ -1005,3 +1026,21 @@ key = "5e1f0a7c"
 name = "strobe"
 pos = [3300.0, 2000.0]
 from = "5391ca7e1e62a838.72b5072c"
+
+[[output]]
+key = "566aa9ba"
+name = "pc"
+pos = [3600.0, 2200.0]
+from = "f92afc3275dcfaae.out"
+
+[[output]]
+key = "78d48ca9"
+name = "a"
+pos = [3600.0, 2400.0]
+from = "145c8a556e8a4cf6.a1a82dd8"
+
+[[output]]
+key = "64e426d1"
+name = "out"
+pos = [3600.0, 2600.0]
+from = "0995919e5d3210f0.a1a82dd8"

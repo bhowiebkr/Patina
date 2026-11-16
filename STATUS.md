@@ -54,6 +54,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     CPU is "and clk". The example ticks each 4 frames.
 16. Done: an `analyzer` node draws the last 96 frames of 8 signals as waveforms. In the
     example, it shows the clock, the strobe, the PC bits, A0 and OUT0.
+17. Done: byte buses. A `join` node puts 8 bits into a byte, and the `byte` connection kind
+    draws a byte wire as a ribbon of 8 lanes. The 4-bit subgraphs, `register-8` and the `cpu`
+    give byte outputs, so each readout gets one ribbon in place of 4 or 8 wires.
 
 ### Checked
 
@@ -93,6 +96,9 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 - A `patina --shot` screenshot shows the `clock` node and the waveforms of the `analyzer`
   node: one clock pulse each 4 frames, and PC0 toggles at each pulse. A unit test checks the
   samples of the analyzer. No test checks its drawing.
+- A `patina --shot` screenshot shows the byte wires of the `cpu` outputs **pc**, **a** and
+  **out** as ribbons of lanes, with the label `bus[7:0] / 8`. The CLI test gives the same
+  readout values with the byte wires. A unit test checks the bit order of `join`.
 
 ## Milestone 11: the audio domain
 

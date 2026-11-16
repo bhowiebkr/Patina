@@ -290,8 +290,12 @@ example runs 15 instructions each second at 60 frames each second. Set **every**
 **Inspector** to change the speed. Set **halt** to stop the clock, then click **Step** on the node
 to give one tick.
 
-In the editor, the `readout` nodes show the 8 bits as lamps and as a number. The `lcd` node shows
-2 lines of 16 characters. The **strobe** output of the `cpu` is on in the tick of an OUT
+In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
+puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8
+lanes, with the label `bus[7:0] / 8`. Each readout gets one byte wire from an output of its
+subgraph, for example **value**, or **pc**, **a** and **out** of the `cpu`.
+
+The `lcd` node shows 2 lines of 16 characters. The **strobe** output of the `cpu` is on in the tick of an OUT
 instruction. The `lcd-writer` subgraph then writes the two hex digits of OUT and a space to the
 LCD, one character at each step. Its `hex-ascii` subgraph gives the ASCII code of a hex digit,
 `0` to `9` or `A` to `F`.
