@@ -92,6 +92,8 @@ pub struct View {
     recovery: bool,
     /// The values of the public inputs while the open subgraph runs alone, or none (15.9).
     test: Option<BTreeMap<String, String>>,
+    /// The clock domain of each node use of the checked graph, empty when the check fails (9.1, 15.3).
+    domains: BTreeMap<String, &'static str>,
 }
 
 /// The answer to a recovery file: the view and the unsaved code for the Code tab (15.10).
@@ -271,6 +273,7 @@ impl Session {
             Err(Error::Graph(_, problems)) => (None, problems),
             Err(e) => (None, vec![e.to_string()]),
         };
+        let domains = checked.iter().flat_map(|c| c.domains()).map(|(id, d)| (id.to_owned(), d)).collect();
         if let (Some(checked), Some(build), true) = (checked, build, self.live) {
             let run = Run { serial: self.serial, checked, build, slot };
             let _ = engine.send(Job::Run(Box::new(run)));
@@ -305,6 +308,7 @@ impl Session {
             code_revision: project.code_revision(),
             recovery: self.recovery.is_some(),
             test: self.test.clone(),
+            domains,
         }
     }
 }

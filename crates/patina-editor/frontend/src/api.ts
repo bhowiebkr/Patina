@@ -70,6 +70,18 @@ export interface Pin {
   name?: string;
 }
 
+/** The node kind for the node icon (15.3). */
+export type NodeKind = 'function' | 'stateful' | 'generic' | 'async' | 'trigger' | 'subgraph';
+
+/** A clock domain (9.1). */
+export type Domain = 'batch' | 'frame' | 'audio' | 'event';
+
+/** The clock domains of the nodes of the open graph, with the IDs inside the use `scope` (9.1, 6.4). */
+export function scopeDomains(domains: Readonly<Record<string, Domain>>, scope: string): ReadonlyMap<string, Domain> {
+  const p = scope ? `${scope}/` : '';
+  return new Map(Object.entries(domains).flatMap(([k, d]) => (k.startsWith(p) && !k.includes('/', p.length) ? [[k.slice(p.length), d] as const] : [])));
+}
+
 export interface NodeInfo {
   name: string;
   inputs: Pin[];
@@ -85,6 +97,7 @@ export interface NodeInfo {
   color: string | null;
   /** True for a subgraph in `graphs/` (6.1). Its name is the file name. */
   subgraph: boolean;
+  kind: NodeKind;
 }
 
 export interface View {
@@ -121,6 +134,8 @@ export interface View {
   test: Record<string, string> | null;
   /** The connection kinds (6.3). */
   kinds: KindInfo[];
+  /** The clock domain of each node use of the checked main graph, by flattened ID (9.1). Empty when the check fails. */
+  domains: Record<string, Domain>;
 }
 
 /** The unsaved text of the Code tab, by path. */

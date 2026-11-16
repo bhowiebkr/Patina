@@ -943,6 +943,10 @@ To run the editor from a checkout:
 - A wire with the graph default look and no clear path shows a yellow conflict mark on the
   first segment through a node body (15.9). A unit test checks the mark and its removal. The
   selfcheck puts a route point in a node body, and checks the mark and that the undo removes it.
+- Each node header shows a kind icon and a clock-domain icon, and a wire between two domains is
+  dashed (15.3). A unit test checks the kinds of the engine. Frontend tests check the domains
+  of a scope and the dash flag of the wire store. The selfcheck connects a batch value to a
+  `delay`, and checks the icons, the dashed wire and the undo. It checks the trigger icons too.
 - The **Look** section of the **Inspector** sets the look of the selected wire (15.9). **Route**
   is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded**
   or **Sharp**. **Reset route** removes the route points. The graph file keeps the style, and

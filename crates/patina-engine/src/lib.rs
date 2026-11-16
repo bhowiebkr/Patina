@@ -128,6 +128,8 @@ pub struct NodeInfo {
     pub color: Option<String>,
     /// True for a subgraph in `graphs/` (6.1). Its name is the file name.
     pub subgraph: bool,
+    /// The kind for the node icon (15.3): `function`, `stateful`, `generic`, `async`, `trigger` or `subgraph`.
+    pub kind: &'static str,
 }
 
 /// A connection kind (6.3), for the lanes, the bus sockets and the colors of the editor (15.9).
@@ -146,13 +148,24 @@ impl NodeInfo {
         let keys = node.output_keys().into_iter();
         let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty, name: None }).collect();
         let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty, name: None }).collect();
-        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, color: node.color, subgraph: false }
+        let kind = if node.is_async {
+            "async"
+        } else if node.state.is_some() {
+            "stateful"
+        } else if !node.generics.is_empty() {
+            "generic"
+        } else {
+            "function"
+        };
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, color: node.color, subgraph: false, kind }
     }
 }
 
 /// The built-in nodes, for the node list of the editor (9.2).
 pub fn builtins() -> Vec<NodeInfo> {
-    node::Builtin::ALL.into_iter().map(|b| NodeInfo::new(b.name().to_owned(), b.node(), true)).collect()
+    // The delay keeps the last value, so it shows as stateful.
+    let info = |b: node::Builtin| NodeInfo { kind: if b.fires() { "trigger" } else { "stateful" }, ..NodeInfo::new(b.name().to_owned(), b.node(), true) };
+    node::Builtin::ALL.into_iter().map(info).collect()
 }
 
 /// A graph that passed all checks, ready to build.
@@ -400,7 +413,7 @@ impl Project {
             }
             nodes.push(match plan::read_node(&self.root, &name) {
                 Ok(node) => NodeInfo::new(name, node, false),
-                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, color: None, subgraph: false },
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, color: None, subgraph: false, kind: "function" },
             });
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
@@ -575,10 +588,22 @@ mod tests {
         let reopened = Project::open(&root).unwrap();
         let checked = reopened.check();
         assert_eq!(reopened.graph(), project.graph());
-        assert!(checked.is_ok());
+        // The editor shows the kind and the clock domain of each node (15.3).
+        let checked = checked.unwrap();
+        assert_eq!(checked.domains().collect::<Vec<_>>(), [("000000000000000a", "batch")]);
+        assert_eq!((nodes[0].kind, made.kind), ("function", "function"));
+        let kinds: Vec<_> = builtins().into_iter().map(|b| (b.name, b.kind)).collect();
+        assert_eq!(kinds[0], ("delay".to_owned(), "stateful"));
+        assert!(kinds[1..].iter().all(|k| k.1 == "trigger"), "{kinds:?}");
+        let kind = |state: bool, is_async: bool| {
+            let node = node::Node { state: state.then(|| "State".to_owned()), is_async, ..node::Builtin::Delay.node() };
+            NodeInfo::new(String::new(), node, false).kind
+        };
+        assert_eq!([kind(false, false), kind(true, false), kind(true, true)], ["generic", "stateful", "async"]);
 
         // A subgraph opens, runs with its unsaved changes and saves to its own file (6.1).
         fs::write(root.join("graphs/half.toml"), "format = 1\n").unwrap();
+        assert_eq!(project.subgraphs()[0].kind, "subgraph");
         project.apply(&Edit::AddNode { id: "00000000000000b1".to_owned(), folder: "graphs/half".to_owned(), builtin: false, pos: [0.0, 0.0] }).unwrap();
         assert!(project.open_graph("half").is_err(), "the main graph has unsaved changes");
         project.save().unwrap();

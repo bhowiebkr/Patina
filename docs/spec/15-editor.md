@@ -191,6 +191,7 @@ Node bodies fit their contents; their widths and heights need not match. A node 
 - Node icons show the node kind: function, stateful, generic, async, trigger, or subgraph. Patina uses its own icons.
 - A small icon on each node shows its clock domain.
 - Cross-domain wires use a dashed line.
+- The kind icon is before the node name, and the domain icon is before the state icon. The tooltip of each icon gives its name. A builtin `delay` shows as stateful, and the other builtins show as triggers. A node with state shows as stateful before generic, and an async node shows as async before both. The domains come from the check of the main graph, so a subgraph shows domain icons only when it is open through a use. The dash of a wire restarts at each segment. (Agent decision, 2026-11-16. The owner can change it.)
 
 **Node states:**
 

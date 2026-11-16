@@ -397,6 +397,8 @@ export const STALE = 256;
 /** The lane under the pointer. */
 export const HOVER = 512;
 export const FAMILY_SHIFT = 10;
+/** A wire between two clock domains is dashed (15.3). */
+export const DASHED = 8192;
 
 /**
  * The draw instances of the wires: slot, segment, lane and flags. Each lane of each segment of
@@ -411,7 +413,7 @@ export function instances(store: WireStore, selectedOnly: boolean): Uint16Array 
   for (let s = 0; s < store.counts.length; s++) {
     if (selectedOnly && !store.selected[s]) continue;
     const bits = store.bits[s];
-    const flags = (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0) | (store.family[s] << FAMILY_SHIFT);
+    const flags = (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0) | (store.family[s] << FAMILY_SHIFT) | (store.dashed[s] ? DASHED : 0);
     for (let k = 0; k < store.counts[s] - 1; k++) {
       for (let lane = 0; lane < lanesOf(s); lane++, at += 4) {
         out[at] = s;
@@ -432,6 +434,8 @@ export class WireStore {
   /** The lanes of each wire (6.3), the most significant first, or "" for one plain line. */
   bits: string[] = Array<string>(16).fill('');
   stale = new Uint8Array(16);
+  /** 1 for a wire between two clock domains (15.3). */
+  dashed = new Uint8Array(16);
   /** The color family of each wire: 0 for neutral, else 1 to 5 (15.9). */
   family = new Uint8Array(16);
   /** The lane under the pointer in each wire, or -1. */
@@ -450,7 +454,7 @@ export class WireStore {
     this.notify = fn;
   }
 
-  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false, family = 0, hover = -1) {
+  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false, family = 0, hover = -1, dashed = false) {
     let slot = this.slots.get(id);
     if (slot === undefined) {
       slot = this.free.pop() ?? this.slots.size;
@@ -460,11 +464,13 @@ export class WireStore {
     }
     const sel = selected ? 1 : 0;
     const old = stale ? 1 : 0;
+    const dash = dashed ? 1 : 0;
     // shortcut: a new lane state rebuilds the instances of all wires; put the lane states in a texture when values come at the display rate (15.6).
-    if (this.selected[slot] !== sel || this.bits[slot] !== bits || this.stale[slot] !== old || this.family[slot] !== family || this.hover[slot] !== hover) this.layout = true;
+    if (this.selected[slot] !== sel || this.bits[slot] !== bits || this.stale[slot] !== old || this.family[slot] !== family || this.hover[slot] !== hover || this.dashed[slot] !== dash) this.layout = true;
     this.selected[slot] = sel;
     this.bits[slot] = bits;
     this.stale[slot] = old;
+    this.dashed[slot] = dash;
     this.family[slot] = family;
     this.hover[slot] = hover;
     const at = slot * MAX_POINTS * STRIDE;
@@ -485,6 +491,7 @@ export class WireStore {
     this.selected[slot] = 0;
     this.bits[slot] = '';
     this.stale[slot] = 0;
+    this.dashed[slot] = 0;
     this.family[slot] = 0;
     this.hover[slot] = -1;
     this.layout = true;
@@ -534,6 +541,8 @@ export class WireStore {
     selected.set(this.selected);
     const stale = new Uint8Array(n);
     stale.set(this.stale);
+    const dashed = new Uint8Array(n);
+    dashed.set(this.dashed);
     const family = new Uint8Array(n);
     family.set(this.family);
     const hover = new Int8Array(n).fill(-1);
@@ -542,6 +551,7 @@ export class WireStore {
     this.counts = counts;
     this.selected = selected;
     this.stale = stale;
+    this.dashed = dashed;
     this.family = family;
     this.hover = hover;
     this.bits = this.bits.concat(Array<string>(n - this.bits.length).fill(''));

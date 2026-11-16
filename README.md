@@ -231,6 +231,10 @@ Each node runs in a clock domain. The domain decides when the node runs.
 
 One graph can use more than one domain. A slow domain never stops a fast one.
 
+A small icon in the node header shows the domain of the node. A wire between two domains has a
+dashed line. A second icon, before the node name, shows the node kind: function, stateful,
+generic, async, trigger or subgraph. Put the pointer on an icon to see its name.
+
 ## GPU
 
 GPU support comes from crates and from `patina-sdk`, not from the engine.

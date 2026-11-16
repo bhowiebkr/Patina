@@ -2,7 +2,7 @@
 // canvas under the nodes. A texture row holds the points and the miter normals of each wire.
 
 import { LANE_COLORS, PITCH } from './bus';
-import { FAMILY_SHIFT, HAS_LANES, HOVER, instances, LIT, MAX_POINTS, STALE, STRIDE, type WireStore } from './wires';
+import { DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, instances, LIT, MAX_POINTS, STALE, STRIDE, type WireStore } from './wires';
 
 /** The line widths and the lane pitch, in graph pixels, and the colors of docs/gui-visual-guide.md. */
 const WIRE_WIDTH = 2;
@@ -43,6 +43,9 @@ out float vHalf;
 out float vCore;
 out vec3 vColor;
 flat out int vKind;
+// The distance along the segment and the dash period in screen pixels, 0 for a solid line.
+out float vAlong;
+flat out float vPeriod;
 void main() {
   uint count = (inst.w & 63u) + 1u;
   bool lanes = (inst.w & ${HAS_LANES}u) != 0u;
@@ -96,7 +99,12 @@ void main() {
   int v = gl_VertexID;
   float along = (v == 1 || v == 4 || v == 5) ? 1.0 : 0.0;
   float side = (v == 2 || v == 3 || v == 5) ? 1.0 : -1.0;
-  vec4 p = texelFetch(points, ivec2(int(inst.y) + int(along), int(inst.x)), 0);
+  vec4 p0 = texelFetch(points, ivec2(int(inst.y), int(inst.x)), 0);
+  vec4 p1 = texelFetch(points, ivec2(int(inst.y) + 1, int(inst.x)), 0);
+  vec4 p = along > 0.5 ? p1 : p0;
+  // A cross-domain wire is dashed, and its selection too. The dash starts again at each segment.
+  vAlong = along * length(p1.xy - p0.xy) * view.z;
+  vPeriod = (inst.w & ${DASHED}u) != 0u && mode != 1 ? max(10.0 * view.z, 5.0) : 0.0;
   float core = max(width * view.z, 1.0) * 0.5;
   float halfW = core + edge * view.z;
   float ext = halfW + 1.0;
@@ -115,10 +123,17 @@ in float vHalf;
 in float vCore;
 in vec3 vColor;
 flat in int vKind;
+in float vAlong;
+flat in float vPeriod;
 out vec4 outColor;
 void main() {
   float d = abs(vAcross);
   float a = clamp(vHalf + 0.5 - d, 0.0, 1.0);
+  if (vPeriod > 0.0) {
+    // A dash is 60 % of the period, with a smooth end.
+    float m = mod(vAlong, vPeriod);
+    a *= clamp(min(m, vPeriod * 0.6 - m) + 0.5, 0.0, 1.0);
+  }
   vec3 c = vColor;
   if (vKind == 2) {
     // The shadow fades from the edge of the ribbon to its outer side.

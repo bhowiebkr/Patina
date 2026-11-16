@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { anchor, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Style } from './api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -166,6 +166,17 @@ test('a bus keeps its color family, and the hovered lane is marked', () => {
   assert.equal(store.across('bus', 40, -3), -3);
   assert.equal(store.across('bus', 140, 4), 4, 'beyond the end, the nearest segment');
   assert.equal(store.across('none', 0, 0), null);
+});
+
+test('a cross-domain wire has the dashed flag, and a change of the flag needs new instances', () => {
+  const store = new WireStore();
+  const line = shape(0, 0, 100, 0, [], 'polyline');
+  store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, true);
+  assert.deepEqual([...instances(store, false)], [0, 0, 0, DASHED]);
+  store.layout = false;
+  store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, false);
+  assert.ok(store.layout);
+  assert.deepEqual([...instances(store, false)], [0, 0, 0, 0]);
 });
 
 test('the value badge sits at the middle of the curve or of the longest horizontal segment', () => {

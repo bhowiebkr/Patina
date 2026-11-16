@@ -19,7 +19,7 @@ import {
 import { arrange, type Box, type Link } from './arrange';
 import { AddNode } from './AddNode';
 import { NameField } from './NameField';
-import { newId, type Edit, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
+import { newId, type Domain, type Edit, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
 import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
 import { savedViewport, saveViewport } from './Dock';
 import { NodeEdit, NodeView, ORDER, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
@@ -84,7 +84,7 @@ function portKey(id: string): string | null {
 }
 
 /** The entries of the Add node palette that add a public pin to an open subgraph (6.4). */
-const PIN_ENTRY = { inputs: [], outputs: [], error: null, builtin: false, generics: ['?'], full: false, color: null, subgraph: false };
+const PIN_ENTRY = { inputs: [], outputs: [], error: null, builtin: false, generics: ['?'], full: false, color: null, subgraph: false, kind: 'generic' as const };
 const PUBLIC_INPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public input', outputs: [{ key: 'pin', ty: '?' }] };
 const PUBLIC_OUTPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public output', inputs: [{ key: 'pin', ty: '?' }] };
 
@@ -141,7 +141,7 @@ function buildPorts(view: View, run: RunState, old: Map<string, GraphNode>): Por
 }
 
 /** Keeps the selection and the measured size of the nodes that stay. */
-function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, prev: GraphNode[]): GraphNode[] {
+function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, prev: GraphNode[]): GraphNode[] {
   const old = new Map(prev.map((n) => [n.id, n]));
   const wires = view.graph.wire ?? [];
   // The output that gives the value of each input, for the bus sockets.
@@ -154,14 +154,16 @@ function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
     const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
-    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets };
+    const domain = domains.get(entry.id);
+    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain };
     const before = old.get(entry.id);
     return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });
   return [...nodes, ...buildPorts(view, run, old)];
 }
 
-function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
+/** A wire between two known clock domains that differ is dashed (15.3). */
+function buildEdges(view: View, domains: ReadonlyMap<string, Domain>, prev: Edge<WireData>[]): Edge<WireData>[] {
   const selected = new Set(prev.filter((e) => e.selected).map((e) => e.id));
   const types = portTypes(view);
   const infos = new Map((view.graph.node ?? []).map((n) => [n.id, infoOf(n, view.nodes)]));
@@ -179,7 +181,9 @@ function buildEdges(view: View, prev: Edge<WireData>[]): Edge<WireData>[] {
     const [source, sourceHandle] = splitPin(w.from);
     const [target, targetHandle] = splitPin(w.to);
     const id = `${w.from}>${w.to}`;
-    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from), name: w.name, bus: bus(w.from, w.to, w.name) } };
+    const [a, b] = [domains.get(source), domains.get(target)];
+    const cross = a !== undefined && b !== undefined && a !== b;
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ?? NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from), name: w.name, bus: bus(w.from, w.to, w.name), cross } };
   });
   // An order wire has no data, so the Inspector does not show it.
   const orders = (view.graph.order ?? []).map((o): Edge<WireData> => {
@@ -208,6 +212,8 @@ function typing(target: EventTarget | null): boolean {
 interface Props {
   view: View;
   run: RunState;
+  /** The clock domain of each node of the open graph (9.1). */
+  domains: ReadonlyMap<string, Domain>;
   /** The widget lines of each node GUI, by "<mode> <node id>" (4.3). */
   guis: ReadonlyMap<string, string>;
   onEdit: (edit: Edit) => Promise<void>;
@@ -224,7 +230,7 @@ interface Props {
   onExpand: (ids: string[]) => void;
 }
 
-export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand }: Props) {
+export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand }: Props) {
   const flow = useReactFlow<GraphNode, Edge<WireData>>();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
@@ -256,8 +262,8 @@ export function GraphView({ view, run, guis, onEdit, onSelect, focus, onOpen, on
     labels.setObstacles(rects);
   }, [nodes, router, labels]);
 
-  useEffect(() => setNodes((prev) => buildNodes(view, run, guis, prev)), [view, run, guis]);
-  useEffect(() => setEdges((prev) => buildEdges(view, prev)), [view]);
+  useEffect(() => setNodes((prev) => buildNodes(view, run, guis, domains, prev)), [view, run, guis, domains]);
+  useEffect(() => setEdges((prev) => buildEdges(view, domains, prev)), [view, domains]);
   useEffect(() => {
     if (!focus) return;
     const ids = new Set(focus.ids);

@@ -2,13 +2,14 @@
 
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Pin, type Report, type Value, type View } from './api';
+import { duration, errorText, folderName, nodeProblems, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Pin, type Report, type Value, type View } from './api';
 import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
 import { outputTypeOf } from './palette';
 import { nodeWidth } from './gui';
+import { DomainIcon, KindIcon } from './icons';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -72,7 +73,6 @@ export const NO_RUN: RunState = {
   slot: null,
 };
 
-/** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
 /** The values and idle nodes of one use of a subgraph, with the IDs inside the use (6.4, 15.9). */
 export function scopeRun(run: RunState, scope: string): RunState {
   if (!scope) return run;
@@ -86,6 +86,7 @@ export function scopeRun(run: RunState, scope: string): RunState {
   return { ...run, values, idle: new Map(inner(run.idle)) };
 }
 
+/** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
 export function valueStale(run: RunState, from: string): boolean {
   return run.stale || run.idle.has(from.slice(0, from.lastIndexOf('.')));
 }
@@ -108,6 +109,8 @@ export interface NodeData extends Record<string, unknown> {
   gui?: string;
   /** True when the node runs in the slot library (7.3). */
   slot?: boolean;
+  /** The clock domain of the node use (9.1). */
+  domain?: Domain;
   /** The bus sockets (15.9) by "i:<input key>" or "o:<output key>". */
   sockets?: Readonly<Record<string, Socket>>;
 }
@@ -239,7 +242,7 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable, time, gui, slot, sockets } = data;
+  const { entry, info, wired, state, message, editable, time, gui, slot, sockets, domain } = data;
   const inputs = info?.inputs ?? [];
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
@@ -262,6 +265,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
   return (
     <div className={classes.join(' ')} style={style}>
       <div className="patina-node-header">
+        {info && <KindIcon kind={info.kind} />}
         <span className="title">{folderName(entry)}</span>
         {info?.full && <ExpandButton id={entry.id} />}
         {entry.builtin === 'trigger' && <FireButton id={entry.id} />}
@@ -273,6 +277,7 @@ function NodeViewImpl({ data, selected }: NodeProps<PatinaNode>) {
             </svg>
           </span>
         )}
+        {domain && <DomainIcon domain={domain} />}
         <StateIcon state={state} />
       </div>
       <div className="patina-rows" style={{ height: tops[rows] - HEADER + PAD }}>

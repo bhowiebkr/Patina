@@ -18,6 +18,11 @@ impl Checked {
         &self.aliases
     }
 
+    /// The clock domain of each node use, by the ID of `graph` (9.1).
+    pub fn domains(&self) -> impl Iterator<Item = (&str, &'static str)> {
+        self.plan.steps.iter().map(|s| (s.id.as_str(), s.domain.name()))
+    }
+
     /// Puts the node folder `name` in the slot (7.1): its uses call the slot library, and a build
     /// of the slot alone builds only this node. `None` empties the slot.
     pub fn set_slot(&mut self, name: Option<&str>) -> Result<(), Error> {

@@ -83,6 +83,8 @@ export function anyPixel(column: Uint8Array, test: (r: number, g: number, b: num
   return false;
 }
 
+/** True when the node `id` has an element of the class `cls`, for example an icon. */
+export const icon = (id: string, cls: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .${cls}`) !== null;
 export const amber = (r: number, _g: number, b: number) => r - b > 80;
 export const gray = (r: number, g: number, b: number) => Math.abs(r - g) < 12 && Math.abs(r - b) < 20;
 

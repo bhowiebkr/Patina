@@ -29,7 +29,8 @@ const HIT_WIDTH = 12;
 const HANDLE = 10;
 
 /** The ends of a wire, its route points, its look, the type of its value, its wire name and its bus name (spec 15.9). */
-export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string };
+/** `cross` is true for a wire between two clock domains, which is dashed (15.3). */
+export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean };
 
 export interface WireTools {
   store: WireStore;
@@ -78,7 +79,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const tip = useSyncExternalStore(hover.subscribe, () => (hover.get()?.wire === id ? hover.get() : null));
   // A bus shows one line with its width at a far zoom (15.9).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
-  const { from, style, corners } = data!;
+  const { from, style, corners, cross = false } = data!;
   // A wire with the graph default look goes around the node bodies. Its route points are waypoints (15.9).
   const auto = style === undefined;
   const width = Math.max(2, bits.length * PITCH);
@@ -97,8 +98,8 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     [auto, sourceX, sourceY, targetX, targetY, routed, route, style, corners, width],
   );
   useLayoutEffect(
-    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane),
-    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane],
+    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross),
+    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane, cross],
   );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
@@ -167,7 +168,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   return (
     <>
       {/* shortcut: the SVG fallback draws a bus as one line; draw its lanes when a GPU without WebGL2 matters. */}
-      <path className="wire-line" d={d} />
+      <path className={cross ? 'wire-line cross' : 'wire-line'} d={d} />
       <path ref={hitRef} className="wire-hit" d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
       <EdgeLabelRenderer>
         {tip && (

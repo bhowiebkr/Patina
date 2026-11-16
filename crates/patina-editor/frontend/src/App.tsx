@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
-import { api, folderName, newId, onCloseRequested, type Edit, type StartInfo, type View } from './api';
+import { api, folderName, newId, onCloseRequested, scopeDomains, type Edit, type StartInfo, type View } from './api';
 import { HelpMenu } from './About';
 import { runCheck } from './check';
 import { runShot } from './shot';
@@ -146,6 +146,8 @@ export function App() {
   // The run IDs of the open graph start with this use path (6.4). A subgraph with no use has none.
   const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : scope;
   const scoped = useMemo(() => scopeRun(run, usePath), [run, usePath]);
+  // A subgraph with no use has no checked nodes, so its nodes show no domain.
+  const domains = useMemo(() => scopeDomains(view && (view.graphName === 'main' || usePath) ? view.domains : {}, usePath), [view, usePath]);
 
   // The subgraph runs alone. Each bool public input starts off, and a click switches it (15.9).
   const startTest = useCallback(() => {
@@ -400,7 +402,7 @@ export function App() {
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
                 <FireTrigger.Provider value={view.live && (view.graphName === 'main' || usePath) ? fire : null}>
-                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
+                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
                 </FireTrigger.Provider>
               </PortTest.Provider>
               {view.graphName !== 'main' && (
