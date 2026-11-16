@@ -263,7 +263,8 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   - `checked.rs` of `patina-engine`: an event node does not go into the slot (7.1), so an edit
     of an event node rebuilds its cluster.
   - `events/watch.rs` of `patina-engine`: `file_change` polls its folder.
-  - `events/webhook.rs` of `patina-engine`: `webhook` reads one request at a time.
+  - `events/webhook.rs` of `patina-engine`: `webhook` reads one request at a time. A slow
+    client delays the next request by 5 s at most (fixed 2026-11-16, before without a limit).
   - `engine.rs` of `patina-editor`: no event runs when the slot or the audio domain keeps a
     value that is not `Sync`.
 - `patina-capi` does not run the event domain.

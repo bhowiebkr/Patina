@@ -3,13 +3,13 @@
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// The longest request line and headers.
 const HEAD: usize = 16 * 1024;
 /// The longest body.
 const BODY: usize = 1024 * 1024;
-/// The longest wait for a slow client.
+/// The longest time to read a request, so that a slow client delays the next one by this at most.
 const WAIT: Duration = Duration::from_secs(5);
 /// The time between two looks for a new connection, so that the listener sees `quit` in time.
 const POLL: Duration = Duration::from_millis(20);
@@ -31,7 +31,7 @@ pub(super) fn bind(port: u16) -> io::Result<TcpListener> {
 pub(super) fn serve(listener: &TcpListener, path: &str, quit: &AtomicBool, mut fire: impl FnMut(String) -> bool) {
     while !quit.load(Relaxed) {
         match listener.accept() {
-            // shortcut: one request at a time, change it when a slow client must not delay the next one.
+            // shortcut: one request at a time, so a slow client delays the next one by WAIT; read in parallel when this matters.
             Ok((stream, _)) => {
                 if let Some(body) = answer(stream, path)
                     && !fire(body)
@@ -46,11 +46,29 @@ pub(super) fn serve(listener: &TcpListener, path: &str, quit: &AtomicBool, mut f
 
 /// Reads one request from `stream` and answers it. Returns the body of an accepted request.
 fn answer(mut stream: TcpStream, path: &str) -> Option<String> {
-    let set = stream.set_nonblocking(false).and(stream.set_read_timeout(Some(WAIT))).and(stream.set_write_timeout(Some(WAIT)));
-    let result = set.map_err(failed).and_then(|()| read(&stream, path));
+    let set = stream.set_nonblocking(false).and(stream.set_write_timeout(Some(WAIT)));
+    let result = set.map_err(failed).and_then(|()| read(Deadline { stream: &stream, end: Instant::now() + WAIT }, path));
     let (code, reason) = *result.as_ref().err().unwrap_or(&(202, "Accepted"));
     let _ = write!(stream, "HTTP/1.1 {code} {reason}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
     result.ok()
+}
+
+/// A stream that times out when the whole request takes longer than its end, also when a slow
+/// client sends a byte at a time.
+struct Deadline<'a> {
+    stream: &'a TcpStream,
+    end: Instant,
+}
+
+impl Read for Deadline<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let left = self.end.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        self.stream.set_read_timeout(Some(left))?;
+        self.stream.read(buf)
+    }
 }
 
 fn failed(e: io::Error) -> Status {
@@ -120,6 +138,21 @@ mod tests {
         assert_eq!(read(&format!("POST /hook HTTP/1.1\r\nX: {}\r\n\r\n", "a".repeat(HEAD))).unwrap_err().0, 431);
         assert_eq!(read("POST /hook HTTP/1.1\r\nContent-Length: 5\r\n\r\nhi").unwrap_err().0, 400);
         assert_eq!(read("POST /hook HTTP/1.1\r\nno colon\r\n\r\n").unwrap_err().0, 400);
+    }
+
+    #[test]
+    fn a_slow_client_times_out_at_the_end_of_the_request() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (stream, _) = listener.accept().unwrap();
+        client.write_all(b"POST / HTTP/1.1
+").unwrap();
+        let start = Instant::now();
+        let slow = Deadline { stream: &stream, end: start + Duration::from_millis(100) };
+        assert_eq!(read(slow, "/").unwrap_err().0, 408);
+        assert!(start.elapsed() < Duration::from_secs(2));
+        let mut done = Deadline { stream: &stream, end: start };
+        assert_eq!(done.read(&mut [0; 4]).unwrap_err().kind(), io::ErrorKind::TimedOut);
     }
 
     #[test]
