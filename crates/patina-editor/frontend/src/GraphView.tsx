@@ -17,6 +17,7 @@ import {
   type NodeChange,
   type OnSelectionChangeParams,
   type ReactFlowInstance,
+  type Viewport,
 } from '@xyflow/react';
 import { arrange, type Box, type Link } from './arrange';
 import { AddNode } from './AddNode';
@@ -34,6 +35,7 @@ import { OrderEdge, WireContext, WireEdge, WireLayer, type WireData } from './Wi
 import { Labels } from './labels';
 import { Router, type Rect } from './route';
 import { WireStore } from './wires';
+import { useTouchpadPan } from './touchpad';
 
 export const NODE_MIME = 'application/patina-node';
 const FIT = { padding: 0.2, maxZoom: 1, duration: 0 };
@@ -417,6 +419,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const pointer = useRef<{ x: number; y: number } | null>(null);
   // The saved pan and zoom of the graph (15.2), or a fit when there is none.
   const [viewport] = useState(() => savedViewport(view.graphName));
+  const pane = useRef<HTMLDivElement>(null);
+  const save = useCallback((v: Viewport) => saveViewport(view.graphName, v), [view.graphName]);
+  const scrolling = useTouchpadPan(pane, flow, save);
   const tools = useMemo(
     () => ({ store: wires, router, labels, onEdit: edit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from), kinds: view.kinds }),
     [wires, router, labels, edit, view.trusted, run, view.kinds],
@@ -675,6 +680,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
       <NodeEdit.Provider value={edit}>
       <FrameToggle.Provider value={toggle}>
         <ReactFlow
+          ref={pane}
           className={glOk ? undefined : 'svg-wires'}
           nodes={nodes}
           edges={edges}
@@ -722,7 +728,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           fitView={!viewport}
           fitViewOptions={FIT}
           defaultViewport={viewport}
-          onMoveEnd={(_, v) => saveViewport(view.graphName, v)}
+          onMoveEnd={(_, v) => {
+            if (!scrolling.current) save(v);
+          }}
           colorMode="dark"
         >
           <Background id="minor" variant={BackgroundVariant.Lines} gap={20} color="#202020" />

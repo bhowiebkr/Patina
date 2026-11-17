@@ -7,6 +7,10 @@ export const A = 'a000000000000001';
 export const B = 'b000000000000002';
 export const T = 'c000000000000003';
 
+/** A mouse wheel event at a point. A mouse wheel step has a `wheelDeltaY` of 120, a touchpad other values (15.2). */
+export const mouseWheel = (deltaY: number, clientX: number, clientY: number) =>
+  new WheelEvent('wheel', { deltaY, clientX, clientY, wheelDeltaY: deltaY < 0 ? 120 : -120, bubbles: true, cancelable: true } as WheelEventInit);
+
 /** An event node (9.4): it gives the number plus the length of the text of the event. */
 export const EVENT_NODE = `use patina_sdk::node;
 
@@ -178,7 +182,7 @@ export async function wireColumn(at?: { x: number; y: number }): Promise<{ x: nu
     const y = at?.y ?? box.top + box.height / 2;
     // A small zoom at the middle of the wire makes the layer draw in the next frame. This callback
     // runs after that draw and before the frame shows, so the drawing buffer still has the wires.
-    pane.dispatchEvent(new WheelEvent('wheel', { deltaY: -1, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+    pane.dispatchEvent(mouseWheel(-1, x, y));
     const column = await new Promise<Uint8Array>((resolve) =>
       requestAnimationFrame(() => {
         const rect = canvas.getBoundingClientRect();

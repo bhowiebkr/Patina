@@ -12,7 +12,7 @@ import { checkCanvas } from './check-canvas';
 import { checkDomains } from './check-domains';
 import { checkGuard, checkWidgets } from './check-gui';
 import { checkIsolation } from './check-isolation';
-import { A, B, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, enterText, fireButton } from './check-fixtures';
+import { A, B, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, enterText, fireButton, mouseWheel } from './check-fixtures';
 
 export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void, edited: (v: View) => void) {
   const steps: string[] = [];
@@ -319,8 +319,16 @@ fn broken() -> u32 {
     const pane = document.querySelector('.react-flow__pane')!.getBoundingClientRect();
     const was = savedViewport('main');
     const at = { clientX: pane.left + pane.width / 2, clientY: pane.top + pane.height / 2 };
-    document.querySelector('.react-flow__pane')!.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, ...at, bubbles: true, cancelable: true }));
+    document.querySelector('.react-flow__pane')!.dispatchEvent(mouseWheel(-120, at.clientX, at.clientY));
     await until('the saved pan and zoom', RUN_MS, () => savedViewport('main') !== was);
+    // A two-finger touchpad scroll pans on the two axes and keeps the zoom (15.2).
+    const prev = savedViewport('main')!;
+    document.querySelector('.react-flow__pane')!.dispatchEvent(new WheelEvent('wheel', { deltaX: 30, deltaY: 20, ...at, bubbles: true, cancelable: true }));
+    await until('the touchpad pan', RUN_MS, () => {
+      const v = savedViewport('main');
+      return !!v && v.zoom === prev.zoom && Math.abs(v.x - prev.x + 30) < 0.5 && Math.abs(v.y - prev.y + 20) < 0.5;
+    });
+    steps.push('touchpad pan');
     const transform = () => document.querySelector<HTMLElement>('.react-flow__viewport')?.style.transform;
     const zoomed = transform();
     await flushLayout();
@@ -384,14 +392,14 @@ fn broken() -> u32 {
     const scale = () => Number(/scale\(([^)]+)\)/.exec(transform() ?? '')?.[1]);
     const nodeElements = () => document.querySelectorAll('.react-flow__node *').length;
     const wheel = (deltaY: number) =>
-      document.querySelector('.react-flow__pane')!.dispatchEvent(new WheelEvent('wheel', { deltaY, ...at, bubbles: true, cancelable: true }));
+      document.querySelector('.react-flow__pane')!.dispatchEvent(mouseWheel(deltaY, at.clientX, at.clientY));
     const near = nodeElements();
     const heights = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => n.offsetHeight).join(' ');
     const boxes = heights();
     let outs = 0;
     while (scale() >= 0.5) {
       const z = scale();
-      wheel(200);
+      wheel(240);
       outs++;
       await until('a smaller zoom', RUN_MS, () => scale() < z);
     }
@@ -402,7 +410,7 @@ fn broken() -> u32 {
     steps.push(`simple nodes at a far zoom: ${near} node elements near, ${nodeElements()} far`);
     for (; outs > 0; outs--) {
       const z = scale();
-      wheel(-200);
+      wheel(-240);
       await until('a larger zoom', RUN_MS, () => scale() > z);
     }
     await until('the badge after the far zoom', RUN_MS, () => badge()?.textContent === '2.5' && document.querySelectorAll('.patina-row').length > 0);

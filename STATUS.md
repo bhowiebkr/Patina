@@ -13,6 +13,16 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Touchpad pan
+
+- New: a two-finger touchpad scroll pans the graph view on the two axes (owner request,
+  2026-11-17). The mouse wheel and a touchpad pinch still zoom.
+- Checked: the frontend test of the touchpad detection. On a hidden desktop, the editor
+  self-check sends a mouse wheel step, which zooms, and a touchpad scroll, which pans.
+- Not checked: a real touchpad and a real mouse by hand. The self-check sends synthetic events.
+- Known limits: a mouse with smooth scroll steps can give touchpad values, so its wheel pans. A
+  touchpad driver that sends mouse wheel steps zooms. Linux and macOS are not checked.
+
 ## Arrange with node sizes and bus widths
 
 - New: **Arrange** (Shift+L) uses the size of each node and the width of each wire. A bus pulls

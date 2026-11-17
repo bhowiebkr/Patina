@@ -3,6 +3,7 @@
 // subgraph through a use, so the screenshot shows the live values of that use (15.9).
 
 import { api, onEngine, type EngineEvent, type View } from './api';
+import { mouseWheel } from './check-fixtures';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -40,8 +41,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       const box = node?.getBoundingClientRect();
       const pane = document.querySelector('.react-flow__pane');
       if (!box || !pane) return;
-      const at = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
-      for (let i = 0; i < 12; i++) pane.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, ...at, bubbles: true, cancelable: true }));
+      for (let i = 0; i < 12; i++) pane.dispatchEvent(mouseWheel(-100, box.left + box.width / 2, box.top + box.height / 2));
       await sleep(1000);
       await api.capture(`${name}-zoom`);
       steps.push(`${name}-zoom`);

@@ -120,7 +120,9 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 - A dragged node or route point stays under the mouse pointer.
 - The same rule applies to pan and zoom in the other canvases of the editor, for example value viewers and views.
 - The mouse wheel zooms at the mouse pointer. Wheel up zooms in. A touchpad pinch also zooms.
-- One wheel step changes the zoom by a fixed factor. A smaller touchpad step changes it by a smaller amount.
+- One wheel step changes the zoom by a fixed factor. A smaller pinch step changes it by a smaller amount.
+- A two-finger touchpad scroll pans the graph up, down, left and right. The owner asked for this on 2026-11-17.
+- A mouse wheel step is a multiple of 120 in the `wheelDelta` of the wheel event. Other values come from a touchpad, so they pan. A node GUI keeps its own wheel input. (Agent decision, 2026-11-17. The owner can change it.)
 - The zoom goes from 10% to 400%. The top bar shows the zoom as a percent.
 - The standard controls:
 
@@ -128,6 +130,7 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 |---|---|
 | Middle mouse button drag | Pan |
 | Space and left drag | Pan |
+| Two-finger touchpad scroll | Pan |
 | Left drag on an empty area | Select the nodes and the connections in a box |
 | Shift and click, Ctrl and click | Add to the selection, toggle in the selection |
 | Ctrl+A, with the pointer on the canvas | Select all nodes and connections |
