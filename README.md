@@ -317,8 +317,9 @@ counter, its 8-bit register A and its 8-bit OUT register. The `ram-4x8` subgraph
 - **OUT** (010): OUT takes A.
 - **JMP k** (011): the program counter takes k.
 - **JC k** (100): the program counter takes k when C is on.
-- **ST k** (101): the RAM word at address k takes A.
-- **LD k** (110): A takes the RAM word at address k.
+- **ST k** (101): the RAM word at address k takes A. When k is 8 to 15, A goes to IO port k.
+- **LD k** (110): A takes the RAM word at address k. When k is 8 to 15, A takes the value of
+  IO port k.
 - **JZ k** (111): the program counter takes k when Z is on.
 
 The zero flag Z takes "A is 0" each time that A takes a new value.
@@ -347,6 +348,23 @@ The `clock` node gives the ticks of the CPU. It gives one tick each **every** fr
 example runs 15 instructions each second at 60 frames each second. Set **every** in the
 **Inspector** to change the speed. Set **halt** to stop the clock, then click **Step** on the node
 to give one tick. The LED of the node is lit for the first half of each period.
+
+The CPU has IO ports 8 to 15 for devices. Its **port** output is k, its **a** output is A, and
+its **wr** and **rd** outputs are on during an ST or an LD to a port. Its **io** input is the value
+that LD reads. The main graph has four devices on the ports:
+
+- `keyboard` (port 8): type a text into the **Type** field and press Enter. The characters and an
+  Enter key (13) go into a buffer. LD 8 reads the first key, or 0 when the buffer is empty.
+- `terminal` (port 8): ST 8 writes the ASCII character A, on 6 lines of 20 characters. Enter (13)
+  starts a new line, and backspace (8) removes the last character.
+- `gpu` (ports 9 to 12): a video chip with a frame of 32 x 32 pixels in 16 colors. ST 9 sets X, ST
+  10 sets Y, and ST 11 plots the color A at X and Y. Then X moves to the next pixel. ST 12 fills
+  the frame with the color A.
+- `screen`: shows the frame of the `gpu`.
+
+Set **file** to `programs/echo.asm` to show each key on the terminal. Set **file** to
+`programs/stripes.asm` to paint the screen. The **address** parameter of a device sets its first
+port. The `cpu` has one **io** input, so only one device can give values to LD.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
 puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8

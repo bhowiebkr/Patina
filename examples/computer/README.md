@@ -31,8 +31,10 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
   is copper.
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
-- **Node GUIs.** The `program`, `readout`, `display`, `lcd`, `clock` and `analyzer` nodes draw their
-  values in the graph.
+- **Node GUIs.** The `program`, `readout`, `display`, `lcd`, `clock`, `analyzer`, `keyboard`,
+  `terminal` and `screen` nodes draw their values in the graph.
+- **IO devices.** The CPU reads a `keyboard` and writes a `terminal` and a `gpu` on its IO ports.
+  The `screen` shows the 32 x 32 frame of the `gpu`.
 
 ![A byte wire with the value 34 in the ram-4x8 subgraph](images/ram-4x8.png)
 
@@ -42,10 +44,10 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 | Folder | Parts |
 | --- | --- |
-| `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer` |
-| `programs/` | `fibonacci.asm`, `count.asm` |
+| `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `screen` |
+| `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm` |
 | `connections/` | `byte`, `segment-bus` |
-| `types/` | `segments` |
+| `types/` | `segments`, `frame` |
 | `graphs/` | `main` and 24 subgraphs |
 
 The subgraphs, from small to large:
@@ -63,5 +65,5 @@ The subgraphs, from small to large:
 
 Each instruction has a 3-bit opcode and a 4-bit value k. The
 [Logic circuits](../../README.md#logic-circuits) section of the main README gives the full
-list, the assembly language, the clock and the LCD. To change the program, edit the code in the
+list, the assembly language, the clock, the LCD and the IO ports. To change the program, edit the code in the
 `program` node.

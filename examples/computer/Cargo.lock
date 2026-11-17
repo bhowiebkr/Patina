@@ -42,16 +42,20 @@ dependencies = [
  "byte",
  "clock",
  "display",
+ "gpu",
  "join",
+ "keyboard",
  "lcd",
  "nand",
  "patina-sdk",
  "program",
  "readout",
+ "screen",
  "seg-join",
  "segment-bus",
  "split",
  "switch",
+ "terminal",
 ]
 
 [[package]]
@@ -63,7 +67,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "frame"
+version = "0.1.0"
+
+[[package]]
+name = "gpu"
+version = "0.1.0"
+dependencies = [
+ "frame",
+ "patina-sdk",
+]
+
+[[package]]
 name = "join"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
+name = "keyboard"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",
@@ -109,6 +132,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "screen"
+version = "0.1.0"
+dependencies = [
+ "frame",
+ "patina-sdk",
+]
+
+[[package]]
 name = "seg-join"
 version = "0.1.0"
 dependencies = [
@@ -137,6 +168,13 @@ dependencies = [
 
 [[package]]
 name = "switch"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
+name = "terminal"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",

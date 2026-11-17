@@ -253,6 +253,36 @@ id = "7e1e52471c41202d"
 folder = "nodes/split"
 pos = [-100.0, 1273.0]
 
+[[node]]
+id = "4645e9b17c1c59e1"
+subgraph = "not"
+pos = [652.0, 1680.0]
+
+[[node]]
+id = "1ed234321cc91b49"
+subgraph = "and"
+pos = [652.0, 1806.0]
+
+[[node]]
+id = "82c0edf155eba13b"
+subgraph = "and"
+pos = [1004.0, 1680.0]
+
+[[node]]
+id = "573dc3331c366f7e"
+subgraph = "and"
+pos = [1004.0, 1806.0]
+
+[[node]]
+id = "a91437bea3054720"
+subgraph = "and"
+pos = [1004.0, 1932.0]
+
+[[node]]
+id = "9413793e87d92c77"
+subgraph = "mux-8"
+pos = [1684.0, 1640.0]
+
 [[wire]]
 from = "5b1d0c7e2a9f4361.out4"
 to = "242ca5fc0b4cf5de.d24ca236"
@@ -543,10 +573,6 @@ to = "c8ebb529ab154a72.665555f1"
 name = "ST"
 
 [[wire]]
-from = "c8ebb529ab154a72.72b5072c"
-to = "9e0d7645658b8d1c.cd54aa93"
-
-[[wire]]
 from = "5b1d0c7e2a9f4361.out0"
 to = "9e0d7645658b8d1c.854ec2ea"
 
@@ -611,10 +637,6 @@ from = "1407db02aa8c9d6b.29d06052"
 to = "d291c16eda56e8d0.6d215f9b"
 
 [[wire]]
-from = "9e0d7645658b8d1c.ee38bb71"
-to = "d291c16eda56e8d0.c1c03e99"
-
-[[wire]]
 from = "145c8a556e8a4cf6.a1a82dd8"
 to = "d2978344277fe276.c3016a3d"
 
@@ -658,6 +680,54 @@ to = "e1fc1b93edd28cef.37c6cc47"
 from = "7e1e52471c41202d.out7"
 to = "e1fc1b93edd28cef.3fbd40e4"
 
+[[wire]]
+from = "5b1d0c7e2a9f4361.out3"
+to = "4645e9b17c1c59e1.5ade65ce"
+
+[[wire]]
+from = "c8ebb529ab154a72.72b5072c"
+to = "82c0edf155eba13b.665555f1"
+
+[[wire]]
+from = "4645e9b17c1c59e1.7ff633ef"
+to = "82c0edf155eba13b.072eae79"
+
+[[wire]]
+from = "82c0edf155eba13b.72b5072c"
+to = "9e0d7645658b8d1c.cd54aa93"
+
+[[wire]]
+from = "c8ebb529ab154a72.72b5072c"
+to = "573dc3331c366f7e.665555f1"
+
+[[wire]]
+from = "5b1d0c7e2a9f4361.out3"
+to = "573dc3331c366f7e.072eae79"
+
+[[wire]]
+from = "242ca5fc0b4cf5de.aa05e46b"
+to = "1ed234321cc91b49.665555f1"
+
+[[wire]]
+from = "5b1d0c7e2a9f4361.out3"
+to = "1ed234321cc91b49.072eae79"
+
+[[wire]]
+from = "1ed234321cc91b49.72b5072c"
+to = "a91437bea3054720.665555f1"
+
+[[wire]]
+from = "5b1d0c7e2a9f4361.out3"
+to = "9413793e87d92c77.b7e6186b"
+
+[[wire]]
+from = "9e0d7645658b8d1c.ee38bb71"
+to = "9413793e87d92c77.6d215f9b"
+
+[[wire]]
+from = "9413793e87d92c77.29d06052"
+to = "d291c16eda56e8d0.c1c03e99"
+
 [[input]]
 key = "1a7c3e95"
 name = "instr"
@@ -668,7 +738,13 @@ to = ["5b1d0c7e2a9f4361.value"]
 key = "4654170b"
 name = "clk"
 pos = [-300.0, 746.0]
-to = ["4263423f7b251ba1.072eae79", "2181dd7f18aa0a23.dcc47589", "d87783fb2f13ba32.dcc47589", "603c48eded7e70dd.dcc47589", "3741914966a391c0.dcc47589", "426f72adfc8b5680.072eae79", "5391ca7e1e62a838.072eae79", "c8ebb529ab154a72.072eae79"]
+to = ["4263423f7b251ba1.072eae79", "2181dd7f18aa0a23.dcc47589", "d87783fb2f13ba32.dcc47589", "603c48eded7e70dd.dcc47589", "3741914966a391c0.dcc47589", "426f72adfc8b5680.072eae79", "5391ca7e1e62a838.072eae79", "c8ebb529ab154a72.072eae79", "a91437bea3054720.072eae79"]
+
+[[input]]
+key = "316d50d0"
+name = "io"
+pos = [1332.0, 1740.0]
+to = ["9413793e87d92c77.c1c03e99"]
 
 [[output]]
 key = "ccd3b184"
@@ -813,3 +889,21 @@ key = "64e426d1"
 name = "out"
 pos = [2996.0, 1205.0]
 from = "0995919e5d3210f0.a1a82dd8"
+
+[[output]]
+key = "4cf4949d"
+name = "port"
+pos = [2996.0, 1469.0]
+from = "eb8c93d2bbe8d496.out"
+
+[[output]]
+key = "35baac86"
+name = "wr"
+pos = [2996.0, 1535.0]
+from = "573dc3331c366f7e.72b5072c"
+
+[[output]]
+key = "e9c7be59"
+name = "rd"
+pos = [2996.0, 1601.0]
+from = "a91437bea3054720.72b5072c"

@@ -13,6 +13,18 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## IO devices of the computer
+
+- The `cpu` subgraph of `examples/computer` has IO ports 8 to 15. ST and LD with k3 on go to a
+  port, and not to the RAM. The logic is NAND subgraphs. New nodes: `keyboard`, `terminal`,
+  `gpu` (32 x 32 pixels, 16 colors) and `screen`, with the `frame` type for the GPU bus.
+- Checked: unit tests of the five crates. The CLI ran `programs/stripes.asm` for 400 frames: the
+  screen got one more pixel for each plot. The CLI test of the example still passes.
+- Known limits: the `cpu` has one **io** input, so only one device gives values to LD. Node state
+  does not save, so the terminal, the frame and the key buffer are empty after an open. The
+  keyboard path to the terminal is checked only by unit tests, because it needs typed input.
+  The CLI ran at about 20 ms for each frame with the GPU and the screen.
+
 ## Program node of the computer
 
 - The `program` node of `examples/computer` is the program memory of the CPU, with an assembler.

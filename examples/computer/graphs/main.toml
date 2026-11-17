@@ -165,6 +165,35 @@ id = "94a519f494e21966"
 folder = "nodes/readout"
 pos = [2928.0, 1516.0]
 
+[[node]]
+id = "a8059c0ce118eb44"
+folder = "nodes/keyboard"
+pos = [0.0, 1150.0]
+
+[node.params]
+address = "8"
+
+[[node]]
+id = "75be31a4da3cacb6"
+folder = "nodes/terminal"
+pos = [700.0, 2352.0]
+
+[node.params]
+address = "8"
+
+[[node]]
+id = "ad357059907f778c"
+folder = "nodes/gpu"
+pos = [700.0, 2600.0]
+
+[node.params]
+address = "9"
+
+[[node]]
+id = "778819ef9f467d80"
+folder = "nodes/screen"
+pos = [1162.0, 2352.0]
+
 [[wire]]
 from = "2504c53cbf24694b.f6bc0840"
 to = "f5d800547e0fb0a8.44be6e56"
@@ -557,3 +586,43 @@ to = "3f6e2b9d81c4a057.pc"
 [[wire]]
 from = "3f6e2b9d81c4a057.out"
 to = "a3efcc2ce595017a.1a7c3e95"
+
+[[wire]]
+from = "a3efcc2ce595017a.4cf4949d"
+to = "a8059c0ce118eb44.port"
+
+[[wire]]
+from = "a3efcc2ce595017a.4cf4949d"
+to = "75be31a4da3cacb6.port"
+
+[[wire]]
+from = "a3efcc2ce595017a.4cf4949d"
+to = "ad357059907f778c.port"
+
+[[wire]]
+from = "a3efcc2ce595017a.e9c7be59"
+to = "a8059c0ce118eb44.rd"
+
+[[wire]]
+from = "a8059c0ce118eb44.out"
+to = "a3efcc2ce595017a.316d50d0"
+
+[[wire]]
+from = "a3efcc2ce595017a.78d48ca9"
+to = "75be31a4da3cacb6.data"
+
+[[wire]]
+from = "a3efcc2ce595017a.35baac86"
+to = "75be31a4da3cacb6.wr"
+
+[[wire]]
+from = "a3efcc2ce595017a.78d48ca9"
+to = "ad357059907f778c.data"
+
+[[wire]]
+from = "a3efcc2ce595017a.35baac86"
+to = "ad357059907f778c.wr"
+
+[[wire]]
+from = "ad357059907f778c.out"
+to = "778819ef9f467d80.frame"
