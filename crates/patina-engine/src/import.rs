@@ -168,7 +168,7 @@ pub fn apply_all(root: &Path, other: &Path, folders: &[String], choices: &BTreeM
         for (from, to) in &copies {
             let staged = work.join("new").join(to);
             copy(&other.join(from), &staged)?;
-            if let Some(text) = renamed_manifest(manifest(&staged)?, &other.join(from), from, to, &other, &copies)? {
+            if let Some(text) = renamed_manifest(&staged, &other.join(from), from, to, &other, &copies)? {
                 let path = staged.join("Cargo.toml");
                 fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
             }
@@ -335,31 +335,31 @@ fn manifest(dir: &Path) -> Result<toml::Table, String> {
     text.parse().map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// The `Cargo.toml` of the copy of `from` (at `source`) for the renamed folders, or None when no
-/// name changes. A renamed crate gets its new name, and a dependency on it gets the new path and
-/// the `package` key.
-/// shortcut: the new Cargo.toml loses its comments and key order, change it if users miss them.
-fn renamed_manifest(mut manifest: toml::Table, source: &Path, from: &str, to: &str, other: &Path, renames: &BTreeMap<String, String>) -> Result<Option<String>, String> {
+/// The `Cargo.toml` in `dir`, the copy of `from` (at `source`), for the renamed folders, or None
+/// when no name changes. A renamed crate gets its new name, and a dependency on it gets the new
+/// path and the `package` key. The comments and the order of the keys stay.
+fn renamed_manifest(dir: &Path, source: &Path, from: &str, to: &str, other: &Path, renames: &BTreeMap<String, String>) -> Result<Option<String>, String> {
+    let path = dir.join("Cargo.toml");
+    let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut manifest: toml_edit::DocumentMut = text.parse().map_err(|e| format!("{}: {e}", path.display()))?;
     let mut changed = false;
     if from != to {
-        let package = manifest.get_mut("package").and_then(toml::Value::as_table_mut).ok_or("the Cargo.toml has no [package]")?;
-        package.insert("name".to_owned(), crate_name(to).into());
+        let package = manifest.get_mut("package").and_then(toml_edit::Item::as_table_like_mut).ok_or("the Cargo.toml has no [package]")?;
+        package.insert("name", toml_edit::value(crate_name(to)));
         changed = true;
     }
     for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
-        for (_, value) in manifest.get_mut(section).and_then(toml::Value::as_table_mut).into_iter().flatten() {
-            let Some(dep) = value.as_table_mut() else { continue };
-            let Some(path) = dep.get("path").and_then(toml::Value::as_str) else { continue };
+        let Some(deps) = manifest.get_mut(section).and_then(toml_edit::Item::as_table_like_mut) else { continue };
+        for (_, value) in deps.iter_mut() {
+            let Some(dep) = value.as_table_like_mut() else { continue };
+            let Some(path) = dep.get("path").and_then(toml_edit::Item::as_str) else { continue };
             let Some(target) = inside(other, &source.join(path)).and_then(|f| renames.get(&f).filter(|t| **t != f)) else { continue };
-            dep.insert("path".to_owned(), format!("../../{target}").into());
-            dep.insert("package".to_owned(), crate_name(target).into());
+            dep.insert("path", toml_edit::value(format!("../../{target}")));
+            dep.insert("package", toml_edit::value(crate_name(target)));
             changed = true;
         }
     }
-    match changed {
-        true => toml::to_string(&manifest).map(Some).map_err(|e| e.to_string()),
-        false => Ok(None),
-    }
+    Ok(changed.then(|| manifest.to_string()))
 }
 
 fn crate_name(folder: &str) -> String {
@@ -490,7 +490,7 @@ mod tests {
         let image = "image = { path = \"../../types/image\" }\n";
         write(&other, &[
             ("patina.toml", "format = 1\nid = \"aaaaaaaaaaaaaaaa\"\nrust = \"1.94.0\"\n"),
-            ("nodes/blur/Cargo.toml", &manifest("blur", image)),
+            ("nodes/blur/Cargo.toml", &manifest("blur", &format!("# The image type.\n{image}"))),
             ("nodes/blur/src/lib.rs", "// blur"),
             ("nodes/blur/target/x", "build output"),
             ("types/image/Cargo.toml", &manifest("image", "")),
@@ -521,6 +521,7 @@ mod tests {
         let blur = super::manifest(&root.join("nodes/blur")).unwrap();
         assert_eq!(blur["dependencies"]["image"]["package"].as_str(), Some("image2"));
         assert_eq!(blur["dependencies"]["image"]["path"].as_str(), Some("../../types/image2"));
+        assert!(fs::read_to_string(root.join("nodes/blur/Cargo.toml")).unwrap().contains("# The image type.\nimage = {"));
         assert_eq!(super::manifest(&root.join("types/image2")).unwrap()["package"]["name"].as_str(), Some("image2"));
         assert_eq!(fs::read_to_string(root.join("types/image/src/lib.rs")).unwrap(), "// B");
         let file: ProjectFile = project::read(&root.join("patina.toml"), |f: &ProjectFile| f.format).unwrap();

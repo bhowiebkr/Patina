@@ -7,7 +7,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Applied, absolute, check_folder, digest, file_hashes, files, hash, inside, manifest, member, move_folder, path_deps, read_project, remove, renamed_manifest,
+    Applied, absolute, check_folder, digest, file_hashes, files, hash, inside, member, move_folder, path_deps, read_project, remove, renamed_manifest,
     undo_moves, users, work, write_files,
 };
 use crate::plan::check_name;
@@ -158,7 +158,7 @@ fn compare(root: &Path, other: &Path, folder: &str) -> Result<Compare, String> {
         }
     }
     let mut theirs: BTreeMap<String, Vec<u8>> = files(&dir)?.into_iter().collect();
-    if let Some(text) = renamed_manifest(manifest(&dir)?, &dir, &from, folder, other, &renames)? {
+    if let Some(text) = renamed_manifest(&dir, &dir, &from, folder, other, &renames)? {
         theirs.insert("Cargo.toml".to_owned(), text.into_bytes());
     }
     let ours: BTreeMap<String, Vec<u8>> = files(&root.join(folder))?.into_iter().collect();

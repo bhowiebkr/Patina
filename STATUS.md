@@ -720,7 +720,7 @@ change the graph (spec 15.8).
 2. More instances of a view, and float windows. This part works. The self-check floats a view,
    waits for its window and docks it again. Nobody looked at a float window on screen yet.
 3. More edits from a view: add a node, connect a wire, start a trigger and select nodes. Add,
-   remove, connect, disconnect and select work. Trigger waits for the event domain of
+   remove, connect, disconnect and select work. A view fires a trigger with `Graph::fire` since
    milestone 12 (9.4).
 4. Typed outputs through type crates (15.8 rule 3). This part works for outputs with a wire.
 5. A viewport in a view (15.8), on the native path of the viewport prototype. Version 1
@@ -764,7 +764,7 @@ change the graph (spec 15.8).
 ### Known limits
 
 - The limits of version 1 are in spec 15.8: four instances, typed values only of wired outputs,
-  no trigger, one viewport on Windows only, and no bake build.
+  one viewport on Windows only, and no bake build.
 - Nobody looked at a viewport in the editor yet. The self-check keeps its window hidden, so it
   cannot show the surface. The colors, the resize and the scroll clip need a check on screen.
 - A viewport draws in the `ui` call on the engine thread, so a slow run delays its frames.
@@ -971,8 +971,9 @@ and 6.4).
   type (fixed 2026-11-16). A pin that ends at `&bool` shows `bool`.
 - The engine checks the key of a new public pin. The check of a use gives a problem for a bad
   key in the subgraph file (fixed 2026-11-16).
-- **Import** and **Update** work only from a trusted project. A renamed folder loses the comments
-  of its `Cargo.toml`. A temporary test with the real toolchain on Windows imported a node and
+- **Import** and **Update** work only from a trusted project. A renamed folder keeps the comments
+  and the key order of its `Cargo.toml` (fixed 2026-11-17, before they were lost). The import
+  test checks a comment. A temporary test with the real toolchain on Windows imported a node and
   built it, put back an update that did not compile, and built a good update. The test is not
   in the repository. The two dialogs did not run in the window yet.
 - An import record of `patina.toml` with a bad key or folder name gives an error at **Update**.
