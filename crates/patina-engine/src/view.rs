@@ -7,7 +7,7 @@ use patina_sdk::glue::{self, Reader, Reporter};
 
 use crate::Edit;
 use crate::run::Frames;
-use crate::library::{Sink, collect, open, symbol};
+use crate::library::{Sink, Unnamed, collect, open, symbol};
 use crate::load::{Report, Value};
 use crate::project::GraphFile;
 
@@ -73,6 +73,7 @@ impl View {
     /// call makes a new state.
     pub fn ui(&mut self, mode: u32, events: &str, graph: &str, frames: Option<&mut Frames>) -> Result<Frame, String> {
         if self.state.is_null() {
+            let _unnamed = Unnamed::new();
             // SAFETY: the function came from the loaded view.
             self.state = unsafe { (self.new)() };
             if self.state.is_null() {
@@ -83,9 +84,12 @@ impl View {
         let rep = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control: std::ptr::null() };
         let reader = frames.map(|frames| Reader { ctx: std::ptr::from_mut(frames).cast(), read });
         let reader = reader.as_ref().map_or(std::ptr::null(), std::ptr::from_ref);
-        // SAFETY: the state came from `new` of this library and is live. The texts, the reporter
-        // and the reader are valid during the call, and the `&mut Frames` shows that no frame runs.
-        let ok = unsafe { (self.ui)(self.state, mode, events.as_ptr(), events.len(), graph.as_ptr(), graph.len(), &rep, reader) };
+        let ok = {
+            let _unnamed = Unnamed::new();
+            // SAFETY: the state came from `new` of this library and is live. The texts, the reporter
+            // and the reader are valid during the call, and the `&mut Frames` shows that no frame runs.
+            unsafe { (self.ui)(self.state, mode, events.as_ptr(), events.len(), graph.as_ptr(), graph.len(), &rep, reader) }
+        };
         let mut frame = Frame::default();
         let mut error = None;
         for (_, kind, text) in self.sink.iter() {
@@ -114,6 +118,7 @@ impl View {
     fn free_state(&mut self) {
         let state = std::mem::replace(&mut self.state, std::ptr::null_mut());
         if !state.is_null() {
+            let _unnamed = Unnamed::new();
             // SAFETY: `state` came from `new` of this library and is not used again.
             unsafe { (self.free)(state) }
         }

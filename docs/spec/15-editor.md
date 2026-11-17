@@ -166,6 +166,7 @@ The **Add node** palette is the second way to add a node, after a drag from the 
   - Stop never kills a thread. Native code cannot stop safely in the middle of a call. A call that does not read the flag runs to its end.
   - When a call runs for 2 s after Stop, the status bar shows "Node X does not stop" and the time. Then a click on **Stop** ends the node process (16.1). The node states are lost, and the next run starts a new node process.
   - Stop stays ready after a run, because a node GUI (4.3) or the drop of a node state can run between two runs. These calls also keep the index of the active node, so a node GUI that does not return ends at the second **Stop**. This is an agent decision of 2026-11-16. The owner can change it.
+  - The `Default` or the `Drop` of a node state, and a view call (15.8), name no node. While one of them runs, the status bar shows "A node Default, a node Drop or a view does not stop". The second **Stop** ends the node process then too. This is an agent decision of 2026-11-16. The owner can change it.
   - An event run (6) that does not stop also ends at the second **Stop**. Each event run has its own run control, so the editor asks each active event run for the node that runs. The engine keeps this until the last event run ends. This is an agent decision of 2026-11-16. The owner can change it.
   - Run after Stop starts the graph again. Node states stay.
 - Bake fuses the node in the slot back into the base now (7.2).

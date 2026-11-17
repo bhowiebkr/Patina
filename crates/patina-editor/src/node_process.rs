@@ -64,7 +64,8 @@ pub struct RunParts {
 
 #[derive(Serialize, Deserialize)]
 pub enum Ask {
-    /// The ID of the node that runs (15.2). The reply is an `Option<String>`.
+    /// The ID of the node that runs (15.2), or an empty ID for project code that names no node
+    /// (16.1). The reply is an `Option<String>`.
     Running,
     /// The full text of the live value of an output (15.7). The reply is an `Option<String>`.
     Value(String),
@@ -221,7 +222,7 @@ impl Host {
         if let Err(e) = lock(&proc.child).kill() {
             eprintln!("patina: the node process does not end: {e}");
         }
-        let text = format!("Patina ended the node process, because node `{node}` did not stop. The node states are lost.");
+        let text = format!("Patina ended the node process, because {} did not stop. The node states are lost.", stuck(node));
         fail(&self.0, serial, &text, "");
     }
 
@@ -348,6 +349,11 @@ fn read_messages(inner: &Inner, stdout: ChildStdout, pending: &Pending) {
     }
 }
 
+/// What does not stop: node `node`, or for an empty ID, project code that names no node (16.1).
+fn stuck(node: &str) -> String {
+    if node.is_empty() { "a node `Default`, a node `Drop` or a view".to_owned() } else { format!("node `{node}`") }
+}
+
 /// Shows a failure of the node process in the **Output** tab, and on the run with the last error
 /// text `tail`.
 fn fail(inner: &Inner, serial: u64, text: &str, tail: &str) {
@@ -426,6 +432,12 @@ mod tests {
         assert!(matches!(&lines[2], FromNode::Reply { id: 8, result: Err(e) } if e == "no"));
         assert!(matches!(&lines[3], FromNode::Output(text) if text == "text\n"));
         assert_eq!(wait::<bool>(None), Ok(false), "no node process gives the empty reply");
+    }
+
+    #[test]
+    fn an_empty_id_names_the_code_that_names_no_node() {
+        assert_eq!(stuck("a"), "node `a`");
+        assert!(stuck("").contains("`Drop`"));
     }
 
     #[test]

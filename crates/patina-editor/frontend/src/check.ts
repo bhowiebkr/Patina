@@ -598,6 +598,29 @@ fn broken() -> u32 {
     if (v.graph.node?.find((n) => n.id === A)?.params?.value === '5') throw new Error('undo did not remove the write of the view');
     steps.push('a view sets a parameter');
 
+    // A view call that does not return names no node. The second Stop ends it too (16.1).
+    v = await step('a value that the view does not return at', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '33' }));
+    v = await step('run with the view that does not return', () => api.run());
+    // Stop before the hang ends the watch of the status bar, so wait for the view call.
+    for (const end = Date.now() + RUN_MS; (await api.running()) !== ''; ) {
+      if (Date.now() > end) throw new Error(`no result after ${RUN_MS} ms: the view call that does not return`);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await until('the Stop button for the view', RUN_MS, () => topButton('Stop')?.disabled === false);
+    topButton('Stop')!.click();
+    await until('the view that does not stop in the status bar', RUN_MS, () => statusText().includes('or a view does not stop'));
+    topButton('Stop')!.click();
+    const viewEnded = 'Patina ended the node process, because a node `Default`, a node `Drop` or a view did not stop.';
+    await until('the end of the node process for the view', RUN_MS, () => statusText().includes(viewEnded));
+    v = await step('undo the value that the view does not return at', () => api.undo());
+    v = await step('run in a new node process for the view', () => api.run());
+    const again = () => document.querySelector<HTMLButtonElement>(`${panel} .btn`);
+    await until('the Try again button of the view', RUN_MS, () => !!again());
+    again()!.click();
+    // The old error shows until the page draws again after the click.
+    await until('the widgets of the view in a new node process', BUILD_MS, () => !document.querySelector(`${panel} .error-text`) && viewText().startsWith('value '));
+    steps.push('the second Stop ends a view that does not return');
+
     // A view fires a `trigger` node of the live run with a text (9.4, 15.8).
     v = await step('make an event node for the view', () => api.edit({ kind: 'SetCode', path: lib, text: EVENT_NODE }));
     v = await step('add a trigger for the view', () =>

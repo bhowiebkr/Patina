@@ -30,6 +30,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - After "Node X does not stop", a second **Stop** ends the node process. This also applies to a
   node GUI that does not return, and to an event run that does not stop. **Stop** stays ready
   after a run for this.
+- A node `Default`, a node `Drop` or a view call that does not return also ends at the second
+  **Stop** (fixed 2026-11-16). Before, the status bar named the last node of the run for them.
+  Before the first node ran, they named no node, so only a restart ended them.
 - The views, the node GUIs, the triggers, the values and the package job cross the pipe.
 - A node GUI or a view with more than 1 MB of widget lines shows an error. The engine cuts the text
   of an error or a panic to 16 KB (spec 4.3 and 4.7).
@@ -66,6 +69,10 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - `cargo test -p patina-engine`: the remote names the node of an active event run. The hidden
   selfcheck fires a trigger with an event node that does not stop. The second **Stop** ends it.
   Then an event node writes to a bad address, and the crash text names the node.
+- The hidden selfcheck: a view that does not return shows "A node Default, a node Drop or a view
+  does not stop". The second **Stop** ends the node process, and the view draws again after a run.
+  A node `Default` or `Drop` that does not return was not run end to end. The source shows that
+  the same marker covers them.
 - `cargo test -p patina-engine`: each thread names the node of its own run, also in a nested call.
   A different thread names no node. The source shows that before, a crash in an event run during a
   frame run named the node of the frame run.

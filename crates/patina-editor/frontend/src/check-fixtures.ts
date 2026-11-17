@@ -45,6 +45,10 @@ impl Panel {
     }
 
     pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
+        // At 33 the view does not return, so the second Stop must end it (16.1).
+        while graph.param("${A}", "value") == Some("33") {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
         ui.label(&format!("value {}", graph.param("${A}", "value").unwrap_or_default()));
         if ui.button("Set").clicked() {
             graph.set_param("${A}", "value", 5.0);

@@ -91,7 +91,8 @@ export function useRun(serial: RefObject<number>) {
       api.running().then((id) => {
         if (stopTimer.current !== timer) return;
         if (id === null) endStop();
-        else setStuck(`Node ${id} does not stop - ${s} s. Click Stop to end the node process.`);
+        // An empty ID is a node Default, a node Drop or a view, which names no node (16.1).
+        else setStuck(`${id ? `Node ${id}` : 'A node Default, a node Drop or a view'} does not stop - ${s} s. Click Stop to end the node process.`);
       }, endStop);
     }, 1000);
     stopTimer.current = timer;

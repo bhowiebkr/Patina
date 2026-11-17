@@ -223,8 +223,12 @@ pub struct Shared {
 
 impl Shared {
     /// The ID of the node that runs, or that ran last in the active run, on the engine thread or in
-    /// an event run. None between runs.
+    /// an event run. An empty ID while project code runs that names no node (16.1). None between runs.
     pub fn running(&self) -> Option<String> {
+        // `control` keeps the last node of a run after its task, so an unnamed call comes first.
+        if patina_engine::in_unnamed_call() {
+            return Some(String::new());
+        }
         let node = self.control.node().or_else(|| lock(&self.remote).as_ref()?.running())?;
         lock(&self.ids).get(node as usize).cloned()
     }
@@ -233,9 +237,11 @@ impl Shared {
     /// run, to `f`, for a crash handler. It never waits for a lock and never allocates.
     #[cfg(windows)]
     pub fn try_running(&self, f: impl FnOnce(&str)) {
-        let node = patina_engine::thread_node()
-            .or_else(|| self.control.node())
-            .or_else(|| self.remote.try_lock().ok()?.as_ref()?.try_running());
+        let node = patina_engine::thread_node().or_else(|| match patina_engine::in_unnamed_call() {
+            // The last node of the run is not the code that crashed.
+            true => None,
+            false => self.control.node().or_else(|| self.remote.try_lock().ok()?.as_ref()?.try_running()),
+        });
         if let (Some(node), Ok(ids)) = (node, self.ids.try_lock())
             && let Some(id) = ids.get(node as usize)
         {

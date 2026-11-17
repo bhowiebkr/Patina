@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::ffi::c_void;
 use std::ops::Range;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering::Relaxed};
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering::Relaxed};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use patina_sdk::glue::{self, CallFn, Control, Reporter, SlotRef};
@@ -87,7 +87,10 @@ impl Library {
             let slot: SlotFn = symbol(&library, b"patina_cluster_slot\0").map_err(missing)?;
             let call: CallFn = symbol(&library, b"patina_cluster_call\0").map_err(missing)?;
             let fire: FireFn = symbol(&library, b"patina_cluster_fire\0").map_err(missing)?;
-            let state = new();
+            let state = {
+                let _unnamed = Unnamed::new();
+                new()
+            };
             if state.is_null() {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
@@ -102,6 +105,7 @@ impl Library {
     /// Frees a state that is not used. Null is not a state.
     pub fn free_state(&self, state: *mut c_void) {
         if !state.is_null() {
+            let _unnamed = Unnamed::new();
             // SAFETY: `state` came from `patina_cluster_new` of this library and is not used again.
             unsafe { (self.free)(state) }
         }
@@ -267,6 +271,31 @@ pub fn thread_node() -> Option<u32> {
     unsafe { control.as_ref() }?.node()
 }
 
+/// The number of active calls into project code that name no node: the default or the drop of a
+/// state, or a view call.
+static UNNAMED: AtomicUsize = AtomicUsize::new(0);
+
+/// True while a call into project code runs that names no node, so the editor can end it (16.1).
+pub fn in_unnamed_call() -> bool {
+    UNNAMED.load(Relaxed) > 0
+}
+
+/// Counts a call into project code that names no node while the call runs.
+pub(crate) struct Unnamed;
+
+impl Unnamed {
+    pub(crate) fn new() -> Unnamed {
+        UNNAMED.fetch_add(1, Relaxed);
+        Unnamed
+    }
+}
+
+impl Drop for Unnamed {
+    fn drop(&mut self) {
+        UNNAMED.fetch_sub(1, Relaxed);
+    }
+}
+
 pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -335,5 +364,9 @@ mod tests {
         assert_eq!(thread_node(), Some(3));
         drop(calling);
         assert_eq!(thread_node(), None);
+        // Other tests can load clusters at the same time, so only the active call is sure.
+        let unnamed = Unnamed::new();
+        assert!(in_unnamed_call());
+        drop(unnamed);
     }
 }
