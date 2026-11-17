@@ -8,6 +8,7 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { changeLayout, flushLayout, savedViewport } from './Dock';
 import { floatPanel, layoutText, openPanel, parseLayout } from './layout';
 import { checkWires } from './check-wires';
+import { checkCanvas } from './check-canvas';
 import { checkDomains } from './check-domains';
 import { checkGuard, checkWidgets } from './check-gui';
 import { checkIsolation } from './check-isolation';
@@ -394,6 +395,7 @@ fn broken() -> u32 {
     await until('the badge after the far zoom', RUN_MS, () => badge()?.textContent === '2.5' && document.querySelectorAll('.patina-row').length > 0);
 
     v = await checkWires(step, until, steps, v);
+    v = await checkCanvas(step, until, steps, v);
     // While the graph is paused, an edit makes the value of the last run stale (15.3, 15.9).
     await step('pause', () => api.pause());
     v = await step('edit while paused', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '3' }));

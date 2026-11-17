@@ -152,6 +152,12 @@
   transform: rotate(-45deg);
 }
 
+.menu .keys {
+  margin-left: auto;
+  padding-left: 24px;
+  color: var(--muted);
+}
+
 .menu hr {
   margin: 4px 0;
   border: none;

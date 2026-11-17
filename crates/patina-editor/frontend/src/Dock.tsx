@@ -2,7 +2,7 @@
 // Views menu, and the saved layout of each project. Only these parts read the layout, so a drag
 // does not render the graph again.
 
-import { useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { api, reportError } from './api';
 import {
   closePanel,
@@ -119,11 +119,20 @@ export const Icon = ({ d }: { d: string }) => (
   </svg>
 );
 
-export type Item = { label: string; checked?: boolean; disabled?: boolean; run: () => void } | 'line';
+/** `keys` is the shortcut text at the right of the label. */
+export type Item = { label: string; keys?: string; checked?: boolean; disabled?: boolean; run: () => void } | 'line';
 
 /** A menu at a point. Esc or a click out of it closes it, and the focus goes back to its button. */
 export function Menu({ x, y, label, items, onClose }: { x: number; y: number; label: string; items: Item[]; onClose: () => void }) {
   const [back] = useState(() => document.activeElement as HTMLElement | null);
+  const box = useRef<HTMLDivElement>(null);
+  // The menu moves into the window when the point is near its right or bottom edge.
+  useLayoutEffect(() => {
+    const el = box.current!;
+    const r = el.getBoundingClientRect();
+    el.style.left = `${Math.max(0, Math.min(x, innerWidth - r.width))}px`;
+    el.style.top = `${Math.max(0, Math.min(y, innerHeight - r.height))}px`;
+  }, [x, y]);
   const close = () => {
     onClose();
     back?.focus();
@@ -141,8 +150,8 @@ export function Menu({ x, y, label, items, onClose }: { x: number; y: number; la
   };
   const first = items.findIndex((item) => item !== 'line' && !item.disabled);
   return (
-    <div className="menu-layer" onPointerDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="menu" role="menu" aria-label={label} style={{ left: x, top: y }} onKeyDown={onKey}>
+    <div className="menu-layer" onPointerDown={(e) => e.target === e.currentTarget && close()} onContextMenu={(e) => e.preventDefault()}>
+      <div ref={box} className="menu" role="menu" aria-label={label} style={{ left: x, top: y }} onKeyDown={onKey}>
         {items.map((item, i) =>
           item === 'line' ? (
             <hr key={i} />
@@ -159,6 +168,7 @@ export function Menu({ x, y, label, items, onClose }: { x: number; y: number; la
               }}
             >
               {item.label}
+              {item.keys && <span className="keys">{item.keys}</span>}
             </button>
           ),
         )}

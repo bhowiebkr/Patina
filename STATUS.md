@@ -13,6 +13,19 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Canvas editing
+
+- A drag of a node folder or a subgraph from the **Project** panel adds a use to the graph again.
+  The file drop of Tauri stopped the drag in WebView2 on Windows, so the editor windows turn it
+  off (fixed 2026-11-16).
+- A right-click on the empty canvas, a node or a connection opens a menu with the commands for
+  that target and their shortcuts (spec 15.2). Ctrl+A selects all, and F fits the selection, as
+  the spec says. Before, F always fitted the full graph.
+- Checked: `npm test` (the menu entries for each target) and the hidden self-check (a drop of a
+  node folder, the three menus, and undo of each edit).
+- Known limits: the self-check drop is a page event, not a drag of the operating system. The
+  canvas has no copy and paste yet.
+
 ## Process isolation
 
 Process isolation (spec 16.1) works in the editor since 2026-11-16. The WASM sandbox (16.2) is

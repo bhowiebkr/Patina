@@ -23,7 +23,8 @@ import { AddNode } from './AddNode';
 import { NameField } from './NameField';
 import { api, newId, type Domain, type Edit, type GraphFile, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
 import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
-import { savedViewport, saveViewport } from './Dock';
+import { Menu, savedViewport, saveViewport, type Item } from './Dock';
+import { canvasMenu, type MenuAction, type MenuTarget } from './canvasMenu';
 import { FrameToggle, HEADER, NodeEdit, NodeView, ORDER, ROW, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { FAR_ZOOM } from './gl';
 import { NODE_WIDTH } from './gui';
@@ -518,18 +519,29 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
     [view],
   );
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target) || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer')) return;
-      if (e.ctrlKey) {
-        const selected = nodes.filter((n): n is PatinaNode => !!n.selected && n.type === 'patina');
-        const uses = selected.filter((n) => n.data.entry.subgraph).map((n) => n.id);
-        if (e.key.toLowerCase() !== 'g' || !view.trusted || (e.shiftKey ? uses : selected).length === 0) return;
+  // The commands of the keys and of the right-click menu (15.2). They act on the selection.
+  const act = useMemo(() => {
+    const selected = nodes.filter((n) => n.selected);
+    const patina = selected.filter((n): n is PatinaNode => n.type === 'patina');
+    const uses = patina.filter((n) => n.data.entry.subgraph).map((n) => n.id);
+    const group = (edits: Edit[]) => edits.length > 0 && edit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
+    const select = (all: boolean) => {
+      setNodes((list) => list.map((x) => (!!x.selected === all ? x : { ...x, selected: all })));
+      setEdges((list) => list.map((x) => (!!x.selected === all ? x : { ...x, selected: all })));
+    };
+    return {
+      selected,
+      patina,
+      uses,
+      /** The pointer, or the middle of the canvas when the pointer is not on it. */
+      middle: () => {
         const r = document.querySelector('.react-flow')!.getBoundingClientRect();
-        if (e.shiftKey) onExpand(uses);
-        else setCollapsing({ ids: selected.map((n) => n.id), ...(pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 }) });
-      } else if (e.key === 'Delete' && view.trusted) {
-        const removed = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
+        return pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      },
+      collapse: (at: { x: number; y: number }) => setCollapsing({ ids: patina.map((n) => n.id), ...at }),
+      expand: () => onExpand(uses),
+      remove: () => {
+        const removed = new Set(selected.map((n) => n.id));
         const edits = [...removed].map((id): Edit => {
           const key = portKey(id);
           return key ? { kind: 'RemovePin', key } : { kind: 'RemoveNode', id };
@@ -537,26 +549,71 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
         for (const edge of edges) {
           if (edge.selected && !removed.has(edge.source) && !removed.has(edge.target)) edits.push(disconnectEdit(edge));
         }
-        if (edits.length > 0) edit(edits.length === 1 ? edits[0] : { kind: 'Group', edits });
-      } else if (e.key === 'f' || e.key === 'F') {
-        flow.fitView(FIT);
-      } else if (e.shiftKey && e.key.toLowerCase() === 'l' && view.trusted) {
-        const moves = arrangeEdits(nodes, edges, flow);
-        if (moves.length > 0) edit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
-      } else if (e.shiftKey && e.key.toLowerCase() === 'a' && view.trusted) {
-        const r = document.querySelector('.react-flow')!.getBoundingClientRect();
-        setPalette(pointer.current ?? { x: r.left + r.width / 2, y: r.top + r.height / 2 });
-      } else if (e.key === 'Escape') {
-        setNodes((n) => n.map((x) => (x.selected ? { ...x, selected: false } : x)));
-        setEdges((list) => list.map((x) => (x.selected ? { ...x, selected: false } : x)));
-      } else {
-        return;
-      }
+        group(edits);
+      },
+      fit: () => flow.fitView(selected.length > 0 ? { ...FIT, nodes: selected } : FIT),
+      arrange: () => group(arrangeEdits(nodes, edges, flow)),
+      selectAll: () => select(true),
+      clear: () => select(false),
+    };
+  }, [nodes, edges, edit, onExpand, flow]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (typing(e.target) || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer')) return;
+      const key = e.key.toLowerCase();
+      // Ctrl+A selects the nodes only over the canvas, so a panel keeps its own Ctrl+A.
+      if (e.ctrlKey && !e.shiftKey && key === 'a' && (pointer.current || (e.target instanceof Element && e.target.closest('.react-flow')))) act.selectAll();
+      else if (e.ctrlKey && key === 'g' && view.trusted && (e.shiftKey ? act.uses : act.patina).length > 0) {
+        if (e.shiftKey) act.expand();
+        else act.collapse(act.middle());
+      } else if (e.ctrlKey) return;
+      else if (e.key === 'Delete' && view.trusted) act.remove();
+      else if (key === 'f') act.fit();
+      else if (e.shiftKey && key === 'l' && view.trusted) act.arrange();
+      else if (e.shiftKey && key === 'a' && view.trusted) setPalette(act.middle());
+      else if (e.key === 'Escape') act.clear();
+      else return;
       e.preventDefault();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [nodes, edges, view.trusted, edit, onExpand, flow]);
+  }, [act, view.trusted]);
+
+  // The right-click menu: its screen point, and the empty canvas, the selected nodes or one connection.
+  const [menu, setMenu] = useState<{ x: number; y: number; on: 'pane' | 'nodes' | Edge<WireData> } | null>(null);
+  const openMenu = (e: { preventDefault(): void; clientX: number; clientY: number }, on: 'pane' | 'nodes' | Edge<WireData>) => {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY, on });
+  };
+  // A right-click out of the selection selects only the node or the connection, as a click does.
+  const selectOnly = (id: string, node: boolean) => {
+    setNodes((list) => list.map((x) => (!!x.selected === (node && x.id === id) ? x : { ...x, selected: node && x.id === id })));
+    setEdges((list) => list.map((x) => (!!x.selected === (!node && x.id === id) ? x : { ...x, selected: !node && x.id === id })));
+  };
+  const menuTarget = (on: 'pane' | 'nodes' | Edge<WireData>): MenuTarget => {
+    if (on === 'pane') return { kind: 'pane' };
+    if (on !== 'nodes') return { kind: 'wire' };
+    const one = act.selected.length === 1 ? act.selected[0] : undefined;
+    const open = one?.type === 'patina' && !!one.data.entry.subgraph && !one.data.inner;
+    return { kind: 'nodes', count: act.selected.length, nodes: act.patina.length, uses: act.uses.length, open, pin: one?.type === 'port' };
+  };
+  const runMenu = (a: MenuAction, at: { x: number; y: number }, on: 'pane' | 'nodes' | Edge<WireData>) => {
+    const one = act.selected[0];
+    if (a === 'add') setPalette(at);
+    else if (a === 'selectAll') act.selectAll();
+    else if (a === 'fit') act.fit();
+    else if (a === 'arrange') act.arrange();
+    else if (a === 'collapse') act.collapse(at);
+    else if (a === 'expand') act.expand();
+    else if (a === 'delete') act.remove();
+    else if (a === 'open' && one?.type === 'patina' && one.data.entry.subgraph) onOpen(one.data.entry.subgraph, one.id);
+    else if (a === 'rename' && one?.type === 'port') setRenaming({ key: portKey(one.id)!, name: one.data.name, ...at });
+    else if (a === 'disconnect' && typeof on === 'object') edit(disconnectEdit(on));
+  };
+  const menuItems: Item[] = menu
+    ? canvasMenu(menuTarget(menu.on), view.trusted).map((e) => (e === 'line' ? e : { label: e.label, keys: e.keys, run: () => runMenu(e.action, menu, menu.on) }))
+    : [];
 
   const onDragOver = (e: DragEvent) => {
     if (e.dataTransfer.types.includes(NODE_MIME) && view.trusted) {
@@ -625,6 +682,16 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
             if (n.type === 'patina' && n.data.entry.subgraph && !n.data.inner) onOpen(n.data.entry.subgraph, n.id);
             else if (n.type === 'port' && view.trusted) setRenaming({ key: portKey(n.id)!, name: n.data.name, x: e.clientX, y: e.clientY });
           }}
+          onPaneContextMenu={(e) => openMenu(e, 'pane')}
+          onSelectionContextMenu={(e) => openMenu(e, 'nodes')}
+          onNodeContextMenu={(e, n) => {
+            if (!n.selected) selectOnly(n.id, true);
+            openMenu(e, 'nodes');
+          }}
+          onEdgeContextMenu={(e, edge) => {
+            if (!edge.selected) selectOnly(edge.id, false);
+            openMenu(e, edge);
+          }}
           onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
           onPointerLeave={() => (pointer.current = null)}
           nodesDraggable={view.trusted}
@@ -662,6 +729,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
             }
             onClose={() => setPalette(null)}
           />
+        )}
+        {menu && menuItems.length > 0 && (
+          <Menu x={menu.x} y={menu.y} label={menu.on === 'pane' ? 'Canvas' : menu.on === 'nodes' ? 'Node' : 'Connection'} items={menuItems} onClose={() => setMenu(null)} />
         )}
         {collapsing && (
           <div className="menu-layer">

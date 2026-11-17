@@ -76,7 +76,7 @@ This is an agent decision of 2026-11-15 for question 8 (18). The owner can chang
 **Project panel:**
 
 - The **Project** tab lists the folders of the project (6.2) in groups: **Graphs**, **Nodes**, **Widgets**, **Views**, **Connections** and **Types**.
-- The user drags a node folder into the graph to add a node.
+- The user drags a node folder into the graph to add a node. The node goes with its top left corner at the drop point. The editor windows turn off the file drop of Tauri, because on Windows it stops this drag (fixed 2026-11-16).
 - The **Graphs** group lists **main** and each subgraph. A click opens the graph. The user drags a subgraph into the open graph to add a use of it (6.1). The **Nodes** group lists only node folders. This is an agent decision of 2026-11-15. The owner can change it.
 - A click on a widget, view, connection or type folder opens its code in the inspector.
 - **Import** copies a folder from another project (6.2).
@@ -130,6 +130,7 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | Space and left drag | Pan |
 | Left drag on an empty area | Select the nodes and the connections in a box |
 | Shift and click, Ctrl and click | Add to the selection, toggle in the selection |
+| Ctrl+A, with the pointer on the canvas | Select all nodes and connections |
 | F key | Fit the selection, or the full graph when nothing is selected |
 | Delete | Delete the selection |
 | Esc | Cancel the drag, or clear the selection |
@@ -138,8 +139,20 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | Ctrl+Shift+G | Expand the selected uses of subgraphs |
 | Shift+L | Arrange the selected nodes, or all nodes, in columns (15.9) |
 | Drag from a pin into an empty area | Open the **Add node** palette for that pin |
+| Right-click | Open the menu of the empty canvas, the node or the connection |
 
 The owner asked for the standard controls. The table, the zoom range and the wheel steps are an agent decision of 2026-11-15.
+
+The owner asked for right-click menus that change with the target (2026-11-16). Each entry shows its shortcut at the right. An untrusted project shows only the entries that do not edit. (Agent decision, 2026-11-16. The owner can change it.)
+
+| Target | Entries |
+|---|---|
+| Empty canvas | **Add node...**, **Select all**, **Fit view**, **Arrange** |
+| Node | **Open subgraph** (one use of a subgraph), **Rename pin...** (one public pin), **Collapse into subgraph...**, **Expand subgraph**, **Arrange** (two or more nodes), **Fit node** or **Fit selection**, **Delete node** or **Delete selection** |
+| Connection | **Delete connection** |
+
+- A right-click on a node or a connection out of the selection selects only that item, as a click does. A right-click in the selection keeps the selection, and the entries act on all of it.
+- **Add node...** opens the palette at the point of the right-click.
 
 The **Add node** palette is the second way to add a node, after a drag from the **Project** panel. (Agent decision, 2026-11-15. The owner can change it.)
 

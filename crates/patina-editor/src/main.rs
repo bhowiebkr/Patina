@@ -142,7 +142,8 @@ fn page_url() -> Url {
 /// A window of the editor: the editor window or a float window (15.8). The self-check keeps it
 /// hidden.
 fn window<'a>(app: &'a AppHandle, label: &str, url: Url, webview_dir: PathBuf, check: bool) -> WebviewWindowBuilder<'a, Wry, AppHandle> {
-    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::CustomProtocol(url)).data_directory(webview_dir);
+    // The native file drop of Tauri stops the HTML drag and drop of nodes on Windows (15.4).
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::CustomProtocol(url)).data_directory(webview_dir).disable_drag_drop_handler();
     // A viewport draws on the window under the web view, so the web view is transparent (15.8).
     #[cfg(windows)]
     let builder = builder.transparent(true);
