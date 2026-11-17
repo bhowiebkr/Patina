@@ -1,10 +1,5 @@
+use pad::{DOWN, FIRE, LEFT, RIGHT, UP, button};
 use patina_sdk::{Key, Pointer, Ui, node};
-
-const UP: u8 = 1;
-const DOWN: u8 = 2;
-const LEFT: u8 = 4;
-const RIGHT: u8 = 8;
-const FIRE: u8 = 16;
 
 const ON: [u8; 3] = [223, 166, 75];
 const OFF: [u8; 3] = [64, 64, 61];
@@ -21,7 +16,8 @@ const PAD: [(u8, [f32; 2], [f32; 2]); 5] = [
 ];
 
 /// A joystick on IO ports of the CPU. Click the pad, then hold the arrow keys or W, A, S and D,
-/// and Space for fire. A mouse press on a button of the pad holds it too. LD at port `address`
+/// and Space for fire. A mouse press on a button of the pad holds it too, and so do the keys of the
+/// `monitor` view (the `pad` crate). LD at port `address`
 /// gives the x axis: 1 for right, 255 (-1) for left, else 0. LD at `address + 1` gives the y axis:
 /// 1 for down, 255 for up. LD at `address + 2` gives the bits of the buttons: 1 up, 2 down,
 /// 4 left, 8 right and 16 fire. At the other ports, the byte on `bus` goes through.
@@ -37,7 +33,7 @@ impl Joystick {
     }
 
     pub fn process(&mut self, bus: &u8, port: &u8, address: u8) -> u8 {
-        let held = self.keys | self.mouse;
+        let held = self.keys | self.mouse | pad::held();
         let axis = |minus: u8, plus: u8| match (held & minus != 0, held & plus != 0) {
             (false, true) => 1,
             (true, false) => 255,
@@ -65,7 +61,7 @@ impl Joystick {
                 Pointer::Up(_) => 0,
             };
         }
-        let held = self.keys | self.mouse;
+        let held = self.keys | self.mouse | pad::held();
         for (bit, at, size) in PAD {
             pad.rect(at, size, if held & bit != 0 { ON } else { OFF }, true);
             pad.rect(at, size, EDGE, false);
@@ -73,18 +69,6 @@ impl Joystick {
         pad.text([82.0, 60.0], TEXT, "FIRE");
         ui.label("Click the pad, then hold");
         ui.label("the arrow keys and Space.");
-    }
-}
-
-/// The bit of a key name, or 0 for a key that the joystick does not use.
-fn button(name: &str) -> u8 {
-    match name {
-        "ArrowUp" | "KeyW" => UP,
-        "ArrowDown" | "KeyS" => DOWN,
-        "ArrowLeft" | "KeyA" => LEFT,
-        "ArrowRight" | "KeyD" => RIGHT,
-        "Space" | "Enter" => FIRE,
-        _ => 0,
     }
 }
 
@@ -106,7 +90,9 @@ mod tests {
         assert_eq!(stick.process(&7, &13, 14), 7, "port 13 passes the bus");
         stick.mouse = RIGHT;
         assert_eq!(stick.process(&7, &14, 14), 0, "left and right together give 0");
-        assert_eq!(button("KeyQ"), 0);
+        stick.keys = 0;
+        pad::press(&[Key::Down("ArrowUp".to_owned())]);
+        assert_eq!(stick.process(&7, &16, 14), UP | RIGHT, "a view holds a button too");
     }
 
     #[test]

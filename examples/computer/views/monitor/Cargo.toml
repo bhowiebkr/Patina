@@ -12,3 +12,4 @@ patina-sdk = { workspace = true }
 # feature needs a newer Rust than the computer example uses.
 patina-gpu = { path = "../../build/sdk/patina-gpu", default-features = false }
 frame = { path = "../../types/frame" }
+pad = { path = "../../types/pad" }

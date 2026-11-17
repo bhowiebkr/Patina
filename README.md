@@ -429,7 +429,8 @@ first port. The `cpu` has one **io** input, so the devices are a chain: `keyboar
 `joystick` to `gpu` to the CPU.
 
 The `monitor` view draws the screen on the real GPU, with a dark gap between the pixels. Open it
-from the **Views** menu. The view does not take keys, so click the pad of the `joystick` to play.
+from the **Views** menu. Click the screen of the view, then push the arrow keys and Space to play.
+The keys go to the `joystick`, as the keys of its pad do.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
 puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8

@@ -149,8 +149,10 @@ checks open.
   of this computer. The CLI ran a program that reads a pixel and moves a sprite, with the clock
   **every** at 4 and at 1. The CLI test `computer.rs` checks this program, and builds the view.
 - Not checked: the `monitor` view in the editor on the desktop. A hand test must open it.
-- Known limit: the `monitor` view does not send keys to the `joystick`. A view can change a
-  parameter only as an edit, so each key would add an undo step. Click the pad of the joystick.
+- New: the `monitor` view sends its keys to the `joystick` through the type crate `pad`, with
+  `patina_sdk::shared`. A key is not an edit, so it adds no undo step (fixed 2026-11-17).
+- Checked: the unit tests of `pad` and `joystick`, the clippy of `pad`, `joystick` and `monitor`,
+  and the CLI test `computer.rs`. Not checked: the keys in the editor on the desktop.
 
 ## Bigger CPU of the computer
 

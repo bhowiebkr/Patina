@@ -58,6 +58,8 @@ impl Monitor {
 
     pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
         let viewport = ui.viewport("Monitor", 320.0);
+        // The arrow keys, W, A, S, D and Space play the game, as on the pad of the joystick.
+        pad::press(&viewport.keys);
         let frame = input(graph);
         let [x, y, side] = square(&viewport);
         let Monitor { surface, pipe, shown, pixels, error } = self;
@@ -78,9 +80,9 @@ impl Monitor {
                 },
             };
             if shown.as_ref() != Some(frame) {
-                for (rgba, &color) in pixels.chunks_exact_mut(4).zip(&frame.0) {
+                for (rgba, &color) in pixels.as_chunks_mut::<4>().0.iter_mut().zip(&frame.0) {
                     let [r, g, b] = PALETTE[usize::from(color % 16)];
-                    rgba.copy_from_slice(&[r, g, b, 255]);
+                    *rgba = [r, g, b, 255];
                 }
                 let layout = wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(EXTENT.width * 4), rows_per_image: None };
                 match gpu() {
@@ -99,7 +101,7 @@ impl Monitor {
         });
         *error = drawn.err().or(failed).unwrap_or_default();
         match frame {
-            Some(frame) => ui.label(&format!("{frame:?}. Click the Pad of the joystick and push the arrows to play.")),
+            Some(frame) => ui.label(&format!("{frame:?}. Click the monitor and push the arrows to play.")),
             None => ui.label("No frame yet. Connect a frame to the screen node, and run the graph."),
         }
         if !error.is_empty() {

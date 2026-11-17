@@ -339,7 +339,7 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 **Rules**
 
 1. A view reads values between runs, or gets a copy, as viewers do. A view never stops a clock domain.
-2. Writes and edits from a view take the same path as the edits of the user. They apply on the next run of the clock domain, and undo removes them.
+2. Writes and edits from a view take the same path as the edits of the user. They apply on the next run of the clock domain, and undo removes them. Input that is not an edit, for example the held keys of a viewport for a game, goes to the nodes through a value of `patina_sdk::shared` in a type crate. Undo does not see it. (Agent decision of 2026-11-17. The owner can change it.)
 3. To read a typed output, a view uses the type crate of the output. The type key check applies (5.1).
    `graph.value::<T>(id, key)` gives the value of the last run as a `&T`, or none. The type
    must have `Clone` and `Send`. The cluster keeps a copy of each held value that a view read
