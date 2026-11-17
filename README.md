@@ -387,8 +387,10 @@ program memory of `switch` nodes, one for each bit.
 
 The `clock` node gives the ticks of the CPU. It gives one tick each **every** frames. The
 example project runs at 240 frames each second, so the CPU runs 60 instructions each second. To
-change the speed, set **FPS** in the toolbar (1 to 100000), or set **every** in the **Inspector**. Set **halt** to stop the clock, then click **Step** on the node
-to give one tick. The LED of the node is lit for the first half of each period.
+change the speed, set **FPS** in the toolbar (1 to 100000), or set **every** in the **Inspector**.
+To stop the clock, click **Pause** on the node. This sets **halt**. Then click **Step** to give one
+tick, and the band of the `program` node goes to the next line. Click **Run** to start the clock
+again. The LED of the node is lit for the first half of each period.
 
 The **address** output of the CPU is the address of the instruction, and its **a** output is A.
 Its **write** output is on during an ST or an STX to the RAM, and its **mem** input is the byte

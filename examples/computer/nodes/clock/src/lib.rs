@@ -5,23 +5,25 @@ const OFF: [u8; 3] = [102, 102, 97];
 const TEXT: [u8; 3] = [238, 238, 235];
 
 /// Gives one tick each `every` frames, as the clock of a computer. 0 counts as 1. `halt` stops
-/// the clock. Then the **Step** button gives one tick. It has no wired inputs, so it names its
-/// domain.
+/// the clock. Then the **Step** button gives one tick. The **Pause** and **Run** button sets
+/// `halt`. It has no wired inputs, so it names its domain.
 #[node(domain = frame, color = "#655219")]
 pub struct Clock {
     frame: u32,
     tick: bool,
     step: bool,
     lit: bool,
+    halt: bool,
 }
 
 impl Clock {
     pub fn init() -> Self {
-        Clock { frame: 0, tick: false, step: false, lit: false }
+        Clock { frame: 0, tick: false, step: false, lit: false, halt: false }
     }
 
     pub fn process(&mut self, every: u32, halt: bool) -> bool {
         let step = std::mem::take(&mut self.step);
+        self.halt = halt;
         if halt {
             (self.tick, self.lit) = (step, step);
         } else {
@@ -39,6 +41,9 @@ impl Clock {
             let mut canvas = ui.canvas(if self.tick { "tick" } else { "wait" }, [96.0, 36.0]);
             canvas.circle([18.0, 18.0], 9.0, if self.lit { ON } else { OFF }, self.lit);
             canvas.text([36.0, 23.0], TEXT, "CLK");
+        }
+        if ui.button(if self.halt { "Run" } else { "Pause" }).clicked() {
+            ui.set_param("halt", !self.halt);
         }
         if ui.button("Step").clicked() {
             self.step = true;
@@ -61,6 +66,7 @@ mod tests {
         }).collect();
         assert_eq!(lit, [true, true, false, false]);
         assert!(!clock.process(3, true));
+        assert!(clock.halt, "the button shows Run");
         clock.step = true;
         assert!(clock.process(3, true));
         assert!(!clock.process(3, true));

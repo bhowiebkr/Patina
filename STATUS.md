@@ -191,8 +191,11 @@ checks open.
   button that calls `set_param`, reads the new value, and undoes it.
 - Not checked: the look of the line numbers and the band on a real desktop.
 - Known limits: a node in a subgraph that is not open cannot write its parameters. A change of
-  the `.asm` file outside Patina shows only after the **file** parameter changes. **Pause** and
-  **Step** are not done.
+  the `.asm` file outside Patina shows only after the **file** parameter changes.
+- New: the `clock` node has a **Pause** and **Run** button that sets **halt** with `set_param`.
+  With **Step**, the CPU runs one instruction, and the band of the program shows the PC. The
+  unit test of the clock and the CLI test of the example passed. The button was not clicked in
+  the editor.
 
 ## Speed, frame rate and random numbers of the computer
 
