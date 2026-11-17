@@ -8,6 +8,7 @@ import './start.css';
 import './dock.css';
 import './canvas.css';
 import './gui.css';
+import './controls.css';
 import './bus.css';
 import { App } from './App';
 import { reportError } from './api';
