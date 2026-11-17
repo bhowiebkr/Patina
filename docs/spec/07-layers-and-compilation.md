@@ -18,12 +18,12 @@ Patina compiles a graph in two layers:
 - The base is the normal state. With no node in the slot, the whole graph is one optimized build.
 - Patina never runs the graph as separately compiled nodes. Only the node in the slot runs as its own library.
 - The base calls the slot through a function pointer. This costs one indirect call each time the node runs, and only while the node is in the slot.
-- If the graph uses the node folder more than once (6.2), each use calls the slot. For a generic node, the slot holds a copy for each set of types that the graph uses (4.5).
+- If the graph uses the node folder more than once (6.2), each use calls the slot. For a generic node, the slot holds a copy of the call for each use, with the types of that use (4.5).
 - A change to a shared type crate (5.2) rebuilds the base. The slot does not help there.
 - The slot is a library of its own, in `build/clusters/slot`. It holds the node in the slot and the state of each use. The base gives the slot library a pointer to each input and to the `Option` of the result. The engine gives each cluster the slot library after the load (`patina_cluster_slot` and `patina_cluster_call`, ABI version 12).
 - The base takes the type of the result from dead code with the call of the node, as a link does (8.2). Thus the base depends on the node crate, but runs no code of it.
 - The engine builds the slot alone only while the code of the base and the signature of N stay the same. Else it builds the base and the slot again. A change of a type alias in the node folder does not change the signature text, so it needs a full build. This is a shortcut.
-- A generic node does not go into the slot yet. Its slot needs a copy for each set of types. This is a shortcut and an agent decision of 2026-11-15. The owner can change it.
+- The slot library names no type. A witness of each use of a generic node gives the types by inference, as in the base (4.5). Thus the slot library also depends on the node crates that give the types. (Agent decision of 2026-11-17. The owner can change it.)
 - A new slot library gives new states to the uses of N, because the code of N changed. When N fuses back, the base takes the state of each use from the slot library, if the key did not change (7.2).
 
 ### 7.2 Edit cycle

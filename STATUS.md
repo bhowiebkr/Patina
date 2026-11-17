@@ -1081,9 +1081,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   the start of the fuse. Nobody measured the frames during a fuse.
 - A change during a fuse waits until the fuse ends, because one build runs at a time
   (`crates/patina-editor/src/engine.rs`). A **Package** or a view build waits in its thread.
-- A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a
-  type alias in the node folder needs a full build, because the base compares the signature
-  text.
+- A change of a type alias in the node folder needs a full build, because the base compares
+  the signature text (`crates/patina-engine/src/lib.rs`).
+- A generic node goes into the slot (fixed 2026-11-17). Each use gets a copy in the slot
+  library. The test `a_generic_node_in_the_slot_gets_a_copy_for_each_use` puts a node with an
+  f64 use and two String uses into the slot, edits it, and then puts a node with no input in.
 - The modes have no debug assertions, so a `debug_assert!` in a node does not run (8.3).
 
 ## Milestone 5: stateful nodes, node GUIs and generic nodes
@@ -1241,7 +1243,9 @@ with Rust 1.94.0. CI builds and tests them on Windows, Linux and macOS.
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
 - A generic node with no input gets its type from the readers of its output (4.5). The hello
   test runs a generic zero node in the batch domain, and a number node of the frame domain gives
-  its type. No check runs this with the node in the slot or with an async reader.
+  its type. The slot test runs it in the slot. No check runs it with an async reader.
+- A generic node with no input in a net, with a reader after the net, did not build (fixed
+  2026-11-17). Each value of a task now gets its type from the witness.
 - Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
   the worker pool for the first time inside the counted frames. A parallel cluster now prepares
   the pool when it loads. One CI run with this fix passed on all three platforms.

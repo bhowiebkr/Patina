@@ -85,10 +85,6 @@ impl Checked {
             // shortcut: an event node does not go into the slot; the slot call has no async wait (7.1). Add it when an event node needs a fast edit.
             return Err(Error::Build(format!("the node {name} is in the event domain, and an event node does not go into the slot yet")));
         }
-        if !plan.nodes[node].1.generics.is_empty() {
-            // shortcut: a generic node does not go into the slot; its slot needs a copy for each set of types (7.1).
-            return Err(Error::Build(format!("the node {name} is generic, and a generic node does not go into the slot yet")));
-        }
         self.plan.slot = Some(node);
         Ok(())
     }

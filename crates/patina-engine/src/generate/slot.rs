@@ -4,14 +4,19 @@
 use std::fmt::Write;
 
 use super::{EXPORTS, HEADER, LOGGER};
-use crate::node::Pass;
-use crate::plan::Plan;
+use crate::node::{Output, Pass};
+use crate::plan::{Plan, Source};
 
 /// The package name of the slot library. Its folder is `build/clusters/slot`.
 pub const PACKAGE: &str = "cluster-slot";
 
 /// The Rust name of the library target of `PACKAGE`.
 pub const TARGET: &str = "cluster_slot";
+
+/// The uses of the node in the slot.
+fn uses(plan: &Plan) -> Vec<usize> {
+    (0..plan.steps.len()).filter(|&n| plan.in_slot(n)).collect()
+}
 
 /// Writes the call of step `n` into the slot library. A block that never runs gives Rust the type
 /// of the result, so the code names no type.
@@ -58,14 +63,24 @@ pub(super) fn call(s: &mut String, plan: &Plan, n: usize) {
     let _ = writeln!(s, "{indent}}}");
 }
 
-/// The manifest of the slot library. `plan.slot` is the node in the slot.
+/// The manifest of the slot library. `plan.slot` is the node in the slot. The witness of a generic
+/// node calls the steps that give its types, so it needs their crates (4.5).
 pub fn manifest(plan: &Plan, slot: usize) -> String {
     let name = &plan.nodes[slot].0;
     let mut text = format!(
         "{HEADER}[package]\nname = \"{PACKAGE}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\
          publish = false\n\n[lib]\ncrate-type = [\"cdylib\"]\npath = \"lib.rs\"\n\n\
-         [dependencies]\npatina-sdk = {{ workspace = true }}\n{name} = {{ path = \"../../../nodes/{name}\" }}\n"
+         [dependencies]\npatina-sdk = {{ workspace = true }}\n"
     );
+    if plan.nodes[slot].1.generics.is_empty() {
+        let _ = writeln!(text, "{name} = {{ path = \"../../../nodes/{name}\" }}");
+    } else {
+        let steps = super::witnessed_from(plan, uses(plan));
+        text.push_str(&super::crates(plan, &steps));
+        if steps.iter().any(|&n| plan.nodes[plan.steps[n].node].1.is_async) {
+            text.push_str("patina-event = { workspace = true }\n");
+        }
+    }
     if plan.log {
         text.push_str("patina-log = { package = \"log\", version = \"0.4\" }\n");
     }
@@ -76,7 +91,8 @@ pub fn manifest(plan: &Plan, slot: usize) -> String {
 pub fn source(plan: &Plan, slot: usize) -> String {
     let (name, node) = &plan.nodes[slot];
     let krate = name.replace('-', "_");
-    let uses: Vec<usize> = (0..plan.steps.len()).filter(|&n| plan.in_slot(n)).collect();
+    let uses = uses(plan);
+    let generic = !node.generics.is_empty();
     let stateful: Vec<usize> = uses.iter().copied().filter(|_| node.state.is_some()).collect();
     let mut s = String::from(
         "// Made by Patina. Patina writes this file again at each build.\n#![allow(unused)]\n\n\
@@ -109,6 +125,10 @@ pub fn source(plan: &Plan, slot: usize) -> String {
             if node.state.is_some() { "finish_state" } else { "finish" }
         );
         let inner = "                    ";
+        if generic {
+            // The slot names no type, so the witness of the use gives the types of this copy (4.5).
+            super::witness(&mut s, plan, super::witnessed_from(plan, vec![n]));
+        }
         let mut args = Vec::new();
         let mut call = format!("::{krate}::{}", node.func);
         if let Some(state) = &node.state {
@@ -125,6 +145,10 @@ pub fn source(plan: &Plan, slot: usize) -> String {
             };
             let _ = writeln!(s, "{inner}// SAFETY: the base gives the inputs in this order (generate/slot.rs).");
             let _ = writeln!(s, "{inner}let a{j} = unsafe {{ {value} }};");
+            if let (true, Source::Wire { step, output }) = (generic && !input.is_str, &plan.steps[n].inputs[j]) {
+                let a = if input.pass == Pass::Take { format!("&a{j}") } else { format!("&*a{j}") };
+                let _ = writeln!(s, "{inner}if false {{ ::patina_sdk::glue::same({a}, &::patina_sdk::glue::like(&w{step}).{output}); }}");
+            }
             args.push(format!("a{j}"));
         }
         let call = format!("{call}({})", args.join(", "));
@@ -137,6 +161,14 @@ pub fn source(plan: &Plan, slot: usize) -> String {
             );
         } else {
             let _ = writeln!(s, "{inner}let r = {call};");
+        }
+        let outputs = match node.output {
+            Output::One => vec!["&r".to_owned()],
+            Output::Tuple(count) => (0..count).map(|i| format!("&r.{i}")).collect(),
+            Output::None => Vec::new(),
+        };
+        for (k, value) in outputs.iter().enumerate().filter(|_| generic) {
+            let _ = writeln!(s, "{inner}if false {{ ::patina_sdk::glue::same({value}, &::patina_sdk::glue::like(&w{n}).{k}); }}");
         }
         let _ = writeln!(s, "{inner}// SAFETY: the last argument is the `Option` of the result (generate/slot.rs).");
         let _ = writeln!(s, "{inner}unsafe {{ ::patina_sdk::glue::put_result(args[{count}], r) }};");

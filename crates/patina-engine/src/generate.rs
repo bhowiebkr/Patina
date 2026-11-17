@@ -4,6 +4,7 @@
 //! each type from the node calls. The code uses only full paths, because a node crate can have
 //! the name of any `use`.
 
+use std::collections::BTreeSet;
 use std::fmt::Write;
 
 use crate::node::{Builtin, Domain, Output, Pass};
@@ -56,10 +57,14 @@ fn imports(plan: &Plan, domain: Domain) -> Vec<(usize, usize)> {
 
 /// The steps that the witness of `domain` calls, in run order: the steps of the domain, the steps
 /// before its imports, and the readers that give a type parameter of one of them (4.5).
-fn witnessed(plan: &Plan, domain: Domain) -> std::collections::BTreeSet<usize> {
-    let mut steps = std::collections::BTreeSet::new();
+fn witnessed(plan: &Plan, domain: Domain) -> BTreeSet<usize> {
     let own = (0..plan.steps.len()).filter(|&n| plan.steps[n].domain == domain);
-    let mut todo: Vec<usize> = own.chain(imports(plan, domain).into_iter().map(|(n, _)| n)).collect();
+    witnessed_from(plan, own.chain(imports(plan, domain).into_iter().map(|(n, _)| n)).collect())
+}
+
+/// The steps `todo`, the steps before them, and the readers that give a type parameter (4.5).
+fn witnessed_from(plan: &Plan, mut todo: Vec<usize>) -> BTreeSet<usize> {
+    let mut steps = BTreeSet::new();
     while let Some(n) = todo.pop() {
         if steps.insert(n) {
             todo.extend(plan.steps[n].inputs.iter().filter_map(|source| match source {
@@ -81,13 +86,7 @@ pub fn manifest(plan: &Plan, domain: Domain) -> String {
     );
     // The witness calls steps of other domains too, so it needs their crates.
     let steps = witnessed(plan, domain);
-    let mut names: Vec<&str> =
-        steps.iter().map(|&n| plan.steps[n].node).filter(|&i| !plan.is_builtin_node(i)).map(|i| plan.nodes[i].0.as_str()).collect();
-    names.sort_unstable();
-    names.dedup();
-    for name in names {
-        let _ = writeln!(text, "{name} = {{ path = \"../../../nodes/{name}\" }}");
-    }
+    text.push_str(&crates(plan, &steps));
     for (name, _) in &plan.kinds {
         let _ = writeln!(text, "{name} = {{ path = \"../../../connections/{name}\" }}");
     }
@@ -98,6 +97,15 @@ pub fn manifest(plan: &Plan, domain: Domain) -> String {
         text.push_str("patina-event = { workspace = true }\n");
     }
     text
+}
+
+/// The dependency lines of the node crates of `steps`.
+fn crates(plan: &Plan, steps: &BTreeSet<usize>) -> String {
+    let mut names: Vec<&str> =
+        steps.iter().map(|&n| plan.steps[n].node).filter(|&i| !plan.is_builtin_node(i)).map(|i| plan.nodes[i].0.as_str()).collect();
+    names.sort_unstable();
+    names.dedup();
+    names.iter().map(|name| format!("{name} = {{ path = \"../../../nodes/{name}\" }}\n")).collect()
 }
 
 pub fn source(plan: &Plan, domain: Domain) -> String {
@@ -129,7 +137,7 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         );
         shared.push(format!("p{i}"));
     }
-    witness(&mut s, plan, domain);
+    witness(&mut s, plan, witnessed(plan, domain));
     // A value that another domain reads is in an `Arc`, which the other cluster links to (8.2).
     // A wire into or out of the audio domain is a buffer without a lock (9.3).
     for (n, k) in plan.held().filter(|&(n, k)| is_shared(plan, n, k)) {
@@ -205,8 +213,12 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::{cmd} => {{\n            let mut ok = true;");
         let local: Vec<(usize, usize)> =
             plan.held().filter(|&(n, k)| plan.steps[n].task == t && !is_shared(plan, n, k)).collect();
+        // The witness gives the type, because a probe can come before the reader that gives it (4.5).
         for (n, k) in &local {
-            let _ = writeln!(s, "            let mut n{n}_{k} = ::std::option::Option::None;");
+            let _ = writeln!(
+                s,
+                "            let mut n{n}_{k} = if false {{ ::std::option::Option::Some(::patina_sdk::glue::like(&w{n}).{k}) }} else {{ ::std::option::Option::None }};"
+            );
         }
         for run in task.steps.chunk_by(|&a, &b| gates[a] && gates[b]) {
             if gates[run[0]] {
@@ -299,13 +311,13 @@ fn ui_arms(s: &mut String, plan: &Plan, steps: &[usize]) {
     }
 }
 
-/// Writes a witness `w{m}` for each step that `witnessed` gives: `None` at
+/// Writes a witness `w{m}` for each step of `steps`: `None` at
 /// run time, with the type of the tuple of the step outputs. Each value then gets its type where
 /// it is made, and Rust does not carry thousands of open types through the closure (8.2). A slot
 /// gives its default. A delay runs before the step of its input, so it gets that type at the end.
-fn witness(s: &mut String, plan: &Plan, domain: Domain) {
+fn witness(s: &mut String, plan: &Plan, steps: BTreeSet<usize>) {
     let mut ties = String::new();
-    for m in witnessed(plan, domain) {
+    for m in steps {
         let step = &plan.steps[m];
         if plan.is_trigger(m) {
             let ty = if plan.builtin(m) == Some(Builtin::Schedule) { "0u64" } else { "::std::string::String::new()" };
