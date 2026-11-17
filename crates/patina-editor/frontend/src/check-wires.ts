@@ -2,13 +2,10 @@
 // conflict mark, the cross-domain dash and the switch of a bool input (15.1, 15.3, 15.9).
 
 import { api, type View } from './api';
-import { A, B, BUILD_MS, RUN_MS, SWITCH_NODE, amber, anyPixel, gray, icon, wireColumn } from './check-fixtures';
-
-type Step = (name: string, job: () => Promise<View>) => Promise<View>;
-type Until = (what: string, ms: number, test: () => boolean) => Promise<void>;
+import { A, B, BUILD_MS, RUN_MS, SWITCH_NODE, amber, anyPixel, gray, icon, wireColumn, type CheckContext } from './check-fixtures';
 
 /** Runs the wire steps on the graph of A to B, and returns the last view. */
-export async function checkWires(step: Step, until: Until, steps: string[], v: View): Promise<View> {
+export async function checkWires({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // A mouse drag moves a node (15.2). The drop is one edit with undo, and the wire follows the node.
   const nodeB = () => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${B}"]`)!;
   const posB = (view: View) => JSON.stringify(view.graph.node?.find((n) => n.id === B)?.pos);

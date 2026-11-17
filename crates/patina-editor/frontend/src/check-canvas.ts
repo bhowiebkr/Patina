@@ -2,12 +2,9 @@
 // right-click menus of the empty canvas, a node and a connection, and copy and paste (15.2, 15.4, 15.11).
 
 import { api, type View } from './api';
-import { RUN_MS } from './check-fixtures';
+import { RUN_MS, type CheckContext } from './check-fixtures';
 import { clipboard } from './clip';
 import { NODE_MIME } from './useAddNode';
-
-type Step = (name: string, job: () => Promise<View>) => Promise<View>;
-type Until = (what: string, ms: number, test: () => boolean) => Promise<void>;
 
 const count = (sel: string) => document.querySelectorAll(sel).length;
 const NODES = '.react-flow__node';
@@ -22,7 +19,7 @@ function rightClick(el: Element, x?: number, y?: number) {
 }
 
 /** Runs the canvas steps on the open main graph, and returns the last view. */
-export async function checkCanvas(step: Step, until: Until, steps: string[], v: View): Promise<View> {
+export async function checkCanvas({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // A drop of a node folder adds a use at the drop point (15.4).
   const pane = document.querySelector('.react-flow__pane')!;
   const r = pane.getBoundingClientRect();

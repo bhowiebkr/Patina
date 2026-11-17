@@ -3,23 +3,12 @@
 // that prints without a pause does not stop the window.
 
 import { api, onOutput, type EngineEvent, type View } from './api';
-import { A, B, BUILD_MS, RUN_MS } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, statusText, topButton, type CheckContext } from './check-fixtures';
 
 type Lost = Extract<EngineEvent, { state: 'lost' }>;
 
-export type Helpers = {
-  step: (name: string, job: () => Promise<View>) => Promise<View>;
-  until: (what: string, ms: number, test: () => boolean) => Promise<void>;
-  mark: () => number;
-  result: (v: View, from: number, line: string, ms: number) => Promise<unknown>;
-  events: EngineEvent[];
-  steps: string[];
-};
-
 /** Runs the isolation steps on the paused graph of A to B, and returns the last view. */
-export async function checkIsolation({ step, until, mark, result, events, steps }: Helpers, v: View): Promise<View> {
-  const statusText = () => document.querySelector('.statusbar')?.textContent ?? '';
-  const topButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === label);
+export async function checkIsolation({ step, until, mark, result, events, steps }: CheckContext, v: View): Promise<View> {
   const failure = async (v: View, from: number) => {
     let lost: Lost | undefined;
     await until('the failure of the node process', RUN_MS, () => {

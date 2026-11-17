@@ -1,11 +1,32 @@
 // The fixtures of the self-check (check.ts): its node IDs, the code that it writes, and the pixel
 // reads of the wire layer.
 
+import type { EngineEvent, View } from './api';
+
 export const BUILD_MS = 150_000;
 export const RUN_MS = 20_000;
 export const A = 'a000000000000001';
 export const B = 'b000000000000002';
 export const T = 'c000000000000003';
+
+/** The screen point of a mouse event. */
+export type At = { clientX: number; clientY: number };
+
+/** The shared state and waits of the self-check steps. */
+export type CheckContext = {
+  /** Runs a job, shows its view and records the step name. */
+  step: (name: string, job: () => Promise<View>) => Promise<View>;
+  /** Waits until the test is true. It throws after `ms`. */
+  until: (what: string, ms: number, test: () => boolean) => Promise<void>;
+  /** Waits for the result of the engine after `from`, and for an output line. */
+  result: (v: View, from: number, line: string, ms: number) => Promise<Extract<EngineEvent, { state: 'ran' }>>;
+  /** Marks the start of the events and the output lines to look at, and gives the event index. */
+  mark: () => number;
+  events: EngineEvent[];
+  /** The output lines after the last mark. */
+  fresh: () => string[];
+  steps: string[];
+};
 
 /** A mouse wheel event at a point. A mouse wheel step has a `wheelDeltaY` of 120, a touchpad other values (15.2). */
 export const mouseWheel = (deltaY: number, clientX: number, clientY: number) =>
@@ -162,12 +183,24 @@ export function anyPixel(column: Uint8Array, test: (r: number, g: number, b: num
   return false;
 }
 
-/** True when the node `id` has an element of the class `cls`, for example an icon. */
 /** The fire button of trigger T in the open graph (9.4). */
 export const fireButton = () => document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${T}"] button[aria-label="Fire the trigger"]`);
+/** True when the node `id` has an element of the class `cls`, for example an icon. */
 export const icon = (id: string, cls: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .${cls}`) !== null;
 export const amber = (r: number, _g: number, b: number) => r - b > 80;
 export const gray = (r: number, g: number, b: number) => Math.abs(r - g) < 12 && Math.abs(r - b) < 20;
+
+/** The first button with the text in the window. */
+export const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text);
+export const tab = (name: string) => [...document.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent === name);
+export const leftTab = (name: string) => [...document.querySelectorAll<HTMLElement>('.area.left [role=tab]')].find((t) => t.textContent === name)!;
+export const topButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === label);
+export const statusText = () => document.querySelector('.statusbar')?.textContent ?? '';
+/** The value badge of the first wire. */
+export const badge = () => document.querySelector('.wire-value');
+/** The CSS transform of the canvas, and its zoom. */
+export const transform = () => document.querySelector<HTMLElement>('.react-flow__viewport')?.style.transform;
+export const scale = () => Number(/scale\(([^)]+)\)/.exec(transform() ?? '')?.[1]);
 
 /** Reads a column of 16 px of the wire canvas at a screen point, by default the middle of the first wire. */
 export async function wireColumn(at?: { x: number; y: number }): Promise<{ x: number; y: number; column: Uint8Array }> {

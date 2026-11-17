@@ -2,24 +2,11 @@
 // delay and the runs of a trigger node (9.1, 9.2, 9.4).
 
 import { api, type EngineEvent, type View } from './api';
-import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, fireButton, icon } from './check-fixtures';
-
-export interface DomainCheck {
-  step: (name: string, job: () => Promise<View>) => Promise<View>;
-  until: (what: string, ms: number, test: () => boolean) => Promise<void>;
-  steps: string[];
-  /** Marks the start of the events and the output lines to look at, and gives the event index. */
-  mark: () => number;
-  events: EngineEvent[];
-  /** The output lines after the last mark. */
-  fresh: () => string[];
-  topButton: (label: string) => HTMLButtonElement | undefined;
-  statusText: () => string;
-}
+import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, fireButton, icon, statusText, topButton, type CheckContext } from './check-fixtures';
 
 /** Runs the domain steps with the node of code file `lib`, and returns the last view. */
-export async function checkDomains(c: DomainCheck, v: View, lib: string, changedCode: string): Promise<View> {
-  const { step, until, steps, mark, events, fresh, topButton, statusText } = c;
+export async function checkDomains(c: CheckContext, v: View, lib: string, changedCode: string): Promise<View> {
+  const { step, until, steps, mark, events, fresh } = c;
   let from = 0;
   // The frame domain (9.1): Run runs the frame node and the show node at each frame until Stop.
   const frameCode = changedCode.replace('#[node]', '#[node(domain = frame)]');

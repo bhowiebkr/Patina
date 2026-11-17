@@ -3,11 +3,11 @@
 
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { RUN_MS, enterText } from './check-fixtures';
+import { RUN_MS, enterText, type CheckContext } from './check-fixtures';
 import { FAR_ZOOM, GUI_ZOOM } from './gl';
 import { Guard } from './NodeGui';
 
-type Until = (what: string, ms: number, test: () => boolean) => Promise<void>;
+type Until = CheckContext['until'];
 
 /** Uses each widget of the GUI node in the node body `gui`, and waits for the new value. */
 export async function checkWidgets(until: Until, gui: string) {
