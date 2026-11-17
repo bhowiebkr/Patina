@@ -137,8 +137,12 @@ to = \"00000000000000a3.value\"
     assert_eq!(value(&mut fused, "out"), "130.0");
     assert!(!slotted().build_slot(&toolchain, &mut fused).unwrap(), "a fused cluster has no slot");
 
-    // A change of the signature changes the base, so the slot alone does not build.
+    // A new field of the state changes the outline of the node crate, so the slot alone does not build.
     let mut cluster = slotted().build(&toolchain, Mode::Edit).unwrap();
+    fs::write(folder.join("src/lib.rs"), edited.replace("total: f64,", "total: f64,
+    count: u32,").replace("total: 0.0 }", "total: 0.0, count: 0 }")).unwrap();
+    assert!(!slotted().build_slot(&toolchain, &mut cluster).unwrap());
+    // A change of the signature changes the base too.
     fs::write(folder.join("src/lib.rs"), edited.replace("scale: f64", "scale: f32").replace("* scale", "* f64::from(scale)")).unwrap();
     assert!(!slotted().build_slot(&toolchain, &mut cluster).unwrap());
     // The fused cluster sees the change of the node file, so the editor builds it in edit mode (8.3).

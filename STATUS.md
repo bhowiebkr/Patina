@@ -1101,8 +1101,10 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   the start of the fuse. Nobody measured the frames during a fuse.
 - A change during a fuse waits until the fuse ends, because one build runs at a time
   (`crates/patina-editor/src/engine.rs`). A **Package** or a view build waits in its thread.
-- A change of a type alias in the node folder needs a full build, because the base compares
-  the signature text (`crates/patina-engine/src/lib.rs`).
+- A change of a type alias or of a field in the folder of the node in the slot builds all
+  (fixed 2026-11-17). Before, the slot built alone with the old types in the base. The base
+  compares the outline of the folder: the code with no function bodies. A unit test of
+  `node.rs` checks the outline, and the CLI slot test checks a new field.
 - A generic node goes into the slot (fixed 2026-11-17). Each use gets a copy in the slot
   library. The test `a_generic_node_in_the_slot_gets_a_copy_for_each_use` puts a node with an
   f64 use and two String uses into the slot, edits it, and then puts a node with no input in.

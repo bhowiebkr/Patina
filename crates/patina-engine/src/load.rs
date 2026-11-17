@@ -141,9 +141,9 @@ pub struct Cluster {
     slotted: Vec<bool>,
     /// The shared part of the state keys of the last full build (`cargo::Built::common`).
     pub(crate) common: u64,
-    /// A hash of the code of the clusters and of the signature of the node in the slot. A build
-    /// of the slot alone is correct only while it does not change (7.1).
-    pub(crate) base: u64,
+    /// A hash of the code of the clusters and of the node in the slot, or None when its folder
+    /// cannot be read. A build of the slot alone is correct only while it does not change (7.1).
+    pub(crate) base: Option<u64>,
     /// The build mode of the clusters (8.3).
     pub(crate) mode: crate::Mode,
     /// The path package folders of the last full build, with a hash of their files.
@@ -222,7 +222,7 @@ impl Cluster {
             slot,
             slotted: (0..plan.steps.len()).map(|n| plan.in_slot(n)).collect(),
             common: 0,
-            base: 0,
+            base: None,
             mode: crate::Mode::Edit,
             sources: Vec::new(),
             domains: plan.steps.iter().map(|s| s.domain).collect(),

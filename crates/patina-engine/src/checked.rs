@@ -1,7 +1,7 @@
 //! The build and the load of a checked graph (spec 7 and 8).
 
 use std::fs;
-use std::hash::{DefaultHasher, Hasher};
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,7 @@ pub struct Compiled {
     common: u64,
     sources: cargo::Sources,
     mode: Mode,
+    base: Option<u64>,
 }
 
 /// A checked graph as data, for the node process (16.1). [`Parts::check`] checks it again there.
@@ -101,13 +102,15 @@ impl Checked {
     /// Does the cargo part of `build_with`, so another thread can do it while the engine runs (7.2).
     pub fn compile(&self, toolchain: &Toolchain, mode: Mode, compiling: &dyn Fn()) -> Result<Compiled, Error> {
         self.check_rust(toolchain)?;
+        // Before the build, so a save during the build gives a new base.
+        let base = self.base_hash();
         let built = cargo::build(&self.root, toolchain, &self.plan, mode, compiling)?;
         let paths: Vec<PathBuf> = built.libraries.iter().map(|(_, path)| path.clone()).collect();
         let copies = copy_to_loaded(&self.root, "cluster-", &paths)?;
         let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();
         let slot = copy_to_loaded(&self.root, "slot-", built.slot.as_slice())?.into_iter().next();
         copy_runtime(&self.root.join("build").join("loaded"), &toolchain.libdir)?;
-        Ok(Compiled { libraries, slot, keys: built.keys, common: built.common, sources: built.sources, mode })
+        Ok(Compiled { libraries, slot, keys: built.keys, common: built.common, sources: built.sources, mode, base })
     }
 
     /// Loads the libraries of `compile`. The plan must be the plan of that build.
@@ -115,7 +118,7 @@ impl Checked {
         let mut cluster = Cluster::load(&compiled.libraries, compiled.slot.as_deref(), &self.root, &self.plan, compiled.keys)?;
         cluster.common = compiled.common;
         cluster.sources = compiled.sources;
-        cluster.base = self.base_hash();
+        cluster.base = compiled.base;
         cluster.mode = compiled.mode;
         Ok(cluster)
     }
@@ -125,7 +128,7 @@ impl Checked {
     /// then build all again with `build`.
     pub fn build_slot(&self, toolchain: &Toolchain, cluster: &mut Cluster) -> Result<bool, Error> {
         self.check_rust(toolchain)?;
-        if self.plan.slot.is_none() || cluster.base != self.base_hash() {
+        if self.plan.slot.is_none() || cluster.base.is_none() || cluster.base != self.base_hash() {
             return Ok(false);
         }
         let (library, keys) = cargo::build_slot(&self.root, toolchain, &self.plan, cluster.common)?;
@@ -141,15 +144,28 @@ impl Checked {
         Err(Error::Build(format!("the project needs Rust {}, but the toolchain is Rust {}", self.rust, toolchain.release)))
     }
 
-    /// A hash of the code of the clusters and of the signature of the node in the slot.
-    /// shortcut: a type alias in the node folder does not change the signature text, so a change of the alias needs a full build; read the types from the build when users hit it.
-    fn base_hash(&self) -> u64 {
+    /// A hash of the code of the clusters and of the node in the slot: its signature and its folder,
+    /// with the outline of the Rust files (7.1). None when a file cannot be read or parsed.
+    fn base_hash(&self) -> Option<u64> {
         let mut hasher = DefaultHasher::new();
         hasher.write(self.wiring().as_bytes());
         if let Some(slot) = self.plan.slot {
-            hasher.write(format!("{:?}", self.plan.nodes[slot].1).as_bytes());
+            let (name, node) = &self.plan.nodes[slot];
+            format!("{node:?}").hash(&mut hasher);
+            let folder = self.root.join("nodes").join(name);
+            let mut files = Vec::new();
+            crate::list_files(&folder, ".", &mut files).ok()?;
+            files.sort();
+            for file in &files {
+                let text = fs::read(folder.join(file)).ok()?;
+                // The body of `main` in a build script can make the types, so it stays.
+                match file.ends_with(".rs") && file != "./build.rs" {
+                    true => (file, node::outline(std::str::from_utf8(&text).ok()?).ok()?).hash(&mut hasher),
+                    false => (file, text).hash(&mut hasher),
+                }
+            }
         }
-        hasher.finish()
+        Some(hasher.finish())
     }
 
     /// The mode of the last build of the project, or None before the first build (7.2).
