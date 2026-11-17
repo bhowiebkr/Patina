@@ -1,14 +1,19 @@
 //! Checks a graph and puts its nodes in run order (spec 6.4, 9.2).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::path::Path;
 
+use read::{Entry, Read};
+use task::{is_light, sort, split};
+
 use crate::node::{self, Builtin, Domain, Kind, Node};
-use crate::project::{GraphFile, is_id, read_crate, read_node};
+use crate::project::{GraphFile, read_crate};
 use crate::types;
 
 mod domain;
 mod event;
+mod read;
+mod task;
 
 /// A graph that passed all checks, in run order.
 #[derive(Clone)]
@@ -144,143 +149,18 @@ pub struct Slot {
     pub is_str: bool,
 }
 
-struct Entry {
-    id: String,
-    node: usize,
-    /// The wired source of each input: the entry and the output index.
-    wired: Vec<Option<(usize, usize)>>,
-    /// The domain that the node declares or that the user selected (9.1).
-    domain: Option<Domain>,
-}
-
 /// Checks a graph of the project at `root`. Returns all the problems that it finds.
 pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let mut problems = Vec::new();
     let kinds = read_kinds(root, &mut problems);
-    let mut nodes: Vec<(String, Node)> = Vec::new();
-    let mut by_name: HashMap<String, Option<usize>> = HashMap::new();
-    let mut entries: Vec<Option<Entry>> = Vec::new();
-    let mut by_id: HashMap<&str, usize> = HashMap::new();
-    let mut builtins: Vec<(usize, Builtin)> = Vec::new();
-
-    for (index, entry) in graph.node.iter().enumerate() {
-        entries.push(None);
-        let id = entry.id.as_str();
-        let mut fail = |text: String| problems.push(format!("node {id}: {text}"));
-        // A node of a subgraph use has the ID path `<use ID>/<node ID>` (6.4).
-        if !id.split('/').all(is_id) {
-            fail("the ID must be 16 lowercase hexadecimal characters".to_owned());
-            continue;
-        }
-        if by_id.insert(id, index).is_some() {
-            fail("two nodes have this ID".to_owned());
-            continue;
-        }
-        if entry.settings.is_some() {
-            fail("node settings (4.3) are not ready yet, so remove the settings of the node".to_owned());
-        }
-        let node_index = match (&entry.folder, &entry.builtin) {
-            (None, Some(name)) => match Builtin::parse(name) {
-                Some(builtin) => match builtins.iter().find(|(_, b)| *b == builtin) {
-                    Some(&(i, _)) => i,
-                    None => {
-                        nodes.push((builtin.name().to_owned(), builtin.node()));
-                        builtins.push((nodes.len() - 1, builtin));
-                        nodes.len() - 1
-                    }
-                },
-                None => {
-                    fail(format!("Patina has no built-in node {name:?} (spec 9.2)"));
-                    continue;
-                }
-            },
-            (Some(_), Some(_)) => {
-                fail("give the node a folder or a built-in node, not both".to_owned());
-                continue;
-            }
-            (None, None) => {
-                fail("the node has no folder".to_owned());
-                continue;
-            }
-            (Some(folder), None) => {
-                let Some(name) = folder.strip_prefix("nodes/") else {
-                    fail(format!("the folder {folder:?} is not in nodes/"));
-                    continue;
-                };
-                let slot = by_name.entry(name.to_owned()).or_insert_with(|| match read_node(root, name) {
-                    Ok(node) => {
-                        nodes.push((name.to_owned(), node));
-                        Some(nodes.len() - 1)
-                    }
-                    Err(text) => {
-                        problems.push(format!("{folder}: {text}"));
-                        None
-                    }
-                });
-                let Some(node_index) = *slot else { continue };
-                node_index
-            }
-        };
-        let folder = entry.folder.as_deref().or(entry.builtin.as_deref()).unwrap_or_default();
-        let node = &nodes[node_index].1;
-        for key in entry.params.keys() {
-            if !node.inputs.iter().any(|i| &i.key == key) {
-                problems.push(format!("node {id}: {folder} has no input `{key}` for the parameter"));
-            }
-        }
-        let chosen = entry.domain.as_deref().map(Domain::parse).transpose().unwrap_or_else(|text| {
-            problems.push(format!("node {id}: {text}"));
-            None
-        });
-        if let (Some(chosen), Some(declared)) = (chosen, node.domain)
-            && chosen != declared
-        {
-            problems.push(format!("node {id}: {folder} declares the {} domain", declared.name()));
-        }
-        let wired = vec![None; node.inputs.len()];
-        entries[index] = Some(Entry { id: id.to_owned(), node: node_index, wired, domain: node.domain.or(chosen) });
-    }
-
-    let is_delay = |node: usize| builtins.contains(&(node, Builtin::Delay));
-    let fires = |node: usize| builtins.iter().any(|&(i, b)| i == node && b.fires());
-    let mut edges: Vec<(usize, usize)> = Vec::new();
-    for wire in &graph.wire {
-        let from = find_pin(&wire.from, &by_id, &entries, &nodes, |n| n.output_keys());
-        let to = find_pin(&wire.to, &by_id, &entries, &nodes, |n| {
-            n.inputs.iter().map(|i| i.key.clone()).collect()
-        });
-        let ((from_entry, output), (to_entry, input)) = match (from, to) {
-            (Ok(from), Ok(to)) => (from, to),
-            (from, to) => {
-                let ends = [(&wire.from, from.err()), (&wire.to, to.err())];
-                for (end, text) in ends.into_iter().filter_map(|(e, t)| Some((e, t?))) {
-                    problems.push(format!("wire end {end:?}: {text}"));
-                }
-                continue;
-            }
-        };
-        let entry = entries[to_entry].as_mut().expect("find_pin gives a checked entry");
-        if entry.wired[input].replace((from_entry, output)).is_some() {
-            problems.push(format!("the input {:?} has more than one wire", wire.to));
-        }
-        if fires(entry.node) {
-            problems.push(format!("the input {:?} is a setting of the trigger. Set it in its parameter field (spec 9.4)", wire.to));
-        }
-        // The delay gives the value of the previous frame, so its input wire makes no cycle (9.2).
-        if !is_delay(entry.node) {
-            edges.push((from_entry, to_entry));
-        }
-    }
-    for order in &graph.order {
-        match (by_id.get(order.before.as_str()), by_id.get(order.after.as_str())) {
-            (Some(&before), Some(&after)) => edges.push((before, after)),
-            _ => problems.push(format!("the order wire {} to {} names no node", order.before, order.after)),
-        }
-    }
+    let mut read = Read::new(root, graph, &mut problems);
+    let edges = read.wires(graph, &mut problems);
     if !problems.is_empty() {
         return Err(problems);
     }
-
+    let Read { nodes, entries, builtins, .. } = read;
+    let is_delay = |node: usize| read::is_delay(&builtins, node);
+    let fires = |node: usize| read::fires(&builtins, node);
     let entries: Vec<Entry> = entries.into_iter().map(|e| e.expect("no problems")).collect();
     let order = sort(entries.len(), &edges).map_err(|left| {
         let ids: Vec<&str> = left.iter().map(|&i| entries[i].id.as_str()).collect();
@@ -290,6 +170,25 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     for (step, &entry) in order.iter().enumerate() {
         step_of[entry] = step;
     }
+    let (mut steps, slots) = make_steps(&order, &step_of, &entries, &nodes, is_delay)?;
+    resolve(&mut steps, &nodes, fires)?;
+    let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
+    let own: Vec<Option<Domain>> = order.iter().map(|&e| entries[e].domain).collect();
+    domain::assign(&mut steps, &edges, &own, is_delay)?;
+    let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
+    let light: Vec<bool> = (0..steps.len()).map(|n| is_light(&steps, &nodes, n, is_delay(steps[n].node))).collect();
+    let tasks = split(&mut steps, &edges, &trigger, &light);
+    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None };
+    let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
+    plan.kinds.retain(|(name, _)| used.contains(name));
+    let mut folders = plan.nodes.iter().enumerate().filter(|(i, _)| !plan.is_builtin_node(*i)).map(|(_, (n, _))| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
+    plan.log = folders.any(|(group, name)| uses_log(root, group, name));
+    Ok(plan)
+}
+
+/// Makes one step for each entry in run `order`, with the source of each input. `step_of` gives
+/// the step of each entry. An input with no wire gets a slot for its value.
+fn make_steps(order: &[usize], step_of: &[usize], entries: &[Entry], nodes: &[(String, Node)], is_delay: impl Fn(usize) -> bool) -> Result<(Vec<Step>, Vec<Slot>), Vec<String>> {
     let mut steps: Vec<Step> = order
         .iter()
         .map(|&e| Step {
@@ -324,19 +223,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
             steps[step].inputs.push(source);
         }
     }
-    resolve(&mut steps, &nodes, fires)?;
-    let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
-    let own: Vec<Option<Domain>> = order.iter().map(|&e| entries[e].domain).collect();
-    domain::assign(&mut steps, &edges, &own, is_delay)?;
-    let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
-    let light: Vec<bool> = (0..steps.len()).map(|n| is_light(&steps, &nodes, n, is_delay(steps[n].node))).collect();
-    let tasks = split(&mut steps, &edges, &trigger, &light);
-    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None };
-    let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
-    plan.kinds.retain(|(name, _)| used.contains(name));
-    let mut folders = plan.nodes.iter().enumerate().filter(|(i, _)| !plan.is_builtin_node(*i)).map(|(_, (n, _))| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
-    plan.log = folders.any(|(group, name)| uses_log(root, group, name));
-    Ok(plan)
+    Ok((steps, slots))
 }
 
 /// Sets the output types of each step. The wires give the type parameters of a generic node (4.5):
@@ -449,48 +336,6 @@ pub(crate) fn read_kinds(root: &Path, problems: &mut Vec<String>) -> Vec<(String
     kinds
 }
 
-/// Finds the entry and the pin index of a wire end `<node ID>.<pin key>`.
-fn find_pin(
-    end: &str,
-    by_id: &HashMap<&str, usize>,
-    entries: &[Option<Entry>],
-    nodes: &[(String, Node)],
-    keys: impl Fn(&Node) -> Vec<String>,
-) -> Result<(usize, usize), String> {
-    let (id, key) = end.split_once('.').ok_or("write the end as <node ID>.<pin key>")?;
-    let &index = by_id.get(id).ok_or("no node has this ID")?;
-    let entry = entries[index].as_ref().ok_or("the node has an error")?;
-    let (name, node) = &nodes[entry.node];
-    let pin = keys(node).iter().position(|k| k == key);
-    pin.map(|pin| (index, pin)).ok_or_else(|| format!("nodes/{name} has no such pin"))
-}
-
-/// Kahn's algorithm. Ties go in file order. Returns the nodes of a cycle on failure.
-fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>> {
-    let mut indegree = vec![0usize; count];
-    let mut after: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for &(from, to) in edges {
-        indegree[to] += 1;
-        after.entry(from).or_default().push(to);
-    }
-    let mut ready: BTreeSet<usize> = (0..count).filter(|&i| indegree[i] == 0).collect();
-    let mut order = Vec::with_capacity(count);
-    while let Some(next) = ready.pop_first() {
-        order.push(next);
-        for &to in after.get(&next).into_iter().flatten() {
-            indegree[to] -= 1;
-            if indegree[to] == 0 {
-                ready.insert(to);
-            }
-        }
-    }
-    if order.len() == count {
-        Ok(order)
-    } else {
-        Err((0..count).filter(|&i| indegree[i] > 0).collect())
-    }
-}
-
 /// True for a `bool`, `char` or number type, also behind `&` or `&mut`.
 fn scalar(ty: &str) -> bool {
     const SCALARS: [&str; 16] = ["bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
@@ -502,93 +347,10 @@ pub fn is_word(ty: &str) -> bool {
     scalar(ty) && !ty.contains("128")
 }
 
-/// True when step `n` is so small that a task of its own costs more than the step (9.2): a delay,
-/// or a node with only `bool`, `char` and number values, for example a NAND gate. `heavy` stops it.
-fn is_light(steps: &[Step], nodes: &[(String, Node)], n: usize, is_delay: bool) -> bool {
-    let (step, node) = (&steps[n], &nodes[steps[n].node].1);
-    let input = |(i, source): (&node::Input, &Source)| match *source {
-        Source::Wire { step, output } => scalar(&steps[step].types[output]),
-        Source::Slot(_) => scalar(&i.value),
-    };
-    is_delay
-        || (!node.is_async
-            && !node.heavy
-            && step.domain != Domain::Event
-            && node.inputs.iter().zip(&step.inputs).all(input)
-            && step.types.iter().take(step.consumers.len()).all(|ty| scalar(ty)))
-}
-
-/// Puts the steps into tasks (9.2). A light step joins the newest light task of its domain when
-/// each of its predecessors is in that task or an older one. A task index is then never smaller
-/// than the index of a task before it. Another step joins the task of its predecessor when it has
-/// exactly one predecessor, that predecessor has exactly one successor, and both have the same
-/// domain. An event step joins the task of its trigger, so an event run is one call (9.4).
-fn split(steps: &mut [Step], edges: &[(usize, usize)], trigger: &[Option<usize>], light: &[bool]) -> Vec<Task> {
-    let mut before: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
-    let mut after: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); steps.len()];
-    for &(from, to) in edges {
-        before[to].insert(from);
-        after[from].insert(to);
-    }
-    let mut tasks: Vec<Task> = Vec::new();
-    let mut open: BTreeMap<Domain, usize> = BTreeMap::new();
-    for n in 0..steps.len() {
-        let chain = before[n].first().filter(|&&p| before[n].len() == 1 && after[p].len() == 1 && steps[p].domain == steps[n].domain);
-        let joined = match trigger[n] {
-            Some(t) if t != n => Some(steps[t].task),
-            _ if light[n] => open.get(&steps[n].domain).copied().filter(|&t| before[n].iter().all(|&p| steps[p].task <= t)),
-            _ => chain.map(|&p| steps[p].task),
-        };
-        steps[n].task = match joined {
-            Some(task) => task,
-            None => {
-                tasks.push(Task { steps: Vec::new(), inputs: 0, next: Vec::new(), domain: steps[n].domain });
-                if light[n] {
-                    open.insert(steps[n].domain, tasks.len() - 1);
-                }
-                tasks.len() - 1
-            }
-        };
-        tasks[steps[n].task].steps.push(n);
-    }
-    let links: BTreeSet<(usize, usize)> = edges.iter().map(|&(from, to)| (steps[from].task, steps[to].task)).filter(|(a, b)| a != b).collect();
-    for (from, to) in links {
-        tasks[from].next.push(to);
-        tasks[to].inputs += 1;
-    }
-    tasks
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn sort_keeps_file_order_and_finds_cycles() {
-        assert_eq!(sort(3, &[(2, 0)]), Ok(vec![1, 2, 0]));
-        assert_eq!(sort(3, &[(0, 1), (1, 0)]), Err(vec![0, 1]));
-    }
-
-    #[test]
-    fn chains_become_one_task_and_branches_split() {
-        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain: Domain::Batch }).collect();
-        // 0 -> 1 -> 2 is a chain. 2 feeds 3 and 4, and both feed 5. An order wire 1 -> 2 doubles a data wire.
-        let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)], &[None; 6], &[false; 6]);
-        let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
-        assert_eq!(parts, [(&[0, 1, 2][..], 0, &[1, 2][..]), (&[3], 1, &[3]), (&[4], 1, &[3]), (&[5], 2, &[])]);
-        assert_eq!(steps.iter().map(|s| s.task).collect::<Vec<_>>(), [0, 0, 0, 1, 2, 3]);
-    }
-
-    #[test]
-    fn light_steps_share_a_task_after_the_tasks_they_read() {
-        let mut steps: Vec<Step> = (0..7).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain: Domain::Batch }).collect();
-        steps[6].domain = Domain::Frame;
-        // Step 2 is heavy. Step 4 reads it, so 4 cannot join the older light task. Step 6 is in another domain.
-        let light = [true, true, false, true, true, true, true];
-        let tasks = split(&mut steps, &[(0, 1), (0, 2), (1, 3), (2, 4), (3, 5), (4, 5), (5, 6)], &[None; 7], &light);
-        let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
-        assert_eq!(parts, [(&[0, 1, 3][..], 0, &[1, 2][..]), (&[2], 1, &[2]), (&[4, 5], 2, &[3]), (&[6], 1, &[])]);
-    }
 
     #[test]
     fn graph_problems_are_all_reported() {
