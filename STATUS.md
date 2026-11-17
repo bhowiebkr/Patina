@@ -1068,8 +1068,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - A layout that an older editor saved now opens the **Layers** tab in the left area (fixed
   2026-11-16). The layout file lists the known panels, so a closed panel stays closed. The
   frontend test reads an old file, a file with a short list and a file with a closed panel.
-- The fuse builds on the engine thread, so the graph does not run during a fuse
-  (`crates/patina-editor/src/engine.rs`).
+- The fuse builds in a background thread, so the graph runs on during a fuse (fixed
+  2026-11-17). The engine loads the fused clusters only when no change, pause or step came after
+  the start of the fuse. Nobody measured the frames during a fuse.
+- A change, a **Package** or the first build of a view during a fuse waits until the fuse ends,
+  because one build runs at a time (`crates/patina-editor/src/engine.rs`).
 - A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a
   type alias in the node folder needs a full build, because the base compares the signature
   text.

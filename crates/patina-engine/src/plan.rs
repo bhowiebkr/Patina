@@ -11,6 +11,7 @@ mod domain;
 mod event;
 
 /// A graph that passed all checks, in run order.
+#[derive(Clone)]
 pub struct Plan {
     /// The node folders that the graph uses, by folder name. The name is the crate name (6.2).
     pub nodes: Vec<(String, Node)>,
@@ -32,6 +33,7 @@ pub struct Plan {
 }
 
 /// A chain of steps that one call runs in order (9.2).
+#[derive(Clone)]
 pub struct Task {
     pub steps: Vec<usize>,
     /// The number of tasks that must end before this task starts.
@@ -42,6 +44,7 @@ pub struct Task {
 }
 
 /// One use of a node folder (6.2).
+#[derive(Clone)]
 pub struct Step {
     pub id: String,
     /// The index in `Plan::nodes`.
@@ -127,11 +130,13 @@ impl Plan {
     }
 }
 
+#[derive(Clone)]
 pub enum Source {
     Slot(usize),
     Wire { step: usize, output: usize },
 }
 
+#[derive(Clone)]
 pub struct Slot {
     pub step: usize,
     /// The key of the input.

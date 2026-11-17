@@ -19,7 +19,7 @@ pub enum Pass {
     Mut,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Input {
     pub key: String,
     pub pass: Pass,
@@ -73,7 +73,7 @@ impl Domain {
 }
 
 /// The signature of one node function.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
     /// The node function, or `process` for a stateful node.
     pub func: String,
@@ -385,7 +385,7 @@ fn read_attr(attr: &Attribute) -> Result<(Option<Domain>, bool, bool, Option<Str
 }
 
 /// The function of a connection kind (6.3).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Kind {
     pub func: String,
     /// The type of the values that the kind shows, as the code writes it, for example `u8`.

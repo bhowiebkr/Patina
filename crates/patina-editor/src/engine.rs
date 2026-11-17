@@ -11,11 +11,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SendError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock, frame_due};
 use patina_engine::device::{Pace, raise_priority};
-use patina_engine::{Audio, Checked, Cluster, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Remote, Report, Toolchain, Value, package};
+use patina_engine::{Audio, Checked, Cluster, Compiled, Control, Diagnostic, Error, Frames, Mode, NodeLog, NodeTime, Remote, Report, Toolchain, Value, package};
 use serde::{Deserialize, Serialize};
 
 use crate::node_process::Out;
@@ -41,6 +42,9 @@ pub enum Job {
     /// Fuses the clusters now: a bake build with no slot (7.2). **Bake** sends it, and the engine
     /// makes it after `FUSE_IDLE` with no change.
     Bake,
+    /// The result of a fuse that built in a background thread. Only the engine makes it.
+    #[serde(skip)]
+    Fused(Box<Result<Compiled, Error>>),
     /// Makes a package of the saved project `root` in `out` (14.1). The reply to `ask` has the
     /// warnings.
     Package { root: PathBuf, out: PathBuf, ask: u64 },
@@ -73,6 +77,51 @@ impl Jobs {
 
 /// The time with no change after which the engine fuses the clusters (7.2, roadmap question 7).
 const FUSE_IDLE: Duration = Duration::from_secs(30);
+
+/// How often the engine looks for the end of a fuse while it waits for a job.
+const FUSE_POLL: Duration = Duration::from_millis(100);
+
+/// One build at a time: the builds of the project share its `build` folder (7.2).
+pub(crate) static BUILDING: Mutex<()> = Mutex::new(());
+
+/// The fuse of the clusters: a bake build with no slot (7.2). It builds in a background thread,
+/// so the graph runs on until the fused clusters load.
+#[derive(Default)]
+struct Fuse {
+    /// The time of the fuse while the graph is live and the clusters are not fused.
+    at: Option<Instant>,
+    /// The number of builds, unloads and pauses. A fuse that started before the last one is old.
+    changes: u64,
+    /// The fuse that builds now, with the value of `changes` at its start.
+    thread: Option<(JoinHandle<Result<Compiled, Error>>, u64)>,
+}
+
+impl Fuse {
+    /// Starts a fuse of `checked` in a background thread, unless a fuse of the same graph builds.
+    fn start(&mut self, checked: &Checked, folder: &Path, toolchain: &mut Option<Toolchain>) {
+        self.at = None;
+        if self.thread.as_ref().is_some_and(|(_, changes)| *changes == self.changes) {
+            return;
+        }
+        let (checked, toolchain) = (checked.clone(), find_toolchain(folder, toolchain).cloned());
+        let thread = std::thread::Builder::new().name("patina-fuse".to_owned()).spawn(move || {
+            let toolchain = toolchain?;
+            let _build = lock(&BUILDING);
+            checked.compile(&toolchain, Mode::Bake, &|| {})
+        });
+        self.thread = thread.ok().map(|thread| (thread, self.changes));
+    }
+
+    /// Gives the result of a fuse that ended, when no change came after its start.
+    fn done(&mut self) -> Option<Result<Compiled, Error>> {
+        if !self.thread.as_ref().is_some_and(|(thread, _)| thread.is_finished()) {
+            return None;
+        }
+        let (thread, changes) = self.thread.take()?;
+        let result = thread.join().unwrap_or_else(|_| Err(Error::Build("the fuse build panicked".to_owned())));
+        (changes == self.changes).then_some(result)
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct GuiInput {
@@ -120,6 +169,8 @@ pub struct Run {
 struct Build {
     mode: Mode,
     slot: Option<String>,
+    /// The result of a fuse that built in a background thread, which loads with no build.
+    fused: Option<Result<Compiled, Error>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -295,20 +346,20 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     let mut next = None;
     // The last run, which a GUI change runs again, and the nodes of the Inspector and the full size.
     let (mut last, mut shown) = (None::<Box<Run>>, Shown::default());
-    // The time of the fuse while the graph is live and the clusters are not fused (7.2).
-    let mut fuse_at = None;
+    let mut fuse = Fuse::default();
     // True when the last run has frame nodes, so a step can run one frame.
     let mut framed = false;
-    while let Some(first) = next.take().or_else(|| wait(jobs, fuse_at)) {
+    while let Some(first) = next.take().or_else(|| wait(jobs, &mut fuse)) {
         // Only the newest run starts. A build that a skipped run asked for still happens.
-        let mut newest = None;
-        let (mut build, mut rerun, mut fuse, mut step) = (false, false, false, false);
+        let (mut newest, mut fused) = (None, None);
+        let (mut build, mut rerun, mut bake, mut step) = (false, false, false, false);
         // The slot holds a node only when all the changes that need a build are in its code.
         let mut slot = None;
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
                 Job::Unload => {
-                    (loaded, newest, build, last, fuse_at, framed) = (None, None, false, None, None, false);
+                    (loaded, newest, build, last, fuse.at, framed) = (None, None, false, None, None, false);
+                    fuse.changes += 1;
                     views = Views::default();
                     lock(&shared.values).clear();
                     lock(&shared.reports).clear();
@@ -317,14 +368,18 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                 Job::Run(run) => {
                     if run.build {
                         shared.builds.fetch_sub(1, Ordering::SeqCst);
+                        fuse.changes += 1;
                         slot = if build && slot != run.slot { None } else { run.slot.clone() };
                         build = true;
                     }
                     newest = Some(run);
                 }
-                Job::Pause => (newest, build, rerun, fuse, fuse_at) = (None, false, false, false, None),
-                Job::Step => (newest, build, rerun, fuse, fuse_at, step) = (None, false, false, false, None, true),
-                Job::Bake => fuse = true,
+                Job::Pause | Job::Step => {
+                    (newest, build, rerun, bake, fuse.at, step) = (None, false, false, false, None, matches!(job, Job::Step));
+                    fuse.changes += 1;
+                }
+                Job::Bake => bake = true,
+                Job::Fused(done) => fused = Some(*done),
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
                         rerun |= gui(out, &shared.control, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
@@ -332,7 +387,10 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                 }
                 Job::Rerun => rerun = true,
                 // The engine thread makes the package, so no other build uses the build folder.
-                Job::Package { root, out: to, ask } => out.reply(ask, make_package(folder, &mut toolchain, &root, &to)),
+                Job::Package { root, out: to, ask } => {
+                    let _build = lock(&BUILDING);
+                    out.reply(ask, make_package(folder, &mut toolchain, &root, &to));
+                }
                 Job::View(input) => views.ui(out, shared, (folder, &mut toolchain), *input, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
                 Job::CloseView(name) => views.close(&name),
                 Job::DropView(instance, ask) => {
@@ -346,17 +404,30 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
             frame(out, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, (serial, 1, 1), &mut Blocks::default());
             out.emit(&Event::Ended { serial, frames: 1 });
         }
-        fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
+        bake &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
+        // A fuse with no other build builds in a background thread, so the graph runs on (7.2).
+        if bake
+            && !build
+            && loaded.is_some()
+            && let Some(run) = newest.as_ref().or(last.as_ref())
+        {
+            fuse.start(&run.checked, folder, &mut toolchain);
+            bake = false;
+        }
+        // The fused clusters load only when no build came after the fuse.
+        let fused = fused.filter(|_| !build);
         let opened = loaded.is_none() && last.is_none();
-        if (rerun || fuse) && newest.is_none() {
+        if (rerun || bake || fused.is_some()) && newest.is_none() {
             newest = last.take();
         }
         let Some(mut run) = newest else { continue };
-        let build = if fuse {
-            Some(Build { mode: Mode::Bake, slot: None })
+        let mut build = if fused.is_some() {
+            Some(Build { mode: Mode::Bake, slot: None, fused })
+        } else if bake {
+            Some(Build { mode: Mode::Bake, slot: None, fused: None })
         } else if opened {
             // The first build of a project has the mode of its last build, so cargo builds nothing when nothing changed (7.2).
-            Some(Build { mode: run.checked.built_mode().unwrap_or(Mode::Bake), slot: None })
+            Some(Build { mode: run.checked.built_mode().unwrap_or(Mode::Bake), slot: None, fused: None })
         } else if build || loaded.is_none() {
             // The same clusters keep their mode, so a build with no change compiles nothing (7.2).
             // A changed crate builds in edit mode and fuses later, also after a bake load (8.3).
@@ -365,12 +436,11 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                 Mode::Bake if !l.cluster.sources_changed() => Mode::Bake,
                 _ => Mode::Edit,
             };
-            Some(same.map_or(Build { mode: Mode::Edit, slot }, |l| Build { mode: mode(l), slot: None }))
+            Some(same.map_or(Build { mode: Mode::Edit, slot, fused: None }, |l| Build { mode: mode(l), slot: None, fused: None }))
         } else {
             None
         };
-        // shortcut: the fuse builds on the engine thread, so a change waits for it; build in a background thread when bake builds get slow.
-        let event = match run_one(out, (folder, &mut toolchain), &mut loaded, &mut run, build.as_ref(), shared) {
+        let event = match run_one(out, (folder, &mut toolchain), &mut loaded, &mut run, build.as_mut(), shared) {
             Ok(Some(event)) => event,
             // A newer build waits, so this build does not run and its errors do not show (7.2).
             Ok(None) => continue,
@@ -385,7 +455,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
         // An edit build of a live graph fuses after a time with no change. A failed fuse waits for the next change.
         if let Some(build) = &build {
             let edit = run.start && build.mode == Mode::Edit && loaded.as_ref().is_some_and(Loaded::needs_fuse);
-            fuse_at = edit.then(|| Instant::now() + FUSE_IDLE);
+            fuse.at = edit.then(|| Instant::now() + FUSE_IDLE);
         }
         framed = matches!(event, Event::Ran { frames: true, .. });
         let goes_on = matches!(event, Event::Ran { frames: true, .. } | Event::Ran { events: true, .. });
@@ -394,7 +464,8 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
         if let (true, Some(loaded)) = (drawn, loaded.as_mut()) {
             draw(out, &shared.control, &mut loaded.cluster.frame_part(), run.serial, &shown, true);
             if goes_on {
-                let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0, shows: 0, rate: run.checked.frame_rate() };
+                let fusable = loaded.needs_fuse();
+                let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse: &mut fuse, checked: &run.checked, fusable, frames: 0, shows: 0, rate: run.checked.frame_rate() };
                 next = run_frames(live, &mut loaded.cluster);
             }
         }
@@ -402,13 +473,21 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     }
 }
 
-/// Waits for the next job. At `fuse_at`, gives `Job::Bake` (7.2).
-fn wait(jobs: &Receiver<Job>, fuse_at: Option<Instant>) -> Option<Job> {
-    let Some(at) = fuse_at else { return jobs.recv().ok() };
-    match jobs.recv_timeout(at.saturating_duration_since(Instant::now())) {
-        Ok(job) => Some(job),
-        Err(RecvTimeoutError::Timeout) => Some(Job::Bake),
-        Err(RecvTimeoutError::Disconnected) => None,
+/// Waits for the next job. Gives `Job::Bake` at the time of the fuse, and `Job::Fused` when a fuse
+/// ends (7.2).
+fn wait(jobs: &Receiver<Job>, fuse: &mut Fuse) -> Option<Job> {
+    loop {
+        if let Some(done) = fuse.done() {
+            return Some(Job::Fused(Box::new(done)));
+        }
+        let poll = fuse.thread.as_ref().map(|_| Instant::now() + FUSE_POLL);
+        let Some(until) = fuse.at.into_iter().chain(poll).min() else { return jobs.recv().ok() };
+        match jobs.recv_timeout(until.saturating_duration_since(Instant::now())) {
+            Ok(job) => return Some(job),
+            Err(RecvTimeoutError::Timeout) if fuse.at.is_some_and(|at| Instant::now() >= at) => return Some(Job::Bake),
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => return None,
+        }
     }
 }
 
@@ -423,7 +502,11 @@ struct Live<'a> {
     toolchain: &'a mut Option<Toolchain>,
     shared: &'a Shared,
     serial: u64,
-    fuse_at: Option<Instant>,
+    fuse: &'a mut Fuse,
+    /// The graph of the run, which a fuse builds.
+    checked: &'a Checked,
+    /// True when the clusters are not fused yet.
+    fusable: bool,
     /// The number of frames of the run.
     frames: u64,
     /// The number of frames that the page showed, at most 60 each second.
@@ -435,10 +518,19 @@ struct Live<'a> {
 impl Live<'_> {
     /// Takes the next job. Returns `Some` when the job ends the run, with the job for the engine.
     fn job(&mut self, part: &mut Frames) -> Option<Option<Job>> {
-        if self.fuse_at.is_some_and(|at| Instant::now() >= at) {
-            return Some(Some(Job::Bake));
+        if let Some(done) = self.fuse.done() {
+            return Some(Some(Job::Fused(Box::new(done))));
+        }
+        if self.fuse.at.is_some_and(|at| Instant::now() >= at) {
+            self.fuse.start(self.checked, self.folder, self.toolchain);
         }
         match self.jobs.try_recv() {
+            // The fuse builds in a background thread, so the frames go on (7.2).
+            Ok(Job::Bake) => {
+                if self.fusable {
+                    self.fuse.start(self.checked, self.folder, self.toolchain);
+                }
+            }
             // A change of a frame node applies at the next frame. A batch node needs a batch run.
             Ok(Job::Gui(input)) => {
                 if gui(self.out, &self.shared.control, part, self.serial, &input, self.shown) == Some(false) {
@@ -594,7 +686,10 @@ fn between(live: &mut Live, cluster: &mut Cluster) -> Option<Job> {
 /// Builds the clusters for a run (7.2). A save of the code of one node puts the node into the
 /// slot, and builds the slot library alone when the base can stay. Gives None when only the slot
 /// library changed. `building` gets the layers of each build before it starts.
-fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, mut loaded: Option<&mut Loaded>, building: impl Fn(bool, Option<&str>)) -> Result<Option<Cluster>, Error> {
+fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &mut Build, mut loaded: Option<&mut Loaded>, building: impl Fn(bool, Option<&str>)) -> Result<Option<Cluster>, Error> {
+    if let Some(fused) = build.fused.take() {
+        return fused.and_then(|compiled| checked.load(compiled)).map(Some);
+    }
     // A generic node or the delay node does not go into the slot, so its change builds all (7.1).
     let slotted = build.slot.is_some() && checked.set_slot(build.slot.as_deref()).is_ok();
     let swapped = match loaded.as_deref_mut().filter(|l| slotted && !l.stale && l.slot == build.slot) {
@@ -642,7 +737,7 @@ fn make_package(folder: &Path, toolchain: &mut Option<Toolchain>, root: &Path, o
     package::make(root, toolchain, Mode::Bake, &runner, out).map_err(|e| e.to_string())
 }
 
-fn run_one(out: &Out, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&Build>, shared: &Shared) -> Result<Option<Event>, Error> {
+fn run_one(out: &Out, (folder, toolchain): (&Path, &mut Option<Toolchain>), loaded: &mut Option<Loaded>, run: &mut Run, build: Option<&mut Build>, shared: &Shared) -> Result<Option<Event>, Error> {
     let mut built_ms = None;
     let mut slot_only = false;
     let mut errors = Vec::new();
@@ -654,7 +749,10 @@ fn run_one(out: &Out, (folder, toolchain): (&Path, &mut Option<Toolchain>), load
         let building = |base, slot: Option<&str>| {
             out.emit(&Event::Building { serial, base, slot: slot.map(str::to_owned) });
         };
-        let built = compile(&mut run.checked, toolchain, build, loaded.as_mut(), building);
+        let built = {
+            let _build = lock(&BUILDING);
+            compile(&mut run.checked, toolchain, build, loaded.as_mut(), building)
+        };
         if shared.builds.load(Ordering::SeqCst) > 0 {
             return Ok(None);
         }

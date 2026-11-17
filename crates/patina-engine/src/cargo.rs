@@ -119,6 +119,7 @@ pub struct Diagnostic {
 }
 
 /// The Rust toolchain that builds a project.
+#[derive(Clone)]
 pub struct Toolchain {
     pub cargo: PathBuf,
     pub rustc: PathBuf,

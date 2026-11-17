@@ -8,7 +8,7 @@ use patina_engine::view::{Frame, View, snapshot};
 use patina_engine::{Edit, Frames, Project, Report, Toolchain};
 use serde::{Deserialize, Serialize};
 
-use crate::engine::{Shared, find_toolchain, lock};
+use crate::engine::{BUILDING, Shared, find_toolchain, lock};
 use crate::node_process::Out;
 
 /// User input to view `name`, or a request for its widget lines when `events` is empty.
@@ -70,7 +70,10 @@ impl Views {
             None => {
                 let toolchain = find_toolchain(folder, toolchain).map_err(|e| e.to_string())?;
                 let project = Project::open(&input.root).map_err(|e| e.to_string())?;
-                let library = project.build_view(toolchain, &input.name).map_err(|e| e.to_string())?;
+                let library = {
+                    let _build = lock(&BUILDING);
+                    project.build_view(toolchain, &input.name).map_err(|e| e.to_string())?
+                };
                 self.0.push((input.name.clone(), input.instance.clone(), View::load(&library, &input.root)?));
                 self.0.len() - 1
             }

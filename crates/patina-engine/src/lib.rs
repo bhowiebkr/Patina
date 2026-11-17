@@ -41,7 +41,7 @@ use folders::{code_file, code_folder, write_file};
 pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
-pub use checked::Parts;
+pub use checked::{Compiled, Parts};
 pub use clip::{Link, Pasted};
 pub use edit::Edit;
 pub use events::{EventRun, Events, Inbox, Remote, remote};
@@ -179,6 +179,7 @@ pub fn builtins() -> Vec<NodeInfo> {
 }
 
 /// A graph that passed all checks, ready to build.
+#[derive(Clone)]
 pub struct Checked {
     root: PathBuf,
     rust: String,

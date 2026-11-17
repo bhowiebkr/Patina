@@ -8,6 +8,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Checked, Cluster, Error, Mode, Toolchain, cargo, generate, node, plan, project};
 
+/// The libraries of a build in `build/loaded`, before they load (7.2).
+pub struct Compiled {
+    libraries: Vec<(node::Domain, PathBuf)>,
+    slot: Option<PathBuf>,
+    keys: Vec<Option<u64>>,
+    common: u64,
+    sources: cargo::Sources,
+    mode: Mode,
+}
+
 /// A checked graph as data, for the node process (16.1). [`Parts::check`] checks it again there.
 #[derive(Serialize, Deserialize)]
 pub struct Parts {
@@ -92,18 +102,29 @@ impl Checked {
     /// Does `build`. `compiling` runs when cargo starts to compile a crate, so not when all crates
     /// are fresh.
     pub fn build_with(&self, toolchain: &Toolchain, mode: Mode, compiling: &dyn Fn()) -> Result<Cluster, Error> {
+        let compiled = self.compile(toolchain, mode, compiling)?;
+        self.load(compiled)
+    }
+
+    /// Does the cargo part of `build_with`, so another thread can do it while the engine runs (7.2).
+    pub fn compile(&self, toolchain: &Toolchain, mode: Mode, compiling: &dyn Fn()) -> Result<Compiled, Error> {
         self.check_rust(toolchain)?;
         let built = cargo::build(&self.root, toolchain, &self.plan, mode, compiling)?;
         let paths: Vec<PathBuf> = built.libraries.iter().map(|(_, path)| path.clone()).collect();
         let copies = copy_to_loaded(&self.root, "cluster-", &paths)?;
         let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();
-        let slot = copy_to_loaded(&self.root, "slot-", built.slot.as_slice())?;
+        let slot = copy_to_loaded(&self.root, "slot-", built.slot.as_slice())?.into_iter().next();
         copy_runtime(&self.root.join("build").join("loaded"), &toolchain.libdir)?;
-        let mut cluster = Cluster::load(&libraries, slot.first().map(PathBuf::as_path), &self.root, &self.plan, built.keys)?;
-        cluster.common = built.common;
-        cluster.sources = built.sources;
+        Ok(Compiled { libraries, slot, keys: built.keys, common: built.common, sources: built.sources, mode })
+    }
+
+    /// Loads the libraries of `compile`. The plan must be the plan of that build.
+    pub fn load(&self, compiled: Compiled) -> Result<Cluster, Error> {
+        let mut cluster = Cluster::load(&compiled.libraries, compiled.slot.as_deref(), &self.root, &self.plan, compiled.keys)?;
+        cluster.common = compiled.common;
+        cluster.sources = compiled.sources;
         cluster.base = self.base_hash();
-        cluster.mode = mode;
+        cluster.mode = compiled.mode;
         Ok(cluster)
     }
 
