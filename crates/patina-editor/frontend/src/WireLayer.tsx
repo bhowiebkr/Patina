@@ -21,7 +21,7 @@ import { dragRoute, type FrameAt } from './frames';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
 import type { Labels } from './labels';
-import type { Router } from './route';
+import type { Router } from './router';
 import { anchor, insertAt, moveSegment, segments, shape, wirePath, type WireStore } from './wires';
 
 /** The hit area of a wire, in screen pixels, at each zoom. */

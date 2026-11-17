@@ -4,7 +4,8 @@
 // buses get straight first, and each wire gets space for its width.
 
 import type { Point } from './api.ts';
-import { GAP, pav } from './route.ts';
+import { pav } from './nudge.ts';
+import { GAP } from './route.ts';
 
 /** A node to place: its size, and `first` or `last` for a public input or output (6.4). */
 export interface Box {

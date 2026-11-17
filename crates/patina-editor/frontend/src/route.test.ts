@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Point } from './api.ts';
 import { crossingGaps, junctions } from './marks.ts';
-import { GAP, MARGIN, route, Router, type Rect, type WireIn } from './route.ts';
+import { GAP, MARGIN, type Rect, type WireIn } from './route.ts';
+import { route, Router } from './router.ts';
 
 const A: Rect = { l: 0, t: 0, r: 100, b: 100 };
 const C: Rect = { l: 400, t: 0, r: 500, b: 100 };

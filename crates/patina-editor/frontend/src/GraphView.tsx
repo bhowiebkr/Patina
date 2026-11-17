@@ -25,7 +25,7 @@ import { graphEdit } from './frames';
 import { dragStyle } from './palette';
 import { OrderEdge, WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { Labels } from './labels';
-import { Router } from './route';
+import { Router } from './router';
 import { lockPoints, WireStore } from './wires';
 import { useTouchpadPan } from './touchpad';
 import { useCanvasKeys } from './keys';

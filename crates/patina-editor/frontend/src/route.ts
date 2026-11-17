@@ -1,9 +1,9 @@
 // The automatic routes of the wires (spec 15.9). A wire with the graph default look goes around
 // the node bodies: A* on a sparse grid finds an orthogonal path with few bends, and the wires of
-// one output share a trunk. Then a nudge spreads the parallel segments in each channel.
+// one output share a trunk. Then a nudge spreads the parallel segments in each channel (nudge.ts),
+// and the Router keeps the routes of one view (router.ts).
 
 import type { Point } from './api';
-import { crossingGaps, junctions, type Gap } from './marks.ts';
 import { orthogonal } from './wires.ts';
 
 /** A node body on the canvas. */
@@ -33,17 +33,11 @@ export const GAP = 8;
 export const MARGIN = 6;
 /** The cost of a bend, as a length in pixels. */
 const BEND = 60;
-/** The shortest leg that a nudge leaves next to a bend. */
-const MIN_LEG = 10;
-/** The widest channel in which a segment moves to the middle. */
-const MAX_CENTER = 800;
 // shortcut: a graph with a larger grid gets the simple orthogonal paths; use a sparser grid when such graphs matter.
 const MAX_CELLS = 2_000_000;
 const MAX_EXPAND = 300_000;
-/** The time after the last change, in ms, before all nets route again. */
-const SETTLE = 250;
 
-interface Leg {
+export interface Leg {
   id: string;
   w: WireIn;
 }
@@ -266,7 +260,7 @@ function trace(s: number): number[] {
   return out.reverse();
 }
 
-const isVia = (p: Point, via: readonly Point[]) => via.some(([x, y]) => x === p[0] && y === p[1]);
+export const isVia = (p: Point, via: readonly Point[]) => via.some(([x, y]) => x === p[0] && y === p[1]);
 
 /** Removes the repeated points and the points in line, but keeps each route point. */
 export function simplify(pts: readonly Point[], via: readonly Point[]): Point[] {
@@ -354,7 +348,7 @@ function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>, conf
 }
 
 /** The paths of the nets from pin to pin, before the nudge. A graph that is too large has no conflicts. */
-function routeNets(rects: readonly Rect[], nets: readonly (readonly Leg[])[], conflicts = new Set<string>()): Map<string, Point[]> {
+export function routeNets(rects: readonly Rect[], nets: readonly (readonly Leg[])[], conflicts = new Set<string>()): Map<string, Point[]> {
   const out = new Map<string, Point[]>();
   if (!nets.length) return out;
   const g = grid(rects, nets.flat());
@@ -380,349 +374,4 @@ function routeNets(rects: readonly Rect[], nets: readonly (readonly Leg[])[], co
     routeNet(g, legs, out, conflicts, PAD);
   }
   return out;
-}
-
-/** The segments of one net on one line that touch, which move together. */
-interface Unit {
-  c: number;
-  s0: number;
-  s1: number;
-  width: number;
-  fixed: boolean;
-  lo: number;
-  hi: number;
-  d: number;
-  net: string;
-  /** Pairs of path index and segment index. */
-  segs: number[];
-  /** Pairs of position and side (-1 or 1) of each connected segment. */
-  ends: number[];
-}
-
-/** The segments of `a` and `b` that cross when `a` is before `b`. */
-function crossings(a: Unit, b: Unit): number {
-  let n = 0;
-  for (let k = 0; k < a.ends.length; k += 2) if (a.ends[k + 1] > 0 && b.s0 < a.ends[k] && a.ends[k] < b.s1) n++;
-  for (let k = 0; k < b.ends.length; k += 2) if (b.ends[k + 1] < 0 && a.s0 < b.ends[k] && b.ends[k] < a.s1) n++;
-  return n;
-}
-
-function before(a: Unit, b: Unit): boolean {
-  if (Math.abs(a.d - b.d) >= (a.width + b.width) / 2 + GAP) return a.d < b.d;
-  const [ab, ba] = [crossings(a, b), crossings(b, a)];
-  if (ab !== ba) return ab < ba;
-  return a.d !== b.d ? a.d < b.d : a.c !== b.c ? a.c < b.c : a.net < b.net;
-}
-
-/**
- * The values nearest to `want` (weighted least squares) that keep the order and the spaces of
- * `off`: x[i] - x[i-1] >= off[i] - off[i-1] (isotonic regression by pool adjacent violators).
- */
-export function pav(want: readonly number[], off: readonly number[], weight: readonly number[]): number[] {
-  const val: number[] = [];
-  const wt: number[] = [];
-  const cnt: number[] = [];
-  want.forEach((d, i) => {
-    let [v, w, m] = [d - off[i], weight[i], 1];
-    while (val.length && val[val.length - 1] > v) {
-      const w2 = wt.pop()!;
-      v = (val.pop()! * w2 + v * w) / (w2 + w);
-      w += w2;
-      m += cnt.pop()!;
-    }
-    val.push(v), wt.push(w), cnt.push(m);
-  });
-  const out: number[] = [];
-  val.forEach((v, k) => {
-    for (let m = 0; m < cnt[k]; m++) out.push(v + off[out.length]);
-  });
-  return out;
-}
-
-/** Puts the units in order with a gap between neighbors, near their wanted places. */
-function place(list: Unit[]) {
-  const off = [0];
-  for (let i = 1; i < list.length; i++) off.push(off[i - 1] + (list[i - 1].width + list[i].width) / 2 + GAP);
-  const at = pav(list.map((u) => u.d), off, list.map((u) => (u.fixed ? 1e6 : 1)));
-  list.forEach((u, i) => (u.d = Math.min(Math.max(at[i], u.lo), u.hi)));
-}
-
-/** Moves the segments on axis `c` (0 the vertical segments, 1 the horizontal segments) to spread them in their channels. */
-function nudgeAxis(paths: readonly Point[][], wires: readonly WireIn[], rects: readonly Rect[], c: 0 | 1) {
-  const s = 1 - c;
-  const lines = new Map<string, [number, number, number, number][]>();
-  paths.forEach((pts, p) => {
-    for (let k = 0; k + 1 < pts.length; k++) {
-      const [a, b] = [pts[k], pts[k + 1]];
-      if (a[c] !== b[c] || a[s] === b[s]) continue;
-      const key = `${wires[p].net}\n${a[c]}`;
-      const seg: [number, number, number, number] = [p, k, Math.min(a[s], b[s]), Math.max(a[s], b[s])];
-      const list = lines.get(key);
-      if (list) list.push(seg);
-      else lines.set(key, [seg]);
-    }
-  });
-  const units: Unit[] = [];
-  for (const list of lines.values()) {
-    list.sort((x, y) => x[2] - y[2]);
-    let u: Unit | null = null;
-    for (const [p, k, s0, s1] of list) {
-      const pts = paths[p];
-      const w = wires[p];
-      if (!u || s0 > u.s1) {
-        u = { c: pts[k][c], s0, s1, width: 0, fixed: false, lo: -Infinity, hi: Infinity, d: 0, net: w.net, segs: [], ends: [] };
-        units.push(u);
-      }
-      u.s1 = Math.max(u.s1, s1);
-      u.width = Math.max(u.width, w.width);
-      u.fixed ||= k === 0 || k === pts.length - 2 || isVia(pts[k], w.via) || isVia(pts[k + 1], w.via);
-      u.segs.push(p, k);
-      for (const [q, at] of [[k - 1, k], [k + 2, k + 1]]) {
-        if (q < 0 || q >= pts.length) continue;
-        const side = Math.sign(pts[q][c] - u.c);
-        u.ends.push(pts[at][s], side);
-        if (side < 0) u.lo = Math.max(u.lo, pts[q][c] + MIN_LEG);
-        else if (side > 0) u.hi = Math.min(u.hi, pts[q][c] - MIN_LEG);
-      }
-    }
-  }
-  for (const u of units) {
-    let [lo, hi] = [u.lo, u.hi];
-    for (const r of rects) {
-      const [r0, r1, q0, q1] = c === 0 ? [r.l, r.r, r.t, r.b] : [r.t, r.b, r.l, r.r];
-      if (q1 + MARGIN <= u.s0 || q0 - MARGIN >= u.s1) continue;
-      if (r1 + MARGIN <= u.c) lo = Math.max(lo, r1 + MARGIN + u.width / 2);
-      else if (r0 - MARGIN >= u.c) hi = Math.min(hi, r0 - MARGIN - u.width / 2);
-    }
-    if (u.fixed || lo > hi) [lo, hi] = [u.c, u.c];
-    [u.lo, u.hi] = [lo, hi];
-    u.d = hi - lo <= MAX_CENTER ? (lo + hi) / 2 : Math.min(Math.max(u.c, lo), hi);
-  }
-  // The units that overlap along the line and share a channel make one group.
-  const order = units.map((_, i) => i).sort((a, b) => units[a].s0 - units[b].s0);
-  const root = units.map((_, i) => i);
-  const find = (i: number): number => (root[i] === i ? i : (root[i] = find(root[i])));
-  for (let x = 0; x < order.length; x++) {
-    const a = units[order[x]];
-    for (let y = x + 1; y < order.length; y++) {
-      const b = units[order[y]];
-      if (b.s0 >= a.s1 + GAP) break;
-      if (Math.max(a.lo, b.lo) <= Math.min(a.hi, b.hi)) root[find(order[x])] = find(order[y]);
-    }
-  }
-  const groups = new Map<number, Unit[]>();
-  units.forEach((u, i) => {
-    const list = groups.get(find(i));
-    if (list) list.push(u);
-    else groups.set(find(i), [u]);
-  });
-  for (const list of groups.values()) {
-    list.sort((a, b) => a.d - b.d || a.c - b.c);
-    for (let i = 1; i < list.length; i++) {
-      const u = list[i];
-      let j = i - 1;
-      for (; j >= 0 && before(u, list[j]); j--) list[j + 1] = list[j];
-      list[j + 1] = u;
-    }
-    place(list);
-    for (const u of list) {
-      for (let k = 0; k < u.segs.length; k += 2) {
-        const pts = paths[u.segs[k]];
-        pts[u.segs[k + 1]][c] = u.d;
-        pts[u.segs[k + 1] + 1][c] = u.d;
-      }
-    }
-  }
-}
-
-/** Spreads the parallel segments of the paths in place: first the vertical segments, then the horizontal segments. */
-export function nudge(paths: readonly Point[][], wires: readonly WireIn[], rects: readonly Rect[]) {
-  nudgeAxis(paths, wires, rects, 0);
-  nudgeAxis(paths, wires, rects, 1);
-}
-
-function nets(wires: ReadonlyMap<string, WireIn>): Map<string, Leg[]> {
-  const out = new Map<string, Leg[]>();
-  for (const [id, wire] of wires) {
-    // Pins less than 1 px apart in y route as one line, so the path gets no tiny jog.
-    const w = Math.abs(wire.ty - wire.sy) < 1 && wire.ty !== wire.sy ? { ...wire, ty: wire.sy } : wire;
-    const legs = out.get(w.net);
-    if (legs) legs.push({ id, w });
-    else out.set(w.net, [{ id, w }]);
-  }
-  return out;
-}
-
-/** The full paths of the wires, from pin to pin, around the bodies. */
-export function route(rects: readonly Rect[], wires: ReadonlyMap<string, WireIn>): Map<string, Point[]> {
-  const raw = routeNets(rects, [...nets(wires).values()]);
-  const ids = [...raw.keys()];
-  const paths = ids.map((id) => raw.get(id)!);
-  nudge(paths, ids.map((id) => wires.get(id)!), rects);
-  return new Map(ids.map((id, i) => [id, paths[i]]));
-}
-
-/** True when a segment of the path goes through a body. */
-function blocked(path: readonly Point[] | undefined, rects: readonly Rect[]): boolean {
-  return !path || blockedAt(path, rects) >= 0;
-}
-
-/** The first segment of the path that goes through a body, or -1. The pin ends can be in the margin of their node. */
-function blockedAt(path: readonly Point[], rects: readonly Rect[]): number {
-  const trim = MARGIN + 1;
-  for (let k = 0; k + 1 < path.length; k++) {
-    let [x0, y0] = path[k];
-    let [x1, y1] = path[k + 1];
-    if (k === 0) x0 = Math.min(x0 + trim, x1);
-    if (k === path.length - 2) x1 = Math.max(x1 - trim, x0);
-    [x0, x1] = [Math.min(x0, x1), Math.max(x0, x1)];
-    [y0, y1] = [Math.min(y0, y1), Math.max(y0, y1)];
-    for (const r of rects) if (x0 < r.r + MARGIN && x1 > r.l - MARGIN && y0 < r.b + MARGIN && y1 > r.t - MARGIN) return k;
-  }
-  return -1;
-}
-
-/** The place of the conflict mark: the middle of the first segment through a body, or of the middle segment. */
-export function conflictAt(path: readonly Point[], rects: readonly Rect[]): Point {
-  const b = blockedAt(path, rects);
-  const k = b >= 0 ? b : Math.max(0, Math.floor(path.length / 2) - 1);
-  const [p, q] = [path[k], path[Math.min(k + 1, path.length - 1)]];
-  return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-}
-
-const samePoints = (a: readonly Point[], b: readonly Point[]) => a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1]);
-
-/**
- * The routes of the wires of one graph view. Each change routes again in a microtask: the nets
- * with a changed wire or a blocked path. Then all nets route again when the changes stop.
- */
-export class Router {
-  private rects: readonly Rect[] = [];
-  private wires = new Map<string, WireIn>();
-  private raw = new Map<string, Point[]>();
-  private keys = new Map<string, string>();
-  private out = new Map<string, readonly Point[]>();
-  private conflicts = new Set<string>();
-  private marks = new Map<string, Point>();
-  private joints = new Map<string, readonly Point[]>();
-  private cuts = new Map<string, readonly Gap[]>();
-  private listeners = new Set<() => void>();
-  private queued = false;
-  private moved = false;
-  private timer: ReturnType<typeof setTimeout> | undefined;
-
-  setObstacles(rects: readonly Rect[]) {
-    const old = this.rects;
-    if (rects.length === old.length && rects.every((r, i) => r.l === old[i].l && r.t === old[i].t && r.r === old[i].r && r.b === old[i].b)) return;
-    this.rects = rects;
-    this.moved = true;
-    this.queue();
-  }
-
-  setWire(id: string, w: WireIn) {
-    const o = this.wires.get(id);
-    if (o && o.sx === w.sx && o.sy === w.sy && o.tx === w.tx && o.ty === w.ty && o.net === w.net && o.width === w.width && samePoints(o.via, w.via)) return;
-    this.wires.set(id, w);
-    this.queue();
-  }
-
-  removeWire(id: string) {
-    if (this.wires.delete(id)) this.queue();
-  }
-
-  /** The bends of the routed wire, the same array until the route changes. */
-  bends = (id: string): readonly Point[] | undefined => this.out.get(id);
-
-  /** The place of the conflict mark of a wire with no clear path (15.9), the same array until it moves. */
-  conflict = (id: string): Point | undefined => this.marks.get(id);
-
-  /** The junction marks of the output of a wire, on the first routed wire of the output only (15.9). */
-  junctions = (id: string): readonly Point[] | undefined => this.joints.get(id);
-
-  /** The gaps of a wire where it goes under a wire of another output (15.9). */
-  gaps = (id: string): readonly Gap[] | undefined => this.cuts.get(id);
-
-  subscribe = (f: () => void) => {
-    this.listeners.add(f);
-    return () => void this.listeners.delete(f);
-  };
-
-  private queue() {
-    if (this.queued) return;
-    this.queued = true;
-    queueMicrotask(() => {
-      this.queued = false;
-      this.compute(false);
-    });
-  }
-
-  private compute(all: boolean) {
-    const groups = nets(this.wires);
-    const todo: Leg[][] = [];
-    const keys = new Map<string, string>();
-    for (const [net, legs] of groups) {
-      const key = legs.map(({ id, w }) => `${id} ${w.sx} ${w.sy} ${w.tx} ${w.ty} ${w.width} ${w.via.join(' ')}`).join('\n');
-      keys.set(net, key);
-      if (all || this.keys.get(net) !== key || legs.some(({ id }) => blocked(this.raw.get(id), this.rects))) todo.push(legs);
-    }
-    for (const legs of todo) for (const { id } of legs) this.conflicts.delete(id);
-    for (const [id, p] of routeNets(this.rects, todo, this.conflicts)) this.raw.set(id, p);
-    for (const id of this.raw.keys()) if (!this.wires.has(id)) this.raw.delete(id);
-    for (const id of this.conflicts) if (!this.wires.has(id)) this.conflicts.delete(id);
-    this.keys = keys;
-    clearTimeout(this.timer);
-    if (!all && todo.length < groups.size && (todo.length > 0 || this.moved)) this.timer = setTimeout(() => this.compute(true), SETTLE);
-    this.moved = false;
-    const ids = [...this.raw.keys()];
-    const paths = ids.map((id) => this.raw.get(id)!.map(([x, y]): Point => [x, y]));
-    nudge(paths, ids.map((id) => this.wires.get(id)!), this.rects);
-    const out = new Map<string, readonly Point[]>();
-    const marks = new Map<string, Point>();
-    let changed = ids.length !== this.out.size || this.conflicts.size !== this.marks.size;
-    ids.forEach((id, i) => {
-      const bends = paths[i].slice(1, -1);
-      const old = this.out.get(id);
-      const keep = old !== undefined && samePoints(old, bends);
-      out.set(id, keep ? old : bends);
-      changed ||= !keep;
-      if (!this.conflicts.has(id)) return;
-      const at = conflictAt(paths[i], this.rects);
-      const was = this.marks.get(id);
-      const same = was !== undefined && samePoints([was], [at]);
-      marks.set(id, same ? was : at);
-      changed ||= !same;
-    });
-    const byNet = new Map<string, number[]>();
-    ids.forEach((id, i) => {
-      const net = this.wires.get(id)!.net;
-      const list = byNet.get(net);
-      if (list) list.push(i);
-      else byNet.set(net, [i]);
-    });
-    const joints = new Map<string, readonly Point[]>();
-    for (const list of byNet.values()) {
-      const at = junctions(list.map((i) => paths[i]));
-      if (!at.length) continue;
-      const id = ids[list[0]];
-      const was = this.joints.get(id);
-      const same = was !== undefined && samePoints(was, at);
-      joints.set(id, same ? was : at);
-      changed ||= !same;
-    }
-    changed ||= joints.size !== this.joints.size;
-    const ws = ids.map((id) => this.wires.get(id)!);
-    const cuts = new Map<string, readonly Gap[]>();
-    for (const [i, at] of crossingGaps(paths, ws.map((w) => w.net), ws.map((w) => w.width))) {
-      const was = this.cuts.get(ids[i]);
-      const same = was !== undefined && was.length === at.length && was.every((g, k) => g.every((v, n) => v === at[k][n]));
-      cuts.set(ids[i], same ? was : at);
-      changed ||= !same;
-    }
-    changed ||= cuts.size !== this.cuts.size;
-    this.out = out;
-    this.marks = marks;
-    this.joints = joints;
-    this.cuts = cuts;
-    if (changed) for (const f of this.listeners) f();
-  }
 }

@@ -7,7 +7,8 @@ import { GUI_ZOOM } from './gl';
 import { NODE_WIDTH } from './gui';
 import { frameOf, shownFrames, toggleFrame, type Room } from './frames';
 import type { Labels } from './labels';
-import type { Rect, Router } from './route';
+import type { Rect } from './route';
+import type { Router } from './router';
 import type { GraphNode } from './graphData';
 
 /** Tells the engine the nodes in view, so that the frames draw only their GUIs (4.3 rule 3). None below GUI_ZOOM. */
