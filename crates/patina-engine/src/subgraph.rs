@@ -121,8 +121,15 @@ fn expand(root: &Path, graph: &GraphFile, edits: Edits, stack: &mut Vec<String>,
         uses.insert(id, one);
     }
     problems.append(&mut errors);
+    rewire(graph, &uses, &mut flat, &mut nested, problems);
+    let mut aliases: Vec<Alias> = nested.into_iter().chain(uses.iter().flat_map(|(id, one)| one.outputs.iter().filter(|(_, from)| !from.is_empty()).map(move |(key, from)| (format!("{id}.{key}"), from.clone())))).collect();
+    aliases.sort();
+    (flat, aliases)
+}
 
-    // The wires and the public pins that end at a use go to the inner ends of its pins.
+/// Moves the wires and the public pins that end at a use to the inner ends of its pins. An order
+/// wire to a use orders all the nodes of the use.
+fn rewire(graph: &GraphFile, uses: &HashMap<&str, Use>, flat: &mut GraphFile, nested: &mut Vec<Alias>, problems: &mut Vec<String>) {
     let source = |end: &str, problems: &mut Vec<String>| match end.split_once('.').and_then(|(id, key)| Some((uses.get(id)?, id, key))) {
         Some((one, id, key)) => one.outputs.get(key).cloned().unwrap_or_else(|| {
             problems.push(format!("wire end {end:?}: the subgraph use {id} has no output `{key}`"));
@@ -160,7 +167,6 @@ fn expand(root: &Path, graph: &GraphFile, edits: Edits, stack: &mut Vec<String>,
     for pin in &mut flat.output {
         pin.from = source(&pin.from, problems);
     }
-    // An order wire to a use orders all the nodes of the use.
     let nodes = |id: &String| uses.get(id.as_str()).map_or_else(|| vec![id.clone()], |one| one.nodes.clone());
     for order in &graph.order {
         for before in nodes(&order.before) {
@@ -169,9 +175,6 @@ fn expand(root: &Path, graph: &GraphFile, edits: Edits, stack: &mut Vec<String>,
             }
         }
     }
-    let mut aliases: Vec<Alias> = nested.into_iter().chain(uses.iter().flat_map(|(id, one)| one.outputs.iter().filter(|(_, from)| !from.is_empty()).map(move |(key, from)| (format!("{id}.{key}"), from.clone())))).collect();
-    aliases.sort();
-    (flat, aliases)
 }
 
 /// The subgraph files of `graphs/`, without the main graph, for the node list of the editor.

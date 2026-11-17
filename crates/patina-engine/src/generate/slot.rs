@@ -94,10 +94,8 @@ pub fn manifest(plan: &Plan, slot: usize) -> String {
 
 /// The source of the slot library. Each use of the node is one `Call` arm, with its own state.
 pub fn source(plan: &Plan, slot: usize) -> String {
-    let (name, node) = &plan.nodes[slot];
-    let krate = name.replace('-', "_");
+    let node = &plan.nodes[slot].1;
     let uses = uses(plan);
-    let generic = !node.generics.is_empty();
     let stateful: Vec<usize> = uses.iter().copied().filter(|_| node.state.is_some()).collect();
     let mut s = String::from(
         "// Made by Patina. Patina writes this file again at each build.\n#![allow(unused)]\n\n\
@@ -116,76 +114,8 @@ pub fn source(plan: &Plan, slot: usize) -> String {
         "    let f = ::patina_sdk::glue::typed(move |cmd, rep| match cmd {\n        \
          ::patina_sdk::glue::Cmd::Call(index, args) => match index {\n",
     );
-    let count = node.inputs.len();
     for &n in &uses {
-        // A base of another build can give other arguments, so the count must match.
-        let _ = writeln!(s, "            {n} if args.len() == {} => {{", count + 1);
-        if node.state.is_some() {
-            let _ = writeln!(s, "                let mut st = s{n}.lock();");
-        }
-        let _ = writeln!(
-            s,
-            "                ::patina_sdk::glue::{}(::patina_sdk::glue::catch(\
-             &mut || -> ::std::result::Result<(), ::std::string::String> {{",
-            if node.state.is_some() { "finish_state" } else { "finish" }
-        );
-        let inner = "                    ";
-        if generic {
-            // The slot names no type, so the witness of the use gives the types of this copy (4.5).
-            super::witness(&mut s, plan, super::witnessed_from(plan, vec![n]));
-        }
-        let mut args = Vec::new();
-        let mut call = format!("::{krate}::{}", node.func);
-        if let Some(state) = &node.state {
-            let _ = writeln!(s, "{inner}let st = st.get_or_insert_with(::{krate}::{state}::init);");
-            args.push("st".to_owned());
-            call = format!("::{krate}::{state}::{}", node.func);
-        }
-        for (j, input) in node.inputs.iter().enumerate() {
-            let value = match input.pass {
-                Pass::Ref if input.is_str => format!("::patina_sdk::glue::read_arg::<::std::string::String>(args[{j}]).as_str()"),
-                Pass::Ref => format!("::patina_sdk::glue::read_arg(args[{j}])"),
-                Pass::Take => format!("::patina_sdk::glue::take_arg(args[{j}])"),
-                Pass::Mut => format!("::patina_sdk::glue::mut_arg(args[{j}])"),
-            };
-            let _ = writeln!(s, "{inner}// SAFETY: the base gives the inputs in this order (generate/slot.rs).");
-            let _ = writeln!(s, "{inner}let a{j} = unsafe {{ {value} }};");
-            if let (true, Source::Wire { step, output }) = (generic && !input.is_str, &plan.steps[n].inputs[j]) {
-                let a = if input.pass == Pass::Take { format!("&a{j}") } else { format!("&*a{j}") };
-                let _ = writeln!(s, "{inner}if false {{ ::patina_sdk::glue::same({a}, &::patina_sdk::glue::like(&w{step}).{output}); }}");
-            }
-            args.push(format!("a{j}"));
-        }
-        let mut call = format!("{call}({})", args.join(", "));
-        if node.is_async {
-            // The call waits for the future on the thread of the run. After **Stop** the result stays empty (9.4).
-            call = format!(
-                "match ::patina_event::wait_in_slot({call}, rep, {n}) {{ ::std::option::Option::Some(v) => v, \
-                 ::std::option::Option::None => return ::std::result::Result::Ok(()) }}"
-            );
-        }
-        if node.fallible {
-            let _ = writeln!(
-                s,
-                "{inner}let r = match {call} {{\n{inner}    ::std::result::Result::Ok(v) => v,\n\
-                 {inner}    ::std::result::Result::Err(e) => \
-                 return ::std::result::Result::Err(::std::format!(\"{{e:?}}\")),\n{inner}}};"
-            );
-        } else {
-            let _ = writeln!(s, "{inner}let r = {call};");
-        }
-        let outputs = match node.output {
-            Output::One => vec!["&r".to_owned()],
-            Output::Tuple(count) => (0..count).map(|i| format!("&r.{i}")).collect(),
-            Output::None => Vec::new(),
-        };
-        for (k, value) in outputs.iter().enumerate().filter(|_| generic) {
-            let _ = writeln!(s, "{inner}if false {{ ::patina_sdk::glue::same({value}, &::patina_sdk::glue::like(&w{n}).{k}); }}");
-        }
-        let _ = writeln!(s, "{inner}// SAFETY: the last argument is the `Option` of the result (generate/slot.rs).");
-        let _ = writeln!(s, "{inner}unsafe {{ ::patina_sdk::glue::put_result(args[{count}], r) }};");
-        let state = if node.state.is_some() { "&mut *st, " } else { "" };
-        let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n                }}), {state}rep, {n})\n            }}");
+        call_arm(&mut s, plan, slot, n);
     }
     s.push_str("            _ => false,\n        },\n        ::patina_sdk::glue::Cmd::Ui(index, mode, events) => match index {\n");
     super::ui_arms(&mut s, plan, &stateful);
@@ -207,4 +137,79 @@ pub fn source(plan: &Plan, slot: usize) -> String {
         s.push_str(LOGGER);
     }
     s
+}
+
+/// Writes the `Call` arm of the use `n` of the slot node `slot`.
+fn call_arm(s: &mut String, plan: &Plan, slot: usize, n: usize) {
+    let (name, node) = &plan.nodes[slot];
+    let krate = name.replace('-', "_");
+    let (generic, count) = (!node.generics.is_empty(), node.inputs.len());
+    // A base of another build can give other arguments, so the count must match.
+    let _ = writeln!(s, "            {n} if args.len() == {} => {{", count + 1);
+    if node.state.is_some() {
+        let _ = writeln!(s, "                let mut st = s{n}.lock();");
+    }
+    let _ = writeln!(
+        s,
+        "                ::patina_sdk::glue::{}(::patina_sdk::glue::catch(\
+         &mut || -> ::std::result::Result<(), ::std::string::String> {{",
+        if node.state.is_some() { "finish_state" } else { "finish" }
+    );
+    let inner = "                    ";
+    if generic {
+        // The slot names no type, so the witness of the use gives the types of this copy (4.5).
+        super::witness(s, plan, super::witnessed_from(plan, vec![n]));
+    }
+    let mut args = Vec::new();
+    let mut call = format!("::{krate}::{}", node.func);
+    if let Some(state) = &node.state {
+        let _ = writeln!(s, "{inner}let st = st.get_or_insert_with(::{krate}::{state}::init);");
+        args.push("st".to_owned());
+        call = format!("::{krate}::{state}::{}", node.func);
+    }
+    for (j, input) in node.inputs.iter().enumerate() {
+        let value = match input.pass {
+            Pass::Ref if input.is_str => format!("::patina_sdk::glue::read_arg::<::std::string::String>(args[{j}]).as_str()"),
+            Pass::Ref => format!("::patina_sdk::glue::read_arg(args[{j}])"),
+            Pass::Take => format!("::patina_sdk::glue::take_arg(args[{j}])"),
+            Pass::Mut => format!("::patina_sdk::glue::mut_arg(args[{j}])"),
+        };
+        let _ = writeln!(s, "{inner}// SAFETY: the base gives the inputs in this order (generate/slot.rs).");
+        let _ = writeln!(s, "{inner}let a{j} = unsafe {{ {value} }};");
+        if let (true, Source::Wire { step, output }) = (generic && !input.is_str, &plan.steps[n].inputs[j]) {
+            let a = if input.pass == Pass::Take { format!("&a{j}") } else { format!("&*a{j}") };
+            let _ = writeln!(s, "{inner}if false {{ ::patina_sdk::glue::same({a}, &::patina_sdk::glue::like(&w{step}).{output}); }}");
+        }
+        args.push(format!("a{j}"));
+    }
+    let mut call = format!("{call}({})", args.join(", "));
+    if node.is_async {
+        // The call waits for the future on the thread of the run. After **Stop** the result stays empty (9.4).
+        call = format!(
+            "match ::patina_event::wait_in_slot({call}, rep, {n}) {{ ::std::option::Option::Some(v) => v, \
+             ::std::option::Option::None => return ::std::result::Result::Ok(()) }}"
+        );
+    }
+    if node.fallible {
+        let _ = writeln!(
+            s,
+            "{inner}let r = match {call} {{\n{inner}    ::std::result::Result::Ok(v) => v,\n\
+             {inner}    ::std::result::Result::Err(e) => \
+             return ::std::result::Result::Err(::std::format!(\"{{e:?}}\")),\n{inner}}};"
+        );
+    } else {
+        let _ = writeln!(s, "{inner}let r = {call};");
+    }
+    let outputs = match node.output {
+        Output::One => vec!["&r".to_owned()],
+        Output::Tuple(count) => (0..count).map(|i| format!("&r.{i}")).collect(),
+        Output::None => Vec::new(),
+    };
+    for (k, value) in outputs.iter().enumerate().filter(|_| generic) {
+        let _ = writeln!(s, "{inner}if false {{ ::patina_sdk::glue::same({value}, &::patina_sdk::glue::like(&w{n}).{k}); }}");
+    }
+    let _ = writeln!(s, "{inner}// SAFETY: the last argument is the `Option` of the result (generate/slot.rs).");
+    let _ = writeln!(s, "{inner}unsafe {{ ::patina_sdk::glue::put_result(args[{count}], r) }};");
+    let state = if node.state.is_some() { "&mut *st, " } else { "" };
+    let _ = writeln!(s, "{inner}::std::result::Result::Ok(())\n                }}), {state}rep, {n})\n            }}");
 }
