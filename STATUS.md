@@ -198,8 +198,11 @@ checks open.
 - New: a node GUI in a subgraph use can not write its parameters, because the inner nodes are
   read-only and a write changes all uses. The editor shows an error that tells the user to open
   the subgraph. The frontend type check passed. The error was not shown in the editor.
-- Known limits: a change of the `.asm` file outside Patina shows only after the **file**
-  parameter changes.
+- New: the `program` node checks the modified time of its file two times each second. It reads
+  a file that changed outside Patina again. Before, a change showed only after a change of
+  **file**. A unit test checks the read after a change, no read without a change, and the last
+  good program after a removed file. The CLI computer test passed. Nobody edited a file during a
+  run in the editor.
 - New: the `clock` node has a **Pause** and **Run** button that sets **halt** with `set_param`.
   With **Step**, the CPU runs one instruction, and the band of the program shows the PC. The
   unit test of the clock and the CLI test of the example passed. The button was not clicked in
@@ -253,8 +256,6 @@ checks open.
 - Checked: the CLI test of `examples/computer` gives the same 560 frames as with the switch ROM.
   Unit tests check the assembler, the code field of the SDK and its frontend parser. The hidden
   self-check edits a code field and reads the text back from the node.
-- Known limits: the node reads the file again only when **file** changes. A change of the file
-  from outside the editor shows after the next open.
 
 ## Open with no rebuild
 

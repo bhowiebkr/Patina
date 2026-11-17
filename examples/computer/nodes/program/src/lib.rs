@@ -1,5 +1,6 @@
 use std::io::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::{Instant, SystemTime};
 
 use patina_sdk::{Mode, Ui, node, project_path};
 
@@ -16,6 +17,8 @@ const ON: [u8; 3] = [223, 166, 75];
 const BACK: [u8; 3] = [24, 24, 23];
 const MARK: [u8; 3] = [70, 54, 26];
 const ROW: f32 = 16.0;
+/// The time between two checks of the modified time of the file.
+const RECHECK: std::time::Duration = std::time::Duration::from_millis(500);
 /// The source of a program that **New** makes.
 const NEW: &str = "; A new program. Each line has an optional label, an instruction and a comment.
 ; A line NAME = number gives a name to the number.
@@ -53,8 +56,8 @@ impl Default for Image {
 /// The program memory of the CPU, with an assembler. It gives the instruction at address `pc`:
 /// the operation on `out0`, 0 to 15, and the operand on `out1`. `file` is the assembly source
 /// in the project folder. The GUI selects the file, makes a new file and edits the source, and
-/// writes the file again after each change. The full size shows the line numbers, the line that
-/// runs and the errors.
+/// writes the file again after each change. A change of the file from outside Patina shows in
+/// half a second. The full size shows the line numbers, the line that runs and the errors.
 #[node(color = "#655219", full_gui)]
 pub struct Program {
     file: String,
@@ -64,24 +67,23 @@ pub struct Program {
     image: Image,
     errors: Vec<Error>,
     pc: u8,
+    /// The modified time of the file at the last read or write.
+    stamp: Option<SystemTime>,
+    checked: Instant,
 }
 
 impl Program {
     pub fn init() -> Self {
-        Program { file: String::new(), pick: String::new(), code: String::new(), image: Image::default(), errors: Vec::new(), pc: 0 }
+        Program { file: String::new(), pick: String::new(), code: String::new(), image: Image::default(), errors: Vec::new(), pc: 0, stamp: None, checked: Instant::now() }
     }
 
     pub fn process(&mut self, pc: &u8, file: &str) -> (u8, u8) {
         if self.file != file {
             file.clone_into(&mut self.file);
-            match std::fs::read_to_string(project_path(file)) {
-                Ok(code) => {
-                    self.code = code;
-                    self.assemble();
-                }
-                Err(e) if !file.is_empty() => self.errors = vec![(None, format!("Cannot read {file}: {e}"))],
-                Err(_) => {}
-            }
+            self.read(&project_path(file));
+        } else if !file.is_empty() && self.checked.elapsed() >= RECHECK {
+            self.checked = Instant::now();
+            self.read_changed(&project_path(file));
         }
         self.pc = *pc;
         let [op, k] = self.image.words[usize::from(self.pc)].to_be_bytes();
@@ -115,10 +117,13 @@ impl Program {
         if changed {
             self.assemble();
             // The source is written also when it has errors, so no text is lost.
-            if !self.file.is_empty()
-                && let Err(e) = std::fs::write(project_path(&self.file), &self.code)
-            {
-                self.errors.push((None, format!("Cannot write {}: {e}", self.file)));
+            if !self.file.is_empty() {
+                let path = project_path(&self.file);
+                match std::fs::write(&path, &self.code) {
+                    // The node does not read its own write again.
+                    Ok(()) => self.stamp = modified(&path),
+                    Err(e) => self.errors.push((None, format!("Cannot write {}: {e}", self.file))),
+                }
             }
         }
         if self.file.is_empty() {
@@ -155,6 +160,26 @@ impl Program {
         }
     }
 
+    /// Reads and assembles the file. When the file has an error, the last good program stays.
+    fn read(&mut self, path: &Path) {
+        self.stamp = modified(path);
+        match std::fs::read_to_string(path) {
+            Ok(code) => {
+                self.code = code;
+                self.assemble();
+            }
+            Err(e) if !self.file.is_empty() => self.errors = vec![(None, format!("Cannot read {}: {e}", self.file))],
+            Err(_) => {}
+        }
+    }
+
+    /// Reads the file again when its modified time is not the time of the last read or write.
+    fn read_changed(&mut self, path: &Path) {
+        if modified(path) != self.stamp {
+            self.read(path);
+        }
+    }
+
     /// Assembles the code. With errors, the words of the last good program stay.
     fn assemble(&mut self) {
         match assemble(&self.code) {
@@ -165,6 +190,10 @@ impl Program {
             Err(errors) => self.errors = errors,
         }
     }
+}
+
+fn modified(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
 /// Writes a new program to the first free `programs/newN.asm` and gives its path. `path` gives the
@@ -366,5 +395,28 @@ mod tests {
         assert_eq!(new_file(path).unwrap(), "programs/new3.asm");
         assert_eq!(std::fs::read_to_string(root.join("programs/new3.asm")).unwrap(), NEW);
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn reads_the_file_again_only_after_a_change_of_its_modified_time() {
+        let path = std::env::temp_dir().join(format!("patina-program-read-{}.asm", std::process::id()));
+        let write = |code: &str, time: SystemTime| {
+            std::fs::write(&path, code).unwrap();
+            std::fs::File::options().write(true).open(&path).unwrap().set_modified(time).unwrap();
+        };
+        std::fs::write(&path, "LDI 1").unwrap();
+        let mut program = Program::init();
+        program.file = "x.asm".to_owned();
+        program.read(&path);
+        let later = program.stamp.unwrap() + std::time::Duration::from_secs(1);
+        write("LDI 2", later);
+        program.read_changed(&path);
+        assert_eq!(program.image.words[0], 2);
+        write("LDI 3", later);
+        program.read_changed(&path);
+        assert_eq!(program.image.words[0], 2, "the same modified time");
+        std::fs::remove_file(&path).unwrap();
+        program.read_changed(&path);
+        assert!(program.errors[0].1.starts_with("Cannot read x.asm") && program.image.words[0] == 2, "the last good program stays");
     }
 }

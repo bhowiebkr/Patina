@@ -366,7 +366,8 @@ Undo puts back the last file. To change the program:
 2. Edit the code in the **Program** field.
 3. Click outside the field, or press Ctrl+Enter.
 
-The node assembles the code and writes the file. The expanded node fills the graph area and shows
+The node assembles the code and writes the file. You can also edit the file in another editor.
+The node reads the changed file in half a second. The expanded node fills the graph area and shows
 the line numbers. A band marks the line that runs, and each line with an error is red. Hold the
 pointer on a red line number to see the error. **Back** or Esc returns to the graph, and the graph
 keeps running. When the code has an error, the node shows the line of the error, and the CPU runs
