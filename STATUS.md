@@ -76,9 +76,12 @@ checks open.
 - Checked: the CLI computer test. 50000 frames of `patina-cli run` at 100000 FPS took about
   2.3 s before and about 1.7 s after, with 550000 lines before and 272686 lines after.
 - Not checked: the edit build, and Digital Logic Sim 2 itself.
-- Known limits: each gate still costs up to about 8 ns: an `Option` for each value and a node
-  index for the log. A gate net does not run in parallel. A
-  light node that does much work runs in parallel only with `#[node(heavy)]`.
+- New, later on 2026-11-17: the closure of a net gets the node record as an argument, so the
+  wires of the net stay in registers. A quiet run reads the clock for no node. The median frame
+  went from about 13.5 us to about 10.2 us, then to about 8.4 us (three runs each).
+- Known limits: a wire in a net is still an `Option`, and its checks cost about 1.3 us of the
+  frame. A gate net does not run in parallel. A light node that does much work runs in parallel
+  only with `#[node(heavy)]`.
 
 ## Touchpad pan
 

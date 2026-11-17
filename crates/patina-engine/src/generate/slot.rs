@@ -24,7 +24,7 @@ pub(super) fn call(s: &mut String, plan: &Plan, n: usize) {
     let (name, node) = &plan.nodes[plan.steps[n].node];
     let krate = name.replace('-', "_");
     let indent = "                ";
-    let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
+    let _ = writeln!(s, "{indent}let t = rep.start();");
     let (mut args, mut pointers) = (Vec::new(), Vec::new());
     for (j, (input, value)) in node.inputs.iter().zip(super::inputs(plan, n, false)).enumerate() {
         match input.pass {

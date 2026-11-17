@@ -133,13 +133,19 @@ impl Reporter {
         false
     }
 
-    /// Sends the time since `start` as the run time of node `node` (15.7). It does not allocate. The
-    /// text has a fixed width, so a slow run does not make the report buffers of the engine grow.
-    pub fn time(&self, node: u32, start: std::time::Instant) {
-        if self.quiet() {
-            return;
+    /// The start time of a call for `time`. A quiet run sends no times (9.1), so it does not read
+    /// the clock.
+    pub fn start(&self) -> Option<std::time::Instant> {
+        (!self.quiet()).then(std::time::Instant::now)
+    }
+
+    /// Sends the time since `start`, if any, as the run time of node `node` (15.7). It does not
+    /// allocate. The text has a fixed width, so a slow run does not make the report buffers of the
+    /// engine grow.
+    pub fn time(&self, node: u32, start: Option<std::time::Instant>) {
+        if let Some(start) = start {
+            self.send_time(node, start.elapsed().as_nanos());
         }
-        self.send_time(node, start.elapsed().as_nanos());
     }
 
     fn send_time(&self, node: u32, nanos: u128) {

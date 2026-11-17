@@ -490,7 +490,7 @@ fn is_gate(plan: &Plan, n: usize) -> bool {
 fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
     let nodes: Vec<String> = net.iter().map(usize::to_string).collect();
     let _ = writeln!(s, "            if let ::std::option::Option::Some(net) = ::patina_sdk::glue::Net::new(rep, &[{}]) {{", nodes.join(", "));
-    s.push_str("                ok &= net.run(&mut |at, cur| {
+    s.push_str("                ok &= net.run(&mut |at, gate| {
 ");
     for (i, &n) in net.iter().enumerate() {
         let step = &plan.steps[n];
@@ -509,9 +509,9 @@ fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
         }
         let call = format!("::{}::{}({})", name.replace('-', "_"), node.func, args.join(", "));
         let run = if step.consumers[0] > 0 {
-            format!("net.enter({n}); {} = ::std::option::Option::Some({call});", held(plan, n, 0)[2])
+            format!("gate.enter({n}); {} = ::std::option::Option::Some({call});", held(plan, n, 0)[2])
         } else {
-            format!("net.enter({n}); let _ = {call};")
+            format!("gate.enter({n}); let _ = {call};")
         };
         let run = if wired.is_empty() {
             run
@@ -519,7 +519,7 @@ fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
             format!("if let ({},) = ({},) {{ {run} }} else {{ net.skip({n}); }}", pats.join(", "), wired.join(", "))
         };
         let at = if i == 0 { "at == 0".to_owned() } else { format!("at <= {i}") };
-        let _ = writeln!(s, "                    if {at} {{ *cur = {i}; {run} }} // {}: nodes/{name}", step.id);
+        let _ = writeln!(s, "                    if {at} {{ {run} }} // {}: nodes/{name}", step.id);
     }
     s.push_str("                });\n");
     // A gate has one output. One check of `quiet` and one of `any` cover the probes of the net.
@@ -568,7 +568,7 @@ fn inline(s: &mut String, plan: &Plan, n: usize) {
         args.push(format!("::patina_sdk::glue::Init(&mut *st, ::{krate}::{state}::init)"));
         call = format!("::{krate}::{state}::{}", node.func);
     }
-    let _ = writeln!(s, "{indent}let t = ::std::time::Instant::now();");
+    let _ = writeln!(s, "{indent}let t = rep.start();");
     if plan.is_delay(n) {
         call = "::std::mem::take".to_owned();
         args.push(format!("&mut *d{n}.write()"));

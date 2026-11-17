@@ -51,6 +51,9 @@ All numbers are from the owner's Windows computer, on 2026-11-17, with a release
 | The same frame, after plan item 2 | about 52 us (median of 5000, three runs) |
 | The same frame, after plan item 3, without the standard output of the example nodes | about 13.5 us (median of 5000) |
 | The same frame, after plan item 3, with that output into a file | about 28 us (median of 5000) |
+| The same frame, with the node record of a net as a closure argument | about 10.2 us (median of 5000, three runs) |
+| The same frame, also with no clock read for the other nodes in a quiet run | about 8.4 us (median of 5000, three runs) |
+| The 10.2 us frame, with no `Option` checks (a test, not a change) | about 8.9 us (median of 5000) |
 | Generated Rust of the frame cluster | 2.26 MB before item 3, 2.02 MB after item 3 |
 | Nodes and tasks in that frame | 1577 NAND gates and 63 other nodes, in 1330 tasks (13 after item 2) |
 | Time for each node | about 107 ns (about 32 ns after item 2) |
@@ -82,7 +85,8 @@ The example runs at 240 FPS, which is 60 instructions each second.
 
 The items are in order of the gain for each change.
 
-1. Done: a quiet run does not read the clock for each gate.
+1. Done: a quiet run does not read the clock for each gate. Later, it also does not read the
+   clock for the other nodes. The frame went from about 10.2 us to about 8.4 us.
 2. Done: one task for a gate net. A light node (a delay, or a node with only `bool`, `char` and
    number values) joins the newest light task of its domain (spec 9.2). A wire in that task is a
    local `Option`, with no lock, no sink lock and no call for each gate. The frame went from
@@ -94,8 +98,12 @@ The items are in order of the gain for each change.
    after the net, behind one `quiet` check. A number value between two tasks, and a number
    parameter, is an `Atom` (atomic cell) and not an `RwLock`. The frame went from about 52 us
    to about 13.5 us: 25 us with nets, 18.5 us with atoms, 13.5 us with the grouped probes. The
-   computer has 1605 gates in 36 nets and 63 other nodes, so a gate costs less than 8.5 ns, not
-   1 ns. A wire is still an `Option`, and each gate records its node index for the log.
+   computer has 1605 gates in 36 nets and 63 other nodes.
+   Then the closure of a net got the node record as an argument (`glue::Gate`). Before, each gate
+   stored its node index through a pointer that the closure read from the net, so the compiler
+   read each wire from memory again after each gate. Now the wires stay in registers, and the
+   frame went from about 13.5 us to about 10.2 us. A wire is still an `Option`. Its checks cost
+   about 1.3 us. Their removal needs a second copy of each net, so it waits.
    The example nodes `readout`, `display` and `lcd` write a line to the standard output only
    when their value changes. The CLI test reads these lines. Before, they wrote a line in each
    frame, and this output cost more than all the gates together.

@@ -200,7 +200,7 @@ fn a_quiet_run_sends_no_values_and_no_times_but_logs() {
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: &control };
     send_value(&rep, 0, &1_u8, (&&Probe(&1_u8)).view_fns());
     send_lanes(&rep, 1, &1, |v| Lanes::bits(1, *v));
-    rep.time(2, std::time::Instant::now());
+    rep.time(2, rep.start());
     rep.send(3, LOG, "hi");
     control.set_quiet(false);
     send_value(&rep, 4, &1_u8, (&&Probe(&1_u8)).view_fns());
@@ -238,7 +238,7 @@ fn stop_and_missing_inputs_start_no_node_call() {
             let skipped = !rep.enter(8, false) && node().is_none();
             let started = rep.enter(7, true);
             if started {
-                rep.time(7, std::time::Instant::now());
+                rep.time(7, rep.start());
             }
             skipped && started != stop_requested() && node() == started.then_some(7)
         });
@@ -407,18 +407,23 @@ fn a_net_reports_a_panic_and_runs_the_next_calls() {
     let mut sent: Vec<(u32, u32, String)> = Vec::new();
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
     let mut ran = Vec::new();
-    let net = Net::new(&rep, &[4, 5, 6]).unwrap();
+    let net = Net::new(&rep, &[4, 5, 6, 7]).unwrap();
     // The generated code has the same form: each call runs when `at` is at or before it.
-    let ok = net.run(&mut |at, cur| {
-        for i in at..3 {
-            *cur = i;
-            assert!(i != 1, "gate 5");
+    let ok = net.run(&mut |at, gate| {
+        for i in at..4 {
+            // The call at index 2 has no input, so it does not enter.
+            if i != 2 {
+                gate.enter([4, 5, 6, 7][i]);
+            }
+            assert!(i != 1 && i != 2, "gate {}", i + 4);
             ran.push(i);
         }
     });
     assert!(!ok);
-    assert_eq!(ran, [0, 2]);
+    assert_eq!(ran, [0, 3]);
+    // The panic of index 2 comes before it enters, so it goes to the node after the last panic.
     let panics: Vec<u32> = sent.iter().filter(|s| s.1 == PANIC).map(|s| s.0).collect();
-    assert_eq!(panics, [5]);
+    assert_eq!(panics, [5, 6]);
+    assert_eq!(NODE.get(), 7);
     assert!(sent.iter().any(|s| s.1 == PANIC && s.2.contains("gate 5")));
 }
