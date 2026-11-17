@@ -2796,6 +2796,7 @@ name = "patina-engine"
 version = "0.0.0"
 dependencies = [
  "cpal",
+ "flate2",
  "libloading 0.8.9",
  "patina-sdk",
  "quote",

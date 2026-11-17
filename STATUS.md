@@ -24,16 +24,22 @@ checks open.
 - New: **Settings** > **Libraries** lists Patina projects for reuse (spec 6.2). The **Add node**
   palette shows their nodes and subgraphs. A pick adds the node with a paste of one node.
 - New: Ctrl+G keeps the new subgraph in memory until Save, as a paste does.
-- Checked: engine unit tests for a paste in the same project, a paste into another project with
-  a renamed subgraph and imported folders, a failed paste that changes nothing, and bad clips.
+- New: **Add from Git** downloads a tag of a Git repository as a library, and pins its commit
+  (spec 6.2). **Check for updates** shows a newer tag and a moved tag. **Update to** replaces the
+  copy. The download uses the curl of the system and refuses unsafe archives.
+- Checked: engine unit tests for a paste in the same project, a paste into another project with a
+  renamed subgraph and imported folders, a failed paste that changes nothing, and bad clips.
   Frontend unit tests for the menu entries. An editor unit test for the palette list of the
-  libraries. On a hidden desktop, the editor self-check copies a node from its menu, pastes it
-  from the canvas menu, and then uses Ctrl+C, Ctrl+X and Ctrl+V, with a clip in memory.
-- Not checked: a paste between two running editors by hand, and a library pick in the editor.
-- Known limits: libraries are local folders. The Git download, the pinned tags and the index of
-  spec 18 question 14 are not done. A cable name of the clip can repeat a cable name of the
-  graph. A clip has 256 subgraphs at most. An undone paste or collapse keeps its new subgraph in
-  memory, and Save writes it. The palette of a pin drag does not show the library nodes.
+  libraries. Engine unit tests for the tags, the URL check, a download and bad archives, with a
+  fake host. An editor unit test for the pins. On a hidden desktop, the editor self-check copies a
+  node from its menu, pastes it from the canvas menu, and then uses Ctrl+C, Ctrl+X and Ctrl+V,
+  with a clip in memory. It also finds the Git fields of the libraries.
+- Not checked: a paste between two running editors by hand, a library pick in the editor, and a
+  live download from GitHub or GitLab.
+- Known limits: the library index of spec 18 question 14 is not done. A cable name of the clip can
+  repeat a cable name of the graph. A clip has 256 subgraphs at most. An undone paste or collapse
+  keeps its new subgraph in memory, and Save writes it. The palette of a pin drag does not show
+  the library nodes.
 
 ## Gate speed
 

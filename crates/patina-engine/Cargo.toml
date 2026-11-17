@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 cpal = "0.17.3"
+flate2 = "1"
 libloading = "0.8"
 patina-sdk = { path = "../patina-sdk" }
 quote = "1"

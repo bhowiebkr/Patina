@@ -10,6 +10,7 @@ mod edit;
 mod events;
 mod folders;
 mod generate;
+pub mod git;
 mod graphs;
 pub mod import;
 pub mod install;

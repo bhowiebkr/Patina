@@ -653,6 +653,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The **Toolchain** part shows the Rust version and the path of `cargo`, or the problem that stops a build. It is the toolchain panel of 13.2. When the toolchain folder has no `cargo`, the part shows **Install toolchain**, and then each install step.
 - The **Folders** part shows the data folder, with **(portable)** for the portable edition (13.3), and the folder of new projects.
 - The **Libraries** part lists the library folders (6.2). **Add library** adds a Patina project folder, and Patina trusts it. **Remove** takes a folder off the list, and the folder stays trusted.
+- The **Libraries** part also has a **Git URL** field, a **Tag** field and **Add from Git** (6.2). A library from Git shows its URL and tag. **Check for updates** shows **Update to** for a newer tag, and a warning for a moved tag. Agent decision of 2026-11-17. The owner can change it.
 - The **Trusted projects** part lists the trusted folders (11). **Remove** takes a folder off the list. Patina asks again when that project opens.
 - Patina refuses to remove the open project from the list. The start screen has no open project, so this case does not occur from the settings screen.
 - Reason: no project is open on the start screen, so a change of trust has no effect on a build or a run. The settings of a project, for example the wire look, stay in the **Inspector**. Later settings of Patina, for example the keys, go on this screen.

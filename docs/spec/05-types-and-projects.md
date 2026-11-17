@@ -97,6 +97,15 @@ The owner asked for a way to reuse nodes and subgraphs from other projects (2026
 - The **Add node** palette shows the node folders and the subgraphs of each library, with the name of the library. The open project does not show as a library.
 - A pick adds the node or the subgraph as a paste of one node (15.11). The paste imports the node folders and the subgraphs that the pick needs.
 - **Copy** in one project and **Paste** in another project also reuse nodes and networks (15.11).
+- A library can also come from a Git repository. The user gives the HTTPS URL of the repository and a tag. An empty tag selects the newest tag. Agent decision of 2026-11-17. The owner can change it.
+  - Patina reads the tags with a plain HTTPS request to `<url>/info/refs?service=git-upload-pack`, so it needs no `git` program. Any Git host gives this list.
+  - Patina downloads the `.tar.gz` archive of the tag with `curl`, as the toolchain install does (13.2). The archive URL is `<url>/archive/<tag>.tar.gz`, or `<url>/-/archive/<tag>/<name>-<tag>.tar.gz` for a host with `gitlab` in its name.
+  - The archive must hold the commit of the tag in its `comment` header, as `git archive` writes it. Patina refuses an archive with another commit or with no commit.
+  - Patina unpacks the archive into the `libraries/<name>-<tag>` folder of the data folder (13.3). It refuses a path with `..`, an absolute path, a link, more than 20000 files and more than 512 MB. The root of the archive must hold `patina.toml`.
+  - Patina records the URL, the tag, the commit and the SHA-256 hash of the archive in `library-pins.json` of the data folder. The record pins the library to the tag.
+  - **Check for updates** reads the tags again. A newer tag shows **Update to** with the tag. A pinned tag that points to another commit shows a warning, and Patina keeps the old copy.
+  - **Update to** downloads the new tag, and replaces the copy in the list. **Remove** deletes the downloaded copy. A local library folder stays on the disk.
+  - Reason: a tag and a commit pin the code that Patina builds, and a plain HTTPS request works on each computer without an install.
 - The copy belongs to this project. A later change in the other project does not change it. Patina never links folders between projects, because a project holds all its source (2, 14), and a change in another project must not break it.
 - Patina records the source of the copy. The record holds the stable random ID of the other project, the folder name, and a hash of the contents at import. The record holds no path, so it shows no private folder names when the project is shared. Section 6.4 gives the format of the record.
 - **Update** in the **Project** panel compares the copy with the folder in the other project. Patina finds the other project among the projects that the user opened before, or asks for its folder. It shows the changes on both sides, including the changes that the user made to the copy. It copies the new version only when the user confirms. If both sides changed a file, the user picks the version of that file.

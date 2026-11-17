@@ -81,6 +81,8 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     button('Settings')!.click();
     const trustedList = () => section('Trusted projects').endsWith('None') || !!document.querySelector('.settings-row');
     await until('the toolchain and the trusted projects', RUN_MS, () => /Rust\d/.test(section('Toolchain')) && trustedList());
+    // The check does not click Add from Git: the download needs the network (6.2).
+    await until('the Git URL field of the libraries', RUN_MS, () => !!document.querySelector('input[aria-label="Git URL"]') && !!button('Add from Git'));
     await api.capture('settings');
     button('Back')!.click();
     // The check does not click Browse: the folder dialog of the platform would wait for a person.

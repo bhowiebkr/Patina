@@ -1,14 +1,16 @@
 //! The commands of copy, paste and the node libraries (6.2, 15.11).
 
+use std::fs;
 use std::path::{Path, PathBuf};
 
+use patina_engine::git::{self, Check};
 use patina_engine::project::{self, ProjectFile};
 use patina_engine::{NodeInfo, Pasted, Project, Toolchain};
 use serde::Serialize;
 use tauri::State;
 
 use super::{Editor, View, folder_name, full_path};
-use crate::data::Data;
+use crate::data::{Data, Library};
 
 /// The view after a paste, with the IDs of the new nodes and the warnings (15.11).
 #[derive(Serialize)]
@@ -66,29 +68,96 @@ pub(super) fn trusted_by_id(editor: &Editor, id: &str) -> Option<PathBuf> {
     editor.data.trusted().into_iter().find(|dir| id_of(dir).as_deref() == Some(id))
 }
 
-/// The library folders (6.2).
+/// The library folders, with the pins of the copies from Git (6.2).
 #[tauri::command(async)]
-pub fn libraries(editor: State<'_, Editor>) -> Vec<PathBuf> {
-    editor.data.libraries()
+pub fn libraries(editor: State<'_, Editor>) -> Vec<Library> {
+    editor.data.library_pins()
 }
 
 /// Adds a Patina project to the libraries. Patina trusts it, because a paste builds its code (6.2, 11).
 #[tauri::command(async)]
-pub fn add_library(editor: State<'_, Editor>, path: PathBuf) -> Result<Vec<PathBuf>, String> {
+pub fn add_library(editor: State<'_, Editor>, path: PathBuf) -> Result<Vec<Library>, String> {
     full_path(&path)?;
     if !path.join("patina.toml").is_file() {
         return Err(format!("{} is not a Patina project.", path.display()));
     }
     editor.data.trust(&path)?;
     editor.data.add_library(&path)?;
-    Ok(editor.data.libraries())
+    Ok(editor.data.library_pins())
 }
 
-/// Takes a folder off the libraries. The folder stays trusted (6.2).
+/// Takes a folder off the libraries. A local folder stays trusted. A copy from Git is deleted (6.2).
 #[tauri::command(async)]
-pub fn remove_library(editor: State<'_, Editor>, path: PathBuf) -> Result<Vec<PathBuf>, String> {
-    editor.data.remove_library(&path)?;
-    Ok(editor.data.libraries())
+pub fn remove_library(editor: State<'_, Editor>, path: PathBuf) -> Result<Vec<Library>, String> {
+    let data = &editor.data;
+    if data.pin(&path).is_some() {
+        delete_copy(&editor, &path)?;
+    }
+    data.remove_library(&path)?;
+    Ok(data.library_pins())
+}
+
+/// Downloads a tag of a Git repository into the data folder, and adds the copy to the libraries (6.2).
+#[tauri::command(async)]
+pub fn add_git_library(editor: State<'_, Editor>, url: String, tag: String) -> Result<Vec<Library>, String> {
+    let data = &editor.data;
+    let (folder, pin) = git::download(&url, &tag, &data.git_dir()).map_err(|e| e.to_string())?;
+    data.set_pin(&folder, Some(pin))?;
+    data.trust(&folder)?;
+    data.add_library(&folder)?;
+    Ok(data.library_pins())
+}
+
+/// The result of **Check for updates** for a library from Git (6.2).
+#[derive(Serialize)]
+pub struct Checked {
+    path: PathBuf,
+    #[serde(flatten)]
+    check: Option<Check>,
+    error: Option<String>,
+}
+
+/// Reads the tags of each library from Git again: a newer tag, or a tag that moved (6.2).
+#[tauri::command(async)]
+pub fn check_libraries(editor: State<'_, Editor>) -> Vec<Checked> {
+    let work = editor.data.git_dir().join(".check");
+    let mut list = Vec::new();
+    for Library { path, pin } in editor.data.library_pins() {
+        let Some(pin) = pin else { continue };
+        let (check, error) = match git::check(&pin, &work) {
+            Ok(check) => (Some(check), None),
+            Err(e) => (None, Some(e.to_string())),
+        };
+        list.push(Checked { path, check, error });
+    }
+    let _ = fs::remove_dir_all(&work);
+    list
+}
+
+/// Replaces a copy from Git with another tag of its repository, at the same place in the list (6.2).
+#[tauri::command(async)]
+pub fn update_library(editor: State<'_, Editor>, path: PathBuf, tag: String) -> Result<Vec<Library>, String> {
+    let data = &editor.data;
+    let old = data.pin(&path).ok_or_else(|| format!("{} is not a library from Git.", path.display()))?;
+    let (folder, pin) = git::download(&old.url, &tag, &data.git_dir()).map_err(|e| e.to_string())?;
+    data.set_pin(&folder, Some(pin))?;
+    data.trust(&folder)?;
+    data.replace_library(&path, &folder)?;
+    delete_copy(&editor, &path)?;
+    Ok(data.library_pins())
+}
+
+/// Deletes a copy from Git with its pin and its trust. The open project is never deleted.
+fn delete_copy(editor: &Editor, path: &Path) -> Result<(), String> {
+    if editor.lock().as_ref().is_some_and(|s| crate::data::same_path(s.project.root(), path)) {
+        return Err(format!("{} is open. Close it first.", path.display()));
+    }
+    match fs::remove_dir_all(path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(format!("{}: {e}", path.display())),
+        _ => {}
+    }
+    editor.data.set_pin(path, None)?;
+    editor.data.untrust(path)
 }
 
 /// The nodes and the subgraphs of the trusted libraries, except the open project (6.2).

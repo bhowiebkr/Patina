@@ -27,12 +27,8 @@ pub struct Release {
 /// Reads the newest release from GitHub and compares it with `current`. `Ok(None)` means that
 /// the project has no release yet.
 pub fn newest_release(current: &str) -> Result<Option<Release>, Error> {
-    let curl = match cfg!(windows) {
-        true => crate::install::system32().join("curl.exe"),
-        false => PathBuf::from("curl"),
-    };
     let text = run_text(
-        command(&curl)
+        command(&curl())
             .args(["--silent", "--show-error", "--location", "--max-time", "20"])
             .args(["--proto", "=https", "--proto-redir", "=https"])
             .args(["--header", "Accept: application/vnd.github+json"])
@@ -58,8 +54,16 @@ fn release(json: &Value, current: &str) -> Result<Option<Release>, Error> {
     Ok(Some(Release { version: version.to_owned(), url: url.to_owned(), newer: parts(version) > parts(current) }))
 }
 
+/// The `curl` program: the one of Windows in System32, or the one on the path of Linux and macOS.
+pub(crate) fn curl() -> PathBuf {
+    match cfg!(windows) {
+        true => crate::install::system32().join("curl.exe"),
+        false => PathBuf::from("curl"),
+    }
+}
+
 /// The numbers of a version without the zeros at the end, for example `[1, 2]` for `1.2.0-beta`.
-fn parts(version: &str) -> Vec<u64> {
+pub(crate) fn parts(version: &str) -> Vec<u64> {
     let mut parts: Vec<u64> = version.split(['.', '-', '+']).map_while(|p| p.parse().ok()).collect();
     while parts.last() == Some(&0) {
         parts.pop();

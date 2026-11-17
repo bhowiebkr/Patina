@@ -172,7 +172,31 @@ export interface Settings {
   portable: boolean;
   trusted: string[];
   /** The library folders of the node palette (6.2). */
-  libraries: string[];
+  libraries: Library[];
+}
+
+/** The pin of a library copy from Git to a tag and its commit (6.2). */
+export interface LibraryPin {
+  url: string;
+  tag: string;
+  commit: string;
+  sha256: string;
+}
+
+/** A library folder. A copy from Git has its pin. */
+export interface Library {
+  path: string;
+  pin: LibraryPin | null;
+}
+
+/** The result of **Check for updates** for a library from Git (6.2). */
+export interface Checked {
+  path: string;
+  /** The newest tag, when it is newer than the pinned tag. */
+  newer?: string | null;
+  /** True when the pinned tag points to another commit now. */
+  moved?: boolean;
+  error: string | null;
 }
 
 export interface Report {
@@ -368,8 +392,14 @@ export const api = {
   pasteLibrary: (n: LibraryNode, at: [number, number]) => invoke<Pasted>('paste_library', { path: n.path, name: n.name, subgraph: n.subgraph, at }),
   libraryNodes: () => invoke<LibraryNode[]>('library_nodes'),
   /** Adds a Patina project to the libraries and trusts it (6.2), and returns the new list. */
-  addLibrary: (path: string) => invoke<string[]>('add_library', { path }),
-  removeLibrary: (path: string) => invoke<string[]>('remove_library', { path }),
+  addLibrary: (path: string) => invoke<Library[]>('add_library', { path }),
+  /** Takes a folder off the libraries. A copy from Git is deleted (6.2). */
+  removeLibrary: (path: string) => invoke<Library[]>('remove_library', { path }),
+  /** Downloads a tag of a Git repository, or the newest tag when `tag` is empty, as a library (6.2). */
+  addGitLibrary: (url: string, tag: string) => invoke<Library[]>('add_git_library', { url, tag }),
+  checkLibraries: () => invoke<Checked[]>('check_libraries'),
+  /** Replaces a copy from Git with another tag of its repository (6.2). */
+  updateLibrary: (path: string, tag: string) => invoke<Library[]>('update_library', { path, tag }),
   edit: (edit: Edit) => invoke<View>('edit', { edit }),
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),

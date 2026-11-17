@@ -7,6 +7,7 @@ use std::fs;
 use std::io::ErrorKind::NotFound;
 use std::path::{Component, Path, PathBuf};
 
+use patina_engine::git::Pin;
 use patina_engine::project::GraphFile;
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +16,8 @@ const RECENT_LIMIT: usize = 50;
 const RECENT: &str = "recent.json";
 const TRUSTED: &str = "trusted.json";
 const LIBRARIES: &str = "libraries.json";
+/// The pins of the library copies from Git, by the folder name in `libraries/` (6.2).
+const PINS: &str = "library-pins.json";
 const LAYOUTS: &str = "layouts";
 /// A layout is a few kilobytes. A larger text is an error of the page.
 const LAYOUT_LIMIT: usize = 64 * 1024;
@@ -178,6 +181,57 @@ impl Data {
         self.remove_from(LIBRARIES, root)
     }
 
+    /// Puts `new` at the position of `old` in the libraries, for an update of a tag (6.2).
+    pub fn replace_library(&self, old: &Path, new: &Path) -> Result<(), String> {
+        let mut list = self.read_list(LIBRARIES);
+        match list.iter().position(|path| same_path(path, old)) {
+            Some(i) => list[i] = new.to_owned(),
+            None => list.push(new.to_owned()),
+        }
+        self.write_list(LIBRARIES, &list)
+    }
+
+    /// The folder of the library copies from Git (6.2).
+    pub fn git_dir(&self) -> PathBuf {
+        self.dir.join("libraries")
+    }
+
+    /// The libraries with the pins of the copies from Git, for the settings (6.2).
+    pub fn library_pins(&self) -> Vec<Library> {
+        let pins = self.pins();
+        let pin = |path: &Path| self.pin_name(path).and_then(|name| pins.get(&name).cloned());
+        self.libraries().into_iter().map(|path| Library { pin: pin(&path), path }).collect()
+    }
+
+    /// The pin of a copy from Git. A local folder has none, so Patina never deletes it.
+    pub fn pin(&self, path: &Path) -> Option<Pin> {
+        self.pin_name(path).and_then(|name| self.pins().remove(&name))
+    }
+
+    pub fn set_pin(&self, path: &Path, pin: Option<Pin>) -> Result<(), String> {
+        let name = self.pin_name(path).ok_or_else(|| format!("{} is not in {}.", path.display(), self.git_dir().display()))?;
+        let mut pins = self.pins();
+        match pin {
+            Some(pin) => pins.insert(name, pin),
+            None => pins.remove(&name),
+        };
+        let text = serde_json::to_vec_pretty(&pins).map_err(|e| e.to_string())?;
+        write_file(&self.dir.join(PINS), &text)
+    }
+
+    /// A missing or bad file has no pins. Then no copy is deleted, which is the safe side.
+    fn pins(&self) -> BTreeMap<String, Pin> {
+        let bytes = fs::read(self.dir.join(PINS)).unwrap_or_default();
+        serde_json::from_slice(&bytes).unwrap_or_default()
+    }
+
+    /// The name of a folder directly in the folder of the copies from Git.
+    fn pin_name(&self, path: &Path) -> Option<String> {
+        let name = path.file_name()?.to_str()?;
+        let inside = path.parent().is_some_and(|parent| same_path(parent, &self.git_dir()));
+        (inside && !name.starts_with('.')).then(|| name.to_owned())
+    }
+
     fn add_to(&self, name: &str, root: &Path) -> Result<(), String> {
         let mut list = self.read_list(name);
         if !list.iter().any(|path| same_path(path, root)) {
@@ -293,6 +347,13 @@ impl Data {
         let text = serde_json::to_vec_pretty(list).map_err(|e| e.to_string())?;
         write_file(&self.dir.join(name), &text)
     }
+}
+
+/// A library folder, with its pin when it is a copy from Git (6.2).
+#[derive(Serialize)]
+pub struct Library {
+    pub path: PathBuf,
+    pub pin: Option<Pin>,
 }
 
 /// Writes a temporary file, then renames it, so that a crash never leaves half a file.
@@ -426,5 +487,30 @@ mod tests {
         assert_eq!(relative_path(root, Path::new("/p/proj/")), ".");
         assert_eq!(relative_path(root, Path::new("/p/projx/a.png")), Path::new("/p/projx/a.png").display().to_string());
         assert_eq!(relative_path(root, Path::new("/P/Proj/a")) == "a", cfg!(windows));
+    }
+
+    #[test]
+    fn only_a_copy_in_the_git_folder_has_a_pin_and_an_update_keeps_its_position() {
+        let dir = std::env::temp_dir().join(format!("patina-pins-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let data = Data::find(Some(dir.clone())).unwrap();
+        let (old, new, local) = (data.git_dir().join("lib-v1"), data.git_dir().join("lib-v2"), dir.join("lib-v1"));
+        let pin = Pin { url: "https://example.org/o/lib".to_owned(), tag: "v1".to_owned(), commit: "1".repeat(40), sha256: String::new() };
+        for path in [&local, &old] {
+            data.add_library(path).unwrap();
+        }
+        data.set_pin(&old, Some(pin.clone())).unwrap();
+        let refused = data.set_pin(&local, Some(pin.clone())).is_err() && data.set_pin(&data.git_dir().join(".download"), None).is_err();
+        let pins: Vec<_> = data.library_pins().into_iter().map(|l| l.pin).collect();
+        data.replace_library(&old, &new).unwrap();
+        data.set_pin(&old, None).unwrap();
+        let (list, gone) = (data.libraries(), data.pin(&old));
+        fs::write(dir.join(PINS), "not json").unwrap();
+        let bad = data.pin(&new);
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(refused, "a local folder and the work folder get no pin");
+        assert_eq!(pins, [None, Some(pin)]);
+        assert_eq!(list, [local, new]);
+        assert_eq!((gone, bad), (None, None));
     }
 }

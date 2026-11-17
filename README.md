@@ -117,6 +117,12 @@ To reuse nodes and subgraphs:
   have from the source project.
 - Add a Patina project in **Settings** > **Libraries**. The **Add node** palette then shows its
   nodes and subgraphs.
+- To add a library from a Git repository, type its HTTPS URL in **Git URL** and a tag in
+  **Tag**, then push **Add from Git**. An empty tag selects the newest tag. Patina downloads
+  that tag into its data folder and pins its commit.
+- Push **Check for updates** to compare the pinned tags with the repositories. Push
+  **Update to** to download a newer tag. **Remove** deletes a downloaded copy, but not a local
+  project.
 
 ```
 image-pipeline/
