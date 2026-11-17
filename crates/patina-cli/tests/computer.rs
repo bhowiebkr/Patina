@@ -155,7 +155,7 @@ fn check(project: &Path, frames: u32, program: &[(u8, u8)]) -> Vec<u8> {
     shown
 }
 
-/// The lines that the CLI writes for each frame, the values of OUT and the LCD characters.
+/// The lines that the CLI writes, the values of OUT and the LCD characters.
 ///
 /// Each frame is one step: readout A shows the count, and readout B the count plus 3. With
 /// b = 0011, the four full adders get all 8 input vectors. The register of readout C loads its
@@ -166,6 +166,8 @@ fn check(project: &Path, frames: u32, program: &[(u8, u8)]) -> Vec<u8> {
 fn model(program: &[(u8, u8)], frames: u32) -> (Vec<String>, Vec<u8>, String) {
     let (mut pc, mut acc, mut x, mut out, mut carry, mut zero, mut ram) = (0u8, 0u8, 0u8, 0u8, false, false, [0u8; 256]);
     let (mut lines, mut shown, mut lcd, mut strobes) = (Vec::new(), Vec::new(), String::new(), 0u8);
+    // A readout or a display writes a line only when its value changes from the last value.
+    let mut last: Vec<String> = [0; 7].map(|n: u8| format!("{n:08b} {n}")).into_iter().chain(std::iter::repeat_n("0000000".to_owned(), 3)).collect();
     let hex = |d: u8| char::from_digit(d.into(), 16).unwrap().to_ascii_uppercase();
     for n in 0..frames {
         // Bit i of `strobes` is on when OUT loaded i + 1 steps before.
@@ -173,8 +175,13 @@ fn model(program: &[(u8, u8)], frames: u32) -> (Vec<String>, Vec<u8>, String) {
             lcd.push([hex(out >> 4), hex(out % 16), ' '][i]);
         }
         let readouts = [n % 16, (n + 3) % 16, n * 5 % 16, n.saturating_sub(4) * 5 % 16, pc.into(), acc.into(), out.into()];
-        lines.extend(readouts.map(|n| format!("{n:08b} {n}")));
-        lines.extend([n as usize % 16, usize::from(out >> 4), usize::from(out % 16)].map(|d| SEGMENTS[d].to_string()));
+        let digits = [n as usize % 16, usize::from(out >> 4), usize::from(out % 16)].map(|d| SEGMENTS[d].to_string());
+        for (was, now) in last.iter_mut().zip(readouts.map(|n| format!("{n:08b} {n}")).into_iter().chain(digits)) {
+            if *was != now {
+                lines.push(now.clone());
+                *was = now;
+            }
+        }
         if n % EVERY != 0 {
             strobes = strobes << 1 & 7;
             continue;

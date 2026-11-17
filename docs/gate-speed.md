@@ -96,8 +96,9 @@ The items are in order of the gain for each change.
    to about 13.5 us: 25 us with nets, 18.5 us with atoms, 13.5 us with the grouped probes. The
    computer has 1605 gates in 36 nets and 63 other nodes, so a gate costs less than 8.5 ns, not
    1 ns. A wire is still an `Option`, and each gate records its node index for the log.
-   The example nodes `readout`, `display` and `lcd` write a line to the standard output in each
-   frame. The CLI test reads these lines. This output costs more than all the gates together.
+   The example nodes `readout`, `display` and `lcd` write a line to the standard output only
+   when their value changes. The CLI test reads these lines. Before, they wrote a line in each
+   frame, and this output cost more than all the gates together.
 4. Done: more frames each second. The frame rate can be 1 to 100000 FPS, not 1 to 1000. The
    editor already ran many frames in each 60 Hz tick, as DLS2 does with its steps each second.
    Now the frames of a tick stop after one tick period, so the page shows each tick and **Stop**

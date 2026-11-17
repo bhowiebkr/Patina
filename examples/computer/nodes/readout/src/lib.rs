@@ -4,7 +4,7 @@ const ON: [u8; 3] = [223, 166, 75];
 const OFF: [u8; 3] = [102, 102, 97];
 const TEXT: [u8; 3] = [238, 238, 235];
 
-/// Shows a byte as 8 lamps and as a number, and writes it to the standard output.
+/// Shows a byte as 8 lamps and as a number. A change writes it to the standard output.
 #[node(color = "#59366f")]
 pub struct Readout {
     value: u8,
@@ -16,8 +16,10 @@ impl Readout {
     }
 
     pub fn process(&mut self, value: &u8) {
-        self.value = *value;
-        println!("{} {}", self.text(), self.value);
+        if *value != self.value {
+            self.value = *value;
+            println!("{} {}", self.text(), self.value);
+        }
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {

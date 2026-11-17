@@ -63,7 +63,7 @@ const UNKNOWN: [u8; 7] = [0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F];
 
 /// A display of 2 lines of 16 characters, as a character LCD. When `write` is on, it puts the
 /// ASCII character of bits d0 to d7 at the cursor, with d0 as the low bit. After the last cell, the
-/// lines move up one line. `clear` empties the display first. It writes the two lines to the
+/// lines move up one line. `clear` empties the display first. A change writes the two lines to the
 /// standard output.
 #[node(color = "#59366f")]
 pub struct Lcd {
@@ -78,6 +78,7 @@ impl Lcd {
 
     #[allow(clippy::too_many_arguments)]
     pub fn process(&mut self, d0: &bool, d1: &bool, d2: &bool, d3: &bool, d4: &bool, d5: &bool, d6: &bool, d7: &bool, write: &bool, clear: &bool) {
+        let old = self.cells;
         if *clear {
             *self = Lcd::init();
         }
@@ -85,7 +86,9 @@ impl Lcd {
             let byte = [d7, d6, d5, d4, d3, d2, d1, d0].iter().fold(0u8, |n, &&b| n << 1 | u8::from(b));
             self.put(byte);
         }
-        println!("lcd |{}|{}|", self.line(0), self.line(1));
+        if self.cells != old {
+            println!("lcd |{}|{}|", self.line(0), self.line(1));
+        }
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {

@@ -71,10 +71,13 @@ checks open.
   about 175 us to about 141 us, then to about 52 us with light tasks, and then to about 13.5 us with nets (without the
   standard output of the example nodes; about 28 us with it). A benchmark of one gate net gave
   the cost of each step. Glue tests check the atomic cell and a panic in a net.
+- New: the readout, display and lcd example nodes write a line only when their value changes.
+  Before, they wrote a line in each frame.
+- Checked: the CLI computer test. 50000 frames of `patina-cli run` at 100000 FPS took about
+  2.3 s before and about 1.7 s after, with 550000 lines before and 272686 lines after.
 - Not checked: the edit build, and Digital Logic Sim 2 itself.
 - Known limits: each gate still costs up to about 8 ns: an `Option` for each value and a node
-  index for the log. The readout, display and lcd example nodes print a line in each frame,
-  which costs more than the gates. A gate net does not run in parallel. A
+  index for the log. A gate net does not run in parallel. A
   light node that does much work runs in parallel only with `#[node(heavy)]`.
 
 ## Touchpad pan
@@ -277,8 +280,7 @@ checks open.
   the spec says. Before, F always fitted the full graph.
 - Checked: `npm test` (the menu entries for each target) and the hidden self-check (a drop of a
   node folder, the three menus, and undo of each edit).
-- Known limits: the self-check drop is a page event, not a drag of the operating system. The
-  canvas has no copy and paste yet.
+- Known limits: the self-check drop is a page event, not a drag of the operating system.
 
 ## Process isolation
 
