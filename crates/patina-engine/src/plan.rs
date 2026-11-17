@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 
 use crate::node::{self, Builtin, Domain, Kind, Node};
-use crate::project::{GraphFile, is_id};
+use crate::project::{GraphFile, is_id, read_crate, read_node};
 use crate::types;
 
 mod domain;
@@ -143,16 +143,6 @@ pub struct Slot {
     pub key: String,
     pub is_str: bool,
 }
-
-/// Crate names that a node folder cannot have, after `-` changes to `_`.
-/// Crate names of Rust and Patina, the keywords of Rust, the folder names of Cargo and the device
-/// names of Windows. Cargo or Windows refuses a crate or a folder with one of these names.
-const RESERVED: &str = "std core alloc proc_macro test patina_sdk patina_macros patina_log patina_event cluster_batch cluster_frame cluster_audio cluster_event \
-    as async await break const continue crate dyn else enum extern false fn for gen if impl in let \
-    loop match mod move mut pub ref return self static struct super trait true type unsafe use \
-    where while abstract become box do final macro override priv try typeof unsized virtual yield \
-    build deps examples incremental con prn aux nul com1 com2 com3 com4 com5 com6 com7 com8 com9 \
-    lpt1 lpt2 lpt3 lpt4 lpt5 lpt6 lpt7 lpt8 lpt9";
 
 struct Entry {
     id: String,
@@ -457,43 +447,6 @@ pub(crate) fn read_kinds(root: &Path, problems: &mut Vec<String>) -> Vec<(String
         problems.push(format!("connections/{name}: {problem}"));
     }
     kinds
-}
-
-/// Checks the name of a node folder. A name with a path separator or `..` does not pass.
-pub fn check_name(name: &str) -> Result<(), String> {
-    let valid = name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
-    if name.is_empty() || name.len() > 64 || !valid || name.starts_with(|c: char| c.is_ascii_digit()) {
-        return Err("a folder name has 1 to 64 letters, digits, _ and -, and starts with a letter".into());
-    }
-    let key = name_key(name);
-    if RESERVED.split_whitespace().any(|r| r == key) {
-        return Err(format!("the name {name:?} is reserved. Use another name"));
-    }
-    Ok(())
-}
-
-/// The crate name as Rust and Windows compare it: with no regard to case, and with `-` as `_`.
-pub fn name_key(name: &str) -> String {
-    name.to_ascii_lowercase().replace('-', "_")
-}
-
-pub fn read_node(root: &Path, name: &str) -> Result<Node, String> {
-    node::parse(&read_crate(root, "nodes", name)?).map_err(|e| format!("src/lib.rs: {e}"))
-}
-
-/// Reads `src/lib.rs` of the crate folder `<group>/<name>`, after the checks of its name.
-fn read_crate(root: &Path, group: &str, name: &str) -> Result<String, String> {
-    check_name(name)?;
-    let dir = root.join(group).join(name);
-    let read = |file: &str| {
-        std::fs::read_to_string(dir.join(file)).map_err(|e| format!("cannot read {file}: {e}"))
-    };
-    let manifest: toml::Table = read("Cargo.toml")?.parse().map_err(|e| format!("Cargo.toml: {e}"))?;
-    let package = manifest.get("package").and_then(|p| p.get("name")).and_then(|n| n.as_str());
-    if package != Some(name) {
-        return Err(format!("the package name in Cargo.toml must be {name:?}, the folder name"));
-    }
-    read("src/lib.rs")
 }
 
 /// Finds the entry and the pin index of a wire end `<node ID>.<pin key>`.

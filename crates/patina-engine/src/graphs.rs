@@ -7,7 +7,7 @@ use std::hash::{BuildHasher, RandomState};
 use crate::edit::Disk;
 use crate::folders::{self, swap_code};
 use crate::project::{self, GraphFile};
-use crate::{Edit, Error, MAIN, Project, edit, graph_path, plan, subgraph};
+use crate::{Edit, Error, MAIN, Project, edit, graph_path, subgraph};
 
 impl Project {
     /// The open graph.
@@ -27,7 +27,7 @@ impl Project {
             return Ok(());
         }
         if name != MAIN {
-            plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+            project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
         }
         let history = match self.parked.remove(name) {
             Some(history) => history,
@@ -44,7 +44,7 @@ impl Project {
         if name == MAIN {
             return Err("the main graph is not a subgraph".to_owned());
         }
-        plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+        project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
         if name == self.name {
             return Ok(self.history.graph.clone());
         }
@@ -70,7 +70,7 @@ impl Project {
     /// in their place, as one step of undo (6.1). The new subgraph stays in memory until a save.
     /// An undo keeps the subgraph for a redo.
     pub fn collapse(&mut self, name: &str, ids: &[String], use_id: &str) -> Result<(), String> {
-        plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+        project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
         if self.has_graph(name) {
             return Err(format!("the graph {name} exists"));
         }

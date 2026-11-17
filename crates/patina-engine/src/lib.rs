@@ -17,6 +17,7 @@ pub mod install;
 mod library;
 mod load;
 mod node;
+mod outcome;
 pub mod package;
 mod plan;
 mod pool;
@@ -47,7 +48,8 @@ pub use edit::Edit;
 pub use events::{EventRun, Events, Inbox, Remote, remote};
 pub use run::{Audio, Frames};
 pub use library::{in_unnamed_call, thread_node};
-pub use load::{Cluster, Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
+pub use load::Cluster;
+pub use outcome::{Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;
 use project::GraphFile;
 
@@ -310,7 +312,7 @@ impl Project {
             if !entry.path().is_dir() {
                 continue;
             }
-            nodes.push(match plan::read_node(&self.root, &name) {
+            nodes.push(match project::read_node(&self.root, &name) {
                 Ok(node) => NodeInfo::new(name, node, false),
                 Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, color: None, subgraph: false, kind: "function" },
             });
@@ -365,7 +367,7 @@ impl Project {
     fn crate_folders(&self, group: &str) -> Vec<String> {
         let entries = fs::read_dir(self.root.join(group)).into_iter().flatten().flatten();
         let dirs = entries.filter(|e| e.path().is_dir()).filter_map(|e| e.file_name().into_string().ok());
-        let mut names: Vec<String> = dirs.filter(|name| plan::check_name(name).is_ok()).collect();
+        let mut names: Vec<String> = dirs.filter(|name| project::check_name(name).is_ok()).collect();
         names.sort();
         names
     }

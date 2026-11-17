@@ -8,7 +8,7 @@ use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter};
 
 use crate::library::{Calling, Library, Sink, clock, collect, lock};
-use crate::load::{Outcome, fill};
+use crate::outcome::{Outcome, fill};
 use crate::node::Domain;
 use crate::pool::{self, Work};
 

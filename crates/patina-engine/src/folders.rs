@@ -5,17 +5,17 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::edit::Disk;
-use crate::{Error, plan};
+use crate::{Error, project};
 
 /// Makes the crate folder `<group>/<name>` with the start code in `src/lib.rs`. No other folder of the
 /// project can have the same crate name (6.2).
 pub(crate) fn new_folder(root: &Path, group: &str, name: &str) -> Result<(), String> {
-    plan::check_name(name)?;
-    let key = plan::name_key(name);
+    project::check_name(name)?;
+    let key = project::name_key(name);
     for group in ["nodes", "views", "widgets", "connections", "types"] {
         for entry in fs::read_dir(root.join(group)).into_iter().flatten().flatten() {
             let other = entry.file_name().to_string_lossy().into_owned();
-            if plan::name_key(&other) == key {
+            if project::name_key(&other) == key {
                 return Err(format!("the folder {group}/{other} has this name"));
             }
         }
@@ -76,7 +76,7 @@ fn start_code(group: &str, name: &str) -> String {
     match group {
         "widgets" => WIDGET_CODE.replace("NAME", &ty),
         "views" => VIEW_CODE.replace("NAME", &ty),
-        "connections" => CONNECTION_CODE.replace("NAME", &plan::name_key(name)),
+        "connections" => CONNECTION_CODE.replace("NAME", &project::name_key(name)),
         "types" => TYPE_CODE.replace("NAME", &ty),
         _ => format!(
             "use patina_sdk::node;
@@ -87,7 +87,7 @@ pub fn {}(value: f64) -> f64 {{
     value
 }}
 ",
-            plan::name_key(name)
+            project::name_key(name)
         ),
     }
 }
@@ -172,7 +172,7 @@ pub(crate) fn code_folder(folder: &str) -> Result<(), String> {
     if !["nodes", "widgets", "views", "connections", "types"].contains(&group) {
         return Err(bad());
     }
-    plan::check_name(name)
+    project::check_name(name)
 }
 
 /// The full path of an existing file in a code folder, from a path like `nodes/number/src/lib.rs`

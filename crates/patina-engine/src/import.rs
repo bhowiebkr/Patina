@@ -7,7 +7,7 @@ use std::path::{Component, Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::plan::{check_name, name_key};
+use crate::project::{check_name, name_key};
 use crate::project::{self, ProjectFile};
 use crate::{Project, Toolchain, cargo};
 
@@ -482,7 +482,7 @@ fn absolute(path: &Path) -> Result<PathBuf, String> {
 mod tests {
     use super::*;
 
-    fn write(root: &Path, files: &[(&str, &str)]) {
+    pub(super) fn write(root: &Path, files: &[(&str, &str)]) {
         for (path, text) in files {
             let file = root.join(path);
             fs::create_dir_all(file.parent().unwrap()).unwrap();
@@ -490,7 +490,7 @@ mod tests {
         }
     }
 
-    fn manifest(name: &str, deps: &str) -> String {
+    pub(super) fn manifest(name: &str, deps: &str) -> String {
         format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[dependencies]\n{deps}")
     }
 

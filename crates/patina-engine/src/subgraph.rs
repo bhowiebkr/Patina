@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::edit::{cycle, node_of};
 use crate::project::{self, Collar, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Style, Wire};
-use crate::{NodeInfo, Pin, node, plan};
+use crate::{NodeInfo, Pin, node};
 
 /// The inner ends of the public pins of one use, and the IDs of its nodes.
 struct Use {
@@ -58,7 +58,7 @@ fn expand(root: &Path, graph: &GraphFile, edits: Edits, stack: &mut Vec<String>,
             fail("a use of a subgraph has no folder, built-in node, domain or settings".to_owned());
             continue;
         }
-        if let Err(text) = plan::check_name(name) {
+        if let Err(text) = project::check_name(name) {
             fail(format!("the subgraph name {name:?}: {text}"));
             continue;
         }
@@ -229,7 +229,7 @@ fn find_uses(root: &Path, graph: &GraphFile, edits: Edits, name: &str, (at, stac
         if sub == name {
             paths.push(path);
         } else if !stack.contains(sub)
-            && plan::check_name(sub).is_ok()
+            && project::check_name(sub).is_ok()
             && let Ok(inner) = read_graph(root, sub, edits)
         {
             stack.push(sub.clone());
@@ -245,9 +245,9 @@ fn end_type(root: &Path, edits: Edits, graph: &GraphFile, end: &str, input: bool
     let (id, key) = end.split_once('.')?;
     let entry = graph.node.iter().find(|n| n.id == id)?;
     let node = match (&entry.folder, &entry.builtin, &entry.subgraph) {
-        (Some(folder), None, None) => plan::read_node(root, folder.strip_prefix("nodes/")?).ok()?,
+        (Some(folder), None, None) => project::read_node(root, folder.strip_prefix("nodes/")?).ok()?,
         (None, Some(builtin), None) => node::Builtin::parse(builtin)?.node(),
-        (None, None, Some(name)) if plan::check_name(name).is_ok() && !stack.contains(name) => {
+        (None, None, Some(name)) if project::check_name(name).is_ok() && !stack.contains(name) => {
             let inner = read_graph(root, name, edits).ok()?;
             let end = match input {
                 true => inner.input.iter().find(|p| p.key == key)?.to.first()?.clone(),

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::import::{self, Choice, State};
-use crate::plan::check_name;
+use crate::project::check_name;
 use crate::project::{FORMAT, GraphFile, NodeEntry, Style, Wire, is_id};
 use crate::{Edit, MAIN, Project, Toolchain};
 

@@ -370,7 +370,7 @@ pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) 
 
 /// Builds the view folder `views/<name>` and gives its library (15.8).
 pub fn build_view(root: &Path, toolchain: &Toolchain, name: &str, mode: Mode) -> Result<PathBuf, Error> {
-    crate::plan::check_name(name).map_err(Error::Build)?;
+    crate::project::check_name(name).map_err(Error::Build)?;
     write_workspace(root)?;
     let messages = run_cargo(root, toolchain, &[name.to_owned()], mode, &|| {}, &AtomicBool::new(false))?;
     artifact(&messages, &name.replace('-', "_")).map(|(library, _)| library)

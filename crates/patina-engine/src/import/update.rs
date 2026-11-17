@@ -10,7 +10,7 @@ use super::{
     Applied, absolute, check_folder, digest, file_hashes, files, hash, inside, member, move_folder, path_deps, read_project, remove, renamed_manifest,
     raise_rust, undo_moves, users, work, write_files,
 };
-use crate::plan::check_name;
+use crate::project::check_name;
 use crate::project::{self, ProjectFile};
 use crate::{Project, Toolchain};
 
@@ -202,20 +202,9 @@ fn record_group<'a>(key: &'a str, record: &project::Import) -> Result<&'a str, S
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::{manifest, write};
     use super::super::{Choice, apply};
     use super::*;
-
-    fn write(root: &Path, files: &[(&str, &str)]) {
-        for (path, text) in files {
-            let file = root.join(path);
-            fs::create_dir_all(file.parent().unwrap()).unwrap();
-            fs::write(file, text).unwrap();
-        }
-    }
-
-    fn manifest(name: &str, deps: &str) -> String {
-        format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[dependencies]\n{deps}")
-    }
 
     #[test]
     fn a_bad_import_record_gives_an_error() {

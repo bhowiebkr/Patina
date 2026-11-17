@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use patina_sdk::glue::{Control, Reporter};
 
 use crate::library::{Calling, FireFn, Library, Sink, clock, collect, lock};
-use crate::load::{Outcome, Report, ReportKind, fill};
+use crate::outcome::{Outcome, Report, ReportKind, fill};
 use crate::node::Builtin;
 
 /// The most waiting and active runs of one trigger (9.4).

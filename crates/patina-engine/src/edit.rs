@@ -221,7 +221,7 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
             // The folder `graphs/<name>` adds a use of a subgraph (6.1).
             let subgraph = folder.strip_prefix("graphs/").filter(|_| !builtin);
             if let Some(name) = subgraph {
-                crate::plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+                crate::project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
             }
             graph.node.push(NodeEntry {
                 id: id.clone(),

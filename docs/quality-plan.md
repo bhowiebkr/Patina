@@ -89,12 +89,16 @@ Do the phases in this order. Inside a phase, the items are independent. Each ite
 
 ### Phase 1: architecture first
 
-- [ ] Write `docs/architecture.md`. Describe the crates, the three engine layers, the data path
+- [x] Write `docs/architecture.md`. Describe the crates, the three engine layers, the data path
   from an edit to a frame, and the threads. Link it from the README.
-- [ ] Remove the two engine cycles. Move `Outcome`, `Report`, `ReportKind` and `fill` from
+- [x] Remove the two engine cycles. Move `Outcome`, `Report`, `ReportKind` and `fill` from
   `load.rs` into a new module `outcome.rs`. Then `events` and `run` do not use `load`.
-- [ ] Put the allocation counter of the tests into one place. Use it from the CLI test and
-  from `engine/blocks.rs`. Remove the other duplicate blocks of section 1.4.
+- [x] Move the folder name rules and `read_node` from `plan.rs` to `project.rs`. Then the model
+  layer does not use `plan`.
+- [x] Remove the duplicate blocks of section 1.4. The import tests share their helpers.
+  Agent decision, 2026-11-17: the allocation counter of 25 lines stays in the two test crates.
+  One shared counter needs a public test item in a library crate. The equal block of 8 lines
+  in `labels.ts` and `route.ts` also stays, because a shared class adds more code.
 
 ### Phase 2: refactor the long files and functions
 

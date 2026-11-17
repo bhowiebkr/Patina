@@ -8,7 +8,7 @@ use patina_sdk::glue::{self, Reader, Reporter};
 use crate::Edit;
 use crate::run::Frames;
 use crate::library::{Sink, Unnamed, collect, open, symbol};
-use crate::load::{Report, Value};
+use crate::outcome::{Report, Value};
 use crate::project::GraphFile;
 
 type VersionFn = unsafe extern "C" fn() -> u32;
