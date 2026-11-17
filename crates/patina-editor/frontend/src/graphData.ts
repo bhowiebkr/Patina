@@ -104,7 +104,7 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     return f.nodes.map(({ entry, x, y }): PatinaNode => {
       const info = infoOf(entry, view.nodes);
       const [state, message] = nodeState(entry, info, view, run);
-      const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
+      const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
       const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
       const keys = wired.filter(([id]) => id === entry.id).map(([, key]) => key);
       const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run) };
@@ -127,7 +127,7 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
     const [x, y] = place(rooms, entry.pos ?? [0, 0]);
     const position = { x, y };
-    const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
+    const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
     const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
     const domain = domains.get(entry.id);

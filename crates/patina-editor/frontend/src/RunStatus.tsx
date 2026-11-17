@@ -120,7 +120,7 @@ export function useRun(serial: RefObject<number>) {
         // A frame sends only the values that changed, and the times at 10 Hz (15.9).
         values: e.values.length > 0 ? new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]) : r.values,
         idle: idleOf(e.skipped, e.stopped),
-        times: e.times.length > 0 ? new Map([...r.times, ...e.times.map((t) => [t.id, t.ms] as const)]) : r.times,
+        times: e.times.length > 0 ? new Map([...r.times, ...e.times.map((t) => [t.id, t] as const)]) : r.times,
         logs: e.logs,
         frames: r.frames + e.frames,
       }));
@@ -138,7 +138,7 @@ export function useRun(serial: RefObject<number>) {
         reports: merge(r.reports),
         eventReports: merge(r.eventReports),
         values: new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]),
-        times: new Map([...r.times, ...e.times.map((t) => [t.id, t.ms] as const)]),
+        times: new Map([...r.times, ...e.times.map((t) => [t.id, t] as const)]),
       }));
       const prefix = e.id > 0 ? `Run ${e.id}: ` : '';
       const lines = nodeLines(e).map((l) => ({ ...l, text: prefix + l.text }));
@@ -176,7 +176,7 @@ export function useRun(serial: RefObject<number>) {
           text: '',
           stale: false,
           idle,
-          times: new Map(e.times.map((t) => [t.id, t.ms])),
+          times: new Map(e.times.map((t) => [t.id, t])),
           logs: e.logs,
           frames: 0,
           framed: e.frames,

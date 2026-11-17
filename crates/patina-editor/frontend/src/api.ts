@@ -279,6 +279,10 @@ export interface Diagnostic {
 export interface NodeTime {
   id: string;
   ms: number;
+  /** The start of the call in milliseconds after the start of the run of its domain. */
+  start: number;
+  /** The worker pool thread of the call. The thread that starts the run is 0. */
+  thread: number;
 }
 
 /** A log line of a node, from the `log` crate (15.7). */

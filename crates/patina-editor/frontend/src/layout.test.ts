@@ -43,13 +43,13 @@ test('each view instance opens in a free slot and a close drops it', () => {
 test('a tab moves before another tab and becomes active', () => {
   const l = movePanel(defaultLayout(), 'logs', 'right', 'inspector');
   assert.deepEqual(l.areas.right, { tabs: ['logs', 'inspector'], active: 'logs', size: 360 });
-  assert.deepEqual(l.areas.bottom, { tabs: ['output'], active: 'output', size: 200 });
+  assert.deepEqual(l.areas.bottom, { tabs: ['output', 'debug'], active: 'output', size: 200 });
   assert.equal(movePanel(l, 'logs', 'right', 'logs'), l);
   assert.deepEqual(movePanel(l, 'logs', 'right').areas.right.tabs, ['inspector', 'logs']);
 });
 
 test('a closed tab gives the next tab and opens again in its default area', () => {
-  let l = closePanel(defaultLayout(), 'output');
+  let l = closePanel(closePanel(defaultLayout(), 'debug'), 'output');
   assert.deepEqual(l.areas.bottom, { tabs: ['logs'], active: 'logs', size: 200 });
   l = closePanel(movePanel(l, 'logs', 'left'), 'project');
   assert.deepEqual([l.areas.left.tabs, l.areas.left.active, l.areas.bottom.active], [['layers', 'logs'], 'logs', null]);
@@ -66,7 +66,7 @@ test('a saved layout reads back, and bad parts are dropped', () => {
   const odd = parseLayout(
     JSON.stringify({
       version: 1,
-      areas: { left: { tabs: ['project', 'debug', 'project', 7], active: 'logs', size: 1e9 }, right: { tabs: ['project', 'logs'], size: 'x' } },
+      areas: { left: { tabs: ['project', 'compare', 'project', 7], active: 'logs', size: 1e9 }, right: { tabs: ['project', 'logs'], size: 'x' } },
       viewports: { main: { x: 0, y: 0, zoom: 99 }, other: { x: 1, y: 2, zoom: 1 } },
     }),
   );
@@ -81,7 +81,7 @@ test('a panel that is newer than the layout file opens in its home area', () => 
   assert.deepEqual(parseLayout(layoutText(closed)).areas.left.tabs, ['project'], 'a closed panel stays closed');
   const old = JSON.stringify({ version: 1, panels: ['project', 'inspector', 'logs'], areas: { left: { tabs: [] }, right: { tabs: ['inspector'] } } });
   assert.deepEqual(parseLayout(old).areas.left, { tabs: ['layers'], active: 'layers', size: 260 });
-  assert.deepEqual(parseLayout(old).areas.bottom.tabs, ['output']);
+  assert.deepEqual(parseLayout(old).areas.bottom.tabs, ['output', 'debug']);
 });
 
 test('sizes are clamped and reset keeps the pan and zoom', () => {

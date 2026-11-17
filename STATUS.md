@@ -1752,7 +1752,10 @@ To run the editor from a checkout:
   A frontend unit test checks the move. Nobody dragged an open frame by hand. The frame is
   read-only. Open the subgraph to edit its nodes.
 - These parts of spec 15 are not in the editor yet: view tabs in the center
-  (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
+  (15.2) and rust-analyzer in Monaco (15.1).
+- The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
+  2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
+  No check showed a call on a pool thread above 0, and nobody looked at the tab by hand.
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type
   alias does not match its type, and two types of one name in two modules match.
 - `stop_requested()` is false on a thread that a node starts. The limits of milestone 12 tell how

@@ -387,6 +387,12 @@ fn broken() -> u32 {
     const timeOf = (id: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .patina-node-time`)?.textContent ?? '';
     await until('the run time on each node', RUN_MS, () => [A, B].every((id) => /^Run \d+(\.\d+)? (us|ms|s)$/.test(timeOf(id))));
     steps.push(`run time on the nodes: ${timeOf(A)}, ${timeOf(B)}`);
+    // The Debug tab shows a bar for each node call on the timeline of its thread (15.7).
+    const bottomTab = (name: string) => [...document.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent === name)!;
+    bottomTab('Debug').click();
+    await until('a bar for each node in the Debug tab', RUN_MS, () => document.querySelectorAll('.debug-call:not(:disabled)').length >= 2);
+    steps.push(`Debug tab: ${document.querySelector('.debug-lane header')?.textContent}`);
+    bottomTab('Output').click();
     const badge = () => document.querySelector('.wire-value');
     await until('the live value on the wire', RUN_MS, () => badge()?.textContent === '2.5');
     if (badge()!.classList.contains('stale')) throw new Error('the value of the last run is stale');

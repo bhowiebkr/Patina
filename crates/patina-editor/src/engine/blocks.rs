@@ -169,7 +169,7 @@ impl Refill for NodeLog {
 impl Refill for NodeTime {
     fn refill(&mut self, from: &Self) {
         self.id.clone_from(&from.id);
-        self.ms = from.ms;
+        (self.ms, self.start, self.thread) = (from.ms, from.start, from.thread);
     }
 }
 
@@ -213,7 +213,7 @@ mod tests {
             values: vec![Value { from: "t.out".to_owned(), text: text.to_owned(), ..Value::default() }],
             reports: (!ok).then(Report::default).into_iter().collect(),
             logs: vec![NodeLog { id: "t".to_owned(), text: format!("line {text}"), ..NodeLog::default() }],
-            times: vec![NodeTime { id: "t".to_owned(), ms }],
+            times: vec![NodeTime { id: "t".to_owned(), ms, ..NodeTime::default() }],
             ..Outcome::default()
         }
     }

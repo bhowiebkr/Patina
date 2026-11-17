@@ -111,6 +111,10 @@ impl Lanes {
 pub struct NodeTime {
     pub id: String,
     pub ms: f64,
+    /// The start of the call in milliseconds after the start of the run of its domain.
+    pub start: f64,
+    /// The worker pool thread of the call. The thread that starts the run is 0.
+    pub thread: u32,
 }
 
 /// A log line of a node, from the `log` crate (15.7).
@@ -600,11 +604,16 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
             // cluster. `Cluster::ui` reads the widget lines and the parameter writes.
             glue::LANES | glue::THUMB | glue::VIEW | glue::UI | glue::EDIT => {}
             glue::TIME => {
+                // The nanoseconds of the call, then the `clock` at its end and the thread (`collect`).
+                let mut parts = text.split(' ').map(|part| part.parse::<u64>().ok());
+                let (ns, end, thread) = (parts.next().flatten(), parts.next().flatten(), parts.next().flatten());
                 // A defective cluster can send a bad text or index. Its time has no node to show on.
-                if let (Some((id, _)), Ok(ns)) = (name, text.parse::<u64>()) {
+                if let (Some((id, _)), Some(ns)) = (name, ns) {
                     let time = reuse(&mut out.times, &mut times);
                     put(&mut time.id, id);
                     time.ms = ns as f64 / 1e6;
+                    time.start = end.map_or(0, |end| end.saturating_sub(ns).saturating_sub(sink.begin)) as f64 / 1e6;
+                    time.thread = thread.and_then(|t| u32::try_from(t).ok()).unwrap_or(0);
                 }
             }
             glue::LOG => {
@@ -713,6 +722,7 @@ mod tests {
         let probes = ["a1.out".to_owned()];
         let sink = |items: &[(u32, u32, &str)]| {
             let mut sink = Sink::default();
+            sink.begin = 1_000_000;
             items.iter().for_each(|&(node, kind, text)| sink.push(node, kind, text));
             sink
         };
@@ -725,7 +735,7 @@ mod tests {
             (0, glue::VIEW, "label\ty"),
             (7, glue::VALUE, "x"),
             (0, glue::PANIC, "p"),
-            (0, glue::TIME, "2500000"),
+            (0, glue::TIME, "2500000 5000000 3"),
             (0, glue::TIME, "x"),
             (5, glue::TIME, "1"),
             (0, glue::LOG, "INFO two words"),
@@ -736,7 +746,7 @@ mod tests {
         fill(&mut out, false, &run, &names, &probes);
         assert!(out.skipped.is_empty() && out.stopped.is_empty());
         assert_eq!(out.logs.iter().map(ToString::to_string).collect::<Vec<_>>(), ["Node a1 (number): INFO two words"]);
-        assert_eq!(out.times, [NodeTime { id: "a1".to_owned(), ms: 2.5 }]);
+        assert_eq!(out.times, [NodeTime { id: "a1".to_owned(), ms: 2.5, start: 1.5, thread: 3 }]);
         assert_eq!(out.values.len(), 1);
         assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
         assert_eq!(out.values[0].lanes, Some(Lanes { bits: "0110".to_owned(), label: "data bus".to_owned() }));

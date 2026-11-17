@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use patina_sdk::glue::{Control, Reporter};
 
-use crate::library::{Calling, FireFn, Library, Sink, collect, lock};
+use crate::library::{Calling, FireFn, Library, Sink, clock, collect, lock};
 use crate::load::{Outcome, Report, ReportKind, fill};
 use crate::node::Builtin;
 
@@ -139,6 +139,7 @@ impl Shared<'_> {
     /// Runs one event run on this thread and fills its outcome.
     fn run(&self, task: u32, text: &str, control: &Control) -> Outcome {
         let mut sink = Sink::default();
+        sink.begin = clock();
         let rep = Reporter { ctx: (&raw mut sink).cast(), report: collect, control };
         let _calling = Calling::new(control);
         let gate = self.gate.as_ref().map(lock);

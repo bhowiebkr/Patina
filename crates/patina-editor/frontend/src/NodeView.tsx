@@ -2,7 +2,7 @@
 
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, openType, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type Pin, type Report, type Value, type View } from './api';
+import { duration, errorText, folderName, nodeProblems, openType, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type Value, type View } from './api';
 import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
@@ -37,8 +37,8 @@ export interface RunState {
   stale: boolean;
   /** Each node that did not run in the last run, by ID (15.2, 15.3). Its values are old. */
   idle: ReadonlyMap<string, 'skipped' | 'stopped'>;
-  /** The run time of each node call in the last run, in milliseconds by node ID (15.7). */
-  times: ReadonlyMap<string, number>;
+  /** The run time, the start and the thread of each node call in the last run, by node ID (15.7). */
+  times: ReadonlyMap<string, NodeTime>;
   /** The log lines of the nodes in the last run (15.7). */
   logs: NodeLog[];
   /** The number of frames of the frame run after the last batch run (9.1). */

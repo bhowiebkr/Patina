@@ -47,7 +47,7 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 This is an agent decision of 2026-11-15. The owner can change it.
 
 - The left, right and bottom areas take panels. The center holds only the graph view. In version 1 of views, a view panel opens in the right area (15.8). Tabs in the center come later.
-- The panels are **Layers**, **Project**, **Inspector**, **Logs** and **Output**. The **Debug** tab comes later. The left area has the **Layers** tab and the **Project** tab, and **Project** is active at the start.
+- The panels are **Layers**, **Project**, **Inspector**, **Logs**, **Output** and **Debug**. The left area has the **Layers** tab and the **Project** tab, and **Project** is active at the start.
 - A view panel can float in its own window: with **Float in a window** in its right-click menu, or with a drag out of the window. The built-in panels stay in the dock. The **Dock** button of a float window moves the view back to its default area. A close of a float window closes the view instance. (Agent decision, 2026-11-15. The owner can change it.)
 - Dock starts the view instance again with `init`, because the surface of a float window must not outlive its window. A float from the dock keeps the instance. (Agent decision, 2026-11-15. The owner can change it.)
 - A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area** and **Close**. The menu is the method for the keyboard and for screen readers.
@@ -286,6 +286,9 @@ A crate of crates.io is a dependency of one code folder, in its `Cargo.toml` (8.
   - A run sends 1000 log lines at most. The 1001st line is a WARN line about the limit, and the cluster drops the lines after it.
   - The logger is for the full cluster library. When one node has `log`, the log lines of all crates in the cluster show, for the node that runs.
 - Debug tab: a timeline of the threads of each domain. It shows which nodes ran in parallel, the frame budget (16.7 ms at 60 FPS) and the audio block deadline.
+  - The tab shows one lane for each domain of the last run: **Frame**, **Audio**, **Event** and **Batch**. Each lane has one row for each worker thread, and one bar for each node call. The bar starts at the start of the call and has the width of its run time. A click on a bar selects the node. Only the nodes of the main graph have a name and a click. (Agent decision, 2026-11-17. The owner can change it.)
+  - The frame lane shows a line at the frame budget, 1000 ms divided by the frame rate of the project. The audio lane shows a line at the block deadline, 256 samples at 48 kHz (5.33 ms). A lane that goes past its line shows **Over the frame budget** or **Over the block deadline** in the warning color. (Agent decision, 2026-11-17. The owner can change it.)
+  - The C ABI does not change. When the cluster sends the time of a call, the engine adds its own clock and the index of the pool thread, on the thread of the call. Thread 0 is the thread that starts the run. The start is the end clock minus the run time, after the start of the run of the domain. The gates of a net share one clock read, so their bars can overlap a little. (Agent decision, 2026-11-17. The owner can change it.)
 - Later: breakpoints.
 
 ### 15.8 Views

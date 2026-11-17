@@ -98,7 +98,7 @@ mod tests {
     fn a_run_replaces_only_the_reports_of_the_nodes_it_reached() {
         let report = |id: &str, text: &str| Report { id: id.to_owned(), text: text.to_owned(), ..Report::default() };
         let mut kept = vec![report("a", "old"), report("b", "old"), report("c", "old")];
-        let time = NodeTime { id: "a".to_owned(), ms: 1.0 };
+        let time = NodeTime { id: "a".to_owned(), ms: 1.0, ..NodeTime::default() };
         let out = Outcome { times: vec![time], skipped: vec!["b".to_owned()], reports: vec![report("d", "new")], ..Outcome::default() };
         merge(&mut kept, &out);
         let texts: Vec<(&str, &str)> = kept.iter().map(|r| (r.id.as_str(), r.text.as_str())).collect();

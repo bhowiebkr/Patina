@@ -2,17 +2,19 @@
 
 use std::cell::Cell;
 use std::ffi::c_void;
+use std::fmt::Write;
 use std::ops::Range;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering::Relaxed};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
+use std::time::Instant;
 
 use patina_sdk::glue::{self, CallFn, Control, Reporter, SlotRef};
 
 use crate::Error;
 use crate::node::Domain;
 use crate::plan::Task;
-use crate::pool::Work;
+use crate::pool::{self, Work};
 
 type VersionFn = unsafe extern "C" fn() -> u32;
 type NewFn = unsafe extern "C" fn() -> *mut c_void;
@@ -129,6 +131,15 @@ const MAX_TEXT: usize = 16 * 1024;
 pub(crate) struct Sink {
     items: Vec<(u32, u32, Range<usize>)>,
     text: String,
+    /// The `clock` at the start of the run, for the start of each run time (15.7).
+    pub begin: u64,
+}
+
+/// The nanoseconds since the first read of this clock. All threads and clusters share it, so the
+/// timeline of the **Debug** tab can compare the calls (15.7).
+pub(crate) fn clock() -> u64 {
+    static EPOCH: OnceLock<Instant> = OnceLock::new();
+    u64::try_from(EPOCH.get_or_init(Instant::now).elapsed().as_nanos()).unwrap_or(u64::MAX)
 }
 
 impl Sink {
@@ -183,6 +194,13 @@ pub(crate) unsafe extern "C" fn collect(ctx: *mut c_void, node: u32, kind: u32, 
     // call (glue::Reporter).
     let (sink, bytes) = unsafe { (&mut *ctx.cast::<Sink>(), std::slice::from_raw_parts(text, len)) };
     sink.push(node, kind, &String::from_utf8_lossy(bytes));
+    // The cluster sends a run time at the end of the call, on the thread of the call (15.7).
+    if kind == glue::TIME {
+        let _ = write!(sink.text, " {} {}", clock(), pool::thread());
+        if let Some(item) = sink.items.last_mut() {
+            item.2.end = sink.text.len();
+        }
+    }
 }
 
 /// The tasks of a run of one domain (9.2), and a report list for each task. The worker pool

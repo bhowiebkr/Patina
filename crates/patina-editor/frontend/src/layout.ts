@@ -4,14 +4,14 @@
 /** The panels of the view instances (15.8). Each slot shows one instance of a view. */
 export const VIEW_SLOTS = ['view', 'view2', 'view3', 'view4'] as const;
 export type ViewSlot = (typeof VIEW_SLOTS)[number];
-export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output', ...VIEW_SLOTS] as const;
+export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output', 'debug', ...VIEW_SLOTS] as const;
 export type PanelId = (typeof PANELS)[number];
 export const AREAS = ['left', 'right', 'bottom'] as const;
 export type AreaId = (typeof AREAS)[number];
 
-export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output', view: 'View', view2: 'View 2', view3: 'View 3', view4: 'View 4' };
+export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output', debug: 'Debug', view: 'View', view2: 'View 2', view3: 'View 3', view4: 'View 4' };
 /** The area of each panel in the default layout. A closed panel opens there again. */
-const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', view: 'right', view2: 'right', view3: 'right', view4: 'right' };
+const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', debug: 'bottom', view: 'right', view2: 'right', view3: 'right', view4: 'right' };
 
 export const MIN_SIZE = 120;
 export const MAX_SIZE = 1600;
@@ -59,7 +59,7 @@ export function defaultLayout(): Layout {
     areas: {
       left: { tabs: ['layers', 'project'], active: 'project', size: 260 },
       right: { tabs: ['inspector'], active: 'inspector', size: 360 },
-      bottom: { tabs: ['logs', 'output'], active: 'output', size: 200 },
+      bottom: { tabs: ['logs', 'output', 'debug'], active: 'output', size: 200 },
     },
     floats: {},
     viewports: {},

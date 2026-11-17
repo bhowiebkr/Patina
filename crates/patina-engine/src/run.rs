@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter};
 
-use crate::library::{Calling, Library, Sink, collect, lock};
+use crate::library::{Calling, Library, Sink, clock, collect, lock};
 use crate::load::{Outcome, fill};
 use crate::node::Domain;
 use crate::pool::{self, Work};
@@ -48,6 +48,7 @@ impl Run<'_> {
             self.calls.call(self.names, self.probes, control, |_| true);
             return;
         };
+        let begin = clock();
         let rep = Reporter { ctx: (&raw mut self.calls.sink).cast(), report: collect, control };
         // SAFETY: `state` is live, no task runs, and the reporter is valid during the call.
         let begun = unsafe { (library.begin)(library.state, domain as u32, &rep) };
@@ -65,6 +66,7 @@ impl Run<'_> {
         self.pace.took(pooled, start.elapsed().as_secs_f64() * 1000.0);
         tasks.control.store(std::ptr::null_mut(), Relaxed);
         self.calls.sink.clear();
+        self.calls.sink.begin = begin;
         for task in &tasks.sinks {
             self.calls.sink.append(&mut lock(task));
         }

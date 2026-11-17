@@ -249,3 +249,79 @@
 .pin-preview-body > :last-child {
   text-align: right;
 }
+
+.debug {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.debug-empty {
+  margin: 0;
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.debug-lane header {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin: 6px 0 4px;
+}
+
+.debug-limit-text {
+  color: var(--muted);
+}
+
+.debug-over {
+  color: var(--warning);
+}
+
+.debug-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+}
+
+.debug-thread {
+  flex: 0 0 64px;
+  color: var(--muted);
+}
+
+.debug-track {
+  position: relative;
+  flex: 1;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--raised);
+}
+
+.debug-call {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  min-width: 2px;
+  padding: 0 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-call:not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+.debug-limit {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border-left: 1px dashed var(--warning);
+}

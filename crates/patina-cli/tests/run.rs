@@ -138,6 +138,9 @@ builtin = \"delay\"
     let frame = cluster.frame(&control);
     assert!(warm && ok && frame.values.iter().any(|v| v.lanes.is_some()) && !frame.times.is_empty());
     assert_eq!((boxed, ALLOCATIONS.get()), (1, 0), "one box, then the allocations of 100 frames");
+    // This thread ran the calls one after the other, in the frame (15.7).
+    assert!(frame.times.iter().all(|t| t.thread == 0 && (0.0..1000.0).contains(&t.start)), "{:?}", frame.times);
+    assert!(frame.times.windows(2).all(|w| w[1].start >= w[0].start), "{:?}", frame.times);
 
     // The GUI of tick (4.3): its widget lines, then a click on Reset. Mix has no GUI. The lines
     // after an event show the new state.

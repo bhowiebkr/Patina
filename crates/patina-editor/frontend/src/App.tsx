@@ -25,6 +25,7 @@ import type { WireData } from './WireLayer';
 import { ProjectPanel, type Inspect } from './ProjectPanel';
 import { useProjectActions } from './ProjectActions';
 import { StatusBar, useRun } from './RunStatus';
+import { DebugPanel } from './DebugPanel';
 import { FireTrigger, OpenUse, PortTest, scopeRun, TEST_USE } from './NodeView';
 import { ViewPanel } from './ViewPanel';
 import { SettingsScreen } from './SettingsScreen';
@@ -305,6 +306,8 @@ export function App() {
   }, []);
   const closeFull = useCallback(() => setFull(null), []);
   const selectNodes = useCallback((ids: string[]) => setFocus({ ids, n: 0 }), []);
+  // The times have flattened IDs (9.1), so only the nodes of the main graph have a name.
+  const names = useMemo(() => new Map(view && view.graphName === 'main' ? (view.graph.node ?? []).map((n) => [n.id, folderName(n)] as const) : []), [view]);
   const sendFloat = useFloatHost(view, selected, show, selectNodes);
 
   const onSelect = useCallback((ids: string[], wires: WireData[]) => {
@@ -370,6 +373,7 @@ export function App() {
     },
     logs: { body: <Lines lines={logs} label="Logs" onPick={pick} />, actions: clear(() => setLogs([])) },
     output: { body: <Lines lines={output} label="Output" onPick={pick} />, actions: clear(() => setOutput([])) },
+    debug: { body: <DebugPanel times={run.times} domains={view.domains} frameRate={view.frameRate} names={names} onSelect={selectNodes} /> },
   };
 
   const viewPanel = (slot: ViewSlot, name: string | null) => (

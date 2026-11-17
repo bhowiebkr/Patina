@@ -1,6 +1,7 @@
 //! The worker pool of the scheduler (spec 9.2): one thread for each CPU core. The thread that
 //! starts a run is one of them.
 
+use std::cell::Cell;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError, TryLockError};
@@ -37,6 +38,17 @@ struct Pool {
 }
 
 static POOL: OnceLock<Pool> = OnceLock::new();
+
+thread_local! {
+    /// The index of this thread in the pool. The thread that starts a run, and a thread that is not
+    /// in the pool, is 0.
+    static INDEX: Cell<u32> = const { Cell::new(0) };
+}
+
+/// The index of this thread in the pool, for the timeline of the **Debug** tab (15.7).
+pub fn thread() -> u32 {
+    INDEX.get()
+}
 
 /// Runs each task of `work` one time, and returns when all are done. If another run uses the
 /// pool, this thread runs the tasks in index order, so the index order must keep the waits.
@@ -89,14 +101,16 @@ fn pool() -> &'static Pool {
     if first {
         let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
         for i in 1..cores {
+            let index = u32::try_from(i).unwrap_or(u32::MAX);
             // A thread that does not start makes the pool smaller. The caller still runs tasks.
-            let _ = std::thread::Builder::new().name(format!("patina-worker-{i}")).spawn(|| worker(pool));
+            let _ = std::thread::Builder::new().name(format!("patina-worker-{i}")).spawn(move || worker(pool, index));
         }
     }
     pool
 }
 
-fn worker(pool: &'static Pool) {
+fn worker(pool: &'static Pool, index: u32) {
+    INDEX.set(index);
     let mut state = lock(&pool.state);
     loop {
         state = match state.ready.pop() {
