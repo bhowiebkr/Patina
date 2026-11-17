@@ -210,7 +210,11 @@ impl Editor {
         let mut session = self.lock();
         // A project opens paused (15.10).
         let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error };
-        Ok(session.insert(new).view(&self.engine, None, None))
+        let session = session.insert(new);
+        // The view goes first, so the window knows the serial of the load events.
+        let view = session.view(&self.engine, None, None);
+        session.load(&self.engine);
+        Ok(view)
     }
 
     /// Closes the project. The user saved or discarded the changes, so the recovery file goes. A
@@ -260,6 +264,16 @@ impl Session {
         }
     }
 
+    /// Loads the clusters of the last build of a trusted project, so the node GUIs show while the
+    /// graph is paused (15.10). A project with no build waits for **Run**.
+    fn load(&self, engine: &Host) {
+        if let (true, false, Ok(checked)) = (self.trusted, self.live, self.project.check())
+            && checked.built_mode().is_some()
+        {
+            engine.run(self.serial, checked, true, None, false);
+        }
+    }
+
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
     /// `slot` is the node folder of a code change, for the slot (7.1).
     fn view(&self, engine: &Host, build: Option<bool>, slot: Option<String>) -> View {
@@ -275,7 +289,7 @@ impl Session {
         };
         let domains = checked.iter().flat_map(|c| c.domains()).map(|(id, d)| (id.to_owned(), d)).collect();
         if let (Some(checked), Some(build), true) = (checked, build, self.live) {
-            engine.run(self.serial, checked, build, slot);
+            engine.run(self.serial, checked, build, slot, true);
         }
         let (mut nodes, mut problems) = match project.nodes() {
             Ok(nodes) => (nodes, problems),
@@ -437,7 +451,9 @@ pub fn trust_project(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
         editor.data.trust(session.project.root())?;
         session.trusted = true;
-        Ok(session.view(&editor.engine, None, None))
+        let view = session.view(&editor.engine, None, None);
+        session.load(&editor.engine);
+        Ok(view)
     })
 }
 

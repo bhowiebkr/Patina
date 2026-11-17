@@ -60,6 +60,7 @@ pub struct RunParts {
     pub parts: Parts,
     pub build: bool,
     pub slot: Option<String>,
+    pub start: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -177,11 +178,12 @@ impl Host {
         wait(self.send_ask(spawn, message)?)
     }
 
-    /// Sends a run of the checked graph, and starts the node process when it does not run.
-    pub fn run(&self, serial: u64, checked: Checked, build: bool, slot: Option<String>) {
+    /// Sends a run of the checked graph, and starts the node process when it does not run. With
+    /// `start` false, the clusters load and the graph does not run (15.10).
+    pub fn run(&self, serial: u64, checked: Checked, build: bool, slot: Option<String>, start: bool) {
         lock(&self.0.state).serial = serial;
         let parts = checked.into_parts();
-        if let Err(e) = self.write(true, false, |_| ToNode::Run(Box::new(RunParts { serial, parts, build, slot }))) {
+        if let Err(e) = self.write(true, false, |_| ToNode::Run(Box::new(RunParts { serial, parts, build, slot, start }))) {
             fail(&self.0, serial, &e, "");
         }
     }

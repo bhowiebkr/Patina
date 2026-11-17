@@ -38,10 +38,10 @@ pub fn run(toolchain: PathBuf) -> ! {
         };
         match message {
             ToNode::Run(run) => {
-                let RunParts { serial, parts, build, slot } = *run;
+                let RunParts { serial, parts, build, slot, start } = *run;
                 match parts.check() {
                     Ok(checked) => {
-                        let _ = jobs.send(Job::Run(Box::new(Run { serial, checked, build, slot })));
+                        let _ = jobs.send(Job::Run(Box::new(Run { serial, checked, build, slot, start })));
                     }
                     Err(e) => out.emit(&Event::Failed { serial, text: e.to_string(), errors: Vec::new() }),
                 }

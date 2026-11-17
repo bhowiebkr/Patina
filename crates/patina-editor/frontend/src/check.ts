@@ -335,9 +335,19 @@ fn broken() -> u32 {
     if (start.recent[0]?.path !== v.root) throw new Error(`the recent list starts with ${start.recent[0]?.path}`);
     steps.push('close');
 
+    from = mark();
     v = await step('open again', () => api.openProject(v.root));
     if (JSON.stringify(v.graph) !== saved) throw new Error('the graph after open is not the saved graph');
     if (!v.trusted || v.live) throw new Error('an open project is trusted and paused');
+    // An open loads the last build, so the node GUIs show while the graph is paused (15.10).
+    const opened = (state: EngineEvent['state']) => events.slice(from).some((e) => e.serial === v.serial && e.state === state);
+    await until('the load of the last build', BUILD_MS, () => opened('loaded') || opened('failed'));
+    if (!opened('loaded') || opened('ran')) throw new Error('the open did not load the last build, or it ran the graph');
+    await api.closeProject();
+    from = mark();
+    v = await step('open again with no change', () => api.openProject(v.root));
+    await until('the second load', BUILD_MS, () => opened('loaded') || opened('failed'));
+    if (opened('building') || opened('ran')) throw new Error('an open with no change built or ran the graph');
     await until('Logs in the right area after open', RUN_MS, () => !!tab('Logs')?.closest('.area.right'));
     if (transform() !== zoomed) throw new Error(`the pan and zoom after open are ${transform()}, not ${zoomed}`);
     const views = [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === 'Views')!;

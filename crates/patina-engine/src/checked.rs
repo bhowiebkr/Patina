@@ -132,6 +132,11 @@ impl Checked {
         hasher.finish()
     }
 
+    /// The mode of the last build of the project, or None before the first build (7.2).
+    pub fn built_mode(&self) -> Option<Mode> {
+        cargo::newest_mode(&self.root)
+    }
+
     /// The generated code of the cluster. Two checks with the same wiring give the same text, so
     /// a cluster of one stays correct for the other.
     pub fn wiring(&self) -> String {

@@ -191,6 +191,24 @@ export function useRun(serial: RefObject<number>) {
       lines.push({ text: `Ran in ${millis(e.runMs)}`, kind: 'info' });
       if (e.stopped.length > 0) lines.push({ text: 'Stop ended the run before all nodes ran.', kind: 'info' });
       log([...lines, ...nodeLines(e)]);
+    } else if (e.state === 'loaded') {
+      const failed = e.errors.length > 0;
+      setRun((r) => ({
+        ...r,
+        phase: 'loaded',
+        builtMs: e.builtMs,
+        lastBuildMs: e.builtMs !== null && !failed ? e.builtMs : r.lastBuildMs,
+        baseMs: e.builtMs !== null && !failed ? e.builtMs : r.baseMs,
+        slotMs: e.slot === null ? null : r.slotMs,
+        errors: e.builtMs === null ? r.errors : e.errors,
+        text: '',
+        stale: false,
+        fused: e.fused,
+        slot: e.slot,
+      }));
+      const lines: Line[] = failed ? [{ text: 'The build failed. The last build that compiled is loaded.', kind: 'err' }, ...errorLines(e.errors)] : [];
+      if (!failed && e.builtMs !== null) lines.push({ text: `Built in ${seconds(e.builtMs)}`, kind: 'info' });
+      log([...lines, { text: 'The nodes of the last build loaded. Click Run to run the graph.', kind: 'info' }]);
     } else if (e.state === 'lost') {
       setRun((r) => ({ ...r, phase: 'lost', text: e.text, values: NO_RUN.values }));
       log([{ text: e.text, kind: 'err' }]);
@@ -214,6 +232,7 @@ function runText(run: RunState): string {
   // The end of the node process (16.1) and a failure without compile errors show their first sentence.
   if (run.phase === 'lost') return firstSentence(run.text);
   if (run.phase === 'failed') return run.errors.length > 0 ? 'Build failed' : firstSentence(run.text);
+  if (run.phase === 'loaded') return `${run.errors.length > 0 ? 'Loaded the last build that compiled' : run.builtMs !== null ? `Built in ${seconds(run.builtMs)}` : 'Loaded'} - Not run`;
   if (run.phase !== 'ran') return '';
   const parts: string[] = [];
   if (run.errors.length > 0) parts.push('Running the last build that compiled');
@@ -236,7 +255,7 @@ export function StatusBar({ view, run, stuck, error, onPick }: { view: View; run
     <footer className="statusbar">
       <span title={view.problems.join('\n')}>{view.problems.length === 0 ? 'Ready' : `${view.problems.length} problems`}</span>
       {text && <span>{text}</span>}
-      {run.phase === 'ran' && <span>{run.slot !== null ? `Slot: ${run.slot}` : run.fused ? 'Fused' : 'Edit build'}</span>}
+      {(run.phase === 'ran' || run.phase === 'loaded') && <span>{run.slot !== null ? `Slot: ${run.slot}` : run.fused ? 'Fused' : 'Edit build'}</span>}
       {stuck && <span className="error-text">{stuck}</span>}
       {run.errors.length > 0 && (
         <button

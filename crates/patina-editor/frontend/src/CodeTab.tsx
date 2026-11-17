@@ -23,7 +23,7 @@ export function revealOf(e: Diagnostic, n: number): Reveal | null {
 export function buildState(run: RunState): [string, boolean] {
   if (run.phase === 'building') return ['Building', false];
   if (run.phase === 'failed') return ['Error', true];
-  const built = run.phase === 'ran' || run.phase === 'lost';
+  const built = run.phase === 'ran' || run.phase === 'loaded' || run.phase === 'lost';
   if (built && run.errors.length > 0) return ['Running the last build that compiled', true];
   if (built && run.lastBuildMs !== null) return [`Built in ${seconds(run.lastBuildMs)}`, false];
   return ['Not built', false];

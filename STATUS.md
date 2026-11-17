@@ -13,6 +13,20 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Open with no rebuild
+
+- An open of a trusted project with a build loads the clusters of that build, and the graph
+  stays paused (spec 15.10). So the node GUIs show at once. Before, the GUIs showed only after
+  **Run** (fixed 2026-11-16).
+- The first build after an open has the mode of the newest cluster library. A build with the
+  same wiring keeps the mode of the loaded clusters (spec 7.2). So a close, an open and **Run**
+  compile nothing when nothing changed.
+- Checked: `cargo test --workspace` (the newest library gives the mode) and the hidden self-check
+  (an open loads and does not run, and a second open builds nothing).
+- Known limits: a change with the same wiring and no node in the slot, for example a code change
+  from outside the editor or a change of a shared crate, builds in the mode of the loaded
+  clusters. After a bake load, that build is a slow bake build, with no fuse later.
+
 ## Canvas editing
 
 - A drag of a node folder or a subgraph from the **Project** panel adds a use to the graph again.

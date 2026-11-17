@@ -103,6 +103,9 @@ pub struct Run {
     pub build: bool,
     /// The node folder of the code file that this change wrote, which goes into the slot (7.1).
     pub slot: Option<String>,
+    /// False for the load when a project opens: the clusters load and the node GUIs draw, but
+    /// the graph does not run (15.10).
+    pub start: bool,
 }
 
 /// What a run builds: the mode and the node folder for the slot (7.2).
@@ -146,6 +149,9 @@ pub enum Event {
         errors: Vec<Diagnostic>,
     },
     Failed { serial: u64, text: String, errors: Vec<Diagnostic> },
+    /// The clusters loaded for an open project, and the graph did not run (15.10). The fields
+    /// are as in `Ran`.
+    Loaded { serial: u64, built_ms: Option<f64>, fused: bool, slot: Option<String>, errors: Vec<Diagnostic> },
     /// The node process ended (16.1). The build did not fail, but the node states are lost.
     Lost { serial: u64, text: String },
     /// The result of one frame (9.1). The fields are as in `Ran`, for the nodes of the frame domain
@@ -330,16 +336,22 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
             out.emit(&Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
-        // The first build of a project bakes, so a project with no change builds one time (7.2).
         let opened = loaded.is_none() && last.is_none();
         if (rerun || fuse) && newest.is_none() {
             newest = last.take();
         }
         let Some(mut run) = newest else { continue };
-        let build = match (fuse || opened, build || loaded.is_none()) {
-            (true, _) => Some(Build { mode: Mode::Bake, slot: None }),
-            (false, true) => Some(Build { mode: Mode::Edit, slot }),
-            (false, false) => None,
+        let build = if fuse {
+            Some(Build { mode: Mode::Bake, slot: None })
+        } else if opened {
+            // The first build of a project has the mode of its last build, so cargo builds nothing when nothing changed (7.2).
+            Some(Build { mode: run.checked.built_mode().unwrap_or(Mode::Bake), slot: None })
+        } else if build || loaded.is_none() {
+            // The same clusters keep their mode, so a build with no change compiles nothing (7.2).
+            let same = loaded.as_ref().filter(|l| slot.is_none() && !l.stale && l.wiring == run.checked.wiring());
+            Some(same.map_or(Build { mode: Mode::Edit, slot }, |l| Build { mode: l.cluster.mode(), slot: None }))
+        } else {
+            None
         };
         // shortcut: the fuse builds on the engine thread, so a change waits for it; build in a background thread when bake builds get slow.
         let event = match run_one(out, (folder, &mut toolchain), &mut loaded, &mut run, build.as_ref(), shared) {
@@ -354,16 +366,16 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                 Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
             }
         };
-        // An edit build fuses after a time with no change. A failed fuse waits for the next change.
+        // An edit build of a live graph fuses after a time with no change. A failed fuse waits for the next change.
         if let Some(build) = &build {
-            let edit = build.mode == Mode::Edit && loaded.as_ref().is_some_and(Loaded::needs_fuse);
+            let edit = run.start && build.mode == Mode::Edit && loaded.as_ref().is_some_and(Loaded::needs_fuse);
             fuse_at = edit.then(|| Instant::now() + FUSE_IDLE);
         }
         framed = matches!(event, Event::Ran { frames: true, .. });
         let goes_on = matches!(event, Event::Ran { frames: true, .. } | Event::Ran { events: true, .. });
-        let ran = matches!(event, Event::Ran { .. });
+        let drawn = matches!(event, Event::Ran { .. } | Event::Loaded { .. });
         out.emit(&event);
-        if let (true, Some(loaded)) = (ran, loaded.as_mut()) {
+        if let (true, Some(loaded)) = (drawn, loaded.as_mut()) {
             draw(out, &shared.control, &mut loaded.cluster.frame_part(), run.serial, &shown, true);
             if goes_on {
                 let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
@@ -640,6 +652,9 @@ fn run_one(out: &Out, (folder, toolchain): (&Path, &mut Option<Toolchain>), load
     let (fused, slot) = (!loaded.needs_fuse(), loaded.slot.clone());
     let cluster = &mut loaded.cluster;
     let params = cluster.set_params(run.checked.graph());
+    if !run.start {
+        return Ok(Some(Event::Loaded { serial: run.serial, built_ms, fused, slot, errors }));
+    }
     if params.ok {
         out.emit(&Event::Started { serial: run.serial });
     }

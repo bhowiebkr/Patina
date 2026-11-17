@@ -423,6 +423,20 @@ fn artifact<'a>(messages: &'a [Value], target: &str) -> Result<(PathBuf, &'a str
     Ok((library, cluster["package_id"].as_str().unwrap_or_default()))
 }
 
+/// The mode of the newest cluster library in `build/target`, or None before the first build
+/// (7.2). cargo does not write a library again when its crates are fresh.
+pub(crate) fn newest_mode(root: &Path) -> Option<Mode> {
+    let newest = |mode: Mode| {
+        let entries = std::fs::read_dir(root.join("build/target").join(mode.profile())).ok()?;
+        let library = |e: &std::fs::DirEntry| e.file_name().to_string_lossy().contains("cluster_") && e.path().extension().is_some_and(|x| x == std::env::consts::DLL_EXTENSION);
+        entries.flatten().filter(library).filter_map(|e| e.metadata().ok()?.modified().ok()).max()
+    };
+    match (newest(Mode::Edit), newest(Mode::Bake)) {
+        (None, None) => None,
+        (edit, bake) => Some(if edit > bake { Mode::Edit } else { Mode::Bake }),
+    }
+}
+
 /// Removes each cluster folder of an older build that the plan does not use, because the member
 /// glob of the workspace reads each folder in `build/clusters`.
 fn remove_old_clusters(root: &Path, domains: &[Domain], slot: bool) -> Result<(), Error> {

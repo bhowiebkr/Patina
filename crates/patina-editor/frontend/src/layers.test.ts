@@ -12,6 +12,8 @@ test('the base row shows the build mode, and an empty slot has no time', () => {
   assert.deepEqual(states(run), [['Edit build', false, 1800], ['Empty', false, null]]);
   assert.deepEqual(states({ ...run, fused: true, slotMs: 400 }), [['Fused', false, 1800], ['Empty', false, null]]);
   assert.deepEqual(states({ ...run, phase: 'none', baseMs: null }), [['Not built', false, null], ['Empty', false, null]]);
+  // An open project loads its last build before a run (15.10).
+  assert.deepEqual(states({ ...run, phase: 'loaded', fused: true }), [['Fused', false, 1800], ['Empty', false, null]]);
 });
 
 test('a build shows on the rows of the layers that it builds', () => {

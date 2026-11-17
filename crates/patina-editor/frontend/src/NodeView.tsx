@@ -17,7 +17,7 @@ export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-
 /** The last result of the engine for the open project. */
 export interface RunState {
   /** 'lost' is the end of the node process after a run (16.1). The build stays. */
-  phase: 'none' | 'building' | 'ran' | 'failed' | 'lost';
+  phase: 'none' | 'building' | 'loaded' | 'ran' | 'failed' | 'lost';
   builtMs: number | null;
   /** The time of the last build that compiled. */
   lastBuildMs: number | null;

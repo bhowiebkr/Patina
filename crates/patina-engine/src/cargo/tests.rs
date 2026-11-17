@@ -124,6 +124,28 @@ fn a_member_glob_needs_a_folder() {
 }
 
 #[test]
+fn the_newest_cluster_library_gives_the_built_mode() {
+    let root = std::env::temp_dir().join(format!("patina-built-mode-{}", std::process::id()));
+    assert_eq!(newest_mode(&root), None);
+    let library = |mode: Mode, secs: u64| {
+        let folder = root.join("build/target").join(mode.profile());
+        std::fs::create_dir_all(&folder).unwrap();
+        let path = folder.join(format!("cluster_batch.{}", std::env::consts::DLL_EXTENSION));
+        let file = std::fs::File::create(&path).unwrap();
+        file.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs)).unwrap();
+    };
+    library(Mode::Edit, 100);
+    std::fs::create_dir_all(root.join("build/target/bake")).unwrap();
+    std::fs::write(root.join("build/target/bake/cluster_batch.d"), "").unwrap();
+    assert_eq!(newest_mode(&root), Some(Mode::Edit), "only the edit library is there");
+    library(Mode::Bake, 200);
+    assert_eq!(newest_mode(&root), Some(Mode::Bake));
+    library(Mode::Edit, 300);
+    assert_eq!(newest_mode(&root), Some(Mode::Edit));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn only_the_clusters_of_the_plan_stay() {
     let root = std::env::temp_dir().join(format!("patina-old-clusters-{}", std::process::id()));
     for folder in ["main", "batch", "frame", "slot"] {
