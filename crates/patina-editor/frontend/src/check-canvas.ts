@@ -4,7 +4,7 @@
 import { api, type View } from './api';
 import { RUN_MS } from './check-fixtures';
 import { clipboard } from './clip';
-import { NODE_MIME } from './GraphView';
+import { NODE_MIME } from './useAddNode';
 
 type Step = (name: string, job: () => Promise<View>) => Promise<View>;
 type Until = (what: string, ms: number, test: () => boolean) => Promise<void>;

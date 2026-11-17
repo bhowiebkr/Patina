@@ -3,7 +3,7 @@
 
 import { useState, type DragEvent } from 'react';
 import type { View } from './api';
-import { NODE_MIME } from './GraphView';
+import { NODE_MIME } from './useAddNode';
 import { NameField } from './NameField';
 
 /** `type` is a node folder. `folder` is a widget, view, connection or type folder, for example `types/segments`. */
