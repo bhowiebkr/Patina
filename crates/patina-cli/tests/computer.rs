@@ -106,7 +106,10 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_programs() {
     // Snake at one instruction each frame: the snake grows to 5 cells and the tail follows the head.
     let graph = project.join("graphs/main.toml");
     fs::write(&graph, fs::read_to_string(&graph).unwrap().replacen("every = \"4\"", "every = \"1\"", 1)).unwrap();
-    fs::copy(project.join("programs/snake.asm"), project.join("programs/fibonacci.asm")).unwrap();
+    // The time seeds the random chip, so the test puts the food at 3,3, off the path of the snake.
+    let snake = fs::read_to_string(project.join("programs/snake.asm")).unwrap();
+    assert_eq!(snake.matches("LD RANDOM").count(), 2);
+    fs::write(project.join("programs/fibonacci.asm"), snake.replace("LD RANDOM", "LDI 3")).unwrap();
     let (output, stdout, stderr) = run(&project, &["--frames", "400"]);
     assert!(output.status.success(), "{stderr}");
     let on: Vec<u32> = stdout.lines().filter_map(|l| l.strip_prefix("screen 32 x 32, ")?.split(' ').next()?.parse().ok()).collect();
