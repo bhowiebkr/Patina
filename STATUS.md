@@ -808,8 +808,9 @@ types and shader nodes with WESL (spec 10).
 - `asset!` gives the path of a node asset in a project and in a package.
 - `examples/gpu` draws a gradient with a compute shader, and a second node reads its mean.
 - `patina-cuda` opens one CUDA context for each project and compiles CUDA C++ with NVRTC.
-- `GpuImage::preview` gives a copy that fits in a box. The preview node of `examples/gpu`
-  shows it in its GUI.
+- `GpuImage::preview` gives a copy that fits in a box. A compute shader takes the mean of each
+  block on the GPU, so only the small copy comes to the CPU (2026-11-17). The preview node of
+  `examples/gpu` shows it in its GUI, and the thumbnail of the `Viewer` uses it too.
 - Each node shader can import `patina_gpu::image`. The gradient of `examples/gpu` uses
   `inside` from it.
 - `patina_gpu::link_source` links WESL text, for example a string from another node. The text
@@ -823,7 +824,8 @@ types and shader nodes with WESL (spec 10).
 - The unit tests of `patina-gpu` check the link with an import and a feature, a bad import, the
   image read-back and a bad shader. They also link an import of the `patina_gpu` package, and
   get the WESL file and line of a type error in an imported file and in the main file. A test
-  links WESL text with a package import.
+  links WESL text with a package import. A test compares the preview of the GPU with the
+  integer mean of each block, also for a smaller block at the edge.
 - A glue test checks the asset path with and without a project root.
 - On Windows 11 with an RTX 4090 and the CUDA Toolkit 12.6: the unit test of `patina-cuda`
   compiles a kernel, runs it and gets the compile log of a bad kernel. A project in the
@@ -848,10 +850,6 @@ types and shader nodes with WESL (spec 10).
 - These shortcuts are open in the code:
   - A project root that is not UTF-8 goes to the clusters with lossy text
     (`crates/patina-engine/src/library.rs`).
-  - `GpuImage::preview` reads the full image and shrinks it on the CPU
-    (`crates/patina-gpu/src/image.rs`).
-  - Each shown frame of a `GpuImage` reads the full image back for its thumbnail. Keep a small
-    copy on the GPU when large images get slow (`crates/patina-gpu/src/image.rs`).
   - The CLI test of `examples/gpu` checks only the build when there is no adapter
     (`crates/patina-cli/tests/run.rs`).
 

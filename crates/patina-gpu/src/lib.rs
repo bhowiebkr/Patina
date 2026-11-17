@@ -25,6 +25,8 @@ pub struct Gpu {
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
+    /// The pipeline that shrinks an image for a preview, made at the first use.
+    shrink: OnceLock<Result<wgpu::ComputePipeline, String>>,
 }
 
 /// The context or the error of the first try. `patina_sdk::shared` keeps one for each process.
@@ -52,7 +54,7 @@ fn open() -> Result<Gpu, String> {
     let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).map_err(|e| e.to_string())?;
     // The default handler stops the process. Each call that can fail uses an error scope.
     device.on_uncaptured_error(Arc::new(|error| eprintln!("Patina: GPU error: {error}")));
-    Ok(Gpu { instance, adapter, device, queue })
+    Ok(Gpu { instance, adapter, device, queue, shrink: OnceLock::new() })
 }
 
 impl Gpu {

@@ -83,13 +83,27 @@ fn a_bad_shader_gives_an_error() {
 }
 
 #[test]
-fn shrink_takes_the_mean_of_each_block_and_keeps_the_ratio() {
-    let pixels: Vec<u8> = [0u8, 100, 200, 50].iter().flat_map(|&v| [v, v, v, 255]).collect();
-    let (size, out) = crate::image::shrink(&pixels, [4, 1], 2);
-    assert_eq!((size, out), ([2, 1], vec![50, 50, 50, 255, 125, 125, 125, 255]));
-    let (size, _) = crate::image::shrink(&[0; 5 * 3 * 4], [5, 3], 2);
-    assert_eq!(size, [2, 1]);
-    assert_eq!(crate::image::shrink(&pixels, [4, 1], 8).0, [4, 1]);
+fn a_preview_takes_the_mean_of_each_block_and_keeps_the_ratio() {
+    let Some(gpu) = try_gpu() else { return };
+    let image = |width: u32, height: u32, pixels: &[u8]| {
+        let image = GpuImage::new(gpu, width, height);
+        let layout = wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(width * 4), rows_per_image: Some(height) };
+        gpu.queue.write_texture(image.texture.as_image_copy(), pixels, layout, image.texture.size());
+        image
+    };
+    let pixels: Vec<u8> = [0u8, 100, 200, 51].iter().flat_map(|&v| [v, v, v, 255]).collect();
+    let row = image(4, 1, &pixels);
+    assert_eq!(row.preview(gpu, 2).unwrap(), ([2, 1], vec![50, 50, 50, 255, 125, 125, 125, 255]));
+    assert_eq!(row.preview(gpu, 8).unwrap(), ([4, 1], pixels));
+    // A block at the edge is smaller: 5 x 3 with a scale of 3 gives 2 x 1, and the last block is 2 x 3.
+    let ramp: Vec<u8> = (0..15u8).flat_map(|i| [i * 10, 0, 255 - i, 255]).collect();
+    let (size, out) = image(5, 3, &ramp).preview(gpu, 2).unwrap();
+    let mean = |cols: &[u32]| {
+        let all: Vec<u32> = (0..3).flat_map(|y| cols.iter().map(move |x| y * 5 + x)).collect();
+        let sum = |f: &dyn Fn(u32) -> u32| (all.iter().map(|&i| f(i)).sum::<u32>() / all.len() as u32) as u8;
+        [sum(&|i| i * 10), 0, sum(&|i| 255 - i), 255]
+    };
+    assert_eq!((size, out), ([2, 1], [mean(&[0, 1, 2]), mean(&[3, 4])].concat()));
 }
 
 /// A viewport makes its surface on a window and draws. The window stays hidden.

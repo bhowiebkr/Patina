@@ -87,37 +87,87 @@ impl GpuImage {
     }
 }
 
-impl GpuImage {
-    /// A copy that fits in `max` x `max` pixels, for a node GUI or a viewer (10.2).
-    // shortcut: it reads the full image and shrinks it on the CPU, shrink on the GPU when large images get slow.
-    pub fn preview(&self, gpu: &Gpu, max: u32) -> Result<([u32; 2], Vec<u8>), String> {
-        Ok(shrink(&self.read(gpu)?, [self.width(), self.height()], max))
-    }
-}
+/// Writes the mean of each block of `scale` x `scale` pixels of `source` to one pixel of `small`.
+/// The integer mean gives the same bytes on each GPU.
+const SHRINK: &str = "
+@group(0) @binding(0) var source: texture_2d<f32>;
+@group(0) @binding(1) var small: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(2) var<uniform> scale: vec4u;
 
-/// Shrinks RGBA pixels to fit in `max` x `max`, with the mean of each block. It keeps the
-/// aspect ratio and does not enlarge.
-pub(crate) fn shrink(pixels: &[u8], size: [u32; 2], max: u32) -> ([u32; 2], Vec<u8>) {
-    let [w, h] = size;
-    let scale = w.max(h).div_ceil(max.max(1)).max(1);
-    let (to_w, to_h) = (w.div_ceil(scale), h.div_ceil(scale));
-    let mut out = Vec::with_capacity((to_w * to_h * 4) as usize);
-    for y in 0..to_h {
-        for x in 0..to_w {
-            let (mut sum, mut count) = ([0u32; 4], 0);
-            for sy in y * scale..((y + 1) * scale).min(h) {
-                for sx in x * scale..((x + 1) * scale).min(w) {
-                    let i = ((sy * w + sx) * 4) as usize;
-                    for (s, &p) in sum.iter_mut().zip(&pixels[i..i + 4]) {
-                        *s += u32::from(p);
-                    }
-                    count += 1;
-                }
-            }
-            out.extend(sum.map(|s| (s / count) as u8));
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) id: vec3u) {
+    if any(id.xy >= textureDimensions(small)) {
+        return;
+    }
+    let start = id.xy * scale.x;
+    let end = min(start + scale.x, textureDimensions(source));
+    var sum = vec4u(0u);
+    for (var y = start.y; y < end.y; y++) {
+        for (var x = start.x; x < end.x; x++) {
+            sum += vec4u(round(textureLoad(source, vec2u(x, y), 0) * 255.0));
         }
     }
-    ([to_w, to_h], out)
+    let count = (end.x - start.x) * (end.y - start.y);
+    textureStore(small, id.xy, vec4f(sum / count) / 255.0);
+}
+";
+
+impl GpuImage {
+    /// A copy that fits in `max` x `max` pixels, for a node GUI or a viewer (10.2). Each pixel is
+    /// the mean of a block. It keeps the aspect ratio and does not enlarge. The GPU shrinks the
+    /// image, so only the small copy comes to the CPU.
+    pub fn preview(&self, gpu: &Gpu, max: u32) -> Result<([u32; 2], Vec<u8>), String> {
+        let [width, height] = [self.width(), self.height()];
+        let scale = width.max(height).div_ceil(max.max(1)).max(1);
+        if scale == 1 {
+            return Ok(([width, height], self.read(gpu)?));
+        }
+        let small = GpuImage::new(gpu, width.div_ceil(scale), height.div_ceil(scale));
+        let pipeline = gpu
+            .shrink
+            .get_or_init(|| {
+                let module = gpu.shader("GpuImage shrink", SHRINK)?;
+                let desc = wgpu::ComputePipelineDescriptor {
+                    label: Some("GpuImage shrink"),
+                    layout: None,
+                    module: &module,
+                    entry_point: Some("main"),
+                    compilation_options: Default::default(),
+                    cache: None,
+                };
+                Ok(gpu.device.create_compute_pipeline(&desc))
+            })
+            .as_ref()
+            .map_err(Clone::clone)?;
+        let uniform = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("GpuImage shrink scale"),
+            size: 16,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut bytes = [0u8; 16];
+        bytes[..4].copy_from_slice(&scale.to_le_bytes());
+        gpu.queue.write_buffer(&uniform, 0, &bytes);
+        let (from, to) = (self.texture.create_view(&Default::default()), small.texture.create_view(&Default::default()));
+        let group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&from) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&to) },
+                wgpu::BindGroupEntry { binding: 2, resource: uniform.as_entire_binding() },
+            ],
+        });
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            pass.set_pipeline(pipeline);
+            pass.set_bind_group(0, &group, &[]);
+            pass.dispatch_workgroups(small.width().div_ceil(8), small.height().div_ceil(8), 1);
+        }
+        gpu.queue.submit([encoder.finish()]);
+        Ok(([small.width(), small.height()], small.read(gpu)?))
+    }
 }
 
 impl patina_sdk::Viewer for GpuImage {
@@ -125,7 +175,6 @@ impl patina_sdk::Viewer for GpuImage {
         write!(out, "GpuImage {}x{}", self.width(), self.height())
     }
 
-    // shortcut: each shown frame reads the full image back, keep a small copy on the GPU when large images get slow.
     fn thumbnail(&self, out: &mut patina_sdk::Thumbnail<'_>) {
         let Ok(([width, height], pixels)) = crate::gpu().and_then(|gpu| self.preview(gpu, patina_sdk::Thumbnail::MAX)) else { return };
         out.pixels(width, height).copy_from_slice(&pixels);
