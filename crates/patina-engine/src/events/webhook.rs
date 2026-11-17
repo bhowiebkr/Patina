@@ -2,17 +2,20 @@
 
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 /// The longest request line and headers.
 const HEAD: usize = 16 * 1024;
 /// The longest body.
 const BODY: usize = 1024 * 1024;
-/// The longest time to read a request, so that a slow client delays the next one by this at most.
+/// The longest time to read a request.
 const WAIT: Duration = Duration::from_secs(5);
 /// The time between two looks for a new connection, so that the listener sees `quit` in time.
 const POLL: Duration = Duration::from_millis(20);
+/// The most requests that the listener reads at the same time.
+const READERS: usize = 16;
 
 /// A status code and its reason.
 type Status = (u16, &'static str);
@@ -27,47 +30,70 @@ pub(super) fn bind(port: u16) -> io::Result<TcpListener> {
 }
 
 /// Answers each request until `quit`. `fire` gets the body of each accepted request, and returns
-/// false when the runs ended.
+/// false when the runs ended. Each request has its own thread, so a slow client delays no other.
 pub(super) fn serve(listener: &TcpListener, path: &str, quit: &AtomicBool, mut fire: impl FnMut(String) -> bool) {
-    while !quit.load(Relaxed) {
-        match listener.accept() {
-            // shortcut: one request at a time, so a slow client delays the next one by WAIT; read in parallel when this matters.
-            Ok((stream, _)) => {
-                if let Some(body) = answer(stream, path)
-                    && !fire(body)
-                {
-                    return;
+    let (bodies, inbox) = mpsc::channel();
+    let (active, stop) = (AtomicUsize::new(0), AtomicBool::new(false));
+    std::thread::scope(|scope| {
+        while !quit.load(Relaxed) {
+            let mut wait = POLL;
+            if active.load(Relaxed) < READERS
+                && let Ok((stream, _)) = listener.accept()
+            {
+                active.fetch_add(1, Relaxed);
+                let (bodies, active, stop) = (bodies.clone(), &active, &stop);
+                let reader = move || {
+                    if let Some(body) = answer(stream, path, stop) {
+                        let _ = bodies.send(body);
+                    }
+                    active.fetch_sub(1, Relaxed);
+                };
+                if std::thread::Builder::new().name("patina-webhook".into()).spawn_scoped(scope, reader).is_err() {
+                    active.fetch_sub(1, Relaxed);
                 }
+                wait = Duration::ZERO;
             }
-            Err(_) => std::thread::sleep(POLL),
+            if let Ok(body) = inbox.recv_timeout(wait)
+                && !fire(body)
+            {
+                break;
+            }
         }
-    }
+        stop.store(true, Relaxed);
+    });
 }
 
 /// Reads one request from `stream` and answers it. Returns the body of an accepted request.
-fn answer(mut stream: TcpStream, path: &str) -> Option<String> {
+fn answer(mut stream: TcpStream, path: &str, stop: &AtomicBool) -> Option<String> {
     let set = stream.set_nonblocking(false).and(stream.set_write_timeout(Some(WAIT)));
-    let result = set.map_err(failed).and_then(|()| read(Deadline { stream: &stream, end: Instant::now() + WAIT }, path));
+    let deadline = Deadline { stream: &stream, end: Instant::now() + WAIT, stop };
+    let result = set.map_err(failed).and_then(|()| read(deadline, path));
     let (code, reason) = *result.as_ref().err().unwrap_or(&(202, "Accepted"));
     let _ = write!(stream, "HTTP/1.1 {code} {reason}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
     result.ok()
 }
 
 /// A stream that times out when the whole request takes longer than its end, also when a slow
-/// client sends a byte at a time.
+/// client sends a byte at a time. It also times out when the listener sets `stop`.
 struct Deadline<'a> {
     stream: &'a TcpStream,
     end: Instant,
+    stop: &'a AtomicBool,
 }
 
 impl Read for Deadline<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let left = self.end.saturating_duration_since(Instant::now());
-        if left.is_zero() {
-            return Err(io::ErrorKind::TimedOut.into());
+        loop {
+            let left = self.end.saturating_duration_since(Instant::now());
+            if left.is_zero() || self.stop.load(Relaxed) {
+                return Err(io::ErrorKind::TimedOut.into());
+            }
+            self.stream.set_read_timeout(Some(left.min(POLL)))?;
+            match self.stream.read(buf) {
+                Err(e) if matches!(e.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock) => {}
+                result => return result,
+            }
         }
-        self.stream.set_read_timeout(Some(left))?;
-        self.stream.read(buf)
     }
 }
 
@@ -147,12 +173,15 @@ mod tests {
         let (stream, _) = listener.accept().unwrap();
         client.write_all(b"POST / HTTP/1.1
 ").unwrap();
-        let start = Instant::now();
-        let slow = Deadline { stream: &stream, end: start + Duration::from_millis(100) };
+        let (start, stop) = (Instant::now(), AtomicBool::new(false));
+        let slow = Deadline { stream: &stream, end: start + Duration::from_millis(100), stop: &stop };
         assert_eq!(read(slow, "/").unwrap_err().0, 408);
         assert!(start.elapsed() < Duration::from_secs(2));
-        let mut done = Deadline { stream: &stream, end: start };
+        let mut done = Deadline { stream: &stream, end: start, stop: &stop };
         assert_eq!(done.read(&mut [0; 4]).unwrap_err().kind(), io::ErrorKind::TimedOut);
+        stop.store(true, Relaxed);
+        let mut stopped = Deadline { stream: &stream, end: Instant::now() + WAIT, stop: &stop };
+        assert_eq!(stopped.read(&mut [0; 4]).unwrap_err().kind(), io::ErrorKind::TimedOut);
     }
 
     #[test]
@@ -175,15 +204,22 @@ mod tests {
                 self.0.store(true, Relaxed);
             }
         }
-        let (missing, accepted) = std::thread::scope(|s| {
+        let start = Instant::now();
+        let (missing, accepted, took) = std::thread::scope(|s| {
             let _quit = Quit(&quit);
             s.spawn(|| serve(&listener, "/", &quit, |body| {
                 bodies.push(body);
                 false
             }));
-            (send("POST /x HTTP/1.1\r\n\r\n"), send("POST / HTTP/1.1\r\nContent-Length: 3\r\n\r\nabc"))
+            // A client that sends only a part of its request delays no other request.
+            let mut slow = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
+            slow.write_all(b"POST / HTTP/1.1\r\n").unwrap();
+            let replies = (send("POST /x HTTP/1.1\r\n\r\n"), send("POST / HTTP/1.1\r\nContent-Length: 3\r\n\r\nabc"));
+            (replies.0, replies.1, start.elapsed())
         });
         assert!(missing.starts_with("HTTP/1.1 404") && accepted.starts_with("HTTP/1.1 202"), "{missing} {accepted}");
         assert_eq!(bodies, ["abc"]);
+        // The listener stops the reader of the slow client when it ends.
+        assert!(took < WAIT && start.elapsed() < WAIT, "{took:?}");
     }
 }
