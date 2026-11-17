@@ -158,8 +158,8 @@ The size of a node comes from the sizes that its GUI declares, never from the va
 3. The engine calls `ui` at the display rate at most, and only for visible nodes.
    - Agent decision (2026-11-16): after a run, the editor engine draws each node GUI one time, so
      each node gets its size. The frames then draw only the nodes in the view of the graph, and
-     the nodes of the **Inspector** and the full size. At a far zoom, no node body GUI draws. The
-     owner can change it.
+     the nodes of the **Inspector** and the full size. Below a zoom of 0.25 (15.1), no node body
+     GUI draws. The owner can change it.
 4. A node can show its GUI in up to three sizes. `ui.mode()` tells the node which size to draw:
    - **Compact:** in the node body.
    - **Large:** in the inspector.

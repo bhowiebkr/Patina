@@ -15,6 +15,8 @@ const SHADOW = 4;
 const SHADOW_ALPHA = 0.55;
 /** Below this zoom, a bus draws as one line of FAR_WIDTH (15.9). */
 export const FAR_ZOOM = 0.5;
+/** Below this zoom, the node GUIs do not draw (15.1). */
+export const GUI_ZOOM = 0.25;
 const FAR_WIDTH = 4;
 const WIRE = [187, 187, 181];
 const ACCENT = [223, 166, 75];

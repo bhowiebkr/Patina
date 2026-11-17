@@ -5,7 +5,7 @@ import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/r
 import { duration, errorText, folderName, nodeProblems, openType, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type Value, type View } from './api';
 import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
-import { FAR_ZOOM } from './gl';
+import { FAR_ZOOM, GUI_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
 import { Thumbnail } from './ValueWidgets';
 import { outputTypeOf, socketKey } from './palette';
@@ -274,6 +274,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   const pinTop = (i: number, s: Socket | undefined) => (s ? socketPin(tops[i], s.bits.length) : tops[i] + ROW / 2);
   // At a far zoom, the rows keep their size but have no text, so the page has fewer elements (15.1).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
+  const noGui = useStore((s) => s.transform[2] < GUI_ZOOM);
   const edit = useContext(NodeEdit);
   const toggle = useContext(FrameToggle);
   // The right and bottom edges of the inner nodes, as one number so that a pan does not render the frame.
@@ -291,6 +292,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   if (open) classes.push('frame');
   if (selected) classes.push('selected');
   if (far) classes.push('far');
+  if (noGui) classes.push('no-gui');
   if (info?.color) classes.push('colored');
   const style = { width: gui === undefined ? undefined : nodeWidth(gui), minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
   const use = entry.subgraph !== undefined && !inner;

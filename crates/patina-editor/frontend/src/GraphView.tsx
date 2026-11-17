@@ -27,7 +27,7 @@ import { HoverContext, HoverStore, kindOf, wireBits, wireWidth } from './bus';
 import { Menu, savedViewport, saveViewport, type Item } from './Dock';
 import { canvasMenu, type MenuAction, type MenuTarget } from './canvasMenu';
 import { FrameToggle, HEADER, NodeEdit, NodeView, ORDER, ROW, PortView, infoOf, outputType, valueStale, type PatinaNode, type RunState } from './NodeView';
-import { FAR_ZOOM } from './gl';
+import { GUI_ZOOM } from './gl';
 import { NODE_WIDTH } from './gui';
 import { frameOf, graphEdit, shownFrames, toggleFrame, type Room } from './frames';
 import { dragStyle, matchPin, socketKey } from './palette';
@@ -183,10 +183,10 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const [labels] = useState(() => new Labels());
   const [hover] = useState(() => new HoverStore());
   const [glOk, setGlOk] = useState(true);
-  // The nodes in view, so that the frames draw only their GUIs (4.3 rule 3). None at a far zoom.
+  // The nodes in view, so that the frames draw only their GUIs (4.3 rule 3). None below GUI_ZOOM.
   const visible = useStore((s) => {
     const [tx, ty, zoom] = s.transform;
-    if (zoom < FAR_ZOOM) return '';
+    if (zoom < GUI_ZOOM) return '';
     const [x0, y0] = [-tx / zoom, -ty / zoom];
     const [x1, y1] = [x0 + s.width / zoom, y0 + s.height / zoom];
     const ids: string[] = [];

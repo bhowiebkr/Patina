@@ -10,7 +10,7 @@ import { floatPanel, layoutText, openPanel, parseLayout, showGraph } from './lay
 import { checkWires } from './check-wires';
 import { checkCanvas } from './check-canvas';
 import { checkDomains } from './check-domains';
-import { checkGuard, checkWidgets } from './check-gui';
+import { checkGuard, checkGuiZoom, checkWidgets } from './check-gui';
 import { checkIsolation } from './check-isolation';
 import { keepClipInMemory } from './clip';
 import { A, B, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, enterText, fireButton, mouseWheel } from './check-fixtures';
@@ -613,6 +613,8 @@ fn broken() -> u32 {
     const gui = `.react-flow__node[data-id="${A}"] .node-gui`;
     await checkWidgets(until, gui);
     await checkGuard(until);
+    await checkGuiZoom(until, gui, wheel, scale);
+    steps.push('node GUI at a far zoom');
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

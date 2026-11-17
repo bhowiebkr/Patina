@@ -530,7 +530,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
   in the data folder of the user, also for the portable edition (13.3). Thus a new build or
   version remembers all the projects. A portable edition moves these files one time from its own
   `data/` folder. A unit test checks the move. The recent list keeps 50 projects and scrolls.
-- The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
+- The pin names hide at a far zoom, below 50 percent. The node GUIs, for example the readout
+  lamps, hide below 25 percent (15.1, changed 2026-11-17 from 50 percent).
 - A `patina --shot` screenshot shows the check box in the row of each `switch` node. The editor
   self-check clicks a switch of the same kind in a node row.
 - A `patina --shot` screenshot shows the `clock` node and the waveforms of the `analyzer`
@@ -1810,6 +1811,8 @@ To run the editor from a checkout:
 - The editor has no bench with 500 nodes, so the far zoom form was not measured for frame
   drops. After each frame, the engine copies each changed value one time into the kept values,
   and makes a new badge text for the run event (fixed 2026-11-17).
+- The node GUIs draw down to a zoom of 25 percent (2026-11-17), so a far view draws more GUIs
+  in each frame. Nobody measured the frame time of a large graph between 25 and 50 percent.
 - The segments at the two pins of an orthogonal wire cannot move, and a wire with the graph
   default style has no segment bars (15.9). The **Default route** of the **Inspector** sets the
   graph default style (fixed 2026-11-17).
