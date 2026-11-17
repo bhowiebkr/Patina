@@ -30,12 +30,15 @@ checks open.
   The `random` node passes the key of the `keyboard` on its **bus** input at the other ports.
 - Checked: the CLI (bake build) ran 2400 frames at 240 FPS in 10.4 s and 5000 frames at 1000 FPS
   in 5.4 s, with the start. The CLI ran a program of LD 13 and OUT for 600 frames: the LCD
-  showed new random bytes, for example `39 10 BA 77 41`. Unit tests check the frame counts of a rate, the quiet runs of the
+  showed new random bytes, for example `39 10 BA 77 41`. In 200 frames, `noise.asm` set 17
+  pixels of the screen and `confetti.asm` set 7. `dice.asm` waited for a key. Unit tests check the frame counts of a rate, the quiet runs of the
   SDK, the rate in `patina.toml` and the `random` node. The hidden self-check sets 120 FPS and
   counts two frames in each frame event.
+- After the last change of the generated code, the CLI ran the bake build at 1000 FPS. 10,000
+  frames took 10.05 s, so a bake frame takes less than 1 ms.
 - Known limits: in the editor, a frame of the edit build takes about 1 ms, so a rate above about
   600 FPS makes the clock skip ticks. Then the CPU runs slower than the rate, but frames never
-  queue. The bake run time after the last change of the generated code was not measured again.
+  queue.
 
 ## IO devices of the computer
 
