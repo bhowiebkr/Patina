@@ -341,7 +341,7 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 - In the viewport prototype (19), the native path held 60 FPS on the RTX 4090 and the Intel UHD 770, and copied no bytes. A copy into the web view through WebView2 shared memory added about 16 to 33 ms of input latency, and copied 6.3 to 8.3 MB for each frame. With Vulkan, its page drew only 30 to 39 FPS. A copy through a Tauri channel drew 15 to 40 FPS.
 - On Windows, the native path uses the DX12 backend of `wgpu`. On the Intel UHD 770, the Vulkan swapchain often did not show under the web view for 1 s or more. DX12 showed in each check on both GPUs. (Agent decision, 2026-11-15. The owner can change it.)
 - The shared-memory copy is the fallback, for example on a platform where a web view cannot be transparent over a GPU surface. The native path ran only on Windows (13.5).
-- The native path needs the GPU device and the editor window in one process. The node process (16.1) runs the native code in a different process, so a viewport needs a shared GPU texture or the copy path.
+- The node process (16.1) runs the native code in a different process. It makes the surface on the editor window from that process. On Windows with DX12, a probe drew and resized a viewport in this way (2026-11-16).
 - After a device loss, the render thread makes a new device, new surfaces and new GPU objects for each viewport. In the prototype, this took 150 to 340 ms.
 
 **Build**

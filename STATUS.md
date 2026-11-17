@@ -65,13 +65,16 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   Then an event node writes to a bad address, and the crash text names the node.
 - The hidden selfcheck on Windows: a node allocates 1 TB. The failure text names the memory limit,
   and the undo runs in a new node process.
+- A probe on a hidden Windows desktop: a second process drew a viewport on a window of the first
+  process with `ViewportSurface`. The area was red and the rest had the page color, also after a
+  resize.
 - Linux and macOS did not run.
 
 ### Known limits
 
 - The crash handler is only on Windows. It names the node of the engine thread, or else the node
   of an event run. When both run, it can name the node of the other thread. A Rust abort skips it.
-- A native viewport across the two processes is not checked.
+- Nobody looked at a viewport of the node process on screen. The probe ran on a hidden desktop.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.
 - Node code that nests deeper than about 1000 levels still overflows the parse stack in a debug
@@ -431,6 +434,9 @@ change the graph (spec 15.8).
 - `cargo test --workspace` on Windows: `the_gpu_example_draws_a_gradient_with_a_wesl_shader`
   builds the `scene` view and reads its viewport line and the wheel. The sdk and gpu tests read
   the place events and skip a draw before the place.
+- `cargo test -p patina-gpu` on Windows: `a_viewport_draws_on_a_hidden_window` makes the surface
+  on a hidden window and draws. Before this test, each viewport failed with "Patina cannot make the
+  viewport surface", because wgpu 30 needs a display handle.
 - The editor self-check on Windows: it makes a view, opens it from the **Views** menu, clicks
   **Set**, sees the new value and undoes the write. Then it opens a second instance, **panel 2**.
 - `npm test`: the layout opens view instances in free panels, keeps the view of a moved panel and

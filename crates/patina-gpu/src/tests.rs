@@ -91,3 +91,31 @@ fn shrink_takes_the_mean_of_each_block_and_keeps_the_ratio() {
     assert_eq!(size, [2, 1]);
     assert_eq!(crate::image::shrink(&pixels, [4, 1], 8).0, [4, 1]);
 }
+
+/// A viewport makes its surface on a window and draws. The window stays hidden.
+#[cfg(windows)]
+#[test]
+fn a_viewport_draws_on_a_hidden_window() {
+    use std::ffi::c_void;
+    use std::ptr::{null, null_mut};
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn CreateWindowExW(ex: u32, class: *const u16, name: *const u16, style: u32, x: i32, y: i32, w: i32, h: i32, parent: *mut c_void, menu: *mut c_void, instance: *mut c_void, param: *const c_void) -> *mut c_void;
+        fn DestroyWindow(window: *mut c_void) -> i32;
+    }
+    if try_gpu().is_none() {
+        return;
+    }
+    let class: Vec<u16> = "STATIC\0".encode_utf16().collect();
+    // SAFETY: the class name ends with a zero, and the other pointers are null. WS_POPUP without
+    // WS_VISIBLE keeps the window hidden.
+    let window = unsafe { CreateWindowExW(0, class.as_ptr(), null(), 0x8000_0000, 0, 0, 64, 48, null_mut(), null_mut(), null_mut(), null()) };
+    assert!(!window.is_null());
+    let mut surface = ViewportSurface::default();
+    let viewport = patina_sdk::Viewport { window: window as u64, window_size: [64, 48], rect: [8, 8, 32, 24], ..Default::default() };
+    let drawn = surface.draw(&viewport, wgpu::Color::RED, |_, _| {});
+    drop(surface);
+    // SAFETY: this thread made the window, and its surface is gone.
+    unsafe { DestroyWindow(window) };
+    drawn.unwrap();
+}

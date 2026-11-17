@@ -137,9 +137,13 @@ fn present_mode(modes: &[wgpu::PresentMode]) -> wgpu::PresentMode {
 
 #[cfg(windows)]
 fn surface(gpu: &Gpu, window: u64) -> Result<wgpu::Surface<'static>, String> {
-    use wgpu::rwh::{RawWindowHandle, Win32WindowHandle};
+    use wgpu::rwh::{RawDisplayHandle, RawWindowHandle, Win32WindowHandle, WindowsDisplayHandle};
     let hwnd = isize::try_from(window).ok().and_then(std::num::NonZeroIsize::new).ok_or("The window handle is not valid.")?;
-    let target = wgpu::SurfaceTargetUnsafe::RawHandle { raw_display_handle: None, raw_window_handle: RawWindowHandle::Win32(Win32WindowHandle::new(hwnd)) };
+    // wgpu 30 refuses a surface without a display handle.
+    let target = wgpu::SurfaceTargetUnsafe::RawHandle {
+        raw_display_handle: Some(RawDisplayHandle::Windows(WindowsDisplayHandle::new())),
+        raw_window_handle: RawWindowHandle::Win32(Win32WindowHandle::new(hwnd)),
+    };
     // SAFETY: the editor sends the handle of one of its windows. The main window lives until the
     // process stops. The editor drops the view, and with it this surface, before it destroys a
     // float window (patina-editor floats.rs).
