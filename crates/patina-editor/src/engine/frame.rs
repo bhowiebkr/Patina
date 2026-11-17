@@ -117,15 +117,15 @@ pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(
 pub(super) fn changed<'a>(shared: &Shared, aliases: &[(String, String)], values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
     let mut kept = lock(&shared.values);
     let mut changed = keep(&mut kept, values);
-    let extra = alias(&changed, aliases);
+    let extra = alias(changed.iter().map(|&i| &kept[i]), aliases);
     changed.extend(keep(&mut kept, &extra));
-    badges(&changed)
+    badges(changed.iter().map(|&i| &kept[i]))
 }
 
-/// Puts the values of a run in place of the old values of the same outputs, and returns the values
-/// that are new or changed. The values of the batch domain stay. Each frame gives its values in the
-/// same order, so the search starts after the last match.
-fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
+/// Puts the values of a run in place of the old values of the same outputs, and returns the places
+/// in `kept` of the values that are new or changed. The values of the batch domain stay. Each frame
+/// gives its values in the same order, so the search starts after the last match.
+fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) -> Vec<usize> {
     let (mut at, mut changed) = (0, Vec::new());
     for value in values {
         let same = |v: &Value| v.from == value.from;
@@ -134,12 +134,12 @@ fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) 
                 at = i + 1;
                 if kept[i].text != value.text || kept[i].lanes != value.lanes || kept[i].thumb != value.thumb || kept[i].view != value.view {
                     kept[i].clone_from(value);
-                    changed.push(value.clone());
+                    changed.push(i);
                 }
             }
             None => {
+                changed.push(kept.len());
                 kept.push(value.clone());
-                changed.push(value.clone());
             }
         }
     }
@@ -147,16 +147,16 @@ fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) 
 }
 
 /// A copy of the value of each inner output for the output pin of its subgraph use (6.4).
-pub(super) fn alias(values: &[Value], aliases: &[(String, String)]) -> Vec<Value> {
-    let by: std::collections::HashMap<&str, &Value> = values.iter().map(|v| (v.from.as_str(), v)).collect();
+pub(super) fn alias<'a>(values: impl IntoIterator<Item = &'a Value>, aliases: &[(String, String)]) -> Vec<Value> {
+    let by: std::collections::HashMap<&str, &Value> = values.into_iter().map(|v| (v.from.as_str(), v)).collect();
     let value = |(outer, inner): &(String, String)| Some(Value { from: outer.clone(), ..(*by.get(inner.as_str())?).clone() });
     aliases.iter().filter_map(value).collect()
 }
 
 /// The values with the badge texts (15.9), and without the widgets. The **Inspector** asks for the
 /// full value (15.7).
-pub(super) fn badges(values: &[Value]) -> Vec<Value> {
-    values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone(), thumb: v.thumb.clone(), view: String::new() }).collect()
+pub(super) fn badges<'a>(values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
+    values.into_iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone(), thumb: v.thumb.clone(), view: String::new() }).collect()
 }
 
 /// Cuts a text for its badge at a character boundary.
@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(changed.len(), 2);
         // Only the changed values return, also in a new order.
         let changed = keep(&mut kept, &[value("c.out", "4"), value("a.out", "5"), value("b.out", "3")]);
-        assert_eq!((changed.len(), changed[0].text.as_str(), kept.len()), (1, "5", 3));
+        assert_eq!((changed.len(), kept[changed[0]].text.as_str(), kept.len()), (1, "5", 3));
         // A new thumbnail with the same text is a change too.
         let thumb = Value { thumb: "1 1 AQIDBA==".to_owned(), ..value("c.out", "4") };
         assert_eq!(keep(&mut kept, std::slice::from_ref(&thumb)).len(), 1);
