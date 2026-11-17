@@ -130,6 +130,7 @@ enum Edit {
 
 - Bake mode uses `opt-level = 3` and `codegen-units = 1`. It is the cargo profile `bake` of the project workspace, which inherits `release`.
 - Edit mode is the cargo profile `edit`, which inherits `dev`.
+- Edit mode keeps `opt-level = 0`. On 2026-11-17, `opt-level = 1` made the frames of `examples/computer` 6 times faster, but its wiring changes built in 10.5 s, not 5.7 s. The fuse to a bake build gives the fast frames after an idle time. Agent decision of 2026-11-17. The owner can change it.
 - The cluster crates build with no debug info in edit mode. The DWARF debug info of a large cluster function overflows the stack of LLVM on Linux and macOS. Node crates keep their debug info. Agent decision of 2026-11-15. The owner can change it.
 - The two modes have no debug assertions. Thus `cfg(debug_assertions)` is the same in the two modes, and a state moves from one mode to the other (7.2). A `debug_assert!` in a node does not run. Agent decision of 2026-11-15. The owner can change it.
 - `patina-cli run` builds in bake mode. `--edit` makes it build in edit mode, for a fast build. The tests use `--edit`.

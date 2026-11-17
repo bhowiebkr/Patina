@@ -231,9 +231,15 @@ checks open.
   counts two frames in each frame event.
 - After the last change of the generated code, the CLI ran the bake build at 1000 FPS. 10,000
   frames took 10.05 s, so a bake frame takes less than 1 ms.
-- Known limits: in the editor, a frame of the edit build takes about 1 ms. At a high rate, the
-  frames of a tick stop after one tick period, so the CPU runs slower than the rate. Frames never
-  queue.
+- Measured on 2026-11-17, with `patina-cli run --edit` at 100000 FPS: a frame of the edit build
+  takes about 125 us, and a frame of the bake build about 22 us. `opt-level = 1` in the edit
+  profile gave 21 us, but a wiring change then built in 10.5 s, not 5.7 s, and a full build in
+  12.2 s, not 7.6 s. Level 1 only for the node crates gave no gain, because the time is in the
+  cluster code. Optimized dependencies gave no gain. So the edit profile stays at level 0. The
+  editor fuses the graph into a bake build after an idle time. The editor frame was not measured
+  again.
+- Known limits: at a high rate, the frames of a tick stop after one tick period, so the CPU runs
+  slower than the rate. Frames never queue.
 
 ## IO devices of the computer
 
