@@ -842,13 +842,16 @@ types and shader nodes with WESL (spec 10).
 - A project with GPU nodes needs Rust 1.97.1 or later.
 - NVRTC comes with the CUDA Toolkit, not with the driver. A package does not carry it yet.
 - CI has no NVIDIA driver, so it checks only the error path of `patina-cuda`.
-- The wire viewer of the editor shows only the text of a GPU image. It needs the image
-  `Viewer` of spec 5.3, which comes later. A node GUI can show the image now.
+- The wire viewer of the editor showed only the text of a GPU image (fixed 2026-11-17).
+  `GpuImage` now gives a `Viewer` thumbnail of 64 pixels at most (spec 5.3). The CLI test of
+  `examples/gpu` checks the 64 x 16 thumbnail of the gradient on Windows.
 - These shortcuts are open in the code:
   - A project root that is not UTF-8 goes to the clusters with lossy text
     (`crates/patina-engine/src/library.rs`).
   - `GpuImage::preview` reads the full image and shrinks it on the CPU
     (`crates/patina-gpu/src/image.rs`).
+  - Each shown frame of a `GpuImage` reads the full image back for its thumbnail. Keep a small
+    copy on the GPU when large images get slow (`crates/patina-gpu/src/image.rs`).
   - The CLI test of `examples/gpu` checks only the build when there is no adapter
     (`crates/patina-cli/tests/run.rs`).
 
@@ -1751,8 +1754,9 @@ To run the editor from a checkout:
   error with no node (fixed 2026-11-16). The glue test checks the three cases.
 - A `log` crate with another name or in a target table now turns on the logger (fixed
   2026-11-16). The plan test reads four manifests. No build ran with such a node.
-- The `Viewer` gives text only. The table, the image, the plot, the waveform and the thumbnail
-  come later (5.3). The **Inspector** reads the full text one time after each run.
+- The `Viewer` gives text and a thumbnail of 64 x 64 pixels at most (5.3, thumbnail fixed
+  2026-11-17). The table, the plot and the waveform come later. The **Inspector** reads the full
+  text one time after each run. The glue, load, frame and frontend tests check the thumbnail.
 - The editor has no bench with 500 nodes, so the far zoom form was not measured for frame
   drops. Two badges can cover each other. After each run, the engine copies the text of each
   value into a new `String`, and the badge text into a second `String`.

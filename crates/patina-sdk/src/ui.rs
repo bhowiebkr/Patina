@@ -510,7 +510,7 @@ impl Ui {
         let pixels = size[0].checked_mul(size[1]).filter(|&p| p <= MAX_PIXELS && p as usize * 4 == rgba.len());
         if pixels.is_some() {
             let _ = write!(self.tree, "\t{}\t{}\t", size[0], size[1]);
-            push_base64(&mut self.tree, rgba);
+            crate::view::push_base64(&mut self.tree, rgba);
         } else {
             self.tree.push_str("\t0\t0\t");
         }
@@ -564,16 +564,6 @@ fn push_numbers(tree: &mut String, values: impl Iterator<Item = f32>) {
 /// most the length.
 fn parts(values: &[f32], n: usize) -> impl Iterator<Item = &[f32]> {
     (0..n).map(move |i| &values[i * values.len() / n..(i + 1) * values.len() / n])
-}
-
-fn push_base64(tree: &mut String, bytes: &[u8]) {
-    const DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    for chunk in bytes.chunks(3) {
-        let n = chunk.iter().enumerate().fold(0_u32, |n, (i, &b)| n | (u32::from(b) << (16 - 8 * i)));
-        for i in 0..4 {
-            tree.push(if i <= chunk.len() { char::from(DIGITS[((n >> (18 - 6 * i)) & 63) as usize]) } else { '=' });
-        }
-    }
 }
 
 /// A user edit of a curve: the index of a point and the new point.

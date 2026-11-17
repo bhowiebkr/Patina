@@ -9,6 +9,7 @@ import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, val
 import { ExpandButton, NodeGui } from './NodeGui';
 import type { Inspect } from './ProjectPanel';
 import { SubgraphInterface } from './SubgraphInterface';
+import { Thumbnail } from './ValueWidgets';
 
 export type InspectorTab = 'parameters' | 'code' | 'logs';
 
@@ -131,6 +132,7 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
             </span>
           </div>
         )}
+        {value?.thumb && <Thumbnail thumb={value.thumb} stale={stale} label="Value" />}
       </div>
       <div className="section">
         <h3>Look</h3>

@@ -1,7 +1,8 @@
 // The value widgets of a node GUI (spec 4.3): color picker, plot, waveform, table, curve and
 // image, with the shared controls of the GUI guide.
 
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { parseThumb } from './api';
 import type { Widget } from './gui';
 
 type Of<K extends Widget['kind']> = Extract<Widget, { kind: K }>;
@@ -339,6 +340,19 @@ export function Progress({ w }: { w: Of<'progress'> }) {
       <span className="gui-value">{percent}%</span>
     </div>
   );
+}
+
+/** Draws the thumbnail of a value (5.3) when it changes. A value from an old run is dim. */
+export function Thumbnail({ thumb, stale, label }: { thumb: string; stale: boolean; label: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const picture = useMemo(() => parseThumb(thumb), [thumb]);
+  useEffect(() => {
+    const context = ref.current?.getContext('2d');
+    if (context && picture) context.putImageData(new ImageData(picture.pixels, picture.width, picture.height), 0, 0);
+  }, [picture]);
+  if (!picture) return null;
+  const { width, height } = picture;
+  return <canvas ref={ref} className={stale ? 'gui-image thumb stale' : 'gui-image thumb'} width={width} height={height} role="img" aria-label={`${label}: ${width} x ${height} pixels`} />;
 }
 
 /** Draws the pixels of the image when they change. An empty image shows an empty box. */

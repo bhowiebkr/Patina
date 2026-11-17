@@ -12,7 +12,7 @@ pub use audio::AudioBlock;
 pub use graph::Graph;
 pub use patina_macros::{connection, node, view};
 pub use ui::{Blend, Canvas, ColorRamp, Key, Layer, Mode, Number, PathKind, Pointer, Response, Ui, Viewport, Widget};
-pub use view::{Lanes, Text, Viewer};
+pub use view::{Lanes, Text, Thumbnail, Viewer};
 
 /// The path of a file in the `assets/` folder of the node crate (6.2), for example a WESL
 /// shader. The engine gives the project root, so the path is also correct in a package (14.1).

@@ -60,6 +60,22 @@ pub struct Value {
     /// The lanes from the connection kind of the type (6.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lanes: Option<Lanes>,
+    /// The thumbnail of the `Viewer` (5.3): "<width> <height> <base64 RGBA>", or an empty text.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub thumb: String,
+}
+
+/// Reads the text of a `THUMB` report into `thumb`, and keeps its buffer. A defective cluster can
+/// send a bad text, which gives no thumbnail.
+fn read_thumb(text: Option<&str>, thumb: &mut String) {
+    let valid = |text: &str| {
+        let mut parts = text.splitn(3, ' ');
+        let side = |part: Option<&str>| part.and_then(|p| p.parse::<u32>().ok()).filter(|n| (1..=patina_sdk::Thumbnail::MAX).contains(n));
+        let (Some(width), Some(height), Some(data)) = (side(parts.next()), side(parts.next()), parts.next()) else { return false };
+        let base64 = |b: u8| b.is_ascii_alphanumeric() || b"+/=".contains(&b);
+        data.len() == (width * height * 4).div_ceil(3) as usize * 4 && data.bytes().all(base64)
+    };
+    put(thumb, text.filter(|t| valid(t)).unwrap_or_default());
 }
 
 /// The lanes of a live value (6.3).
@@ -569,13 +585,15 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
                 let value = reuse(&mut out.values, &mut values);
                 put(&mut value.from, from);
                 put(&mut value.text, text);
-                // The lanes come after the text of the same value.
+                // The thumbnail and the lanes come after the text of the same value.
+                let thumb = items.next_if(|&(i, k, _)| (i, k) == (index, glue::THUMB));
+                read_thumb(thumb.map(|(_, _, text)| text), &mut value.thumb);
                 let lanes = items.next_if(|&(i, k, _)| (i, k) == (index, glue::LANES));
                 Lanes::read(lanes.map(|(_, _, text)| text), &mut value.lanes);
             }
-            // Lanes with no value before them come only from a defective cluster. `Cluster::ui`
-            // reads the widget lines and the parameter writes.
-            glue::LANES | glue::UI | glue::EDIT => {}
+            // Lanes or a thumbnail with no value before them come only from a defective cluster.
+            // `Cluster::ui` reads the widget lines and the parameter writes.
+            glue::LANES | glue::THUMB | glue::UI | glue::EDIT => {}
             glue::TIME => {
                 // A defective cluster can send a bad text or index. Its time has no node to show on.
                 if let (Some((id, _)), Ok(ns)) = (name, text.parse::<u64>()) {
@@ -666,9 +684,10 @@ mod tests {
             sink.clear();
             let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: std::ptr::null() };
             for i in 0..n {
-                glue::send_value(&rep, i, &(f64::from(i) * 0.1), |v, t| {
+                let text: glue::TextFn<f64> = |v, t| {
                     let _ = write!(t, "{v}");
-                });
+                };
+                glue::send_value(&rep, i, &(f64::from(i) * 0.1), (text, None));
             }
             fill(out, true, sink, &names, &probes);
         };
@@ -694,7 +713,9 @@ mod tests {
         };
         let run = sink(&[
             (0, glue::VALUE, "2.5"),
+            (0, glue::THUMB, "1 1 AQIDBA=="),
             (0, glue::LANES, "0110 data bus"),
+            (0, glue::THUMB, "1 1 AQIDBA=="),
             (7, glue::VALUE, "x"),
             (0, glue::PANIC, "p"),
             (0, glue::TIME, "2500000"),
@@ -712,6 +733,12 @@ mod tests {
         assert_eq!(out.values.len(), 1);
         assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
         assert_eq!(out.values[0].lanes, Some(Lanes { bits: "0110".to_owned(), label: "data bus".to_owned() }));
+        assert_eq!(out.values[0].thumb, "1 1 AQIDBA==");
+        for bad in [None, Some("1 1"), Some("0 1 "), Some("65 1 AQIDBA=="), Some("1 1 AQIDBA="), Some("1 1 AQ.DBA=="), Some("x 1 AQIDBA==")] {
+            let mut thumb = out.values[0].thumb.clone();
+            read_thumb(bad, &mut thumb);
+            assert_eq!(thumb, "", "{bad:?}");
+        }
         for bad in [None, Some("0110"), Some("012 x"), Some(" x"), Some(&format!("{} x", "1".repeat(65)))] {
             let mut lanes = out.values[0].lanes.clone();
             Lanes::read(bad, &mut lanes);

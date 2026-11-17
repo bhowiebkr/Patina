@@ -293,6 +293,20 @@ html.native-viewport .gui-viewport {
   image-rendering: pixelated;
 }
 
+/* The thumbnail of a value (5.3), under the pins or in the Inspector. */
+.gui-image.thumb {
+  image-rendering: auto;
+}
+
+.patina-node > .gui-image.thumb {
+  width: calc(100% - 24px);
+  margin: 0 12px 10px;
+}
+
+.gui-image.thumb.stale {
+  opacity: 0.5;
+}
+
 .gui-image.empty {
   height: 56px;
   line-height: 56px;

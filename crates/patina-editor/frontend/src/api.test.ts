@@ -2,7 +2,14 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duration, firstSentence, logKind, nodeProblems, openType, paramEdit, scopeDomains } from './api.ts';
+import { duration, firstSentence, logKind, nodeProblems, openType, paramEdit, parseThumb, scopeDomains } from './api.ts';
+
+test('a thumbnail has a size of 1 to 64 pixels and 4 bytes for each pixel', () => {
+  assert.deepEqual(parseThumb('2 1 AQIDBAUGBwg='), { width: 2, height: 1, pixels: Uint8ClampedArray.from([1, 2, 3, 4, 5, 6, 7, 8]) });
+  for (const bad of ['', '2 1', '0 1 ', '65 1 AQIDBA==', '1 1 AQIDBAUGBwg=', '1 1 !!!!', 'x 1 AQIDBA==', '1.5 1 AQIDBA==']) {
+    assert.equal(parseThumb(bad), null, bad);
+  }
+});
 
 test('a node run time uses seconds, milliseconds or microseconds', () => {
   assert.equal(duration(2400), '2.4 s');

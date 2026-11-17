@@ -688,7 +688,7 @@ fn send(plan: &Plan, n: usize, k: usize, probe: usize) -> String {
     let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {
         format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, v, ::{}::{});", name.replace('-', "_"), kind.func)
     });
-    format!("::patina_sdk::glue::send_value(rep, {probe}, v, (&&&::patina_sdk::glue::Probe(v)).text_fn());{lanes}")
+    format!("::patina_sdk::glue::send_value(rep, {probe}, v, (&&&::patina_sdk::glue::Probe(v)).view_fns());{lanes}")
 }
 
 /// The code that keeps a copy of held value `v` with index `probe` for a view (15.8).

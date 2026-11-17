@@ -207,7 +207,7 @@ mod tests {
         let mut graph: GraphFile = toml::from_str("format = 1\n[[node]]\nid = \"a\"\nfolder = \"number\"\nparams = { value = \"2\" }\n").unwrap();
         graph.node[0].params.insert("text".to_owned(), "x\ty".to_owned());
         graph.wire = toml::from_str::<GraphFile>("format = 1\n[[wire]]\nfrom = \"a.out\"\nto = \"b.in\"\n").unwrap().wire;
-        let values = [Value { from: "a.out".to_owned(), text: "2.0".to_owned(), lanes: None }];
+        let values = [Value { from: "a.out".to_owned(), text: "2.0".to_owned(), ..Value::default() }];
         let lines = "node\ta\tnumber\nparam\ta\ttext\tx y\nparam\ta\tvalue\t2\nwire\ta.out\tb.in\nout\ta\tout\t2.0\nerror\ta\tbad\nselected\ta\n";
         let reports = [Report { id: "a".to_owned(), text: "bad".to_owned(), ..Report::default() }];
         assert_eq!(snapshot(&graph, &values, &reports, &["a".to_owned()]), lines);

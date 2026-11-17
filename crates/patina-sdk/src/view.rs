@@ -1,4 +1,4 @@
-//! The text and the lanes of a value in the editor (spec 5.3, 6.3).
+//! The text, the thumbnail and the lanes of a value in the editor (spec 5.3, 6.3).
 
 use std::fmt;
 
@@ -22,6 +22,74 @@ use std::fmt;
 pub trait Viewer {
     /// Writes the text of the value. A long text stops at the limit of `Text`.
     fn text(&self, out: &mut Text<'_>) -> fmt::Result;
+
+    /// Draws a small picture of the value, for example an image preview. The node body shows it
+    /// under the pins, and the **Inspector** shows it for a selected wire. The default draws none.
+    fn thumbnail(&self, out: &mut Thumbnail<'_>) {
+        let _ = out;
+    }
+}
+
+/// The small picture of a value (5.3): RGBA pixels, row by row from the top. It allocates only
+/// for the first picture of a thread.
+///
+/// ```
+/// use std::fmt::{self, Write};
+///
+/// pub struct Gray(pub u8);
+///
+/// impl patina_sdk::Viewer for Gray {
+///     fn text(&self, out: &mut patina_sdk::Text<'_>) -> fmt::Result {
+///         write!(out, "gray {}", self.0)
+///     }
+///
+///     fn thumbnail(&self, out: &mut patina_sdk::Thumbnail<'_>) {
+///         for pixel in out.pixels(8, 8).chunks_mut(4) {
+///             pixel.copy_from_slice(&[self.0, self.0, self.0, 255]);
+///         }
+///     }
+/// }
+/// ```
+pub struct Thumbnail<'a> {
+    buf: &'a mut Vec<u8>,
+    size: [u32; 2],
+}
+
+impl<'a> Thumbnail<'a> {
+    /// The longest side of a thumbnail, in pixels.
+    pub const MAX: u32 = 64;
+
+    pub(crate) fn new(buf: &'a mut Vec<u8>) -> Thumbnail<'a> {
+        Thumbnail { buf, size: [0, 0] }
+    }
+
+    /// Sets the size and gives the pixels, 4 bytes for each pixel, all 0 at first. A side longer
+    /// than `MAX` becomes `MAX`. A side of 0 draws no picture.
+    pub fn pixels(&mut self, width: u32, height: u32) -> &mut [u8] {
+        self.size = [width.min(Self::MAX), height.min(Self::MAX)];
+        self.buf.clear();
+        self.buf.resize((self.size[0] * self.size[1] * 4) as usize, 0);
+        self.buf
+    }
+
+    pub(crate) fn size(&self) -> [u32; 2] {
+        self.size
+    }
+
+    pub(crate) fn data(&self) -> &[u8] {
+        self.buf
+    }
+}
+
+/// Adds `bytes` to `out` in base64, with '=' at the end.
+pub(crate) fn push_base64(out: &mut String, bytes: &[u8]) {
+    const DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for chunk in bytes.chunks(3) {
+        let n = chunk.iter().enumerate().fold(0_u32, |n, (i, &b)| n | (u32::from(b) << (16 - 8 * i)));
+        for i in 0..4 {
+            out.push(if i <= chunk.len() { char::from(DIGITS[((n >> (18 - 6 * i)) & 63) as usize]) } else { '=' });
+        }
+    }
 }
 
 /// The lanes of a value on a wire (6.3, 15.9). A connection kind returns it. The first lane is

@@ -3,7 +3,7 @@
 import type { Edge } from '@xyflow/react';
 import type { Domain, KindInfo, NodeInfo, Pin, Point, View } from './api';
 import { kindOf, socketOf, type Socket } from './bus';
-import { ORDER, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
+import { ORDER, infoOf, nodeState, outputType, valueStale, type NodeData, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { place, type Frame, type Room } from './frames';
 import { outputTypeOf } from './palette';
 import type { WireData } from './WireLayer';
@@ -44,6 +44,16 @@ function socketsOf(id: string, info: NodeInfo | null, kinds: readonly KindInfo[]
   for (const p of info?.outputs ?? []) add(`o:${p.key}`, p, `${id}.${p.key}`, null);
   for (const p of info?.inputs ?? []) add(`i:${p.key}`, p, sources.get(`${id}.${p.key}`) ?? '', `${id}.${p.key}`);
   return out;
+}
+
+/** The thumbnail of the first output of a node that has one (5.3). */
+function thumbOf(id: string, info: NodeInfo | null, run: RunState): NodeData['thumb'] {
+  for (const p of info?.outputs ?? []) {
+    const from = `${id}.${p.key}`;
+    const text = run.values.get(from)?.thumb;
+    if (text) return { text, stale: valueStale(run, from), label: p.name ?? p.key };
+  }
+  return undefined;
 }
 
 /** The key of the public pin "in:<key>" or "out:<key>", or null for a node. */
@@ -96,7 +106,7 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
       const time = run.phase === 'ran' ? run.times.get(entry.id) : undefined;
       const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
       const keys = wired.filter(([id]) => id === entry.id).map(([, key]) => key);
-      const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true };
+      const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run) };
       const position = { x, y };
       const before = old.get(entry.id);
       return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina', parentId: f.use, position, data, ...lock };
@@ -120,7 +130,7 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
     const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
     const domain = domains.get(entry.id);
-    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id) };
+    const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run) };
     const before = old.get(entry.id);
     return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
   });

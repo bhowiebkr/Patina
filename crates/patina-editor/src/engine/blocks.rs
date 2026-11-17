@@ -136,6 +136,7 @@ impl Refill for Value {
     fn refill(&mut self, from: &Self) {
         self.from.clone_from(&from.from);
         self.text.clone_from(&from.text);
+        self.thumb.clone_from(&from.thumb);
         match (&mut self.lanes, &from.lanes) {
             (Some(old), Some(new)) => {
                 old.bits.clone_from(&new.bits);
@@ -208,7 +209,7 @@ mod tests {
     fn block(ok: bool, text: &str, ms: f64) -> Outcome {
         Outcome {
             ok,
-            values: vec![Value { from: "t.out".to_owned(), text: text.to_owned(), lanes: None }],
+            values: vec![Value { from: "t.out".to_owned(), text: text.to_owned(), ..Value::default() }],
             reports: (!ok).then(Report::default).into_iter().collect(),
             logs: vec![NodeLog { id: "t".to_owned(), text: format!("line {text}"), ..NodeLog::default() }],
             times: vec![NodeTime { id: "t".to_owned(), ms }],

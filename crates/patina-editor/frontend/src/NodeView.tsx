@@ -7,6 +7,7 @@ import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from './gl';
 import { ExpandButton, NodeGui } from './NodeGui';
+import { Thumbnail } from './ValueWidgets';
 import { outputTypeOf, socketKey } from './palette';
 import { FRAME_BOTTOM, FRAME_RIGHT } from './frames';
 import { nodeWidth } from './gui';
@@ -122,6 +123,8 @@ export interface NodeData extends Record<string, unknown> {
   open?: boolean;
   /** True for an inner node of such a frame. It has no edits and no header buttons. */
   inner?: boolean;
+  /** The thumbnail of the first output that has one (5.3), with the name of the output. */
+  thumb?: { text: string; stale: boolean; label: string };
 }
 
 export type PatinaNode = Node<NodeData, 'patina'>;
@@ -257,7 +260,7 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable, time, gui, slot, sockets, domain, open, inner } = data;
+  const { entry, info, wired, state, message, editable, time, gui, slot, sockets, domain, open, inner, thumb } = data;
   const inputs = info?.inputs ?? [];
   const outputs = info?.outputs ?? [];
   const rows = Math.max(inputs.length, outputs.length);
@@ -353,6 +356,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
           )}
       </div>
       {open && <div style={{ height: Math.max(0, (size % 65536) + FRAME_BOTTOM - tops[rows] - PAD) }} />}
+      {thumb && <Thumbnail thumb={thumb.text} stale={thumb.stale} label={thumb.label} />}
       {gui !== undefined && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}

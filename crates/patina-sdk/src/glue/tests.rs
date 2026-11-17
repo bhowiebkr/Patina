@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Lanes, Viewer};
+use crate::{Lanes, Thumbnail, Viewer};
 
 struct NoDebug;
 
@@ -23,18 +23,51 @@ unsafe extern "C" fn keep(ctx: *mut c_void, node: u32, kind: u32, text: *const u
 fn values_use_the_viewer_then_debug_then_the_type_name() {
     let mut sent: Vec<(u32, u32, String)> = Vec::new();
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
-    send_value(&rep, 0, &2.5_f64, (&&&Probe(&2.5_f64)).text_fn());
-    send_value(&rep, 1, &NoDebug, (&&&Probe(&NoDebug)).text_fn());
-    send_value(&rep, 2, &Hex(10), (&&&Probe(&Hex(10))).text_fn());
+    send_value(&rep, 0, &2.5_f64, (&&&Probe(&2.5_f64)).view_fns());
+    send_value(&rep, 1, &NoDebug, (&&&Probe(&NoDebug)).view_fns());
+    send_value(&rep, 2, &Hex(10), (&&&Probe(&Hex(10))).view_fns());
     let long = "\u{e9}".repeat(TEXT_LEN);
-    send_value(&rep, 3, &long, (&&&Probe(&long)).text_fn());
-    send_value(&rep, 4, &(), |_, _| panic!("no text"));
+    send_value(&rep, 3, &long, (&&&Probe(&long)).view_fns());
+    send_value(&rep, 4, &(), (|_, _| panic!("no text"), None));
     assert_eq!(sent[0], (0, VALUE, "2.5".to_owned()));
     assert!(sent[1].2.ends_with("NoDebug (0 bytes)"), "{}", sent[1].2);
     assert_eq!(sent[2].2, "0x0a");
     // The quote and 2047 two-byte characters fill 4095 bytes. The next character does not fit.
     assert_eq!(sent[3].2, format!("\"{}...", "\u{e9}".repeat(TEXT_LEN / 2 - 1)));
     assert_eq!(sent[4].2, "the text of the value panicked");
+}
+
+/// A value with a thumbnail of 2 x 1 pixels, with no thumbnail, or with a panic.
+struct Dot(u8);
+
+impl Viewer for Dot {
+    fn text(&self, out: &mut Text<'_>) -> fmt::Result {
+        out.write_str("dot")
+    }
+
+    fn thumbnail(&self, out: &mut Thumbnail<'_>) {
+        match self.0 {
+            0 => {}
+            1 => out.pixels(2, 1).copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]),
+            _ => panic!("no picture"),
+        }
+    }
+}
+
+#[test]
+#[allow(clippy::needless_borrow, reason = "the calls are the same as in the generated code")]
+fn a_viewer_sends_its_thumbnail_after_the_text() {
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+    for (i, dot) in [Dot(1), Dot(0), Dot(2)].iter().enumerate() {
+        send_value(&rep, i as u32, dot, (&&&Probe(dot)).view_fns());
+    }
+    send_value(&rep, 3, &Hex(1), (&&&Probe(&Hex(1))).view_fns());
+    let kinds: Vec<_> = sent.iter().map(|&(i, k, _)| (i, k)).collect();
+    assert_eq!(kinds, [(0, VALUE), (0, THUMB), (1, VALUE), (2, VALUE), (3, VALUE)]);
+    assert_eq!(sent[1].2, "2 1 AQIDBAUGBwg=");
+    let mut buf = Vec::new();
+    assert_eq!(Thumbnail::new(&mut buf).pixels(100, 2).len(), 64 * 2 * 4, "a long side becomes MAX");
 }
 
 #[test]
@@ -165,12 +198,12 @@ fn a_quiet_run_sends_no_values_and_no_times_but_logs() {
     let control = Control::default();
     control.set_quiet(true);
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: &control };
-    send_value(&rep, 0, &1_u8, (&&Probe(&1_u8)).text_fn());
+    send_value(&rep, 0, &1_u8, (&&Probe(&1_u8)).view_fns());
     send_lanes(&rep, 1, &1, |v| Lanes::bits(1, *v));
     rep.time(2, std::time::Instant::now());
     rep.send(3, LOG, "hi");
     control.set_quiet(false);
-    send_value(&rep, 4, &1_u8, (&&Probe(&1_u8)).text_fn());
+    send_value(&rep, 4, &1_u8, (&&Probe(&1_u8)).view_fns());
     assert_eq!(sent, [(3, LOG, "hi".to_owned()), (4, VALUE, "1".to_owned())]);
 }
 

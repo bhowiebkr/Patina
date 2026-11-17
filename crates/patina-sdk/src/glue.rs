@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 19;
+pub const ABI_VERSION: u32 = 20;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -41,6 +41,9 @@ pub const UI: u32 = 10;
 /// A write of a view to the graph (15.8), from `Graph::set_param`, or a parameter write of a node
 /// GUI (4.3), from `Ui::set_param`: the key, a tab and the text.
 pub const EDIT: u32 = 11;
+/// The thumbnail of a held value (5.3), after its `VALUE`: the width, a space, the height, a space
+/// and the RGBA pixels in base64.
+pub const THUMB: u32 = 12;
 
 /// The most log lines of one run (15.7). The cluster does not send the lines after them.
 pub const LOG_LINES: u32 = 1000;

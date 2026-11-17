@@ -242,12 +242,11 @@ fn broken() -> u32 {
     steps.push('fix with Ctrl+S');
 
     // A failed build of the slot alone keeps the base, so the next save builds the slot alone (7.1).
+    // The error is in the body of the node, so the outline of the code stays the same.
+    const slotError = stoppable.replace(/    value\r?\n\}/, '    let broken: u32 = "x";\n    value\n}');
+    if (slotError === stoppable) throw new Error(`the slot check cannot change the code of ${lib}`);
     from = mark();
-    v = await step('break the slot', () => api.edit({ kind: 'SetCode', path: lib, text: `${stoppable}
-fn broken() -> u32 {
-    "x"
-}
-` }));
+    v = await step('break the slot', () => api.edit({ kind: 'SetCode', path: lib, text: slotError }));
     const slotBroken = await result(v, from, '2.5', BUILD_MS);
     if (!slotBroken.errors.some((e) => e.file === lib)) throw new Error(`no compile error in the slot: ${JSON.stringify(slotBroken.errors)}`);
     from = mark();

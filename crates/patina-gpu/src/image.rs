@@ -124,4 +124,10 @@ impl patina_sdk::Viewer for GpuImage {
     fn text(&self, out: &mut patina_sdk::Text<'_>) -> fmt::Result {
         write!(out, "GpuImage {}x{}", self.width(), self.height())
     }
+
+    // shortcut: each shown frame reads the full image back, keep a small copy on the GPU when large images get slow.
+    fn thumbnail(&self, out: &mut patina_sdk::Thumbnail<'_>) {
+        let Ok(([width, height], pixels)) = crate::gpu().and_then(|gpu| self.preview(gpu, patina_sdk::Thumbnail::MAX)) else { return };
+        out.pixels(width, height).copy_from_slice(&pixels);
+    }
 }

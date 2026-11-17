@@ -132,7 +132,7 @@ fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) 
         match kept[at..].iter().position(same).map(|i| i + at).or_else(|| kept[..at].iter().position(same)) {
             Some(i) => {
                 at = i + 1;
-                if kept[i].text != value.text || kept[i].lanes != value.lanes {
+                if kept[i].text != value.text || kept[i].lanes != value.lanes || kept[i].thumb != value.thumb {
                     kept[i].clone_from(value);
                     changed.push(value.clone());
                 }
@@ -155,7 +155,7 @@ pub(super) fn alias(values: &[Value], aliases: &[(String, String)]) -> Vec<Value
 
 /// The values with the badge texts (15.9).
 pub(super) fn badges(values: &[Value]) -> Vec<Value> {
-    values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone() }).collect()
+    values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone(), thumb: v.thumb.clone() }).collect()
 }
 
 /// Cuts a text for its badge at a character boundary.
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn a_frame_replaces_only_the_values_of_its_outputs() {
-        let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), lanes: None };
+        let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), ..Value::default() };
         let mut kept = vec![value("a.out", "1"), value("b.out", "2")];
         let changed = keep(&mut kept, &[value("b.out", "3"), value("c.out", "4")]);
         let texts: Vec<_> = kept.iter().map(|v| (v.from.as_str(), v.text.as_str())).collect();
@@ -212,6 +212,9 @@ mod tests {
         // Only the changed values return, also in a new order.
         let changed = keep(&mut kept, &[value("c.out", "4"), value("a.out", "5"), value("b.out", "3")]);
         assert_eq!((changed.len(), changed[0].text.as_str(), kept.len()), (1, "5", 3));
+        // A new thumbnail with the same text is a change too.
+        let thumb = Value { thumb: "1 1 AQIDBA==".to_owned(), ..value("c.out", "4") };
+        assert_eq!(keep(&mut kept, &[thumb]).len(), 1);
         let extra = alias(&kept, &[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
         assert_eq!((extra.len(), extra[0].from.as_str(), extra[0].text.as_str()), (1, "v.0000000a", "3"));
     }

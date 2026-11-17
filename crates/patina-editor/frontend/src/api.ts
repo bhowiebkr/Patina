@@ -240,6 +240,22 @@ export interface Value {
   from: string;
   text: string;
   lanes?: Lanes;
+  /** The thumbnail of the `Viewer` (5.3): "<width> <height> <base64 RGBA>". */
+  thumb?: string;
+}
+
+/** The size and the RGBA pixels of a thumbnail (5.3), or null for a bad text. */
+export function parseThumb(thumb: string) {
+  const [w, h, data] = thumb.split(' ');
+  const [width, height] = [Number(w), Number(h)];
+  const side = (n: number) => Number.isInteger(n) && n >= 1 && n <= 64;
+  if (!side(width) || !side(height) || data === undefined) return null;
+  try {
+    const pixels = Uint8ClampedArray.from(atob(data), (c) => c.charCodeAt(0));
+    return pixels.length === width * height * 4 ? { width, height, pixels } : null;
+  } catch {
+    return null;
+  }
 }
 
 /** A compile error (spec 15.5). Lines and columns start at 1. */

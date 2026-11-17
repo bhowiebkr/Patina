@@ -487,6 +487,9 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     cluster.set_params(opened.graph());
     let outcome = cluster.run(&Control::default());
     assert!(outcome.ok, "{:?}", outcome.reports);
+    // The image on the wire of the gradient has a thumbnail of 64 x 16 pixels (5.3).
+    let image = outcome.values.iter().find(|v| v.from == "1a2b3c4d5e6f7081.out").unwrap();
+    assert!(image.thumb.starts_with("64 16 ") && image.thumb.len() == 6 + (64 * 16 * 4_usize).div_ceil(3) * 4, "{}", image.thumb.len());
     let tree = cluster.ui(&Control::default(), "4d5e6f708192a3b4", 0, "").0.unwrap();
     assert!(tree.starts_with("image	Preview	64	16	"), "{tree}");
 

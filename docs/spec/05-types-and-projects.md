@@ -36,7 +36,8 @@ The UI cannot show an unknown type by itself.
 - The viewer does not set how a wire shows the value. The connection kind of the type does that, for example the 8 lanes of a byte (6.3).
 - If a type has no viewer but implements `Debug`, the UI shows the `Debug` text.
 - Otherwise the UI shows the type name and size.
-- The first `Viewer` gives text only: `fn text(&self, out: &mut Text) -> fmt::Result`. `Text` does not allocate, and it stops a text at 4096 bytes. The table, the image, the plot, the waveform and the thumbnail come later. (Agent decision, 2026-11-15. The owner can change it.)
+- The first `Viewer` gives text: `fn text(&self, out: &mut Text) -> fmt::Result`. `Text` does not allocate, and it stops a text at 4096 bytes. (Agent decision, 2026-11-15. The owner can change it.)
+- A `Viewer` can also give a thumbnail: `fn thumbnail(&self, out: &mut Thumbnail)`. `out.pixels(width, height)` gives the RGBA bytes to fill. A side is at most `Thumbnail::MAX`, 64 pixels. The default gives no thumbnail. The cluster sends it after the text as a `THUMB` report in base64 (ABI 20), and the engine refuses a bad size. The node body shows the thumbnail of its first output that has one, under the pins. The **Inspector** shows it for the selected wire. A thumbnail from an old run is dim. `GpuImage` gives a thumbnail. The table, the plot and the waveform come later. (Agent decision, 2026-11-17. The owner can change it.)
 
 ## 6. Graphs and projects
 
