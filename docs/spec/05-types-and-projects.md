@@ -192,7 +192,7 @@ The project files are TOML. Patina writes them, and Git can merge them. A person
 format = 1
 id = "3f9c2a7d41e0b85c"     # the stable random ID of the project (6.2)
 rust = "1.94.0"             # the Rust version of the project (8.1)
-frame_rate = 600            # optional: the frames each second, 1 to 1000 (9.1)
+frame_rate = 600            # optional: the frames each second, 1 to 100000 (9.1)
 
 [imports."nodes/curve-editor"]   # the folder in this project (6.2)
 project = "9a1b4c0d2e7f6385"     # the ID of the other project

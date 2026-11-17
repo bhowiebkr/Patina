@@ -8,7 +8,7 @@ pub use patina_sdk::audio::SAMPLE_RATE;
 pub const FRAME: Duration = Duration::from_nanos(16_666_667);
 
 /// The frame rates that a project can have (6.4), and the rate of a project with no rate.
-pub const RATES: std::ops::RangeInclusive<u32> = 1..=1000;
+pub const RATES: std::ops::RangeInclusive<u32> = 1..=100_000;
 pub const RATE: u32 = 60;
 
 /// The number of frames that run at tick `tick` (from 1) of the 60 FPS clock, for `rate` frames

@@ -439,7 +439,7 @@ fn graph_path(root: &Path, name: &str) -> PathBuf {
 fn check_rate(rate: u32) -> Result<u32, String> {
     match clock::RATES.contains(&rate) {
         true => Ok(rate),
-        false => Err(format!("the frame rate {rate} is not 1 to 1000")),
+        false => Err(format!("the frame rate {rate} is not {} to {}", clock::RATES.start(), clock::RATES.end())),
     }
 }
 
@@ -454,7 +454,7 @@ mod tests {
         let mut project = Project::create(&root, "1.94.0").unwrap();
         assert!(Project::create(&root, "1.94.0").is_err(), "a folder with files is not used");
         assert_eq!(project.frame_rate(), 60);
-        assert!(project.set_frame_rate(0).is_err() && project.set_frame_rate(1001).is_err());
+        assert!(project.set_frame_rate(0).is_err() && project.set_frame_rate(100_001).is_err());
         project.set_frame_rate(600).unwrap();
         assert!(fs::read_to_string(root.join("patina.toml")).unwrap().contains("frame_rate = 600"));
         assert_eq!((Project::open(&root).unwrap().frame_rate(), project.check().unwrap().frame_rate()), (600, 600));

@@ -1,8 +1,9 @@
 //! The values and the node GUIs that the engine thread sends to the page after a frame (4.3, 15.9).
 
 use std::collections::HashSet;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
+use patina_engine::clock;
 use patina_engine::{Control, Frames, Report, Value};
 
 use super::blocks::Blocks;
@@ -74,15 +75,17 @@ pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64,
 /// the frames, the results of `blocks` and the node GUIs. The other frames are quiet: they send no
 /// values and no times. A failed frame shows at once. Display frame `show` of the run sends the
 /// node times only at 10 Hz (15.9). Then empties `blocks`. Returns false when a frame or a block
-/// failed, and the number of frames that ran.
+/// failed, and the number of frames that ran. After one tick period, the next frame is the last and
+/// the frames after it do not run, so the page shows each tick (9.1).
 pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, (serial, show, count): (u64, u64, u64), blocks: &mut Blocks) -> (bool, u64) {
     let (start, control) = (Instant::now(), &shared.control);
     let (mut quiet_logs, mut ran) = (Vec::new(), 0);
     for left in (0..count.max(1)).rev() {
-        control.set_quiet(left > 0);
+        let last = last(left, start.elapsed());
+        control.set_quiet(!last);
         let outcome = part.frame(control);
         ran += 1;
-        if left == 0 || !outcome.ok {
+        if last || !outcome.ok {
             break;
         }
         quiet_logs.extend_from_slice(&outcome.logs);
@@ -164,9 +167,21 @@ fn badge(text: &str) -> String {
     format!("{}...", &text[..end])
 }
 
+/// True for the last frame of a tick: no frames are left, or the frames used one tick period.
+fn last(left: u64, spent: Duration) -> bool {
+    left == 0 || spent >= clock::FRAME
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_frames_of_a_tick_stop_after_one_tick_period() {
+        let ms = Duration::from_millis;
+        assert!(!last(5, ms(1)) && last(0, ms(1)));
+        assert!(last(5, ms(17)) && last(5, clock::FRAME));
+    }
 
     #[test]
     fn badges_cut_long_texts_at_a_character_boundary() {

@@ -52,6 +52,14 @@ checks open.
 - New: nets (spec 9.2). A row of plain gates in one task shares one **Stop** check, one catch
   and one clock read, and its probes send after the net. A number value between two tasks and
   a number parameter are atomic cells, not locks.
+- New: the frame rate can be 1 to 100000 FPS (item 4 of the plan, spec 9.1). In the editor, the
+  frames of a 60 Hz tick stop after one tick period, so the page shows each tick and **Stop**
+  works at once.
+- Checked, item 4: a unit test checks the end of the frames of a tick. The CLI ran a copy of
+  `examples/computer` at 100000 FPS: 100,000 frames took 6.1 s, with the start and the standard
+  output of the example nodes. That is about 16,000 FPS, so the clock skipped ticks. The hidden
+  self-check ran its test graph at 100000 FPS: each tick ran all 1667 frames in 3.9 ms or less,
+  so that graph did not reach the end of the tick period.
 - Checked: a bake build of `examples/computer` at no frame pacing. The median frame went from
   about 175 us to about 141 us, then to about 52 us with light tasks, and then to about 13.5 us with nets (without the
   standard output of the example nodes; about 28 us with it). A benchmark of one gate net gave
@@ -59,7 +67,7 @@ checks open.
 - Not checked: the edit build, and Digital Logic Sim 2 itself.
 - Known limits: each gate still costs up to about 8 ns: an `Option` for each value and a node
   index for the log. The readout, display and lcd example nodes print a line in each frame,
-  which costs more than the gates. Item 4 of the plan is open. A gate net does not run in parallel. A
+  which costs more than the gates. A gate net does not run in parallel. A
   light node that does much work runs in parallel only with `#[node(heavy)]`.
 
 ## Touchpad pan
@@ -189,7 +197,7 @@ checks open.
   calls a shared `glue::step` function.
 - Measured, frame of the computer: the editor (edit build) went from 8.3 ms to 1.8 ms. The CLI
   (bake build) went from 0.87 ms to 0.51 ms. The bake build went from 111 s to 52 s.
-- New: the frame rate of a project, 1 to 1000 FPS (`frame_rate` in `patina.toml`, the **FPS**
+- New: the frame rate of a project, 1 to 1000 FPS, now 1 to 100000 (`frame_rate` in `patina.toml`, the **FPS**
   field in the toolbar, spec 6.4 and 9.1). The example runs at 240 FPS: 60 instructions each
   second. In the editor, only the last frame of each 60 Hz tick sends its values.
 - New: the `random` node on port 13, and the programs `noise.asm`, `confetti.asm` and `dice.asm`.

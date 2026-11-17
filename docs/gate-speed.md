@@ -98,8 +98,9 @@ The items are in order of the gain for each change.
    1 ns. A wire is still an `Option`, and each gate records its node index for the log.
    The example nodes `readout`, `display` and `lcd` write a line to the standard output in each
    frame. The CLI test reads these lines. This output costs more than all the gates together.
-4. More frames each second. After items 2 and 3, a frame of the computer can take less than
-   20 us. Then a limit of 1000 FPS is too low. Let the editor run many frames in each 60 Hz tick,
-   as DLS2 does with its steps each second.
+4. Done: more frames each second. The frame rate can be 1 to 100000 FPS, not 1 to 1000. The
+   editor already ran many frames in each 60 Hz tick, as DLS2 does with its steps each second.
+   Now the frames of a tick stop after one tick period, so the page shows each tick and **Stop**
+   works at once, also at a rate that the computer cannot reach (spec 9.1).
 5. Optional, later: lookup tables for small combinational subgraphs, and a skip of a net with the
    same inputs. Bit-packed buses, as in DLS2, help only when items 2 and 3 are done.

@@ -462,7 +462,7 @@ export const api = {
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
   step: () => invoke<View>('step'),
-  /** Sets the frames each second of the project, 1 to 1000 (9.1). */
+  /** Sets the frames each second of the project, 1 to 100000 (9.1). */
   frameRate: (rate: number) => invoke<View>('frame_rate', { rate }),
   /** Runs the open subgraph alone with these public input values. Null ends the test (15.9). */
   test: (inputs: Record<string, string> | null) => invoke<View>('test', { inputs }),

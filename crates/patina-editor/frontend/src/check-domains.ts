@@ -63,9 +63,20 @@ export async function checkDomains(c: DomainCheck, v: View, lib: string, changed
   const ran = ofRun().reduce((sum, e) => sum + (e.state === 'frame' ? e.frames : 0), 0);
   const fastEnd = ofRun().find((e) => e.state === 'ended');
   if (fastEnd?.state !== 'ended' || fastEnd.frames !== ran) throw new Error(`the end of the 120 FPS run does not count ${ran} frames: ${JSON.stringify(fastEnd)}`);
+  // At 100000 FPS, the frames of a tick stop after one tick period (9.1).
+  v = await step('set 100000 FPS', () => api.frameRate(100000));
+  from = mark();
+  v = await step('run at 100000 FPS', () => api.run());
+  const many = () => ofRun().filter((e) => e.state === 'frame' && e.frames > 2);
+  await until('three events of many frames', BUILD_MS, () => many().length >= 3);
+  topButton('Stop')!.click();
+  await until('the end of the 100000 FPS run', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+  const ticks = ofRun().flatMap((e) => (e.state === 'frame' ? [e] : []));
+  const slowest = Math.max(...ticks.map((e) => e.runMs));
+  if (slowest > 50) throw new Error(`a tick ran its frames for ${slowest} ms`);
   v = await step('set 60 FPS', () => api.frameRate(60));
   v = await step('undo the frame node', () => api.undo());
-  steps.push(`frames until Stop: ${count}, at 120 FPS: ${ran}`);
+  steps.push(`frames until Stop: ${count}, at 120 FPS: ${ran}, at 100000 FPS: up to ${Math.max(...ticks.map((e) => e.frames))} in ${slowest.toFixed(1)} ms`);
 
   // The audio domain (9.3): Run runs the blocks with the frames until Stop. The node does not
   // call `audio::play`, so no sound plays.
