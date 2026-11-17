@@ -95,6 +95,8 @@ pub struct Node {
     pub ui: bool,
     /// `#[node(full_gui)]`: the GUI has a full size (4.3).
     pub full: bool,
+    /// `#[node(heavy)]`: the node is never a light node, so it keeps a task of its own (9.2).
+    pub heavy: bool,
     /// `#[node(color = "#rrggbb")]`: the header color (15.3).
     pub color: Option<String>,
 }
@@ -150,7 +152,7 @@ fn parse_node(source: &str) -> Result<Node, String> {
         }
     }
     let (attr, item) = found.ok_or("the crate has no #[node] function or struct")?;
-    let (domain, full, color) = read_attr(attr)?;
+    let (domain, full, heavy, color) = read_attr(attr)?;
     let (sig, state, generics, ui) = match item {
         Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None, type_params(&func.sig.generics)?, false),
         Item::Fn(func) => return Err(format!("make the node function `{}` pub", func.sig.ident)),
@@ -216,7 +218,7 @@ fn parse_node(source: &str) -> Result<Node, String> {
     if full && !ui {
         return Err("a node with `full_gui` needs `pub fn ui(&mut self, ui: &mut Ui)` (spec 4.3)".to_owned());
     }
-    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, is_async, ui, full, color })
+    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, is_async, ui, full, heavy, color })
 }
 
 /// The most arguments of a node call: the cluster calls nodes through tuples (generate.rs).
@@ -278,7 +280,7 @@ impl Builtin {
         };
         let generics = if self == Builtin::Delay { vec!["T".to_owned()] } else { Vec::new() };
         let output_types = vec![out.to_owned()];
-        Node { func: self.name().to_owned(), state: None, generics, inputs, output: Output::One, fallible: false, output_types, domain, is_async: false, ui: false, full: false, color: None }
+        Node { func: self.name().to_owned(), state: None, generics, inputs, output: Output::One, fallible: false, output_types, domain, is_async: false, ui: false, full: false, heavy: false, color: None }
     }
 }
 
@@ -348,15 +350,19 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
     Ok((process, ui.is_some()))
 }
 
-/// Reads `domain = <name>` (9.1), `full_gui` (4.3) and `color = "#rrggbb"` (15.3) of `#[node(...)]`.
-fn read_attr(attr: &Attribute) -> Result<(Option<Domain>, bool, Option<String>), String> {
+/// Reads `domain = <name>` (9.1), `full_gui` (4.3), `heavy` (9.2) and `color = "#rrggbb"` (15.3) of `#[node(...)]`.
+fn read_attr(attr: &Attribute) -> Result<(Option<Domain>, bool, bool, Option<String>), String> {
     if matches!(attr.meta, Meta::Path(_)) {
-        return Ok((None, false, None));
+        return Ok((None, false, false, None));
     }
-    let (mut domain, mut full, mut color) = (None, false, None);
+    let (mut domain, mut full, mut heavy, mut color) = (None, false, false, None);
     attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("full_gui") {
             full = true;
+            return Ok(());
+        }
+        if meta.path.is_ident("heavy") {
+            heavy = true;
             return Ok(());
         }
         if meta.path.is_ident("color") {
@@ -368,14 +374,14 @@ fn read_attr(attr: &Attribute) -> Result<(Option<Domain>, bool, Option<String>),
             return Ok(());
         }
         if !meta.path.is_ident("domain") {
-            return Err(meta.error("#[node] takes only `domain = <name>`, `full_gui` and `color = \"#rrggbb\"`"));
+            return Err(meta.error("#[node] takes only `domain = <name>`, `full_gui`, `heavy` and `color = \"#rrggbb\"`"));
         }
         let name: Ident = meta.value()?.parse()?;
         domain = Some(Domain::parse(&name.to_string()).map_err(|e| meta.error(e))?);
         Ok(())
     })
     .map_err(|e| e.to_string())?;
-    Ok((domain, full, color))
+    Ok((domain, full, heavy, color))
 }
 
 /// The function of a connection kind (6.3).
@@ -597,6 +603,7 @@ mod tests {
         assert!(parse(&gui).unwrap().ui);
         let full = gui.replace("#[node(domain = frame)]", "#[node(domain = frame, full_gui)]");
         assert!(parse(&full).unwrap().full);
+        assert!(!node.heavy && parse(&counter.replace("domain = frame", "domain = frame, heavy")).unwrap().heavy);
         let colored = counter.replace("#[node(domain = frame)]", "#[node(domain = frame, color = \"#175C59\")]");
         assert_eq!(parse(&colored).unwrap().color.as_deref(), Some("#175c59"));
         assert!(parse(&colored.replace("#175C59", "175c59")).is_err());

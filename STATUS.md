@@ -19,12 +19,14 @@ checks open.
   Digital Logic Sim 2, and gives the plan to make them faster (owner request, 2026-11-17).
 - New: a quiet run does not read the clock for each node of a fused cluster.
 - New: light nodes, for example NAND gates, share one task for each domain (spec 9.2). Their
-  wires are local variables, with no locks.
+  wires are local variables, with no locks. `#[node(heavy)]` keeps a node in a task of its own
+  (spec 4.1, owner request).
 - Checked: a bake build of `examples/computer` at no frame pacing. The median frame went from
   about 175 us to about 141 us, and then to about 52 us with light tasks. A benchmark of one gate net gave the cost of each step.
 - Not checked: the edit build, and Digital Logic Sim 2 itself.
 - Known limits: each gate still costs about 30 ns: a call, a catch and an `Option` for each
-  value. Items 3 and 4 of the plan are open. A gate net does not run in parallel.
+  value. Items 3 and 4 of the plan are open. A gate net does not run in parallel. A
+  light node that does much work runs in parallel only with `#[node(heavy)]`.
 
 ## Touchpad pan
 

@@ -529,7 +529,7 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
 }
 
 /// True when step `n` is so small that a task of its own costs more than the step (9.2): a delay,
-/// or a node with only `bool`, `char` and number values, for example a NAND gate.
+/// or a node with only `bool`, `char` and number values, for example a NAND gate. `heavy` stops it.
 fn is_light(steps: &[Step], nodes: &[(String, Node)], n: usize, is_delay: bool) -> bool {
     const SCALARS: [&str; 16] = ["bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
     let scalar = |ty: &str| SCALARS.contains(&ty.trim_start_matches('&').trim_start_matches("mut ").trim());
@@ -540,6 +540,7 @@ fn is_light(steps: &[Step], nodes: &[(String, Node)], n: usize, is_delay: bool) 
     };
     is_delay
         || (!node.is_async
+            && !node.heavy
             && step.domain != Domain::Event
             && node.inputs.iter().zip(&step.inputs).all(input)
             && step.types.iter().take(step.consumers.len()).all(|ty| scalar(ty)))

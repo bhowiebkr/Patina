@@ -22,6 +22,16 @@ pub fn split(text: &str) -> (String, String) { ... }
 - The source of a node can also have helper functions and `use` statements.
 - `syn` parses with recursion, so Patina parses node code on a thread with a 64 MB stack. A debug build then parses types with about 1000 levels of nesting. Code that nests deeper can still stop the process. (Agent decision, 2026-11-16. The owner can change it.)
 
+A node with only `bool`, `char` and number values is a light node. Light nodes share one task (9.2). A light node that does much work, for example a long loop, can set `heavy`:
+
+```rust
+#[node(heavy)]
+pub fn mandelbrot(x: f64, y: f64, steps: u32) -> u32 { ... }
+```
+
+- A `heavy` node keeps a task of its own, so it can run in parallel with other nodes.
+- `heavy` changes only the tasks. The node gets the same values and gives the same results. (Agent decision, 2026-11-17. The owner can change it.)
+
 ### 4.2 Stateful nodes
 
 A stateful node keeps data between runs, for example a counter, a file handle, or a GPU context.

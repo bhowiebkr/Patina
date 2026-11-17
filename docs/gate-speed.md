@@ -81,7 +81,8 @@ The items are in order of the gain for each change.
 2. Done: one task for a gate net. A light node (a delay, or a node with only `bool`, `char` and
    number values) joins the newest light task of its domain (spec 9.2). A wire in that task is a
    local `Option`, with no lock, no sink lock and no call for each gate. The frame went from
-   about 141 us to about 52 us. The frame cluster has 13 tasks, not 1330.
+   about 141 us to about 52 us. The frame cluster has 13 tasks, not 1330. A light node that does
+   much work can set `#[node(heavy)]` to keep a task of its own, so it can run in parallel.
 3. Straight-line code for plain gates. A node with no state, no panic and `bool` values becomes
    one line, for example `v[12] = !(v[3] & v[7]);`. The catch and the probe move to the end of
    the net. The goal is less than 1 ns for each gate. This also makes the bake build faster.
