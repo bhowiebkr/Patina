@@ -117,8 +117,11 @@ export function App() {
   // A node GUI writes its own parameters through the edit path, so undo removes them (4.3).
   useEvent(onEngine, (e: EngineEvent) => {
     if (e.serial !== serial.current || e.state !== 'gui' || e.params.length === 0 || !current.current) return;
-    const change = paramEdit(current.current.graph, e.params);
+    const graph = current.current.graph;
+    const change = paramEdit(graph, e.params);
     if (change) edit(change);
+    // The inner nodes of a use are read-only (15.3), so their writes do not apply.
+    else if (e.params.some((p) => !graph.node?.some((n) => n.id === p.id))) setError('A node in a subgraph use can not change its parameters. Open the subgraph and use the Inspector.');
   });
   const undo = useCallback(() => act(api.undo(), markStale), [act, markStale]);
   const redo = useCallback(() => act(api.redo(), markStale), [act, markStale]);

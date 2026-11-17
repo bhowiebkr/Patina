@@ -190,8 +190,11 @@ checks open.
   clippy and tests of the `program` crate. The hidden self-check (184 steps) clicks a node GUI
   button that calls `set_param`, reads the new value, and undoes it.
 - Not checked: the look of the line numbers and the band on a real desktop.
-- Known limits: a node in a subgraph that is not open cannot write its parameters. A change of
-  the `.asm` file outside Patina shows only after the **file** parameter changes.
+- New: a node GUI in a subgraph use can not write its parameters, because the inner nodes are
+  read-only and a write changes all uses. The editor shows an error that tells the user to open
+  the subgraph. The frontend type check passed. The error was not shown in the editor.
+- Known limits: a change of the `.asm` file outside Patina shows only after the **file**
+  parameter changes.
 - New: the `clock` node has a **Pause** and **Run** button that sets **halt** with `set_param`.
   With **Step**, the CPU runs one instruction, and the band of the program shows the PC. The
   unit test of the clock and the CLI test of the example passed. The button was not clicked in
