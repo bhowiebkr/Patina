@@ -453,6 +453,10 @@ fn a_package_runs_alone_and_takes_parameters() {
         assert_eq!(std::ffi::CStr::from_ptr(value).to_str().unwrap(), "5.0");
         assert!(patina_value(package, c"3b7cec82f6a4ed1a.out".as_ptr()).is_null());
         assert_eq!(patina_frame(package), -1, "hello has no frame nodes");
+        assert_eq!(patina_block(package), -1, "hello has no audio nodes");
+        assert!(patina_sound(package).is_null());
+        assert_eq!(patina_events(package, 1), -1, "hello has no event nodes");
+        assert_eq!(error(), "the graph has no event nodes");
         patina_close(package);
     }
 }

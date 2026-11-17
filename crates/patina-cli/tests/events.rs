@@ -4,6 +4,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::Path;
+use std::process::Command;
 
 mod common;
 use common::{copy, run, run_while};
@@ -174,4 +175,29 @@ overlap = \"both\"").replacen("format = 1
     let (frames, runs): (Vec<&str>, Vec<&str>) = stdout.lines().partition(|l| *l == "frame");
     assert_eq!(frames.len(), 30, "{stdout}");
     assert!(!runs.is_empty() && runs.iter().all(|l| l.parse::<u64>().unwrap() >= 20), "{stdout}");
+
+    // The C API runs the event domain of a package (14.2), with the settings of the trigger.
+    fs::write(&main, graph("every_ms = \"20\"
+overlap = \"skip\"")).unwrap();
+    let out = Path::new(env!("CARGO_TARGET_TMPDIR")).join("events-pkg");
+    if out.exists() {
+        fs::remove_dir_all(&out).unwrap();
+    }
+    let made = Command::new(env!("CARGO_BIN_EXE_patina-cli")).arg("package").arg(&project).arg(&out).arg("--edit").output().unwrap();
+    assert!(made.status.success(), "{}", String::from_utf8_lossy(&made.stderr));
+    let dir = std::ffi::CString::new(out.to_str().unwrap()).unwrap();
+    // SAFETY: each pointer is a valid C string, or the package from `patina_open`.
+    unsafe {
+        use patina_capi::*;
+        let error = || std::ffi::CStr::from_ptr(patina_error()).to_string_lossy().into_owned();
+        let package = patina_open(dir.as_ptr());
+        assert!(!package.is_null(), "{}", error());
+        assert_eq!(patina_events(package, 3), 0, "{}", error());
+        let value = patina_value(package, c"00000000000000e1.out".as_ptr());
+        assert_eq!(std::ffi::CStr::from_ptr(value).to_str().unwrap(), "31");
+        assert_eq!(patina_set(package, c"00000000000000e0.every_ms".as_ptr(), c"0".as_ptr()), 0, "{}", error());
+        assert_eq!(patina_events(package, 1), -1);
+        assert!(error().contains("input `every_ms`"), "{}", error());
+        patina_close(package);
+    }
 }

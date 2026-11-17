@@ -215,13 +215,20 @@ functions:
 | `patina_set(package, "<node ID>.<input key>", value)` | 0, or -1 for a bad name or value. |
 | `patina_run(package)` | Runs the graph one time. 0, or -1 when a node failed. |
 | `patina_frame(package)` | Runs one frame. 0, or -1 when a node failed or the graph has no frame nodes. |
+| `patina_block(package)` | Runs one audio block (9.3). 0, or -1 when a node failed or the graph has no audio nodes. |
+| `patina_sound(package)` | The 256 mono samples that the nodes played in the last block, or NULL before a node played. |
+| `patina_events(package, count)` | Runs the event domain (9.4) until `count` runs ended, or until no trigger can fire again. 0, or -1 when a run failed or the graph has no event nodes. |
 | `patina_value(package, "<node ID>.<output key>")` | The value as text, or NULL. |
 | `patina_error()` | The text of the last error on this thread. |
 | `patina_close(package)` | Closes the package. NULL is permitted. |
 
-- `patina_value` gives the outputs of the last run or frame. Only wired outputs have a value.
+- `patina_value` gives the outputs of the last run, frame, block or event run. Only wired outputs have a value.
   The text is the Rust `Debug` text. It stays valid until the next call with the package.
 - One thread at a time uses a package. A panic in Patina gives the failure result and an error.
+- `patina_events` reads the settings of the triggers, as `patina_run` reads the parameters. Each
+  `trigger` node fires one time at the start, as in the CLI. The call returns when the runs end.
+  The host plays the samples of `patina_sound`. The C API does not open an audio device.
+  (Agent decision of 2026-11-17. The owner can change it.)
 - The portable zip (13.1) contains the library next to `patina-cli`. The package build copies it
   when it is there, and writes the header always.
 

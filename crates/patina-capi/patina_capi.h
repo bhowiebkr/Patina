@@ -9,6 +9,10 @@ extern "C" {
 
 typedef struct PatinaPackage PatinaPackage;
 
+/* The samples in one audio block, and the samples in one second. */
+#define PATINA_BLOCK 256
+#define PATINA_RATE 48000
+
 /* Opens the package folder `dir`. Gives NULL on an error. */
 PatinaPackage *patina_open(const char *dir);
 
@@ -21,7 +25,19 @@ int patina_run(PatinaPackage *package);
 /* Runs one frame of the frame domain. Gives 0, or -1 when a node failed or the graph has no frame nodes. */
 int patina_frame(PatinaPackage *package);
 
-/* The Debug text of the output "<node ID>.<output key>" after the last run or frame. Only an output
+/* Runs one block of the audio domain. Gives 0, or -1 when a node failed or the graph has no audio nodes. */
+int patina_block(PatinaPackage *package);
+
+/* The PATINA_BLOCK mono samples that the nodes played in the last block, or NULL before a node played.
+ * The samples stay until the next call. */
+const float *patina_sound(PatinaPackage *package);
+
+/* Runs the event domain until `count` event runs ended, or until no trigger can fire again. Each
+ * `trigger` node fires one time at the start. Gives 0, or -1 when a run failed or the graph has no
+ * event nodes. */
+int patina_events(PatinaPackage *package, unsigned long long count);
+
+/* The Debug text of the output "<node ID>.<output key>" after the last run, frame, block or event run. Only an output
  * with a wire has a value. Gives NULL when there is no value. The text stays until the next call. */
 const char *patina_value(PatinaPackage *package, const char *name);
 

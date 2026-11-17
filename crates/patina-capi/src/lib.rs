@@ -133,6 +133,53 @@ pub unsafe extern "C" fn patina_frame(package: *mut PatinaPackage) -> c_int {
 }
 
 /// # Safety
+/// `package` comes from `patina_open`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_block(package: *mut PatinaPackage) -> c_int {
+    guard(-1, || {
+        // SAFETY: the caller keeps the contract of this function.
+        let package = unsafe { open_package(package) }?;
+        if !package.cluster.blocks() {
+            return Err("the graph has no audio nodes".to_owned());
+        }
+        keep(&mut package.values, package.cluster.block(&package.control))
+    })
+}
+
+/// # Safety
+/// `package` comes from `patina_open`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_sound(package: *mut PatinaPackage) -> *const f32 {
+    guard(std::ptr::null(), || {
+        // SAFETY: the caller keeps the contract of this function.
+        let package = unsafe { open_package(package) }?;
+        Ok(package.cluster.sound().map_or(std::ptr::null(), |sound| sound.as_ptr()))
+    })
+}
+
+/// # Safety
+/// `package` comes from `patina_open`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_events(package: *mut PatinaPackage, count: u64) -> c_int {
+    guard(-1, || {
+        // SAFETY: the caller keeps the contract of this function.
+        let package = unsafe { open_package(package) }?;
+        if !package.cluster.events() {
+            return Err("the graph has no event nodes".to_owned());
+        }
+        // The engine reads the settings of the triggers (9.4).
+        keep(&mut package.values, &package.cluster.set_params(package.checked.graph()))?;
+        let (values, mut failed) = (&mut package.values, None);
+        package.cluster.run_events(count, &package.control, |run| {
+            if let Err(text) = keep(values, &run.out) {
+                failed.get_or_insert(format!("Run {}: {text}", run.id));
+            }
+        });
+        failed.map_or(Ok(0), Err)
+    })
+}
+
+/// # Safety
 /// `package` comes from `patina_open`. `name` is a C string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn patina_value(package: *mut PatinaPackage, name: *const c_char) -> *const c_char {
@@ -184,6 +231,9 @@ mod tests {
             assert_eq!(error(), "the package is null");
             assert_eq!(patina_set(std::ptr::null_mut(), c"a.b".as_ptr(), c"1".as_ptr()), -1);
             assert!(patina_value(std::ptr::null_mut(), c"a.b".as_ptr()).is_null());
+            assert_eq!(patina_block(std::ptr::null_mut()), -1);
+            assert!(patina_sound(std::ptr::null_mut()).is_null());
+            assert_eq!(patina_events(std::ptr::null_mut(), 1), -1);
             patina_close(std::ptr::null_mut());
         }
     }

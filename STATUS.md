@@ -595,6 +595,11 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   at a time, so a slow client delayed the next request by 5 s). A unit test keeps a client
   with a part of a request open. The next two requests got their answers in less than 5 s,
   and the listener stopped the reader of the slow client when it ended.
+- The C API runs the audio blocks and the event domain (fixed 2026-11-17): `patina_block`,
+  `patina_sound` and `patina_events` (spec 14.2). The CLI test `events` makes a package of a
+  graph with a `schedule` node. `patina_events` gave 3 runs with the last value 31, and a bad
+  `every_ms` from `patina_set` failed the next call. The package test of hello gets -1 and an
+  error from the three functions, because hello has no audio and no event nodes.
 
 ### Known limits
 
@@ -604,7 +609,6 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   - `events/watch.rs` of `patina-engine`: `file_change` polls its folder.
   - `engine.rs` of `patina-editor`: no event runs when the slot or the audio domain keeps a
     value that is not `Sync`.
-- `patina-capi` does not run the event domain.
 - In the editor, a change, **Pause** and a failed frame wait for the active event runs. A code
   swap does not keep the active runs on the old builds (9.4).
 - While the event domain runs, a view reads no output of an event node, and the GUI of an event
@@ -680,7 +684,6 @@ check used a slow `ui` function of a frame node while the audio thread ran.
   GUI of an audio node does not draw. The badges of the audio outputs still show.
 - The audio thread has its own `Control`. So the editor does not show an audio node as the node
   that runs, and **Stop** stops the audio thread only at the end of a block (15.2).
-- `patina-capi` does not run audio blocks yet.
 - No check played a sound in the editor. The editor uses the same device code as the CLI.
 - When an audio node keeps a value that is not `Sync`, the blocks run on the thread of the
   frames. A slow frame then makes the blocks late. The device queue of 43 ms hides a short delay
