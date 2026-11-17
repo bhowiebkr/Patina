@@ -42,6 +42,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
   end with it and with the editor. The job limits the memory to three quarters of the physical
   memory, so a node that leaks memory ends its node process, not the editor. The failure text
   then names the limit.
+- When the drawing of a node GUI or a view fails in the page, only that GUI shows the error. The
+  next widget lines draw again. Before, a failure removed all of the page. An image line with
+  bad base64 digits or a bad end is now a bad line (fixed 2026-11-16).
 
 ### What was checked
 
@@ -66,6 +69,11 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - `cargo test -p patina-engine`: each thread names the node of its own run, also in a nested call.
   A different thread names no node. The source shows that before, a crash in an event run during a
   frame run named the node of the frame run.
+- `npm test`: three image lines with a bad digit, no end marks or a bad end are bad lines.
+  Before, the line with no end marks passed, and its image data had the wrong length. The source
+  shows that the page then threw in an effect and removed all of the page.
+- The hidden selfcheck on Windows: a test GUI that throws shows its error in its own box, and
+  its next tree draws again.
 - The hidden selfcheck on Windows: a node allocates 1 TB. The failure text names the memory limit,
   and the undo runs in a new node process.
 - A probe on a hidden Windows desktop: a second process drew a viewport on a window of the first

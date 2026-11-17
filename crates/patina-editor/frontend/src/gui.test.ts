@@ -75,6 +75,9 @@ test('value widgets read their data, and a bad line keeps its index', () => {
     'waveform\tTrim\t\t0 0\t0.25 1',
     'waveform\tBad trim\t\t\t0.5 0.25',
     'image\tEmpty\t0\t0\t',
+    'image\tBad digit\t1\t1\tAQ!D/w==',
+    'image\tNo end\t1\t1\tAQIDBAUG',
+    'image\tBad end\t1\t1\tAQID/w=A',
   ].join('\n');
   assert.deepEqual(parseTree(tree), [
     { kind: 'color', index: 0, text: 'Tint', value: '#ff0010' },

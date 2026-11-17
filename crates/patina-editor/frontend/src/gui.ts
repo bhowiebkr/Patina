@@ -69,6 +69,8 @@ const MAX_COLUMNS = 32;
 const MAX_POINTS = 256;
 const MAX_BINS = 256;
 const MAX_PIXELS = 256 * 256;
+/** The digits of base64 with no end marks. */
+const BASE64 = /^[A-Za-z0-9+/]*$/;
 const MAX_STOPS = 32;
 // The deepest section in a section. A deeper section shows its widgets in its parent.
 const MAX_DEPTH = 8;
@@ -143,8 +145,12 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
     const [width, height] = rest.map(Number);
     const rgba = rest[2] ?? '';
     const ok = Number.isInteger(width) && Number.isInteger(height) && width >= 0 && height >= 0 && width * height <= MAX_PIXELS;
-    // Base64 has 4 digits for each 3 bytes, and each pixel has 4 bytes.
-    return ok && rgba.length === 4 * Math.ceil((width * height * 4) / 3) ? { kind, index, text, width, height, rgba } : null;
+    // Base64 has 4 digits for each 3 bytes, and each pixel has 4 bytes. Other digits or ends make
+    // the decode fail or give the wrong length, so the line is bad.
+    const end = '='.repeat((3 - ((width * height * 4) % 3)) % 3);
+    const digits = rgba.slice(0, rgba.length - end.length);
+    const data = rgba.length === 4 * Math.ceil((width * height * 4) / 3) && rgba.endsWith(end) && BASE64.test(digits);
+    return ok && data ? { kind, index, text, width, height, rgba } : null;
   }
   return null;
 }

@@ -9,7 +9,7 @@ import { changeLayout, flushLayout, savedViewport } from './Dock';
 import { floatPanel, layoutText, openPanel, parseLayout } from './layout';
 import { checkWires } from './check-wires';
 import { checkDomains } from './check-domains';
-import { checkWidgets } from './check-gui';
+import { checkGuard, checkWidgets } from './check-gui';
 import { checkIsolation } from './check-isolation';
 import { A, B, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, enterText, fireButton } from './check-fixtures';
 
@@ -557,6 +557,7 @@ fn broken() -> u32 {
     if (clicked.builtMs !== null) throw new Error('a click in a node GUI built the graph again');
     const gui = `.react-flow__node[data-id="${A}"] .node-gui`;
     await checkWidgets(until, gui);
+    await checkGuard(until);
     await api.capture('node-gui');
     tab('Parameters')!.click();
     await until('the large node GUI in the Inspector', RUN_MS, () => document.querySelector('aside[aria-label="Inspector"] .node-gui .gui-image') !== null);

@@ -1,7 +1,10 @@
 // The widget steps of the self-check: each value widget of the GUI node reaches the node and
 // comes back in its widget line (4.3).
 
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import { RUN_MS, enterText } from './check-fixtures';
+import { Guard } from './NodeGui';
 
 type Until = (what: string, ms: number, test: () => boolean) => Promise<void>;
 
@@ -72,4 +75,23 @@ export async function checkWidgets(until: Until, gui: string) {
   pad()!.dispatchEvent(new PointerEvent('pointerdown', padAt));
   pad()!.dispatchEvent(new PointerEvent('pointerup', padAt));
   await until('the canvas dot at the pointer', RUN_MS, () => Math.abs(dotX() - 120) < 1);
+}
+
+/** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */
+export async function checkGuard(until: Until) {
+  const box = document.createElement('div');
+  document.body.append(box);
+  const root = createRoot(box);
+  const Throw = () => {
+    throw new Error('a test failure');
+  };
+  try {
+    root.render(createElement(Guard, { tree: 'a', label: 'Test GUI', children: createElement(Throw) }));
+    await until('the error of a GUI that throws', RUN_MS, () => box.querySelector('[role="alert"]')?.textContent?.includes('a test failure') ?? false);
+    root.render(createElement(Guard, { tree: 'b', label: 'Test GUI', children: 'drawn' }));
+    await until('the next tree of a GUI that threw', RUN_MS, () => box.textContent === 'drawn');
+  } finally {
+    root.unmount();
+    box.remove();
+  }
 }

@@ -1,6 +1,6 @@
 // Draws the widget lines of a node GUI with the shared controls (spec 4.3, GUI guide controls).
 
-import { createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
+import { Component, createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from './api';
 import { AssetPicker, Field } from './Field';
 import { eventLine, nest, parseTree, type Block, type Shape, type Widget } from './gui';
@@ -168,7 +168,46 @@ interface WidgetsProps {
 }
 
 /** Draws widget lines. `send` gets the event line of each user input. A view uses it too (15.8). */
-export function GuiWidgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsProps) {
+export function GuiWidgets(props: WidgetsProps) {
+  return (
+    <Guard tree={props.tree} label={props.label}>
+      <Widgets {...props} />
+    </Guard>
+  );
+}
+
+interface GuardProps {
+  tree: string;
+  label: string;
+  children: ReactNode;
+}
+
+/** Keeps an error in the drawing of one GUI in that GUI, so a failed node does not stop the editor
+ * (16.1). The next tree draws again. */
+export class Guard extends Component<GuardProps, { error: string; tree: string }> {
+  state = { error: '', tree: this.props.tree };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+
+  static getDerivedStateFromProps(props: GuardProps, state: { tree: string }) {
+    return props.tree === state.tree ? null : { error: '', tree: props.tree };
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="node-gui" role="group" aria-label={this.props.label}>
+        <div className="gui-row error-text" role="alert">
+          The GUI cannot draw: {this.state.error.slice(0, 200)}
+        </div>
+      </div>
+    );
+  }
+}
+
+function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsProps) {
   const send = (index: number) => (value: number | string) => sendLine(eventLine(index, value));
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
