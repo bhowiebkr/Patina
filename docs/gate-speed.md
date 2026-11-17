@@ -46,8 +46,9 @@ All numbers are from the owner's Windows computer, on 2026-11-17, with a release
 |---|---|
 | A frame of `examples/computer`, bake build, quiet, no frame pacing | about 175 us (median of 5000) |
 | The same frame, after plan item 1 | about 141 us (median of 5000, three runs) |
-| Nodes and tasks in that frame | 1577 NAND gates and 63 other nodes, in 1330 tasks |
-| Time for each node | about 107 ns |
+| The same frame, after plan item 2 | about 52 us (median of 5000, three runs) |
+| Nodes and tasks in that frame | 1577 NAND gates and 63 other nodes, in 1330 tasks (13 after item 2) |
+| Time for each node | about 107 ns (about 32 ns after item 2) |
 | Benchmark, one net of 1577 gates, the Patina steps above | 71 ns for each gate |
 | Benchmark, the same net, DLS2 steps, in Rust | 1.8 ns for each gate |
 | Benchmark, the same net, a loop over a table | 0.32 ns for each gate |
@@ -77,9 +78,10 @@ The example runs at 240 FPS, which is 60 instructions each second.
 The items are in order of the gain for each change.
 
 1. Done: a quiet run does not read the clock for each gate.
-2. One task for a gate net. Join the small nodes of a domain into one task, in the order of the
-   plan. Then a wire is a local `Option`, with no lock, no sink lock and no call for each gate.
-   This changes the task rules of spec 9.2.
+2. Done: one task for a gate net. A light node (a delay, or a node with only `bool`, `char` and
+   number values) joins the newest light task of its domain (spec 9.2). A wire in that task is a
+   local `Option`, with no lock, no sink lock and no call for each gate. The frame went from
+   about 141 us to about 52 us. The frame cluster has 13 tasks, not 1330.
 3. Straight-line code for plain gates. A node with no state, no panic and `bool` values becomes
    one line, for example `v[12] = !(v[3] & v[7]);`. The catch and the probe move to the end of
    the net. The goal is less than 1 ns for each gate. This also makes the bake build faster.

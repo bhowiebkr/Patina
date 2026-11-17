@@ -18,11 +18,13 @@ checks open.
 - New: [docs/gate-speed.md](docs/gate-speed.md) compares the NAND circuits of Patina with
   Digital Logic Sim 2, and gives the plan to make them faster (owner request, 2026-11-17).
 - New: a quiet run does not read the clock for each node of a fused cluster.
+- New: light nodes, for example NAND gates, share one task for each domain (spec 9.2). Their
+  wires are local variables, with no locks.
 - Checked: a bake build of `examples/computer` at no frame pacing. The median frame went from
-  about 175 us to about 141 us. A benchmark of one gate net gave the cost of each step.
+  about 175 us to about 141 us, and then to about 52 us with light tasks. A benchmark of one gate net gave the cost of each step.
 - Not checked: the edit build, and Digital Logic Sim 2 itself.
-- Known limits: each gate costs about 85 ns of glue: a task, locks of the wire values and a
-  catch. Items 2 to 4 of the plan are open.
+- Known limits: each gate still costs about 30 ns: a call, a catch and an `Option` for each
+  value. Items 3 and 4 of the plan are open. A gate net does not run in parallel.
 
 ## Touchpad pan
 
