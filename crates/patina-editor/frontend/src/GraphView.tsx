@@ -36,6 +36,7 @@ import { Labels } from './labels';
 import { Router, type Rect } from './route';
 import { lockPoints, WireStore } from './wires';
 import { useTouchpadPan } from './touchpad';
+import { typing } from './keys';
 import { buildEdges, buildNodes, portKey, portTypes, splitPin, type GraphNode } from './graphData';
 
 export const NODE_MIME = 'application/patina-node';
@@ -141,10 +142,6 @@ function dragKey(view: View, node: string, key: string, output: boolean): string
 /** An order socket connects only to an order socket (9.2). */
 function orderMatch(c: Edge | Connection): boolean {
   return (c.sourceHandle === ORDER) === (c.targetHandle === ORDER);
-}
-
-function typing(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 }
 
 interface Props {
