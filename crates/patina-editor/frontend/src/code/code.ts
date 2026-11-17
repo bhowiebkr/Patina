@@ -19,7 +19,8 @@ import 'monaco-editor/features/find/register';
 import 'monaco-editor/languages/definitions/rust/register';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { api, errorText, type Code, type Diagnostic, type View } from '../api';
-import { trackModel } from './lsp';
+import { attachCode } from './codeState';
+import { analyzerProject, trackModel } from './lsp';
 
 export { monaco };
 
@@ -192,3 +193,5 @@ export function closeCode() {
   errors = [];
   update();
 }
+
+attachCode({ onCodeError, showErrors, subscribe, unsavedFiles, saveCode, reloadCode, restoreCode, closeCode, analyzerProject });

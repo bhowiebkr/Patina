@@ -1,7 +1,7 @@
 // Close and quit with unsaved changes, and the answer to a recovery file (15.10).
 import { useCallback, useState, type RefObject } from 'react';
 import { api, onCloseRequested, type View } from '../api';
-import { closeCode, restoreCode } from '../code/code';
+import { closeCode, restoreCode } from '../code/codeState';
 import { Confirm } from './Confirm';
 import { endLayout, flushLayout } from '../panels/Dock';
 import { useEvent } from '../useEvent';

@@ -3,7 +3,7 @@
 
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
-import { revealOf, type Reveal } from '../code/CodeTab';
+import { revealOf, type Reveal } from '../code/reveal';
 import { A, B, BUILD_MS, RUN_MS, leftTab, statusText, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */

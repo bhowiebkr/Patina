@@ -1,16 +1,19 @@
 // The Inspector (spec 15.5): the parameters, the code and the logs of the selected node, in a
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
-import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { KindIcon } from '../controls/icons';
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
-import { CodeTab, revealOf, type Reveal } from '../code/CodeTab';
+import { revealOf, type Reveal } from '../code/reveal';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from '../canvas/NodeView';
 import { ExpandButton, GuiWidgets, NodeGui } from '../controls/NodeGui';
 import type { Inspect } from './ProjectPanel';
 import { SubgraphInterface } from './SubgraphInterface';
 import { Thumbnail } from '../controls/ValueWidgets';
 import { pathOf } from '../wires/wires';
+
+// Monaco loads with the first open of the Code tab.
+const CodeTab = lazy(() => import('../code/CodeTab').then((m) => ({ default: m.CodeTab })));
 
 /** The path styles of the Look fields (spec 15.9). */
 const ROUTES: readonly (readonly [Style, string])[] = [
@@ -212,7 +215,9 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
     if (guiId) api.gui(guiId, 1, '').catch(() => {});
   }, [guiId]);
   const code = (folder: string) => (
-    <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
+    <Suspense fallback={null}>
+      <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
+    </Suspense>
   );
   const folder = inspect?.kind === 'type' ? `nodes/${inspect.name}` : inspect?.kind === 'folder' ? inspect.folder : '';
   if (folder && hasFolder(view, folder)) {

@@ -147,8 +147,9 @@ These guards keep the result of phase 2. Add each guard when the code passes it.
 
 Measure before and after each change. Write the numbers into STATUS.md.
 
-- [ ] Load Monaco only when the **Code** tab opens. Load the selfcheck and the `--shot` code
-  only with their command-line flags. Measure the script size and the start time.
+- [x] Load Monaco only when the **Code** tab opens. Load the selfcheck and the `--shot` code
+  only with their command-line flags. Measure the script size and the start time. The start
+  script went from 4.1 MB to 0.6 MB, and the page start from 134 ms to 33 ms (STATUS.md).
 - [ ] Make a test graph with 500 and 2000 nodes. Measure the frame time of the canvas at the
   zooms 1, 0.5, 0.3 and 0.2, and the time of a pan and a drag. Fix the worst part.
 - [ ] Measure the size of the view and the time of an edit on the computer example. If an edit

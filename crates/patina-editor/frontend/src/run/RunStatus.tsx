@@ -3,7 +3,7 @@
 
 import { useCallback, useRef, useState, type RefObject } from 'react';
 import { api, firstSentence, millis, onEngine, onOutput, outputLines, seconds, type EngineEvent, type OutputText, type View } from '../api';
-import { revealOf, type Reveal } from '../code/CodeTab';
+import { revealOf, type Reveal } from '../code/reveal';
 import { addLines, type Line } from './Lines';
 import { NO_RUN, type RunState } from '../canvas/NodeView';
 import { eventLines, nextRun, nodeLines, plural } from './runEvents';

@@ -2,22 +2,11 @@
 // Monaco, the build state of the saved code and the compile errors of the folder (15.5).
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { api, errorText, seconds, type Diagnostic } from '../api';
+import { api, errorText, seconds } from '../api';
 import { monaco, openFile, subscribe, unsavedFiles } from './code';
+import { revealOf, type Reveal } from './reveal';
 import { NameField } from '../controls/NameField';
 import type { RunState } from '../canvas/NodeView';
-
-/** A request to show a line of a file. A new `n` shows the line again. */
-export interface Reveal {
-  path: string;
-  line: number;
-  col: number;
-  n: number;
-}
-
-export function revealOf(e: Diagnostic, n: number): Reveal | null {
-  return e.file ? { path: e.file, line: e.start[0], col: e.start[1], n } : null;
-}
 
 /** The build state of the saved code, and true when it is an error. */
 export function buildState(run: RunState): [string, boolean] {

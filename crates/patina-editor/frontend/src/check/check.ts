@@ -3,7 +3,7 @@
 // have the groups of steps.
 
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from '../api';
-import type { Reveal } from '../code/CodeTab';
+import type { Reveal } from '../code/reveal';
 import { checkCanvas } from './check-canvas';
 import { checkDock } from './check-dock';
 import { checkDomains } from './check-domains';
@@ -16,6 +16,12 @@ import { checkSubgraph } from './check-subgraph';
 import { checkViews } from './check-views';
 import { checkWires } from './check-wires';
 import { keepClipInMemory } from '../canvas/clip';
+
+/** The time in ms from the start of the page to the end of the start script, for the measure of the start time. */
+function startMs(): number {
+  const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+  return Math.round(nav?.domContentLoadedEventEnd ?? -1);
+}
 
 export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void, edited: (v: View) => void) {
   keepClipInMemory();
@@ -91,7 +97,7 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');
     steps.push('screenshot');
-    await api.checkDone({ ok: true, steps });
+    await api.checkDone({ ok: true, steps, startMs: startMs() });
   } catch (e) {
     await api.checkDone({ ok: false, steps, error: String(e), output: output.slice(-20) });
   } finally {

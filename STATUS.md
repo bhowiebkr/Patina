@@ -58,6 +58,20 @@ Run these commands before a commit, as [CI](.github/workflows/ci.yml) does:
 - `cargo test --workspace --locked`
 - In `crates/patina-editor/frontend`: `npm run check` and `npm test`
 
+## Speed measurements
+
+The numbers of phase 4 of the [quality plan](docs/quality-plan.md). They come from the debug
+editor with the built page, on the Windows 11 computer of the owner.
+
+- Start of the editor page, 2026-11-17. Monaco and the check code now load only when needed.
+  - The start script went from 4,102,438 bytes to 609,205 bytes. The start CSS went from
+    211,145 bytes to 51,495 bytes.
+  - Monaco (3,406,377 bytes of script, 159,651 bytes of CSS) loads with the first open of the
+    **Code** tab. The selfcheck code (72,994 bytes) loads only with `--check`, and the
+    screenshot code (1,597 bytes) only with `--shot`.
+  - The page start, at the end of `DOMContentLoaded` in the hidden selfcheck window, went from
+    137 ms and 131 ms to 31 ms and 34 ms (two runs each).
+
 ## Known limits
 
 The open items of each section. Items that the text marks as fixed are in [docs/history.md](docs/history.md).

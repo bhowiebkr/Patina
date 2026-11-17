@@ -3,11 +3,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { api, folderName, type StartInfo, type View } from './api';
-import { runCheck } from './check/check';
-import { runShot } from './check/shot';
-import { closeCode, onCodeError, reloadCode, showErrors, subscribe, unsavedFiles } from './code/code';
-import { analyzerProject } from './code/lsp';
-import type { Reveal } from './code/CodeTab';
+import { analyzerProject, closeCode, onCodeError, reloadCode, showErrors, subscribe, unsavedFiles } from './code/codeState';
+import type { Reveal } from './code/reveal';
 import { Dock, loadLayout, useLayoutSerial, type Panel } from './panels/Dock';
 import { useFloatHost } from './panels/Floats';
 import { GraphPath } from './canvas/GraphPath';
@@ -105,8 +102,11 @@ export function App() {
   useEffect(() => {
     if (start?.check && !checkStarted) {
       checkStarted = true;
-      if (start.shot) runShot(start.shot, show, openGraph);
-      else runCheck(start.check, show, pick, markStale);
+      const check = start.check;
+      const shot = start.shot;
+      // The self-check and the screenshot code load only with their command-line flags.
+      if (shot) import('./check/shot').then((m) => m.runShot(shot, show, openGraph));
+      else import('./check/check').then((m) => m.runCheck(check, show, pick, markStale));
     }
   }, [start, show, pick, markStale, openGraph]);
 

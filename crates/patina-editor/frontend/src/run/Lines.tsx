@@ -1,7 +1,7 @@
 // The Logs of the editor and the Output of the nodes (spec 15.8). Each is a panel of the dock (15.2).
 
 import { useEffect, useRef } from 'react';
-import type { Reveal } from '../code/CodeTab';
+import type { Reveal } from '../code/reveal';
 
 export interface Line {
   text: string;

@@ -1,7 +1,7 @@
 // The engine events of a run (15.2): the run state after each event, and its Logs lines.
 
 import { errorText, logKind, millis, reportText, seconds, type Diagnostic, type EngineEvent, type NodeLog, type Report } from '../api';
-import { revealOf } from '../code/CodeTab';
+import { revealOf } from '../code/reveal';
 import type { Line } from './Lines';
 import { NO_RUN, valueStale, type RunState } from '../canvas/NodeView';
 
