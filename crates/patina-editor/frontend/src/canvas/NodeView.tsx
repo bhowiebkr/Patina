@@ -157,6 +157,10 @@ export const ORDER = '@order';
 export const HEADER = 32;
 export const ROW = 24;
 const PAD = 6;
+/** The padding on each side of the wrapper of a graph node, which holds its pins (canvas.css). */
+export const GUTTER = 8;
+/** The gutter of a React Flow node. The graph position is the left edge of the body, not of the wrapper. */
+export const gutter = (n: { type?: string }) => (n.type === 'patina' ? GUTTER : 0);
 
 export const STATE_NAMES: Record<NodeState, string> = {
   none: 'Not run',
@@ -283,7 +287,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     let [r, b] = [0, 0];
     for (const n of s.nodeLookup.values()) {
       if (n.parentId !== id) continue;
-      r = Math.max(r, n.position.x + (n.measured.width ?? 0));
+      r = Math.max(r, n.position.x + (n.measured.width ?? 0) - 2 * gutter(n));
       b = Math.max(b, n.position.y + (n.measured.height ?? 0));
     }
     return Math.ceil(r) * 65536 + Math.ceil(b);
@@ -415,7 +419,7 @@ function FrameButton({ open, onClick }: { open: boolean; onClick: () => void }) 
 /** A pin of a frame on the inside: an input gives its value to the inner wires, an output takes it. */
 function FramePin({ id, output, top, socket }: { id: string; output: boolean; top: number; socket: Socket | undefined }) {
   const bar = socket && socketBar(socket.bits.length);
-  const style = bar ? { top, height: bar, marginTop: -bar / 2 } : { top };
+  const style = bar ? { top, height: bar, marginTop: 1 - bar / 2 } : { top };
   return <Handle id={id} type={output ? 'target' : 'source'} position={output ? Position.Right : Position.Left} isConnectable={false} className={socket ? 'frame-pin bus-pin' : 'frame-pin'} style={style} />;
 }
 
@@ -426,7 +430,7 @@ function PinLabel({ pin }: { pin: Pin | undefined }) {
 /** The pin of a row: a dot, or a bar as wide as the ribbon of a bus socket (15.9). */
 function PinHandle({ pin, generics = [], output, editable, top, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; top: number; socket: Socket | undefined }) {
   const bar = socket && socketBar(socket.bits.length);
-  const style = bar ? { top, height: bar, marginTop: -bar / 2 } : { top };
+  const style = bar ? { top, height: bar, marginTop: 1 - bar / 2 } : { top };
   return (
     <Handle
       id={pin.key}

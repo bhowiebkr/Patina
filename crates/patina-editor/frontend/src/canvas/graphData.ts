@@ -3,7 +3,7 @@
 import type { Edge } from '@xyflow/react';
 import type { Domain, KindInfo, NodeInfo, Pin, Point, View } from '../api';
 import { kindOf, socketOf, type Socket } from './bus';
-import { ORDER, infoOf, nodeState, outputType, valueStale, type NodeData, type PatinaNode, type PortNode, type RunState } from './NodeView';
+import { GUTTER, ORDER, infoOf, nodeState, outputType, valueStale, type NodeData, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { place, type Frame, type Room } from './frames';
 import { outputTypeOf } from './palette';
 import type { WireData } from '../wires/WireLayer';
@@ -126,7 +126,7 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const [state, message] = nodeState(entry, info, view, run);
     const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
     const [x, y] = place(rooms, entry.pos ?? [0, 0]);
-    const position = { x, y };
+    const position = { x: x - GUTTER, y };
     const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
     const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
@@ -153,7 +153,7 @@ function innerEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: re
     const wires = f.wires.map((w) => {
       const [a, b] = [domains.get(splitPin(w.from)[0]), domains.get(splitPin(w.to)[0])];
       const bus = w.name ?? pinName(view, infos, w.from, true) ?? pinName(view, infos, w.to, false);
-      return edge(`${w.from}>${w.to}`, splitPin(w.from), splitPin(w.to), { from: w.from, to: w.to, route: w.points.map(([x, y]): Point => [x + ux, y + uy]), frame: { use: f.use, at: [ux, uy] }, style: w.style, corners: w.corners, ty: ty(w.from), name: w.name, bus, cross: a !== undefined && b !== undefined && a !== b });
+      return edge(`${w.from}>${w.to}`, splitPin(w.from), splitPin(w.to), { from: w.from, to: w.to, route: w.points.map(([x, y]): Point => [x + ux, y + uy]), frame: { use: f.use, at: [ux - GUTTER, uy] }, style: w.style, corners: w.corners, ty: ty(w.from), name: w.name, bus, cross: a !== undefined && b !== undefined && a !== b });
     });
     // A wire from a frame pin shows the value of the outer wire. It routes as its own net, from the frame edge.
     const ins = f.inputs.map(({ key, to }) => {

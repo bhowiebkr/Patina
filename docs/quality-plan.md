@@ -153,9 +153,10 @@ Measure before and after each change. Write the numbers into STATUS.md.
 - [x] Make a test graph with 500 and 2000 nodes. Measure the frame time of the canvas at the
   zooms 1, 0.5, 0.3 and 0.2, and the time of a pan and a drag. Fix the worst part. The pan of
   2000 nodes went from 533 ms to 279 ms for each frame (STATUS.md).
-- [ ] Put the pins inside the node wrapper, with no `position` on `.patina-node`. A CSS test
+- [x] Put the pins inside the node wrapper, with no `position` on `.patina-node`. A CSS test
   gave a pan of 69 ms for each frame at 2000 nodes. Remove the padding from the node width in
-  the wire obstacles, **Arrange** and the frame size.
+  the wire obstacles, **Arrange** and the frame size. The pan of 2000 nodes went from 280 ms to
+  70 ms, and the drag from 350 ms to 155 ms, against a control in the same run (STATUS.md).
 - [ ] Measure the size of the view and the time of an edit on the computer example. If an edit
   is slower than one frame of 16 ms, send only the changed parts of the view.
 - [ ] Remove the allocations of the editor frame loop, or record the measured cost if it is

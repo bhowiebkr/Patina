@@ -12,6 +12,25 @@
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+/* The wrapper holds the pins in a gutter of GUTTER (NodeView.tsx) on each side, and the body has no
+   position. Pins outside the box of a positioned element make each frame 4x slower at 2000 nodes. */
+.react-flow__node-patina {
+  padding: 0 8px;
+}
+
+.react-flow__node-patina > .patina-node {
+  position: static;
+}
+
+/* A click in the gutter goes to the canvas, as before the gutter. */
+.react-flow__node-patina:is(.selectable, .draggable) {
+  pointer-events: none !important;
+}
+
+.react-flow__node-patina:is(.selectable, .draggable) > .patina-node {
+  pointer-events: auto;
+}
+
 /* A subgraph use that shows its inner nodes is a neutral frame: the wires under it stay visible (15.3). */
 .patina-node.frame {
   background: rgba(255, 255, 255, 0.03);
@@ -261,16 +280,19 @@
   border: 2px solid var(--node);
   border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
-  /* Margins center a pin on the edge in place of the React Flow transforms, which make each frame slow at 2000 nodes. */
+  /* Margins center a pin on the edge in place of the React Flow transforms, which make each frame slow at 2000 nodes.
+     The wrapper is the containing block, so the offsets add the gutter and the 1px border of the body. */
   transform: none;
-  margin-top: -5.5px;
+  margin-top: -4.5px;
 }
 
 .react-flow__node-patina .react-flow__handle-left {
+  left: 9px;
   margin-left: -5.5px;
 }
 
 .react-flow__node-patina .react-flow__handle-right {
+  right: 9px;
   margin-right: -5.5px;
 }
 
@@ -298,7 +320,7 @@
   border: none;
   border-radius: 0;
   box-shadow: none;
-  margin-top: -7px;
+  margin-top: -6px;
 }
 
 .react-flow__node-patina .react-flow__handle-left.order-pin {

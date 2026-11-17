@@ -31,7 +31,7 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
   search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   const newNode = () => [...document.querySelectorAll('.react-flow__node')].find((n) => ![A, B].includes(n.getAttribute('data-id')!));
   await until('the added node', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'show');
-  const box = newNode()!.getBoundingClientRect();
+  const box = newNode()!.querySelector('.patina-node')!.getBoundingClientRect();
   if (Math.abs(box.left - at.clientX) > 4 || Math.abs(box.top - at.clientY) > 4) throw new Error('the added node is not at the point of the double-click');
   v = await step('undo the added node', () => api.undo());
   if (v.graph.node?.length !== 2) throw new Error('undo did not remove the added node');

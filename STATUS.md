@@ -85,10 +85,15 @@ editor with the built page, on the Windows 11 computer of the owner.
   - The view of 2000 nodes has 251,961 bytes. A move edit takes 62 ms, and 101 ms to its frame.
   - Later runs had a game in the background. The same-run control stayed near 280 ms, so the
     comparisons below are valid, but their absolute numbers are high.
-  - The pins that go out at the left and the right of a node still cost a factor of 4. An
-    injected CSS test put the pins in an 8 px padding of the node wrapper, with no `position`
-    on `.patina-node`. The 2000-node pan went to 69, 74, 86 and 69 ms, and the drag to 154 ms.
-    The 500-node pan went to 17 ms. See the known limits.
+  - The pins that went out at the left and the right of a node cost a factor of 4. The pins
+    are now in an 8 px gutter of the node wrapper, and `.patina-node` has no `position`.
+  - Two runs each, with the old pin layout as the control in the same run: the 2000-node pan
+    went from 280, 279, 296 and 258 ms (and 277, 274, 292 and 256 ms) to 70, 75, 92 and 67 ms
+    (and 70, 76, 94 and 67 ms). The drag went from 350 and 343 ms to 155 and 159 ms.
+  - 500 nodes: the pan went from 24, 22, 23 and 17 ms to 17 ms. The drag went from 41 ms to
+    27 ms. The edit frame did not change.
+  - The rule that sends a click in the gutter to the canvas costs nothing: the same pan with
+    and without it.
 
 ## Known limits
 
@@ -142,10 +147,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### Canvas speed
 
-- A pan of 2000 nodes takes about 280 ms for each frame, and a drag about 330 ms. The pins out
-  at the left and the right of each node cause most of it (see Speed measurements).
-- The fix needs the pins inside the node wrapper. Then the measured node width, the wire
-  obstacles, **Arrange** and the frame size must remove the new padding.
+- A pan of 2000 nodes takes about 70 ms for each frame, and a drag about 155 ms (see Speed
+  measurements). A game ran in the background, so the times without load are lower.
 - The bench ran only on Windows 11, with the debug editor and the built page. It did not run on
   Linux or macOS, or in a release build.
 

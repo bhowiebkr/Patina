@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@xyflow/react';
 import { api, type GraphFile, type View } from '../api';
-import { HEADER, ROW } from './NodeView';
+import { gutter, HEADER, ROW } from './NodeView';
 import { GUI_ZOOM } from '../wires/gl';
 import { NODE_WIDTH } from '../controls/gui';
 import { frameOf, shownFrames, toggleFrame, type Room } from './frames';
@@ -40,8 +40,8 @@ export function useObstacles(nodes: GraphNode[], router: Router, labels: Labels)
       const { width, height } = n.measured ?? {};
       if (!width || !height) return [];
       const p = n.parentId ? at.get(n.parentId) : undefined;
-      const [l, t] = [n.position.x + (p?.x ?? 0), n.position.y + (p?.y ?? 0)];
-      const [r, b] = [l + width, t + height];
+      const [l, t] = [n.position.x + (p?.x ?? 0) + gutter(n), n.position.y + (p?.y ?? 0)];
+      const [r, b] = [l + width - 2 * gutter(n), t + height];
       if (n.type !== 'patina' || !n.data.open) return [{ l, t, r, b }];
       // A frame blocks at its header and its thin edges, so the inner wires route inside it. The wires
       // at the frame pins cross the side edges within the pin margin of the router.
@@ -84,7 +84,7 @@ export function useFrames(view: View, nodes: GraphNode[]) {
   useLayoutEffect(() => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
     for (const n of nodes) {
-      if (n.type === 'patina' && !n.data.open && n.measured?.width && n.measured.height) closed.current.set(n.id, [n.measured.width, n.measured.height]);
+      if (n.type === 'patina' && !n.data.open && n.measured?.width && n.measured.height) closed.current.set(n.id, [n.measured.width - 2 * gutter(n), n.measured.height]);
     }
     const next = frames.flatMap((f): Room[] => {
       const n = byId.get(f.use);
@@ -93,7 +93,7 @@ export function useFrames(view: View, nodes: GraphNode[]) {
       const rows = Math.max(n.data.info?.inputs.length ?? 0, n.data.info?.outputs.length ?? 0);
       const [w, h] = closed.current.get(f.use) ?? [NODE_WIDTH, HEADER + rows * ROW];
       const [x, y] = n.data.entry.pos ?? [0, 0];
-      return [{ use: f.use, x, y, w, h, dx: n.measured.width - w, dy: n.measured.height - h }];
+      return [{ use: f.use, x, y, w, h, dx: n.measured.width - 2 * gutter(n) - w, dy: n.measured.height - h }];
     });
     setRooms((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
   }, [nodes, frames]);

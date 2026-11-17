@@ -20,7 +20,7 @@ import { NameField } from '../controls/NameField';
 import type { Domain, Edit, LibraryNode, DragLink, View } from '../api';
 import { HoverContext, HoverStore } from './bus';
 import { savedViewport, saveViewport } from '../panels/Dock';
-import { FrameToggle, NodeEdit, NodeView, PortView, valueStale, type RunState } from './NodeView';
+import { FrameToggle, gutter, NodeEdit, NodeView, PortView, valueStale, type RunState } from './NodeView';
 import { graphEdit } from './frames';
 import { dragStyle } from './palette';
 import { OrderEdge, WireEdge } from '../wires/WireEdge';
@@ -144,7 +144,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
 
   const onNodeDragStop = useCallback(
     (_: unknown, __: GraphNode, dragged: GraphNode[]) => {
-      const moves = dragged.map((n) => moveEdit(n.id, [Math.round(n.position.x), Math.round(n.position.y)]));
+      const moves = dragged.map((n) => moveEdit(n.id, [Math.round(n.position.x + gutter(n)), Math.round(n.position.y)]));
       if (moves.length > 0) edit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
     },
     [edit],

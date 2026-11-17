@@ -2,7 +2,7 @@
 import type { Connection, Edge, ReactFlowInstance } from '@xyflow/react';
 import { arrange, type Box, type Link } from '../wires/arrange';
 import type { Edit, NodeInfo, Point, View } from '../api';
-import { infoOf, ORDER, outputType } from './NodeView';
+import { gutter, infoOf, ORDER, outputType } from './NodeView';
 import { socketKey } from './palette';
 import type { WireData } from '../wires/WireLayer';
 import { portKey, portTypes, type GraphNode } from './graphData';
@@ -41,7 +41,9 @@ export function arrangeEdits(
   const chosen = picked.length > 1 ? picked : nodes.filter((n) => !n.parentId);
   if (chosen.length === 0) return [];
   const ids = new Set(chosen.map((n) => n.id));
-  const size = (n: GraphNode) => [n.measured?.width ?? 0, n.measured?.height ?? 0];
+  // The boxes are the node bodies, with no pin gutter.
+  const left = (n: GraphNode) => n.position.x + gutter(n);
+  const size = (n: GraphNode) => [(n.measured?.width ?? 0) - 2 * gutter(n), n.measured?.height ?? 0];
   const pinY = (id: string, handle: string | null | undefined, kind: 'source' | 'target') => {
     const b = flow.getInternalNode(id)?.internals.handleBounds?.[kind]?.find((h) => h.id === handle);
     return b ? b.y + b.height / 2 : (flow.getInternalNode(id)?.measured.height ?? 0) / 2;
@@ -65,12 +67,12 @@ export function arrangeEdits(
       : [],
   );
   const at = arrange(boxes, links);
-  const x0 = Math.min(...chosen.map((n) => n.position.x));
+  const x0 = Math.min(...chosen.map(left));
   const y0 = Math.min(...chosen.map((n) => n.position.y));
   return chosen.flatMap((n): Edit[] => {
     const [x, y] = at.get(n.id)!;
     const pos: Point = [Math.round(x0 + x), Math.round(y0 + y)];
-    if (pos[0] === Math.round(n.position.x) && pos[1] === Math.round(n.position.y)) return [];
+    if (pos[0] === Math.round(left(n)) && pos[1] === Math.round(n.position.y)) return [];
     return [moveEdit(n.id, pos)];
   });
 }
