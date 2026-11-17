@@ -69,8 +69,13 @@ pub fn folders(other: &Path) -> Vec<String> {
 /// The folders that an import of `folder` from the project at `other` copies: the folder, then
 /// the type and widget folders that it depends on.
 pub fn plan(root: &Path, other: &Path, folder: &str) -> Result<Vec<Item>, String> {
+    plan_all(root, other, &[folder.to_owned()])
+}
+
+/// The folders that an import of `folders` copies, as [`plan`] gives them.
+pub fn plan_all(root: &Path, other: &Path, folders: &[String]) -> Result<Vec<Item>, String> {
     let (root, other) = (absolute(root)?, absolute(other)?);
-    let folders = closure(&other, folder)?;
+    let folders = closure(&other, folders)?;
     folders.iter().map(|f| item(&root, &other, f)).collect()
 }
 
@@ -100,7 +105,7 @@ impl Project {
         read_project(&self.root).map(|f| f.imports.into_keys().collect()).unwrap_or_default()
     }
 
-    fn check_toolchain(&self, toolchain: &Toolchain) -> Result<(), String> {
+    pub(crate) fn check_toolchain(&self, toolchain: &Toolchain) -> Result<(), String> {
         match toolchain.release == self.rust {
             true => Ok(()),
             false => Err(format!("the project needs Rust {}, but the toolchain is Rust {}", self.rust, toolchain.release)),
@@ -108,7 +113,7 @@ impl Project {
     }
 
     /// Builds the changed crates of an import or an update, and undoes it when the build fails.
-    fn build_applied(&mut self, toolchain: &Toolchain, applied: Applied) -> Result<(), String> {
+    pub(crate) fn build_applied(&mut self, toolchain: &Toolchain, applied: Applied) -> Result<(), String> {
         if let Err(e) = cargo::build_packages(&self.root, toolchain, &applied.packages) {
             return applied.undo().and(Err(e.to_string()));
         }
@@ -141,12 +146,17 @@ impl Applied {
 /// Copies the folders of an import into the project at `root` with the choices of the user, and
 /// records each copy in `patina.toml` (6.4). An error leaves the project as it was.
 pub fn apply(root: &Path, other: &Path, folder: &str, choices: &BTreeMap<String, Choice>) -> Result<Applied, String> {
+    apply_all(root, other, &[folder.to_owned()], choices)
+}
+
+/// Copies the folders of an import of `folders` in one step, as [`apply`] does.
+pub fn apply_all(root: &Path, other: &Path, folders: &[String], choices: &BTreeMap<String, Choice>) -> Result<Applied, String> {
     let (root, other) = (absolute(root)?, absolute(other)?);
     let (mut file, source) = (read_project(&root)?, read_project(&other)?);
     if file.id == source.id {
         return Err("the folder is in this project already".to_owned());
     }
-    let items = plan(&root, &other, folder)?;
+    let items = plan_all(&root, &other, folders)?;
     let copies = targets(&root, &items, choices)?;
     let path = root.join("patina.toml");
     let old = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -221,10 +231,15 @@ fn targets(root: &Path, items: &[Item], choices: &BTreeMap<String, Choice>) -> R
     Ok(targets)
 }
 
-/// The folder and the type and widget folders that it depends on, without repeats.
-fn closure(other: &Path, folder: &str) -> Result<Vec<String>, String> {
-    check_folder(folder)?;
-    let mut found = vec![folder.to_owned()];
+/// The folders and the type and widget folders that they depend on, without repeats.
+fn closure(other: &Path, folders: &[String]) -> Result<Vec<String>, String> {
+    let mut found: Vec<String> = Vec::new();
+    for folder in folders {
+        check_folder(folder)?;
+        if !found.contains(folder) {
+            found.push(folder.clone());
+        }
+    }
     let mut next = 0;
     while next < found.len() {
         let dir = other.join(&found[next]);

@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 const RECENT_LIMIT: usize = 50;
 const RECENT: &str = "recent.json";
 const TRUSTED: &str = "trusted.json";
+const LIBRARIES: &str = "libraries.json";
 const LAYOUTS: &str = "layouts";
 /// A layout is a few kilobytes. A larger text is an error of the page.
 const LAYOUT_LIMIT: usize = 64 * 1024;
@@ -103,7 +104,7 @@ impl Data {
     /// Moves the lists, the layouts and the recovery files of an older portable edition from its
     /// folder `old` to the folder of the user. A file that does not move stays, so nothing is lost.
     fn take_old(&self, old: &Path) {
-        for name in [RECENT, TRUSTED] {
+        for name in [RECENT, TRUSTED, LIBRARIES] {
             let from = old.join(name);
             let Ok(bytes) = fs::read(&from) else { continue };
             let mut list = self.read_list(name);
@@ -156,18 +157,39 @@ impl Data {
     }
 
     pub fn trust(&self, root: &Path) -> Result<(), String> {
-        let mut list = self.read_list(TRUSTED);
-        if !list.iter().any(|path| same_path(path, root)) {
-            list.push(root.to_owned());
-        }
-        self.write_list(TRUSTED, &list)
+        self.add_to(TRUSTED, root)
     }
 
     /// Takes a folder off the list of trusted projects.
     pub fn untrust(&self, root: &Path) -> Result<(), String> {
-        let mut list = self.trusted();
+        self.remove_from(TRUSTED, root)
+    }
+
+    /// The library folders of the node palette, in the order of addition (6.2).
+    pub fn libraries(&self) -> Vec<PathBuf> {
+        self.read_list(LIBRARIES)
+    }
+
+    pub fn add_library(&self, root: &Path) -> Result<(), String> {
+        self.add_to(LIBRARIES, root)
+    }
+
+    pub fn remove_library(&self, root: &Path) -> Result<(), String> {
+        self.remove_from(LIBRARIES, root)
+    }
+
+    fn add_to(&self, name: &str, root: &Path) -> Result<(), String> {
+        let mut list = self.read_list(name);
+        if !list.iter().any(|path| same_path(path, root)) {
+            list.push(root.to_owned());
+        }
+        self.write_list(name, &list)
+    }
+
+    fn remove_from(&self, name: &str, root: &Path) -> Result<(), String> {
+        let mut list = self.read_list(name);
         list.retain(|path| !same_path(path, root));
-        self.write_list(TRUSTED, &list)
+        self.write_list(name, &list)
     }
 
     /// The saved layout of a project, or none.

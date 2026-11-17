@@ -1,4 +1,4 @@
-// The settings screen (spec 15.10): the toolchain, the folders and the trusted projects.
+// The settings screen (spec 15.10): the toolchain, the folders, the libraries and the trusted projects.
 
 import { useEffect, useState } from 'react';
 import { api, onToolchain, type InstallProgress, type Settings } from './api';
@@ -28,6 +28,27 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
     setError('');
     api.untrustProject(path).then(
       (trusted) => setSettings((s) => s && { ...s, trusted }),
+      (e) => setError(String(e)),
+    );
+  };
+  // A library is a Patina project. Its nodes and subgraphs show in the node palette (6.2).
+  const addLibrary = async () => {
+    setError('');
+    try {
+      const path = await api.pickFolder(settings?.projectsDir ?? '');
+      if (path) {
+        const libraries = await api.addLibrary(path);
+        // Patina trusts a library, so the trusted list changes too.
+        setSettings((s) => s && { ...s, libraries, trusted: s.trusted.includes(path) ? s.trusted : [...s.trusted, path] });
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const removeLibrary = (path: string) => {
+    setError('');
+    api.removeLibrary(path).then(
+      (libraries) => setSettings((s) => s && { ...s, libraries }),
       (e) => setError(String(e)),
     );
   };
@@ -102,6 +123,25 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
               <dd>{s.projectsDir}</dd>
             </dl>
           )}
+        </section>
+        <section className="start-box" aria-label="Libraries">
+          <h2>Libraries</h2>
+          <div className="label">The node palette shows the nodes and the subgraphs of these Patina projects. Patina trusts each library, because it builds their code.</div>
+          {s?.libraries.length === 0 && <div className="label">None</div>}
+          {s?.libraries.map((path) => (
+            <div key={path} className="settings-row">
+              <span className="path">{path}</span>
+              <button className="btn" aria-label={`Remove library ${path}`} onClick={() => removeLibrary(path)}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <div className="settings-row">
+            <span />
+            <button className="btn" disabled={!s} onClick={addLibrary}>
+              Add library
+            </button>
+          </div>
         </section>
         <section className="start-box" aria-label="Trusted projects">
           <h2>Trusted projects</h2>

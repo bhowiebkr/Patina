@@ -3,10 +3,11 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
-import { api, folderName, newId, onCloseRequested, onEngine, paramEdit, scopeDomains, type Edit, type EngineEvent, type StartInfo, type View } from './api';
+import { api, folderName, newId, onCloseRequested, onEngine, paramEdit, scopeDomains, type Edit, type EngineEvent, type LibraryNode, type StartInfo, type View } from './api';
 import { HelpMenu } from './About';
 import { Field } from './Field';
 import { runCheck } from './check';
+import { clipboard } from './clip';
 import { runShot } from './shot';
 import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
 import type { Reveal } from './CodeTab';
@@ -17,7 +18,7 @@ import { useFloatHost } from './Floats';
 import { GraphView, useFit } from './GraphView';
 import { Inspector, type InspectorTab } from './Inspector';
 import type { PanelId, ViewSlot } from './layout';
-import { Lines } from './Lines';
+import { Lines, type Line } from './Lines';
 import { ExpandGui, FullGui } from './NodeGui';
 import { LayersPanel } from './LayersPanel';
 import type { WireData } from './WireLayer';
@@ -190,6 +191,31 @@ export function App() {
   );
 
   const expandUses = useCallback((ids: string[]) => act(api.expand(ids), markStale), [act, markStale]);
+
+  // Copy and paste go through the clipboard, so they also work between two editors (15.11).
+  const copyNodes = useCallback(async (ids: string[]) => {
+    try {
+      await clipboard.write(await api.copyClip(ids));
+      return true;
+    } catch (e) {
+      setError(String(e));
+      return false;
+    }
+  }, []);
+  const paste = useCallback(
+    async (at: [number, number], library?: LibraryNode) => {
+      try {
+        const p = await (library ? api.pasteLibrary(library, at) : api.pasteClip(await clipboard.read(), at));
+        show(p.view);
+        markStale(p.view);
+        setFocus({ ids: p.ids, n: 0 });
+        if (p.warnings.length > 0) log(p.warnings.map((text): Line => ({ text, kind: 'warn' })));
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [show, markStale, log],
+  );
   const fire = useCallback((id: string) => api.fire(usePath ? `${usePath}/${id}` : id, '').catch((e) => setError(String(e))), [usePath]);
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
@@ -424,7 +450,7 @@ export function App() {
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
                 <FireTrigger.Provider value={view.live && (view.graphName === 'main' || usePath) ? fire : null}>
-                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} />
+                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} />
                 </FireTrigger.Provider>
               </PortTest.Provider>
               {view.graphName !== 'main' && (

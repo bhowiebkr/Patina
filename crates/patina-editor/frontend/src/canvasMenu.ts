@@ -18,7 +18,7 @@ export type MenuTarget =
     }
   | { kind: 'wire' };
 
-export type MenuAction = 'add' | 'selectAll' | 'fit' | 'arrange' | 'open' | 'rename' | 'collapse' | 'expand' | 'delete' | 'disconnect';
+export type MenuAction = 'add' | 'paste' | 'selectAll' | 'fit' | 'arrange' | 'open' | 'rename' | 'collapse' | 'expand' | 'copy' | 'cut' | 'delete' | 'disconnect';
 export type MenuEntry = { label: string; keys?: string; action: MenuAction } | 'line';
 
 /** The menu entries for a target. An untrusted project gets only the entries that do not edit. */
@@ -27,6 +27,7 @@ export function canvasMenu(t: MenuTarget, trusted: boolean): MenuEntry[] {
   if (t.kind === 'pane') {
     list.push(
       trusted && { label: 'Add node...', keys: 'Shift+A', action: 'add' },
+      trusted && { label: 'Paste', keys: 'Ctrl+V', action: 'paste' },
       trusted && 'line',
       { label: 'Select all', keys: 'Ctrl+A', action: 'selectAll' },
       { label: 'Fit view', keys: 'F', action: 'fit' },
@@ -40,6 +41,9 @@ export function canvasMenu(t: MenuTarget, trusted: boolean): MenuEntry[] {
       trusted && t.uses > 0 && { label: t.uses === 1 ? 'Expand subgraph' : 'Expand subgraphs', keys: 'Ctrl+Shift+G', action: 'expand' },
       trusted && t.count > 1 && { label: 'Arrange', keys: 'Shift+L', action: 'arrange' },
       { label: t.count === 1 ? 'Fit node' : 'Fit selection', keys: 'F', action: 'fit' },
+      t.nodes > 0 && { label: 'Copy', keys: 'Ctrl+C', action: 'copy' },
+      trusted && t.nodes > 0 && { label: 'Cut', keys: 'Ctrl+X', action: 'cut' },
+      trusted && { label: 'Paste', keys: 'Ctrl+V', action: 'paste' },
       trusted && 'line',
       trusted && { label: t.count === 1 ? 'Delete node' : 'Delete selection', keys: 'Delete', action: 'delete' },
     );

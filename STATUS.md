@@ -13,6 +13,28 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Copy, paste and libraries
+
+- New: **Copy**, **Cut** and **Paste** of nodes and networks, with Ctrl+C, Ctrl+X, Ctrl+V and
+  the right-click menus (spec 15.11, owner request, 2026-11-17). The clip goes on the clipboard
+  of the system, so a paste also works in a second running editor and in another project.
+- New: a clip holds the nodes, the wires between them and each subgraph that they use, but no
+  code. A paste into another project imports the missing node folders from the trusted source
+  project, with a build check. A different subgraph with the same name gets a new name.
+- New: **Settings** > **Libraries** lists Patina projects for reuse (spec 6.2). The **Add node**
+  palette shows their nodes and subgraphs. A pick adds the node with a paste of one node.
+- New: Ctrl+G keeps the new subgraph in memory until Save, as a paste does.
+- Checked: engine unit tests for a paste in the same project, a paste into another project with
+  a renamed subgraph and imported folders, a failed paste that changes nothing, and bad clips.
+  Frontend unit tests for the menu entries. On a hidden desktop, the editor self-check copies a
+  node from its menu and pastes it from the canvas menu, with a clip in memory.
+- Not checked: a paste between two running editors by hand, a library pick in the editor, and
+  the Ctrl+C, Ctrl+X and Ctrl+V keys. `library_nodes` has no Rust test.
+- Known limits: libraries are local folders. The Git download, the pinned tags and the index of
+  spec 18 question 14 are not done. A cable name of the clip can repeat a cable name of the
+  graph. A clip has 256 subgraphs at most. An undone paste or collapse keeps its new subgraph in
+  memory, and Save writes it. A library pick from a drag of a pin does not connect the pin.
+
 ## Gate speed
 
 - New: [docs/gate-speed.md](docs/gate-speed.md) compares the NAND circuits of Patina with
@@ -69,8 +91,8 @@ checks open.
   changes of a graph that is not open, and a save of all graphs. An editor unit test writes and
   reads a recovery file with two graphs. The editor self-check passed on a hidden desktop.
 - Not checked: a restore of a recovery file with two graphs in the editor on the desktop.
-- Known limits: Ctrl+G, a new folder, **Import**, **Add crate**, and an undo or a redo of a code
-  change or a folder change still write their files at once.
+- Known limits: a new folder, **Import**, **Add crate**, and an undo or a redo of a code change
+  or a folder change still write their files at once.
 
 ## Snake on the computer
 
@@ -874,8 +896,8 @@ and 6.4).
 - In an open subgraph, the inner nodes show no live values and no run errors, because a
   subgraph can have many uses. The frame of **Show inner nodes** shows them for one use.
 - A removed public pin keeps the wires of the uses to it. The check shows a problem for each.
-- Ctrl+G collapses the selected nodes into a new subgraph file, with public pins for the wires
-  that cross. An undo keeps the new file. Ctrl+Shift+G expands the selected uses.
+- Ctrl+G collapses the selected nodes into a new subgraph, with public pins for the wires that
+  cross. Save writes its file. An undo keeps the new subgraph. Ctrl+Shift+G expands the selected uses.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
   The use is generic in that parameter too, so the **Add node** palette offers it for each
   type (fixed 2026-11-16). A pin that ends at `&bool` shows `bool`.

@@ -1,8 +1,9 @@
 // The canvas steps of the self-check: a drop of a node folder from the Project panel, and the
-// right-click menus of the empty canvas, a node and a connection (15.2, 15.4).
+// right-click menus of the empty canvas, a node and a connection, and copy and paste (15.2, 15.4, 15.11).
 
 import { api, type View } from './api';
 import { RUN_MS } from './check-fixtures';
+import { clipboard } from './clip';
 import { NODE_MIME } from './GraphView';
 
 type Step = (name: string, job: () => Promise<View>) => Promise<View>;
@@ -57,6 +58,26 @@ export async function checkCanvas(step: Step, until: Until, steps: string[], v: 
   await until('the deleted node', RUN_MS, () => count(NODES) === nodes - 1);
   v = await step('undo the delete from the node menu', () => api.undo());
   await until('the node after the undo', RUN_MS, () => count(NODES) === nodes);
+
+  // Copy of the node menu and Paste of the canvas menu. The self-check keeps the clip in memory.
+  // The undo made a new element for the node.
+  const copied = document.querySelector(`${NODES}-patina`)!;
+  rightClick(copied.querySelector('.title') ?? copied);
+  await until('the Copy entry', RUN_MS, () => !!entry('Node', 'Copy'));
+  entry('Node', 'Copy')!.click();
+  let clip = '';
+  await until('the copied clip', RUN_MS, () => {
+    clipboard.read().then((text) => (clip = text));
+    return clip.startsWith('patina-clip');
+  });
+  rightClick(pane, r.left + 40, r.top + 40);
+  await until('the Paste entry', RUN_MS, () => !!entry('Canvas', 'Paste'));
+  entry('Canvas', 'Paste')!.click();
+  const selected = () => [...document.querySelectorAll(`${NODES}.selected`)].map((n) => n.getAttribute('data-id'));
+  await until('the pasted node, selected', RUN_MS, () => count(NODES) === nodes + 1 && selected().length === 1 && selected()[0] !== copied.getAttribute('data-id'));
+  v = await step('undo the paste', () => api.undo());
+  await until('the graph after the undo of the paste', RUN_MS, () => count(NODES) === nodes);
+  steps.push('copy and paste of a node');
 
   // The menu of a connection.
   const wires = count('.wire-hit');

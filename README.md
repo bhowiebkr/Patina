@@ -109,6 +109,15 @@ data types have their own folders too. Another project can import a folder and r
 import is a copy. **Update** in the **Project** panel shows the changes in the original folder
 and copies them when you confirm.
 
+To reuse nodes and subgraphs:
+
+- Select nodes and push Ctrl+C, or use **Copy** in the right-click menu. Push Ctrl+V in the same
+  editor, in a second editor or in another project. The paste brings the wires between the
+  nodes and the subgraphs that they use. It imports the node folders that the project does not
+  have from the source project.
+- Add a Patina project in **Settings** > **Libraries**. The **Add node** palette then shows its
+  nodes and subgraphs.
+
 ```
 image-pipeline/
   graphs/          the main graph and the subgraphs, with their connections

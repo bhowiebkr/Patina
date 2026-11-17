@@ -88,6 +88,15 @@ A project is a folder with a stable random ID. Each node, view, custom widget, c
 - **Import** copies a node, view, widget, connection, or type folder from another project into this project. It also copies the type and widget folders that the folder depends on. Before it copies, it shows each folder that it will copy, each name conflict, and each node of this project that a replaced folder changes.
 - This project can already have a folder with the same name but other contents. Then Patina asks the user to replace the old folder, keep it, or import the new folder with another name.
 - With another name, Patina changes the crate name in the `Cargo.toml` of the new folder. The copied folders that depend on it point to the new name with the `package` key of Cargo, so their code does not change.
+
+**Libraries**
+
+The owner asked for a way to reuse nodes and subgraphs from other projects (2026-11-17). This is an agent decision of 2026-11-17. The owner can change it.
+
+- A library is a normal Patina project folder (18, question 14). The user adds it in **Settings** > **Libraries** (15.10), and Patina trusts it, because a pick builds its code (11).
+- The **Add node** palette shows the node folders and the subgraphs of each library, with the name of the library. The open project does not show as a library.
+- A pick adds the node or the subgraph as a paste of one node (15.11). The paste imports the node folders and the subgraphs that the pick needs.
+- **Copy** in one project and **Paste** in another project also reuse nodes and networks (15.11).
 - The copy belongs to this project. A later change in the other project does not change it. Patina never links folders between projects, because a project holds all its source (2, 14), and a change in another project must not break it.
 - Patina records the source of the copy. The record holds the stable random ID of the other project, the folder name, and a hash of the contents at import. The record holds no path, so it shows no private folder names when the project is shared. Section 6.4 gives the format of the record.
 - **Update** in the **Project** panel compares the copy with the folder in the other project. Patina finds the other project among the projects that the user opened before, or asks for its folder. It shows the changes on both sides, including the changes that the user made to the copy. It copies the new version only when the user confirms. If both sides changed a file, the user picks the version of that file.

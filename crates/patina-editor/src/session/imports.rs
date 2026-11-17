@@ -3,7 +3,6 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use patina_engine::project::{self, ProjectFile};
 use patina_engine::{Toolchain, import};
 use serde::Serialize;
 use tauri::State;
@@ -40,8 +39,7 @@ pub fn import_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, 
 #[tauri::command(async)]
 pub fn update_source(editor: State<'_, Editor>, folder: String) -> Result<Option<PathBuf>, String> {
     let id = editor.with(|session| import::source_id(session.project.root(), &folder))?;
-    let id_of = |dir: &PathBuf| project::read(&dir.join("patina.toml"), |f: &ProjectFile| f.format).ok().map(|f: ProjectFile| f.id);
-    Ok(editor.data.trusted().into_iter().find(|dir| id_of(dir).as_deref() == Some(id.as_str())))
+    Ok(super::clip::trusted_by_id(&editor, &id))
 }
 
 /// The differences between the imported `folder` and its folder in the project at `other` (6.2).

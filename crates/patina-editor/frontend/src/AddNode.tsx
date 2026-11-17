@@ -1,7 +1,7 @@
 // The Add node palette: a search for a node of the project, at a point of the canvas (spec 15.2).
 
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import type { NodeInfo } from './api';
+import type { LibraryNode, NodeInfo } from './api';
 import { matchNodes } from './palette';
 
 interface Props {
@@ -67,10 +67,11 @@ export function AddNode({ x, y, nodes, none = 'The project has no nodes.', onAdd
         />
         <div id="add-node-list" role="listbox" aria-label="Nodes">
           {hits.map((n, i) => (
-            <div key={`${n.builtin} ${n.subgraph} ${n.name}`} id={`add-node-${i}`} role="option" aria-selected={i === at} onClick={() => add(n)}>
+            <div key={`${(n as Partial<LibraryNode>).path ?? ''} ${n.builtin} ${n.subgraph} ${n.name}`} id={`add-node-${i}`} role="option" aria-selected={i === at} onClick={() => add(n)}>
               {n.name}
               {n.builtin && <span className="hint">built-in</span>}
               {n.subgraph && <span className="hint">subgraph</span>}
+              {'library' in n && <span className="hint">{(n as LibraryNode).library}</span>}
               {n.error && <span className="hint error-text">error</span>}
             </div>
           ))}

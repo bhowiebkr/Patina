@@ -144,6 +144,8 @@ fn page_url() -> Url {
 fn window<'a>(app: &'a AppHandle, label: &str, url: Url, webview_dir: PathBuf, check: bool) -> WebviewWindowBuilder<'a, Wry, AppHandle> {
     // The native file drop of Tauri stops the HTML drag and drop of nodes on Windows (15.4).
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::CustomProtocol(url)).data_directory(webview_dir).disable_drag_drop_handler();
+    // Copy and paste use the clipboard of the system, also between two editors (15.11).
+    let builder = builder.enable_clipboard_access();
     // A viewport draws on the window under the web view, so the web view is transparent (15.8).
     #[cfg(windows)]
     let builder = builder.transparent(true);
@@ -232,6 +234,13 @@ fn main() {
             session::trust_project,
             session::settings,
             session::untrust_project,
+            session::copy_clip,
+            session::paste_clip,
+            session::paste_library,
+            session::libraries,
+            session::add_library,
+            session::remove_library,
+            session::library_nodes,
             session::edit,
             session::undo,
             session::redo,

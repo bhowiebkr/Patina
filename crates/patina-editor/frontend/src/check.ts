@@ -12,9 +12,11 @@ import { checkCanvas } from './check-canvas';
 import { checkDomains } from './check-domains';
 import { checkGuard, checkWidgets } from './check-gui';
 import { checkIsolation } from './check-isolation';
+import { keepClipInMemory } from './clip';
 import { A, B, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, enterText, fireButton, mouseWheel } from './check-fixtures';
 
 export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void, edited: (v: View) => void) {
+  keepClipInMemory();
   const steps: string[] = [];
   const events: EngineEvent[] = [];
   const output: string[] = [];

@@ -92,6 +92,12 @@ impl History {
         History { saved: graph.clone(), graph, undo: Vec::new(), redo: Vec::new() }
     }
 
+    /// A new graph with no file yet. It stays dirty, so the next save writes it (15.10).
+    pub fn unsaved(graph: GraphFile) -> History {
+        let saved = GraphFile { format: 0, node: Vec::new(), wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
+        History { saved, graph, undo: Vec::new(), redo: Vec::new() }
+    }
+
     /// Applies the edit. An edit that is not valid or changes nothing does not go into the history.
     pub fn apply(&mut self, edit: &Edit) -> Result<(), String> {
         let mut next = self.graph.clone();

@@ -16,10 +16,12 @@ use crate::engine::Job;
 use crate::node_process::{Host, ToNode, wait};
 
 mod check;
+mod clip;
 mod imports;
 mod runs;
 
 pub use check::*;
+pub use clip::*;
 pub use imports::*;
 pub use runs::*;
 
@@ -134,6 +136,7 @@ pub struct Settings {
     projects_dir: PathBuf,
     portable: bool,
     trusted: Vec<PathBuf>,
+    libraries: Vec<PathBuf>,
 }
 
 #[derive(Serialize)]
@@ -411,7 +414,7 @@ pub fn settings(editor: State<'_, Editor>) -> Settings {
         Ok(t) => (Some(t.release), Some(t.cargo), t.own.is_some(), None),
         Err(e) => (None, None, false, Some(e.to_string())),
     };
-    Settings { rust, cargo, toolchain_problem, toolchain_dir: data.toolchain.clone(), own_toolchain, installing: crate::toolchain::installing(), data_dir: data.dir.clone(), projects_dir: data.projects.clone(), portable: data.portable, trusted: data.trusted() }
+    Settings { rust, cargo, toolchain_problem, toolchain_dir: data.toolchain.clone(), own_toolchain, installing: crate::toolchain::installing(), data_dir: data.dir.clone(), projects_dir: data.projects.clone(), portable: data.portable, trusted: data.trusted(), libraries: data.libraries() }
 }
 
 /// Takes a folder off the list of trusted projects (11). Patina asks again when it opens next.

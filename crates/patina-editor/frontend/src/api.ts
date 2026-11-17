@@ -171,6 +171,8 @@ export interface Settings {
   projectsDir: string;
   portable: boolean;
   trusted: string[];
+  /** The library folders of the node palette (6.2). */
+  libraries: string[];
 }
 
 export interface Report {
@@ -330,6 +332,16 @@ export type UpdatePick = 'Other' | 'This';
 
 export type PathPick = 'open' | 'save' | 'folder';
 
+/** The view after a paste, with the new node IDs and the warnings (15.11). */
+export interface Pasted {
+  view: View;
+  ids: string[];
+  warnings: string[];
+}
+
+/** A node or a subgraph of a library, for the node palette (6.2). */
+export type LibraryNode = NodeInfo & { library: string; path: string };
+
 export type ImportChoice = { kind: 'Replace' } | { kind: 'Keep' } | { kind: 'Rename'; name: string };
 
 export const api = {
@@ -349,6 +361,15 @@ export const api = {
   checkUpdate: () => invoke<Release | null>('check_update'),
   /** Takes a folder off the list of trusted projects (11), and returns the new list. */
   untrustProject: (path: string) => invoke<string[]>('untrust_project', { path }),
+  /** The clip text of the nodes, for the clipboard (15.11). */
+  copyClip: (ids: string[]) => invoke<string>('copy_clip', { ids }),
+  pasteClip: (text: string, at: [number, number]) => invoke<Pasted>('paste_clip', { text, at }),
+  /** Adds a node or a subgraph of a library, as a paste of one node (6.2). */
+  pasteLibrary: (n: LibraryNode, at: [number, number]) => invoke<Pasted>('paste_library', { path: n.path, name: n.name, subgraph: n.subgraph, at }),
+  libraryNodes: () => invoke<LibraryNode[]>('library_nodes'),
+  /** Adds a Patina project to the libraries and trusts it (6.2), and returns the new list. */
+  addLibrary: (path: string) => invoke<string[]>('add_library', { path }),
+  removeLibrary: (path: string) => invoke<string[]>('remove_library', { path }),
   edit: (edit: Edit) => invoke<View>('edit', { edit }),
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),

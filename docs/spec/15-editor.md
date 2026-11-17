@@ -138,6 +138,8 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | Delete | Delete the selection |
 | Esc | Cancel the drag, or clear the selection |
 | Double-click on an empty area, Shift+A | Open the **Add node** palette |
+| Ctrl+C, Ctrl+X, with the pointer on the canvas | Copy or cut the selected nodes to the clipboard (15.11) |
+| Ctrl+V, with the pointer on the canvas | Paste the nodes of the clipboard at the middle of the view (15.11) |
 | Ctrl+G | Collapse the selected nodes into a new subgraph |
 | Ctrl+Shift+G | Expand the selected uses of subgraphs |
 | Shift+L | Arrange the selected nodes, or all nodes, in columns (15.9) |
@@ -150,12 +152,12 @@ The owner asked for right-click menus that change with the target (2026-11-16). 
 
 | Target | Entries |
 |---|---|
-| Empty canvas | **Add node...**, **Select all**, **Fit view**, **Arrange** |
-| Node | **Open subgraph** (one use of a subgraph), **Rename pin...** (one public pin), **Collapse into subgraph...**, **Expand subgraph**, **Arrange** (two or more nodes), **Fit node** or **Fit selection**, **Delete node** or **Delete selection** |
+| Empty canvas | **Add node...**, **Paste**, **Select all**, **Fit view**, **Arrange** |
+| Node | **Open subgraph** (one use of a subgraph), **Rename pin...** (one public pin), **Collapse into subgraph...**, **Expand subgraph**, **Arrange** (two or more nodes), **Fit node** or **Fit selection**, **Copy**, **Cut**, **Paste**, **Delete node** or **Delete selection** |
 | Connection | **Delete connection** |
 
 - A right-click on a node or a connection out of the selection selects only that item, as a click does. A right-click in the selection keeps the selection, and the entries act on all of it.
-- **Add node...** opens the palette at the point of the right-click.
+- **Add node...** and **Paste** act at the point of the right-click.
 
 The **Add node** palette is the second way to add a node, after a drag from the **Project** panel. (Agent decision, 2026-11-15. The owner can change it.)
 
@@ -579,17 +581,17 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The path bar of an open subgraph has a **Test** button. It runs one use of the subgraph alone, with the ID `7e57000000000000`, in place of the main graph. Each public input with a `bool` type starts as `false`. Patina shows a switch at the left of each such input node, and a lamp at the right of each output node with a `bool` value. A click on a switch toggles the input and runs the subgraph again. Other inputs and outputs show their value next to the pin. **End test** or a change of graph returns to the main graph. An untrusted project has no test. This is an agent decision of 2026-11-15. The owner can change it.
 - Reason: the user of a gate subgraph, for example a full adder, must see its truth table before a use. A test needs no outer graph and no change of the files.
 - Reason: the owner often opens a project only to try things. A graph file must change only when the user saves.
-- Exceptions: Ctrl+G, a new folder, **Import**, **Add crate**, and an undo or a redo of a code change or a folder change write their files at once. Cargo builds from these files, or the user asked for the new file.
+- Exceptions: a new folder, **Import**, **Add crate**, and an undo or a redo of a code change or a folder change write their files at once. Cargo builds from these files, or the user asked for the new file.
 
 **Collapse into a subgraph**
 
 This is an agent decision of 2026-11-15. The owner can change it.
 
-- Ctrl+G asks for a name and moves the selected nodes into the new file `graphs/<name>.toml` (6.1). A use of the subgraph takes their place, at the top left corner of the selection.
+- Ctrl+G asks for a name and moves the selected nodes into a new subgraph `<name>` (6.1). The subgraph stays in memory until Save writes `graphs/<name>.toml`. (Agent decision, 2026-11-17. The owner can change it.) A use of the subgraph takes their place, at the top left corner of the selection.
 - Each outer output that feeds the selection gets one public input, with a wire to each inner input that it fed. Each inner output that feeds the outer graph gets one public output. A pin takes the key of its first inner pin as its name, with `_2`, `_3` for a repeated name.
 - The wires and the order wires between the selected nodes go into the subgraph. An order wire that crosses goes to the use. The collars and the cables keep only their outer wires.
 - The editor refuses a name that has a graph, and a selection that makes a cycle through the use.
-- The change of the open graph is one undo step. An undo keeps the subgraph file, because a file write is not part of the history.
+- The change of the open graph is one undo step. An undo keeps the new subgraph in memory, and Save writes it.
 - Ctrl+Shift+G expands each selected use: the nodes of the subgraph take its place, as one undo step. Their top left corner goes to the position of the use. An inner node keeps its ID, unless the graph has the ID. A parameter of the use goes to the inner inputs of its pin. The subgraph file stays.
 
 **Recovery file**
@@ -650,6 +652,23 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The start screen has a **Settings** button. The settings screen replaces the start screen. **Back** or Esc returns to the start screen.
 - The **Toolchain** part shows the Rust version and the path of `cargo`, or the problem that stops a build. It is the toolchain panel of 13.2. When the toolchain folder has no `cargo`, the part shows **Install toolchain**, and then each install step.
 - The **Folders** part shows the data folder, with **(portable)** for the portable edition (13.3), and the folder of new projects.
+- The **Libraries** part lists the library folders (6.2). **Add library** adds a Patina project folder, and Patina trusts it. **Remove** takes a folder off the list, and the folder stays trusted.
 - The **Trusted projects** part lists the trusted folders (11). **Remove** takes a folder off the list. Patina asks again when that project opens.
 - Patina refuses to remove the open project from the list. The start screen has no open project, so this case does not occur from the settings screen.
 - Reason: no project is open on the start screen, so a change of trust has no effect on a build or a run. The settings of a project, for example the wire look, stay in the **Inspector**. Later settings of Patina, for example the keys, go on this screen.
+
+### 15.11 Copy and paste
+
+The owner asked for a copy and a paste of nodes and networks, also between two running editors (2026-11-17). The rules are an agent decision of 2026-11-17. The owner can change it.
+
+- **Copy** puts a clip of the selected nodes on the clipboard of the system. **Cut** copies the nodes and then deletes them, as one undo step. **Paste** adds the nodes of the clip to the open graph, as one undo step, and selects them.
+- The clipboard of the system carries the clip, so a paste works in a second editor and in another project.
+- A clip is TOML text that starts with `patina-clip = 1`. It holds the ID and the folder name of the source project, the copied nodes, and each subgraph that they use, also through other subgraphs. It holds no code.
+- A wire, an order wire, a collar or a cable goes into the clip only when all of its nodes do.
+- Each pasted node gets a new ID. The top left node goes to the point of the paste, and the other nodes keep their distance to it. The wires keep their bend points.
+- A subgraph of the clip with the same name and the same graph as a subgraph of the project is used again. A different graph gets a free name: `<name>-2`, `<name>-3` and so on. A new subgraph stays in memory until Save (15.10).
+- A node folder that the project does not have comes from the source project with **Import** (6.2), with its type and widget folders. Patina finds the source project by its ID in the trusted projects. A build check of the new folders runs before the paste, and a failed check changes nothing.
+- A node folder that the project has with other files stays, and the paste shows a warning in the log. Without the source project, the paste uses the folders of the project, with a warning. A missing folder without the source project is an error.
+- The clip comes from the clipboard, so Patina does not trust it. A folder must be a folder in `nodes/`, each ID and each name must be valid, each wire must name a node of the clip, and a clip has 256 subgraphs at most. A subgraph that uses itself is an error.
+- An untrusted project can copy, but it can not cut or paste.
+- Reason: the clipboard of the system needs no server and no new file, and the text also goes into a chat or an issue. The code stays in the project folders, so a clip is small and Patina builds only trusted code (11).
