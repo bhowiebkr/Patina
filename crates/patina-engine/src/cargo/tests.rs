@@ -7,6 +7,24 @@ fn message(level: &str, text: &str, file: &Path) -> Value {
 }
 
 #[test]
+fn a_newer_rust_builds_a_project_of_an_older_rust() {
+    for (release, rust, fits) in [
+        ("1.100.0", "1.94.0", true),
+        ("1.94.0", "1.94.0", true),
+        ("1.94.1", "1.94", true),
+        ("1.94.0", "1.100.0", false),
+        ("1.95.0-nightly", "1.94.0", true),
+        ("1.95.0-beta.2", "1.95.0", false),
+        ("1.95.0", "1.95.0-beta.2", true),
+        ("1.94.0", "x", false),
+        ("x", "x", true),
+        ("1.94.0.1", "1.94.0", false),
+    ] {
+        assert_eq!(release_fits(release, rust), fits, "{release} {rust}");
+    }
+}
+
+#[test]
 fn the_sdk_manifests_have_the_dependencies_of_the_crates() {
     let gpu = include_str!("../../../patina-gpu/Cargo.toml");
     let cuda = include_str!("../../../patina-cuda/Cargo.toml");

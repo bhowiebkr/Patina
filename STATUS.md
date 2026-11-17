@@ -13,6 +13,20 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Rust version of a project
+
+- Fixed: a project of an older Rust version did not build with a newer toolchain. **Install
+  toolchain** installs the newest stable Rust, 1.100.0 on 2026-11-17. The example projects
+  record Rust 1.94.0, so the build stopped with "the project needs Rust 1.94.0".
+- Now the `rust` of `patina.toml` is the oldest version that builds the project (spec 8.1). A
+  toolchain of the same or a newer version builds it. An older toolchain gives an error.
+- Cause of the gap: the CLI tests changed the `rust` of each example to the version of the test
+  toolchain, so no test built an example as the zip has it. The tests now keep the version.
+- Checked: an engine unit test of the version order, with pre-releases. The CLI tests built the
+  examples `hello` (Rust 1.94.0) and `gpu` (Rust 1.100.0) with Rust 1.100.0.
+- Not checked: an **Install toolchain** of the new package, and a build of an example in the
+  editor of the zip, by hand.
+
 ## Copy, paste and libraries
 
 - New: **Copy**, **Cut** and **Paste** of nodes and networks, with Ctrl+C, Ctrl+X, Ctrl+V and

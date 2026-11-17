@@ -106,10 +106,7 @@ impl Project {
     }
 
     pub(crate) fn check_toolchain(&self, toolchain: &Toolchain) -> Result<(), String> {
-        match toolchain.release == self.rust {
-            true => Ok(()),
-            false => Err(format!("the project needs Rust {}, but the toolchain is Rust {}", self.rust, toolchain.release)),
-        }
+        toolchain.builds(&self.rust)
     }
 
     /// Builds the changed crates of an import or an update, and undoes it when the build fails.

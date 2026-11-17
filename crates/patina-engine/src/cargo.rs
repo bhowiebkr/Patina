@@ -189,6 +189,14 @@ impl Toolchain {
         Ok(self)
     }
 
+    /// Checks that this toolchain builds a project of Rust `rust` (8.1): the same or a newer version.
+    pub fn builds(&self, rust: &str) -> Result<(), String> {
+        match release_fits(&self.release, rust) {
+            true => Ok(()),
+            false => Err(format!("the project needs Rust {rust} or newer, but the toolchain is Rust {}", self.release)),
+        }
+    }
+
     /// A command of this toolchain. The own toolchain gets the environment of a clean computer
     /// (13.2). The Rust of the system loses only the variables that change a build.
     pub fn command(&self, program: &Path) -> Result<Command, Error> {
@@ -691,6 +699,21 @@ fn write(root: &Path, relative: &str, text: &str) -> Result<(), Error> {
         std::fs::create_dir_all(dir).map_err(|e| Error::Io(dir.to_owned(), e))?;
     }
     std::fs::write(&path, text).map_err(|e| Error::Io(path, e))
+}
+
+/// True when Rust `release` is `rust` or newer. A pre-release, for example `1.95.0-beta.2`, is older
+/// than its release. A text that is not a version fits only the same text.
+fn release_fits(release: &str, rust: &str) -> bool {
+    let key = |text: &str| {
+        let (numbers, pre) = text.split_once('-').map_or((text, false), |(n, _)| (n, true));
+        let mut parts = numbers.split('.').map(|p| p.parse::<u32>().ok());
+        let v = [parts.next()??, parts.next()??, parts.next().unwrap_or(Some(0))?];
+        parts.next().is_none().then_some((v, !pre))
+    };
+    match (key(release), key(rust)) {
+        (Some(have), Some(need)) => have >= need,
+        _ => release == rust,
+    }
 }
 
 #[cfg(test)]

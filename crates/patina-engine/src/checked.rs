@@ -140,10 +140,7 @@ impl Checked {
     }
 
     pub(crate) fn check_rust(&self, toolchain: &Toolchain) -> Result<(), Error> {
-        if toolchain.release == self.rust {
-            return Ok(());
-        }
-        Err(Error::Build(format!("the project needs Rust {}, but the toolchain is Rust {}", self.rust, toolchain.release)))
+        toolchain.builds(&self.rust).map_err(Error::Build)
     }
 
     /// A hash of the code of the clusters and of the node in the slot: its signature and its folder,
