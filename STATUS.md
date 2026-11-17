@@ -13,6 +13,20 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Snake on the computer
+
+- New: `programs/snake.asm`, a Snake game in the assembly of the computer. The arrow keys of the
+  `joystick` turn the snake. The snake eats food, grows, and starts again after a crash. OUT
+  gives the score. Each body cell keeps the direction to the next cell as its color, so the tail
+  follows the head without a list. Sprite 0 is the head.
+- Checked: a scratch emulator of the CPU ran the program with no input, with a player that goes
+  to the food, with a turn back and with a crash. The player got a score of 26. The CLI ran the
+  program for 400 frames with **every** at 1: the snake grew to 5 cells and the tail followed.
+  The CLI test `computer.rs` checks this run.
+- Not checked: a game with the arrow keys in the editor on the desktop.
+- Known limit: a step of the game is 26 to 38 instructions, and the clock gives at most one
+  instruction each frame. At 60 frames each second, the snake moves about 2 cells each second.
+
 ## Sprite GPU of the computer
 
 - New: a `sprites` node on ports 0xF9 to 0xFD of the computer. It draws 8 sprites of 8 x 8 pixels

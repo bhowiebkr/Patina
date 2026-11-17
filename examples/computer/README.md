@@ -51,7 +51,7 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 | --- | --- |
 | `nodes/` | `nand`, `switch`, `clock`, `program`, `ram`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `sprites`, `screen`, `random`, `joystick` |
 | `views/` | `monitor` |
-| `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm`, `paint.asm` |
+| `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm`, `paint.asm`, `snake.asm` |
 | `connections/` | `byte`, `segment-bus` |
 | `types/` | `segments`, `frame` |
 | `graphs/` | `main` and 27 subgraphs |

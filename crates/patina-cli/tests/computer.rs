@@ -103,6 +103,16 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_programs() {
     // The dot shows at 0,0, then moves to 10,0 and 10,10.
     let screens: Vec<_> = stdout.lines().filter(|l| l.starts_with("screen ")).collect();
     assert_eq!(screens, ["1 pixels on", "2 pixels on", "2 pixels on", "2 pixels on"].map(|n| format!("screen 32 x 32, {n}")));
+    // Snake at one instruction each frame: the snake grows to 5 cells and the tail follows the head.
+    let graph = project.join("graphs/main.toml");
+    fs::write(&graph, fs::read_to_string(&graph).unwrap().replacen("every = \"4\"", "every = \"1\"", 1)).unwrap();
+    fs::copy(project.join("programs/snake.asm"), project.join("programs/fibonacci.asm")).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--frames", "400"]);
+    assert!(output.status.success(), "{stderr}");
+    let on: Vec<u32> = stdout.lines().filter_map(|l| l.strip_prefix("screen 32 x 32, ")?.split(' ').next()?.parse().ok()).collect();
+    // The food is one more pixel. Between two steps, the tail cell is clear and the head cell is not.
+    assert_eq!(on.iter().max(), Some(&6), "{on:?}");
+    assert!(on[on.len() - 6..].iter().all(|n| (5..=6).contains(n)), "{on:?}");
     // The monitor view builds. Without a window, it draws nothing (15.8).
     let opened = Project::open(&project).unwrap();
     let library = opened.build_view(&Toolchain::detect().unwrap(), "monitor").unwrap();

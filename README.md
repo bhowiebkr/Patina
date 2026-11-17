@@ -402,7 +402,8 @@ ports:
 Select `programs/echo.asm` in **File** to show each key on the terminal. Select
 `programs/stripes.asm` to paint the screen. Select `programs/noise.asm` or
 `programs/confetti.asm` to paint random pixels. Select `programs/dice.asm` to show a random
-number on OUT at each key. Select `programs/paint.asm` to paint with the joystick. The programs
+number on OUT at each key. Select `programs/paint.asm` to paint with the joystick. Select
+`programs/snake.asm` to play Snake, and set **every** of the `clock` to 1. The programs
 give names to the ports, for example `KEY = 0xF0`. The **address** parameter of a device sets its
 first port. The `cpu` has one **io** input, so the devices are a chain: `keyboard` to `random` to
 `joystick` to `gpu` to the CPU.
