@@ -695,6 +695,7 @@ questions.
 - [GUI visual guide](docs/gui-visual-guide.md): palette, node sizing, custom controls,
   views and implementation notes for each mockup.
 - [Mockup plan](docs/mockup-plan.md): the mockups still to make, and the rules for them.
+- [History](docs/history.md): the records of the ended milestones and of the finished work.
 - [Mockup gaps](docs/mockup-gaps.md): the controls and behaviors of the mockups that the editor
   does not have yet.
 - [Circuit graph design](docs/circuit-graph-design.md): buses, ribbon wires and logic circuits.

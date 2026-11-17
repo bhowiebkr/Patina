@@ -122,10 +122,10 @@ Split by responsibility. Keep the error handling and the validation of each move
   records of milestone 0, so they keep their long functions. The owner can change this.
 - [x] SDK: move the C function bodies of `glue.rs` to `glue/abi.rs` and the share function to
   `glue/host.rs`.
-- [ ] Frontend: split `App` into hooks and parts for the menus, the dialogs, the keys and the
+- [x] Frontend: split `App` into hooks and parts for the menus, the dialogs, the keys and the
   project state. Split `GraphView` into the canvas events, the selection and the drop parts.
   Split `check.ts` and `checkWires`, `useRun`, `WireEdge`, `route.ts` and `gui.css`.
-- [ ] Frontend: move the files into feature folders, for example `canvas/`, `wires/`,
+- [x] Frontend: move the files into feature folders, for example `canvas/`, `wires/`,
   `panels/`, `dialogs/`, `run/`, `code/` and `check/`. Move the tests with their files.
 
 ### Phase 3: guards
@@ -138,10 +138,10 @@ These guards keep the result of phase 2. Add each guard when the code passes it.
   agent has open work in the repository.
 - [x] Add `too_many_lines` to the workspace clippy lints. The default limit of clippy is 100
   lines, so the workspace needs no `clippy.toml`.
-- [ ] Let `tsc` read the test files, with a second `tsconfig` for the tests.
+- [x] Let `tsc` read the test files, with a second `tsconfig` for the tests.
 - [ ] OWNER APPROVAL: add ESLint and Prettier to the frontend. This needs an npm download.
   Use `max-lines-per-function` as the guard of the TypeScript functions.
-- [ ] Record each `shortcut:` of section 1.5 in STATUS.md (AGENTS.md).
+- [x] Record each `shortcut:` of section 1.5 in STATUS.md (AGENTS.md).
 
 ### Phase 4: speed
 
@@ -163,7 +163,7 @@ Measure before and after each change. Write the numbers into STATUS.md.
 
 ### Phase 5: documents
 
-- [ ] Split STATUS.md (2448 lines). Keep the current milestone, what works, the checks and the
+- [x] Split STATUS.md (2448 lines, now 574). Keep the current milestone, what works, the checks and the
   known limits in STATUS.md. Move the records of the ended milestones into
   `docs/history.md`.
 
