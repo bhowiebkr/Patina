@@ -44,6 +44,7 @@ dependencies = [
  "display",
  "gpu",
  "join",
+ "joystick",
  "keyboard",
  "lcd",
  "nand",
@@ -81,6 +82,13 @@ dependencies = [
 
 [[package]]
 name = "join"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
+name = "joystick"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",

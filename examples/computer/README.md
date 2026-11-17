@@ -33,8 +33,8 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
 - **Node GUIs.** The `program`, `readout`, `display`, `lcd`, `clock`, `analyzer`, `keyboard`,
-  `terminal` and `screen` nodes draw their values in the graph.
-- **IO devices.** The CPU reads a `keyboard` and writes a `terminal` and a `gpu` on its IO ports.
+  `terminal`, `screen` and `joystick` nodes draw their values in the graph.
+- **IO devices.** The CPU reads a `keyboard`, a `random` and a `joystick`, and writes a `terminal` and a `gpu` on its IO ports.
   The `screen` shows the 32 x 32 frame of the `gpu`.
 
 ![A byte wire with the value 34 in the ram-4x8 subgraph](images/ram-4x8.png)
@@ -45,8 +45,8 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 | Folder | Parts |
 | --- | --- |
-| `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `screen`, `random` |
-| `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm` |
+| `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `screen`, `random`, `joystick` |
+| `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm`, `paint.asm` |
 | `connections/` | `byte`, `segment-bus` |
 | `types/` | `segments`, `frame` |
 | `graphs/` | `main` and 24 subgraphs |

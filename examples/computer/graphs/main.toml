@@ -182,6 +182,14 @@ pos = [0.0, 1420.0]
 address = "13"
 
 [[node]]
+id = "4f1c9a7e2b6d3085"
+folder = "nodes/joystick"
+pos = [0.0, 1600.0]
+
+[node.params]
+address = "14"
+
+[[node]]
 id = "75be31a4da3cacb6"
 folder = "nodes/terminal"
 pos = [700.0, 2352.0]
@@ -625,6 +633,14 @@ to = "e3a17c5d90b4f268.rd"
 
 [[wire]]
 from = "e3a17c5d90b4f268.out"
+to = "4f1c9a7e2b6d3085.bus"
+
+[[wire]]
+from = "a3efcc2ce595017a.4cf4949d"
+to = "4f1c9a7e2b6d3085.port"
+
+[[wire]]
+from = "4f1c9a7e2b6d3085.out"
 to = "a3efcc2ce595017a.316d50d0"
 
 [[wire]]

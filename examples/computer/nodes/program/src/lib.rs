@@ -254,6 +254,16 @@ mod tests {
     }
 
     #[test]
+    fn assembles_each_example_program() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../programs");
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            let code = std::fs::read_to_string(&path).unwrap();
+            assert!(assemble(&code).is_ok_and(|i| i.len <= 16), "{}", path.display());
+        }
+    }
+
+    #[test]
     fn reads_numbers_labels_and_comments() {
         let image = assemble("start: ldi 0x0F ; a comment\n\nadd 0b11\nend:\n jz start\nJMP End").unwrap();
         assert_eq!(&image.words[..4], &[0x0F, 0x13, 0x70, 0x32]);

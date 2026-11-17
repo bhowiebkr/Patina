@@ -13,6 +13,21 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Joystick of the computer
+
+- New: a `joystick` node on ports 14 to 16 of the computer. Click its pad, then hold the arrow
+  keys or W, A, S and D, and Space. A mouse press on a button of the pad holds it too.
+- New: `programs/paint.asm` moves a pen with the joystick and plots random colors on the screen.
+- New: `Canvas::keys` gives a canvas the key events, when its `ui` asks for them (spec 4.3). A
+  click gives the canvas the focus. A viewport and a key canvas share the key code.
+- Checked: the workspace clippy and tests, the frontend type check, tests and build, and the
+  clippy and tests of the `joystick` and `program` crates. A test assembles each program of
+  `programs/`. The CLI ran the example with the joystick in the IO chain. The hidden self-check
+  (184 steps) clicks a key canvas, checks its focus, and sends the key K to the node.
+- Not checked: a hand test of the pad with a real keyboard on the desktop.
+- Known limits: the 4-bit CPU reads only ports 8 to 15, so it cannot read the button bits on
+  port 16. The bigger CPU of the plan will read them.
+
 ## Assembly editor of the computer
 
 - New: the `program` node of `examples/computer` has an assembly editor in its full size. It

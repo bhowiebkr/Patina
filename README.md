@@ -358,7 +358,7 @@ to give one tick. The LED of the node is lit for the first half of each period.
 
 The CPU has IO ports 8 to 15 for devices. Its **port** output is k, its **a** output is A, and
 its **wr** and **rd** outputs are on during an ST or an LD to a port. Its **io** input is the value
-that LD reads. The main graph has five devices on the ports:
+that LD reads. The main graph has six devices on the ports:
 
 - `keyboard` (port 8): type a text into the **Type** field and press Enter. The characters and an
   Enter key (13) go into a buffer. LD 8 reads the first key, or 0 when the buffer is empty.
@@ -370,12 +370,16 @@ that LD reads. The main graph has five devices on the ports:
 - `screen`: shows the frame of the `gpu`.
 - `random` (port 13): LD 13 reads a random byte, and each LD gives a new byte. At the other
   ports, the byte on its **bus** input goes through to the **io** input of the CPU.
+- `joystick` (ports 14 to 16): click the pad, then hold the arrow keys or W, A, S and D, and Space
+  for fire. LD 14 reads the x axis: 1 for right, 255 for left, else 0. LD 15 reads the y axis: 1
+  for down, 255 for up. Port 16 has the button bits, for a CPU with more than 16 ports.
 
 Select `programs/echo.asm` in **File** to show each key on the terminal. Select
 `programs/stripes.asm` to paint the screen. Select `programs/noise.asm` or
 `programs/confetti.asm` to paint random pixels. Select `programs/dice.asm` to show a random
-number on OUT at each key. The **address** parameter of a device sets its first port. The
-`cpu` has one **io** input, so the `keyboard` gives its key to the **bus** input of `random`.
+number on OUT at each key. Select `programs/paint.asm` to paint with the joystick. The **address** parameter of a device sets its first port. The
+`cpu` has one **io** input, so the devices are a chain: `keyboard` to `random` to `joystick` to
+the CPU.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
 puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8

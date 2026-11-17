@@ -83,6 +83,10 @@ export async function checkWidgets(until: Until, gui: string) {
   pad()!.dispatchEvent(new PointerEvent('pointerdown', padAt));
   pad()!.dispatchEvent(new PointerEvent('pointerup', padAt));
   await until('the canvas dot at the pointer', RUN_MS, () => Math.abs(dotX() - 120) < 1);
+  // The canvas asks for keys, so the click gave it the focus, and a key down goes to the node.
+  if (pad()?.getAttribute('role') !== 'application' || document.activeElement !== pad()) throw new Error('the key canvas did not take the focus');
+  for (const type of ['keydown', 'keyup']) pad()!.dispatchEvent(new KeyboardEvent(type, { key: 'k', code: 'KeyK', bubbles: true }));
+  await until('the canvas dot after the key K', RUN_MS, () => Math.abs(dotX() - 130) < 1);
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */

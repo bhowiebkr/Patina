@@ -187,7 +187,7 @@ test('a viewport has a height in the limits', () => {
 });
 
 test('a canvas keeps its good shapes and limits its size', () => {
-  const shapes = ['line 0 0 8 8 #010203', 'rect 1 1 -2 2 #000000 1', 'circle 5 5 2.5 #ff0010 1', 'text 1 15 #000000 a  b', 'line 0 0 8 #010203', 'oval 1 1 1 #000000', 'rect 0 0 1 1 red 0'];
+  const shapes = ['line 0 0 8 8 #010203', 'rect 1 1 -2 2 #000000 1', 'circle 5 5 2.5 #ff0010 1', 'text 1 15 #000000 a  b', 'line 0 0 8 #010203', 'oval 1 1 1 #000000', 'rect 0 0 1 1 red 0', 'keys'];
   assert.deepEqual(parseTree(`canvas\tDot\t40\t99999\t${shapes.join('\t')}\ncanvas\tBad\t0\t5`), [
     {
       kind: 'canvas',
@@ -200,8 +200,10 @@ test('a canvas keeps its good shapes and limits its size', () => {
         { kind: 'circle', x: 5, y: 5, r: 2.5, color: '#ff0010', fill: true },
         { kind: 'text', x: 1, y: 15, color: '#000000', text: 'a  b' },
       ],
+      keys: true,
     },
   ]);
+  assert.equal((parseTree('canvas\tPlain\t8\t8')[0] as { keys: boolean }).keys, false);
 });
 
 test('a canvas sets the node width, and the values and labels do not', () => {

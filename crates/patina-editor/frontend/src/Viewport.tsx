@@ -12,11 +12,33 @@ const SHOW_AFTER = 3;
 
 type Props = { w: Extract<Widget, { kind: 'viewport' }>; send: (value: string) => void; disabled: boolean; window: number };
 
+/** The key handlers of a viewport or a key canvas. Each key down and key up goes out once, and a
+ * held key does not repeat. Tab keeps its job, so the focus can leave. A key without Ctrl, Alt or
+ * Meta stops here, so a shortcut of the graph, for example Delete, does not act. On blur, each held
+ * key comes up. */
+export function useKeys(send: (value: string) => void) {
+  const held = useRef(new Set<string>());
+  const key = (down: boolean) => (e: KeyboardEvent<Element>) => {
+    if (e.key === 'Tab') return;
+    if (!e.ctrlKey && !e.altKey && !e.metaKey) e.stopPropagation();
+    e.preventDefault();
+    if (e.repeat || down === held.current.has(e.code)) return;
+    if (down) held.current.add(e.code);
+    else held.current.delete(e.code);
+    send(`key ${down ? 'down' : 'up'} ${e.code}`);
+  };
+  const onBlur = () => {
+    for (const code of held.current) send(`key up ${code}`);
+    held.current.clear();
+  };
+  return { onKeyDown: key(true), onKeyUp: key(false), onBlur };
+}
+
 export function ViewportView({ w, send, disabled, window: handle }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const out = useRef(send);
   out.current = send;
-  const held = useRef(new Set<string>());
+  const keys = useKeys(send);
 
   useEffect(() => {
     const area = ref.current;
@@ -55,19 +77,6 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
     return `${Math.round((e.clientX - r.left) * devicePixelRatio)} ${Math.round((e.clientY - r.top) * devicePixelRatio)}`;
   };
   const drag = (e: PointerEvent<HTMLDivElement>) => e.currentTarget.hasPointerCapture(e.pointerId);
-  // Tab keeps its job, so the focus can leave the viewport.
-  const key = (down: boolean) => (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Tab' || (down && e.repeat)) return;
-    e.preventDefault();
-    if (down === held.current.has(e.code)) return;
-    if (down) held.current.add(e.code);
-    else held.current.delete(e.code);
-    send(`key ${down ? 'down' : 'up'} ${e.code}`);
-  };
-  const release = () => {
-    for (const code of held.current) send(`key up ${code}`);
-    held.current.clear();
-  };
   return (
     <div className="gui-canvas-row">
       {w.text && <span className="label">{w.text}</span>}
@@ -78,9 +87,7 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
         role="application"
         aria-label={w.text || 'Viewport'}
         tabIndex={disabled ? -1 : 0}
-        onKeyDown={disabled ? undefined : key(true)}
-        onKeyUp={disabled ? undefined : key(false)}
-        onBlur={release}
+        {...(disabled ? { onBlur: keys.onBlur } : keys)}
         onPointerDown={
           disabled
             ? undefined

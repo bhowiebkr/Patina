@@ -107,12 +107,20 @@ pub enum Key {
 pub struct Canvas<'a> {
     tree: &'a mut String,
     pointer: Vec<Pointer>,
+    keys: Vec<Key>,
 }
 
 impl Canvas<'_> {
     /// The pointer inputs since the last call of `ui`, in order.
     pub fn pointer(&self) -> &[Pointer] {
         &self.pointer
+    }
+
+    /// The key inputs since the last call of `ui`, in order. A call lets the canvas take the
+    /// focus on a click, as a viewport does (15.8). A canvas that never calls it takes no keys.
+    pub fn keys(&mut self) -> &[Key] {
+        self.tree.push_str("\tkeys");
+        &self.keys
     }
 
     pub fn line(&mut self, from: [f32; 2], to: [f32; 2], color: [u8; 3]) {
@@ -232,8 +240,10 @@ impl Ui {
         let index = self.next;
         self.push("canvas", text);
         let _ = write!(self.tree, "\t{}\t{}", size[0], size[1]);
-        let pointer = self.events.iter().filter(|(i, _)| *i == index).filter_map(|(_, v)| pointer(v)).collect();
-        Canvas { tree: &mut self.tree, pointer }
+        let events = || self.events.iter().filter(|(i, _)| *i == index);
+        let pointer = events().filter_map(|(_, v)| pointer(v)).collect();
+        let keys = events().filter_map(|(_, v)| key(v)).collect();
+        Canvas { tree: &mut self.tree, pointer, keys }
     }
 
     /// Shows a viewport of `height` pixels and the full width (15.8). In version 1, the editor
@@ -250,10 +260,8 @@ impl Ui {
                 viewport.wheel += d;
             } else if let Some(p) = pointer(event) {
                 viewport.pointer.push(p);
-            } else if let Some(name) = event.strip_prefix("key down ").filter(|n| !n.is_empty()) {
-                viewport.keys.push(Key::Down(name.to_owned()));
-            } else if let Some(name) = event.strip_prefix("key up ").filter(|n| !n.is_empty()) {
-                viewport.keys.push(Key::Up(name.to_owned()));
+            } else if let Some(k) = key(event) {
+                viewport.keys.push(k);
             }
         }
         viewport
@@ -607,6 +615,13 @@ fn place(event: &str) -> Option<(u64, [u32; 6])> {
 }
 
 /// Reads a pointer event, for example `down 10 20`.
+/// Reads a key event, `key down KeyW` or `key up KeyW`.
+fn key(event: &str) -> Option<Key> {
+    let (down, name) = event.strip_prefix("key down ").map(|n| (true, n)).or_else(|| event.strip_prefix("key up ").map(|n| (false, n)))?;
+    let name = (!name.is_empty()).then(|| name.to_owned())?;
+    Some(if down { Key::Down(name) } else { Key::Up(name) })
+}
+
 fn pointer(event: &str) -> Option<Pointer> {
     let mut words = event.split(' ');
     let kind = words.next()?;

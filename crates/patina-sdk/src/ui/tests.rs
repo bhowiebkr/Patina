@@ -112,6 +112,17 @@ fn a_canvas_reads_the_pointer_and_writes_its_shapes() {
 }
 
 #[test]
+fn a_canvas_takes_keys_only_when_it_asks_for_them() {
+    let mut ui = Ui::new(0, "0 key down ArrowUp\n0 down 1 2\n0 key up \n0 key up ArrowUp\n1 key down Space");
+    let mut pad = ui.canvas("Pad", [8.0, 8.0]);
+    assert_eq!(pad.keys(), [Key::Down("ArrowUp".into()), Key::Up("ArrowUp".into())]);
+    assert_eq!(pad.pointer(), [Pointer::Down([1.0, 2.0])]);
+    pad.rect([0.0, 0.0], [1.0, 1.0], [0, 0, 0], true);
+    ui.canvas("Plain", [8.0, 8.0]);
+    assert_eq!(ui.tree(), "canvas\tPad\t8\t8\tkeys\trect 0 0 1 1 #000000 1\ncanvas\tPlain\t8\t8");
+}
+
+#[test]
 fn a_viewport_reads_its_place_and_input() {
     let mut ui = Ui::new(0, "0 place 7 800 600 10 20 300 200\n0 down 1 2\n0 wheel 40\n0 key down KeyW\n0 key up \n0 wheel -15\n0 key up KeyW\n0 place 7 900 600 0 0 1\n0 wheel x\n1 place 9 1 1 0 0 1 1");
     let viewport = ui.viewport("Scene", 240.0);

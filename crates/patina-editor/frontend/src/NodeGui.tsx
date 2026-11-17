@@ -8,7 +8,7 @@ import { guiIcon } from './icons';
 import { LayerStack } from './LayerStack';
 import { ColorRamp } from './Ramp';
 import { ColorPicker, Curve, Picture, Plot, Progress, Table, Waveform } from './ValueWidgets';
-import { ViewportView } from './Viewport';
+import { useKeys, ViewportView } from './Viewport';
 
 interface Props {
   id: string;
@@ -66,9 +66,12 @@ function ShapeView({ s }: { s: Shape }) {
   }
 }
 
-/** A canvas sends a pointer down, the moves of a drag (one for each frame at most) and the up. */
+/** A canvas sends a pointer down, the moves of a drag (one for each frame at most) and the up. A
+ * key canvas also takes the focus on a click and sends the keys, as a viewport does. */
 function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas' }>; send: (value: string) => void; disabled: boolean }) {
   const pending = useRef<string | null>(null);
+  const keys = useKeys(send);
+  const live = w.keys && !disabled;
   // The point in canvas pixels. A zoom of the graph scales the element, so divide by its size.
   const at = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -81,6 +84,7 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
   };
   const down = (e: PointerEvent<SVGSVGElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (live) e.currentTarget.focus();
     send(`down ${at(e)}`);
   };
   const move = (e: PointerEvent<SVGSVGElement>) => {
@@ -106,8 +110,10 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
         height={w.height}
         style={{ aspectRatio: `${w.width} / ${w.height}` }}
         viewBox={`0 0 ${w.width} ${w.height}`}
-        role="img"
+        role={w.keys ? 'application' : 'img'}
         aria-label={w.text || 'Canvas'}
+        tabIndex={live ? 0 : undefined}
+        {...(live ? keys : w.keys ? { onBlur: keys.onBlur } : {})}
         onPointerDown={disabled ? undefined : down}
         onPointerMove={disabled ? undefined : move}
         onPointerUp={disabled ? undefined : up}
