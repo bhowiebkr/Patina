@@ -686,6 +686,8 @@ check used a slow `ui` function of a frame node while the audio thread ran.
 - In the editor, only the first audio block after a frame took the results sends values and
   run times. The blocks between the frames are quiet (fixed 2026-11-17). A unit test checks
   that a quiet block keeps the times of the last block that sent them.
+- The event runs of the CLI send no values and no run times, because nobody shows them (fixed
+  2026-11-17). The C API still gets the values. A unit test of `events.rs` checks both cases.
 
 ### Known limits
 
@@ -1787,9 +1789,10 @@ To run the editor from a checkout:
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).
   - A route of more than 62 points draws only its first 62 points. Only a graph file that a
     person edited has such a route (`frontend/src/wires.ts`).
-  - Each event run of the CLI formats and sends each held value, which nobody shows
-    (`crates/patina-sdk/src/glue/probe.rs`).
-  - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
+  - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`). On
+    2026-11-17 in Node 22, one build took 0.3 ms for 500 wires, 1.0 ms for 2000 wires and 3.6 ms
+    for 8000 wires, with a bus of 8 lanes on each fourth wire. The upload to the GPU was not
+    measured.
   - The SVG wires draw a bus as one line, and have no gap at a crossing (`frontend/src/WireLayer.tsx`).
   - A wire with more than 62 points after its gaps draws without its last gaps (`frontend/src/wires.ts`).
   - A graph with a route grid of more than 2 million cells gets the simple orthogonal paths

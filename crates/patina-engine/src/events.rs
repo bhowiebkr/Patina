@@ -236,7 +236,8 @@ impl<'a> Events<'a> {
     /// Runs the event domain until `count` runs ended, until no trigger can fire again, or until
     /// `control` asks to stop. With no `inbox`, each `trigger` node fires one time at the start with
     /// an empty text. With an `inbox`, its remote fires them, and the run ends only at
-    /// `Remote::end` or a stop. `done` gets each run when it ends. Returns false when a run failed
+    /// `Remote::end` or a stop. With no `inbox` and a quiet `control`, nobody shows the values, so
+    /// the runs send no values and no run times (9.1). `done` gets each run when it ends. Returns false when a run failed
     /// or a trigger could not start.
     pub fn run(self, count: u64, control: &Control, inbox: Option<Inbox>, mut done: impl FnMut(&EventRun)) -> bool {
         let Events { entry, parallel, triggers, names, probes, root } = self;
@@ -288,6 +289,7 @@ impl<'a> Events<'a> {
             }
             let spawn = |t: usize, id: u64, text: String| {
                 let run_control = Arc::new(Control::default());
+                run_control.set_quiet(!remote && control.quiet());
                 lock(&controls).push((id, Arc::clone(&run_control)));
                 let job = (t, id, text, run_control);
                 // The count goes down before the send, so each job in the queue has a thread. Only
@@ -422,6 +424,24 @@ mod tests {
     /// Gives a run that fails when the text is empty.
     unsafe extern "C" fn fire(_: *const c_void, _: u32, _: *const u8, len: usize, _: *const Reporter) -> bool {
         len > 0
+    }
+
+    /// Gives a run that fails when its control is not quiet.
+    unsafe extern "C" fn quiet(_: *const c_void, _: u32, _: *const u8, _: usize, rep: *const Reporter) -> bool {
+        // SAFETY: the engine gives a reporter that is valid during the call.
+        unsafe { (*rep).quiet() }
+    }
+
+    #[test]
+    fn the_runs_with_no_inbox_follow_the_quiet_control() {
+        let triggers = [Trigger::new(0, 0, Builtin::Trigger)];
+        let names = [("t".to_owned(), "trigger".to_owned())];
+        let entry = Entry { fire: quiet, state: std::ptr::null_mut() };
+        let events = Events { entry, parallel: true, triggers: &triggers, names: &names, probes: &[], root: Path::new(".") };
+        let control = Control::default();
+        assert!(!events.run(1, &control, None, |_| {}), "the C API reads the values");
+        control.set_quiet(true);
+        assert!(events.run(1, &control, None, |_| {}), "the CLI shows no values");
     }
 
     #[test]

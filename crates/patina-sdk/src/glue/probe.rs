@@ -52,7 +52,6 @@ impl<T> NameText<T> for Probe<'_, T> {
 }
 
 /// Sends the text of held value `index` (15.9), with its own catch.
-// shortcut: each event run of the CLI formats and sends each held value, which nobody shows; make these runs quiet when a CLI graph has many event runs.
 #[inline(never)]
 pub fn send_value<T>(rep: &Reporter, index: u32, value: &T, text: TextFn<T>) {
     if rep.quiet() {

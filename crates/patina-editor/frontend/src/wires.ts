@@ -552,7 +552,7 @@ export class WireStore {
     const sel = selected ? 1 : 0;
     const old = stale ? 1 : 0;
     const dash = dashed ? 1 : 0;
-    // shortcut: a new lane state rebuilds the instances of all wires; put the lane states in a texture when values come at the display rate (15.6).
+    // shortcut: a new lane state rebuilds the instances of all wires (1 ms for 2000 wires); put the lane states in a texture when larger graphs change at each frame.
     if (this.selected[slot] !== sel || this.bits[slot] !== bits || this.stale[slot] !== old || this.family[slot] !== family || this.hover[slot] !== hover || this.dashed[slot] !== dash) this.layout = true;
     this.selected[slot] = sel;
     this.bits[slot] = bits;
