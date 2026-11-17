@@ -127,7 +127,14 @@ fn a_viewport_draws_on_a_hidden_window() {
     assert!(!window.is_null());
     let mut surface = ViewportSurface::default();
     let viewport = patina_sdk::Viewport { window: window as u64, window_size: [64, 48], rect: [8, 8, 32, 24], ..Default::default() };
-    let drawn = surface.draw(&viewport, wgpu::Color::RED, |_, _| {});
+    // Other tests keep the GPU busy, and a busy GPU can fail the first configure.
+    let mut drawn = surface.draw(&viewport, wgpu::Color::RED, |_, _| {});
+    for _ in 0..2 {
+        if drawn.is_ok() {
+            break;
+        }
+        drawn = surface.draw(&viewport, wgpu::Color::RED, |_, _| {});
+    }
     drop(surface);
     // SAFETY: this thread made the window, and its surface is gone.
     unsafe { DestroyWindow(window) };

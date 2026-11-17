@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     Applied, absolute, check_folder, digest, file_hashes, files, hash, inside, member, move_folder, path_deps, read_project, remove, renamed_manifest,
-    undo_moves, users, work, write_files,
+    raise_rust, undo_moves, users, work, write_files,
 };
 use crate::plan::check_name;
 use crate::project::{self, ProjectFile};
@@ -115,7 +115,7 @@ pub fn update(root: &Path, other: &Path, folder: &str, picks: &BTreeMap<String, 
     }
     let mut packages: Vec<String> = member(folder).into_iter().chain(users(&root, folder).iter().filter_map(|u| member(u))).collect();
     packages.sort();
-    Ok(Applied { root, moves, project: old, packages })
+    Ok(Applied { root, moves, project: old, packages, rust: file.rust })
 }
 
 struct Compare {
@@ -131,7 +131,8 @@ struct Compare {
 }
 
 fn compare(root: &Path, other: &Path, folder: &str) -> Result<Compare, String> {
-    let (file, source) = (read_project(root)?, read_project(other)?);
+    let (mut file, source) = (read_project(root)?, read_project(other)?);
+    raise_rust(&mut file, &source);
     let record = file.imports.get(folder).cloned().ok_or_else(|| format!("{folder} is not an imported folder"))?;
     if record.project != source.id {
         return Err(format!("{folder} did not come from this project"));

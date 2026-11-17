@@ -89,6 +89,8 @@ pub struct Applied {
     project: String,
     /// The crates that the build check compiles.
     pub packages: Vec<String>,
+    /// The Rust version of the project after the import (8.1).
+    pub rust: String,
 }
 
 impl Project {
@@ -111,18 +113,30 @@ impl Project {
 
     /// Builds the changed crates of an import or an update, and undoes it when the build fails.
     pub(crate) fn build_applied(&mut self, toolchain: &Toolchain, applied: Applied) -> Result<(), String> {
+        if let Err(e) = toolchain.builds(&applied.rust) {
+            return applied.undo().and(Err(e));
+        }
         if let Err(e) = cargo::build_packages(&self.root, toolchain, &applied.packages) {
             return applied.undo().and(Err(e.to_string()));
         }
         // The copied folders can change the code of each node, so the run builds again.
         self.code_revision += 1;
         self.last_code = None;
+        self.rust = applied.rust.clone();
         applied.finish()
     }
 }
 
 fn read_project(root: &Path) -> Result<ProjectFile, String> {
     project::read(&root.join("patina.toml"), |f: &ProjectFile| f.format).map_err(|e| e.to_string())
+}
+
+/// Raises the Rust version of `file` to the version of `source` when the copied code needs a newer
+/// Rust (8.1).
+fn raise_rust(file: &mut ProjectFile, source: &ProjectFile) {
+    if !cargo::release_fits(&file.rust, &source.rust) {
+        file.rust.clone_from(&source.rust);
+    }
 }
 
 impl Applied {
@@ -153,6 +167,7 @@ pub fn apply_all(root: &Path, other: &Path, folders: &[String], choices: &BTreeM
     if file.id == source.id {
         return Err("the folder is in this project already".to_owned());
     }
+    raise_rust(&mut file, &source);
     let items = plan_all(&root, &other, folders)?;
     let copies = targets(&root, &items, choices)?;
     let path = root.join("patina.toml");
@@ -190,7 +205,7 @@ pub fn apply_all(root: &Path, other: &Path, folders: &[String], choices: &BTreeM
     }
     packages.sort();
     packages.dedup();
-    Ok(Applied { root, moves, project: old, packages })
+    Ok(Applied { root, moves, project: old, packages, rust: file.rust })
 }
 
 /// The target folder of each folder that the import copies, from the choices of the user.
@@ -486,7 +501,7 @@ mod tests {
         let _ = fs::remove_dir_all(&base);
         let image = "image = { path = \"../../types/image\" }\n";
         write(&other, &[
-            ("patina.toml", "format = 1\nid = \"aaaaaaaaaaaaaaaa\"\nrust = \"1.94.0\"\n"),
+            ("patina.toml", "format = 1\nid = \"aaaaaaaaaaaaaaaa\"\nrust = \"1.100.0\"\n"),
             ("nodes/blur/Cargo.toml", &manifest("blur", &format!("# The image type.\n{image}"))),
             ("nodes/blur/src/lib.rs", "// blur"),
             ("nodes/blur/target/x", "build output"),
@@ -513,7 +528,7 @@ mod tests {
         assert!(apply(&root, &other, "nodes/blur", &choices).is_err());
         choices.insert("types/image".to_owned(), Choice::Rename { name: "image2".into() });
         let applied = apply(&root, &other, "nodes/blur", &choices).unwrap();
-        assert_eq!(applied.packages, ["blur"]);
+        assert_eq!((applied.packages.as_slice(), applied.rust.as_str()), (["blur".to_owned()].as_slice(), "1.100.0"));
         assert!(!root.join("nodes/blur/target").exists());
         let blur = super::manifest(&root.join("nodes/blur")).unwrap();
         assert_eq!(blur["dependencies"]["image"]["package"].as_str(), Some("image2"));
@@ -523,6 +538,7 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join("types/image/src/lib.rs")).unwrap(), "// B");
         let file: ProjectFile = project::read(&root.join("patina.toml"), |f: &ProjectFile| f.format).unwrap();
         assert_eq!(file.imports.keys().collect::<Vec<_>>(), ["nodes/blur", "types/image2"]);
+        assert_eq!(file.rust, "1.100.0");
         assert_eq!((file.imports["types/image2"].folder.as_str(), file.imports["types/image2"].hash.len()), ("image", 71));
         let blur_files = file.imports["nodes/blur"].files.as_ref().unwrap();
         assert_eq!(blur_files.keys().collect::<Vec<_>>(), ["Cargo.toml", "src/lib.rs"]);

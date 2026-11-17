@@ -20,6 +20,8 @@ checks open.
   record Rust 1.94.0, so the build stopped with "the project needs Rust 1.94.0".
 - Now the `rust` of `patina.toml` is the oldest version that builds the project (spec 8.1). A
   toolchain of the same or a newer version builds it. An older toolchain gives an error.
+- New: an **Import**, an **Update** or a paste from a project of a newer Rust version raises
+  the `rust` of this project (spec 6.2). An older toolchain stops it, and the project stays.
 - Cause of the gap: the CLI tests changed the `rust` of each example to the version of the test
   toolchain, so no test built an example as the zip has it. The tests now keep the version.
 - Checked: an engine unit test of the version order, with pre-releases. The CLI tests built the
@@ -775,6 +777,9 @@ change the graph (spec 15.8).
 - `cargo test -p patina-gpu` on Windows: `a_viewport_draws_on_a_hidden_window` makes the surface
   on a hidden window and draws. Before this test, each viewport failed with "Patina cannot make the
   viewport surface", because wgpu 30 needs a display handle.
+- Fixed: a busy GPU can fail the wait for idle of the surface configure, and the test failed one
+  time in a full `cargo test --workspace`. Now the draw gives the error, and the next frame tries
+  again. The test draws up to three times.
 - The editor self-check on Windows: it makes a view, opens it from the **Views** menu, clicks
   **Set**, sees the new value and undoes the write. Then it opens a second instance, **panel 2**.
 - `npm test`: the layout opens view instances in free panels, keeps the view of a moved panel and

@@ -703,7 +703,7 @@ fn write(root: &Path, relative: &str, text: &str) -> Result<(), Error> {
 
 /// True when Rust `release` is `rust` or newer. A pre-release, for example `1.95.0-beta.2`, is older
 /// than its release. A text that is not a version fits only the same text.
-fn release_fits(release: &str, rust: &str) -> bool {
+pub(crate) fn release_fits(release: &str, rust: &str) -> bool {
     let key = |text: &str| {
         let (numbers, pre) = text.split_once('-').map_or((text, false), |(n, _)| (n, true));
         let mut parts = numbers.split('.').map(|p| p.parse::<u32>().ok());

@@ -117,6 +117,7 @@ The owner asked for a way to reuse nodes and subgraphs from other projects (2026
 - **Update** in the **Project** panel compares the copy with the folder in the other project. Patina finds the other project among the projects that the user opened before, or asks for its folder. It shows the changes on both sides, including the changes that the user made to the copy. It copies the new version only when the user confirms. If both sides changed a file, the user picks the version of that file.
 - The crate versions of the copy resolve with the `Cargo.lock` of this project (8.1).
 - Patina builds the changed folders before it applies an **Import** or an **Update**. If the build fails or the user cancels, the project stays as it was.
+- An **Import**, an **Update** or a paste from a project of a newer Rust version raises the Rust version of this project to that version (8.1). An older toolchain stops it with the error of 8.1, and the project stays as it was. Agent decision of 2026-11-17. The owner can change it.
 - A folder from a project that the user does not trust stays read-only, and out of the build, until the user trusts it (11).
 
 The import rules of the first version. (Agent decision, 2026-11-15. The owner can change it.)

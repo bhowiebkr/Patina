@@ -3,7 +3,7 @@
 
 use patina_sdk::Viewport;
 
-use crate::{Gpu, gpu};
+use crate::{Gpu, block_on, gpu};
 
 /// The background of the editor page (GUI guide), which shows around the area of the viewport.
 const PAGE: wgpu::Color = wgpu::Color { r: 0x14 as f64 / 255.0, g: 0x14 as f64 / 255.0, b: 0x14 as f64 / 255.0, a: 1.0 };
@@ -45,7 +45,12 @@ impl ViewportSurface {
             (target.config.width, target.config.height, target.configured) = (ww, wh, false);
         }
         if !target.configured {
+            let scope = gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
             target.surface.configure(&gpu.device, &target.config);
+            // A busy GPU can fail the wait for idle of the configure. The next frame tries again.
+            if let Some(error) = block_on(scope.pop()) {
+                return Err(format!("the viewport surface: {error}"));
+            }
             target.configured = true;
         }
         let frame = match target.surface.get_current_texture() {
