@@ -11,7 +11,7 @@ use patina_engine::project::GraphFile;
 use serde::{Deserialize, Serialize};
 
 /// The number of projects in the recent list.
-const RECENT_LIMIT: usize = 10;
+const RECENT_LIMIT: usize = 50;
 const RECENT: &str = "recent.json";
 const TRUSTED: &str = "trusted.json";
 const LAYOUTS: &str = "layouts";
@@ -49,7 +49,11 @@ struct RecoveryRef<'a> {
 }
 
 pub struct Data {
+    /// The lists of projects, the layouts and the recovery files. It is the folder of the user, also
+    /// for the portable edition, so each build and edition remembers the projects (13.3).
     pub dir: PathBuf,
+    /// The WebView2 data of this edition.
+    pub webview: PathBuf,
     /// The default parent folder of new projects.
     pub projects: PathBuf,
     /// The toolchain folder (13.3).
@@ -60,23 +64,68 @@ pub struct Data {
 
 impl Data {
     /// Finds the data folder: the `--portable` folder, then the folder of a portable edition,
-    /// then the folder of the user.
+    /// then the folder of the user. A `--portable` folder keeps all data, so a check does not change
+    /// the lists of the user.
     pub fn find(portable: Option<PathBuf>) -> Result<Data, String> {
         let exe_dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_owned));
-        let (root, projects, portable) = match (portable, exe_dir) {
-            (Some(dir), _) => (dir.clone(), dir.join("projects"), true),
-            (None, Some(exe)) if exe.join("portable").is_file() => (exe.clone(), exe.join("projects"), true),
+        let base = || dirs::data_local_dir().ok_or("the folder for local data is not known");
+        let user = || Ok::<_, &str>(base()?.join(if cfg!(target_os = "linux") { "patina" } else { "Patina" }));
+        let (root, projects, portable, lists) = match (portable, exe_dir) {
+            (Some(dir), _) => (dir.clone(), dir.join("projects"), true, None),
+            (None, Some(exe)) if exe.join("portable").is_file() => (exe.clone(), exe.join("projects"), true, Some(user()?)),
             (None, _) => {
-                let base = dirs::data_local_dir().ok_or("the folder for local data is not known")?;
-                let name = if cfg!(target_os = "linux") { "patina" } else { "Patina" };
-                let documents = dirs::document_dir().unwrap_or_else(|| base.clone());
-                (base.join(name), documents.join("Patina"), false)
+                let documents = dirs::document_dir().map_or_else(base, Ok)?;
+                (user()?, documents.join("Patina"), false, None)
             }
         };
-        let root = std::path::absolute(&root).map_err(|e| format!("{}: {e}", root.display()))?;
-        let (dir, toolchain) = (root.join("data"), root.join("toolchain"));
-        fs::create_dir_all(&dir).map_err(|e| format!("Patina cannot write to {}: {e}", dir.display()))?;
-        Ok(Data { dir, projects, toolchain, portable })
+        let absolute = |path: PathBuf| std::path::absolute(&path).map_err(|e| format!("{}: {e}", path.display()));
+        let root = absolute(root)?;
+        let (local, toolchain) = (root.join("data"), root.join("toolchain"));
+        let dir = match lists {
+            Some(user) => absolute(user)?.join("data"),
+            None => local.clone(),
+        };
+        for folder in [&dir, &local] {
+            fs::create_dir_all(folder).map_err(|e| format!("Patina cannot write to {}: {e}", folder.display()))?;
+        }
+        let data = Data { dir, webview: local.join("webview"), projects, toolchain, portable };
+        if data.dir != local {
+            data.take_old(&local);
+        }
+        Ok(data)
+    }
+
+    /// Moves the lists, the layouts and the recovery files of an older portable edition from its
+    /// folder `old` to the folder of the user. A file that does not move stays, so nothing is lost.
+    fn take_old(&self, old: &Path) {
+        for name in [RECENT, TRUSTED] {
+            let from = old.join(name);
+            let Ok(bytes) = fs::read(&from) else { continue };
+            let mut list = self.read_list(name);
+            for path in serde_json::from_slice::<Vec<PathBuf>>(&bytes).unwrap_or_default() {
+                if !list.iter().any(|p| same_path(p, &path)) {
+                    list.push(path);
+                }
+            }
+            if name == RECENT {
+                list.truncate(RECENT_LIMIT);
+            }
+            match self.write_list(name, &list) {
+                Ok(()) => drop(fs::remove_file(&from)),
+                Err(e) => eprintln!("patina: {e}"),
+            }
+        }
+        for folder in [LAYOUTS, RECOVERY] {
+            let Ok(entries) = fs::read_dir(old.join(folder)) else { continue };
+            for from in entries.flatten().map(|e| e.path()) {
+                let to = self.dir.join(folder).join(from.file_name().unwrap_or_default());
+                // A copy, because a rename fails from one drive to another.
+                let moved = to.exists() || fs::create_dir_all(self.dir.join(folder)).and_then(|()| fs::copy(&from, &to)).is_ok();
+                if moved {
+                    let _ = fs::remove_file(&from);
+                }
+            }
+        }
     }
 
     /// The recent projects, the newest first.
@@ -249,13 +298,13 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("patina-data-{}", std::process::id()));
         let data = Data::find(Some(dir.clone())).unwrap();
         let path = |n: usize| dir.join(format!("p{n}"));
-        for n in 0..12 {
+        for n in 0..RECENT_LIMIT + 2 {
             data.add_recent(&path(n)).unwrap();
         }
         data.add_recent(&path(5)).unwrap();
         let recent = data.recent();
         assert_eq!(recent.len(), RECENT_LIMIT);
-        assert_eq!((&recent[0], &recent[1]), (&path(5), &path(11)));
+        assert_eq!((&recent[0], &recent[1]), (&path(5), &path(RECENT_LIMIT + 1)));
         assert!(!data.is_trusted(&path(1)));
         data.trust(&path(1)).unwrap();
         data.trust(&path(1)).unwrap();
@@ -269,6 +318,26 @@ mod tests {
         assert!(data.portable);
         assert!(same_path(Path::new("/a/b/"), Path::new("/a/b")));
         assert_eq!(same_path(Path::new("/A/b"), Path::new("/a/b")), cfg!(windows));
+    }
+
+    #[test]
+    fn an_old_portable_folder_gives_its_lists_and_files_to_the_user_folder() {
+        let dir = std::env::temp_dir().join(format!("patina-move-{}", std::process::id()));
+        let (data, old) = (Data::find(Some(dir.join("user"))).unwrap(), dir.join("old"));
+        let path = |n: usize| dir.join(format!("p{n}"));
+        data.add_recent(&path(1)).unwrap();
+        fs::create_dir_all(old.join(LAYOUTS)).unwrap();
+        fs::write(old.join(RECENT), serde_json::to_vec(&[path(2), path(1)]).unwrap()).unwrap();
+        fs::write(old.join(TRUSTED), b"bad").unwrap();
+        fs::write(old.join(LAYOUTS).join("a.json"), b"{}").unwrap();
+        data.take_old(&old);
+        let (recent, trusted, layout) = (data.recent(), data.trusted(), fs::read(data.dir.join(LAYOUTS).join("a.json")));
+        let left = [old.join(RECENT), old.join(TRUSTED), old.join(LAYOUTS).join("a.json")].map(|p| p.exists());
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(recent, [path(1), path(2)]);
+        assert!(trusted.is_empty());
+        assert_eq!(layout.unwrap(), b"{}");
+        assert_eq!(left, [false; 3]);
     }
 
     #[test]

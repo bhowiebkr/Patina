@@ -220,8 +220,10 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
 - A unit test runs one use of an open subgraph alone with the input parameters. The editor
   self-check moves a node into a subgraph, adds a `bool` input, clicks **Test** and clicks the
   switch of the input. The output of the subgraph shows the new value.
-- The package tool keeps `data/` of `target/package/Patina`, so the recent projects stay. The
-  tool did not run after this change.
+- The editor keeps the lists of recent and trusted projects, the layouts and the recovery files
+  in the data folder of the user, also for the portable edition (13.3). Thus a new build or
+  version remembers all the projects. A portable edition moves these files one time from its own
+  `data/` folder. A unit test checks the move. The recent list keeps 50 projects and scrolls.
 - The readout lamps and the pin names hide at a far zoom, below 50 percent (15.1).
 - A `patina --shot` screenshot shows the check box in the row of each `switch` node. The editor
   self-check clicks a switch of the same kind in a node row.

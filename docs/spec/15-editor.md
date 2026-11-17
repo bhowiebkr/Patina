@@ -605,7 +605,7 @@ These are the fewest steps from a new project to a reopen:
 - A new project has the `number` and `show` node folders and an empty main graph. `number` has a parameter and gives its value. `show` writes its input to the **Output** tab.
 - A new project goes on the list of trusted projects (11).
 - A project opens with its graph paused. The user clicks **Run**.
-- The start screen has **New project**, **Open project** and a list of recent projects.
+- The start screen has **New project**, **Open project** and a list of the last 50 projects (13.3). The list scrolls.
 - The start screen and the settings screen are at the vertical center of the window. Behind their panels, a picture of a node network with lit wires shows. All of the picture is blurred, as behind frosted glass. The picture has a fixed scale and fills the window, so a larger screen shows more nodes, not larger nodes. The picture is only for the look. It has no motion when the platform asks for reduced motion. This is an agent decision of 2026-11-15. The owner can change it.
 - The user can type each folder, or click **Browse** to select it in the folder dialog of the platform. This is an agent decision of 2026-11-15. The owner can change it.
 

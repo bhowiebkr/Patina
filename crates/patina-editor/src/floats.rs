@@ -66,7 +66,7 @@ fn open(app: &AppHandle, editor: &Editor, float: &Float) -> tauri::Result<()> {
     let mut url = crate::page_url();
     url.query_pairs_mut().append_pair("float", &float.slot).append_pair("name", &float.name);
     let check = editor.check.is_some();
-    let builder = crate::window(app, &format!("{PREFIX}{}", float.slot), url, editor.data.dir.join("webview"), check).title(&float.title);
+    let builder = crate::window(app, &format!("{PREFIX}{}", float.slot), url, editor.data.webview.clone(), check).title(&float.title);
     if check {
         builder.build()?;
         return Ok(());

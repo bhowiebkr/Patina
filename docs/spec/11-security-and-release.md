@@ -83,10 +83,12 @@ Patina/
     cuda/          NVRTC (optional)
   projects/
     <project>/     project folders (6.2). The zip has the example projects here.
-  data/            settings, logs, the WebView2 data, and recovery files
+  data/            the WebView2 data
 ```
 
-- If the portable folder is read-only, Patina shows a message that names the folder, and stops. It does not write to the folders of the user instead.
+- If the portable folder is read-only, Patina shows a message that names the folder, and stops. It does not put the toolchain, the projects or the WebView2 data in the folders of the user instead.
+- Both editions keep the lists of recent and trusted projects, the layouts and the recovery files in the data folder of the user (the **Data** row below). Thus each build, version and edition on the computer remembers all the projects that were opened. The recent list keeps the last 50 projects. This is an owner decision of 2026-11-16.
+- A portable edition moves these files one time from its own `data/` folder, where older versions kept them. A start with `--portable <folder>` or `--check <folder>` keeps all data in that folder, so a check does not change the lists of the user. These are agent decisions of 2026-11-16. The owner can change them.
 
 Installed edition:
 
@@ -95,7 +97,7 @@ Installed edition:
 | Program | **Just me**: `%LOCALAPPDATA%\Programs\Patina`. **All users**: `%ProgramFiles%\Patina` | `/Applications/Patina.app` | `.deb`: `/usr/bin/patina`. AppImage: where the user puts it |
 | Toolchain | `%LOCALAPPDATA%\Patina\toolchain` | `~/Library/Application Support/Patina/toolchain` | `~/.local/share/patina/toolchain` |
 | Projects | `Documents\Patina` | `~/Documents/Patina` | `~/Documents/Patina` |
-| Data: settings, logs, WebView2 data, recovery files | `%LOCALAPPDATA%\Patina\data` | `~/Library/Application Support/Patina/data` | `~/.local/share/patina/data` |
+| Data: settings, logs, WebView2 data, project lists, layouts, recovery files | `%LOCALAPPDATA%\Patina\data` | `~/Library/Application Support/Patina/data` | `~/.local/share/patina/data` |
 
 - The toolchain folder has the same contents in both editions.
 - When the toolchain folder has no `cargo`, Patina uses the Rust of the system: the `CARGO` variable, or else `PATH`. Then a checkout of Patina builds projects without the folder. The settings screen shows the toolchain folder and the Rust that Patina uses. `patina-cli` finds the toolchain folder as the editor does: next to it when the `portable` file is there, else in the folder of the user. A toolchain next to it is also used without the `portable` file. This is an agent decision of 2026-11-15, changed 2026-11-16. The owner can change it.
@@ -106,7 +108,7 @@ Installed edition:
 
 | Edition | Steps |
 |---|---|
-| Portable (Windows and Linux) | Delete the Patina folder. |
+| Portable (Windows and Linux) | Delete the Patina folder. To remove the project lists too, delete the data folder of the user. |
 | Installed, Windows | Open **Settings > Apps > Installed apps**, and click **Uninstall** for Patina. |
 | Installed, macOS | Move Patina.app to the Trash. |
 | Installed, Linux | Run `sudo apt remove patina`, or delete the AppImage. |

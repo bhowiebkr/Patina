@@ -316,7 +316,7 @@ fn main() {
                 eprintln!("Patina cannot add the Zig wrappers to the toolchain: {e}");
             }
             let engine = node_process::Host::new(app.handle().clone(), data.toolchain.clone(), tab);
-            let webview_dir = data.dir.join("webview");
+            let webview_dir = data.webview.clone();
             if let Some(dir) = &check {
                 limit_check(dir.clone());
             }
