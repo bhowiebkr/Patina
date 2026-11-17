@@ -45,7 +45,7 @@ pub fn make(root: &Path, toolchain: &Toolchain, mode: Mode, runner: &Path, out: 
     let name = name.ok_or_else(|| Error::File(out.to_owned(), "the package folder has no name".to_owned()))?;
     let checked = Project::open(root)?.check()?;
     checked.check_rust(toolchain)?;
-    let built = cargo::build(&checked.root, toolchain, &checked.plan, mode)?;
+    let built = cargo::build(&checked.root, toolchain, &checked.plan, mode, &|| {})?;
     // The package goes to a temporary folder first, so a failure leaves no part of a package.
     let temp = out.with_file_name(format!("{name}.part"));
     if temp.exists() {

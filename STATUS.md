@@ -719,6 +719,9 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
   **Slot: name**, **Fused** or **Edit build**.
 - After 30 s with no change, the editor fuses the live graph in bake mode (Q7). The **Bake**
   button fuses at once.
+- The first build after a project opens is a bake build, so a project with no change builds
+  one time and does not fuse. The nodes show **Compiling** only while cargo compiles a crate,
+  so an open with fresh crates shows no compile (owner decision, 2026-11-16).
 - The **Layers** tab of the left area shows a **Base** row and a **Slot** row. Each row shows
   its build state and the time of its last build that compiled (7.3). Before each build, the
   engine tells which layers it builds, and only their rows show **Building** (2026-11-16).

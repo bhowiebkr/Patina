@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::io::{BufRead, BufReader, Read};
+use std::process::{Command, Stdio};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -289,8 +290,9 @@ pub struct Built {
 }
 
 /// Writes the files that Patina makes, builds the clusters in one cargo run and returns their
-/// libraries. The clusters build in `mode`, and the slot library in edit mode.
-pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode) -> Result<Built, Error> {
+/// libraries. The clusters build in `mode`, and the slot library in edit mode. `compiling` runs
+/// when cargo starts to compile a crate, so not when all crates are fresh.
+pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode, compiling: &dyn Fn()) -> Result<Built, Error> {
     let domains = generate::domains(plan);
     remove_old_clusters(root, &domains, plan.slot.is_some())?;
     for &domain in &domains {
@@ -303,9 +305,15 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode) -> Res
     }
     write_workspace(root)?;
     let packages: Vec<String> = domains.iter().map(|&d| generate::package(d)).collect();
-    let mut messages = run_cargo(root, toolchain, &packages, mode)?;
+    let told = std::cell::Cell::new(false);
+    let compiling = || {
+        if !told.replace(true) {
+            compiling();
+        }
+    };
+    let mut messages = run_cargo(root, toolchain, &packages, mode, &compiling)?;
     if plan.slot.is_some() {
-        messages.extend(run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit)?);
+        messages.extend(run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit, &compiling)?);
     }
     let mut libraries = Vec::new();
     let mut clusters = Vec::new();
@@ -331,7 +339,7 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode) -> Res
 pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) -> Result<(PathBuf, Vec<Option<u64>>), Error> {
     let slot = plan.slot.ok_or_else(|| Error::Build("no node is in the slot".to_owned()))?;
     write_slot(root, plan, slot)?;
-    let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit)?;
+    let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit, &|| {})?;
     let (library, id) = artifact(&messages, slot::TARGET)?;
     let (_, keys) = keys(toolchain, plan, &messages, &[id], Some(common))?;
     Ok((library, keys))
@@ -341,7 +349,7 @@ pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) 
 pub fn build_view(root: &Path, toolchain: &Toolchain, name: &str, mode: Mode) -> Result<PathBuf, Error> {
     crate::plan::check_name(name).map_err(Error::Build)?;
     write_workspace(root)?;
-    let messages = run_cargo(root, toolchain, &[name.to_owned()], mode)?;
+    let messages = run_cargo(root, toolchain, &[name.to_owned()], mode, &|| {})?;
     artifact(&messages, &name.replace('-', "_")).map(|(library, _)| library)
 }
 
@@ -350,8 +358,9 @@ fn write_slot(root: &Path, plan: &Plan, slot: usize) -> Result<(), Error> {
     write(root, "build/clusters/slot/lib.rs", &slot::source(plan, slot))
 }
 
-/// Runs one cargo build of `packages` in `mode`, and gives its JSON messages.
-fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode) -> Result<Vec<Value>, Error> {
+/// Runs one cargo build of `packages` in `mode`, and gives its JSON messages. `compiling` runs at
+/// the first crate that cargo compiles.
+fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode, compiling: &dyn Fn()) -> Result<Vec<Value>, Error> {
     let mut command = toolchain.command(&toolchain.cargo)?;
     command.current_dir(root).arg("build").arg("--profile").arg(mode.profile());
     for package in packages {
@@ -360,17 +369,44 @@ fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode
     command.arg("--message-format=json");
     command.env("CARGO_TARGET_DIR", root.join("build/target")).env("RUSTC", &toolchain.rustc);
     command.env("CARGO_ENCODED_RUSTFLAGS", toolchain.rustflags());
-    let output = command
-        .output()
-        .map_err(|e| Error::Build(format!("cannot start {}: {e}", toolchain.cargo.display())))?;
-    if !output.status.success() {
-        let errors = compile_errors(root, &output.stdout);
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command.spawn().map_err(|e| Error::Build(format!("cannot start {}: {e}", toolchain.cargo.display())))?;
+    let (mut stdout, stderr) = (child.stdout.take().expect("stdout is piped"), child.stderr.take().expect("stderr is piped"));
+    let (out, err) = std::thread::scope(|s| {
+        let out = s.spawn(move || {
+            let mut out = Vec::new();
+            stdout.read_to_end(&mut out).map(|_| out)
+        });
+        let err = status_lines(BufReader::new(stderr), compiling);
+        (out.join().expect("the stdout reader does not panic"), err)
+    });
+    let status = child.wait().map_err(|e| Error::Build(format!("cannot wait for {}: {e}", toolchain.cargo.display())))?;
+    let read = |e: std::io::Error| Error::Build(format!("cannot read the output of {}: {e}", toolchain.cargo.display()));
+    let (stdout, stderr) = (out.map_err(read)?, err.map_err(read)?);
+    if !status.success() {
+        let errors = compile_errors(root, &stdout);
         if errors.is_empty() {
-            return Err(Error::Build(String::from_utf8_lossy(&output.stderr).into_owned()));
+            return Err(Error::Build(stderr));
         }
         return Err(Error::Compile(errors));
     }
-    Ok(output.stdout.split(|b| *b == b'\n').filter_map(|line| serde_json::from_slice(line).ok()).collect())
+    Ok(stdout.split(|b| *b == b'\n').filter_map(|line| serde_json::from_slice(line).ok()).collect())
+}
+
+/// Reads the status lines of cargo. Cargo writes a `Compiling` line for each crate that it
+/// compiles, and no line for a fresh crate. `compiling` runs at the first one.
+fn status_lines(lines: impl BufRead, compiling: &dyn Fn()) -> std::io::Result<String> {
+    let (mut text, mut told) = (String::new(), false);
+    for line in lines.lines() {
+        let line = line?;
+        if !told && line.trim_start().starts_with("Compiling ") {
+            told = true;
+            compiling();
+        }
+        text.push_str(&line);
+        text.push('\n');
+    }
+    Ok(text)
 }
 
 /// The library of the library target `target`, and the ID of its package.
@@ -500,7 +536,7 @@ pub(crate) fn build_packages(root: &Path, toolchain: &Toolchain, packages: &[Str
         return Ok(());
     }
     write_workspace(root)?;
-    run_cargo(root, toolchain, packages, Mode::Edit).map(drop)
+    run_cargo(root, toolchain, packages, Mode::Edit, &|| {}).map(drop)
 }
 
 /// Writes the manifest of the project workspace and the SDK crates.
@@ -608,166 +644,4 @@ fn write(root: &Path, relative: &str, text: &str) -> Result<(), Error> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    fn message(level: &str, text: &str, file: &Path) -> Value {
-        let span = json!({ "is_primary": true, "file_name": file, "line_start": 3, "column_start": 5, "line_end": 3, "column_end": 9, "label": "here" });
-        json!({ "reason": "compiler-message", "message": { "level": level, "message": text, "rendered": text, "spans": [span] } })
-    }
-
-    #[test]
-    fn the_sdk_manifests_have_the_dependencies_of_the_crates() {
-        let gpu = include_str!("../../patina-gpu/Cargo.toml");
-        let cuda = include_str!("../../patina-cuda/Cargo.toml");
-        let event = include_str!("../../patina-event/Cargo.toml");
-        for (name, own) in [("patina-gpu", gpu), ("patina-cuda", cuda), ("patina-event", event)] {
-            let sdk = SDK_FILES.iter().find(|(path, _)| path.ends_with(&format!("{name}/Cargo.toml"))).unwrap().1;
-            for line in own.lines().filter(|l| ["wgpu", "wesl", "cudarc", "tokio", "rust-version"].iter().any(|k| l.starts_with(k))) {
-                assert!(sdk.contains(line), "{line}");
-            }
-        }
-    }
-
-    #[test]
-    fn a_feature_change_gives_a_new_state_key() {
-        let unit = |features: &[&str], opt: u32, debug: bool| {
-            let profile = json!({ "opt_level": opt.to_string(), "debug_assertions": debug });
-            unit_hash(&json!({ "reason": "compiler-artifact", "package_id": "dep 1.0", "features": features, "profile": profile }))
-        };
-        let edit = unit(&["std"], 0, false);
-        assert_eq!(edit, unit(&["std"], 3, false), "a bake build keeps the states");
-        assert_ne!(edit, unit(&["std", "extra"], 0, false), "a feature can change a layout");
-        assert_ne!(edit, unit(&["std"], 0, true), "debug assertions can change a layout");
-    }
-
-    #[test]
-    fn a_crate_is_a_name_and_a_version() {
-        for good in ["rand", "rand@0.9", "serde_json@=1.0.100", "a-b_c@^1.2-beta.1"] {
-            assert!(check_crate(good).is_ok(), "{good}");
-        }
-        for bad in ["", "-x", "--path=..", "../x", "a b", "rand@", "rand@0.9 x", "1rand", "@1", "a@b@c"] {
-            assert!(check_crate(bad).is_err(), "{bad}");
-        }
-    }
-
-    /// Run it with `cargo test -p patina-engine -- --ignored`. It reads the index of crates.io.
-    #[test]
-    #[ignore = "needs the network"]
-    fn cargo_adds_a_crate_to_a_node() {
-        let root = std::env::temp_dir().join(format!("patina-add-crate-{}", std::process::id()));
-        let manifest = "[package]\nname = \"num\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n";
-        write(&root, "nodes/num/Cargo.toml", manifest).unwrap();
-        write(&root, "nodes/num/src/lib.rs", "").unwrap();
-        let toolchain = Toolchain::detect().unwrap();
-        let text = add_crate(&root, &toolchain, "nodes/num", "itoa@1").unwrap();
-        assert!(text.contains("itoa = \"1"), "{text}");
-        assert_eq!(std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap(), manifest);
-        let error = add_crate(&root, &toolchain, "nodes/num", "patina-no-such-crate-x").unwrap_err();
-        assert!(error.contains("patina-no-such-crate-x"), "{error}");
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn a_type_folder_goes_in_by_its_path() {
-        let root = std::env::temp_dir().join(format!("patina-add-type-{}", std::process::id()));
-        for name in ["nodes/num", "types/digit"] {
-            let manifest = format!("[package]\nname = \"{}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n", &name[6..]);
-            write(&root, &format!("{name}/Cargo.toml"), &manifest).unwrap();
-            write(&root, &format!("{name}/src/lib.rs"), "").unwrap();
-        }
-        let text = add_crate(&root, &Toolchain::detect().unwrap(), "nodes/num", "digit").unwrap();
-        assert!(text.contains("path = \"../../types/digit\""), "{text}");
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn the_own_toolchain_has_a_clean_environment() {
-        let folder = std::env::temp_dir().join(format!("patina-toolchain-{}", std::process::id()));
-        let names = |folder: &Path| -> Vec<String> {
-            let env = own_env(folder, |name| Some(format!("old {name}").into())).unwrap();
-            let path = &env.iter().find(|(name, _)| name == "PATH").unwrap().1;
-            assert_eq!(std::env::split_paths(path).next(), Some(folder.join("cargo").join("bin")));
-            env.into_iter().map(|(name, _)| name).collect()
-        };
-        let first = names(&folder);
-        assert!(first.contains(&"CARGO_HOME".to_owned()) && !first.iter().any(|n| n.starts_with("CC_") || n == "RUSTFLAGS"));
-        if cfg!(windows) {
-            std::fs::create_dir_all(folder.join("zig")).unwrap();
-            std::fs::write(folder.join("zig").join("zig-cc.exe"), "").unwrap();
-            assert!(names(&folder).contains(&"CC_x86_64_pc_windows_gnu".to_owned()));
-            std::fs::remove_dir_all(&folder).unwrap();
-        }
-        // A folder with no cargo gives the Rust of the system.
-        assert_eq!(Toolchain::find(&folder).unwrap().own, None);
-    }
-
-    #[test]
-    fn each_host_gets_its_link_flags() {
-        let flags = |host: &str, own: Option<&str>| {
-            let (cargo, rustc, release, libdir) = (PathBuf::new(), PathBuf::new(), String::new(), PathBuf::new());
-            Toolchain { cargo, rustc, release, host: host.to_owned(), libdir, own: own.map(PathBuf::from) }.rustflags()
-        };
-        assert_eq!(flags("x86_64-pc-windows-msvc", None), "-Cprefer-dynamic\x1f-Clink-arg=/Brepro");
-        assert_eq!(flags("x86_64-pc-windows-gnu", None), "-Cprefer-dynamic");
-        let own = flags("x86_64-pc-windows-gnu", Some("t"));
-        assert!(own.contains("\x1f-Clink-arg=--no-insert-timestamp\x1f-Cdlltool=t") && own.ends_with("zig-dlltool.exe"), "{own}");
-        assert!(flags("x86_64-unknown-linux-gnu", None).ends_with("\x1f-Clink-arg=-Wl,-rpath,$ORIGIN"));
-        assert!(flags("aarch64-apple-darwin", None).ends_with("\x1f-Clink-arg=-Wl,-rpath,@loader_path"));
-    }
-
-    #[test]
-    fn a_member_glob_needs_a_folder() {
-        let root = std::env::temp_dir().join(format!("patina-members-{}", std::process::id()));
-        std::fs::create_dir_all(root.join("connections")).unwrap();
-        assert!(workspace(&root).contains("members = []"));
-        std::fs::create_dir_all(root.join("build/clusters/main")).unwrap();
-        assert!(workspace(&root).contains("members = [\"build/clusters/*\"]"));
-        assert!(workspace(&root).ends_with("\n[profile.edit.package.cluster-main]\ndebug = false\n"));
-        std::fs::create_dir_all(root.join("nodes/num")).unwrap();
-        assert!(workspace(&root).contains("members = [\"nodes/*\", \"build/clusters/*\"]"), "an empty folder matches no member");
-        std::fs::create_dir_all(root.join("connections/byte")).unwrap();
-        assert!(workspace(&root).contains("members = [\"nodes/*\", \"connections/*\", \"build/clusters/*\"]"));
-        std::fs::create_dir_all(root.join("widgets/bar")).unwrap();
-        assert!(workspace(&root).contains("members = [\"nodes/*\", \"widgets/*\", \"connections/*\", \"build/clusters/*\"]"));
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn only_the_clusters_of_the_plan_stay() {
-        let root = std::env::temp_dir().join(format!("patina-old-clusters-{}", std::process::id()));
-        for folder in ["main", "batch", "frame", "slot"] {
-            std::fs::create_dir_all(root.join("build/clusters").join(folder)).unwrap();
-        }
-        // The order of read_dir depends on the file system, so the names are sorted.
-        let left = || -> Vec<_> {
-            let mut names: Vec<_> = std::fs::read_dir(root.join("build/clusters")).unwrap().flatten().map(|e| e.file_name()).collect();
-            names.sort();
-            names
-        };
-        remove_old_clusters(&root, &[Domain::Batch], true).unwrap();
-        assert_eq!(left(), ["batch", "slot"]);
-        remove_old_clusters(&root, &[Domain::Batch], false).unwrap();
-        assert_eq!(left(), ["batch"]);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn compile_errors_point_to_project_files() {
-        let root = std::env::temp_dir().join("patina-errors");
-        let relative = Path::new("nodes").join("a").join("src").join("lib.rs");
-        let lines = [
-            message("error", "bad", &root.join(&relative)),
-            message("error", "bad too", &relative),
-            message("error", "outside", &std::env::temp_dir().join("crate").join("lib.rs")),
-            message("warning", "unused", &relative),
-            json!({ "reason": "compiler-message", "message": { "level": "error", "message": "aborting due to 2 previous errors", "spans": [] } }),
-        ];
-        let stdout = lines.iter().map(|l| format!("{l}\nnot json\n")).collect::<String>();
-        let errors = compile_errors(&root, stdout.as_bytes());
-        let files: Vec<Option<&str>> = errors.iter().map(|e| e.file.as_deref()).collect();
-        assert_eq!(files, [Some("nodes/a/src/lib.rs"), Some("nodes/a/src/lib.rs"), None]);
-        assert_eq!((errors[0].start, errors[0].end, errors[0].label.as_deref()), ([3, 5], [3, 9], Some("here")));
-    }
-}
+mod tests;

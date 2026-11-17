@@ -80,8 +80,14 @@ impl Checked {
     /// Builds the clusters of the graph in `mode` and loads them (8.3). A bake build with no slot
     /// is a fuse (7.2): `Cluster::adopt` then moves the states from the old clusters.
     pub fn build(&self, toolchain: &Toolchain, mode: Mode) -> Result<Cluster, Error> {
+        self.build_with(toolchain, mode, &|| {})
+    }
+
+    /// Does `build`. `compiling` runs when cargo starts to compile a crate, so not when all crates
+    /// are fresh.
+    pub fn build_with(&self, toolchain: &Toolchain, mode: Mode, compiling: &dyn Fn()) -> Result<Cluster, Error> {
         self.check_rust(toolchain)?;
-        let built = cargo::build(&self.root, toolchain, &self.plan, mode)?;
+        let built = cargo::build(&self.root, toolchain, &self.plan, mode, compiling)?;
         let paths: Vec<PathBuf> = built.libraries.iter().map(|(_, path)| path.clone()).collect();
         let copies = copy_to_loaded(&self.root, "cluster-", &paths)?;
         let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();

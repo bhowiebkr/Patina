@@ -330,11 +330,13 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
             out.emit(&Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
+        // The first build of a project bakes, so a project with no change builds one time (7.2).
+        let opened = loaded.is_none() && last.is_none();
         if (rerun || fuse) && newest.is_none() {
             newest = last.take();
         }
         let Some(mut run) = newest else { continue };
-        let build = match (fuse, build || loaded.is_none()) {
+        let build = match (fuse || opened, build || loaded.is_none()) {
             (true, _) => Some(Build { mode: Mode::Bake, slot: None }),
             (false, true) => Some(Build { mode: Mode::Edit, slot }),
             (false, false) => None,
@@ -562,12 +564,12 @@ fn compile(checked: &mut Checked, toolchain: &Toolchain, build: &Build, mut load
     let built = match swapped {
         Ok(true) => Ok(None),
         Ok(false) => {
-            building(true, build.slot.as_deref().filter(|_| slotted));
             // Until a full build loads, the base can be older than the code. A failed slot build keeps the base.
             if let Some(loaded) = loaded {
                 loaded.stale = true;
             }
-            checked.build(toolchain, build.mode).map(Some)
+            // A build with all crates fresh compiles nothing, so the nodes do not show Compiling.
+            checked.build_with(toolchain, build.mode, &|| building(true, build.slot.as_deref().filter(|_| slotted))).map(Some)
         }
         Err(e) => Err(e),
     };

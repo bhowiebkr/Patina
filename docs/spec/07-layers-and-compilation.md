@@ -55,6 +55,7 @@ Rules:
 - A wiring change, for example a new node or a new connection, rebuilds the affected cluster in edit mode. That cluster fuses back after the same set time with no change, or when the user clicks **Bake**.
 - The editor of version 1 starts the slot at the first save of a Rust file of N, not when the user opens the code. That save builds the base with the slot in edit mode, and the next saves build the slot alone. A save of `Cargo.toml` of N builds all clusters, because a new crate can change the base. Agent decision of 2026-11-15. The owner can change it.
 - A paused graph does not build, so it does not fuse. **Bake** fuses only a live graph. A paused graph fuses after the next **Run** and the set time. Agent decision of 2026-11-15. The owner can change it.
+- Patina does not build when nothing changed. The first build after a project opens is a bake build, so it does not fuse later. At the next open, cargo finds all crates fresh in `build/target` and compiles nothing. The nodes and the layers show **Compiling** and **Building** only while cargo compiles a crate. Owner decision of 2026-11-16.
 
 ### 7.3 Visual display
 
