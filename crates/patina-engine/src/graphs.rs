@@ -1,6 +1,7 @@
 //! The graphs of a project: the open graph, the subgraphs in memory, the undo history and the
 //! save (spec 6.1, 15.10).
 
+use std::collections::HashSet;
 use std::hash::{BuildHasher, RandomState};
 
 use crate::edit::Disk;
@@ -67,7 +68,7 @@ impl Project {
 
     /// Moves the nodes `ids` of the open graph into the new subgraph `name`, with the use `use_id`
     /// in their place, as one step of undo (6.1). The new subgraph stays in memory until a save.
-    /// An undo keeps the subgraph.
+    /// An undo keeps the subgraph for a redo.
     pub fn collapse(&mut self, name: &str, ids: &[String], use_id: &str) -> Result<(), String> {
         plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
         if self.has_graph(name) {
@@ -178,17 +179,36 @@ impl Project {
     }
 
     /// The name and the graph of each graph with changes that are not saved, the open graph first.
+    /// A new subgraph that nothing uses is not in the list (15.10).
     pub fn unsaved(&self) -> impl Iterator<Item = (&str, &GraphFile)> {
+        let unused = self.unused_new();
         let parked = self.parked.iter().map(|(name, h)| (name.as_str(), h));
-        std::iter::once((self.name.as_str(), &self.history)).chain(parked).filter(|(_, h)| h.dirty()).map(|(name, h)| (name, &h.graph))
+        std::iter::once((self.name.as_str(), &self.history)).chain(parked).filter(move |(name, h)| h.dirty() && !unused.contains(name)).map(|(name, h)| (name, &h.graph))
+    }
+
+    /// The new subgraphs of a paste or a collapse with no file, no edits of their own and no use in
+    /// the other graphs in memory, for example after an undo. They stay in memory for a redo (15.10).
+    fn unused_new(&self) -> HashSet<&str> {
+        let mut unused: HashSet<&str> = self.parked.iter().filter(|(_, h)| h.is_new() && !h.has_steps()).map(|(name, _)| name.as_str()).collect();
+        loop {
+            // A use in an unused new subgraph does not count, so repeat until nothing changes.
+            let graphs = std::iter::once((self.name.as_str(), &self.history.graph)).chain(self.parked.iter().map(|(name, h)| (name.as_str(), &h.graph)));
+            let used: HashSet<&str> = graphs.filter(|(name, _)| !unused.contains(name)).flat_map(|(_, g)| g.node.iter().filter_map(|n| n.subgraph.as_deref())).collect();
+            let count = unused.len();
+            unused.retain(|name| !used.contains(name));
+            if unused.len() == count {
+                return unused;
+            }
+        }
     }
 
     /// Writes each graph with unsaved changes to its file in `graphs/`. The undo history stays
     /// (15.10).
     pub fn save(&mut self) -> Result<(), Error> {
+        let unused: HashSet<String> = self.unused_new().into_iter().map(str::to_owned).collect();
         let parked = self.parked.iter_mut().map(|(name, h)| (name.as_str(), h));
         for (name, history) in std::iter::once((self.name.as_str(), &mut self.history)).chain(parked) {
-            if history.dirty() {
+            if history.dirty() && !unused.contains(name) {
                 project::write(&graph_path(&self.root, name), &history.graph)?;
                 history.mark_saved();
             }

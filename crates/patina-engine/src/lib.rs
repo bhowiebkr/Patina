@@ -564,7 +564,7 @@ mod tests {
         let half = fs::read_to_string(root.join("graphs/half.toml")).unwrap();
         assert!(half.contains("000000000000000a"), "{half}");
 
-        // A collapse keeps the new subgraph in memory until a save. An undo keeps the subgraph.
+        // A collapse keeps the new subgraph in memory until a save.
         let ids = ["000000000000000a".to_owned()];
         assert!(project.collapse("half", &ids, "00000000000000c1").is_err(), "the graph exists");
         assert!(project.collapse("HALF", &ids, "00000000000000c1").is_err(), "the case is not important");
@@ -577,11 +577,17 @@ mod tests {
         assert!(project.expand(&ids).is_err(), "the node is not a use");
         project.undo().unwrap();
         project.undo().unwrap();
+        // An undone collapse keeps the subgraph for a redo. Save writes it only while a graph uses it.
+        assert!(!project.dirty(), "nothing uses the new subgraph");
+        project.save().unwrap();
+        let unused = root.join("graphs/part.toml").is_file();
+        project.redo().unwrap();
+        assert!(project.dirty());
         project.save().unwrap();
         let kept = root.join("graphs/part.toml").is_file();
         let count = project.graph().node.len();
         fs::remove_dir_all(&root).unwrap();
-        assert_eq!((kept, count), (true, 2));
+        assert_eq!((unused, kept, count), (false, true, 2));
     }
 
     #[test]

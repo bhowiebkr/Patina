@@ -163,6 +163,16 @@ impl History {
         self.graph != self.saved
     }
 
+    /// True for a graph of `unsaved` that no save wrote yet.
+    pub fn is_new(&self) -> bool {
+        self.saved.format == 0
+    }
+
+    /// True when the graph has edits of its own: undo or redo has a step.
+    pub fn has_steps(&self) -> bool {
+        !self.undo.is_empty() || !self.redo.is_empty()
+    }
+
     pub fn mark_saved(&mut self) {
         self.saved = self.graph.clone();
     }

@@ -44,8 +44,9 @@ checks open.
   The paste test also gives a free name to a pasted cable.
 - Not checked: a paste between two running editors by hand, and a live download from GitHub or
   GitLab, and a live download of the index.
-- Known limits: the index has no libraries yet. A clip has 256 subgraphs at most. An undone
-  paste or collapse keeps its new subgraph in memory, and Save writes it.
+- Save writes a new subgraph of a paste or a collapse only when a graph uses it or it has
+  edits of its own. An undone paste or collapse keeps it in memory for a redo.
+- Known limits: the index has no libraries yet. A clip has 256 subgraphs at most.
 
 ## Gate speed
 
@@ -917,7 +918,8 @@ and 6.4).
   subgraph can have many uses. The frame of **Show inner nodes** shows them for one use.
 - A removed public pin keeps the wires of the uses to it. The check shows a problem for each.
 - Ctrl+G collapses the selected nodes into a new subgraph, with public pins for the wires that
-  cross. Save writes its file. An undo keeps the new subgraph. Ctrl+Shift+G expands the selected uses.
+  cross. Save writes its file while a graph uses it. An undo keeps it for a redo. Ctrl+Shift+G expands
+  the selected uses.
 - A public pin that ends at an input of a generic node shows the type parameter as its type.
   The use is generic in that parameter too, so the **Add node** palette offers it for each
   type (fixed 2026-11-16). A pin that ends at `&bool` shows `bool`.

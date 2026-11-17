@@ -113,7 +113,12 @@ fn a_paste_in_the_same_project_gives_new_ids_at_the_place() {
 
 #[test]
 fn a_paste_into_another_project_renames_a_different_subgraph_and_imports_the_folders() {
-    let (source, mut from) = project("from", HALF);
+    let (source, mut from) = project("from", &format!("{HALF}[[node]]
+id = \"00000000000000a2\"
+subgraph = \"inner\"
+"));
+    fs::write(source.join("graphs/inner.toml"), "format = 1
+").unwrap();
     let (root, mut project) = project("into", "format = 1\n");
     let text = from.copy(&ids(&["a", "c"])).unwrap();
     let id = from.id.clone();
@@ -122,9 +127,16 @@ fn a_paste_into_another_project_renames_a_different_subgraph_and_imports_the_fol
     assert_eq!(pasted.warnings, Vec::<String>::new(), "the node folders are the same");
     assert_eq!(node(&project, &pasted.ids[1]).subgraph.as_deref(), Some("half-2"));
     assert!(!root.join("graphs/half-2.toml").exists(), "only a save writes a graph");
+    // An undone paste keeps its new subgraphs for a redo, but they are not unsaved changes (15.10).
+    project.undo().unwrap();
+    assert_eq!(project.unsaved().count(), 0, "nothing uses half-2 or inner");
+    project.redo().unwrap();
+    let mut unsaved: Vec<_> = project.unsaved().map(|g| g.0).collect();
+    unsaved.sort();
+    assert_eq!(unsaved, ["half-2", "inner", "main"], "inner has a use in half-2");
     assert_eq!(project.subgraph_file("half-2").unwrap(), crate::project::read(&source.join("graphs/half.toml"), |g: &GraphFile| g.format).unwrap());
     project.save().unwrap();
-    assert!(root.join("graphs/half-2.toml").is_file());
+    assert!(root.join("graphs/half-2.toml").is_file() && root.join("graphs/inner.toml").is_file());
 
     // The second paste uses the subgraph of the first paste.
     let again = project.paste(&text, [0.0, 0.0], None, find, None).unwrap();
