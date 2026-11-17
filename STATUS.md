@@ -873,7 +873,8 @@ Milestone 8 started on 2026-11-15 and ended on 2026-11-15. It makes packages of 
 - **Open project** on a package opens its original project. A build there writes a `build/`
   folder into the package. The **Package** button and the opening did not run in the window yet.
   It needs `patina-cli` next to the editor, as in the portable folder.
-- During a package build, the editor does not run the graph.
+- A package builds in a background thread, so the graph runs on (fixed 2026-11-17). A change
+  that needs a build waits until the package ends, because one build runs at a time.
 - No automated test loads `patina_capi.dll`. The test calls the functions through the Rust
   library of the crate. Only the manual `ctypes` check loaded the DLL, on Windows.
   `cargo test` does not build the DLL, so a package from a checkout can carry an old DLL from
@@ -1078,8 +1079,8 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The fuse builds in a background thread, so the graph runs on during a fuse (fixed
   2026-11-17). The engine loads the fused clusters only when no change, pause or step came after
   the start of the fuse. Nobody measured the frames during a fuse.
-- A change, a **Package** or the first build of a view during a fuse waits until the fuse ends,
-  because one build runs at a time (`crates/patina-editor/src/engine.rs`).
+- A change during a fuse waits until the fuse ends, because one build runs at a time
+  (`crates/patina-editor/src/engine.rs`). A **Package** or a view build waits in its thread.
 - A generic node does not go into the slot (`crates/patina-engine/src/lib.rs`). A change of a
   type alias in the node folder needs a full build, because the base compares the signature
   text.
