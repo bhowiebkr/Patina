@@ -1777,8 +1777,12 @@ To run the editor from a checkout:
 - The route points of the wires in a frame move with the use during a drag (fixed 2026-11-17).
   A frontend unit test checks the move. Nobody dragged an open frame by hand. The frame is
   read-only. Open the subgraph to edit its nodes.
-- These parts of spec 15 are not in the editor yet: view tabs in the center
-  (15.2) and rust-analyzer in Monaco (15.1).
+- This part of spec 15 is not in the editor yet: rust-analyzer in Monaco (15.1).
+- A view opens as a tab in the center, after the fixed **Graph** tab (15.2, added 2026-11-17).
+  The active view covers the graph, so the graph keeps its state. A layout unit test checks the
+  center. The selfcheck checks that a view opens in the center and that **Graph** shows the
+  graph again. Nobody dragged a view tab into the center by hand. A layout file from before
+  keeps its view tabs in the right area.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
   No check showed a call on a pool thread above 0, and nobody looked at the tab by hand.

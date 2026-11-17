@@ -6,12 +6,12 @@ export const VIEW_SLOTS = ['view', 'view2', 'view3', 'view4'] as const;
 export type ViewSlot = (typeof VIEW_SLOTS)[number];
 export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output', 'debug', ...VIEW_SLOTS] as const;
 export type PanelId = (typeof PANELS)[number];
-export const AREAS = ['left', 'right', 'bottom'] as const;
+export const AREAS = ['left', 'right', 'bottom', 'center'] as const;
 export type AreaId = (typeof AREAS)[number];
 
 export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output', debug: 'Debug', view: 'View', view2: 'View 2', view3: 'View 3', view4: 'View 4' };
 /** The area of each panel in the default layout. A closed panel opens there again. */
-const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', debug: 'bottom', view: 'right', view2: 'right', view3: 'right', view4: 'right' };
+const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', debug: 'bottom', view: 'center', view2: 'center', view3: 'center', view4: 'center' };
 
 export const MIN_SIZE = 120;
 export const MAX_SIZE = 1600;
@@ -22,8 +22,9 @@ const VERSION = 1;
 
 export interface Area {
   tabs: PanelId[];
+  /** In the center, no active tab shows the graph. */
   active: PanelId | null;
-  /** The width of a side area or the height of the bottom area, in pixels. */
+  /** The width of a side area or the height of the bottom area, in pixels. The center has 0. */
   size: number;
 }
 
@@ -60,6 +61,7 @@ export function defaultLayout(): Layout {
       left: { tabs: ['layers', 'project'], active: 'project', size: 260 },
       right: { tabs: ['inspector'], active: 'inspector', size: 360 },
       bottom: { tabs: ['logs', 'output', 'debug'], active: 'output', size: 200 },
+      center: { tabs: [], active: null, size: 0 },
     },
     floats: {},
     viewports: {},
@@ -75,7 +77,7 @@ export function areaOf(layout: Layout, panel: PanelId): AreaId | null {
 const withArea = (layout: Layout, id: AreaId, area: Area): Layout => ({ ...layout, areas: { ...layout.areas, [id]: area } });
 const unfold = (layout: Layout): Layout => (layout.folded ? { ...layout, folded: false } : layout);
 
-const isSlot = (v: unknown): v is ViewSlot => VIEW_SLOTS.includes(v as ViewSlot);
+export const isSlot = (v: unknown): v is ViewSlot => VIEW_SLOTS.includes(v as ViewSlot);
 
 /** True when the panel shows: in a dock area or in a float window. */
 export const isOpen = (layout: Layout, panel: PanelId) => areaOf(layout, panel) !== null || (isSlot(panel) && panel in layout.floats);
@@ -139,9 +141,9 @@ function removeTab(layout: Layout, panel: PanelId): Layout {
   return withArea(layout, id, { ...area, tabs, active });
 }
 
-/** Moves the tab of the panel before the tab `before`, or to the end of the area. */
+/** Moves the tab of the panel before the tab `before`, or to the end of the area. The center takes only views. */
 export function movePanel(layout: Layout, panel: PanelId, to: AreaId, before?: PanelId): Layout {
-  if (before === panel) return layout;
+  if (before === panel || (to === 'center' && !isSlot(panel))) return layout;
   const out = removeTab(layout, panel);
   const area = out.areas[to];
   const tabs = [...area.tabs];
@@ -157,6 +159,12 @@ export function openPanel(layout: Layout, panel: PanelId): Layout {
   if (!id) return movePanel(layout, panel, HOME[panel]);
   const next = layout.areas[id].active === panel ? layout : withArea(layout, id, { ...layout.areas[id], active: panel });
   return id === 'left' ? unfold(next) : next;
+}
+
+/** The Graph tab of the center: the graph shows, and the view tabs stay. */
+export function showGraph(layout: Layout): Layout {
+  const center = layout.areas.center;
+  return center.active === null ? layout : withArea(layout, 'center', { ...center, active: null });
 }
 
 /** True when the panel has a tab in a dock area that shows: a folded left area does not show. */
@@ -219,9 +227,10 @@ export function parseLayout(text: string | null): Layout {
   const seen = new Set<PanelId>();
   for (const id of AREAS) {
     const area = isRaw(raw.areas[id]) ? raw.areas[id] : {};
-    const tabs = (Array.isArray(area.tabs) ? area.tabs : []).filter((t): t is PanelId => isPanel(t) && !seen.has(t) && !!seen.add(t));
-    const active = isPanel(area.active) && tabs.includes(area.active) ? area.active : (tabs[0] ?? null);
-    layout.areas[id] = { tabs, active, size: finite(area.size) ? clampSize(area.size) : layout.areas[id].size };
+    const center = id === 'center';
+    const tabs = (Array.isArray(area.tabs) ? area.tabs : []).filter((t): t is PanelId => isPanel(t) && (!center || isSlot(t)) && !seen.has(t) && !!seen.add(t));
+    const active = isPanel(area.active) && tabs.includes(area.active) ? area.active : center ? null : (tabs[0] ?? null);
+    layout.areas[id] = { tabs, active, size: center ? 0 : finite(area.size) ? clampSize(area.size) : layout.areas[id].size };
   }
   // A panel that the file does not list is newer than the file, so it opens in its home area.
   // A file without the list came from an editor before the Layers tab.

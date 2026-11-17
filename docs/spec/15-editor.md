@@ -46,11 +46,12 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 
 This is an agent decision of 2026-11-15. The owner can change it.
 
-- The left, right and bottom areas take panels. The center holds only the graph view. In version 1 of views, a view panel opens in the right area (15.8). Tabs in the center come later.
+- The left, right and bottom areas take panels. The center has the **Graph** tab first, and then the view tabs (15.8). A view opens in the center. The built-in panels do not go in the center. (Agent decision, 2026-11-17. The owner can change it.)
+- The **Graph** tab does not move or close. The active view covers the graph, so the graph keeps its pan, zoom and selection. The keys of the graph do not act while a view covers it.
 - The panels are **Layers**, **Project**, **Inspector**, **Logs**, **Output** and **Debug**. The left area has the **Layers** tab and the **Project** tab, and **Project** is active at the start.
 - A view panel can float in its own window: with **Float in a window** in its right-click menu, or with a drag out of the window. The built-in panels stay in the dock. The **Dock** button of a float window moves the view back to its default area. A close of a float window closes the view instance. (Agent decision, 2026-11-15. The owner can change it.)
 - Dock starts the view instance again with `init`, because the surface of a float window must not outlive its window. A float from the dock keeps the instance. (Agent decision, 2026-11-15. The owner can change it.)
-- A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area** and **Close**. The menu is the method for the keyboard and for screen readers.
+- A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area**, **Move to the center** (only for a view tab) and **Close**. The menu is the method for the keyboard and for screen readers.
 - An area with no tabs takes no space. During a drag, it shows as a drop zone.
 - The navigation rail at the left edge has an icon for each tab of the left area, and an icon for **Project** when it is closed. A click on the icon of the active left panel folds the left area, so the graph gets its width (mockup 6). A click on another icon, or a second click, unfolds the area and shows that panel. A move or an open of a panel in the left area also unfolds it. The **Views** menu shows a folded panel without a check mark. The layout file keeps the fold. (Agent decision, 2026-11-16. The owner can change it.)
 - A splitter between an area and the center changes the size of the area. An arrow key moves a focused splitter by 16 px, and Shift and an arrow key move it by 64 px. A size is 120 px to 1600 px.

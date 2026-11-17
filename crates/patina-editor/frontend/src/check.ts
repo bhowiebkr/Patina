@@ -6,7 +6,7 @@ import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './CodeTab';
 import { emit, listen } from '@tauri-apps/api/event';
 import { changeLayout, flushLayout, savedViewport } from './Dock';
-import { floatPanel, layoutText, openPanel, parseLayout } from './layout';
+import { floatPanel, layoutText, openPanel, parseLayout, showGraph } from './layout';
 import { checkWires } from './check-wires';
 import { checkCanvas } from './check-canvas';
 import { checkDomains } from './check-domains';
@@ -722,6 +722,12 @@ fn broken() -> u32 {
     await emit('float-dock', 'view2');
     await until('the docked tab of the float view', RUN_MS, () => !!second());
     await until('the widgets of the docked view', BUILD_MS, () => viewText().startsWith('value '));
+    // The views open in the center (15.2). The Graph tab shows the graph under them again.
+    const graphTab = () => [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((t) => t.textContent === 'Graph');
+    if (!document.querySelector('.center-view') || !graphTab()) throw new Error('the view did not open in the center');
+    graphTab()!.click();
+    await until('the graph under the views', RUN_MS, () => !document.querySelector('.center-view') && graphTab()?.getAttribute('aria-selected') === 'true');
+    changeLayout(showGraph);
     steps.push('a float window of a view');
 
     // Fire in a subgraph use (15.8): Open subgraph opens the subgraph through its use, and Fire

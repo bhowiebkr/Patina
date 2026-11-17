@@ -22,12 +22,13 @@ import {
   resetLayout,
   resizeArea,
   setViewport,
+  showGraph,
   viewTitle,
 } from './layout.ts';
 
 test('each view instance opens in a free slot and a close drops it', () => {
   let l = openView(openView(defaultLayout(), 'views/scene'), 'views/scene');
-  assert.deepEqual(l.areas.right.tabs, ['inspector', 'view', 'view2']);
+  assert.deepEqual(l.areas.center, { tabs: ['view', 'view2'], active: 'view2', size: 0 });
   assert.deepEqual([viewTitle(l, 'view'), viewTitle(l, 'view2'), viewTitle(l, 'view3')], ['scene', 'scene 2', 'View 3']);
   l = movePanel(l, 'view2', 'bottom');
   assert.equal(l.views.view2, 'views/scene');
@@ -91,6 +92,20 @@ test('sizes are clamped and reset keeps the pan and zoom', () => {
   assert.deepEqual(resetLayout(l), { ...defaultLayout(), viewports: l.viewports });
 });
 
+test('the center takes only views, and its Graph tab shows the graph', () => {
+  const l = openView(defaultLayout(), 'views/scene');
+  assert.equal(movePanel(l, 'logs', 'center'), l, 'a built-in panel does not go in the center');
+  const graph = showGraph(l);
+  assert.deepEqual(graph.areas.center, { tabs: ['view'], active: null, size: 0 });
+  assert.equal(showGraph(graph), graph);
+  assert.equal(openPanel(graph, 'view').areas.center.active, 'view');
+  assert.deepEqual(parseLayout(layoutText(graph)).areas.center, graph.areas.center);
+  const right = movePanel(l, 'view', 'right');
+  assert.deepEqual([right.areas.center.tabs, right.areas.center.active, right.areas.right.active], [[], null, 'view']);
+  const bad = JSON.stringify({ version: 1, areas: { center: { tabs: ['logs', 'view'], active: 'logs', size: 500 } }, views: { view: 'views/a' } });
+  assert.deepEqual(parseLayout(bad).areas.center, { tabs: ['view'], active: null, size: 0 });
+});
+
 test('a view slot floats, moves, docks and closes', () => {
   const base = openView(defaultLayout(), 'views/scene');
   assert.deepEqual(floatPanel(defaultLayout(), 'view').floats, {}, 'a slot without a view does not float');
@@ -102,7 +117,7 @@ test('a view slot floats, moves, docks and closes', () => {
   assert.deepEqual(parseLayout(layoutText(l)).floats, { view: { x: 5, y: 6, w: 300, h: 200 } });
   const docked = dockPanel(l, 'view');
   assert.deepEqual(docked.floats, {});
-  assert.ok(docked.areas.right.tabs.includes('view'));
+  assert.ok(docked.areas.center.tabs.includes('view'));
   assert.equal(docked.views.view, 'views/scene');
   const closed = closePanel(l, 'view');
   assert.deepEqual([closed.floats, closed.views], [{}, {}]);

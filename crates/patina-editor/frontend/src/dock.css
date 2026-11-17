@@ -99,6 +99,41 @@
   height: 40px;
 }
 
+/* The center (15.2): the Graph tab and the view tabs. The active view covers the graph. */
+.area.center {
+  flex: 1;
+}
+
+.center-body {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The canvas is a stacking context, so the nodes of the graph stay under the view. */
+.center-body > .canvas {
+  isolation: isolate;
+}
+
+.area.center .canvas {
+  border: none;
+  border-radius: 0;
+}
+
+.center-view,
+.drop-zone.center {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.center-view {
+  background: var(--panel);
+}
+
 .menu-layer {
   position: fixed;
   inset: 0;

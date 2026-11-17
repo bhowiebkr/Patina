@@ -428,7 +428,8 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target) || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer')) return;
+      // A view in the center covers the graph, so the keys of the graph do not act (15.2).
+      if (typing(e.target) || e.altKey || e.metaKey || document.querySelector('.backdrop, .menu-layer, .center-view')) return;
       const key = e.key.toLowerCase();
       // Ctrl+A, C, X and V act on the nodes only over the canvas, so a panel keeps its own keys.
       const onCanvas = !!pointer.current || (e.target instanceof Element && !!e.target.closest('.react-flow'));

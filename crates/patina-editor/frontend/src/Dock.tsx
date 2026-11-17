@@ -10,6 +10,7 @@ import {
   floatPanel,
   isOpen,
   isShown,
+  isSlot,
   layoutText,
   MAX_SIZE,
   MIN_SIZE,
@@ -23,6 +24,7 @@ import {
   resetLayout,
   resizeArea,
   setViewport,
+  showGraph,
   TITLES,
   VIEW_SLOTS,
   viewTitle,
@@ -260,16 +262,23 @@ interface AreaProps {
   id: AreaId;
   layout: Layout;
   panels: Record<PanelId, Panel>;
-  dragging: boolean;
-  onDrag: (dragging: boolean) => void;
+  /** The panel of the tab that drags. */
+  dragging: PanelId | null;
+  onDrag: (dragging: PanelId | null) => void;
+  /** The graph view in the center. */
+  children?: ReactNode;
 }
 
-/** One dock area: a tab for each panel and the body of the active panel. */
-function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
+/**
+ * One dock area: a tab for each panel and the body of the active panel. The center has a fixed
+ * Graph tab first, and the active view covers the graph, so the graph keeps its state.
+ */
+function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps) {
   const [menu, setMenu] = useState<{ panel: PanelId; x: number; y: number } | null>(null);
   const { tabs, active, size } = layout.areas[id];
+  const center = id === 'center';
   const over = (e: DragEvent) => {
-    if (!e.dataTransfer.types.includes(TAB_MIME)) return;
+    if (!e.dataTransfer.types.includes(TAB_MIME) || (center && !isSlot(dragging))) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
@@ -278,28 +287,43 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
     if (!PANELS.includes(panel as PanelId)) return;
     e.preventDefault();
     e.stopPropagation();
-    onDrag(false);
+    onDrag(null);
     changeLayout((l) => movePanel(l, panel as PanelId, id, before));
   };
   if (tabs.length === 0 || (id === 'left' && layout.folded)) {
     // An empty or folded area takes no space. It shows only as a place to drop a tab.
-    return dragging ? (
+    const zone = dragging && (!center || isSlot(dragging)) && (
       <div className={`drop-zone ${id}`} aria-label={`Drop a tab in the ${id} area`} onDragOver={over} onDrop={(e) => drop(e)} />
-    ) : null;
+    );
+    return center ? (
+      <div className="center-body">
+        {children}
+        {zone}
+      </div>
+    ) : (
+      zone || null
+    );
   }
   const moveItems = (panel: PanelId): Item[] => [
-    ...(['left', 'right', 'bottom'] as const).map((to) => ({
-      label: `Move to the ${to} area`,
-      disabled: to === id,
-      run: () => changeLayout((l) => movePanel(l, panel, to)),
-    })),
+    ...(['left', 'right', 'bottom', 'center'] as const)
+      .filter((to) => to !== 'center' || isSlot(panel))
+      .map((to) => ({
+        label: to === 'center' ? 'Move to the center' : `Move to the ${to} area`,
+        disabled: to === id,
+        run: () => changeLayout((l) => movePanel(l, panel, to)),
+      })),
     ...(layout.views[panel as ViewSlot] ? [{ label: 'Float in a window', run: () => changeLayout((l) => floatPanel(l, panel as ViewSlot)) }] : []),
     'line',
     { label: 'Close', run: () => changeLayout((l) => closePanel(l, panel)) },
   ];
   return (
-    <section className={`area ${id}`} style={id === 'bottom' ? { height: size } : { width: size }} onDragOver={over} onDrop={(e) => drop(e)}>
+    <section className={`area ${id}`} style={center ? undefined : id === 'bottom' ? { height: size } : { width: size }} onDragOver={over} onDrop={(e) => drop(e)}>
       <div className="tabs" role="tablist" aria-label={`The ${id} area`}>
+        {center && (
+          <button role="tab" aria-selected={active === null} className={active === null ? 'tab active' : 'tab'} onClick={() => changeLayout(showGraph)}>
+            Graph
+          </button>
+        )}
         {tabs.map((t) => (
           <button
             key={t}
@@ -317,10 +341,10 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
               e.dataTransfer.setData(TAB_MIME, t);
               e.dataTransfer.effectAllowed = 'move';
               // A change of the page in dragstart can stop the drag, so the drop zones show after it.
-              setTimeout(() => onDrag(true));
+              setTimeout(() => onDrag(t));
             }}
             onDragEnd={(e) => {
-              onDrag(false);
+              onDrag(null);
               // A view tab that drops out of the window floats there (15.2).
               const out = e.clientX < 0 || e.clientY < 0 || e.clientX > innerWidth || e.clientY > innerHeight;
               if (out && e.dataTransfer.dropEffect === 'none' && layout.views[t as ViewSlot]) {
@@ -340,9 +364,20 @@ function DockArea({ id, layout, panels, dragging, onDrag }: AreaProps) {
           </button>
         )}
       </div>
-      <div className="area-body" role="tabpanel" aria-label={active ? TITLES[active] : undefined}>
-        {active && panels[active].body}
-      </div>
+      {center ? (
+        <div className="center-body">
+          {children}
+          {active && (
+            <div className="area-body center-view" role="tabpanel" aria-label={TITLES[active]}>
+              {panels[active].body}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="area-body" role="tabpanel" aria-label={active ? TITLES[active] : undefined}>
+          {active && panels[active].body}
+        </div>
+      )}
       {menu && <Menu x={menu.x} y={menu.y} label={TITLES[menu.panel]} items={moveItems(menu.panel)} onClose={() => setMenu(null)} />}
     </section>
   );
@@ -352,7 +387,7 @@ interface DockProps {
   panels: Record<Exclude<PanelId, ViewSlot>, Panel>;
   /** The body of a view slot that shows view `name`, or no view. */
   view: (slot: ViewSlot, name: string | null) => ReactNode;
-  /** The center: the graph view. */
+  /** The graph view under the Graph tab of the center. */
   children: ReactNode;
 }
 
@@ -368,7 +403,7 @@ const RAIL_ICONS: Partial<Record<PanelId, string>> = {
 /** The navigation rail, the dock areas, the splitters and the center. */
 export function Dock({ panels: fixed, view, children }: DockProps) {
   const layout = useSyncExternalStore(subscribe, getLayout);
-  const [dragging, setDragging] = useState(false);
+  const [dragging, setDragging] = useState<PanelId | null>(null);
   const slots = Object.fromEntries(VIEW_SLOTS.map((s) => [s, { title: viewTitle(layout, s), body: view(s, layout.views[s] ?? null) }]));
   const panels = { ...fixed, ...slots } as Record<PanelId, Panel>;
   const area = (id: AreaId) => <DockArea id={id} layout={layout} panels={panels} dragging={dragging} onDrag={setDragging} />;
@@ -397,7 +432,9 @@ export function Dock({ panels: fixed, view, children }: DockProps) {
       {area('left')}
       {split('left')}
       <div className="work">
-        {children}
+        <DockArea id="center" layout={layout} panels={panels} dragging={dragging} onDrag={setDragging}>
+          {children}
+        </DockArea>
         {split('bottom')}
         {area('bottom')}
       </div>
