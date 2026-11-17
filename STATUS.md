@@ -63,6 +63,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 - `cargo test -p patina-engine`: the remote names the node of an active event run. The hidden
   selfcheck fires a trigger with an event node that does not stop. The second **Stop** ends it.
   Then an event node writes to a bad address, and the crash text names the node.
+- `cargo test -p patina-engine`: each thread names the node of its own run, also in a nested call.
+  A different thread names no node. The source shows that before, a crash in an event run during a
+  frame run named the node of the frame run.
 - The hidden selfcheck on Windows: a node allocates 1 TB. The failure text names the memory limit,
   and the undo runs in a new node process.
 - A probe on a hidden Windows desktop: a second process drew a viewport on a window of the first
@@ -72,8 +75,9 @@ specified only: it needs a download of wasmtime that the owner did not approve y
 
 ### Known limits
 
-- The crash handler is only on Windows. It names the node of the engine thread, or else the node
-  of an event run. When both run, it can name the node of the other thread. A Rust abort skips it.
+- The crash handler is only on Windows. It names the last node that started in the run of the
+  thread that crashed. In a parallel run, this can be a node of another worker of the same run.
+  A thread that a node starts is not in a run. A Rust abort skips the handler.
 - Nobody looked at a viewport of the node process on screen. The probe ran on a hidden desktop.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.

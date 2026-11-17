@@ -42,6 +42,7 @@ pub use checked::Parts;
 pub use edit::Edit;
 pub use events::{EventRun, Events, Inbox, Remote, remote};
 pub use run::{Audio, Frames};
+pub use library::thread_node;
 pub use load::{Cluster, Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;
 use project::GraphFile;

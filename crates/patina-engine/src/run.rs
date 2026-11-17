@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter};
 
-use crate::library::{Library, Sink, collect, lock};
+use crate::library::{Calling, Library, Sink, collect, lock};
 use crate::load::{Outcome, fill};
 use crate::node::Domain;
 use crate::pool::{self, Work};
@@ -24,6 +24,7 @@ impl Calls {
     /// Calls `f` with a reporter that adds to the sink. Then fills the outcome from the sink.
     pub(crate) fn call(&mut self, names: &[(String, String)], probes: &[String], control: *const Control, f: impl FnOnce(*const Reporter) -> bool) {
         let reporter = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
+        let _calling = Calling::new(control);
         let ok = f(&reporter);
         fill(&mut self.out, ok, &self.sink, names, probes);
     }

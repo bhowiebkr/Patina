@@ -1,5 +1,6 @@
 //! Loads one cluster library and keeps its functions of the C ABI of `patina_sdk::glue` (8.2).
 
+use std::cell::Cell;
 use std::ffi::c_void;
 use std::ops::Range;
 use std::path::Path;
@@ -213,6 +214,7 @@ impl Work for Tasks {
         let (Some(sink), Some(index)) = (self.sinks.get(task), index) else { return };
         let mut sink = lock(sink);
         let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: self.control.load(Relaxed) };
+        let _calling = Calling::new(rep.control);
         // SAFETY: the same as for `unsafe impl Send for Tasks`. The reporter and its sink are valid
         // during the call.
         if !unsafe { (self.task)(self.state.load(Relaxed), index, &rep) } {
@@ -235,6 +237,34 @@ impl Tasks {
         let (state, control) = (AtomicPtr::new(state), AtomicPtr::new(std::ptr::null_mut()));
         Tasks { state, control, task, ids, inputs, next, sinks, ok: AtomicBool::new(true) }
     }
+}
+
+thread_local! {
+    /// The control of the run that calls a cluster on this thread. Null outside a call.
+    static CALLING: Cell<*const Control> = const { Cell::new(std::ptr::null()) };
+}
+
+/// Keeps the control of a run on this thread during a call into a cluster.
+pub(crate) struct Calling(*const Control);
+
+impl Calling {
+    pub(crate) fn new(control: *const Control) -> Calling {
+        Calling(CALLING.replace(control))
+    }
+}
+
+impl Drop for Calling {
+    fn drop(&mut self) {
+        CALLING.set(self.0);
+    }
+}
+
+/// The node that started last in the run that calls a cluster on this thread, for a crash handler
+/// that runs on the thread that crashed (16.1). It never allocates and never waits.
+pub fn thread_node() -> Option<u32> {
+    let control = CALLING.try_with(Cell::get).ok()?;
+    // SAFETY: a `Calling` keeps the control valid while it is set on this thread.
+    unsafe { control.as_ref() }?.node()
 }
 
 pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -285,5 +315,25 @@ mod tests {
         assert_eq!(items[1].2, format!("{}...", "\u{e9}".repeat(MAX_TEXT / 2)));
         assert_eq!(items[2], (3, glue::UI, "ok"));
         assert_eq!(items[3].2.len(), MAX_TEXT + 1);
+    }
+
+    #[test]
+    fn each_thread_names_the_node_of_its_own_run() {
+        let (outer, inner) = (Control::default(), Control::default());
+        let enter = |control: &Control, node| {
+            let mut sink = Sink::default();
+            Reporter { ctx: (&raw mut sink).cast(), report: collect, control }.enter(node, true)
+        };
+        assert!(enter(&outer, 3) && enter(&inner, 7));
+        assert_eq!(thread_node(), None);
+        let calling = Calling::new(&outer);
+        {
+            let _nested = Calling::new(&inner);
+            assert_eq!(thread_node(), Some(7));
+            assert_eq!(std::thread::scope(|s| s.spawn(thread_node).join().unwrap()), None);
+        }
+        assert_eq!(thread_node(), Some(3));
+        drop(calling);
+        assert_eq!(thread_node(), None);
     }
 }
