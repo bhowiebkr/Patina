@@ -3,6 +3,7 @@
 //! the event domain runs on its own threads (9.4). In the editor, the engine thread runs in the
 //! node process (16.1), and its events go to the editor as lines of JSON.
 
+mod batch;
 mod blocks;
 mod events;
 mod frame;
@@ -21,6 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::node_process::Out;
 use crate::views::{ViewInput, Views};
+use batch::Batch;
 use blocks::{Blocks, Part};
 use frame::{Shown, alias, badges, changed, draw, frame, gui};
 use fuse::{FUSE_IDLE, Fuse};
@@ -253,6 +255,13 @@ pub struct Shared {
 }
 
 impl Shared {
+    /// Clears the live values and the node errors of the last run.
+    fn clear(&self) {
+        lock(&self.values).clear();
+        lock(&self.reports).clear();
+        lock(&self.event_reports).clear();
+    }
+
     /// The ID of the node that runs, or that ran last in the active run, on the engine thread or in
     /// an event run. An empty ID while project code runs that names no node (16.1). None between runs.
     pub fn running(&self) -> Option<String> {
@@ -313,42 +322,29 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
     // True when the last run has frame nodes, so a step can run one frame.
     let mut framed = false;
     while let Some(first) = next.take().or_else(|| wait(jobs, &mut fuse, &views)) {
-        // Only the newest run starts. A build that a skipped run asked for still happens.
-        let (mut newest, mut fused) = (None, None);
-        let (mut build, mut rerun, mut bake, mut step) = (false, false, false, false);
-        // The slot holds a node only when all the changes that need a build are in its code.
-        let mut slot = None;
+        let mut batch = Batch::default();
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
                 Job::Unload => {
-                    (loaded, newest, build, last, fuse.at, framed) = (None, None, false, None, None, false);
+                    (loaded, batch.newest, batch.build, last, fuse.at, framed) = (None, None, false, None, None, false);
                     fuse.change();
                     views.clear(out);
-                    lock(&shared.values).clear();
-                    lock(&shared.reports).clear();
-                    lock(&shared.event_reports).clear();
+                    shared.clear();
                 }
-                Job::Run(run) => {
-                    if run.build {
-                        shared.builds.fetch_sub(1, Ordering::SeqCst);
-                        fuse.change();
-                        slot = if build && slot != run.slot { None } else { run.slot.clone() };
-                        build = true;
-                    }
-                    newest = Some(run);
-                }
+                Job::Run(run) => batch.run(run, shared, &mut fuse),
                 Job::Pause | Job::Step => {
-                    (newest, build, rerun, bake, fuse.at, step) = (None, false, false, false, None, matches!(job, Job::Step));
+                    batch.pause(matches!(job, Job::Step));
+                    fuse.at = None;
                     fuse.change();
                 }
-                Job::Bake => bake = true,
-                Job::Fused(done) => fused = Some(*done),
+                Job::Bake => batch.bake = true,
+                Job::Fused(done) => batch.fused = Some(*done),
                 Job::Gui(input) => {
                     if let (Some(loaded), Some(serial)) = (loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-                        rerun |= gui(out, &shared.control, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
+                        batch.rerun |= gui(out, &shared.control, &mut loaded.cluster.frame_part(), serial, &input, &mut shown).is_some();
                     }
                 }
-                Job::Rerun => rerun = true,
+                Job::Rerun => batch.rerun = true,
                 Job::Package { root, out: to, ask } => make_package(out, (folder, &mut toolchain), root, to, ask),
                 Job::View(input) => views.ui(out, shared, (folder, &mut toolchain), *input, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
                 Job::CloseView(name) => views.close(&name),
@@ -360,54 +356,34 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
                 Job::Visible(ids) => shown.visible = Some(ids.into_iter().collect()),
             }
         }
-        if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
+        if let (true, true, Some(loaded), Some(serial)) = (batch.step && batch.newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
             frame(out, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, (serial, 1, 1), &mut Blocks::default());
             out.emit(&Event::Ended { serial, frames: 1 });
         }
-        bake &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
+        batch.bake &= batch.build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
         // A fuse with no other build builds in a background thread, so the graph runs on (7.2).
-        if bake
-            && !build
+        if batch.bake
+            && !batch.build
             && loaded.is_some()
-            && let Some(run) = newest.as_ref().or(last.as_ref())
+            && let Some(run) = batch.newest.as_ref().or(last.as_ref())
         {
             fuse.start(&run.checked, folder, &mut toolchain);
-            bake = false;
+            batch.bake = false;
         }
         // The fused clusters load only when no build came after the fuse.
-        let fused = fused.filter(|_| !build);
+        let fused = batch.fused.take().filter(|_| !batch.build);
         let opened = loaded.is_none() && last.is_none();
-        if (rerun || bake || fused.is_some()) && newest.is_none() {
-            newest = last.take();
+        if (batch.rerun || batch.bake || fused.is_some()) && batch.newest.is_none() {
+            batch.newest = last.take();
         }
-        let Some(mut run) = newest else { continue };
-        let mut build = if fused.is_some() {
-            Some(Build { mode: Mode::Bake, slot: None, fused })
-        } else if bake {
-            Some(Build { mode: Mode::Bake, slot: None, fused: None })
-        } else if opened {
-            // The first build of a project has the mode of its last build, so cargo builds nothing when nothing changed (7.2).
-            Some(Build { mode: run.checked.built_mode().unwrap_or(Mode::Bake), slot: None, fused: None })
-        } else if build || loaded.is_none() {
-            // The same clusters keep their mode, so a build with no change compiles nothing (7.2).
-            // A changed crate builds in edit mode and fuses later, also after a bake load (8.3).
-            let same = loaded.as_ref().filter(|l| slot.is_none() && !l.stale && l.wiring == run.checked.wiring());
-            let mode = |l: &Loaded| match l.cluster.mode() {
-                Mode::Bake if !l.cluster.sources_changed() => Mode::Bake,
-                _ => Mode::Edit,
-            };
-            Some(same.map_or(Build { mode: Mode::Edit, slot, fused: None }, |l| Build { mode: mode(l), slot: None, fused: None }))
-        } else {
-            None
-        };
+        let Some(mut run) = batch.newest.take() else { continue };
+        let mut build = batch.pick_build(fused, opened, loaded.as_ref(), &run);
         let event = match run_one(out, (folder, &mut toolchain), &mut loaded, &mut run, build.as_mut(), shared) {
             Ok(Some(event)) => event,
             // A newer build waits, so this build does not run and its errors do not show (7.2).
             Ok(None) => continue,
             Err(e) => {
-                lock(&shared.values).clear();
-                lock(&shared.reports).clear();
-                lock(&shared.event_reports).clear();
+                shared.clear();
                 let text = e.to_string();
                 Event::Failed { serial: run.serial, text, errors: if let Error::Compile(errors) = e { errors } else { Vec::new() } }
             }

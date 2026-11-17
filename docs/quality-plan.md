@@ -47,12 +47,18 @@ The owner can change each item.
   `check.ts` 830, `subgraph.rs` 798, editor `engine.rs` 796, `glue.rs` 784, `load.rs` 776,
   `gui.css` 771, `node.rs` 745, `route.ts` 728, `cargo.rs` 727, `session.rs` 707,
   `generate.rs` 697 and `edit.rs` 695.
-- 62 functions have more than 70 lines. These are the worst:
-  - `generate.rs` `source`: 589 lines, with the nested function `make`.
-  - `App` in `App.tsx`: 485 lines. `GraphView` in `GraphView.tsx`: 464 lines.
-  - `checkWires` 280, `generate.rs` `step` 266 and `net` 210, `runCheck` 205.
-  - `plan.rs` `check` 184, `useRun` 178, `edit.rs` `change` 177, `WireEdge` 166.
-  - `events.rs` `run` 159, editor `main` 155, `generate.rs` `inline` 148.
+- The first measure counted the braces of the text. Braces in Rust strings made some Rust
+  numbers too high, for example 266 lines for `generate.rs` `step`, which has 56 lines.
+- Clippy `too_many_lines` with a limit of 100 gives the accurate Rust count. It does not count
+  the comments and the blank lines. These Rust functions had more than 100 lines:
+  - `generate.rs` `source` 190, `edit.rs` `change` 173, `events.rs` `run` 151, editor `main`
+    149, `subgraph.rs` `expand` 121, editor `run_jobs` 117 and `slot.rs` `source` 110.
+  - The tests: CLI `run.rs` 191, `plan.rs` 172, `lib.rs` 127 and CLI `events.rs` 121.
+  - The milestone 0 prototypes: `render.rs` of `viewport` 181, `hot_reload.rs` 109 and
+    `types_across_clusters.rs` 101.
+- The worst TypeScript functions, by the brace count: `App` in `App.tsx` 485 lines,
+  `GraphView` in `GraphView.tsx` 464, `checkWires` 280, `runCheck` 205, `useRun` 178 and
+  `WireEdge` 166. Check these numbers again with the guard of phase 3.
 - `App` and `GraphView` hold too many responsibilities. Each change to the editor touches them.
 
 ### 1.4 Duplicate code
@@ -104,10 +110,16 @@ Do the phases in this order. Inside a phase, the items are independent. Each ite
 
 Split by responsibility. Keep the error handling and the validation of each moved part.
 
-- [ ] Engine: `subgraph.rs` and `plan.rs` first, because a format puts them over 1000 lines.
-  Then `generate.rs` `source`, `step`, `net` and `inline`, `edit.rs` `change`, `events.rs`
-  `run`, `load.rs` and `node.rs`.
-- [ ] Editor backend: `engine.rs` with `run_jobs`, `main.rs` `main` and `session.rs`.
+- [x] Engine: split `subgraph.rs` and `plan.rs`, because a format puts them over 1000 lines.
+  Then split the functions over 100 lines: `generate.rs` `source`, `edit.rs` `change`,
+  `events.rs` `run`, `subgraph.rs` `expand` and `slot.rs` `source`. `load.rs` has 458 lines
+  after phase 1.
+- [ ] Engine: move the connection kinds and `outline` out of `node.rs`.
+- [x] Editor backend: split `engine.rs` `run_jobs` and `main.rs` `main`. Move the commands of
+  the start screen from `session.rs` to `session/start.rs`.
+- [ ] Add `#[allow(clippy::too_many_lines)]` to the long tests and prototypes of section 1.3.
+  Agent decision, 2026-11-17: a test reads best as one scenario, and the prototypes are the
+  records of milestone 0, so they keep their long functions. The owner can change this.
 - [ ] SDK: `glue.rs`.
 - [ ] Frontend: split `App` into hooks and parts for the menus, the dialogs, the keys and the
   project state. Split `GraphView` into the canvas events, the selection and the drop parts.

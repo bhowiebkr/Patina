@@ -197,7 +197,9 @@ fn limit_check(dir: PathBuf) {
     });
 }
 
-fn main() {
+/// Runs the child modes, reads the arguments and checks the page, the check folder and WebView2.
+/// Returns the data folders, the check folder and the shot folder.
+fn start() -> (Data, Option<PathBuf>, Option<PathBuf>) {
     if let Some(code) = patina_engine::install::run_wrapper() {
         std::process::exit(code);
     }
@@ -224,7 +226,11 @@ fn main() {
         std::process::exit(1);
     }
     let data = Data::find(args.portable.or_else(|| args.check.clone())).unwrap_or_else(|e| fatal(&e));
-    let (check, shot) = (args.check, args.shot);
+    (data, args.check, args.shot)
+}
+
+fn main() {
+    let (data, check, shot) = start();
     tauri::Builder::default()
         .register_uri_scheme_protocol("patina", |_ctx, request| serve(&request))
         .invoke_handler(tauri::generate_handler![
@@ -304,53 +310,59 @@ fn main() {
             dialog::pick_path,
             session::asset_files,
         ])
-        .on_window_event(|window, event| {
-            floats::window_event(window, event);
-            if window.label() != "main" {
-                return;
-            }
-            // The float windows close with the editor window.
-            if let WindowEvent::Destroyed = event {
-                window.app_handle().exit(0);
-            }
-            // The page saves the layout, asks **Save**, **Discard** or **Cancel** when `ask`, then
-            // calls `quit` (15.2, 15.10).
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                let editor = window.state::<Editor>();
-                let ask = editor.dirty();
-                if ask || editor.layout_pending.load(std::sync::atomic::Ordering::Relaxed) {
-                    api.prevent_close();
-                    let _ = window.emit("close-requested", ask);
-                }
-            }
-        })
-        .setup(move |app| {
-            let handle = app.handle().clone();
-            let tab = output::Tab::start(move |text, err| {
-                let _ = handle.emit("output", OutputText { text, err });
-            })?;
-            let sent = tab.clone();
-            output::capture(&[false, true], move |text, err| sent.push(text, err))?;
-            let wrapper = std::env::current_exe().map_err(|e| e.to_string());
-            if let Err(e) = wrapper.and_then(|exe| patina_engine::install::add_wrappers(&data.toolchain, &exe).map_err(|e| e.to_string())) {
-                eprintln!("Patina cannot add the Zig wrappers to the toolchain: {e}");
-            }
-            let engine = node_process::Host::new(app.handle().clone(), data.toolchain.clone(), tab);
-            let webview_dir = data.webview.clone();
-            if let Some(dir) = &check {
-                limit_check(dir.clone());
-            }
-            let is_check = check.is_some();
-            app.manage(Editor::new(data, engine, check, shot));
-            let main = window(app.handle(), "main", page_url(), webview_dir, is_check).title("Patina").inner_size(1440.0, 900.0);
-            match is_check {
-                true => main.build()?,
-                false => main.maximized(true).build()?,
-            };
-            Ok(())
-        })
+        .on_window_event(window_event)
+        .setup(move |app| setup(app, data, check, shot))
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| fatal(&format!("the window cannot open: {e}")));
+}
+
+/// Closes the float windows with the editor window. The page answers a close request first.
+fn window_event(window: &tauri::Window, event: &WindowEvent) {
+    floats::window_event(window, event);
+    if window.label() != "main" {
+        return;
+    }
+    // The float windows close with the editor window.
+    if let WindowEvent::Destroyed = event {
+        window.app_handle().exit(0);
+    }
+    // The page saves the layout, asks **Save**, **Discard** or **Cancel** when `ask`, then
+    // calls `quit` (15.2, 15.10).
+    if let WindowEvent::CloseRequested { api, .. } = event {
+        let editor = window.state::<Editor>();
+        let ask = editor.dirty();
+        if ask || editor.layout_pending.load(std::sync::atomic::Ordering::Relaxed) {
+            api.prevent_close();
+            let _ = window.emit("close-requested", ask);
+        }
+    }
+}
+
+/// Starts the output tab and the node host, and opens the editor window.
+fn setup(app: &mut tauri::App, data: Data, check: Option<PathBuf>, shot: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    let handle = app.handle().clone();
+    let tab = output::Tab::start(move |text, err| {
+        let _ = handle.emit("output", OutputText { text, err });
+    })?;
+    let sent = tab.clone();
+    output::capture(&[false, true], move |text, err| sent.push(text, err))?;
+    let wrapper = std::env::current_exe().map_err(|e| e.to_string());
+    if let Err(e) = wrapper.and_then(|exe| patina_engine::install::add_wrappers(&data.toolchain, &exe).map_err(|e| e.to_string())) {
+        eprintln!("Patina cannot add the Zig wrappers to the toolchain: {e}");
+    }
+    let engine = node_process::Host::new(app.handle().clone(), data.toolchain.clone(), tab);
+    let webview_dir = data.webview.clone();
+    if let Some(dir) = &check {
+        limit_check(dir.clone());
+    }
+    let is_check = check.is_some();
+    app.manage(Editor::new(data, engine, check, shot));
+    let main = window(app.handle(), "main", page_url(), webview_dir, is_check).title("Patina").inner_size(1440.0, 900.0);
+    match is_check {
+        true => main.build()?,
+        false => main.maximized(true).build()?,
+    };
+    Ok(())
 }
 
 #[cfg(test)]
