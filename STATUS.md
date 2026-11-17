@@ -591,7 +591,6 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
 ### Known limits
 
 - These shortcuts are open in the code:
-  - `events.rs` of `patina-engine`: one thread for each run.
   - `patina-event`: each cluster build makes its own runtime, and each wait of an async node
     allocates its future and blocks the thread of its run.
   - `main.rs` of `patina-cli`: the event runs come before the frames and the blocks.
@@ -1084,6 +1083,9 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - A generic node goes into the slot (fixed 2026-11-17). Each use gets a copy in the slot
   library. The test `a_generic_node_in_the_slot_gets_a_copy_for_each_use` puts a node with an
   f64 use and two String uses into the slot, edits it, and then puts a node with no input in.
+- The event runs use the threads of a pool again (fixed 2026-11-17, before one new thread for
+  each run). The test `the_runs_use_the_threads_of_the_pool_again` runs 16 queued runs on one
+  thread.
 - An event node goes into the slot (fixed 2026-11-17). The slot call of an async node waits
   for its future. The test `an_event_node_in_the_slot_waits_for_its_future` puts an async node
   into the slot, edits it, and then puts a node that is not async into the slot.

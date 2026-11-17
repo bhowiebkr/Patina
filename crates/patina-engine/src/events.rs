@@ -1,4 +1,5 @@
-//! The runs of the event domain (spec 9.4): the triggers, their settings and a thread for each run.
+//! The runs of the event domain (spec 9.4): the triggers, their settings and a thread for each
+//! active run.
 
 mod watch;
 mod webhook;
@@ -6,7 +7,7 @@ mod webhook;
 use std::collections::VecDeque;
 use std::ffi::c_void;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed, Ordering::SeqCst};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -170,6 +171,9 @@ pub struct Remote {
     runs: Runs,
 }
 
+/// A run for a thread of the pool: the trigger, the run ID, the text and the control of the run.
+type Job = (usize, u64, String, Arc<Control>);
+
 /// The ID and the control of each active event run.
 type Runs = Arc<Mutex<Vec<(u64, Arc<Control>)>>>;
 
@@ -274,19 +278,38 @@ impl<'a> Events<'a> {
         let (mut started, mut next_id, mut all_ok, mut ended) = (0u64, 1u64, true, false);
         // The text of each fire. None gives the run ID, for a schedule.
         let mut fires: Vec<(usize, Option<String>)> = Vec::new();
+        // A finished run gives its thread to the next run. `idle` counts the threads that wait for a job.
+        let (jobs, queue) = mpsc::channel::<Job>();
+        let (queue, idle) = (Mutex::new(queue), AtomicUsize::new(0));
         std::thread::scope(|scope| {
             for (t, listener) in listeners {
                 let (back, quit, path) = (send.clone(), &quit, triggers[t].path.as_str());
                 scope.spawn(move || webhook::serve(&listener, path, quit, |text| back.send(Msg::Fire(t, text)).is_ok()));
             }
             let spawn = |t: usize, id: u64, text: String| {
-                let (shared, back, task) = (&shared, send.clone(), triggers[t].task);
                 let run_control = Arc::new(Control::default());
                 lock(&controls).push((id, Arc::clone(&run_control)));
-                // shortcut: one thread for each run (9.4), change it to a pool when runs are short and many.
-                let thread = std::thread::Builder::new().name(format!("patina-run-{id}")).spawn_scoped(scope, move || {
-                    let out = shared.run(task, &text, &run_control);
-                    let _ = back.send(Msg::Done(t, id, out));
+                let job = (t, id, text, run_control);
+                // The count goes down before the send, so each job in the queue has a thread. Only
+                // this thread takes from the count, so the load and the sub do not race.
+                if idle.load(SeqCst) > 0 {
+                    idle.fetch_sub(1, SeqCst);
+                    let _ = jobs.send(job);
+                    return;
+                }
+                let (shared, back, queue, idle) = (&shared, send.clone(), &queue, &idle);
+                let thread = std::thread::Builder::new().name("patina-run".to_owned()).spawn_scoped(scope, move || {
+                    let mut job = job;
+                    loop {
+                        let (t, id, text, run_control) = job;
+                        let out = shared.run(triggers[t].task, &text, &run_control);
+                        idle.fetch_add(1, SeqCst);
+                        let _ = back.send(Msg::Done(t, id, out));
+                        match lock(queue).recv() {
+                            Ok(next) => job = next,
+                            Err(_) => break,
+                        }
+                    }
                 });
                 if let Err(e) = thread {
                     let report = Report { id: names[triggers[t].node].0.clone(), text: format!("run {id} did not start: {e}"), ..Report::default() };
@@ -368,6 +391,8 @@ impl<'a> Events<'a> {
                 }
             }
             quit.store(true, Relaxed);
+            // The threads of the pool end when the queue closes.
+            drop(jobs);
         });
         all_ok
     }
@@ -417,6 +442,33 @@ mod tests {
         assert!(ok);
         assert_eq!(runs, [(0, "x".to_owned(), false, 1), (1, "t".to_owned(), true, 0)]);
         assert!(!remote.fire("t", String::new()), "the inbox is gone after the run");
+    }
+
+    static THREADS: Mutex<Vec<std::thread::ThreadId>> = Mutex::new(Vec::new());
+
+    /// Gives a run that keeps the ID of its thread.
+    unsafe extern "C" fn keep_thread(_: *const c_void, _: u32, _: *const u8, _: usize, _: *const Reporter) -> bool {
+        lock(&THREADS).push(std::thread::current().id());
+        true
+    }
+
+    #[test]
+    fn the_runs_use_the_threads_of_the_pool_again() {
+        let triggers = [Trigger::new(0, 0, Builtin::Trigger)];
+        let names = [("t".to_owned(), "trigger".to_owned())];
+        let entry = Entry { fire: keep_thread, state: std::ptr::null_mut() };
+        let events = Events { entry, parallel: true, triggers: &triggers, names: &names, probes: &[], root: Path::new(".") };
+        let (remote, inbox) = remote();
+        // The fires queue, so one run is active at a time, and each run uses the thread of the last.
+        // The domain ends after the count of runs, because an end clears the queue.
+        for _ in 0..MOST {
+            assert!(remote.fire("t", "go".to_owned()));
+        }
+        let mut count = 0;
+        assert!(events.run(MOST as u64, &Control::default(), Some(inbox), |run| count += u64::from(run.out.ok)));
+        let mut threads = lock(&THREADS).clone();
+        threads.dedup();
+        assert_eq!((count, threads.len()), (MOST as u64, 1));
     }
 
     static HOLD: AtomicBool = AtomicBool::new(true);
