@@ -58,6 +58,7 @@ Rules:
 - Patina does not build when nothing changed, also after the user closes and opens the editor. The nodes and the layers show **Compiling** and **Building** only while cargo compiles a crate. Owner decision of 2026-11-16.
 - The first build after a project opens has the mode of the newest cluster library in `build/target`. A project with no build bakes. So cargo finds all crates fresh and compiles nothing when nothing changed. (Agent decision, 2026-11-16, for the owner decision above. The owner can change it.)
 - A build with the same wiring as the loaded clusters, and no node in the slot, keeps the mode of the loaded clusters. So **Run** after an open compiles nothing. An edit build fuses only after a run. (Agent decision, 2026-11-16. The owner can change it.)
+- That build keeps the bake mode only when no file of a crate folder of the last build changed. A change from outside the editor, for example of a node or of a shared crate, builds in edit mode and fuses later. (Agent decision of 2026-11-17. The owner can change it.)
 
 ### 7.3 Visual display
 

@@ -273,9 +273,11 @@ checks open.
   compile nothing when nothing changed.
 - Checked: `cargo test --workspace` (the newest library gives the mode) and the hidden self-check
   (an open loads and does not run, and a second open builds nothing).
-- Known limits: a change with the same wiring and no node in the slot, for example a code change
-  from outside the editor or a change of a shared crate, builds in the mode of the loaded
-  clusters. After a bake load, that build is a slow bake build, with no fuse later.
+- A build with the same wiring keeps the bake mode only when no crate folder of the last build
+  changed. A code change from outside the editor or a change of a shared crate builds in edit
+  mode and fuses later (fixed 2026-11-17). Before, it was a slow bake build after a bake load.
+- Checked: the CLI test `a_node_in_the_slot_builds_alone_and_keeps_its_uses` (a fused cluster
+  sees a change of a node file). The editor choice of the mode has no own test.
 
 ## Canvas editing
 

@@ -101,6 +101,7 @@ impl Checked {
         copy_runtime(&self.root.join("build").join("loaded"), &toolchain.libdir)?;
         let mut cluster = Cluster::load(&libraries, slot.first().map(PathBuf::as_path), &self.root, &self.plan, built.keys)?;
         cluster.common = built.common;
+        cluster.sources = built.sources;
         cluster.base = self.base_hash();
         cluster.mode = mode;
         Ok(cluster)

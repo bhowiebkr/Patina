@@ -146,6 +146,8 @@ pub struct Cluster {
     pub(crate) base: u64,
     /// The build mode of the clusters (8.3).
     pub(crate) mode: crate::Mode,
+    /// The path package folders of the last full build, with a hash of their files.
+    pub(crate) sources: crate::cargo::Sources,
     /// The domain of each node, by node index.
     domains: Vec<Domain>,
     /// The state key of each node, by node index (7.2). A node with no state has none.
@@ -222,6 +224,7 @@ impl Cluster {
             common: 0,
             base: 0,
             mode: crate::Mode::Edit,
+            sources: Vec::new(),
             domains: plan.steps.iter().map(|s| s.domain).collect(),
             keys,
             pace: [Pace::default(); 4],
@@ -245,6 +248,12 @@ impl Cluster {
     /// The build mode of the clusters (8.3). The slot library is always in edit mode.
     pub fn mode(&self) -> crate::Mode {
         self.mode
+    }
+
+    /// True when a file of a crate folder of the last full build changed, for example a code change
+    /// from outside the editor (8.3).
+    pub fn sources_changed(&self) -> bool {
+        (self.sources.iter()).any(|(folder, hash)| crate::cargo::folder_hash(folder).ok() != Some(*hash))
     }
 
     /// True when a node is in the slot (7.1).

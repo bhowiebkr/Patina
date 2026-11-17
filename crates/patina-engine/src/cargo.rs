@@ -287,7 +287,11 @@ pub struct Built {
     pub keys: Vec<Option<u64>>,
     /// The part of the keys that all steps share. A build of the slot alone uses it again.
     pub common: u64,
+    pub sources: Sources,
 }
+
+/// The folder of each path package of a build, with a hash of its files.
+pub type Sources = Vec<(PathBuf, u64)>;
 
 /// Writes the files that Patina makes, builds the clusters in one cargo run and returns their
 /// libraries. The clusters build in `mode`, and the slot library in edit mode. `compiling` runs
@@ -330,8 +334,8 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode, compil
         }
         None => None,
     };
-    let (common, keys) = keys(toolchain, plan, &messages, &clusters, None)?;
-    Ok(Built { libraries, slot, keys, common })
+    let (common, keys, sources) = keys(toolchain, plan, &messages, &clusters, None)?;
+    Ok(Built { libraries, slot, keys, common, sources })
 }
 
 /// Builds only the slot library (7.2). Gives its library and the state keys of the uses of the
@@ -341,7 +345,7 @@ pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) 
     write_slot(root, plan, slot)?;
     let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit, &|| {})?;
     let (library, id) = artifact(&messages, slot::TARGET)?;
-    let (_, keys) = keys(toolchain, plan, &messages, &[id], Some(common))?;
+    let (_, keys, _) = keys(toolchain, plan, &messages, &[id], Some(common))?;
     Ok((library, keys))
 }
 
@@ -455,14 +459,14 @@ fn remove_old_clusters(root: &Path, domains: &[Domain], slot: bool) -> Result<()
 /// The state key of each step (7.2), from the units of the build. A unit of a node folder goes
 /// only into the keys of that node. All other units go into all keys. The cluster crates change
 /// with the wiring, so they are not in the keys. `common` replaces the shared part, for a build
-/// of the slot alone. Gives the shared part and the keys.
+/// of the slot alone. Gives the shared part, the keys and the path package folders with their hashes.
 fn keys(
     toolchain: &Toolchain,
     plan: &Plan,
     messages: &[Value],
     clusters: &[&str],
     common: Option<u64>,
-) -> Result<(u64, Vec<Option<u64>>), Error> {
+) -> Result<(u64, Vec<Option<u64>>, Sources), Error> {
     let folders: HashMap<&str, &Path> = (messages.iter())
         .filter(|m| m["reason"] == "compiler-artifact")
         .filter_map(|m| Some((m["package_id"].as_str()?, Path::new(m["manifest_path"].as_str()?).parent()?)))
@@ -486,8 +490,11 @@ fn keys(
         }
         add(id, unit_hash(m));
     }
+    let mut sources = Vec::new();
     for (id, folder) in folders.iter().filter(|(id, _)| id.contains("path+file:")) {
-        add(id, folder_hash(folder)?);
+        let hash = folder_hash(folder)?;
+        add(id, hash);
+        sources.push((folder.to_path_buf(), hash));
     }
     // Cargo gives the units in an order that can change, so the hashes are sorted. A unit of two
     // cargo runs, for example of the clusters and of the slot, counts one time.
@@ -516,7 +523,7 @@ fn keys(
         }
         keys[n] = Some(hasher.finish());
     }
-    Ok((common, keys))
+    Ok((common, keys, sources))
 }
 
 /// A hash of the parts of a build unit that can change the layout of a type (7.2).
@@ -532,7 +539,7 @@ fn unit_hash(m: &Value) -> u64 {
 }
 
 /// A hash of the paths and the bytes of the files of a crate folder.
-fn folder_hash(folder: &Path) -> Result<u64, Error> {
+pub(crate) fn folder_hash(folder: &Path) -> Result<u64, Error> {
     let mut files = Vec::new();
     crate::list_files(folder, ".", &mut files)?;
     files.sort();

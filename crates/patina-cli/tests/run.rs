@@ -433,6 +433,7 @@ to = \"00000000000000a3.value\"
     eprintln!("fuse {:.1} s", start.elapsed().as_secs_f64());
     fused.set_params(opened.graph());
     assert!(cluster.slotted() && !fused.slotted() && fused.mode() == Mode::Bake);
+    assert!(!fused.sources_changed());
     assert_eq!(fused.adopt(&mut cluster), 1);
     assert_eq!(value(&mut fused, "out"), "260.0");
     assert!(gui(&mut fused).ends_with("slider\tSum\t260\t0\t1000"), "{}", gui(&mut fused));
@@ -455,6 +456,8 @@ to = \"00000000000000a3.value\"
     let mut cluster = slotted().build(&toolchain, Mode::Edit).unwrap();
     fs::write(folder.join("src/lib.rs"), edited.replace("scale: f64", "scale: f32").replace("* scale", "* f64::from(scale)")).unwrap();
     assert!(!slotted().build_slot(&toolchain, &mut cluster).unwrap());
+    // The fused cluster sees the change of the node file, so the editor builds it in edit mode (8.3).
+    assert!(fused.sources_changed());
     assert!(checked().set_slot(Some("number")).is_ok());
     assert!(checked().set_slot(Some("nothing")).is_err());
 }

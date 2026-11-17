@@ -359,8 +359,13 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
             Some(Build { mode: run.checked.built_mode().unwrap_or(Mode::Bake), slot: None })
         } else if build || loaded.is_none() {
             // The same clusters keep their mode, so a build with no change compiles nothing (7.2).
+            // A changed crate builds in edit mode and fuses later, also after a bake load (8.3).
             let same = loaded.as_ref().filter(|l| slot.is_none() && !l.stale && l.wiring == run.checked.wiring());
-            Some(same.map_or(Build { mode: Mode::Edit, slot }, |l| Build { mode: l.cluster.mode(), slot: None }))
+            let mode = |l: &Loaded| match l.cluster.mode() {
+                Mode::Bake if !l.cluster.sources_changed() => Mode::Bake,
+                _ => Mode::Edit,
+            };
+            Some(same.map_or(Build { mode: Mode::Edit, slot }, |l| Build { mode: mode(l), slot: None }))
         } else {
             None
         };
