@@ -98,8 +98,10 @@ checks open.
   arranged the 25 graphs of `examples/computer`. Each graph had 0 node overlaps after the
   arrange. Before, `alu-8` and `ram-4x4` had 3 overlaps each. The self-check checks that the
   node heights stay the same at far zoom.
-- Known limits: the wire router can put a bus in the gap of 32 px between two nodes of a column.
-  A vertical bus can touch the edge of a node.
+- New: a bus keeps half of its width from each node body, so it goes around a gap that is too
+  narrow for it. A bus with no such path routes as a 2 px wire.
+- Checked: the frontend tests of `route.ts`. A route of 300 wires of 4 widths between 100 nodes
+  took 80 ms, and 48 ms before the change.
 
 ## No save without Save
 

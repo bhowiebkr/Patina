@@ -498,6 +498,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - The graph default is the automatic route: an orthogonal wire that goes around the node bodies. A graph setting for the default comes later. (Agent decision, 2026-11-16. It replaces the curved default of 2026-11-15. The owner can change it.)
 - The automatic route:
   - It keeps 6 px or more from each node body and finds a path with few bends (A* on a sparse grid around the bodies).
+  - A wire wider than 2 px also keeps half of its width from each node body, so a bus does not go through a gap that is too narrow for it. A bus with no such path routes as a 2 px wire. (Agent decision of 2026-11-17. The owner can change it.)
   - The wires of one output share a trunk, and each next wire branches from the nearest point of the trunk.
   - A junction mark shows each point where the wires of one output part: a small dot in the wire color, or a ring on a bus. A point where the segments go in 3 or more directions is a junction. The mark is only a view, and a click goes through it. (Agent decision, 2026-11-16. The owner can change it.)
   - Where two automatic routes of different outputs cross at a right angle, the narrower wire goes under and has a gap: the width of the upper wire and 3 px of clear space on each side. Of two wires of one width, the vertical wire goes under. A crossing near a rounded corner of either wire has no gap. The gap is only a view: a click on it still selects the wire. (Agent decision, 2026-11-16. The owner can change it.)

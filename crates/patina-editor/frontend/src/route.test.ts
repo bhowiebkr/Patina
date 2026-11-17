@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Point } from './api.ts';
 import { crossingGaps, junctions } from './marks.ts';
-import { GAP, route, Router, type Rect, type WireIn } from './route.ts';
+import { GAP, MARGIN, route, Router, type Rect, type WireIn } from './route.ts';
 
 const A: Rect = { l: 0, t: 0, r: 100, b: 100 };
 const C: Rect = { l: 400, t: 0, r: 500, b: 100 };
@@ -38,6 +38,38 @@ test('the wires of one output share a trunk', () => {
   const D: Rect = { l: 400, t: 200, r: 500, b: 300 };
   const out = route([A, C, D], new Map([['near', wire(50, 30, 'a')], ['far', { ...wire(50, 250, 'a') }]]));
   assert.deepEqual(out.get('near')![1], out.get('far')![1]);
+});
+
+/** The least distance from the inner segments of the path to the body. */
+function space(path: readonly Point[], r: Rect): number {
+  let min = Infinity;
+  for (let k = 1; k + 2 < path.length; k++) {
+    const [[x0, y0], [x1, y1]] = [path[k], path[k + 1]];
+    const dx = Math.max(r.l - Math.max(x0, x1), Math.min(x0, x1) - r.r, 0);
+    const dy = Math.max(r.t - Math.max(y0, y1), Math.min(y0, y1) - r.b, 0);
+    min = Math.min(min, Math.max(dx, dy));
+  }
+  return min;
+}
+
+test('a bus goes around a gap that is narrower than the bus, and keeps its clearance', () => {
+  const top: Rect = { l: 200, t: -100, r: 300, b: 34 };
+  const low: Rect = { l: 200, t: 66, r: 300, b: 200 };
+  assert.equal(route([A, top, low, C], new Map([['w', wire(50, 50, 'a')]])).get('w')!.length, 2, 'a plain wire goes through the gap of 32 px');
+  const bus = route([A, top, low, C], new Map([['w', { ...wire(50, 50, 'a'), width: 40 }]])).get('w')!;
+  assert.ok(bus.some(([, y]) => y < top.t || y > low.b), `the bus goes around the column: ${JSON.stringify(bus)}`);
+  for (const r of [A, top, low, C]) assert.ok(space(bus, r) >= MARGIN + 20, `${JSON.stringify(r)} ${JSON.stringify(bus)}`);
+});
+
+test('a bus with no path of its clearance routes as a plain wire', () => {
+  const box: Rect[] = [
+    { l: -200, t: -200, r: 300, b: -150 },
+    { l: -200, t: 250, r: 300, b: 300 },
+    { l: -200, t: -200, r: -150, b: 300 },
+    { l: 200, t: -200, r: 300, b: 34 },
+    { l: 200, t: 66, r: 300, b: 300 },
+  ];
+  assert.equal(route([A, ...box, C], new Map([['w', { ...wire(50, 50, 'a'), width: 40 }]])).get('w')!.length, 2);
 });
 
 test('a route goes through its route points', () => {

@@ -53,6 +53,15 @@ const INSIDE = 1;
 const EAST = 2;
 const SOUTH = 4;
 let cells = new Uint8Array(0);
+let wideCells = new Uint8Array(0);
+
+/** The space that a wire keeps from each node body: a bus also keeps its half width. */
+const clearance = (width: number) => (width > 2 ? MARGIN + width / 2 : MARGIN);
+/** The distance of the grid lines from a body and the stub length for a wire: more than PAD for a bus that needs it. */
+function reach(width: number): number {
+  const c = clearance(width);
+  return c > PAD ? c + GAP : PAD;
+}
 
 interface Grid {
   xs: number[];
@@ -86,32 +95,41 @@ function bound(a: readonly number[], v: number, after = false): number {
 function grid(rects: readonly Rect[], legs: readonly Leg[]): Grid | null {
   const xs: number[] = [];
   const ys: number[] = [];
-  for (const r of rects) xs.push(r.l - PAD, r.r + PAD), ys.push(r.t - PAD, r.b + PAD);
+  const offs = new Set([PAD]);
   for (const { w } of legs) {
-    xs.push(w.sx + PAD, w.tx - PAD);
+    const o = reach(w.width);
+    offs.add(o);
+    xs.push(w.sx + PAD, w.tx - PAD, w.sx + o, w.tx - o);
     ys.push(w.sy, w.ty);
     for (const [x, y] of w.via) xs.push(x), ys.push(y);
   }
+  for (const o of offs) for (const r of rects) xs.push(r.l - o, r.r + o), ys.push(r.t - o, r.b + o);
   unique(xs);
   unique(ys);
   const nx = xs.length;
   const ny = ys.length;
   if (nx * ny > MAX_CELLS) return null;
   if (cells.length < nx * ny) cells = new Uint8Array(nx * ny);
-  const cell = cells;
+  const g = { xs, ys, nx, ny, cell: cells };
+  block(g, rects, MARGIN);
+  return g;
+}
+
+/** Marks the vertices and the edges of the grid that are nearer than `clear` to a body. */
+function block(g: Grid, rects: readonly Rect[], clear: number) {
+  const { xs, ys, nx, ny, cell } = g;
   cell.fill(0, 0, nx * ny);
   for (const r of rects) {
-    const i0 = bound(xs, r.l - MARGIN, true);
-    const i1 = bound(xs, r.r + MARGIN) - 1;
-    const j0 = bound(ys, r.t - MARGIN, true);
-    const j1 = bound(ys, r.b + MARGIN) - 1;
+    const i0 = bound(xs, r.l - clear, true);
+    const i1 = bound(xs, r.r + clear) - 1;
+    const j0 = bound(ys, r.t - clear, true);
+    const j1 = bound(ys, r.b + clear) - 1;
     for (let j = j0; j <= j1; j++) {
       for (let i = i0; i <= i1; i++) cell[j * nx + i] |= INSIDE;
       for (let i = Math.max(0, i0 - 1); i <= Math.min(i1, nx - 2); i++) cell[j * nx + i] |= EAST;
     }
     for (let i = i0; i <= i1; i++) for (let j = Math.max(0, j0 - 1); j <= Math.min(j1, ny - 2); j++) cell[j * nx + i] |= SOUTH;
   }
-  return { xs, ys, nx, ny, cell };
 }
 
 /** The vertex at the point, or -1 when the point is not on the grid or is in a body. */
@@ -281,8 +299,8 @@ function fallback(w: WireIn): Point[] {
 }
 
 /** A wire with route points goes alone, through each point in turn. Null when it has no clear path. */
-function routeVia(g: Grid, w: WireIn): Point[] | null {
-  const marks = [free(g, w.sx + PAD, w.sy), ...w.via.map(([x, y]) => free(g, x, y)), free(g, w.tx - PAD, w.ty)];
+function routeVia(g: Grid, w: WireIn, pad: number): Point[] | null {
+  const marks = [free(g, w.sx + pad, w.sy), ...w.via.map(([x, y]) => free(g, x, y)), free(g, w.tx - pad, w.ty)];
   if (marks.includes(-1)) return null;
   const states = [marks[0] * 2];
   for (let k = 1; k < marks.length; k++) {
@@ -297,7 +315,7 @@ function routeVia(g: Grid, w: WireIn): Point[] | null {
  * The wires of one output: the nearest target first, then each next target from the nearest point of the tree.
  * A wire with no clear path gets the simple path, and its ID goes into `conflicts`.
  */
-function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>, conflicts: Set<string>) {
+function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>, conflicts: Set<string>, pad: number) {
   const tree: Leg[] = [];
   const lost = ({ id, w }: Leg) => {
     out.set(id, fallback(w));
@@ -306,7 +324,7 @@ function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>, conf
   for (const l of legs) {
     if (!l.w.via.length) tree.push(l);
     else {
-      const p = routeVia(g, l.w);
+      const p = routeVia(g, l.w, pad);
       if (p) out.set(l.id, p);
       else lost(l);
     }
@@ -315,12 +333,12 @@ function routeNet(g: Grid, legs: readonly Leg[], out: Map<string, Point[]>, conf
   const { sx, sy } = tree[0].w;
   const far = ({ w }: Leg) => Math.abs(w.tx - sx) + Math.abs(w.ty - sy);
   tree.sort((a, b) => far(a) - far(b));
-  const start = free(g, sx + PAD, sy);
+  const start = free(g, sx + pad, sy);
   const paths: number[][] = [];
   const owner = new Map<number, [number, number]>();
   for (const l of tree) {
     const { id, w } = l;
-    const goal = free(g, w.tx - PAD, w.ty);
+    const goal = free(g, w.tx - pad, w.ty);
     const end = start < 0 || goal < 0 ? -1 : search(g, paths.length ? [...owner.keys()] : [start * 2], goal, 0);
     if (end < 0) {
       lost(l);
@@ -340,9 +358,26 @@ function routeNets(rects: readonly Rect[], nets: readonly (readonly Leg[])[], co
   const out = new Map<string, Point[]>();
   if (!nets.length) return out;
   const g = grid(rects, nets.flat());
-  for (const legs of nets) {
-    if (g) routeNet(g, legs, out, conflicts);
-    else for (const l of legs) out.set(l.id, fallback(l.w));
+  if (!g) {
+    for (const legs of nets) for (const l of legs) out.set(l.id, fallback(l.w));
+    return out;
+  }
+  // A bus keeps its clearance from the bodies. A bus with no such path routes as a plain wire.
+  const width = (legs: readonly Leg[]) => legs.reduce((m, l) => Math.max(m, l.w.width), 0);
+  const wide: Grid = { ...g, cell: wideCells };
+  let clear = MARGIN;
+  for (const legs of [...nets].sort((a, b) => width(a) - width(b))) {
+    const c = clearance(width(legs));
+    if (c > MARGIN) {
+      if (c !== clear) {
+        if (wideCells.length < g.nx * g.ny) wide.cell = wideCells = new Uint8Array(g.nx * g.ny);
+        block(wide, rects, (clear = c));
+      }
+      const lost = new Set<string>();
+      routeNet(wide, legs, out, lost, reach(width(legs)));
+      if (!lost.size) continue;
+    }
+    routeNet(g, legs, out, conflicts, PAD);
   }
   return out;
 }
@@ -626,7 +661,7 @@ export class Router {
     const todo: Leg[][] = [];
     const keys = new Map<string, string>();
     for (const [net, legs] of groups) {
-      const key = legs.map(({ id, w }) => `${id} ${w.sx} ${w.sy} ${w.tx} ${w.ty} ${w.via.join(' ')}`).join('\n');
+      const key = legs.map(({ id, w }) => `${id} ${w.sx} ${w.sy} ${w.tx} ${w.ty} ${w.width} ${w.via.join(' ')}`).join('\n');
       keys.set(net, key);
       if (all || this.keys.get(net) !== key || legs.some(({ id }) => blocked(this.raw.get(id), this.rects))) todo.push(legs);
     }
