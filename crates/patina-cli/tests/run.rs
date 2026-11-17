@@ -45,6 +45,7 @@ unsafe impl GlobalAlloc for Counter {
 static COUNTER: Counter = Counter;
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "hello");
     let kind = project.join("connections/whole");

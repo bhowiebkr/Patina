@@ -32,3 +32,5 @@ license = "MIT OR Apache-2.0"
 # Each member crate sets `[lints] workspace = true` (AGENTS.md, Rust code).
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "warn"
+# A function has 100 lines at most, the default limit of clippy (docs/quality-plan.md).
+too_many_lines = "warn"

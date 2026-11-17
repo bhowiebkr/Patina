@@ -76,6 +76,7 @@ fn wire(from: &str, to: &str) -> String {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn triggers_start_runs_and_their_rules_hold() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "events");
     for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false), ("tick", TICK, false), ("beep", BEEP, false)] {

@@ -71,6 +71,7 @@ struct Current {
     b: usize,
 }
 
+#[allow(clippy::too_many_lines)]
 fn scenario(profile: &str, node_reloads: u32, type_reloads: u32) {
     let work = Path::new(env!("CARGO_TARGET_TMPDIR")).join("hot-reload").join(profile);
     let mut project = Project::from_template(&work, profile).expect("copy the project");

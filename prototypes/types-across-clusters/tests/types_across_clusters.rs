@@ -34,6 +34,7 @@ fn stats(live: u64, dropped: u64) -> ProbeStats {
     ProbeStats { live, dropped }
 }
 
+#[allow(clippy::too_many_lines)]
 fn scenario(profile: &str) {
     let _serial = SERIAL.lock().unwrap_or_else(PoisonError::into_inner);
     let work = Path::new(env!("CARGO_TARGET_TMPDIR")).join("types-across-clusters").join(profile);

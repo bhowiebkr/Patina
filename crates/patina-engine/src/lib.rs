@@ -451,6 +451,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn a_new_project_lists_its_nodes_and_saves_edits() {
         let root = std::env::temp_dir().join(format!("patina-new-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);

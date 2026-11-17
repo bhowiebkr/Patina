@@ -353,6 +353,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn graph_problems_are_all_reported() {
         let root = std::env::temp_dir().join(format!("patina-plan-{}", std::process::id()));
         let crates = [

@@ -117,10 +117,11 @@ Split by responsibility. Keep the error handling and the validation of each move
 - [x] Engine: move the connection kinds and `outline` out of `node.rs`.
 - [x] Editor backend: split `engine.rs` `run_jobs` and `main.rs` `main`. Move the commands of
   the start screen from `session.rs` to `session/start.rs`.
-- [ ] Add `#[allow(clippy::too_many_lines)]` to the long tests and prototypes of section 1.3.
+- [x] Add `#[allow(clippy::too_many_lines)]` to the long tests and prototypes of section 1.3.
   Agent decision, 2026-11-17: a test reads best as one scenario, and the prototypes are the
   records of milestone 0, so they keep their long functions. The owner can change this.
-- [ ] SDK: `glue.rs`.
+- [x] SDK: move the C function bodies of `glue.rs` to `glue/abi.rs` and the share function to
+  `glue/host.rs`.
 - [ ] Frontend: split `App` into hooks and parts for the menus, the dialogs, the keys and the
   project state. Split `GraphView` into the canvas events, the selection and the drop parts.
   Split `check.ts` and `checkWires`, `useRun`, `WireEdge`, `route.ts` and `gui.css`.
@@ -135,8 +136,8 @@ These guards keep the result of phase 2. Add each guard when the code passes it.
   `cargo fmt --check` to CI and to the local check. Do it only after phase 2 for
   `subgraph.rs` and `plan.rs`. The commit touches about 110 files, so do it when no other
   agent has open work in the repository.
-- [ ] Add `too_many_lines` to the workspace clippy lints, with a limit of 100 lines in
-  `clippy.toml`. Do it when no function is over the limit.
+- [x] Add `too_many_lines` to the workspace clippy lints. The default limit of clippy is 100
+  lines, so the workspace needs no `clippy.toml`.
 - [ ] Let `tsc` read the test files, with a second `tsconfig` for the tests.
 - [ ] OWNER APPROVAL: add ESLint and Prettier to the frontend. This needs an npm download.
   Use `max-lines-per-function` as the guard of the TypeScript functions.

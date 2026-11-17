@@ -328,6 +328,7 @@ impl Renderer {
     }
 
     /// Renders one frame of all visible viewports.
+    #[allow(clippy::too_many_lines)]
     fn frame(&mut self, cmds: &Receiver<Cmd>, frame: &mut Frame) {
         for v in self.views.iter().filter(|v| v.native() && v.rect.is_some()) {
             if !self.windows.iter().any(|w| w.window.label() == v.window.label())
