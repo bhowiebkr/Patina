@@ -1907,10 +1907,12 @@ The later milestones closed the limits of one cluster, a static `std`, function 
 library in the target folder and the single run of the CLI. These limits are still open:
 
 - The toolchain comes from the toolchain folder (13.3), or else from the `CARGO` variable or
-  `PATH`. Its version must be the `rust` version of `patina.toml`.
-- **Install toolchain** works only on Windows. It installs rust-analyzer too, but no install
-  with rust-analyzer ran yet, because the run downloads about 285 MB. A toolchain from an older
-  install has no rust-analyzer. Remove the `toolchain` folder and install again.
+  `PATH`. Its version must be the `rust` version of `patina.toml` or newer (8.1).
+- **Install toolchain** works only on Windows. It installs rust-analyzer and, since
+  2026-11-17, the source of `std` (`rust-src`, 13.2). An install of 2026-11-17 on the computer
+  of the owner has rust-analyzer but no `rust-src`. **Update toolchain** adds `rust-src`. No
+  install or update with `rust-src` ran yet, because it downloads. A unit test reads the
+  `rust-src` table of the channel manifest.
 - No GitHub release makes the portable zip yet. The **Package** workflow keeps the zips only as
   artifacts of the run.
 - A `Result` output is found by the type name `Result` only. A type alias with another name is

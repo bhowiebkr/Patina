@@ -19,8 +19,9 @@ const HOST: &str = "x86_64-pc-windows-gnu";
 /// The download server of Rust.
 const DIST: &str = "https://static.rust-lang.org";
 /// The packages of the minimal rustup profile (the `[profiles]` table of the channel manifest),
-/// and rust-analyzer for the code editor. The manifest renames `rust-analyzer` to this package.
-const PACKAGES: &[&str] = &["rustc", "cargo", "rust-std", "rust-mingw", "rust-analyzer-preview"];
+/// and rust-analyzer with the source of `std` for the code editor. The manifest renames
+/// `rust-analyzer` to `rust-analyzer-preview`.
+const PACKAGES: &[&str] = &["rustc", "cargo", "rust-std", "rust-mingw", "rust-analyzer-preview", "rust-src"];
 /// The Zig target for the C code of the Rust target `x86_64-pc-windows-gnu`.
 const ZIG_TARGET: &str = "x86_64-windows-gnu";
 /// The copies of the editor or the CLI that start Zig (see [`run_wrapper`]).
@@ -60,10 +61,14 @@ fn update_steps(folder: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Err
     let server = mirror(folder, &downloads, step)?;
     step("Update Rust");
     let bin = folder.join("cargo").join("bin");
-    run_text(tool(folder, &bin.join("rustup.exe"))?.env("RUSTUP_DIST_SERVER", &server).args(["update", "stable", "--no-self-update"]))?;
+    let rustup = bin.join("rustup.exe");
+    run_text(tool(folder, &rustup)?.env("RUSTUP_DIST_SERVER", &server).args(["update", "stable", "--no-self-update"]))?;
+    // A toolchain of an older Patina has no source of std.
+    run_text(tool(folder, &rustup)?.env("RUSTUP_DIST_SERVER", &server).args(["component", "add", "rust-src"]))?;
     step("Check the toolchain");
-    let release = Toolchain::find(folder)?.release;
-    run_text(tool(folder, &bin.join("rust-analyzer.exe"))?.arg("--version"))?;
+    let toolchain = Toolchain::find(folder)?;
+    check_analyzer(folder, &toolchain)?;
+    let release = toolchain.release;
     fs::remove_dir_all(&downloads).map_err(|e| Error::Io(downloads.clone(), e))?;
     Ok(release)
 }
@@ -98,9 +103,9 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
         fs::copy(wrapper, zig.join(name)).map_err(|e| Error::Io(zig.join(name), e))?;
     }
     step("Check the toolchain");
-    let release = Toolchain::find(&work)?.release;
-    let analyzer = work.join("cargo").join("bin").join("rust-analyzer.exe");
-    run_text(tool(&work, &analyzer)?.arg("--version"))?;
+    let toolchain = Toolchain::find(&work)?;
+    check_analyzer(&work, &toolchain)?;
+    let release = toolchain.release;
     let source = downloads.join("check.c");
     fs::write(&source, "int patina_check(void) { return 1; }\n").map_err(|e| Error::Io(source.clone(), e))?;
     run_text(tool(&work, &zig.join("zig-cc.exe"))?.arg("-c").arg(&source).arg("-o").arg(downloads.join("check.o")))?;
@@ -112,6 +117,22 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
     }
     rename(&work, folder)?;
     Ok(release)
+}
+
+/// Checks that rust-analyzer starts and that the source of `std` is there, for the code editor.
+fn check_analyzer(folder: &Path, toolchain: &Toolchain) -> Result<(), Error> {
+    run_text(tool(folder, &folder.join("cargo").join("bin").join("rust-analyzer.exe"))?.arg("--version"))?;
+    let library = std_source(toolchain);
+    match library.join("std").join("src").join("lib.rs").is_file() {
+        true => Ok(()),
+        false => Err(Error::Build(format!("the toolchain has no source of std in {}", library.display()))),
+    }
+}
+
+/// The folder of the source of `std` that the `rust-src` component installs.
+fn std_source(toolchain: &Toolchain) -> PathBuf {
+    let rustlib = toolchain.libdir.parent().and_then(Path::parent).unwrap_or(&toolchain.libdir);
+    rustlib.join("src").join("rust").join("library")
 }
 
 /// Copies `wrapper` to each Zig wrapper that the toolchain in `folder` does not have. A toolchain
@@ -176,8 +197,8 @@ fn cc_args(args: Vec<OsString>) -> Vec<OsString> {
     out
 }
 
-/// Installs Rust with rustup: the minimal profile of the stable channel and rust-analyzer, for the
-/// gnu host.
+/// Installs Rust with rustup: the minimal profile of the stable channel, rust-analyzer and the
+/// source of `std`, for the gnu host.
 fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(), Error> {
     step("Download rustup-init");
     let init = downloads.join("rustup-init.exe");
@@ -190,7 +211,7 @@ fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(),
         "--profile",
         "minimal",
         "--component",
-        "rust-analyzer",
+        "rust-analyzer,rust-src",
         "--default-host",
         HOST,
         "--default-toolchain",
@@ -226,7 +247,11 @@ fn packages(manifest: &str, target: &str) -> Result<Vec<(&'static str, String, S
     PACKAGES
         .iter()
         .map(|&name| {
-            let header = format!("[pkg.{name}.target.{target}]");
+            // The source of std is the same for all targets.
+            let header = match name {
+                "rust-src" => format!("[pkg.{name}.target.\"*\"]"),
+                _ => format!("[pkg.{name}.target.{target}]"),
+            };
             let table = manifest.split(&header).nth(1).unwrap_or_default();
             let field = |key: &str| {
                 table.lines().skip(1).take_while(|line| !line.trim().is_empty()).find_map(|line| {
@@ -405,11 +430,16 @@ mod tests {
     fn packages_read_only_the_target_table() {
         let mut manifest = String::new();
         for name in PACKAGES {
+            let target = if *name == "rust-src" { "\"*\"" } else { "x-gnu" };
             manifest += &format!("[pkg.{name}.target.x-gnullvm]\nxz_url = \"wrong\"\nxz_hash = \"wrong\"\n\n");
-            manifest += &format!("[pkg.{name}.target.x-gnu]\navailable = true\nxz_url = \"u-{name}\"\nxz_hash = \"h\"\n\n");
+            manifest += &format!("[pkg.{name}.target.{target}]\navailable = true\nxz_url = \"u-{name}\"\nxz_hash = \"h\"\n\n");
         }
         let found = packages(&manifest, "x-gnu").unwrap();
         assert_eq!(found[1], ("cargo", "u-cargo".to_owned(), "h".to_owned()));
+        assert_eq!(found.last().unwrap(), &("rust-src", "u-rust-src".to_owned(), "h".to_owned()));
+        let libdir = Path::new("s").join("lib").join("rustlib").join("x").join("lib");
+        let toolchain = Toolchain { libdir, ..Toolchain::detect().unwrap() };
+        assert_eq!(std_source(&toolchain), Path::new("s/lib/rustlib/src/rust/library"));
         assert!(packages("[pkg.rustc.target.x-gnu]\navailable = false\n", "x-gnu").is_err());
     }
 
