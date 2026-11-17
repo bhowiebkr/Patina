@@ -1,18 +1,20 @@
 //! The live event runs (spec 9.4, 15.2): the event domain runs on its own threads while the engine
-//! thread runs the frames and the audio thread runs the blocks.
+//! thread runs the frames and the audio thread runs the blocks. When the audio domain cannot have
+//! its own thread, the engine thread runs the blocks between the frames.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use patina_engine::clock::{self, Clock};
 use patina_engine::{Audio, EventRun, Events, Frames, NodeLog, Outcome, Report, Value};
 
-use super::{Event, Job, Live, changed, frames_only, lock, split};
+use super::{Event, Job, Live, between, changed, frames_only, lock, split};
 use crate::node_process::Out;
 
 /// Runs the event domain until a job comes or the user stops the run, with the frames when the
-/// graph has frame nodes and with the blocks when `audio` is there. At the end, no new event run
+/// graph has frame nodes and with the blocks when it has audio nodes (`blocks`). The blocks run on
+/// the audio thread when `audio` is there, else between the frames. At the end, no new event run
 /// starts, and the engine waits for the active runs (15.2). Returns the job that ended the run.
-pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, events: Events, frames: bool) -> Option<Job> {
+pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, events: Events, frames: bool, blocks: bool) -> Option<Job> {
     let (remote, inbox) = patina_engine::remote();
     let (out, shared, serial, aliases) = (live.out, live.shared, live.serial, live.aliases);
     *lock(&shared.remote) = Some(remote.clone());
@@ -28,6 +30,7 @@ pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, even
         }
         let job = match (audio, frames) {
             (Some(audio), _) => split(live, part, audio),
+            (None, _) if blocks => between(live, part),
             (None, true) => frames_only(live, part),
             (None, false) => jobs_only(live, part, &ended),
         };

@@ -81,10 +81,12 @@ impl Run<'_> {
 }
 
 /// The frame part of a cluster (`Cluster::frame_part`, `Cluster::split`): the frames, the node
-/// GUIs and the reads of the views.
+/// GUIs and the reads of the views. It also runs the blocks when no other thread runs them.
 pub struct Frames<'a> {
     pub(crate) run: Run<'a>,
     pub(crate) nodes: Nodes<'a>,
+    /// The audio domain, when this thread runs the blocks between the frames.
+    pub(crate) audio: Option<Audio<'a>>,
 }
 
 impl Frames<'_> {
@@ -92,6 +94,17 @@ impl Frames<'_> {
     pub fn frame(&mut self, control: &Control) -> &Outcome {
         self.run.domain(Domain::Frame, control);
         &self.run.calls.out
+    }
+
+    /// Runs one block on this thread, as `Cluster::block`. `None` when the graph has no audio
+    /// nodes, or when the audio thread runs the blocks.
+    pub fn block(&mut self, control: &Control) -> Option<&Outcome> {
+        self.audio.as_mut().map(|audio| audio.block(control))
+    }
+
+    /// The samples of the last block of `block`, as `Cluster::sound`.
+    pub fn sound(&self) -> Option<&[f32; BLOCK]> {
+        self.audio.as_ref()?.sound()
     }
 
     /// The outcome of the last frame.
@@ -194,8 +207,10 @@ pub struct Audio<'a> {
 }
 
 // SAFETY: while the split lasts, only the thread that holds `Audio` calls the audio cluster, and
-// `Frames` never calls it: its `ui` and `read` refuse the audio nodes. `Cluster::split` allows a split only when the audio library and the
-// slot library are parallel, so each value that the audio thread keeps or reads is `Sync`. The
+// `Frames` never calls it: its `ui` and `read` refuse the audio nodes. `Cluster::split` and
+// `Cluster::live` give an `Audio` only when the audio library and the slot library are parallel,
+// so each value that the audio thread keeps or reads is `Sync`. Else `Frames` keeps the `Audio`,
+// and `Frames` is not `Send`. The
 // two domains share only the latest-value wires, which take one writer and one reader without a
 // lock (9.3), the batch values, which do not change while the split lasts, and the slot.
 unsafe impl Send for Audio<'_> {}

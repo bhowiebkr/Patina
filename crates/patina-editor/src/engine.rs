@@ -576,18 +576,18 @@ impl Live<'_> {
 fn run_frames(mut live: Live, cluster: &mut Cluster) -> Option<Job> {
     let (frames, blocks, events) = (cluster.frames(), cluster.blocks(), cluster.events());
     let job = match events.then(|| cluster.live()).flatten() {
-        Some((mut part, audio, events)) => events::run(&mut live, &mut part, audio, events, frames),
+        Some((mut part, audio, events)) => events::run(&mut live, &mut part, audio, events, frames, blocks),
         None => {
             if events {
-                // shortcut: no event runs when a node of the slot or the audio domain keeps a value that is not Sync; give such a graph one thread for all domains when this gets common.
-                events::warn(&live, "The event runs do not start, because a node in the slot or in the audio domain keeps a value that is not Sync (9.4).".to_owned());
+                // shortcut: no event runs when the slot keeps a value that is not Sync and holds an event node and a node of another domain; give the event nodes their own slot library when this gets common.
+                events::warn(&live, "The event runs do not start, because a node in the slot keeps a value that is not Sync, and the slot holds an event node and a node of another domain (9.4).".to_owned());
             }
             match (frames, blocks) {
                 (false, false) => None,
                 (true, false) => frames_only(&mut live, &mut cluster.frame_part()),
                 (_, true) => match cluster.split() {
                     Some((mut part, audio)) => split(&mut live, &mut part, audio),
-                    None => between(&mut live, cluster),
+                    None => between(&mut live, &mut cluster.frame_part()),
                 },
             }
         }
@@ -669,22 +669,22 @@ fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Blocks
 
 /// The frames and the blocks on the engine thread, when the cluster cannot split: a library keeps
 /// a value that is not `Sync` (9.3).
-fn between(live: &mut Live, cluster: &mut Cluster) -> Option<Job> {
+fn between(live: &mut Live, part: &mut Frames) -> Option<Job> {
     // shortcut: the blocks run between the frames when a library is not parallel, so a slow frame or node GUI makes them late; give such a graph its own thread for all domains when this gets common.
     let (mut pace, mut blocks, mut block) = (Pace::default(), Blocks::default(), 0);
     loop {
         pace.wait();
-        if let Some(end) = live.job(&mut cluster.frame_part()) {
+        if let Some(end) = live.job(part) {
             return end;
         }
-        blocks.gather(&Part::from(cluster.block(&live.shared.control)));
+        blocks.gather(&Part::from(part.block(&live.shared.control)?));
         block += 1;
-        if let Some(notice) = pace.play(cluster.sound().map(|s| s.as_slice())) {
+        if let Some(notice) = pace.play(part.sound().map(|s| s.as_slice())) {
             blocks.device(notice);
         }
         // A failed block ends the run at once, with a frame that shows its results.
         let due = (live.frames..).take_while(|&frame| frame_due(frame, block, live.rate)).count() as u64;
-        if (!blocks.part().ok || due > 0) && !live.frame(&mut cluster.frame_part(), &mut blocks, due.max(1)) {
+        if (!blocks.part().ok || due > 0) && !live.frame(part, &mut blocks, due.max(1)) {
             return None;
         }
     }

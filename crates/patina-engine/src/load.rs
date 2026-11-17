@@ -376,7 +376,7 @@ impl Cluster {
     /// until `control` asks to stop. Each `trigger` node fires one time at the start with an
     /// empty text. `done` gets each run when it ends. Returns false when a run failed.
     pub fn run_events(&mut self, count: u64, control: &Control, done: impl FnMut(&EventRun)) -> bool {
-        self.parts(true, true).3.is_none_or(|events| events.run(count, control, None, done))
+        self.parts(true, true).2.is_none_or(|events| events.run(count, control, None, done))
     }
 
     fn has(&self, domain: Domain) -> bool {
@@ -392,43 +392,50 @@ impl Cluster {
         Run { library: self.libraries[domain as usize].as_ref(), pool, names, probes, calls, pace }.domain(domain, control);
     }
 
+    /// True when the audio domain can run on its own thread: the graph has audio nodes, and the
+    /// audio library and the slot library keep only `Sync` values (9.3).
+    fn apart(&self) -> bool {
+        let audio = self.libraries[Domain::Audio as usize].as_ref();
+        self.blocks() && audio.is_some_and(|audio| audio.parallel) && self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel)
+    }
+
     /// Splits the cluster into its frame domain and its audio domain, so that the audio domain
     /// runs on its own thread at the same time as the frames (9.3). `None` when the graph has no
     /// audio nodes, or when the audio library or the slot library keeps a value that is not `Sync`.
     pub fn split(&mut self) -> Option<(Frames<'_>, Audio<'_>)> {
-        let audio = self.libraries[Domain::Audio as usize].as_ref();
-        if !audio.is_some_and(|audio| audio.parallel) || self.slot.as_ref().is_some_and(|(slot, _)| !slot.parallel) {
+        if !self.apart() {
             return None;
         }
-        let mix = self.mix;
-        let (frames, run, sound, _) = self.parts(false, true);
-        Some((frames, Audio { run, mix, sound }))
+        let (frames, audio, _) = self.parts(false, true);
+        Some((frames, audio?))
     }
 
-    /// Splits the cluster for a live run of the editor (9.3, 9.4): the frame part, the audio
-    /// domain for its own thread when the graph has audio nodes, and the event domain for its own
-    /// threads. `None` when the graph has no event nodes, or when the slot library or the audio
-    /// library keeps a value that is not `Sync`.
+    /// Splits the cluster for a live run (9.3, 9.4): the frame part, the audio domain for its own
+    /// thread, and the event domain for its own threads. When the audio domain cannot have its own
+    /// thread, the frame part runs the blocks (`Frames::block`). `None` when the graph has no event
+    /// nodes, or when the slot library keeps a value that is not `Sync` and holds an event node and
+    /// a node of another domain.
     pub fn live(&mut self) -> Option<(Frames<'_>, Option<Audio<'_>>, Events<'_>)> {
-        let audio = self.libraries[Domain::Audio as usize].as_ref();
-        if !self.events() || audio.is_some_and(|audio| !audio.parallel) || self.slot.as_ref().is_some_and(|(slot, _)| !slot.parallel) {
+        if !self.events() || (self.slot.as_ref().is_some_and(|(slot, _)| !slot.parallel) && mixed(&self.slotted, &self.domains)) {
             return None;
         }
-        let (blocks, mix) = (self.blocks(), self.mix);
-        let (frames, run, sound, events) = self.parts(false, false);
-        Some((frames, blocks.then_some(Audio { run, mix, sound }), events?))
+        let apart = self.apart();
+        let (frames, audio, events) = self.parts(!apart, false);
+        Some((frames, audio, events?))
     }
 
-    /// The frame part of the cluster: the frames, the node GUIs and the reads of the views,
-    /// between two runs of the other domains.
+    /// The frame part of the cluster: the frames, the blocks, the node GUIs and the reads of the
+    /// views, between two runs of the other domains.
     pub fn frame_part(&mut self) -> Frames<'_> {
         self.parts(true, true).0
     }
 
-    /// The frame part, the run of the audio domain, the samples of the last block and the event
-    /// domain. `audio` and `events` are false when other threads run these domains, so the frame
+    /// The frame part, the audio domain for its own thread and the event domain. With `audio`, the
+    /// frame part runs the blocks. Else the audio domain is for another thread, and the frame part
+    /// refuses its nodes. `events` is false when other threads run the event domain, so the frame
     /// part refuses their nodes.
-    fn parts(&mut self, audio: bool, events: bool) -> (Frames<'_>, Run<'_>, &mut [f32; BLOCK], Option<Events<'_>>) {
+    fn parts(&mut self, audio: bool, events: bool) -> (Frames<'_>, Option<Audio<'_>>, Option<Events<'_>>) {
+        let (has_blocks, mix) = (self.blocks(), self.mix);
         let [_, frame_pace, audio_pace, _] = &mut self.pace;
         let [_, frame, audio_library, event_library] = &self.libraries;
         let (names, probes) = (&self.names, &self.probes);
@@ -445,8 +452,10 @@ impl Cluster {
         };
         let run = Run { library: frame.as_ref(), pool, names, probes, calls: &mut self.calls, pace: frame_pace };
         let blocks = Run { library: audio_library.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, pace: audio_pace };
+        let blocks = has_blocks.then_some(Audio { run: blocks, mix, sound: &mut self.sound });
         let events = event_library.as_ref().map(|library| Events::new(library, pool, &self.triggers, names, probes, &self.root));
-        (Frames { run, nodes }, blocks, &mut self.sound, events)
+        let (here, apart) = if audio { (blocks, None) } else { (None, blocks) };
+        (Frames { run, nodes, audio: here }, apart, events)
     }
 
     /// Calls the `ui` function of node `id` between two runs, as `Frames::ui` (4.3).
@@ -623,9 +632,25 @@ fn put(to: &mut String, text: &str) {
     to.push_str(text);
 }
 
+/// True when the nodes in the slot include an event node and a node of another domain, so that
+/// the event threads and the other threads can call the slot library at the same time.
+fn mixed(slotted: &[bool], domains: &[Domain]) -> bool {
+    let events = || slotted.iter().zip(domains).filter(|&(&slot, _)| slot).map(|(_, &domain)| domain == Domain::Event);
+    events().any(|event| event) && events().any(|event| !event)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mixed_needs_an_event_node_and_another_node_in_the_slot() {
+        let domains = [Domain::Event, Domain::Frame, Domain::Event];
+        assert!(mixed(&[true, true, false], &domains));
+        assert!(!mixed(&[true, false, true], &domains));
+        assert!(!mixed(&[false, true, false], &domains));
+        assert!(!mixed(&[false, false, false], &domains));
+    }
 
     /// Spec 18, question 12: the cost of a live value, from its text in the cluster to the
     /// outcome. Run with `--release --ignored --nocapture`.

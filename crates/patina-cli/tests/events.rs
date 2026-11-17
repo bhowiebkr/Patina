@@ -47,6 +47,25 @@ pub fn tick() {
 }
 ";
 
+/// An audio node that keeps a value that is not `Sync`, so the audio domain cannot have its own
+/// thread (9.3). It shows a line at each block.
+const BEEP: &str = "#[patina_sdk::node(domain = audio)]
+pub struct Beep {
+    count: std::rc::Rc<u32>,
+}
+
+impl Beep {
+    pub fn init() -> Self {
+        Beep { count: std::rc::Rc::new(0) }
+    }
+
+    pub fn process(&mut self) {
+        self.count = std::rc::Rc::new(*self.count + 1);
+        println!(\"block\");
+    }
+}
+";
+
 fn node(id: &str, kind: &str) -> String {
     let kind = if ["schedule", "trigger", "file_change", "webhook"].contains(&kind) { format!("builtin = \"{kind}\"") } else { format!("folder = \"nodes/{kind}\"") };
     format!("[[node]]\nid = \"00000000000000{id}\"\n{kind}\n\n")
@@ -59,7 +78,7 @@ fn wire(from: &str, to: &str) -> String {
 #[test]
 fn triggers_start_runs_and_their_rules_hold() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "events");
-    for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false), ("tick", TICK, false)] {
+    for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false), ("tick", TICK, false), ("beep", BEEP, false)] {
         let folder = project.join("nodes").join(name);
         fs::create_dir_all(folder.join("src")).unwrap();
         let more = if event { "patina-event = { workspace = true }\n" } else { "" };
@@ -91,6 +110,15 @@ fn triggers_start_runs_and_their_rules_hold() {
     let (output, stdout, stderr) = run(&project, &["--events", "3"]);
     assert!(output.status.success(), "{stderr}");
     assert_eq!(lines(&stdout), [11, 21, 31]);
+
+    // The blocks of an audio library that is not parallel run between the frames, and the event
+    // runs keep their own threads. The blocks have no count, so they end with the runs.
+    fs::write(&main, graph("every_ms = \"20\"\noverlap = \"skip\"") + &node("b0", "beep")).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--events", "3"]);
+    assert!(output.status.success(), "{stderr}");
+    let (blocks, runs): (Vec<&str>, Vec<&str>) = stdout.lines().partition(|l| *l == "block");
+    assert!(!blocks.is_empty(), "{stdout}");
+    assert_eq!(lines(&runs.join("\n")), [11, 21, 31]);
 
     // With `queue`, the fires wait. At 16 runs, the trigger drops a fire and reports it.
     fs::write(&main, graph("every_ms = \"5\"")).unwrap();

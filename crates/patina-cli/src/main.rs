@@ -170,32 +170,39 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts, rate: u32) ->
     if !show(&cluster.set_params(graph)) || !show(&cluster.run(control)) {
         return false;
     }
-    let has_frames = cluster.frames();
+    let (has_frames, has_blocks) = (cluster.frames(), cluster.blocks());
     if cluster.events() {
         if let Some((mut frame, mut audio, events)) = cluster.live() {
-            return together(&mut frame, audio.as_mut(), Some(events), counts, has_frames, rate);
+            return together(&mut frame, audio.as_mut(), Some(events), counts, has_frames, has_blocks, rate);
         }
-        // The audio library keeps a value that is not `Sync`, so the event runs come first (9.4).
+        // The slot library keeps a value that is not `Sync`, and it holds an event node and a node
+        // of another domain, so the event runs come first (9.4).
         if !cluster.run_events(counts.events.unwrap_or(u64::MAX), control, |run| _ = show_run(run)) {
             return false;
         }
     }
-    if !cluster.blocks() {
+    if !has_blocks {
         let count = if has_frames { counts.frames } else { Some(0) };
         return frames(|| show(cluster.frame(control)), count, rate, &AtomicBool::new(false));
     }
     let Some((mut frame, mut audio)) = cluster.split() else {
-        return between(cluster, counts, has_frames, rate);
+        return between(&mut cluster.frame_part(), counts, has_frames, rate, &AtomicBool::new(false));
     };
-    together(&mut frame, Some(&mut audio), None, counts, has_frames, rate)
+    together(&mut frame, Some(&mut audio), None, counts, has_frames, has_blocks, rate)
 }
 
 /// Runs the frames on this thread, and the audio blocks and the event runs on their own threads.
-/// Returns false when a node failed.
-fn together(frame: &mut Frames, audio: Option<&mut Audio>, events: Option<Events>, counts: Counts, has_frames: bool, rate: u32) -> bool {
+/// When the audio domain cannot have its own thread, this thread runs the blocks too. Returns
+/// false when a node failed.
+fn together(frame: &mut Frames, audio: Option<&mut Audio>, events: Option<Events>, counts: Counts, has_frames: bool, has_blocks: bool, rate: u32) -> bool {
     let control: &Control = &interrupt::CONTROL;
+    let here = has_blocks && audio.is_none();
     // A domain without a count runs until each domain with a count is done, or a node fails.
-    let counted = [has_frames && counts.frames.is_some(), audio.is_some() && counts.blocks.is_some(), events.is_some() && counts.events.is_some()];
+    let counted = [
+        (has_frames && counts.frames.is_some()) || (here && counts.blocks.is_some()),
+        audio.is_some() && counts.blocks.is_some(),
+        events.is_some() && counts.events.is_some(),
+    ];
     let left = AtomicUsize::new(counted.iter().filter(|&&c| c).count());
     // The event runs have their own control, so the end of the other domains is not a Ctrl+C.
     let (stop, run_control) = (AtomicBool::new(false), Control::default());
@@ -213,7 +220,11 @@ fn together(frame: &mut Frames, audio: Option<&mut Audio>, events: Option<Events
         let runs = events.map(|events| {
             scope.spawn(move || done(events.run(counts.events.unwrap_or(u64::MAX), run_control, None, |run| _ = show_run(run)), counted[2]))
         });
-        let framed = !has_frames || done(frames(|| show(frame.frame(control)), counts.frames, rate, stop), counted[0]);
+        let framed = if here {
+            done(between(frame, counts, has_frames, rate, stop), counted[0])
+        } else {
+            !has_frames || done(frames(|| show(frame.frame(control)), counts.frames, rate, stop), counted[0])
+        };
         // A Ctrl+C reaches the event runs here.
         while runs.as_ref().is_some_and(|runs| !runs.is_finished()) {
             if interrupt::stopped() {
@@ -275,33 +286,33 @@ fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
 
 /// Runs the blocks and the frames on one thread, when the audio domain cannot have its own
 /// thread (9.3). A frame runs before the first block that starts at or after its time. Returns
-/// false when a node failed.
-fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool, rate: u32) -> bool {
+/// false when a node failed. It stops at `stop`.
+fn between(part: &mut Frames, counts: Counts, has_frames: bool, rate: u32, stop: &AtomicBool) -> bool {
     let (control, mut pace): (&Control, _) = (&interrupt::CONTROL, Pace::default());
     let limit = if has_frames { counts.frames.unwrap_or(u64::MAX) } else { 0 };
     let mut frame = 0;
     for block in 0..counts.blocks.unwrap_or(u64::MAX) {
         // A domain without a count runs until each domain with a count is done.
-        if interrupt::stopped() || (counts.blocks.is_none() && has_frames && counts.frames == Some(frame)) {
+        if interrupt::stopped() || stop.load(Relaxed) || (counts.blocks.is_none() && has_frames && counts.frames == Some(frame)) {
             break;
         }
         if block > 0 {
             pace.wait();
         }
         while frame < limit && frame_due(frame, block, rate) {
-            if !show(cluster.frame(control)) {
+            if !show(part.frame(control)) {
                 return false;
             }
             frame += 1;
         }
-        if !show(cluster.block(control)) {
+        if !part.block(control).is_some_and(show) {
             return false;
         }
-        notice(pace.play(cluster.sound().map(|s| s.as_slice())));
+        notice(pace.play(part.sound().map(|s| s.as_slice())));
     }
     pace.drain();
     let rest = counts.frames.filter(|_| has_frames).map_or(0, |count| count - frame);
-    frames(|| show(cluster.frame(control)), Some(rest), rate, &AtomicBool::new(false))
+    frames(|| show(part.frame(control)), Some(rest), rate, stop)
 }
 
 /// Shows a change of the audio device.

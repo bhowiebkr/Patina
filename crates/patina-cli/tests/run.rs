@@ -207,6 +207,8 @@ builtin = \"delay\"
     assert_eq!(lines, ["13.5", "15", "19", "6.5", "7.5", "9.5"], "{stderr}");
     let mut held = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Edit).unwrap();
     assert!(held.blocks() && held.split().is_none());
+    // The frame part runs the blocks when the audio domain cannot have its own thread.
+    assert!(held.run(&control).ok && held.frame_part().block(&control).is_some_and(|out| out.ok));
     fs::write(&graph, threaded).unwrap();
 
     // Speaker a4 plays tone into the mix of the project, which the engine reads after a block.

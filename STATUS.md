@@ -600,6 +600,13 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   graph with a `schedule` node. `patina_events` gave 3 runs with the last value 31, and a bad
   `every_ms` from `patina_set` failed the next call. The package test of hello gets -1 and an
   error from the three functions, because hello has no audio and no event nodes.
+- The event runs start in the editor and in the CLI when the audio or the slot library keeps a
+  value that is not `Sync` (fixed 2026-11-17, before the editor did not start them and the CLI
+  ran them first). The frame part then runs the blocks between the frames. The CLI test
+  `events` adds an audio node with an `Rc` to a `schedule` graph with `--events 3` and no
+  `--blocks`. The 3 runs gave 11, 21 and 31, the blocks ran, and the process ended after the
+  runs. Before the change, the blocks did not end. The CLI test `run` runs a block of the frame
+  part of a cluster that cannot split.
 
 ### Known limits
 
@@ -607,8 +614,8 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   - `patina-event`: each cluster build makes its own runtime, and each wait of an async node
     allocates its future and blocks the thread of its run.
   - `events/watch.rs` of `patina-engine`: `file_change` polls its folder.
-  - `engine.rs` of `patina-editor`: no event runs when the slot or the audio domain keeps a
-    value that is not `Sync`.
+  - `engine.rs` of `patina-editor`: no event runs when the slot keeps a value that is not
+    `Sync` and holds an event node and a node of another domain.
 - In the editor, a change, **Pause** and a failed frame wait for the active event runs. A code
   swap does not keep the active runs on the old builds (9.4).
 - While the event domain runs, a view reads no output of an event node, and the GUI of an event
