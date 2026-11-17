@@ -45,6 +45,9 @@ pub enum Job {
     /// The result of a fuse that built in a background thread. Only the engine makes it.
     #[serde(skip)]
     Fused(Box<Result<Compiled, Error>>),
+    /// A view build in a background thread ended. Only the engine makes it.
+    #[serde(skip)]
+    ViewBuilt,
     /// Makes a package of the saved project `root` in `out` (14.1). The reply to `ask` has the
     /// warnings.
     Package { root: PathBuf, out: PathBuf, ask: u64 },
@@ -79,7 +82,7 @@ impl Jobs {
 const FUSE_IDLE: Duration = Duration::from_secs(30);
 
 /// How often the engine looks for the end of a fuse while it waits for a job.
-const FUSE_POLL: Duration = Duration::from_millis(100);
+const BUILD_POLL: Duration = Duration::from_millis(100);
 
 /// One build at a time: the builds of the project share its `build` folder (7.2).
 pub(crate) static BUILDING: Mutex<()> = Mutex::new(());
@@ -349,7 +352,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     let mut fuse = Fuse::default();
     // True when the last run has frame nodes, so a step can run one frame.
     let mut framed = false;
-    while let Some(first) = next.take().or_else(|| wait(jobs, &mut fuse)) {
+    while let Some(first) = next.take().or_else(|| wait(jobs, &mut fuse, &views)) {
         // Only the newest run starts. A build that a skipped run asked for still happens.
         let (mut newest, mut fused) = (None, None);
         let (mut build, mut rerun, mut bake, mut step) = (false, false, false, false);
@@ -360,7 +363,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                 Job::Unload => {
                     (loaded, newest, build, last, fuse.at, framed) = (None, None, false, None, None, false);
                     fuse.changes += 1;
-                    views = Views::default();
+                    views.clear(out);
                     lock(&shared.values).clear();
                     lock(&shared.reports).clear();
                     lock(&shared.event_reports).clear();
@@ -393,8 +396,9 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
                 }
                 Job::View(input) => views.ui(out, shared, (folder, &mut toolchain), *input, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
                 Job::CloseView(name) => views.close(&name),
+                Job::ViewBuilt => views.poll(out, shared, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
                 Job::DropView(instance, ask) => {
-                    views.drop_instance(&instance);
+                    views.drop_instance(out, &instance);
                     out.reply(ask, Ok(()));
                 }
                 Job::Visible(ids) => shown.visible = Some(ids.into_iter().collect()),
@@ -473,14 +477,17 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
     }
 }
 
-/// Waits for the next job. Gives `Job::Bake` at the time of the fuse, and `Job::Fused` when a fuse
-/// ends (7.2).
-fn wait(jobs: &Receiver<Job>, fuse: &mut Fuse) -> Option<Job> {
+/// Waits for the next job. Gives `Job::Bake` at the time of the fuse, `Job::Fused` when a fuse
+/// ends (7.2), and `Job::ViewBuilt` when a view build ends (15.8).
+fn wait(jobs: &Receiver<Job>, fuse: &mut Fuse, views: &Views) -> Option<Job> {
     loop {
         if let Some(done) = fuse.done() {
             return Some(Job::Fused(Box::new(done)));
         }
-        let poll = fuse.thread.as_ref().map(|_| Instant::now() + FUSE_POLL);
+        if views.built() {
+            return Some(Job::ViewBuilt);
+        }
+        let poll = (fuse.thread.is_some() || views.building()).then(|| Instant::now() + BUILD_POLL);
         let Some(until) = fuse.at.into_iter().chain(poll).min() else { return jobs.recv().ok() };
         match jobs.recv_timeout(until.saturating_duration_since(Instant::now())) {
             Ok(job) => return Some(job),
@@ -518,6 +525,9 @@ struct Live<'a> {
 impl Live<'_> {
     /// Takes the next job. Returns `Some` when the job ends the run, with the job for the engine.
     fn job(&mut self, part: &mut Frames) -> Option<Option<Job>> {
+        if self.views.built() {
+            self.views.poll(self.out, self.shared, Some(part));
+        }
         if let Some(done) = self.fuse.done() {
             return Some(Some(Job::Fused(Box::new(done))));
         }
@@ -541,7 +551,7 @@ impl Live<'_> {
             Ok(Job::View(input)) => self.views.ui(self.out, self.shared, (self.folder, self.toolchain), *input, Some(part)),
             Ok(Job::CloseView(name)) => self.views.close(&name),
             Ok(Job::DropView(instance, ask)) => {
-                self.views.drop_instance(&instance);
+                self.views.drop_instance(self.out, &instance);
                 self.out.reply(ask, Ok(()));
             }
             Ok(Job::Visible(ids)) => self.shown.visible = Some(ids.into_iter().collect()),

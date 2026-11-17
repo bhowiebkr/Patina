@@ -379,7 +379,9 @@ change it.)
 - `#[view]` writes five exports: `patina_abi_version`, `patina_view_host`, `patina_view_new`,
   `patina_view_ui` and `patina_view_free`. `patina_view_host` takes the shared GPU context and
   the project folder before the first call. The writes of the view use the report kind `EDIT`. The ABI version stays 14.
-- The engine builds a view in edit mode on its first `ui` call. It copies the library to
+- The engine builds a view in edit mode on its first `ui` call, in a background thread, so the
+  frames go on. The call gets its reply after the build. (Agent decision of 2026-11-17. The
+  owner can change it.) It copies the library to
   `build/loaded/view.<name>.<hash>`, with the Rust runtime, as for the clusters (8.5).
 - The `Graph` handle is a copy of the open graph as text lines: the nodes, the parameters, the
   wires, the live values and the node errors of the last run, and the selected nodes. The read

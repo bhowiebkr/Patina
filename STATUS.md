@@ -756,7 +756,9 @@ change the graph (spec 15.8).
   the cause: **Patina could not read the image from the GPU**. Hypothesis: a poll on another
   thread ran the map callback late. The read now polls until the callback ran. Watch for a
   third failure.
-- The first open of a view builds it on the engine thread. A frame run waits for this build.
+- The first open of a view builds it in a background thread, so the frames go on (fixed
+  2026-11-17). The panel shows the view after the build. Nobody measured the frames during a
+  view build.
 - The view did not run on Linux or macOS. Only CI built it there.
 - These shortcuts are open in the code:
   - A viewport surface works only on Windows (`crates/patina-gpu/src/viewport.rs`).
