@@ -68,3 +68,24 @@ test('a long bus gets room for its width in each column that it goes through', (
     assert.ok(bus <= y - 28 - 16 + 1 || bus >= y + 60 + 28 + 16 - 1, `${id} ${y} ${bus}`);
   }
 });
+
+test('a tall column splits into columns in turn', () => {
+  // 40 sources of one reader make a column that is much taller than the layout is wide.
+  const ids = Array.from({ length: 40 }, (_, k) => `s${k}`);
+  const boxes = [...ids.map((id) => box(id)), box('r')];
+  const at = arrange(boxes, ids.map((id) => link(id, 'r')));
+  const pos = boxes.map((b) => at.get(b.id)!);
+  const xs = [...new Set(ids.map((id) => at.get(id)![0]))].sort((p, q) => p - q);
+  assert.ok(xs.length > 1 && xs.length <= 4, `${xs}`);
+  assert.ok(at.get('r')![0] > xs[xs.length - 1]);
+  // The sources go to the columns in turn, so the columns get the same count, plus or minus 1.
+  const counts = xs.map((x) => ids.filter((id) => at.get(id)![0] === x).length);
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${counts}`);
+  // One column is 40 x 92 px tall. The wires that go through the split columns take space too.
+  assert.ok(Math.max(...pos.map((p) => p[1])) < 0.75 * 40 * 92);
+  for (let i = 0; i < pos.length; i++)
+    for (let j = i + 1; j < pos.length; j++) {
+      const [a, b] = [pos[i], pos[j]];
+      assert.ok(Math.abs(a[0] - b[0]) >= 100 || Math.abs(a[1] - b[1]) >= 60, `${boxes[i].id} ${boxes[j].id}`);
+    }
+});

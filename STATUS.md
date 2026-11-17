@@ -1818,8 +1818,11 @@ To run the editor from a checkout:
   can then take a different path.
 - The automatic route and **Arrange** have no undo of a route change, because a route is not
   saved. The route changes when a node moves, and the wires of a large graph can jump.
-  **Arrange** puts all nodes of a layer in one column, so a wide layer makes a tall column, for
-  example the 112 switches of `rom-16x7`.
+- **Arrange** splits a tall column into up to 4 columns when the layout is more than twice as
+  tall as wide (fixed 2026-11-17, before a wide layer made one tall column). With estimated node
+  sizes, `rom-16x7` went from 2006 x 11472 px to 2596 x 5433 px. The router of the editor found a
+  path around the nodes for each wire. The wires were 17% shorter, with 12% more bends. A
+  frontend unit test checks the split. Nobody used it in the editor yet.
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did
   not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
   old recovery file, and its new changes do not go into the file until the user answers.

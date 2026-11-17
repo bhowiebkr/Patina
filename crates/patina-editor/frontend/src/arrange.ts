@@ -34,6 +34,10 @@ const GAP_Y = 32;
 /** The half space next to a wire that goes through a column, at least. */
 const LANE_Y = 10;
 const SWEEPS = 16;
+/** A layout more than this many times as tall as wide splits its tall columns. */
+const TALL = 2;
+/** The most columns that one column splits into. */
+const MAX_SPLIT = 4;
 
 /** A neighbor in the column before or after: item, pin height in the neighbor, own pin height, wire width. */
 type End = [number, number, number, number];
@@ -127,7 +131,39 @@ export function arrange(boxes: readonly Box[], links: readonly Link[]): Map<stri
     boxes,
     dag.map(([u, v]) => [u, v]),
   );
+  const first = place(boxes, dag, back, layer);
+  const split = wrap(boxes, layer, first);
+  return split ? place(boxes, dag, back, split) : first;
+}
 
+/**
+ * The columns of a layout that is more than TALL times as tall as wide, with each column that is
+ * taller than the side of a square of the same area split into up to MAX_SPLIT columns. The nodes
+ * of a split column go to its columns in turn, from top to bottom. Null when no column splits.
+ */
+function wrap(boxes: readonly Box[], layer: readonly number[], at: Map<string, Point>): number[] | null {
+  const pos = boxes.map((b) => at.get(b.id)!);
+  const w = Math.max(...boxes.map((b, i) => pos[i][0] + b.w));
+  const h = Math.max(...boxes.map((b, i) => pos[i][1] + b.h));
+  if (w <= 0 || h <= TALL * w) return null;
+  const side = Math.sqrt(w * h);
+  const count = Math.max(...layer) + 1;
+  const [parts, rank] = [new Array<number>(count).fill(1), new Array<number>(boxes.length).fill(0)];
+  for (let l = 0; l < count; l++) {
+    const col = layer.flatMap((m, i) => (m === l ? [i] : [])).sort((p, q) => pos[p][1] - pos[q][1]);
+    if (!col.length || col.some((i) => boxes[i].side)) continue;
+    const span = Math.max(...col.map((i) => pos[i][1] + boxes[i].h)) - pos[col[0]][1];
+    parts[l] = Math.min(MAX_SPLIT, col.length, Math.ceil(span / side));
+    col.forEach((i, k) => (rank[i] = k % parts[l]));
+  }
+  if (parts.every((p) => p === 1)) return null;
+  const base = [0];
+  for (let l = 0; l < count; l++) base.push(base[l] + parts[l]);
+  return layer.map((l, i) => base[l] + rank[i]);
+}
+
+/** The top left corner of each box in the columns `layer`, with the full layout at (0, 0). */
+function place(boxes: readonly Box[], dag: readonly [number, number, number, number, number][], back: Uint8Array, layer: readonly number[]): Map<string, Point> {
   // The items of each column. A long wire gets one item in each column that it goes through, shared by its output.
   const items: Item[] = boxes.map((b, i) => ({ box: i, h: b.h, half: GAP_Y / 2, layer: layer[i], y: 0, prev: [], next: [] }));
   const via = new Map<string, number>();
