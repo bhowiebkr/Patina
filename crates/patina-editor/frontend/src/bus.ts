@@ -34,6 +34,9 @@ export function familyOf(kind: KindInfo | undefined): number {
  * The lanes of a wire, the most significant first: the live lanes, else all off lanes when the
  * kind gives `lanes`, else one lane for a `bool`, else "" for one plain line.
  */
+/** The width in px of a wire with these lanes. */
+export const wireWidth = (bits: string) => Math.max(2, bits.length * PITCH);
+
 export function wireBits(value: Value | undefined, kind: KindInfo | undefined): string {
   if (value?.lanes) return value.lanes.bits;
   if (kind?.lanes.length) return '0'.repeat(kind.lanes.length);

@@ -13,6 +13,34 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Arrange with node sizes and bus widths
+
+- New: **Arrange** (Shift+L) uses the size of each node and the width of each wire. A bus pulls
+  its ends together with the square of its width, so the buses get straight first. A wire that
+  goes through a column gets space for its width, and each lane in a column gap is as wide as its
+  widest wire. At far zoom a node keeps the size of its GUI, so a node does not get smaller.
+- New: the graphs of `examples/computer` have the new layout.
+- Checked: the frontend tests of `arrange.ts`, and a hidden-desktop run of the editor that
+  arranged the 25 graphs of `examples/computer`. Each graph had 0 node overlaps after the
+  arrange. Before, `alu-8` and `ram-4x4` had 3 overlaps each. The self-check checks that the
+  node heights stay the same at far zoom.
+- Known limits: the wire router can put a bus in the gap of 32 px between two nodes of a column.
+  A vertical bus can touch the edge of a node.
+
+## No save without Save
+
+- New: only Ctrl+S or **Save** writes the graph files (owner decision, 2026-11-17). A change of
+  graph keeps the unsaved changes of each graph in memory. A run and a check use them. Save
+  writes each graph with unsaved changes. The recovery file holds each unsaved graph.
+- New: **Package** refuses to start while the project has unsaved changes. Before, it saved the
+  project first.
+- Checked: engine unit tests for a change of graph with no file write, a run with the unsaved
+  changes of a graph that is not open, and a save of all graphs. An editor unit test writes and
+  reads a recovery file with two graphs. The editor self-check passed on a hidden desktop.
+- Not checked: a restore of a recovery file with two graphs in the editor on the desktop.
+- Known limits: Ctrl+G, a new folder, **Import**, **Add crate**, and an undo or a redo of a code
+  change or a folder change still write their files at once.
+
 ## Snake on the computer
 
 - New: `programs/snake.asm`, a Snake game in the assembly of the computer. The arrow keys of the
@@ -786,7 +814,7 @@ and 6.4).
 - The engine collapses a selection into a new subgraph and expands a use. Unit tests check the
   public pins, the order wires, the cycle check, the ID collisions and the file.
 - A double-click on a use opens the subgraph in the editor. The public pins show as small nodes
-  with their wires, and the path bar goes back to the main graph. A change of graph saves first.
+  with their wires, and the path bar goes back to the main graph. A change of graph writes no file (2026-11-17).
 - In an open subgraph, the editor adds, moves, connects, renames and removes the public pins.
   Unit tests check the pin edits and an output with no source.
 - The **Subgraph interface** of the **Inspector** lists the public pins in pin order, with the

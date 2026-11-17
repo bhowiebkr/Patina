@@ -3,77 +3,77 @@ format = 1
 [[node]]
 id = "b7176b9e7d4a3371"
 builtin = "delay"
-pos = [-76.0, 123.0]
+pos = [-74.0, 188.0]
 
 [[node]]
 id = "07f432e162f79c82"
 builtin = "delay"
-pos = [264.0, 437.0]
+pos = [258.0, 524.0]
 
 [[node]]
 id = "4d48931c8d02d5cd"
 builtin = "delay"
-pos = [604.0, 516.0]
+pos = [590.0, 528.0]
 
 [[node]]
 id = "f0198c348a21d649"
 subgraph = "or"
-pos = [604.0, 144.0]
+pos = [590.0, 156.0]
 
 [[node]]
 id = "e5be8bc02772ffea"
 subgraph = "not"
-pos = [944.0, 393.0]
+pos = [935.0, 394.0]
 
 [[node]]
 id = "d6ecf81da68ba9f3"
 subgraph = "mux-4"
-pos = [264.0, 143.0]
+pos = [258.0, 230.0]
 
 [[node]]
 id = "b2c629befb704503"
 subgraph = "or"
-pos = [944.0, 247.0]
+pos = [935.0, 247.0]
 
 [[node]]
 id = "21e199931141c1d8"
 subgraph = "hex-ascii"
-pos = [604.0, 270.0]
+pos = [590.0, 282.0]
 
 [[node]]
 id = "599f746987c31c85"
 subgraph = "and"
-pos = [1260.0, 0.0]
+pos = [1254.0, 0.0]
 
 [[node]]
 id = "a3f9ea6dca3a8762"
 subgraph = "and"
-pos = [1260.0, 126.0]
+pos = [1254.0, 126.0]
 
 [[node]]
 id = "515076c83e20b400"
 subgraph = "and"
-pos = [1260.0, 272.0]
+pos = [1254.0, 273.0]
 
 [[node]]
 id = "c2f687450141ae07"
 subgraph = "and"
-pos = [1260.0, 398.0]
+pos = [1254.0, 399.0]
 
 [[node]]
 id = "dd5cd103d667bda2"
 subgraph = "and"
-pos = [1260.0, 524.0]
+pos = [1254.0, 525.0]
 
 [[node]]
 id = "23f48abe296ec3d9"
 subgraph = "and"
-pos = [1260.0, 650.0]
+pos = [1254.0, 651.0]
 
 [[node]]
 id = "6e9577ecf396c92b"
 subgraph = "or"
-pos = [944.0, 555.0]
+pos = [935.0, 559.0]
 
 [[wire]]
 from = "b7176b9e7d4a3371.out"
@@ -182,101 +182,101 @@ to = "b2c629befb704503.3fbd40e4"
 [[input]]
 key = "7eb8807b"
 name = "strobe"
-pos = [-300.0, 70.0]
+pos = [-300.0, 117.0]
 to = ["b7176b9e7d4a3371.value"]
 
 [[input]]
 key = "2d32bdbc"
 name = "d0"
-pos = [-300.0, 136.0]
+pos = [-300.0, 183.0]
 to = ["d6ecf81da68ba9f3.ae296ad3"]
 
 [[input]]
 key = "f82fb5e3"
 name = "d1"
-pos = [-300.0, 202.0]
+pos = [-300.0, 249.0]
 to = ["d6ecf81da68ba9f3.f51c5bc3"]
 
 [[input]]
 key = "76f4c8ad"
 name = "d2"
-pos = [-300.0, 268.0]
+pos = [-300.0, 315.0]
 to = ["d6ecf81da68ba9f3.c7388613"]
 
 [[input]]
 key = "8084fcea"
 name = "d3"
-pos = [-300.0, 334.0]
+pos = [-300.0, 381.0]
 to = ["d6ecf81da68ba9f3.afabbb32"]
 
 [[input]]
 key = "f45bd7af"
 name = "d4"
-pos = [-300.0, 400.0]
+pos = [-300.0, 447.0]
 to = ["d6ecf81da68ba9f3.bca94d9c"]
 
 [[input]]
 key = "7f7abccd"
 name = "d5"
-pos = [-300.0, 466.0]
+pos = [-300.0, 513.0]
 to = ["d6ecf81da68ba9f3.532484f3"]
 
 [[input]]
 key = "3c5ea14e"
 name = "d6"
-pos = [-300.0, 532.0]
+pos = [-300.0, 579.0]
 to = ["d6ecf81da68ba9f3.29aa56af"]
 
 [[input]]
 key = "73f86dc8"
 name = "d7"
-pos = [-300.0, 598.0]
+pos = [-300.0, 645.0]
 to = ["d6ecf81da68ba9f3.7c523a7a"]
 
 [[output]]
 key = "aaa5d3c3"
 name = "c0"
-pos = [1540.0, 34.0]
+pos = [1534.0, 34.0]
 from = "599f746987c31c85.72b5072c"
 
 [[output]]
 key = "555c8476"
 name = "c1"
-pos = [1540.0, 160.0]
+pos = [1534.0, 160.0]
 from = "a3f9ea6dca3a8762.72b5072c"
 
 [[output]]
 key = "493ff7a3"
 name = "c2"
-pos = [1540.0, 306.0]
+pos = [1534.0, 307.0]
 from = "515076c83e20b400.72b5072c"
 
 [[output]]
 key = "5dffbf48"
 name = "c3"
-pos = [1540.0, 432.0]
+pos = [1534.0, 433.0]
 from = "c2f687450141ae07.72b5072c"
 
 [[output]]
 key = "048f320c"
 name = "c4"
-pos = [1540.0, 558.0]
+pos = [1534.0, 559.0]
 from = "dd5cd103d667bda2.72b5072c"
 
 [[output]]
 key = "ed417275"
 name = "c5"
-pos = [1540.0, 753.0]
+pos = [1534.0, 755.0]
 from = "6e9577ecf396c92b.67d0fbe0"
 
 [[output]]
 key = "765c0ac1"
 name = "c6"
-pos = [1540.0, 684.0]
+pos = [1534.0, 685.0]
 from = "23f48abe296ec3d9.72b5072c"
 
 [[output]]
 key = "32ce5f1f"
 name = "write"
-pos = [1540.0, 229.0]
+pos = [1534.0, 230.0]
 from = "b2c629befb704503.67d0fbe0"

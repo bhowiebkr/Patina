@@ -13,7 +13,7 @@ pos = [-100.0, 102.0]
 [[node]]
 id = "bf44688399e68bac"
 folder = "nodes/nand"
-pos = [192.0, 39.0]
+pos = [193.0, 39.0]
 
 [[wire]]
 from = "0062c04df4060375.7ff633ef"
@@ -38,5 +38,5 @@ to = ["a9ab786660e234f1.5ade65ce"]
 [[output]]
 key = "67d0fbe0"
 name = "out"
-pos = [472.0, 73.0]
+pos = [473.0, 73.0]
 from = "bf44688399e68bac.out"

@@ -17,7 +17,7 @@ import {
 } from 'react';
 import { EdgeLabelRenderer, getBezierPath, Position, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
 import type { Corners, Edit, KindInfo, Point, Style, Value } from './api';
-import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits } from './bus';
+import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
 import type { Labels } from './labels';
 import type { Router } from './route';
@@ -82,7 +82,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const { from, style, corners, cross = false, net = from } = data!;
   // A wire with the graph default look goes around the node bodies. Its route points are waypoints (15.9).
   const auto = style === undefined;
-  const width = Math.max(2, bits.length * PITCH);
+  const width = wireWidth(bits);
   useLayoutEffect(() => {
     if (auto) router.setWire(id, { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, via: route, net, width });
     else router.removeWire(id);

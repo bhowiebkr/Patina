@@ -3,277 +3,277 @@ format = 1
 [[node]]
 id = "5bd5e7d3d381a511"
 folder = "nodes/split"
-pos = [0.0, 0.0]
+pos = [-70.0, 1722.0]
 
 [[node]]
 id = "6df022c9f17df78a"
 subgraph = "incrementer-8"
-pos = [0.0, 260.0]
+pos = [1515.0, 149.0]
 
 [[node]]
 id = "4c3d3843db37b8f7"
 subgraph = "decoder-4"
-pos = [300.0, 0.0]
+pos = [297.0, 1514.0]
 
 [[node]]
 id = "76ff9aa556c1dcd7"
 subgraph = "not"
-pos = [300.0, 740.0]
+pos = [297.0, 2180.0]
 
 [[node]]
 id = "535bc0fc92ebf74a"
 subgraph = "or"
-pos = [300.0, 880.0]
+pos = [297.0, 1171.0]
 
 [[node]]
 id = "14662df863271645"
 subgraph = "xor"
-pos = [300.0, 1060.0]
+pos = [297.0, 2324.0]
 
 [[node]]
 id = "0cca6bf0cb560acb"
 builtin = "delay"
-pos = [300.0, 1240.0]
+pos = [297.0, 2078.0]
 
 [[node]]
 id = "93cb6a43e8519332"
 builtin = "delay"
-pos = [300.0, 1380.0]
+pos = [297.0, 1976.0]
 
 [[node]]
 id = "a9b603c38d57a881"
 subgraph = "or"
-pos = [600.0, 0.0]
+pos = [733.0, 1689.0]
 
 [[node]]
 id = "f9257516837c5c58"
 subgraph = "or"
-pos = [600.0, 180.0]
+pos = [733.0, 2403.0]
 
 [[node]]
 id = "17a076adba7b6045"
 subgraph = "and"
-pos = [600.0, 360.0]
+pos = [733.0, 1563.0]
 
 [[node]]
 id = "ace543dce33fa110"
 subgraph = "and"
-pos = [600.0, 540.0]
+pos = [733.0, 2529.0]
 
 [[node]]
 id = "752036e9f7443966"
 subgraph = "or"
-pos = [600.0, 720.0]
+pos = [733.0, 1815.0]
 
 [[node]]
 id = "54ba439882d10c8f"
 subgraph = "and"
-pos = [600.0, 900.0]
+pos = [733.0, 1346.0]
 
 [[node]]
 id = "314482d4b851a734"
 subgraph = "and"
-pos = [600.0, 1080.0]
+pos = [733.0, 1962.0]
 
 [[node]]
 id = "791fdaf5e8cdb4b8"
 subgraph = "and"
-pos = [600.0, 1260.0]
+pos = [733.0, 2256.0]
 
 [[node]]
 id = "96ce1e29e8d001eb"
 subgraph = "and"
-pos = [600.0, 1440.0]
+pos = [733.0, 762.0]
 
 [[node]]
 id = "73457fb5b23e4c7d"
 subgraph = "and"
-pos = [600.0, 1620.0]
+pos = [733.0, 636.0]
 
 [[node]]
 id = "45d27262f4c9ce5d"
 subgraph = "and"
-pos = [600.0, 1800.0]
+pos = [733.0, 2088.0]
 
 [[node]]
 id = "1e0fccbeb03fc24d"
 subgraph = "and"
-pos = [900.0, 170.0]
+pos = [1078.0, 2577.0]
 
 [[node]]
 id = "d60aacc895aec109"
 subgraph = "register-8"
-pos = [900.0, 350.0]
+pos = [1078.0, 1633.0]
 
 [[node]]
 id = "124a503b8cddb055"
 subgraph = "and"
-pos = [900.0, 810.0]
+pos = [1078.0, 2136.0]
 
 [[node]]
 id = "f1f4c15ffb47905a"
 subgraph = "or"
-pos = [900.0, 990.0]
+pos = [1078.0, 2451.0]
 
 [[node]]
 id = "230177865c1c821e"
 subgraph = "and"
-pos = [900.0, 1170.0]
+pos = [1078.0, 2283.0]
 
 [[node]]
 id = "3fdf72375c990005"
 subgraph = "or"
-pos = [900.0, 1510.0]
+pos = [1078.0, 433.0]
 
 [[node]]
 id = "09e7b231cf229516"
 subgraph = "and"
-pos = [1200.0, 155.0]
+pos = [1515.0, 2286.0]
 
 [[node]]
 id = "0711fcbaca7ca6c3"
 subgraph = "and"
-pos = [1200.0, 335.0]
+pos = [1515.0, 2160.0]
 
 [[node]]
 id = "c7c6339fdef2faca"
 subgraph = "and"
-pos = [1200.0, 515.0]
+pos = [1515.0, 2034.0]
 
 [[node]]
 id = "8cb219d1bc3517ad"
 subgraph = "and"
-pos = [1200.0, 695.0]
+pos = [1515.0, 1908.0]
 
 [[node]]
 id = "d077586ab15c2826"
 subgraph = "and"
-pos = [1200.0, 875.0]
+pos = [1515.0, 1782.0]
 
 [[node]]
 id = "d4cb46be47cf5419"
 subgraph = "and"
-pos = [1200.0, 1055.0]
+pos = [1515.0, 1656.0]
 
 [[node]]
 id = "d39cc1e36b0cc14b"
 subgraph = "and"
-pos = [1200.0, 1235.0]
+pos = [1515.0, 1530.0]
 
 [[node]]
 id = "1ed6f73bac28950f"
 subgraph = "and"
-pos = [1200.0, 1415.0]
+pos = [1515.0, 1404.0]
 
 [[node]]
 id = "6d5321e653a9490f"
 subgraph = "and"
-pos = [1200.0, 1595.0]
+pos = [1515.0, 2517.0]
 
 [[node]]
 id = "a3f2db1f3c0c26cf"
 subgraph = "or"
-pos = [1200.0, 1775.0]
+pos = [1515.0, 23.0]
 
 [[node]]
 id = "17fce0d69c3481e8"
 subgraph = "mux-8"
-pos = [1500.0, 691.7]
+pos = [1952.0, 31.0]
 
 [[node]]
 id = "26d0db6e8855009f"
 folder = "nodes/join"
-pos = [1500.0, 911.7]
+pos = [1952.0, 1810.0]
 
 [[node]]
 id = "214f19204659b38b"
 subgraph = "register-8"
-pos = [1800.0, 425.8]
+pos = [2328.0, 10.0]
 
 [[node]]
 id = "25f9fb5b64cf6cad"
 subgraph = "adder-8"
-pos = [1800.0, 885.8]
+pos = [2328.0, 1543.0]
 
 [[node]]
 id = "ad31a648ac1e290d"
 folder = "nodes/split"
-pos = [2100.0, 865.8]
+pos = [2747.0, 1434.0]
 
 [[node]]
 id = "07e0d10ac4a0d8d8"
 subgraph = "and"
-pos = [2400.0, 845.8]
+pos = [3157.0, 1691.0]
 
 [[node]]
 id = "87278d8b264ae799"
 subgraph = "and"
-pos = [2400.0, 1025.8]
+pos = [3157.0, 1817.0]
 
 [[node]]
 id = "561209f50f05eaad"
 subgraph = "and"
-pos = [2700.0, 915.8]
+pos = [3450.0, 1790.0]
 
 [[node]]
 id = "9558cdf6b0c21f02"
 subgraph = "mux-8"
-pos = [3000.0, 518.6]
+pos = [3839.0, 1131.0]
 
 [[node]]
 id = "850a7e24a60c7301"
 subgraph = "and"
-pos = [3000.0, 738.6]
+pos = [3839.0, 1840.0]
 
 [[node]]
 id = "274415b164cb38f3"
 subgraph = "not"
-pos = [3000.0, 918.6]
+pos = [3839.0, 1717.0]
 
 [[node]]
 id = "b7aa19a134a5108f"
 subgraph = "and"
-pos = [3000.0, 1235.4]
+pos = [3839.0, 2070.0]
 
 [[node]]
 id = "358d41a480c4204b"
 subgraph = "mux-8"
-pos = [3300.0, 479.5]
+pos = [4215.0, 1028.0]
 
 [[node]]
 id = "ba2ade077d41d8a7"
 subgraph = "and"
-pos = [3300.0, 699.5]
+pos = [4215.0, 1707.0]
 
 [[node]]
 id = "3a5490c29549c718"
 subgraph = "alu-8"
-pos = [3600.0, 799.8]
+pos = [4556.0, 1154.0]
 
 [[node]]
 id = "569dede013f801f5"
 subgraph = "is-zero-8"
-pos = [3900.0, 779.8]
+pos = [4993.0, 1780.0]
 
 [[node]]
 id = "5386b0080cb0d40a"
 subgraph = "register-8"
-pos = [3900.0, 919.8]
+pos = [4993.0, 774.0]
 
 [[node]]
 id = "5f6007867b65f10a"
 subgraph = "mux"
-pos = [3900.0, 1379.8]
+pos = [4993.0, 1490.0]
 
 [[node]]
 id = "2b03179b3688aea3"
 subgraph = "register-8"
-pos = [4200.0, 709.9]
+pos = [5347.0, 752.0]
 
 [[node]]
 id = "c681af89775d4429"
 subgraph = "mux"
-pos = [4200.0, 1169.9]
+pos = [5347.0, 2227.0]
 
 [[wire]]
 from = "5bd5e7d3d381a511.out0"
@@ -705,161 +705,161 @@ to = "b7aa19a134a5108f.072eae79"
 [[input]]
 key = "cbe9ab2b"
 name = "op"
-pos = [-300.0, 0.0]
+pos = [-300.0, 1722.0]
 to = ["5bd5e7d3d381a511.value"]
 
 [[input]]
 key = "8426c7db"
 name = "k"
-pos = [-300.0, 100.0]
+pos = [-300.0, 775.0]
 to = ["25f9fb5b64cf6cad.c3016a3d", "358d41a480c4204b.6d215f9b", "17fce0d69c3481e8.c1c03e99"]
 
 [[input]]
 key = "4654170b"
 name = "clk"
-pos = [-300.0, 200.0]
+pos = [-300.0, 2313.0]
 to = ["17a076adba7b6045.072eae79", "ace543dce33fa110.072eae79", "214f19204659b38b.97c51e0d", "124a503b8cddb055.072eae79", "230177865c1c821e.072eae79", "1e0fccbeb03fc24d.072eae79", "6d5321e653a9490f.072eae79"]
 
 [[input]]
 key = "eb42a85e"
 name = "mem"
-pos = [-300.0, 300.0]
+pos = [-300.0, 1193.0]
 to = ["9558cdf6b0c21f02.6d215f9b"]
 
 [[input]]
 key = "316d50d0"
 name = "io"
-pos = [-300.0, 400.0]
+pos = [-300.0, 1389.0]
 to = ["9558cdf6b0c21f02.c1c03e99"]
 
 [[output]]
 key = "ccd3b184"
 name = "pc0"
-pos = [4500.0, 0.0]
+pos = [5692.0, 0.0]
 from = "214f19204659b38b.95c9a4ac"
 
 [[output]]
 key = "56a3d4e9"
 name = "pc1"
-pos = [4500.0, 100.0]
+pos = [5692.0, 66.0]
 from = "214f19204659b38b.f02f59d1"
 
 [[output]]
 key = "654124ac"
 name = "pc2"
-pos = [4500.0, 200.0]
+pos = [5692.0, 132.0]
 from = "214f19204659b38b.a8dea38f"
 
 [[output]]
 key = "17a92216"
 name = "pc3"
-pos = [4500.0, 300.0]
+pos = [5692.0, 198.0]
 from = "214f19204659b38b.ec463444"
 
 [[output]]
 key = "3ed09d0c"
 name = "a0"
-pos = [4500.0, 400.0]
+pos = [5692.0, 460.0]
 from = "5386b0080cb0d40a.95c9a4ac"
 
 [[output]]
 key = "f6341638"
 name = "out0"
-pos = [4500.0, 500.0]
+pos = [5692.0, 526.0]
 from = "2b03179b3688aea3.95c9a4ac"
 
 [[output]]
 key = "0ceec420"
 name = "out1"
-pos = [4500.0, 600.0]
+pos = [5692.0, 592.0]
 from = "2b03179b3688aea3.f02f59d1"
 
 [[output]]
 key = "9b738df0"
 name = "out2"
-pos = [4500.0, 700.0]
+pos = [5692.0, 658.0]
 from = "2b03179b3688aea3.a8dea38f"
 
 [[output]]
 key = "30556757"
 name = "out3"
-pos = [4500.0, 800.0]
+pos = [5692.0, 724.0]
 from = "2b03179b3688aea3.ec463444"
 
 [[output]]
 key = "488b8fa6"
 name = "out4"
-pos = [4500.0, 900.0]
+pos = [5692.0, 790.0]
 from = "2b03179b3688aea3.2edf2b00"
 
 [[output]]
 key = "5fbc79ba"
 name = "out5"
-pos = [4500.0, 1000.0]
+pos = [5692.0, 856.0]
 from = "2b03179b3688aea3.465e89cb"
 
 [[output]]
 key = "2b1b8661"
 name = "out6"
-pos = [4500.0, 1100.0]
+pos = [5692.0, 922.0]
 from = "2b03179b3688aea3.d2365a4a"
 
 [[output]]
 key = "8d314c02"
 name = "out7"
-pos = [4500.0, 1200.0]
+pos = [5692.0, 1184.0]
 from = "2b03179b3688aea3.32d35827"
 
 [[output]]
 key = "5e1f0a7c"
 name = "strobe"
-pos = [4500.0, 1300.0]
+pos = [5692.0, 2812.0]
 from = "ace543dce33fa110.72b5072c"
 
 [[output]]
 key = "566aa9ba"
 name = "pc"
-pos = [4500.0, 1400.0]
+pos = [5692.0, 264.0]
 from = "214f19204659b38b.a1a82dd8"
 
 [[output]]
 key = "78d48ca9"
 name = "a"
-pos = [4500.0, 1500.0]
+pos = [5692.0, 1250.0]
 from = "5386b0080cb0d40a.a1a82dd8"
 
 [[output]]
 key = "14f78f37"
 name = "x"
-pos = [4500.0, 1600.0]
+pos = [5692.0, 2616.0]
 from = "d60aacc895aec109.a1a82dd8"
 
 [[output]]
 key = "64e426d1"
 name = "out"
-pos = [4500.0, 1700.0]
+pos = [5692.0, 988.0]
 from = "2b03179b3688aea3.a1a82dd8"
 
 [[output]]
 key = "4cf4949d"
 name = "address"
-pos = [4500.0, 1800.0]
+pos = [5692.0, 1563.0]
 from = "25f9fb5b64cf6cad.797e287f"
 
 [[output]]
 key = "f7758476"
 name = "write"
-pos = [4500.0, 1900.0]
+pos = [5692.0, 1759.0]
 from = "ba2ade077d41d8a7.72b5072c"
 
 [[output]]
 key = "35baac86"
 name = "wr"
-pos = [4500.0, 2000.0]
+pos = [5692.0, 1825.0]
 from = "850a7e24a60c7301.72b5072c"
 
 [[output]]
 key = "e9c7be59"
 name = "rd"
-pos = [4500.0, 2100.0]
+pos = [5692.0, 1891.0]
 from = "b7aa19a134a5108f.72b5072c"

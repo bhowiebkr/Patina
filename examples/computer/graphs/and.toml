@@ -3,12 +3,12 @@ format = 1
 [[node]]
 id = "e4e91cd182aae246"
 folder = "nodes/nand"
-pos = [-88.0, 0.0]
+pos = [-87.0, 0.0]
 
 [[node]]
 id = "0db4cd36c8953fe6"
 subgraph = "not"
-pos = [192.0, 0.0]
+pos = [193.0, 0.0]
 
 [[wire]]
 from = "e4e91cd182aae246.out"
@@ -29,5 +29,5 @@ to = ["e4e91cd182aae246.b"]
 [[output]]
 key = "72b5072c"
 name = "out"
-pos = [472.0, 34.0]
+pos = [473.0, 34.0]
 from = "0db4cd36c8953fe6.7ff633ef"

@@ -22,7 +22,7 @@ import { arrange, type Box, type Link } from './arrange';
 import { AddNode } from './AddNode';
 import { NameField } from './NameField';
 import { api, newId, type Domain, type Edit, type GraphFile, type KindInfo, type NodeInfo, type Pin, type Point, type View } from './api';
-import { HoverContext, HoverStore, kindOf, socketOf, type Socket } from './bus';
+import { HoverContext, HoverStore, kindOf, socketOf, wireBits, wireWidth, type Socket } from './bus';
 import { Menu, savedViewport, saveViewport, type Item } from './Dock';
 import { canvasMenu, type MenuAction, type MenuTarget } from './canvasMenu';
 import { FrameToggle, HEADER, NodeEdit, NodeView, ORDER, ROW, PortView, infoOf, nodeState, outputType, valueStale, type PatinaNode, type PortNode, type RunState } from './NodeView';
@@ -95,7 +95,12 @@ const PUBLIC_INPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public input', outputs: [{
 const PUBLIC_OUTPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public output', inputs: [{ key: 'pin', ty: '?' }] };
 
 /** The moves of the Arrange command (15.9): the selected nodes, or all nodes when fewer than two are selected. */
-function arrangeEdits(nodes: GraphNode[], edges: Edge<WireData>[], flow: ReactFlowInstance<GraphNode, Edge<WireData>>): Edit[] {
+function arrangeEdits(
+  nodes: GraphNode[],
+  edges: Edge<WireData>[],
+  flow: ReactFlowInstance<GraphNode, Edge<WireData>>,
+  widthOf: (data: WireData) => number,
+): Edit[] {
   const picked = nodes.filter((n) => n.selected);
   const chosen = picked.length > 1 ? picked : nodes.filter((n) => !n.parentId);
   if (chosen.length === 0) return [];
@@ -111,7 +116,16 @@ function arrangeEdits(nodes: GraphNode[], edges: Edge<WireData>[], flow: ReactFl
   });
   const links = edges.flatMap((e): Link[] =>
     ids.has(e.source) && ids.has(e.target)
-      ? [{ from: e.source, fy: pinY(e.source, e.sourceHandle, 'source'), to: e.target, ty: pinY(e.target, e.targetHandle, 'target'), net: e.data?.from ?? e.id }]
+      ? [
+          {
+            from: e.source,
+            fy: pinY(e.source, e.sourceHandle, 'source'),
+            to: e.target,
+            ty: pinY(e.target, e.targetHandle, 'target'),
+            net: e.data?.from ?? e.id,
+            width: e.data ? widthOf(e.data) : 2,
+          },
+        ]
       : [],
   );
   const at = arrange(boxes, links);
@@ -552,11 +566,11 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
         group(edits);
       },
       fit: () => flow.fitView(selected.length > 0 ? { ...FIT, nodes: selected } : FIT),
-      arrange: () => group(arrangeEdits(nodes, edges, flow)),
+      arrange: () => group(arrangeEdits(nodes, edges, flow, (d) => wireWidth(wireBits(run.values.get(d.from), kindOf(view.kinds, d.ty))))),
       selectAll: () => select(true),
       clear: () => select(false),
     };
-  }, [nodes, edges, edit, onExpand, flow]);
+  }, [nodes, edges, edit, onExpand, flow, run.values, view.kinds]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

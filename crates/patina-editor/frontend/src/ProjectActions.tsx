@@ -53,14 +53,13 @@ export function useProjectActions({ show, markStale, log, setInspect, setError }
     try {
       const parent = await api.pickFolder('');
       if (!parent) return;
-      show(await api.save());
       log([{ text: 'Making the package', kind: 'info' }]);
       const made = await api.makePackage(parent);
       log([...made.warnings.map((w): Line => ({ text: w, kind: 'warn' })), { text: `Made the package ${made.out}`, kind: 'info' }]);
     } catch (e) {
       setError(String(e));
     }
-  }, [show, log, setError]);
+  }, [log, setError]);
 
   /** Adds a crate to a code folder with `cargo add`. Undo removes it (15.4). */
   const addCrate = useCallback(async (folder: string, spec: string) => show(await api.addCrate(folder, spec)), [show]);

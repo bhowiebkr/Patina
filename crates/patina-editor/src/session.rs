@@ -261,8 +261,8 @@ impl Session {
     /// (15.10). An error shows with the problems of the project.
     fn keep_recovery(&mut self, data: &Data) {
         if self.recovery.is_none() {
-            let graph = self.project.dirty().then(|| (self.project.graph_name(), self.project.graph()));
-            self.recovery_error = data.save_recovery(self.project.root(), graph, &self.code).err();
+            let graphs: Vec<_> = self.project.unsaved().collect();
+            self.recovery_error = data.save_recovery(self.project.root(), self.project.graph_name(), &graphs, &self.code).err();
         }
     }
 
@@ -578,18 +578,18 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
         if !session.trusted {
             return Err("Trust the project before you restore its changes.".to_owned());
         }
-        let name = session.recovery.as_ref().filter(|f| f.graph.is_some()).and_then(|f| f.graph_name.clone());
-        if let (true, Some(name)) = (restore, name) {
-            session.project.open_graph(&name)?;
+        let file = session.recovery.as_ref().ok_or("The project has no recovery file.")?;
+        if restore {
+            // Each graph opens and gets its changes as one step of undo. The open graph comes last.
+            let open = file.graph_name.as_deref().filter(|_| file.graph.is_some()).unwrap_or("main");
+            for (name, graph) in file.others.iter().map(|(name, g)| (name.as_str(), g)).chain(file.graph.as_ref().map(|g| (open, g))) {
+                session.project.open_graph(name)?;
+                session.project.restore_graph(graph.clone());
+            }
+            session.project.open_graph(open)?;
         }
         let file = session.recovery.take().ok_or("The project has no recovery file.")?;
-        let mut code = BTreeMap::new();
-        if restore {
-            if let Some(graph) = file.graph {
-                session.project.restore_graph(graph);
-            }
-            code = file.code;
-        }
+        let code = if restore { file.code } else { BTreeMap::new() };
         session.code = code.clone();
         session.keep_recovery(&editor.data);
         Ok(Recovered { view: session.view(&editor.engine, None, None), code })

@@ -19,7 +19,7 @@ Part of the [Patina Specification](README.md).
 - The connections (15.9) draw on one WebGL2 canvas under the nodes, not as SVG edges. In the connections prototype (19), SVG dropped frames in a pan, and the WebGL layer held 60 FPS with 2 to 11 times less CPU. React Flow with this layer met the targets, so the framework is React. Svelte Flow was not measured. (Agent decision, 2026-11-15. The owner can change it. The measurements are in STATUS.md.)
 - Each connection keeps an invisible React Flow edge path on the same curve. This path gets the click, the box selection and the keyboard focus. The WebGL layer draws the visible wires and the selection band. Without WebGL2, or after a lost context, CSS shows the edge paths as SVG wires. (Agent decision, 2026-11-15. The owner can change it.)
 - At a 20% zoom, 500 HTML nodes dropped frames in the same prototype. Thus the graph view needs a simpler node form at a far zoom.
-- Below a zoom of 0.5, each node keeps its box, its header with the title and the state icon, its border, its pins and its message. Its rows have no pin names and no parameter text. The wires hide their value badges and type labels, except on a selected wire. A bus keeps its label "/ n" (15.9). (Agent decision, 2026-11-15. The owner can change it.)
+- Below a zoom of 0.5, each node keeps its box, its header with the title and the state icon, its border, its pins and its message. Its GUI keeps its place but does not draw, so the box has the same size at each zoom. Its rows have no pin names and no parameter text. The wires hide their value badges and type labels, except on a selected wire. A bus keeps its label "/ n" (15.9). (Agent decision, 2026-11-15. The owner can change it.)
 
 ### 15.2 Layout
 
@@ -109,7 +109,7 @@ The **Import** button at the end of the **Project** panel copies a folder from a
 - **Import** stays off until each conflict has a choice. During the build check the dialog shows **Building**. An error stays in the dialog, and the project stays as it was.
 - An untrusted project has no **Import** button.
 - Above the **Import** button, the **Imports** list shows each imported folder. A click on a folder opens the **Update** dialog for it. Patina finds the other project, or opens the folder dialog.
-- The **Package** button after **Import** opens the folder dialog. Patina saves the project and makes an executable package in `<chosen folder>/<project name>` (14.1). The **Logs** panel shows **Making the package**, the warnings and the package folder. An error shows in the status bar. (Agent decision, 2026-11-15. The owner can change it.)
+- The **Package** button after **Import** opens the folder dialog. Patina makes an executable package in `<chosen folder>/<project name>` (14.1). A package builds from the files, so the editor refuses it while the project has unsaved changes. The **Logs** panel shows **Making the package**, the warnings and the package folder. An error shows in the status bar. (Agent decision, 2026-11-15. The owner can change it.)
 - The **Update** dialog lists the files that are different, with **Only in the other project**, **Only in this project** or **Different**. A file that only one side changed shows the version that the update takes: **Other project** or **This project**. A file that the two sides changed has a choice of **Other project** or **This project** (6.2). **Update** stays off until each such file has a choice, or when the other project did not change. During the build check the dialog shows **Building**.
 
 **Graph view navigation:**
@@ -504,6 +504,10 @@ A connection shows the value that it carries while the graph runs. Connections a
   - A wire with no clear path, or a graph with more than 2 million grid points, gets the simple orthogonal path.
   - A wire with no clear path shows a conflict mark: a small yellow circle with "!" on the first segment that goes through a node body. The tooltip tells the user to move a node or a route point. The mark is not a run error, and the wire stays connected. A graph with more than 2 million grid points shows no marks. (Agent decision, 2026-11-16. The owner can change it.)
 - **Shift+L** (**Arrange**) puts the selected nodes, or all nodes when fewer than two are selected, in columns from left to right. Public inputs go to the first column and public outputs to the last column. A loop has wires that go back, from right to left, and the layout keeps these wires few. The nodes of a column keep an order that cuts the crossings. The space between two columns grows with the outputs that have a wire with a bend in it. The layout keeps the top left corner of the arranged nodes, and the moves are one edit with undo. (Agent decision, 2026-11-16. The owner can change it.)
+  - The layout uses the full size of each node, with its GUI, also at a far zoom (15.1). It uses the drawn width of each wire. (Agent decision, 2026-11-17, after the owner saw tall nodes and buses that overlapped. The owner can change it.)
+  - A wire that bends in a column gap gets a lane as wide as the wire plus 8 px, at least 12 px. Two outputs share a lane when their bends do not overlap.
+  - A long wire that goes through a column keeps half its width plus 8 px, at least 10 px, from the nodes and wires above and below it.
+  - A wire pulls its two ends to the same height with the square of its width. Thus a bus of 8 lanes (40 px) pulls 64 times as hard as a bool wire (5 px), and the buses get straight first.
 - An orthogonal wire is horizontal at its pins. It turns at a right angle before each route point that is not in line, and its last leg turns at the middle between the last point and the target. A leg that goes back leaves the pin by 20 px first. A curved wire with route points is a smooth curve through the points. (Agent decision, 2026-11-15. The owner can change it.)
 - **Bus** (compact or ribbon display), **Lock bends** and the crossing controls are later refinements of the automatic route (see the optional refinements below). (Agent decision, 2026-11-15. The owner can change it.)
 - Use neutral wires by default. A project can use named color families for signal groups. Keep type labels, direction and lane identity available.
@@ -566,12 +570,13 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - Reason: the order of the pins is the order on each use, and the canvas does not show it. The list uses the **Inspector**, so it needs no new panel.
 - The **Add node** palette of an open subgraph has the entries **Public input** and **Public output**. A new pin gets a random key. When the palette opens from a wire drag, the pin connects to that pin and takes its key as the name.
 - A removed pin also removes its wires in the subgraph. A wire of a use to a removed pin stays in the outer graph, and the check shows a problem for it.
-- Only the open graph can have unsaved changes. Thus a change of graph saves all first, as Ctrl+S does. Each graph keeps its undo history while the project is open.
-- A run uses the unsaved changes of the open subgraph, as it does for the main graph.
+- Each graph keeps its unsaved changes and its undo history in memory while the project is open. A change of graph writes no file. Only Ctrl+S or **Save** writes the graph files, and it writes each graph with unsaved changes. The other actions write no graph file. (Owner decision, 2026-11-17.)
+- A run uses the unsaved changes of each graph, as it does for the main graph.
 - A subgraph that opens with a double-click on a use shows the live values of that use: the lit wires, the value badges and the node GUIs. A public input pin shows the value of the wire to the use. A subgraph that opens from the **Project** panel shows no live values, because it has no use. This is an agent decision of 2026-11-15. The owner can change it.
 - The path bar of an open subgraph has a **Test** button. It runs one use of the subgraph alone, with the ID `7e57000000000000`, in place of the main graph. Each public input with a `bool` type starts as `false`. Patina shows a switch at the left of each such input node, and a lamp at the right of each output node with a `bool` value. A click on a switch toggles the input and runs the subgraph again. Other inputs and outputs show their value next to the pin. **End test** or a change of graph returns to the main graph. An untrusted project has no test. This is an agent decision of 2026-11-15. The owner can change it.
 - Reason: the user of a gate subgraph, for example a full adder, must see its truth table before a use. A test needs no outer graph and no change of the files.
-- Reason: one unsaved graph keeps the save, the recovery file and the close dialog simple. A user who opens a subgraph usually wants the change of the main graph to stay.
+- Reason: the owner often opens a project only to try things. A graph file must change only when the user saves.
+- Exceptions: Ctrl+G, a new folder, **Import**, **Add crate**, and an undo or a redo of a code change or a folder change write their files at once. Cargo builds from these files, or the user asked for the new file.
 
 **Collapse into a subgraph**
 
@@ -589,7 +594,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 This is an agent decision of 2026-11-15. The owner can change it.
 
 - The file is `data/recovery/<hash>.json`. The hash is the 64-bit FNV-1a hash of the path of the project folder, as 16 hex digits. On Windows, the path has no case.
-- The file holds the format version 1, the project folder, the open graph and its name when it has unsaved changes, and the unsaved text of each code file by path. A restore opens that graph first. A file of more than 16 MiB is an error.
+- The file holds the format version 1, the project folder, the open graph and its name when it has unsaved changes, each other graph with unsaved changes by name, and the unsaved text of each code file by path. A restore opens each graph and gives it its changes. The open graph opens last. A file of more than 16 MiB is an error.
 - Patina writes the file after each graph edit, undo, redo and save. It writes the file 300 ms after the user stops typing in the **Code** tab. The first unsaved code change, and the last one that goes, write the file at once.
 - Patina writes a temporary file and then renames it, so a stop during a write does not break the old file.
 - When the project has no unsaved changes, Patina deletes the file. A close or a quit after the user saved or discarded the changes deletes it too.

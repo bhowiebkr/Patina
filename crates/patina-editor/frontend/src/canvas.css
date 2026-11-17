@@ -122,6 +122,11 @@
   box-shadow: none;
 }
 
+/* At a far zoom, the GUI keeps its place, so the node keeps its box, but it does not draw (15.1). */
+.patina-node.far .node-gui {
+  visibility: hidden;
+}
+
 .patina-node.far.selected {
   box-shadow: 0 0 0 1px var(--focus, var(--accent));
 }

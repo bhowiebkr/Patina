@@ -3,12 +3,12 @@ format = 1
 [[node]]
 id = "2504c53cbf24694b"
 subgraph = "counter-4"
-pos = [1648.0, 334.0]
+pos = [-520.0, 1104.0]
 
 [[node]]
 id = "b160f7065d7e5bb9"
 folder = "nodes/switch"
-pos = [1648.0, 626.0]
+pos = [-520.0, 600.0]
 
 [node.params]
 on = "true"
@@ -16,7 +16,7 @@ on = "true"
 [[node]]
 id = "5aa05caa15eaef14"
 folder = "nodes/switch"
-pos = [1648.0, 752.0]
+pos = [-520.0, 726.0]
 
 [node.params]
 on = "true"
@@ -24,7 +24,7 @@ on = "true"
 [[node]]
 id = "fcb5ca8082af7143"
 folder = "nodes/switch"
-pos = [1648.0, 878.0]
+pos = [-520.0, 852.0]
 
 [node.params]
 on = "false"
@@ -32,7 +32,7 @@ on = "false"
 [[node]]
 id = "925b464f05646caf"
 folder = "nodes/switch"
-pos = [1648.0, 1004.0]
+pos = [-520.0, 978.0]
 
 [node.params]
 on = "false"
@@ -40,7 +40,7 @@ on = "false"
 [[node]]
 id = "edebef2a7706ee1d"
 folder = "nodes/switch"
-pos = [1648.0, 1612.0]
+pos = [-520.0, 96.0]
 
 [node.params]
 on = "true"
@@ -48,7 +48,7 @@ on = "true"
 [[node]]
 id = "d4a9adf78549eb14"
 folder = "nodes/switch"
-pos = [1648.0, 1726.0]
+pos = [-520.0, 222.0]
 
 [node.params]
 on = "false"
@@ -56,7 +56,7 @@ on = "false"
 [[node]]
 id = "a431b509737b3ea9"
 folder = "nodes/switch"
-pos = [1648.0, 1840.0]
+pos = [-520.0, 348.0]
 
 [node.params]
 on = "true"
@@ -64,7 +64,7 @@ on = "true"
 [[node]]
 id = "cdd2e5ccb55383f6"
 folder = "nodes/switch"
-pos = [1648.0, 1954.0]
+pos = [-520.0, 474.0]
 
 [node.params]
 on = "false"
@@ -72,17 +72,17 @@ on = "false"
 [[node]]
 id = "a3efcc2ce595017a"
 subgraph = "cpu"
-pos = [292.0, 918.0]
+pos = [-140.0, 1608.0]
 
 [[node]]
 id = "9bfefb001a1ae7a9"
 folder = "nodes/readout"
-pos = [1988.0, 376.0]
+pos = [-140.0, 1216.0]
 
 [[node]]
 id = "5c53f482ab97d1a3"
 folder = "nodes/switch"
-pos = [1968.0, 1410.0]
+pos = [-140.0, 362.0]
 
 [node.params]
 on = "true"
@@ -90,42 +90,42 @@ on = "true"
 [[node]]
 id = "21a01203787a27d0"
 subgraph = "hex-7seg"
-pos = [1988.0, 120.0]
+pos = [-140.0, 3060.0]
 
 [[node]]
 id = "f5d800547e0fb0a8"
 subgraph = "adder-4"
-pos = [1988.0, 668.0]
+pos = [-140.0, 852.0]
 
 [[node]]
 id = "caecd5b055f33875"
 subgraph = "adder-4"
-pos = [1968.0, 1516.0]
+pos = [-140.0, 488.0]
 
 [[node]]
 id = "531d9271f2ea833f"
 folder = "nodes/readout"
-pos = [700.0, 1768.0]
+pos = [2518.0, 1727.0]
 
 [[node]]
 id = "fdda7fd6865424b1"
 folder = "nodes/readout"
-pos = [700.0, 2060.0]
+pos = [2924.0, 1809.0]
 
 [[node]]
 id = "f5158e2151afe01b"
 subgraph = "hex-7seg"
-pos = [700.0, 514.0]
+pos = [532.0, 2091.0]
 
 [[node]]
 id = "763cb88852418f5d"
 folder = "nodes/readout"
-pos = [700.0, 1476.0]
+pos = [2016.0, 1467.0]
 
 [[node]]
 id = "2c0c5416f75ced61"
 folder = "nodes/switch"
-pos = [2288.0, 1220.0]
+pos = [532.0, 0.0]
 
 [node.params]
 on = "true"
@@ -133,42 +133,42 @@ on = "true"
 [[node]]
 id = "ba4fbf2be96592c8"
 folder = "nodes/display"
-pos = [2308.0, 120.0]
+pos = [3330.0, 1857.0]
 
 [[node]]
 id = "50dbdb8e88aefbc0"
 folder = "nodes/readout"
-pos = [2308.0, 788.0]
+pos = [532.0, 866.0]
 
 [[node]]
 id = "57651e4c47b88d73"
 subgraph = "register-4"
-pos = [2288.0, 1492.0]
+pos = [532.0, 574.0]
 
 [[node]]
 id = "d415f2b47c52f4e8"
 folder = "nodes/display"
-pos = [1162.0, 514.0]
+pos = [3945.0, 2217.0]
 
 [[node]]
 id = "a1ab1827b8780af9"
 subgraph = "ram-4x4"
-pos = [2608.0, 1420.0]
+pos = [1133.0, 859.0]
 
 [[node]]
 id = "01e6fe323c4fd5e2"
 folder = "nodes/readout"
-pos = [2608.0, 1780.0]
+pos = [1133.0, 1199.0]
 
 [[node]]
 id = "94a519f494e21966"
 folder = "nodes/readout"
-pos = [2928.0, 1516.0]
+pos = [1587.0, 958.0]
 
 [[node]]
 id = "a8059c0ce118eb44"
 folder = "nodes/keyboard"
-pos = [0.0, 1150.0]
+pos = [532.0, 3099.0]
 
 [node.params]
 address = "240"
@@ -176,7 +176,7 @@ address = "240"
 [[node]]
 id = "e3a17c5d90b4f268"
 folder = "nodes/random"
-pos = [0.0, 1420.0]
+pos = [1133.0, 3431.0]
 
 [node.params]
 address = "245"
@@ -184,7 +184,7 @@ address = "245"
 [[node]]
 id = "4f1c9a7e2b6d3085"
 folder = "nodes/joystick"
-pos = [0.0, 1600.0]
+pos = [1587.0, 3568.0]
 
 [node.params]
 address = "246"
@@ -192,12 +192,12 @@ address = "246"
 [[node]]
 id = "5e2d7a91c4b8f036"
 folder = "nodes/ram"
-pos = [0.0, 1850.0]
+pos = [532.0, 2641.0]
 
 [[node]]
 id = "75be31a4da3cacb6"
 folder = "nodes/terminal"
-pos = [700.0, 2352.0]
+pos = [532.0, 3529.0]
 
 [node.params]
 address = "240"
@@ -205,7 +205,7 @@ address = "240"
 [[node]]
 id = "ad357059907f778c"
 folder = "nodes/gpu"
-pos = [700.0, 2600.0]
+pos = [2016.0, 3570.0]
 
 [node.params]
 address = "241"
@@ -213,7 +213,7 @@ address = "241"
 [[node]]
 id = "5b0e8d3f71c2a964"
 folder = "nodes/sprites"
-pos = [930.0, 2600.0]
+pos = [2518.0, 3468.0]
 
 [node.params]
 address = "249"
@@ -221,7 +221,52 @@ address = "249"
 [[node]]
 id = "778819ef9f467d80"
 folder = "nodes/screen"
-pos = [1162.0, 2352.0]
+pos = [2924.0, 3468.0]
+
+[[node]]
+id = "1cd0a5c11d15b1a7"
+folder = "nodes/lcd"
+pos = [1133.0, 2344.0]
+
+[[node]]
+id = "3be1bbc4818ab673"
+subgraph = "hex-7seg"
+pos = [532.0, 1835.0]
+
+[[node]]
+id = "d72d0630056e81d1"
+folder = "nodes/display"
+pos = [3653.0, 1973.0]
+
+[[node]]
+id = "6c2be0d93f4a1e57"
+subgraph = "lcd-writer"
+pos = [532.0, 2347.0]
+
+[[node]]
+id = "c10c0c1a5e7b2d48"
+folder = "nodes/clock"
+pos = [-520.0, 1592.0]
+
+[node.params]
+every = "4"
+halt = "false"
+
+[[node]]
+id = "a7a1c0de5c09e3b1"
+folder = "nodes/analyzer"
+pos = [532.0, 1158.0]
+
+[node.params]
+names = "clk,strobe,pc0,pc1,pc2,pc3,a0,out0"
+
+[[node]]
+id = "3f6e2b9d81c4a057"
+folder = "nodes/program"
+pos = [532.0, 126.0]
+
+[node.params]
+file = "programs/fibonacci.asm"
 
 [[wire]]
 from = "2504c53cbf24694b.f6bc0840"
@@ -375,53 +420,6 @@ to = "f5158e2151afe01b.76ccaf24"
 from = "f5158e2151afe01b.c4e1a7b2"
 to = "d415f2b47c52f4e8.seg"
 
-[[order]]
-before = "9bfefb001a1ae7a9"
-after = "50dbdb8e88aefbc0"
-
-[[order]]
-before = "50dbdb8e88aefbc0"
-after = "01e6fe323c4fd5e2"
-
-[[order]]
-before = "01e6fe323c4fd5e2"
-after = "94a519f494e21966"
-
-[[order]]
-before = "94a519f494e21966"
-after = "763cb88852418f5d"
-
-[[order]]
-before = "763cb88852418f5d"
-after = "531d9271f2ea833f"
-
-[[order]]
-before = "531d9271f2ea833f"
-after = "fdda7fd6865424b1"
-
-[[order]]
-before = "fdda7fd6865424b1"
-after = "ba4fbf2be96592c8"
-
-[[order]]
-before = "ba4fbf2be96592c8"
-after = "d72d0630056e81d1"
-
-[[node]]
-id = "1cd0a5c11d15b1a7"
-folder = "nodes/lcd"
-pos = [1162.0, 1182.0]
-
-[[node]]
-id = "3be1bbc4818ab673"
-subgraph = "hex-7seg"
-pos = [700.0, 848.0]
-
-[[node]]
-id = "d72d0630056e81d1"
-folder = "nodes/display"
-pos = [1162.0, 848.0]
-
 [[wire]]
 from = "a3efcc2ce595017a.488b8fa6"
 to = "3be1bbc4818ab673.2e8b5c4e"
@@ -441,15 +439,6 @@ to = "3be1bbc4818ab673.76ccaf24"
 [[wire]]
 from = "3be1bbc4818ab673.c4e1a7b2"
 to = "d72d0630056e81d1.seg"
-
-[[order]]
-before = "d72d0630056e81d1"
-after = "d415f2b47c52f4e8"
-
-[[node]]
-id = "6c2be0d93f4a1e57"
-subgraph = "lcd-writer"
-pos = [700.0, 1182.0]
 
 [[wire]]
 from = "a3efcc2ce595017a.5e1f0a7c"
@@ -519,26 +508,9 @@ to = "1cd0a5c11d15b1a7.d6"
 from = "6c2be0d93f4a1e57.32ce5f1f"
 to = "1cd0a5c11d15b1a7.write"
 
-[[node]]
-id = "c10c0c1a5e7b2d48"
-folder = "nodes/clock"
-pos = [0.0, 918.0]
-
-[node.params]
-every = "4"
-halt = "false"
-
 [[wire]]
 from = "c10c0c1a5e7b2d48.out"
 to = "a3efcc2ce595017a.4654170b"
-
-[[node]]
-id = "a7a1c0de5c09e3b1"
-folder = "nodes/analyzer"
-pos = [700.0, 0.0]
-
-[node.params]
-names = "clk,strobe,pc0,pc1,pc2,pc3,a0,out0"
 
 [[wire]]
 from = "c10c0c1a5e7b2d48.out"
@@ -599,14 +571,6 @@ to = "01e6fe323c4fd5e2.value"
 [[wire]]
 from = "a1ab1827b8780af9.39cc0465"
 to = "94a519f494e21966.value"
-
-[[node]]
-id = "3f6e2b9d81c4a057"
-folder = "nodes/program"
-pos = [-520.0, 918.0]
-
-[node.params]
-file = "programs/fibonacci.asm"
 
 [[wire]]
 from = "a3efcc2ce595017a.566aa9ba"
@@ -715,3 +679,39 @@ to = "5b0e8d3f71c2a964.wr"
 [[wire]]
 from = "5b0e8d3f71c2a964.out"
 to = "778819ef9f467d80.frame"
+
+[[order]]
+before = "9bfefb001a1ae7a9"
+after = "50dbdb8e88aefbc0"
+
+[[order]]
+before = "50dbdb8e88aefbc0"
+after = "01e6fe323c4fd5e2"
+
+[[order]]
+before = "01e6fe323c4fd5e2"
+after = "94a519f494e21966"
+
+[[order]]
+before = "94a519f494e21966"
+after = "763cb88852418f5d"
+
+[[order]]
+before = "763cb88852418f5d"
+after = "531d9271f2ea833f"
+
+[[order]]
+before = "531d9271f2ea833f"
+after = "fdda7fd6865424b1"
+
+[[order]]
+before = "fdda7fd6865424b1"
+after = "ba4fbf2be96592c8"
+
+[[order]]
+before = "ba4fbf2be96592c8"
+after = "d72d0630056e81d1"
+
+[[order]]
+before = "d72d0630056e81d1"
+after = "d415f2b47c52f4e8"

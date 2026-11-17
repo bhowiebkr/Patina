@@ -3,47 +3,47 @@ format = 1
 [[node]]
 id = "f3223dd5bed2e430"
 folder = "nodes/split"
-pos = [0.0, 0.0]
+pos = [-70.0, 35.0]
 
 [[node]]
 id = "7e3c5503855d582a"
 subgraph = "or"
-pos = [300.0, 0.0]
+pos = [249.0, 0.0]
 
 [[node]]
 id = "3d52d590cb032cba"
 subgraph = "or"
-pos = [300.0, 180.0]
+pos = [249.0, 126.0]
 
 [[node]]
 id = "c97845adf9739e15"
 subgraph = "or"
-pos = [300.0, 360.0]
+pos = [249.0, 252.0]
 
 [[node]]
 id = "9e57866716df1549"
 subgraph = "or"
-pos = [300.0, 540.0]
+pos = [249.0, 378.0]
 
 [[node]]
 id = "1d24b4bc15f8e06d"
 subgraph = "or"
-pos = [600.0, 70.0]
+pos = [542.0, 89.0]
 
 [[node]]
 id = "35681e15da475378"
 subgraph = "or"
-pos = [600.0, 430.0]
+pos = [542.0, 265.0]
 
 [[node]]
 id = "16cfdfd1f269dc42"
 subgraph = "or"
-pos = [900.0, 230.0]
+pos = [835.0, 165.0]
 
 [[node]]
 id = "5e433ce4ad941335"
 subgraph = "not"
-pos = [1200.0, 210.0]
+pos = [1115.0, 165.0]
 
 [[wire]]
 from = "f3223dd5bed2e430.out0"
@@ -108,11 +108,11 @@ to = "5e433ce4ad941335.5ade65ce"
 [[input]]
 key = "2535f7e2"
 name = "a"
-pos = [-300.0, 0.0]
+pos = [-300.0, 35.0]
 to = ["f3223dd5bed2e430.value"]
 
 [[output]]
 key = "098a8c74"
 name = "zero"
-pos = [1500.0, 0.0]
+pos = [1395.0, 199.0]
 from = "5e433ce4ad941335.7ff633ef"

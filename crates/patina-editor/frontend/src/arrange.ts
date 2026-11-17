@@ -1,9 +1,10 @@
 // The Arrange command (spec 15.9): a layered layout. The signal flows from left to right in
 // columns, the nodes of a column keep their order to cut the crossings, and the space between two
-// columns grows with the wires that bend in it.
+// columns grows with the wires that bend in it. A wide bus pulls harder than a thin wire, so the
+// buses get straight first, and each wire gets space for its width.
 
 import type { Point } from './api.ts';
-import { pav } from './route.ts';
+import { GAP, pav } from './route.ts';
 
 /** A node to place: its size, and `first` or `last` for a public input or output (6.4). */
 export interface Box {
@@ -13,35 +14,48 @@ export interface Box {
   side?: 'first' | 'last';
 }
 
-/** A wire: its ends, the height of each pin in its node and the output that it comes from. */
+/** A wire: its ends, the height of each pin in its node, the output that it comes from and its width. */
 export interface Link {
   from: string;
   fy: number;
   to: string;
   ty: number;
   net: string;
+  /** The width of the drawn wire in px. The default is 2. */
+  width?: number;
 }
 
 /** The base space between two columns. */
 const GAP_X = 80;
-/** The extra space between two columns for each output that has a wire with a bend in the gap. */
+/** The extra space between two columns for each output that has a wire with a bend in the gap, at least. */
 const LANE_X = 12;
 /** The space between two nodes in a column. */
 const GAP_Y = 32;
-/** The half space next to a wire that goes through a column. */
+/** The half space next to a wire that goes through a column, at least. */
 const LANE_Y = 10;
 const SWEEPS = 16;
+
+/** A neighbor in the column before or after: item, pin height in the neighbor, own pin height, wire width. */
+type End = [number, number, number, number];
 
 /** A node, or a point where a long wire goes through a column (box -1). */
 interface Item {
   box: number;
   h: number;
+  /** The space above and below the item. */
+  half: number;
   layer: number;
   y: number;
-  /** The neighbors in the column before and after: item, pin height in the neighbor, own pin height. */
-  prev: [number, number, number][];
-  next: [number, number, number][];
+  prev: End[];
+  next: End[];
 }
+
+/** The half space next to a wire of this width that goes through a column. */
+const halfOf = (width: number) => Math.max(LANE_Y, width / 2 + GAP);
+/** The lane in a column gap for a wire of this width. */
+const laneOf = (width: number) => Math.max(LANE_X, width + GAP);
+/** A wire pulls its ends together with the square of its width, so a bus wins over thin wires. */
+const pull = (width: number) => width * width;
 
 function columns(boxes: readonly Box[], dag: readonly [number, number][]): number[] {
   const n = boxes.length;
@@ -103,27 +117,30 @@ export function arrange(boxes: readonly Box[], links: readonly Link[]): Map<stri
   const index = new Map(boxes.map((b, i) => [b.id, i]));
   const edges = links.flatMap((l) => {
     const [a, b] = [index.get(l.from), index.get(l.to)];
-    return a === undefined || b === undefined || a === b ? [] : [{ a, b, fy: l.fy, ty: l.ty, net: l.net }];
+    return a === undefined || b === undefined || a === b ? [] : [{ a, b, fy: l.fy, ty: l.ty, net: l.net, width: l.width ?? 2 }];
   });
   const back = loops(boxes, edges);
-  const dag = edges.map((e, k): [number, number, number, number] => (back[k] ? [e.b, e.a, e.ty, e.fy] : [e.a, e.b, e.fy, e.ty]));
+  const dag = edges.map((e, k): [number, number, number, number, number] =>
+    back[k] ? [e.b, e.a, e.ty, e.fy, e.width] : [e.a, e.b, e.fy, e.ty, e.width],
+  );
   const layer = columns(
     boxes,
     dag.map(([u, v]) => [u, v]),
   );
 
   // The items of each column. A long wire gets one item in each column that it goes through, shared by its output.
-  const items: Item[] = boxes.map((b, i) => ({ box: i, h: b.h, layer: layer[i], y: 0, prev: [], next: [] }));
+  const items: Item[] = boxes.map((b, i) => ({ box: i, h: b.h, half: GAP_Y / 2, layer: layer[i], y: 0, prev: [], next: [] }));
   const via = new Map<string, number>();
-  // The wire parts in the gap after each column: output, item and pin height at each end.
-  const parts: [string, number, number, number, number][][] = [];
-  dag.forEach(([u, v, uy, vy], k) => {
+  // The wire parts in the gap after each column: output, item and pin height at each end, wire width.
+  const parts: [string, number, number, number, number, number][][] = [];
+  dag.forEach(([u, v, uy, vy, width], k) => {
     let [at, atY] = [u, uy];
     for (let l = layer[u] + 1; l <= layer[v]; l++) {
       let to = v;
       if (l < layer[v]) {
         const key = `${back[k]} ${u} ${uy} ${l}`;
-        to = via.get(key) ?? items.push({ box: -1, h: 0, layer: l, y: 0, prev: [], next: [] }) - 1;
+        to = via.get(key) ?? items.push({ box: -1, h: 0, half: 0, layer: l, y: 0, prev: [], next: [] }) - 1;
+        items[to].half = Math.max(items[to].half, halfOf(width));
         if (via.has(key)) {
           [at, atY] = [to, 0];
           continue;
@@ -131,17 +148,19 @@ export function arrange(boxes: readonly Box[], links: readonly Link[]): Map<stri
         via.set(key, to);
       }
       const toY = to === v ? vy : 0;
-      (parts[l - 1] ??= []).push([`${back[k]} ${u} ${uy}`, at, atY, to, toY]);
-      items[at].next.push([to, toY, atY]);
-      items[to].prev.push([at, atY, toY]);
+      (parts[l - 1] ??= []).push([`${back[k]} ${u} ${uy}`, at, atY, to, toY, width]);
+      items[at].next.push([to, toY, atY, width]);
+      items[to].prev.push([at, atY, toY, width]);
       [at, atY] = [to, 0];
     }
   });
+  // An item with wide wires moves less when a column is full, so its wires stay straight.
+  const weight = items.map((it) => Math.max(1, [...it.prev, ...it.next].reduce((s, e) => s + pull(e[3]), 0)));
 
   const count = Math.max(0, ...layer) + 1;
   const cols: number[][] = Array.from({ length: count }, () => []);
   items.forEach((it, i) => cols[it.layer].push(i));
-  const space = (a: Item, b: Item) => a.h + (a.box < 0 ? LANE_Y : GAP_Y / 2) + (b.box < 0 ? LANE_Y : GAP_Y / 2);
+  const space = (a: Item, b: Item) => a.h + a.half + b.half;
   // Puts a column near the wanted tops, in order of the wanted tops when `sort`.
   const settle = (col: number[], want: (it: Item) => number | null, sort: boolean) => {
     const wanted = col.map((i) => want(items[i]) ?? items[i].y);
@@ -153,12 +172,17 @@ export function arrange(boxes: readonly Box[], links: readonly Link[]): Map<stri
     const ys = pav(
       order.map((k) => wanted[k]),
       off,
-      list.map(() => 1),
+      list.map((i) => weight[i]),
     );
     list.forEach((i, k) => (items[i].y = ys[k]));
     col.splice(0, col.length, ...list);
   };
-  const mean = (ends: [number, number, number][]) => (ends.length ? ends.reduce((s, [i, at, own]) => s + items[i].y + at - own, 0) / ends.length : null);
+  // The top that the neighbors want, with each wire weighted by its pull.
+  const mean = (ends: readonly End[]) => {
+    let [sum, total] = [0, 0];
+    for (const [i, at, own, w] of ends) (sum += pull(w) * (items[i].y + at - own)), (total += pull(w));
+    return total ? sum / total : null;
+  };
   for (const col of cols) settle(col, () => null, false);
   for (let s = 0; s < SWEEPS; s++) {
     const sort = s < SWEEPS - 4;
@@ -168,16 +192,22 @@ export function arrange(boxes: readonly Box[], links: readonly Link[]): Map<stri
   // A long wire stays at the height of its output, so it bends only next to its input.
   for (let l = 0; l < count; l++) settle(cols[l], (it) => (it.box < 0 ? mean(it.prev) : mean([...it.prev, ...it.next])), false);
 
-  // A straight wire needs no lane. The bends of two outputs share a lane when their heights do not overlap.
+  // A straight wire needs no lane. The bends of two outputs share a lane when their heights do not
+  // overlap. A lane is as wide as the widest wire of its output, plus the space between two wires.
   const lanes = (l: number) => {
-    const span = new Map<string, [number, number]>();
-    for (const [net, a, ay, b, by] of parts[l] ?? []) {
+    const span = new Map<string, [number, number, number]>();
+    for (const [net, a, ay, b, by, w] of parts[l] ?? []) {
       const [y0, y1] = [items[a].y + ay, items[b].y + by];
       if (Math.abs(y0 - y1) <= 1) continue;
-      const [lo, hi] = span.get(net) ?? [Infinity, -Infinity];
-      span.set(net, [Math.min(lo, y0, y1), Math.max(hi, y0, y1)]);
+      const [lo, hi, wide] = span.get(net) ?? [Infinity, -Infinity, 0];
+      span.set(net, [Math.min(lo, y0, y1), Math.max(hi, y0, y1), Math.max(wide, w)]);
     }
-    const ends = [...span.values()].flatMap(([lo, hi]): [number, number][] => [[lo, 1], [hi, -1]]).sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    const ends = [...span.values()]
+      .flatMap(([lo, hi, w]): [number, number][] => [
+        [lo - w / 2, laneOf(w)],
+        [hi + w / 2, -laneOf(w)],
+      ])
+      .sort((p, q) => p[0] - q[0] || p[1] - q[1]);
     let [depth, most] = [0, 0];
     for (const [, d] of ends) most = Math.max(most, (depth += d));
     return most;
@@ -185,7 +215,7 @@ export function arrange(boxes: readonly Box[], links: readonly Link[]): Map<stri
   const xs = [0];
   for (let l = 0; l + 1 < count; l++) {
     const wide = Math.max(0, ...cols[l].map((i) => (items[i].box < 0 ? 0 : boxes[items[i].box].w)));
-    xs.push(xs[l] + wide + GAP_X + LANE_X * lanes(l));
+    xs.push(xs[l] + wide + GAP_X + lanes(l));
   }
   const top = Math.min(...items.map((it) => it.y));
   const out = new Map<string, Point>();

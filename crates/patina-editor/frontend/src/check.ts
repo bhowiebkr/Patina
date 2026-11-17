@@ -386,6 +386,8 @@ fn broken() -> u32 {
     const wheel = (deltaY: number) =>
       document.querySelector('.react-flow__pane')!.dispatchEvent(new WheelEvent('wheel', { deltaY, ...at, bubbles: true, cancelable: true }));
     const near = nodeElements();
+    const heights = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => n.offsetHeight).join(' ');
+    const boxes = heights();
     let outs = 0;
     while (scale() >= 0.5) {
       const z = scale();
@@ -396,6 +398,7 @@ fn broken() -> u32 {
     await until('the simple node form', RUN_MS, () =>
       document.querySelectorAll('.patina-row').length === 0 && !document.querySelector('.wire-value') && !document.querySelector('.wire-type'));
     if (document.querySelectorAll('.patina-node .title').length !== 2) throw new Error('a node at a far zoom has no title');
+    if (heights() !== boxes) throw new Error(`the node heights are ${heights()} at a far zoom, not ${boxes}`);
     steps.push(`simple nodes at a far zoom: ${near} node elements near, ${nodeElements()} far`);
     for (; outs > 0; outs--) {
       const z = scale();

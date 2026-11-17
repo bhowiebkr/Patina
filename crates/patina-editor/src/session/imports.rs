@@ -70,6 +70,10 @@ pub struct Packaged {
 #[tauri::command(async)]
 pub fn make_package(editor: State<'_, Editor>, parent: PathBuf) -> Result<Packaged, String> {
     let root = editor.trusted_root("make a package")?;
+    // A package builds from the files, and only Save writes the files (15.10).
+    if editor.dirty() {
+        return Err("Save the changes before you make a package.".to_owned());
+    }
     let out = parent.join(folder_name(&root));
     let warnings = editor.engine.ask(true, |ask| ToNode::Job(Job::Package { root, out: out.clone(), ask }))?;
     Ok(Packaged { out, warnings })

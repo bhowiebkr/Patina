@@ -3,182 +3,182 @@ format = 1
 [[node]]
 id = "1155dbbcf82bf9cd"
 subgraph = "decoder-4"
-pos = [-88.0, 383.0]
+pos = [-74.0, 344.0]
 
 [[node]]
 id = "3fd38563134a2615"
 subgraph = "or"
-pos = [324.0, 272.0]
+pos = [336.0, 0.0]
 
 [[node]]
 id = "e7849233366252e4"
 subgraph = "or"
-pos = [324.0, 810.0]
+pos = [336.0, 126.0]
 
 [[node]]
 id = "840e9a116f20c761"
 subgraph = "or"
-pos = [324.0, 936.0]
+pos = [336.0, 861.0]
 
 [[node]]
 id = "210e2aac3d3dcee7"
 subgraph = "or"
-pos = [324.0, 438.0]
+pos = [336.0, 483.0]
 
 [[node]]
 id = "21d45ac0fea06131"
 subgraph = "or"
-pos = [324.0, 624.0]
+pos = [336.0, 273.0]
 
 [[node]]
 id = "24bae640201f81af"
 subgraph = "or"
-pos = [324.0, 126.0]
+pos = [336.0, 672.0]
 
 [[node]]
 id = "085c047e933a728f"
 subgraph = "or"
-pos = [324.0, 0.0]
+pos = [336.0, 987.0]
 
 [[node]]
 id = "76c03fad5de4e128"
 subgraph = "or"
-pos = [640.0, 285.0]
+pos = [668.0, 56.0]
 
 [[node]]
 id = "3905461ce61e42c2"
 subgraph = "or"
-pos = [640.0, 786.0]
+pos = [668.0, 182.0]
 
 [[node]]
 id = "c6aff6ddc3e429d3"
 subgraph = "or"
-pos = [640.0, 1000.0]
+pos = [668.0, 854.0]
 
 [[node]]
 id = "d28f3a7292aefc9b"
 subgraph = "or"
-pos = [640.0, 431.0]
+pos = [668.0, 518.0]
 
 [[node]]
 id = "84ec82fce4966b91"
 subgraph = "or"
-pos = [640.0, 620.0]
+pos = [668.0, 329.0]
 
 [[node]]
 id = "707950be09acb469"
 subgraph = "or"
-pos = [640.0, 159.0]
+pos = [668.0, 707.0]
 
 [[node]]
 id = "709b26447d0f5196"
 subgraph = "or"
-pos = [640.0, 33.0]
+pos = [668.0, 980.0]
 
 [[node]]
 id = "e5fe9b45bd43d08b"
 subgraph = "or"
-pos = [968.0, 363.0]
+pos = [1013.0, 105.0]
 
 [[node]]
 id = "3f5e003fcb66f3da"
 subgraph = "or"
-pos = [968.0, 781.0]
+pos = [1013.0, 231.0]
 
 [[node]]
 id = "837e4a8f8d6c2882"
 subgraph = "or"
-pos = [968.0, 1057.0]
+pos = [1013.0, 840.0]
 
 [[node]]
 id = "577909416aea21e9"
 subgraph = "or"
-pos = [968.0, 489.0]
+pos = [1013.0, 567.0]
 
 [[node]]
 id = "98ce55a1c8ec4323"
 subgraph = "or"
-pos = [968.0, 615.0]
+pos = [1013.0, 378.0]
 
 [[node]]
 id = "3eb0d8e21a4f6ba9"
 subgraph = "or"
-pos = [968.0, 217.0]
+pos = [1013.0, 693.0]
 
 [[node]]
 id = "8534d764463dc69f"
 subgraph = "or"
-pos = [968.0, 91.0]
+pos = [1013.0, 966.0]
 
 [[node]]
 id = "3eed09020a5dcc01"
 subgraph = "not"
-pos = [1284.0, 352.0]
+pos = [1319.0, 154.0]
 
 [[node]]
 id = "b0e9c9807678e430"
 subgraph = "or"
-pos = [1284.0, 853.0]
+pos = [1319.0, 259.0]
 
 [[node]]
 id = "8000c82b43aa9b94"
 subgraph = "or"
-pos = [1284.0, 566.0]
+pos = [1319.0, 553.0]
 
 [[node]]
 id = "79570bc351105a64"
 subgraph = "not"
-pos = [1284.0, 979.0]
+pos = [1319.0, 805.0]
 
 [[node]]
 id = "0842c12c044878ae"
 subgraph = "or"
-pos = [1284.0, 692.0]
+pos = [1319.0, 406.0]
 
 [[node]]
 id = "ec05358bd023ae2d"
 subgraph = "or"
-pos = [1284.0, 226.0]
+pos = [1319.0, 679.0]
 
 [[node]]
 id = "2c66b2a839b79dcc"
 subgraph = "not"
-pos = [1284.0, 76.0]
+pos = [1319.0, 907.0]
 
 [[node]]
 id = "136eb0e0e0937bd4"
 subgraph = "or"
-pos = [1588.0, 915.0]
+pos = [1612.0, 302.0]
 
 [[node]]
 id = "7ae704f340002b46"
 subgraph = "not"
-pos = [1588.0, 558.0]
+pos = [1612.0, 554.0]
 
 [[node]]
 id = "018e13e9113533e4"
 subgraph = "or"
-pos = [1588.0, 709.0]
+pos = [1612.0, 428.0]
 
 [[node]]
 id = "3dbf7ce0f84df413"
 subgraph = "not"
-pos = [1588.0, 217.0]
+pos = [1612.0, 656.0]
 
 [[node]]
 id = "dfc015b52e037bdb"
 subgraph = "not"
-pos = [1880.0, 911.0]
+pos = [1931.0, 372.0]
 
 [[node]]
 id = "6891614d736a6c48"
 subgraph = "not"
-pos = [1880.0, 704.0]
+pos = [1931.0, 474.0]
 
 [[node]]
 id = "5e9a7c31d04b28f6"
 folder = "nodes/seg-join"
-pos = [2160.0, 470.0]
+pos = [2263.0, 348.0]
 
 [[wire]]
 from = "1155dbbcf82bf9cd.e4823330"
@@ -455,29 +455,29 @@ to = "5e9a7c31d04b28f6.g"
 [[input]]
 key = "2e8b5c4e"
 name = "b0"
-pos = [-300.0, 354.0]
+pos = [-300.0, 315.0]
 to = ["1155dbbcf82bf9cd.68f5f5c7"]
 
 [[input]]
 key = "6cbfc8fc"
 name = "b1"
-pos = [-300.0, 420.0]
+pos = [-300.0, 381.0]
 to = ["1155dbbcf82bf9cd.7bc42f03"]
 
 [[input]]
 key = "b4baf19e"
 name = "b2"
-pos = [-300.0, 486.0]
+pos = [-300.0, 447.0]
 to = ["1155dbbcf82bf9cd.0bf86cf3"]
 
 [[input]]
 key = "76ccaf24"
 name = "b3"
-pos = [-300.0, 552.0]
+pos = [-300.0, 513.0]
 to = ["1155dbbcf82bf9cd.9df7e54e"]
 
 [[output]]
 key = "c4e1a7b2"
 name = "seg"
-pos = [2460.0, 560.0]
+pos = [2543.0, 348.0]
 from = "5e9a7c31d04b28f6.out"

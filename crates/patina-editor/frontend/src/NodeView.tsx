@@ -353,7 +353,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
           )}
       </div>
       {open && <div style={{ height: Math.max(0, (size % 65536) + FRAME_BOTTOM - tops[rows] - PAD) }} />}
-      {gui !== undefined && !far && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
+      {gui !== undefined && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
       {inputs.map((pin, i) => (

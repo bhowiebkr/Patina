@@ -300,14 +300,11 @@ impl Project {
         &self.name
     }
 
-    /// Opens the main graph or a subgraph for edits (6.1). Only the open graph can have unsaved
-    /// changes, so the user saves before another graph opens.
+    /// Opens the main graph or a subgraph for edits (6.1). The other graphs keep their unsaved
+    /// changes and their undo history in memory. Only a save writes them (15.10).
     pub fn open_graph(&mut self, name: &str) -> Result<(), String> {
         if name == self.name {
             return Ok(());
-        }
-        if self.history.dirty() {
-            return Err("save the graph before you open another graph".to_owned());
         }
         if name != MAIN {
             plan::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
@@ -444,16 +441,35 @@ impl Project {
         self.history.can_redo()
     }
 
-    /// True when the graph has changes that are not saved.
+    /// True when a graph has changes that are not saved.
     pub fn dirty(&self) -> bool {
-        self.history.dirty()
+        self.unsaved().next().is_some()
     }
 
-    /// Writes the open graph to its file in `graphs/`. The undo history stays (15.10).
+    /// The name and the graph of each graph with changes that are not saved, the open graph first.
+    pub fn unsaved(&self) -> impl Iterator<Item = (&str, &GraphFile)> {
+        let parked = self.parked.iter().map(|(name, h)| (name.as_str(), h));
+        std::iter::once((self.name.as_str(), &self.history)).chain(parked).filter(|(_, h)| h.dirty()).map(|(name, h)| (name, &h.graph))
+    }
+
+    /// Writes each graph with unsaved changes to its file in `graphs/`. The undo history stays
+    /// (15.10).
     pub fn save(&mut self) -> Result<(), Error> {
-        project::write(&graph_path(&self.root, &self.name), &self.history.graph)?;
-        self.history.mark_saved();
+        let parked = self.parked.iter_mut().map(|(name, h)| (name.as_str(), h));
+        for (name, history) in std::iter::once((self.name.as_str(), &mut self.history)).chain(parked) {
+            if history.dirty() {
+                project::write(&graph_path(&self.root, name), &history.graph)?;
+                history.mark_saved();
+            }
+        }
         Ok(())
+    }
+
+    /// The subgraphs that the editor has in memory, with their unsaved changes. They replace their
+    /// files in a check (6.1).
+    fn edits(&self) -> Vec<(&str, &GraphFile)> {
+        let parked = self.parked.iter().map(|(name, h)| (name.as_str(), &h.graph));
+        std::iter::once((self.name.as_str(), &self.history.graph)).chain(parked).filter(|(name, _)| *name != MAIN).collect()
     }
 
     /// The node folders in `nodes/`, sorted by name.
@@ -487,10 +503,10 @@ impl Project {
         kinds.into_iter().map(|(_, k)| KindInfo { ty: k.ty, lanes: k.lanes, label: k.label, color: k.color }).collect()
     }
 
-    /// The subgraphs in `graphs/` (6.1), sorted by name, with their public pins as the pins. The
-    /// open subgraph gives the pins of its edits.
+    /// The subgraphs in `graphs/` (6.1), sorted by name, with their public pins as the pins. A
+    /// subgraph in memory gives the pins of its edits.
     pub fn subgraphs(&self) -> Vec<NodeInfo> {
-        subgraph::infos(&self.root, Some((&self.name, &self.history.graph)))
+        subgraph::infos(&self.root, &self.edits())
     }
 
     /// The widget folders in `widgets/` (6.2), sorted by name.
@@ -562,13 +578,11 @@ impl Project {
         fs::read_to_string(&file).map_err(|e| format!("{path}: {e}"))
     }
 
-    /// Checks the main graph and puts its nodes in run order. An open subgraph adds its unsaved
-    /// changes.
+    /// Checks the main graph and puts its nodes in run order. Each graph adds its unsaved changes.
     pub fn check(&self) -> Result<Checked, Error> {
         let fail = |problems| Error::Graph(graph_path(&self.root, MAIN), problems);
         let main = self.parked.get(MAIN).map_or(&self.history.graph, |h| &h.graph);
-        let open = (self.name != MAIN).then_some((self.name.as_str(), &self.history.graph));
-        let (graph, aliases) = subgraph::flatten(&self.root, main, open).map_err(fail)?;
+        let (graph, aliases) = subgraph::flatten(&self.root, main, &self.edits()).map_err(fail)?;
         let plan = plan::check(&self.root, &graph).map_err(fail)?;
         Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: false })
     }
@@ -582,7 +596,7 @@ impl Project {
         let fail = |problems| Error::Graph(graph_path(&self.root, &self.name), problems);
         let test = project::NodeEntry { id: TEST.to_owned(), folder: None, subgraph: Some(self.name.clone()), builtin: None, pos: None, domain: None, settings: None, params: params.clone() };
         let root = GraphFile { format: self.history.graph.format, node: vec![test], wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
-        let (graph, aliases) = subgraph::flatten(&self.root, &root, Some((&self.name, &self.history.graph))).map_err(fail)?;
+        let (graph, aliases) = subgraph::flatten(&self.root, &root, &self.edits()).map_err(fail)?;
         let mut plan = plan::check(&self.root, &graph).map_err(fail)?;
         plan.probe_all(&aliases);
         Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: true })
@@ -699,7 +713,12 @@ mod tests {
         fs::write(root.join("graphs/half.toml"), "format = 1\n").unwrap();
         assert_eq!(project.subgraphs()[0].kind, "subgraph");
         project.apply(&Edit::AddNode { id: "00000000000000b1".to_owned(), folder: "graphs/half".to_owned(), builtin: false, pos: [0.0, 0.0] }).unwrap();
-        assert!(project.open_graph("half").is_err(), "the main graph has unsaved changes");
+        let main = fs::read_to_string(root.join("graphs/main.toml")).unwrap();
+        // A change of graph writes no file. The unsaved changes of each graph stay (15.10).
+        project.open_graph("half").unwrap();
+        project.open_graph("main").unwrap();
+        assert_eq!(fs::read_to_string(root.join("graphs/main.toml")).unwrap(), main);
+        assert_eq!(project.unsaved().map(|g| g.0).collect::<Vec<_>>(), ["main"]);
         project.save().unwrap();
         for bad in ["missing", "../patina", "half.toml", ""] {
             assert!(project.open_graph(bad).is_err(), "{bad}");
@@ -707,9 +726,12 @@ mod tests {
         project.open_graph("half").unwrap();
         assert_eq!((project.graph_name(), project.graph().node.len()), ("half", 0));
         project.apply(&edit).unwrap();
-        assert!(project.check().unwrap().graph().node.iter().any(|n| n.id == "00000000000000b1/000000000000000a"));
-        project.save().unwrap();
         project.open_graph("main").unwrap();
+        // A run uses the unsaved changes of a graph that is not open. A save writes them.
+        assert!(project.check().unwrap().graph().node.iter().any(|n| n.id == "00000000000000b1/000000000000000a"));
+        assert_eq!(project.unsaved().map(|g| g.0).collect::<Vec<_>>(), ["half"]);
+        project.save().unwrap();
+        assert!(!project.dirty());
         assert_eq!((project.graph_name(), project.graph().node.len()), ("main", 2));
         // The graph view shows the nodes of a subgraph use in place (15.3).
         assert_eq!(project.subgraph_file("half").unwrap().node.len(), 1);

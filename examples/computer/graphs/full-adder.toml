@@ -3,17 +3,17 @@ format = 1
 [[node]]
 id = "91e3afa186d5bae3"
 subgraph = "half-adder"
-pos = [0.0, 30.0]
+pos = [-87.0, 10.0]
 
 [[node]]
 id = "497e847739625976"
 subgraph = "half-adder"
-pos = [300.0, 95.0]
+pos = [219.0, 16.0]
 
 [[node]]
 id = "9187a97d7d87a75c"
 subgraph = "or"
-pos = [600.0, 42.5]
+pos = [538.0, 0.0]
 
 [[wire]]
 from = "91e3afa186d5bae3.301a2640"
@@ -30,29 +30,29 @@ to = "9187a97d7d87a75c.3fbd40e4"
 [[input]]
 key = "47486110"
 name = "a"
-pos = [-300.0, 0.0]
+pos = [-300.0, 4.0]
 to = ["91e3afa186d5bae3.9131f68f"]
 
 [[input]]
 key = "27379ee4"
 name = "b"
-pos = [-300.0, 100.0]
+pos = [-300.0, 70.0]
 to = ["91e3afa186d5bae3.1e8b06d1"]
 
 [[input]]
 key = "1395fdff"
 name = "carry in"
-pos = [-300.0, 200.0]
+pos = [-300.0, 136.0]
 to = ["497e847739625976.1e8b06d1"]
 
 [[output]]
 key = "fc3b813e"
 name = "sum"
-pos = [900.0, 0.0]
+pos = [818.0, 104.0]
 from = "497e847739625976.301a2640"
 
 [[output]]
 key = "3273375a"
 name = "carry out"
-pos = [900.0, 100.0]
+pos = [818.0, 34.0]
 from = "9187a97d7d87a75c.67d0fbe0"

@@ -40,3 +40,31 @@ test('bends at different heights share a lane', () => {
   const at = arrange(ids.map((id) => box(id)), [link('s1', 't1'), link('s1', 'u1'), link('s2', 't2'), link('s2', 'u2')]);
   assert.equal(at.get('t1')![0] - at.get('s1')![0], 100 + 80 + 12);
 });
+
+test('a bus gets a lane as wide as the bus', () => {
+  const gap = (width: number) => {
+    const at = arrange([box('a'), box('b'), box('c')], [{ ...link('a', 'b'), width }, { ...link('a', 'c'), width }]);
+    return at.get('b')![0] - at.get('a')![0];
+  };
+  assert.equal(gap(2), 100 + 80 + 12);
+  assert.equal(gap(40), 100 + 80 + 40 + 8);
+});
+
+test('a bus stays straight before a thin wire', () => {
+  // The node t gets a bus from p and a thin wire from q, so t moves to the height of p.
+  const at = arrange([box('p'), box('q'), box('t')], [{ ...link('p', 't'), width: 40 }, link('q', 't')]);
+  assert.equal(at.get('t')![1], at.get('p')![1]);
+  assert.notEqual(at.get('t')![1], at.get('q')![1]);
+});
+
+test('a long bus gets room for its width in each column that it goes through', () => {
+  // The bus from a to c goes through the column of b and m. Each node keeps space from the bus.
+  const boxes = [box('a'), box('b'), box('m'), box('c')];
+  const at = arrange(boxes, [link('a', 'b'), link('b', 'c'), { ...link('a', 'c'), width: 40 }, link('a', 'm'), link('m', 'c')]);
+  // The bus stays at the height of its output (1 px or less), 28 px plus 16 px from each node.
+  const bus = at.get('a')![1] + 30;
+  for (const id of ['b', 'm']) {
+    const y = at.get(id)![1];
+    assert.ok(bus <= y - 28 - 16 + 1 || bus >= y + 60 + 28 + 16 - 1, `${id} ${y} ${bus}`);
+  }
+});

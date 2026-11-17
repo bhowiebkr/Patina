@@ -137,18 +137,17 @@ export function App() {
     }
   }, [show, markStale]);
 
-  // Only the open graph can have unsaved changes, so a change of graph saves all first (6.1).
+  // A change of graph keeps the unsaved changes of each graph in memory. Only Save writes files (15.10).
   // A use opens the subgraph with the live values of that use. The path bar keeps each use (15.9).
   const [trail, setTrail] = useState<Crumb[]>([]);
   const goTo = useCallback(
     async (name: string, next: (trail: Crumb[]) => Crumb[]) => {
-      if (current.current?.dirty && !(await saveAll())) return undefined;
       setTrail(next);
       let opened: View | undefined;
       await act(api.openGraph(name), (v) => (opened = v));
       return opened;
     },
-    [act, saveAll],
+    [act],
   );
   const openGraph = useCallback(
     (name: string, use?: string) => {

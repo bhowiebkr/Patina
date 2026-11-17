@@ -3,7 +3,7 @@ format = 1
 [[node]]
 id = "9d80ec0320d455a5"
 folder = "nodes/switch"
-pos = [-76.0, 141.0]
+pos = [-87.0, 336.0]
 
 [node.params]
 on = "false"
@@ -11,27 +11,27 @@ on = "false"
 [[node]]
 id = "3742416f0d432a7a"
 subgraph = "full-adder"
-pos = [228.0, 170.0]
+pos = [232.0, 361.0]
 
 [[node]]
 id = "a49caf04776a0e66"
 subgraph = "full-adder"
-pos = [544.0, 131.0]
+pos = [551.0, 339.0]
 
 [[node]]
 id = "28dc0bb3b6b3333f"
 subgraph = "full-adder"
-pos = [848.0, 290.0]
+pos = [870.0, 241.0]
 
 [[node]]
 id = "8a44d71f602bab23"
 subgraph = "full-adder"
-pos = [1164.0, 371.0]
+pos = [1189.0, 201.0]
 
 [[node]]
 id = "aa18a9888fa4fbf5"
 folder = "nodes/join"
-pos = [1492.0, 0.0]
+pos = [1533.0, 0.0]
 
 [[wire]]
 from = "9d80ec0320d455a5.out"
@@ -68,83 +68,83 @@ to = "aa18a9888fa4fbf5.b3"
 [[input]]
 key = "44be6e56"
 name = "a0"
-pos = [-300.0, 149.0]
+pos = [-300.0, 375.0]
 to = ["3742416f0d432a7a.47486110"]
 
 [[input]]
 key = "b88f5374"
 name = "a1"
-pos = [-300.0, 83.0]
+pos = [-300.0, 309.0]
 to = ["a49caf04776a0e66.47486110"]
 
 [[input]]
 key = "9eda28d5"
 name = "a2"
-pos = [-300.0, 347.0]
+pos = [-300.0, 177.0]
 to = ["28dc0bb3b6b3333f.47486110"]
 
 [[input]]
 key = "06d0ab61"
 name = "a3"
-pos = [-300.0, 479.0]
+pos = [-300.0, 111.0]
 to = ["8a44d71f602bab23.47486110"]
 
 [[input]]
 key = "002175a2"
 name = "b0"
-pos = [-300.0, 215.0]
+pos = [-300.0, 441.0]
 to = ["3742416f0d432a7a.27379ee4"]
 
 [[input]]
 key = "edb0af1f"
 name = "b1"
-pos = [-300.0, 281.0]
+pos = [-300.0, 507.0]
 to = ["a49caf04776a0e66.27379ee4"]
 
 [[input]]
 key = "b0434d4b"
 name = "b2"
-pos = [-300.0, 413.0]
+pos = [-300.0, 243.0]
 to = ["28dc0bb3b6b3333f.27379ee4"]
 
 [[input]]
 key = "eb88b835"
 name = "b3"
-pos = [-300.0, 545.0]
+pos = [-300.0, 573.0]
 to = ["8a44d71f602bab23.27379ee4"]
 
 [[output]]
 key = "ed1ff052"
 name = "s0"
-pos = [1784.0, 268.0]
+pos = [1838.0, 461.0]
 from = "3742416f0d432a7a.fc3b813e"
 
 [[output]]
 key = "5cfeeec0"
 name = "s1"
-pos = [1784.0, 202.0]
+pos = [1838.0, 527.0]
 from = "a49caf04776a0e66.fc3b813e"
 
 [[output]]
 key = "23cf175d"
 name = "s2"
-pos = [1784.0, 334.0]
+pos = [1838.0, 395.0]
 from = "28dc0bb3b6b3333f.fc3b813e"
 
 [[output]]
 key = "777d8973"
 name = "s3"
-pos = [1784.0, 400.0]
+pos = [1838.0, 263.0]
 from = "8a44d71f602bab23.fc3b813e"
 
 [[output]]
 key = "8f87e1af"
 name = "carry out"
-pos = [1784.0, 466.0]
+pos = [1838.0, 329.0]
 from = "8a44d71f602bab23.3273375a"
 
 [[output]]
 key = "4251439a"
 name = "value"
-pos = [1784.0, 34.0]
+pos = [1838.0, 0.0]
 from = "aa18a9888fa4fbf5.out"
