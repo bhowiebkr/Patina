@@ -3,14 +3,14 @@
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
-use std::time::Instant;
+use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock, frame_due};
 use patina_engine::device::{Notice, Pace, raise_priority};
 use patina_engine::project::GraphFile;
-use patina_engine::{Audio, Cluster, Control, EventRun, Mode, Outcome, Project, Toolchain, package};
+use patina_engine::{Audio, Cluster, Control, EventRun, Events, Frames, Mode, Outcome, Project, Toolchain, package};
 
 mod interrupt;
 
@@ -159,8 +159,8 @@ fn run_package(dir: &Path, args: &[String]) -> Result<bool, String> {
 }
 
 /// Runs the batch domain one time. Then it runs the event runs, the frames and the audio blocks of
-/// `counts`, with `rate` frames each second. The blocks run on their own thread, at the same time
-/// as the frames (9.3). Returns false when a node failed.
+/// `counts`, with `rate` frames each second. The blocks and the event runs run on their own
+/// threads, at the same time as the frames (9.3, 9.4). Returns false when a node failed.
 fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts, rate: u32) -> bool {
     interrupt::catch();
     let control: &Control = &interrupt::CONTROL;
@@ -170,11 +170,16 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts, rate: u32) ->
     if !show(&cluster.set_params(graph)) || !show(&cluster.run(control)) {
         return false;
     }
-    // shortcut: the event runs come before the frames and blocks, change it when the event domain gets its own part (9.4).
-    if cluster.events() && !cluster.run_events(counts.events.unwrap_or(u64::MAX), control, |run| _ = show_run(run)) {
-        return false;
-    }
     let has_frames = cluster.frames();
+    if cluster.events() {
+        if let Some((mut frame, mut audio, events)) = cluster.live() {
+            return together(&mut frame, audio.as_mut(), Some(events), counts, has_frames, rate);
+        }
+        // The audio library keeps a value that is not `Sync`, so the event runs come first (9.4).
+        if !cluster.run_events(counts.events.unwrap_or(u64::MAX), control, |run| _ = show_run(run)) {
+            return false;
+        }
+    }
     if !cluster.blocks() {
         let count = if has_frames { counts.frames } else { Some(0) };
         return frames(|| show(cluster.frame(control)), count, rate, &AtomicBool::new(false));
@@ -182,19 +187,44 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts, rate: u32) ->
     let Some((mut frame, mut audio)) = cluster.split() else {
         return between(cluster, counts, has_frames, rate);
     };
+    together(&mut frame, Some(&mut audio), None, counts, has_frames, rate)
+}
+
+/// Runs the frames on this thread, and the audio blocks and the event runs on their own threads.
+/// Returns false when a node failed.
+fn together(frame: &mut Frames, audio: Option<&mut Audio>, events: Option<Events>, counts: Counts, has_frames: bool, rate: u32) -> bool {
+    let control: &Control = &interrupt::CONTROL;
     // A domain without a count runs until each domain with a count is done, or a node fails.
-    let stop = AtomicBool::new(false);
-    let done = |ok: bool, other: Option<u64>| {
-        if !ok || other.is_none() {
+    let counted = [has_frames && counts.frames.is_some(), audio.is_some() && counts.blocks.is_some(), events.is_some() && counts.events.is_some()];
+    let left = AtomicUsize::new(counted.iter().filter(|&&c| c).count());
+    // The event runs have their own control, so the end of the other domains is not a Ctrl+C.
+    let (stop, run_control) = (AtomicBool::new(false), Control::default());
+    run_control.set_quiet(true);
+    let done = |ok: bool, counted: bool| {
+        if !ok || (counted && left.fetch_sub(1, Relaxed) == 1) {
             stop.store(true, Relaxed);
+            run_control.set_stop(true);
         }
         ok
     };
+    let (done, stop, run_control) = (&done, &stop, &run_control);
     std::thread::scope(|scope| {
-        let thread = scope.spawn(|| done(blocks(&mut audio, counts.blocks, &stop), counts.frames.filter(|_| has_frames)));
-        let framed = !has_frames || done(frames(|| show(frame.frame(control)), counts.frames, rate, &stop), counts.blocks);
-        // A panic of the audio thread is a failure of the run.
-        thread.join().unwrap_or(false) && framed
+        let blocks = audio.map(|audio| scope.spawn(move || done(blocks(audio, counts.blocks, stop), counted[1])));
+        let runs = events.map(|events| {
+            scope.spawn(move || done(events.run(counts.events.unwrap_or(u64::MAX), run_control, None, |run| _ = show_run(run)), counted[2]))
+        });
+        let framed = !has_frames || done(frames(|| show(frame.frame(control)), counts.frames, rate, stop), counted[0]);
+        // A Ctrl+C reaches the event runs here.
+        while runs.as_ref().is_some_and(|runs| !runs.is_finished()) {
+            if interrupt::stopped() {
+                run_control.set_stop(true);
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        // A panic of a thread is a failure of the run.
+        let blocked = blocks.is_none_or(|thread| thread.join().unwrap_or(false));
+        let ran = runs.is_none_or(|thread| thread.join().unwrap_or(false));
+        blocked && ran && framed
     })
 }
 

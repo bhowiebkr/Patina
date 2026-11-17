@@ -587,13 +587,16 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
   run has the trigger `<use ID>/<node ID>`.
 - The test machine has no network for the tests, so the local test run used
   `CARGO_NET_OFFLINE=true`. The `tokio` crate came from the cargo cache.
+- The CLI runs the event runs at the same time as the frames and the blocks (fixed 2026-11-17,
+  before the event runs came first). The CLI test `events` adds a frame node to a graph with a
+  `schedule` node every 20 ms and no `--events`. With `--frames 30`, the 30 frames ran, the
+  event runs ran at the same time, and the process ended after the frames.
 
 ### Known limits
 
 - These shortcuts are open in the code:
   - `patina-event`: each cluster build makes its own runtime, and each wait of an async node
     allocates its future and blocks the thread of its run.
-  - `main.rs` of `patina-cli`: the event runs come before the frames and the blocks.
   - `events/watch.rs` of `patina-engine`: `file_change` polls its folder.
   - `events/webhook.rs` of `patina-engine`: `webhook` reads one request at a time. A slow
     client delays the next request by 5 s at most (fixed 2026-11-16, before without a limit).

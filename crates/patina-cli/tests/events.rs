@@ -39,6 +39,13 @@ pub fn hear(text: &String) -> Result<(), String> {
 }
 ";
 
+/// Shows a line at each frame.
+const TICK: &str = "#[patina_sdk::node]
+pub fn tick() {
+    println!(\"frame\");
+}
+";
+
 fn node(id: &str, kind: &str) -> String {
     let kind = if ["schedule", "trigger", "file_change", "webhook"].contains(&kind) { format!("builtin = \"{kind}\"") } else { format!("folder = \"nodes/{kind}\"") };
     format!("[[node]]\nid = \"00000000000000{id}\"\n{kind}\n\n")
@@ -51,7 +58,7 @@ fn wire(from: &str, to: &str) -> String {
 #[test]
 fn triggers_start_runs_and_their_rules_hold() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "events");
-    for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false)] {
+    for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false), ("tick", TICK, false)] {
         let folder = project.join("nodes").join(name);
         fs::create_dir_all(folder.join("src")).unwrap();
         let more = if event { "patina-event = { workspace = true }\n" } else { "" };
@@ -150,4 +157,21 @@ fn triggers_start_runs_and_their_rules_hold() {
     let (output, _, stderr) = run(&project, &[]);
     assert!(!output.status.success() && stderr.contains(&format!("cannot listen on port {port}")), "{stderr}");
     drop(used);
+
+    // The event runs go on with the frames. The 30 frames end the endless schedule, and the stop
+    // drops the wait of run 1. The other runs end at once.
+    let frame = node("f0", "tick") + "domain = \"frame\"
+
+";
+    fs::write(&main, graph("every_ms = \"20\"
+overlap = \"both\"").replacen("format = 1
+
+", &format!("format = 1
+
+{frame}"), 1)).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--frames", "30"]);
+    assert!(output.status.success(), "{stderr}");
+    let (frames, runs): (Vec<&str>, Vec<&str>) = stdout.lines().partition(|l| *l == "frame");
+    assert_eq!(frames.len(), 30, "{stdout}");
+    assert!(!runs.is_empty() && runs.iter().all(|l| l.parse::<u64>().unwrap() >= 20), "{stdout}");
 }
