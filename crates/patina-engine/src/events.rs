@@ -8,6 +8,7 @@ use std::collections::VecDeque;
 use std::ffi::c_void;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed, Ordering::SeqCst};
+use std::net::TcpListener;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -153,6 +154,47 @@ impl Shared<'_> {
     }
 }
 
+/// The threads of the event runs. A finished run gives its thread to the next run.
+struct Pool<'a> {
+    shared: Shared<'a>,
+    triggers: &'a [Trigger],
+    back: mpsc::Sender<Msg>,
+    queue: Mutex<mpsc::Receiver<Job>>,
+    /// The count of the threads that wait for a job.
+    idle: AtomicUsize,
+}
+
+impl Pool<'_> {
+    /// Gives `job` to a thread that waits, or starts a new thread for it. `jobs` sends to the queue.
+    fn start<'s>(&'s self, scope: &'s std::thread::Scope<'s, '_>, jobs: &mpsc::Sender<Job>, job: Job) {
+        // The count goes down before the send, so each job in the queue has a thread. Only the
+        // dispatcher takes from the count, so the load and the sub do not race.
+        if self.idle.load(SeqCst) > 0 {
+            self.idle.fetch_sub(1, SeqCst);
+            let _ = jobs.send(job);
+            return;
+        }
+        let (t, id) = (job.0, job.1);
+        let thread = std::thread::Builder::new().name("patina-run".to_owned()).spawn_scoped(scope, move || {
+            let mut job = job;
+            loop {
+                let (t, id, text, control) = job;
+                let out = self.shared.run(self.triggers[t].task, &text, &control);
+                self.idle.fetch_add(1, SeqCst);
+                let _ = self.back.send(Msg::Done(t, id, out));
+                match lock(&self.queue).recv() {
+                    Ok(next) => job = next,
+                    Err(_) => break,
+                }
+            }
+        });
+        if let Err(e) = thread {
+            let report = Report { id: self.shared.names[self.triggers[t].node].0.clone(), text: format!("run {id} did not start: {e}"), ..Report::default() };
+            let _ = self.back.send(Msg::Done(t, id, Outcome { reports: vec![report], ..Outcome::default() }));
+        }
+    }
+}
+
 /// A message to the dispatcher of `Events::run`.
 enum Msg {
     /// Run `id` of trigger `t` ended.
@@ -242,27 +284,14 @@ impl<'a> Events<'a> {
     /// or a trigger could not start.
     pub fn run(self, count: u64, control: &Control, inbox: Option<Inbox>, mut done: impl FnMut(&EventRun)) -> bool {
         let Events { entry, parallel, triggers, names, probes, root } = self;
-        let report = |t: usize, text: String| {
-            let (id, folder) = &names[triggers[t].node];
-            let report = Report { id: id.clone(), folder: folder.clone(), kind: ReportKind::Error, text };
-            EventRun { id: 0, trigger: id.clone(), out: Outcome { reports: vec![report], ..Outcome::default() } }
-        };
         // The watches take their first scan, and the webhooks listen, before the first run.
-        let mut watches = Vec::new();
-        let mut listeners = Vec::new();
-        for (t, trigger) in triggers.iter().enumerate() {
-            let problem = match trigger.kind {
-                Builtin::FileChange if trigger.path.is_empty() => Some("input `path`: give the file or the folder to watch".to_owned()),
-                Builtin::Webhook => webhook::bind(trigger.port).map(|l| listeners.push((t, l))).err().map(|e| format!("cannot listen on port {}: {e}", trigger.port)),
-                _ => None,
-            };
-            if let Some(text) = problem {
-                done(&report(t, text));
+        let (watches, listeners) = match listen(triggers, root) {
+            Ok(started) => started,
+            Err((t, text)) => {
+                done(&failed(names, &triggers[t], text));
                 return false;
             }
-            watches.push((trigger.kind == Builtin::FileChange).then(|| watch::Watch::new(root.join(&trigger.path))));
-        }
-        let shared = Shared { entry, gate: (!parallel).then(|| Mutex::new(())), names, probes };
+        };
         let start = Instant::now();
         let remote = inbox.is_some();
         let first = |trigger: &Trigger| match trigger.kind {
@@ -271,18 +300,16 @@ impl<'a> Events<'a> {
             Builtin::Trigger if remote => None,
             _ => Some(start),
         };
-        let mut live: Vec<Live> = triggers.iter().map(|t| Live { next: first(t), ..Live::default() }).collect();
+        let live = triggers.iter().map(|t| Live { next: first(t), ..Live::default() }).collect();
+        let mut book = Book { triggers, names, live, watches, fires: Vec::new(), count, started: 0, next_id: 1, all_ok: true, ended: false };
         let (endless, quit) = (remote || !listeners.is_empty(), AtomicBool::new(false));
         let Inbox { send, receive, runs: controls } = inbox.unwrap_or_else(|| {
             let ((send, receive), runs) = (mpsc::channel(), Runs::default());
             Inbox { send, receive, runs }
         });
-        let (mut started, mut next_id, mut all_ok, mut ended) = (0u64, 1u64, true, false);
-        // The text of each fire. None gives the run ID, for a schedule.
-        let mut fires: Vec<(usize, Option<String>)> = Vec::new();
-        // A finished run gives its thread to the next run. `idle` counts the threads that wait for a job.
         let (jobs, queue) = mpsc::channel::<Job>();
-        let (queue, idle) = (Mutex::new(queue), AtomicUsize::new(0));
+        let shared = Shared { entry, gate: (!parallel).then(|| Mutex::new(())), names, probes };
+        let pool = Pool { shared, triggers, back: send.clone(), queue: Mutex::new(queue), idle: AtomicUsize::new(0) };
         std::thread::scope(|scope| {
             for (t, listener) in listeners {
                 let (back, quit, path) = (send.clone(), &quit, triggers[t].path.as_str());
@@ -292,104 +319,47 @@ impl<'a> Events<'a> {
                 let run_control = Arc::new(Control::default());
                 run_control.set_quiet(!remote && control.quiet());
                 lock(&controls).push((id, Arc::clone(&run_control)));
-                let job = (t, id, text, run_control);
-                // The count goes down before the send, so each job in the queue has a thread. Only
-                // this thread takes from the count, so the load and the sub do not race.
-                if idle.load(SeqCst) > 0 {
-                    idle.fetch_sub(1, SeqCst);
-                    let _ = jobs.send(job);
-                    return;
-                }
-                let (shared, back, queue, idle) = (&shared, send.clone(), &queue, &idle);
-                let thread = std::thread::Builder::new().name("patina-run".to_owned()).spawn_scoped(scope, move || {
-                    let mut job = job;
-                    loop {
-                        let (t, id, text, run_control) = job;
-                        let out = shared.run(triggers[t].task, &text, &run_control);
-                        idle.fetch_add(1, SeqCst);
-                        let _ = back.send(Msg::Done(t, id, out));
-                        match lock(queue).recv() {
-                            Ok(next) => job = next,
-                            Err(_) => break,
-                        }
-                    }
-                });
-                if let Err(e) = thread {
-                    let report = Report { id: names[triggers[t].node].0.clone(), text: format!("run {id} did not start: {e}"), ..Report::default() };
-                    let _ = send.send(Msg::Done(t, id, Outcome { reports: vec![report], ..Outcome::default() }));
-                }
+                pool.start(scope, &jobs, (t, id, text, run_control));
             };
             loop {
                 let now = Instant::now();
                 let stopped = control.stopped();
-                let halt = stopped || ended || started >= count;
-                for (t, trigger) in triggers.iter().enumerate() {
-                    let Some(next) = live[t].next.filter(|&next| next <= now && !halt) else { continue };
-                    let again = matches!(trigger.kind, Builtin::Schedule | Builtin::FileChange);
-                    live[t].next = again.then(|| (next + trigger.every).max(now));
-                    match &mut watches[t] {
-                        Some(watch) => fires.extend(watch.changes().into_iter().map(|path| (t, Some(path)))),
-                        None => fires.push((t, (trigger.kind != Builtin::Schedule).then(String::new))),
-                    }
-                }
-                for (t, text) in fires.drain(..) {
-                    if stopped || ended || started >= count {
-                        break;
-                    }
-                    let busy = live[t].active + live[t].waiting.len();
-                    if busy > 0 && triggers[t].overlap == Overlap::Skip {
-                        continue;
-                    }
-                    if busy >= MOST {
-                        done(&report(t, format!("the trigger has {MOST} runs, so it dropped a fire (spec 9.4)")));
-                        all_ok = false;
-                        continue;
-                    }
-                    let id = next_id;
-                    let text = text.unwrap_or_else(|| id.to_string());
-                    next_id += 1;
-                    started += 1;
-                    if busy > 0 && triggers[t].overlap == Overlap::Queue {
-                        live[t].waiting.push_back((id, text));
-                    } else {
-                        live[t].active += 1;
-                        spawn(t, id, text);
-                    }
-                }
+                book.due(now, stopped);
+                book.start_fires(stopped, &spawn, &mut done);
                 if stopped {
                     lock(&controls).iter().for_each(|(_, c)| c.set_stop(true));
                 }
-                if stopped || ended {
-                    live.iter_mut().for_each(|l| l.waiting.clear());
+                if stopped || book.ended {
+                    book.live.iter_mut().for_each(|l| l.waiting.clear());
                 }
-                let idle = live.iter().all(|l| l.active == 0 && l.waiting.is_empty());
-                let firing = !stopped && !ended && started < count && (endless || live.iter().any(|l| l.next.is_some()));
+                let idle = book.live.iter().all(|l| l.active == 0 && l.waiting.is_empty());
+                let firing = !book.halted(stopped) && (endless || book.live.iter().any(|l| l.next.is_some()));
                 if idle && !firing {
                     break;
                 }
-                let soonest = live.iter().filter_map(|l| l.next).min().filter(|_| firing);
+                let soonest = book.live.iter().filter_map(|l| l.next).min().filter(|_| firing);
                 let wait = soonest.map_or(CHECK, |next| next.saturating_duration_since(now).min(CHECK));
                 match receive.recv_timeout(wait) {
                     Ok(Msg::Done(t, id, out)) => {
-                        live[t].active -= 1;
+                        book.live[t].active -= 1;
                         lock(&controls).retain(|(c, _)| *c != id);
-                        all_ok &= out.ok;
+                        book.all_ok &= out.ok;
                         done(&EventRun { id, trigger: names[triggers[t].node].0.clone(), out });
-                        if let Some((id, text)) = live[t].waiting.pop_front() {
-                            live[t].active += 1;
+                        if let Some((id, text)) = book.live[t].waiting.pop_front() {
+                            book.live[t].active += 1;
                             spawn(t, id, text);
                         }
                     }
-                    Ok(Msg::Fire(t, text)) => fires.push((t, Some(text))),
+                    Ok(Msg::Fire(t, text)) => book.fires.push((t, Some(text))),
                     Ok(Msg::Outside(id, text)) => match triggers.iter().position(|t| t.kind == Builtin::Trigger && names[t.node].0 == id) {
-                        Some(t) => fires.push((t, Some(text))),
+                        Some(t) => book.fires.push((t, Some(text))),
                         None => {
                             let text = "the running graph has no trigger node with this ID, so run the graph again".to_owned();
                             let report = Report { id: id.clone(), folder: "trigger".to_owned(), kind: ReportKind::Error, text };
                             done(&EventRun { id: 0, trigger: id, out: Outcome { reports: vec![report], ..Outcome::default() } });
                         }
                     },
-                    Ok(Msg::End) => ended = true,
+                    Ok(Msg::End) => book.ended = true,
                     Err(_) => {}
                 }
             }
@@ -397,8 +367,105 @@ impl<'a> Events<'a> {
             // The threads of the pool end when the queue closes.
             drop(jobs);
         });
-        all_ok
+        book.all_ok
     }
+}
+
+/// The fires and the runs of the triggers, for the dispatcher of `Events::run`.
+struct Book<'a> {
+    triggers: &'a [Trigger],
+    names: &'a [(String, String)],
+    live: Vec<Live>,
+    watches: Vec<Option<watch::Watch>>,
+    /// The text of each fire. None gives the run ID, for a schedule.
+    fires: Vec<(usize, Option<String>)>,
+    /// The most runs to start.
+    count: u64,
+    started: u64,
+    next_id: u64,
+    all_ok: bool,
+    /// True after `Remote::end`.
+    ended: bool,
+}
+
+impl Book<'_> {
+    /// True when no new run starts.
+    fn halted(&self, stopped: bool) -> bool {
+        stopped || self.ended || self.started >= self.count
+    }
+
+    /// Adds the fires of the triggers that are due at `now`, and sets the time of their next fire.
+    fn due(&mut self, now: Instant, stopped: bool) {
+        if self.halted(stopped) {
+            return;
+        }
+        for (t, trigger) in self.triggers.iter().enumerate() {
+            let Some(next) = self.live[t].next.filter(|&next| next <= now) else { continue };
+            let again = matches!(trigger.kind, Builtin::Schedule | Builtin::FileChange);
+            self.live[t].next = again.then(|| (next + trigger.every).max(now));
+            match &mut self.watches[t] {
+                Some(watch) => self.fires.extend(watch.changes().into_iter().map(|path| (t, Some(path)))),
+                None => self.fires.push((t, (trigger.kind != Builtin::Schedule).then(String::new))),
+            }
+        }
+    }
+
+    /// Starts or queues a run for each fire, by the overlap rule of its trigger (9.4).
+    fn start_fires(&mut self, stopped: bool, spawn: &impl Fn(usize, u64, String), done: &mut impl FnMut(&EventRun)) {
+        for (t, text) in self.fires.drain(..) {
+            if stopped || self.ended || self.started >= self.count {
+                break;
+            }
+            let (live, trigger) = (&mut self.live[t], &self.triggers[t]);
+            let busy = live.active + live.waiting.len();
+            if busy > 0 && trigger.overlap == Overlap::Skip {
+                continue;
+            }
+            if busy >= MOST {
+                done(&failed(self.names, trigger, format!("the trigger has {MOST} runs, so it dropped a fire (spec 9.4)")));
+                self.all_ok = false;
+                continue;
+            }
+            let id = self.next_id;
+            let text = text.unwrap_or_else(|| id.to_string());
+            self.next_id += 1;
+            self.started += 1;
+            if busy > 0 && trigger.overlap == Overlap::Queue {
+                live.waiting.push_back((id, text));
+            } else {
+                live.active += 1;
+                spawn(t, id, text);
+            }
+        }
+    }
+}
+
+/// The watch of each trigger, and the listener of each webhook with its trigger.
+type Listen = (Vec<Option<watch::Watch>>, Vec<(usize, TcpListener)>);
+
+/// Starts the watches and the webhook listeners of the triggers. The error has the trigger and
+/// the problem.
+fn listen(triggers: &[Trigger], root: &Path) -> Result<Listen, (usize, String)> {
+    let (mut watches, mut listeners) = (Vec::new(), Vec::new());
+    for (t, trigger) in triggers.iter().enumerate() {
+        let problem = match trigger.kind {
+            Builtin::FileChange if trigger.path.is_empty() => Some("input `path`: give the file or the folder to watch".to_owned()),
+            Builtin::Webhook => webhook::bind(trigger.port).map(|l| listeners.push((t, l))).err().map(|e| format!("cannot listen on port {}: {e}", trigger.port)),
+            _ => None,
+        };
+        if let Some(text) = problem {
+            return Err((t, text));
+        }
+        watches.push((trigger.kind == Builtin::FileChange).then(|| watch::Watch::new(root.join(&trigger.path))));
+    }
+    Ok((watches, listeners))
+}
+
+/// A failed event run of `trigger` with the error `text`.
+fn failed(names: &[(String, String)], trigger: &Trigger, text: String) -> EventRun {
+    let (id, folder) = &names[trigger.node];
+    let report = Report { id: id.clone(), folder: folder.clone(), kind: ReportKind::Error, text };
+    EventRun { id: 0, trigger: id.clone(), out: Outcome { reports: vec![report], ..Outcome::default() } }
 }
 
 #[cfg(test)]
