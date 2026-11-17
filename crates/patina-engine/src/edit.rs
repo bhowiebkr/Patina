@@ -208,44 +208,8 @@ fn step(
 
 pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
     match edit {
-        Edit::AddNode { id, folder, builtin, pos } => {
-            if !is_id(id) {
-                return Err(format!("the node ID {id:?} is not 16 lowercase hexadecimal characters"));
-            }
-            if graph.node.iter().any(|n| &n.id == id) {
-                return Err(format!("the graph has a node with the ID {id}"));
-            }
-            if *builtin && crate::node::Builtin::parse(folder).is_none() {
-                return Err(format!("Patina has no built-in node {folder:?} (spec 9.2)"));
-            }
-            // The folder `graphs/<name>` adds a use of a subgraph (6.1).
-            let subgraph = folder.strip_prefix("graphs/").filter(|_| !builtin);
-            if let Some(name) = subgraph {
-                crate::project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
-            }
-            graph.node.push(NodeEntry {
-                id: id.clone(),
-                folder: (!builtin && subgraph.is_none()).then(|| folder.clone()),
-                subgraph: subgraph.map(str::to_owned),
-                builtin: builtin.then(|| folder.clone()),
-                pos: Some(finite(pos)?),
-                domain: None,
-                settings: None,
-                params: Default::default(),
-            });
-        }
-        Edit::RemoveNode { id } => {
-            let index = find(graph, id)?;
-            graph.node.remove(index);
-            graph.wire.retain(|w| node_of(&w.from) != id && node_of(&w.to) != id);
-            graph.order.retain(|o| &o.before != id && &o.after != id);
-            for pin in &mut graph.input {
-                pin.to.retain(|t| node_of(t) != id);
-            }
-            for pin in graph.output.iter_mut().filter(|p| node_of(&p.from) == id) {
-                pin.from.clear();
-            }
-        }
+        Edit::AddNode { id, folder, builtin, pos } => add_node(graph, id, folder, *builtin, pos)?,
+        Edit::RemoveNode { id } => remove_node(graph, id)?,
         Edit::MoveNode { id, pos } => {
             let index = find(graph, id)?;
             graph.node[index].pos = Some(finite(pos)?);
@@ -266,17 +230,7 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                 return Err(format!("no wire goes from {from} to {to}"));
             }
         }
-        Edit::ConnectOrder { before, after } => {
-            find(graph, before)?;
-            find(graph, after)?;
-            if graph.order.iter().any(|o| &o.before == before && &o.after == after) {
-                return Err(format!("an order wire already goes from {before} to {after}"));
-            }
-            if let Some(ids) = cycle(graph, before, after) {
-                return Err(format!("the order wire makes a cycle through these nodes: {}", ids.join(", ")));
-            }
-            graph.order.push(Order { before: before.clone(), after: after.clone() });
-        }
+        Edit::ConnectOrder { before, after } => connect_order(graph, before, after)?,
         Edit::DisconnectOrder { before, after } => {
             let count = graph.order.len();
             graph.order.retain(|o| !(&o.before == before && &o.after == after));
@@ -324,19 +278,7 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         }
         // `Project::apply` writes a code edit. Only a group gets one here.
         Edit::SetCode { .. } => return Err("a group cannot hold a code edit".to_owned()),
-        Edit::AddPin { key, name, input, pos } => {
-            if !is_key(key) {
-                return Err(format!("the pin key {key:?} is not 8 lowercase hexadecimal characters"));
-            }
-            if graph.input.iter().any(|p| &p.key == key) || graph.output.iter().any(|p| &p.key == key) {
-                return Err(format!("the graph has a public pin with the key {key}"));
-            }
-            let (name, pos) = (pin_name(name)?, finite(pos)?);
-            match input {
-                true => graph.input.push(PublicInput { key: key.clone(), name, pos, to: Vec::new() }),
-                false => graph.output.push(PublicOutput { key: key.clone(), name, pos, from: String::new() }),
-            }
-        }
+        Edit::AddPin { key, name, input, pos } => add_pin(graph, key, name, *input, pos)?,
         Edit::RemovePin { key } => {
             let count = graph.input.len() + graph.output.len();
             graph.input.retain(|p| &p.key != key);
@@ -354,31 +296,113 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
                 move_to(&mut graph.output, at, *index)?;
             }
         },
-        Edit::ConnectPin { key, end } => {
-            check_end(graph, end)?;
-            if let Some(pin) = graph.output.iter_mut().find(|p| &p.key == key) {
-                pin.from.clone_from(end);
-            } else {
-                let index = graph.input.iter().position(|p| &p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
-                free_input(graph, end);
-                graph.input[index].to.push(end.clone());
-            }
+        Edit::ConnectPin { key, end } => connect_pin(graph, key, end)?,
+        Edit::DisconnectPin { key, end } => disconnect_pin(graph, key, end)?,
+    }
+    Ok(())
+}
+
+/// Adds a node, a built-in node or a use of a subgraph.
+fn add_node(graph: &mut GraphFile, id: &str, folder: &str, builtin: bool, pos: &[f64; 2]) -> Result<(), String> {
+    if !is_id(id) {
+        return Err(format!("the node ID {id:?} is not 16 lowercase hexadecimal characters"));
+    }
+    if graph.node.iter().any(|n| n.id == id) {
+        return Err(format!("the graph has a node with the ID {id}"));
+    }
+    if builtin && crate::node::Builtin::parse(folder).is_none() {
+        return Err(format!("Patina has no built-in node {folder:?} (spec 9.2)"));
+    }
+    // The folder `graphs/<name>` adds a use of a subgraph (6.1).
+    let subgraph = folder.strip_prefix("graphs/").filter(|_| !builtin);
+    if let Some(name) = subgraph {
+        crate::project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+    }
+    graph.node.push(NodeEntry {
+        id: id.to_owned(),
+        folder: (!builtin && subgraph.is_none()).then(|| folder.to_owned()),
+        subgraph: subgraph.map(str::to_owned),
+        builtin: builtin.then(|| folder.to_owned()),
+        pos: Some(finite(pos)?),
+        domain: None,
+        settings: None,
+        params: Default::default(),
+    });
+    Ok(())
+}
+
+/// Removes a node with its wires, its order wires and the wires of its public pins.
+fn remove_node(graph: &mut GraphFile, id: &str) -> Result<(), String> {
+    let index = find(graph, id)?;
+    graph.node.remove(index);
+    graph.wire.retain(|w| node_of(&w.from) != id && node_of(&w.to) != id);
+    graph.order.retain(|o| o.before != id && o.after != id);
+    for pin in &mut graph.input {
+        pin.to.retain(|t| node_of(t) != id);
+    }
+    for pin in graph.output.iter_mut().filter(|p| node_of(&p.from) == id) {
+        pin.from.clear();
+    }
+    Ok(())
+}
+
+/// Adds an order wire (6.4).
+fn connect_order(graph: &mut GraphFile, before: &str, after: &str) -> Result<(), String> {
+    find(graph, before)?;
+    find(graph, after)?;
+    if graph.order.iter().any(|o| o.before == before && o.after == after) {
+        return Err(format!("an order wire already goes from {before} to {after}"));
+    }
+    if let Some(ids) = cycle(graph, before, after) {
+        return Err(format!("the order wire makes a cycle through these nodes: {}", ids.join(", ")));
+    }
+    graph.order.push(Order { before: before.to_owned(), after: after.to_owned() });
+    Ok(())
+}
+
+/// Adds a public pin to the graph (6.1).
+fn add_pin(graph: &mut GraphFile, key: &str, name: &str, input: bool, pos: &[f64; 2]) -> Result<(), String> {
+    if !is_key(key) {
+        return Err(format!("the pin key {key:?} is not 8 lowercase hexadecimal characters"));
+    }
+    if graph.input.iter().any(|p| p.key == key) || graph.output.iter().any(|p| p.key == key) {
+        return Err(format!("the graph has a public pin with the key {key}"));
+    }
+    let (name, pos) = (pin_name(name)?, finite(pos)?);
+    match input {
+        true => graph.input.push(PublicInput { key: key.to_owned(), name, pos, to: Vec::new() }),
+        false => graph.output.push(PublicOutput { key: key.to_owned(), name, pos, from: String::new() }),
+    }
+    Ok(())
+}
+
+/// Connects a public pin to the node pin `end`.
+fn connect_pin(graph: &mut GraphFile, key: &str, end: &str) -> Result<(), String> {
+    check_end(graph, end)?;
+    if let Some(pin) = graph.output.iter_mut().find(|p| p.key == key) {
+        end.clone_into(&mut pin.from);
+    } else {
+        let index = graph.input.iter().position(|p| p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
+        free_input(graph, end);
+        graph.input[index].to.push(end.to_owned());
+    }
+    Ok(())
+}
+
+/// Removes the wire between a public pin and the node pin `end`.
+fn disconnect_pin(graph: &mut GraphFile, key: &str, end: &str) -> Result<(), String> {
+    let none = || format!("no wire goes from the public pin {key} to {end}");
+    if let Some(pin) = graph.output.iter_mut().find(|p| p.key == key) {
+        if pin.from != end {
+            return Err(none());
         }
-        Edit::DisconnectPin { key, end } => {
-            let none = || format!("no wire goes from the public pin {key} to {end}");
-            if let Some(pin) = graph.output.iter_mut().find(|p| &p.key == key) {
-                if &pin.from != end {
-                    return Err(none());
-                }
-                pin.from.clear();
-            } else {
-                let pin = graph.input.iter_mut().find(|p| &p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
-                let count = pin.to.len();
-                pin.to.retain(|t| t != end);
-                if pin.to.len() == count {
-                    return Err(none());
-                }
-            }
+        pin.from.clear();
+    } else {
+        let pin = graph.input.iter_mut().find(|p| p.key == key).ok_or(format!("the graph has no public pin {key}"))?;
+        let count = pin.to.len();
+        pin.to.retain(|t| t != end);
+        if pin.to.len() == count {
+            return Err(none());
         }
     }
     Ok(())

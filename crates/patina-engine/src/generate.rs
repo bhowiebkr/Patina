@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::fmt::Write;
 
 use crate::node::{Builtin, Domain, Output, Pass};
-use crate::plan::{Plan, Source};
+use crate::plan::{Plan, Slot, Source};
 
 mod exports;
 pub mod slot;
@@ -121,11 +121,64 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         s.push_str("    let _ = ::patina_log::set_logger(&PatinaLog);\n");
         s.push_str("    ::patina_log::set_max_level(::patina_log::LevelFilter::Info);\n");
     }
+    let cells = cells(&mut s, plan, domain);
+    // Rust knows these types only after the closure, so the checks for `parallel` start here.
+    for name in &cells.shared {
+        let _ = writeln!(s, "    let c_{name} = ::patina_sdk::glue::check(&{name});");
+    }
+    let held: usize = plan.steps.iter().map(|step| step.consumers.iter().filter(|&&c| c > 0).count()).sum();
+    let _ = writeln!(s, "    let keeps = ::patina_sdk::glue::Keeps::new({held});");
+    s.push_str(
+        "    let f = ::patina_sdk::glue::typed(move |cmd, rep| match cmd {\n        \
+         ::patina_sdk::glue::Cmd::Set(index, text) => match index {\n",
+    );
+    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| own(plan, domain, slot)) {
+        let _ = writeln!(s, "            {i} => ::patina_sdk::glue::set_param(&mut *p{i}.write(), text, rep, {}),", slot.step);
+    }
+    s.push_str("            _ => false,\n        },\n");
+    tasks(&mut s, plan, domain);
+    s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n        ::patina_sdk::glue::Cmd::Fire(..) => false,\n");
+    // The GUI of each node with a `ui` function (4.3). The CLI never calls it.
+    s.push_str("        ::patina_sdk::glue::Cmd::Ui(index, mode, events) => match index {\n");
+    ui_arms(&mut s, plan, &cells.stateful);
+    s.push_str("            _ => false,\n        },\n");
+    s.push_str(if cells.slotted { "        ::patina_sdk::glue::Cmd::Slot(p) => slot.set(p),\n" } else { "        ::patina_sdk::glue::Cmd::Slot(_) => true,\n" });
+    s.push_str("        ::patina_sdk::glue::Cmd::Call(..) => false,\n");
+    s.push_str("        ::patina_sdk::glue::Cmd::Read(index, out) => { *out = keeps.read(index); true }\n");
+    moves(&mut s, plan, domain, &cells.stateful);
+    end(&mut s, plan, domain);
+    s.push_str("        ::patina_sdk::glue::Cmd::End(_) => true,\n    });\n    let parallel = true");
+    for name in &cells.shared {
+        let _ = write!(s, " && (&&c_{name}).sync()");
+    }
+    s.push_str(";\n    ::patina_sdk::glue::cluster(f, parallel)\n}\n");
+    s.push_str(EXPORTS);
+    if plan.log {
+        s.push_str(LOGGER);
+    }
+    s
+}
+
+/// The values that the closure of a cluster owns: the names of the values that it shares with
+/// the worker threads, whether a node is in the slot, and the stateful steps.
+struct Cells {
+    shared: Vec<String>,
+    slotted: bool,
+    stateful: Vec<usize>,
+}
+
+/// True when the slot gets a value in the cluster of `domain`. The engine reads the settings of a
+/// trigger (9.4), so they get no value in the cluster.
+fn own(plan: &Plan, domain: Domain, slot: &Slot) -> bool {
+    plan.steps[slot.step].domain == domain && !plan.is_trigger(slot.step)
+}
+
+/// Writes the values of a cluster that its closure owns: the parameters, the values that another
+/// domain reads, the slot, the states and the delays.
+fn cells(s: &mut String, plan: &Plan, domain: Domain) -> Cells {
     let mut shared = Vec::new();
     let mine = |n: usize| plan.steps[n].domain == domain;
-    // The engine reads the settings of a trigger (9.4), so they get no value in the cluster.
-    let own = |slot: &&crate::plan::Slot| mine(slot.step) && !plan.is_trigger(slot.step);
-    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| own(slot)) {
+    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| own(plan, domain, slot)) {
         let ty = if slot.is_str { ": ::patina_sdk::glue::Shared<::std::string::String>" } else { "" };
         let step = &plan.steps[slot.step];
         let word = plan.nodes[step.node].1.inputs.iter().any(|i| i.key == slot.key && crate::plan::is_word(&i.value));
@@ -137,7 +190,7 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         );
         shared.push(format!("p{i}"));
     }
-    witness(&mut s, plan, witnessed(plan, domain));
+    witness(s, plan, witnessed(plan, domain));
     // A value that another domain reads is in an `Arc`, which the other cluster links to (8.2).
     // A wire into or out of the audio domain is a buffer without a lock (9.3).
     for (n, k) in plan.held().filter(|&(n, k)| is_shared(plan, n, k)) {
@@ -182,20 +235,11 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         let _ = writeln!(s, "    let d{n} = ::patina_sdk::glue::delay_for(&n{from}_{output}); // {}", step.id);
         shared.push(format!("d{n}"));
     }
-    // Rust knows these types only after the closure, so the checks for `parallel` start here.
-    for name in &shared {
-        let _ = writeln!(s, "    let c_{name} = ::patina_sdk::glue::check(&{name});");
-    }
-    let held: usize = plan.steps.iter().map(|step| step.consumers.iter().filter(|&&c| c > 0).count()).sum();
-    let _ = writeln!(s, "    let keeps = ::patina_sdk::glue::Keeps::new({held});");
-    s.push_str(
-        "    let f = ::patina_sdk::glue::typed(move |cmd, rep| match cmd {\n        \
-         ::patina_sdk::glue::Cmd::Set(index, text) => match index {\n",
-    );
-    for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| own(slot)) {
-        let _ = writeln!(s, "            {i} => ::patina_sdk::glue::set_param(&mut *p{i}.write(), text, rep, {}),", slot.step);
-    }
-    s.push_str("            _ => false,\n        },\n");
+    Cells { shared, slotted, stateful }
+}
+
+/// Writes the arm of each task of `domain` (9.2). An event task runs once for each event (9.4).
+fn tasks(s: &mut String, plan: &Plan, domain: Domain) {
     let mut probes = Vec::with_capacity(plan.steps.len());
     let mut probe = 0;
     for step in &plan.steps {
@@ -222,9 +266,9 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         }
         for run in task.steps.chunk_by(|&a, &b| gates[a] && gates[b]) {
             if gates[run[0]] {
-                net(&mut s, plan, run, &probes);
+                net(s, plan, run, &probes);
             } else {
-                step(&mut s, plan, run[0], probes[run[0]]);
+                step(s, plan, run[0], probes[run[0]]);
             }
         }
         for (n, k) in &local {
@@ -232,27 +276,24 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         }
         s.push_str("            ok\n        }\n");
     }
-    s.push_str("        ::patina_sdk::glue::Cmd::Task(_) => false,\n        ::patina_sdk::glue::Cmd::Fire(..) => false,\n");
-    // The GUI of each node with a `ui` function (4.3). The CLI never calls it.
-    s.push_str("        ::patina_sdk::glue::Cmd::Ui(index, mode, events) => match index {\n");
-    ui_arms(&mut s, plan, &stateful);
-    s.push_str("            _ => false,\n        },\n");
-    s.push_str(if slotted { "        ::patina_sdk::glue::Cmd::Slot(p) => slot.set(p),\n" } else { "        ::patina_sdk::glue::Cmd::Slot(_) => true,\n" });
-    s.push_str("        ::patina_sdk::glue::Cmd::Call(..) => false,\n");
-    s.push_str("        ::patina_sdk::glue::Cmd::Read(index, out) => { *out = keeps.read(index); true }\n");
+}
+
+/// Writes the arms that move the states (7.2) and the links between domains (8.2), and the start
+/// of a run.
+fn moves(s: &mut String, plan: &Plan, domain: Domain, stateful: &[usize]) {
     // The states move from an old cluster to a new cluster when their keys did not change (7.2).
     s.push_str("        ::patina_sdk::glue::Cmd::Take(index, out) => match index {\n");
-    for n in &stateful {
+    for n in stateful {
         let _ = writeln!(s, "            {n} => ::patina_sdk::glue::take_state(&s{n}, out),");
     }
     s.push_str("            _ => false,\n        },\n        ::patina_sdk::glue::Cmd::Put(index, moved) => match index {\n");
-    for n in &stateful {
+    for n in stateful {
         let _ = writeln!(s, "            {n} => ::patina_sdk::glue::put_state(&s{n}, moved, rep, {n}),");
     }
     s.push_str("            _ => false,\n        },\n");
     // The engine links each value that another domain reads after it makes the clusters (8.2).
     s.push_str("        ::patina_sdk::glue::Cmd::Export(index, out) => match index {\n");
-    for (i, &(n, k)) in links(plan).iter().enumerate().filter(|(_, (n, _))| mine(*n)) {
+    for (i, &(n, k)) in links(plan).iter().enumerate().filter(|(_, (n, _))| plan.steps[*n].domain == domain) {
         let f = if is_latest(plan, n, k) { "export_latest" } else { "export_link" };
         let _ = writeln!(s, "            {i} => ::patina_sdk::glue::{f}(&n{n}_{k}, out),");
     }
@@ -269,6 +310,10 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         let _ = write!(s, "n{n}_{k}.fetch(); ");
     }
     s.push_str("true }\n        ::patina_sdk::glue::Cmd::Begin(_) => true,\n");
+}
+
+/// Writes the end of a run of `domain`.
+fn end(s: &mut String, plan: &Plan, domain: Domain) {
     // The end of a domain drops the values of its steps (9.1). A value that another domain reads
     // stays until its step runs again.
     let _ = writeln!(s, "        ::patina_sdk::glue::Cmd::End({}) => {{\n            let mut ok = true;", domain as u32);
@@ -286,16 +331,6 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}.write().take(), rep, {n});");
     }
     s.push_str("            ok\n        }\n");
-    s.push_str("        ::patina_sdk::glue::Cmd::End(_) => true,\n    });\n    let parallel = true");
-    for name in &shared {
-        let _ = write!(s, " && (&&c_{name}).sync()");
-    }
-    s.push_str(";\n    ::patina_sdk::glue::cluster(f, parallel)\n}\n");
-    s.push_str(EXPORTS);
-    if plan.log {
-        s.push_str(LOGGER);
-    }
-    s
 }
 
 /// Writes the `Ui` arm of each step of `steps` with a `ui` function (4.3).
