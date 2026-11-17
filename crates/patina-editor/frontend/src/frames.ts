@@ -1,6 +1,7 @@
 // The nodes of a subgraph use in place, in a neutral frame in the graph that uses it (spec 15.3).
 
-import type { Corners, Edit, GraphFile, NodeEntry, Point, Style } from './api';
+import type { Corners, Edit, GraphFile, NodeEntry, Path, Point } from './api';
+import { pathOf } from './wires.ts';
 
 /** The space of the frame at the left of the inner nodes, for the input names. */
 export const FRAME_LEFT = 90;
@@ -16,7 +17,7 @@ export interface InnerWire {
   from: string;
   to: string;
   points: Point[];
-  style?: Style;
+  style?: Path;
   corners?: Corners;
   name?: string;
 }
@@ -46,7 +47,7 @@ export function frameOf(use: string, file: GraphFile): Frame {
       from: prefix(w.from),
       to: prefix(w.to),
       points: (w.points ?? []).map(([x, y]): Point => [x + dx, y + dy]),
-      style: w.style,
+      style: pathOf(w.style, file),
       corners: w.corners,
       name: w.name,
     })),

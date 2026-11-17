@@ -7,6 +7,7 @@ import { ORDER, infoOf, nodeState, outputType, valueStale, type NodeData, type P
 import { place, type Frame, type Room } from './frames';
 import { outputTypeOf } from './palette';
 import type { WireData } from './WireLayer';
+import { pathOf } from './wires';
 
 const NO_POINTS: readonly Point[] = [];
 
@@ -190,7 +191,7 @@ export function buildEdges(view: View, domains: ReadonlyMap<string, Domain>, fra
     const id = `${w.from}>${w.to}`;
     const [a, b] = [domains.get(source), domains.get(target)];
     const cross = a !== undefined && b !== undefined && a !== b;
-    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ? w.points.map((q) => place(rooms, q)) : NO_POINTS, style: w.style, corners: w.corners, ty: outputType(view, w.from), name: w.name, bus: bus(w.from, w.to, w.name), cross } };
+    return { id, type: 'wire', source, sourceHandle, target, targetHandle, selected: selected.has(id), data: { from: w.from, to: w.to, route: w.points ? w.points.map((q) => place(rooms, q)) : NO_POINTS, style: pathOf(w.style, view.graph), corners: w.corners, ty: outputType(view, w.from), name: w.name, bus: bus(w.from, w.to, w.name), cross } };
   });
   // An order wire has no data, so the Inspector does not show it.
   const orders = (view.graph.order ?? []).map((o): Edge<WireData> => {

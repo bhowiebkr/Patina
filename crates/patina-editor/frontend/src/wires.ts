@@ -1,7 +1,13 @@
 // The geometry of the connections (spec 15.9): one slot of points for each wire. The WebGL
 // layer draws the slots, and each edge of React Flow keeps an invisible hit path on the same curve.
 
-import type { Corners, Point, Style } from './api';
+import type { Corners, GraphFile, Path, Point, Style } from './api';
+
+/** The drawn path of a wire with `style` in `graph` (spec 15.9). */
+export function pathOf(style: Style | undefined, graph: GraphFile): Path | undefined {
+  const s = style ?? graph.style;
+  return s === 'automatic' ? undefined : s;
+}
 import type { Gap } from './marks.ts';
 
 export const MAX_POINTS = 64;
@@ -36,7 +42,7 @@ export const cornerRadius = (width: number) => Math.max(CORNER_RADIUS, width / 2
  * with no points is curved, and a wire with points is a polyline. A wide ribbon gets a larger
  * corner, so its inner lane does not fold.
  */
-export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Style, corners?: Corners, width = 0): Shape {
+export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Path, corners?: Corners, width = 0): Shape {
   if (style === 'curved' || (style === undefined && route.length === 0)) return { bends: route, radius: SMOOTH };
   const radius = corners === 'sharp' ? 0 : cornerRadius(width);
   return { bends: style === 'orthogonal' ? orthogonal(sx, sy, tx, ty, route) : route, radius };
@@ -305,7 +311,7 @@ function segmentDistance(ax: number, ay: number, bx: number, by: number, x: numb
  * this style (15.9). For an orthogonal path, it is the number of route points before the nearest
  * leg, so the new point does not change the legs around it.
  */
-export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number, style?: Style): number {
+export function insertAt(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], x: number, y: number, style?: Path): number {
   let best = 0;
   let bestDistance = Infinity;
   const near = (k: number, ax: number, ay: number, bx: number, by: number) => {

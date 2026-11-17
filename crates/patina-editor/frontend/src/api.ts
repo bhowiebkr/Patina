@@ -16,8 +16,10 @@ export interface NodeEntry {
   params?: Record<string, string>;
 }
 
-/** The path of a wire and its corners (spec 15.9). No value uses the graph default. */
-export type Style = 'curved' | 'orthogonal' | 'polyline';
+/** The path of a wire and its corners (spec 15.9). A wire with no style uses the graph default. */
+export type Style = 'automatic' | 'curved' | 'orthogonal' | 'polyline';
+/** A drawn path. No value is the automatic route. */
+export type Path = Exclude<Style, 'automatic'>;
 export type Corners = 'rounded' | 'sharp';
 
 export interface Wire {
@@ -55,6 +57,8 @@ export interface PublicOutput {
 /** A graph file in `graphs/` (spec 6.4). Empty lists are left out. */
 export interface GraphFile {
   format: number;
+  /** The path of the wires with no style. No value is the automatic route (spec 15.9). */
+  style?: Style;
   node?: NodeEntry[];
   wire?: Wire[];
   order?: Order[];
@@ -352,6 +356,7 @@ export type Edit =
   | { kind: 'DisconnectOrder'; before: string; after: string }
   | { kind: 'SetRoute'; to: string; points: Point[] }
   | { kind: 'SetLook'; to: string; style?: Style; corners?: Corners }
+  | { kind: 'SetGraphLook'; style?: Style }
   | { kind: 'NameWire'; to: string; name: string | null }
   | { kind: 'SetParam'; id: string; key: string; text: string | null }
   | { kind: 'SetCode'; path: string; text: string }

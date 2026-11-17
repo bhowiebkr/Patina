@@ -38,10 +38,13 @@ pub struct Import {
     pub files: Option<BTreeMap<String, String>>,
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct GraphFile {
     pub format: u32,
+    /// The path style of the wires with no style of their own (15.9). `None` is the automatic route.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<Style>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node: Vec<NodeEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -95,13 +98,24 @@ pub struct Wire {
     pub points: Vec<[f64; 2]>,
 }
 
-/// The path of a wire (15.9). A wire with no style uses the graph default.
+/// The path of a wire (15.9). A wire with no style uses the graph default, and a graph with no
+/// style uses the automatic route.
 #[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Style {
+    /// The automatic route around the nodes. A wire sets it to differ from the graph default.
+    Automatic,
     Curved,
     Orthogonal,
     Polyline,
+}
+
+impl Style {
+    /// The style that keeps the path of a wire when it moves from a graph with the default `from`
+    /// to a graph with the default `to`, for example at a paste or an expand.
+    pub fn moved(style: Option<Style>, from: Option<Style>, to: Option<Style>) -> Option<Style> {
+        if style.is_some() || from == to { style } else { Some(from.unwrap_or(Style::Automatic)) }
+    }
 }
 
 /// The corners of an orthogonal or polyline path (15.9). The default is rounded.
@@ -210,5 +224,17 @@ mod tests {
         let text = include_str!("../../../examples/hello/graphs/main.toml").replace("\r\n", "\n");
         let graph: GraphFile = toml::from_str(&text).unwrap();
         assert_eq!(toml::to_string(&graph).unwrap(), text);
+    }
+
+    #[test]
+    fn a_moved_wire_keeps_its_path() {
+        let (auto, curved) = (Some(Style::Automatic), Some(Style::Curved));
+        assert_eq!(Style::moved(None, None, None), None);
+        assert_eq!(Style::moved(None, curved, curved), None);
+        assert_eq!(Style::moved(None, curved, None), curved);
+        assert_eq!(Style::moved(None, None, curved), auto);
+        assert_eq!(Style::moved(Some(Style::Polyline), None, curved), Some(Style::Polyline));
+        let graph: GraphFile = toml::from_str("format = 1\nstyle = \"orthogonal\"\n").unwrap();
+        assert_eq!(graph.style, Some(Style::Orthogonal));
     }
 }

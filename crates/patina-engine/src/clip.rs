@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::import::{self, Choice, State};
 use crate::plan::check_name;
-use crate::project::{FORMAT, GraphFile, NodeEntry, Wire, is_id};
+use crate::project::{FORMAT, GraphFile, NodeEntry, Style, Wire, is_id};
 use crate::{Edit, MAIN, Project, Toolchain};
 
 /// The version of the clip text.
@@ -70,6 +70,7 @@ impl Project {
         let copied = |ends: &[String]| !ends.is_empty() && ends.iter().all(|to| wire.iter().any(|w| &w.to == to));
         let nodes = GraphFile {
             format: FORMAT,
+            style: graph.style,
             node,
             order: graph.order.iter().filter(|o| ids.contains(&o.before) && ids.contains(&o.after)).cloned().collect(),
             collar: graph.collar.iter().filter(|c| copied(&c.wires)).cloned().collect(),
@@ -98,7 +99,7 @@ impl Project {
             settings: None,
             params: BTreeMap::new(),
         };
-        let nodes = GraphFile { format: FORMAT, node: vec![entry], wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
+        let nodes = GraphFile { format: FORMAT, node: vec![entry], ..GraphFile::default() };
         self.clip(nodes)
     }
 
@@ -248,6 +249,7 @@ impl Project {
         for mut wire in clip.wire {
             (wire.from, wire.to) = (end(&wire.from), end(&wire.to));
             wire.points = wire.points.into_iter().map(shift).collect();
+            wire.style = Style::moved(wire.style, clip.style, graph.style);
             graph.wire.push(wire);
         }
         for mut order in clip.order {

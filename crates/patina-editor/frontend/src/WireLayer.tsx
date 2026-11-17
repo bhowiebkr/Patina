@@ -16,7 +16,7 @@ import {
   type PointerEvent,
 } from 'react';
 import { EdgeLabelRenderer, getBezierPath, Position, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
-import type { Corners, Edit, KindInfo, Point, Style, Value } from './api';
+import type { Corners, Edit, KindInfo, Path, Point, Value } from './api';
 import { dragRoute, type FrameAt } from './frames';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
@@ -32,7 +32,7 @@ const HANDLE = 10;
 /** The ends of a wire, its route points, its look, the type of its value, its wire name and its bus name (spec 15.9). */
 /** `cross` is true for a wire between two clock domains, which is dashed (15.3). `net` is the route net when it is not `from`. */
 /** `frame` is the use of an inner wire of a frame. */
-export type WireData = { from: string; to: string; route: readonly Point[]; frame?: FrameAt; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean; net?: string };
+export type WireData = { from: string; to: string; route: readonly Point[]; frame?: FrameAt; style?: Path; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean; net?: string };
 
 export interface WireTools {
   store: WireStore;

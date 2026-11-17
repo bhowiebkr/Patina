@@ -37,6 +37,9 @@ pub enum Edit {
     /// Sets the path style and the corners of the wire to the input `to` (15.9). `None` uses the
     /// graph default.
     SetLook { to: String, style: Option<Style>, corners: Option<Corners> },
+    /// Sets the path style of the wires with no style of their own (15.9). `None` or `Automatic`
+    /// gives the automatic route.
+    SetGraphLook { style: Option<Style> },
     /// Sets the bus name of the wire to the input `to` (15.9). `None` or a blank name gives the
     /// default name.
     NameWire { to: String, name: Option<String> },
@@ -94,7 +97,7 @@ impl History {
 
     /// A new graph with no file yet. It stays dirty, so the next save writes it (15.10).
     pub fn unsaved(graph: GraphFile) -> History {
-        let saved = GraphFile { format: 0, node: Vec::new(), wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
+        let saved = GraphFile::default();
         History { saved, graph, undo: Vec::new(), redo: Vec::new() }
     }
 
@@ -294,6 +297,9 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         Edit::SetLook { to, style, corners } => {
             let wire = graph.wire.iter_mut().find(|w| &w.to == to).ok_or(format!("no wire goes to {to}"))?;
             (wire.style, wire.corners) = (*style, *corners);
+        }
+        Edit::SetGraphLook { style } => {
+            graph.style = style.filter(|s| *s != Style::Automatic);
         }
         Edit::NameWire { to, name } => {
             let name = name.as_deref().map(str::trim).filter(|n| !n.is_empty());
@@ -633,6 +639,15 @@ corners = \"sharp\""), "{text}");
         assert!(serde_json::from_str::<Edit>(r#"{"kind":"SetLook","to":"x","style":"zigzag"}"#).is_err());
         assert!(history.undo(no_code).unwrap());
         assert_eq!(history.graph.wire[0].style, None, "undo gives the graph default again");
+        history.apply(&serde_json::from_str(r#"{"kind":"SetGraphLook","style":"curved"}"#).unwrap()).unwrap();
+        let text = toml::to_string(&history.graph).unwrap();
+        assert!(text.starts_with("format = 1\nstyle = \"curved\"\n"), "{text}");
+        history.apply(&Edit::SetGraphLook { style: Some(Style::Automatic) }).unwrap();
+        assert_eq!(history.graph.style, None, "the automatic route is the default, so the file leaves it out");
+        assert!(history.undo(no_code).unwrap());
+        assert_eq!(history.graph.style, Some(Style::Curved));
+        assert!(history.undo(no_code).unwrap());
+        assert_eq!(history.graph.style, None, "undo gives the automatic route again");
 
         let name = |name: Option<&str>| Edit::NameWire { to: "000000000000000b.value".to_owned(), name: name.map(str::to_owned) };
         history.apply(&name(Some(" addr "))).unwrap();

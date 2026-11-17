@@ -418,7 +418,7 @@ impl Project {
         }
         let fail = |problems| Error::Graph(graph_path(&self.root, &self.name), problems);
         let test = project::NodeEntry { id: TEST.to_owned(), folder: None, subgraph: Some(self.name.clone()), builtin: None, pos: None, domain: None, settings: None, params: params.clone() };
-        let root = GraphFile { format: self.history.graph.format, node: vec![test], wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
+        let root = GraphFile { format: self.history.graph.format, node: vec![test], ..GraphFile::default() };
         let (graph, aliases) = subgraph::flatten(&self.root, &root, &self.edits()).map_err(fail)?;
         let mut plan = plan::check(&self.root, &graph).map_err(fail)?;
         plan.probe_all(&aliases);

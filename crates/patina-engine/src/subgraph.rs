@@ -7,7 +7,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::edit::{cycle, node_of};
-use crate::project::{self, Collar, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Wire};
+use crate::project::{self, Collar, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Style, Wire};
 use crate::{NodeInfo, Pin, node, plan};
 
 /// The inner ends of the public pins of one use, and the IDs of its nodes.
@@ -301,7 +301,7 @@ pub(crate) fn collapse(graph: &GraphFile, ids: &[String], use_id: &str, name: &s
     let use_entry = NodeEntry { id: use_id.to_owned(), folder: None, subgraph: Some(name.to_owned()), builtin: None, pos: Some([left, top]), domain: None, settings: None, params: Default::default() };
     let mut outer = GraphFile { node: kept, wire: Vec::new(), order: Vec::new(), input: Vec::new(), output: Vec::new(), ..graph.clone() };
     outer.node.push(use_entry);
-    let mut inner = GraphFile { format: graph.format, node: moved, wire: Vec::new(), order: Vec::new(), collar: Vec::new(), cable: Vec::new(), input: Vec::new(), output: Vec::new() };
+    let mut inner = GraphFile { format: graph.format, style: graph.style, node: moved, ..GraphFile::default() };
     let mut names = Vec::new();
     let pin = |end: &str| end.split_once('.').map_or(end, |(_, key)| key).to_owned();
 
@@ -433,7 +433,7 @@ pub(crate) fn expand_use(graph: &GraphFile, use_id: &str, inner: &GraphFile, mut
             out.node.push(NodeEntry { id: id.clone(), pos, params, ..n.clone() });
         }
     }
-    out.wire.extend(inner.wire.iter().map(|w| Wire { from: end(&w.from), to: end(&w.to), ..w.clone() }));
+    out.wire.extend(inner.wire.iter().map(|w| Wire { from: end(&w.from), to: end(&w.to), style: Style::moved(w.style, inner.style, graph.style), ..w.clone() }));
     for w in &graph.wire {
         let from = match pin(&w.from) {
             Some(key) => source(&key).ok_or(format!("the subgraph has no output {key}"))?,

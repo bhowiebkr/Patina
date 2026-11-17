@@ -352,13 +352,15 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
       if (!add || same) return;
       const edits = [disconnectEdit(old), add];
       const d = old.data;
+      // The look comes from the file, because the drawn path has the graph default in it.
+      const look = view.graph.wire?.find((w) => w.to === d?.to);
       if (add.kind === 'Connect' && d) {
-        if (d.style || d.corners) edits.push({ kind: 'SetLook', to: add.to, style: d.style, corners: d.corners });
+        if (look?.style || look?.corners) edits.push({ kind: 'SetLook', to: add.to, style: look.style, corners: look.corners });
         if (d.name) edits.push({ kind: 'NameWire', to: add.to, name: d.name });
       }
       edit({ kind: 'Group', edits });
     },
-    [edit],
+    [edit, view.graph],
   );
 
   // A drag from a pin that ends on an empty area opens the palette at that point (15.2).

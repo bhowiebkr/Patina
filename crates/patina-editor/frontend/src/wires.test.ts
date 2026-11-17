@@ -2,8 +2,8 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, lockPoints, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
-import type { Corners, Style } from './api.ts';
+import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, lockPoints, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, pathOf, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import type { Corners, Path } from './api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
 function miters(...xy: number[]): number[][] {
@@ -48,7 +48,7 @@ test('a sharp bend keeps the miter at 4 times the half width or less', () => {
 });
 
 /** The x, y pairs of a path from (0, 0) to (tx, ty). */
-function path(tx: number, ty: number, points: [number, number][], style?: Style, corners?: Corners): number[][] {
+function path(tx: number, ty: number, points: [number, number][], style?: Path, corners?: Corners): number[][] {
   const out = new Float32Array(MAX_POINTS * STRIDE);
   const n = wirePoints(0, 0, tx, ty, shape(0, 0, tx, ty, points, style, corners), out, 0);
   return Array.from({ length: n }, (_, k) => [out[k * STRIDE], out[k * STRIDE + 1]]);
@@ -270,4 +270,12 @@ test('a curved path goes through its route points and keeps the default curve wi
   assert.ok(Math.abs(p[1][1]) < Math.abs(p[1][0]), 'the curve leaves the pin horizontally');
   assert.equal(path(100, 0, []).length, 33);
   near([anchor(0, 0, 100, 0, shape(0, 0, 100, 0, [[50, 40]], 'curved')).slice(0, 2)], [[33.75, 20]]);
+});
+
+test('a wire with no style draws the graph default, and automatic is the automatic route', () => {
+  const graph = { format: 1, style: 'curved' as const };
+  assert.equal(pathOf(undefined, graph), 'curved');
+  assert.equal(pathOf('automatic', graph), undefined);
+  assert.equal(pathOf('polyline', graph), 'polyline');
+  assert.equal(pathOf(undefined, { format: 1 }), undefined);
 });

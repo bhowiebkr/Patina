@@ -119,6 +119,12 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   if (v.graph.wire?.[0]?.style !== 'curved' || v.graph.wire[0].points?.length !== 1) throw new Error(`the route style or Reset route failed: ${JSON.stringify(v.graph.wire)}`);
   v = await step('undo the route style', () => api.undo());
   if (v.graph.wire?.[0]?.style !== undefined) throw new Error('undo did not give the graph default route');
+  // The graph default route draws each wire with no style, and the wire field names it.
+  v = await step('the graph default route', () => api.edit({ kind: 'SetGraphLook', style: 'curved' }));
+  if (v.graph.style !== 'curved') throw new Error('SetGraphLook did not set the graph default route');
+  await until('the curved wire of the graph default', RUN_MS, () => rounded() === 0 && field('Route')?.options[0]?.textContent === 'Default (Curved)');
+  v = await step('undo the graph default route', () => api.undo());
+  if (v.graph.style !== undefined) throw new Error('undo did not give the automatic route');
   // Lock bends saves the bends of the automatic route as route points, with undo.
   const lock = () => [...document.querySelectorAll<HTMLButtonElement>('.panel button')].find((b) => b.textContent === 'Lock bends');
   await until('Lock bends on for the automatic wire', RUN_MS, () => document.querySelectorAll('.route-point').length === 1 && lock()?.disabled === false);

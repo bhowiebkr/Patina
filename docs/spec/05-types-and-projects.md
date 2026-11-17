@@ -225,6 +225,7 @@ copy = "sha256:<64 hex characters>"   # the copy in this project after the impor
 
 ```toml
 format = 1
+style = "curved"                 # the path of the wires with no style; only to override automatic (15.9)
 
 [[node]]
 id = "5c0e9b2a7f13d846"         # the stable random ID of this use (6.1)
@@ -240,7 +241,7 @@ radius = "2.5"                  # the text form of the Param trait (4.8)
 [[wire]]
 from = "5c0e9b2a7f13d846.out"
 to = "a01d77c3e5b9f210.image"
-style = "orthogonal"             # curved, orthogonal or polyline; only to override the graph default (15.9)
+style = "orthogonal"             # automatic, curved, orthogonal or polyline; only to override the graph default (15.9)
 corners = "sharp"                # rounded or sharp; only for sharp corners (15.9)
 points = [[200.0, -40.0], [200.0, 80.0]]   # the manual route points (15.9)
 name = "addr"                    # the name of a bus, only to override the default name (15.9)

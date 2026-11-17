@@ -10,6 +10,20 @@ import { ExpandButton, GuiWidgets, NodeGui } from './NodeGui';
 import type { Inspect } from './ProjectPanel';
 import { SubgraphInterface } from './SubgraphInterface';
 import { Thumbnail } from './ValueWidgets';
+import { pathOf } from './wires';
+
+/** The path styles of the Look fields (spec 15.9). */
+const ROUTES: readonly (readonly [Style, string])[] = [
+  ['automatic', 'Automatic'],
+  ['curved', 'Curved'],
+  ['orthogonal', 'Orthogonal'],
+  ['polyline', 'Polyline'],
+];
+const routeOptions = ROUTES.map(([value, name]) => (
+  <option key={value} value={value}>
+    {name}
+  </option>
+));
 
 export type InspectorTab = 'parameters' | 'code' | 'logs';
 
@@ -82,8 +96,9 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
   const wire = view.graph.wire?.find((w) => w.to === to);
   const locked = !view.trusted || !wire;
   const look = (style?: Style, corners?: Corners) => onEdit({ kind: 'SetLook', to, style, corners });
+  const path = pathOf(wire?.style, view.graph);
   // A curve has no corners.
-  const curved = wire?.style === 'curved';
+  const curved = path === 'curved';
   return (
     <aside className="panel" aria-label="Inspector">
       <div className="panel-title">
@@ -145,10 +160,8 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
             disabled={locked}
             onChange={(e) => look((e.currentTarget.value || undefined) as Style | undefined, wire?.corners)}
           >
-            <option value="">Automatic</option>
-            <option value="curved">Curved</option>
-            <option value="orthogonal">Orthogonal</option>
-            <option value="polyline">Polyline</option>
+            <option value="">Default ({ROUTES.find(([s]) => s === (view.graph.style ?? 'automatic'))?.[1]})</option>
+            {routeOptions}
           </select>
         </label>
         <label className="param">
@@ -167,7 +180,7 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
         <button className="btn" disabled={locked || !wire?.points?.length} onClick={() => onEdit({ kind: 'SetRoute', to, points: [] })}>
           Reset route
         </button>
-        <button className="btn" disabled={locked || wire?.style !== undefined} title="Save the bends of the automatic route as route points" onClick={() => onLock(to)}>
+        <button className="btn" disabled={locked || path !== undefined} title="Save the bends of the automatic route as route points" onClick={() => onLock(to)}>
           Lock bends
         </button>
       </div>
@@ -217,6 +230,20 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
       <aside className="panel" aria-label="Inspector">
         <div className="panel-title">Inspector</div>
         <div className="section label">Select a node to see its parameters and code, or a wire to see its value.</div>
+        <div className="section">
+          <h3>Look</h3>
+          <label className="param">
+            <span className="label">Default route</span>
+            <select
+              className="field"
+              value={view.graph.style ?? 'automatic'}
+              disabled={!view.trusted}
+              onChange={(e) => onEdit({ kind: 'SetGraphLook', style: e.currentTarget.value as Style })}
+            >
+              {routeOptions}
+            </select>
+          </label>
+        </div>
         {view.graphName !== 'main' && <SubgraphInterface view={view} onEdit={onEdit} />}
       </aside>
     );

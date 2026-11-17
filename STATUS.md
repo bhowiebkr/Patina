@@ -1774,7 +1774,8 @@ To run the editor from a checkout:
   drops. After each frame, the engine copies each changed value one time into the kept values,
   and makes a new badge text for the run event (fixed 2026-11-17).
 - The segments at the two pins of an orthogonal wire cannot move, and a wire with the graph
-  default style has no segment bars (15.9). The graph has no setting for the default style.
+  default style has no segment bars (15.9). The **Default route** of the **Inspector** sets the
+  graph default style (fixed 2026-11-17).
   **Bus** and the crossing bridges are not made. A wire with a fixed style can go under a node.
 - **Lock bends** keeps at most 12 bends of a longer route. Between two kept bends, the router
   can then take a different path.
