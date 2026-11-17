@@ -92,6 +92,22 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     button('Close')!.click();
     await until('the start screen after About', RUN_MS, () => !button('Check for updates'));
     steps.push('about dialog');
+    // The content security policy refuses code from text and requests to other hosts. The policy
+    // refuses the request before a lookup, and a `.invalid` host never resolves.
+    const refused = new Set<string>();
+    const onRefuse = (e: SecurityPolicyViolationEvent) => refused.add(e.effectiveDirective);
+    document.addEventListener('securitypolicyviolation', onRefuse);
+    let evaluated = true;
+    try {
+      (0, eval)('1');
+    } catch {
+      evaluated = false;
+    }
+    const fetched = await fetch('https://patina.invalid/').then(() => true, () => false);
+    await until('the reports of the content security policy', RUN_MS, () => refused.has('script-src') && refused.has('connect-src'));
+    document.removeEventListener('securitypolicyviolation', onRefuse);
+    if (evaluated || fetched) throw new Error(`the content security policy let ${evaluated ? 'eval' : 'a request to another host'} through`);
+    steps.push('the content security policy refuses eval and other hosts');
 
     let v = await step('new project', () => api.newProject(dir, 'check'));
     if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0) throw new Error('a new project is trusted, paused and empty');

@@ -39,6 +39,18 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   await until('the value in the Inspector', RUN_MS, () => document.querySelector('.value-text')?.textContent === '2.5');
   if ((await api.value(`${A}.out`)) !== '2.5') throw new Error('the engine has no full text of the value');
   steps.push('value in the inspector');
+  // A lost WebGL context shows the wires as SVG lines, and the restore draws them in WebGL again (15.1).
+  const lose = document.querySelector<HTMLCanvasElement>('canvas.wire-layer')?.getContext('webgl2')?.getExtension('WEBGL_lose_context');
+  if (!lose) throw new Error('the wire layer has no WebGL context to lose');
+  lose.loseContext();
+  await until('the SVG wires after a lost WebGL context', RUN_MS, () => {
+    const line = document.querySelector('.react-flow.svg-wires .wire-line');
+    return !!line && getComputedStyle(line).display !== 'none';
+  });
+  lose.restoreContext();
+  await until('the WebGL wires after the restore', RUN_MS, () => !document.querySelector('.react-flow.svg-wires'));
+  if (!anyPixel((await wireColumn()).column, amber)) throw new Error('the restored WebGL wires do not draw');
+  steps.push('the wires show as SVG while the WebGL context is lost');
 
   // Route points (15.9): a double-click adds one, a drag moves it, and Delete on its handle
   // removes the point but keeps the wire. Undo and redo go through the engine.

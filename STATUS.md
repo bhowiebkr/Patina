@@ -1368,6 +1368,10 @@ To run the editor from a checkout:
 - A copy of the hello example with `log = "0.4"` in the `add` node ran in `patina-cli` on
   Windows. It wrote `INFO adding 2.5 and 4` and `WARN a warning` for the node, and no debug
   line. The build took 1.57 s.
+- The hidden self-check: the page calls `eval` and asks for `https://patina.invalid/`. The
+  content security policy refuses both, and reports `script-src` and `connect-src`.
+- The hidden self-check: a lost WebGL context shows the wires as SVG lines. After the restore,
+  WebGL draws the selected wire again.
 
 ### Known limits
 
@@ -1380,8 +1384,6 @@ To run the editor from a checkout:
 - The check drags one node with mouse events of the page, not with the real mouse. A person
   did not use the editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.
-- The content security policy was not tested with a page that breaks it.
-- The check did not test the SVG wires or a lost WebGL context.
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - The route points of the wires in a frame stay in place during a drag of the use. The frame
   is read-only. Open the subgraph to edit its nodes.
