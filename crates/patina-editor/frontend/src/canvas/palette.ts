@@ -47,7 +47,9 @@ export function dragStyle(side: 'source' | 'target', key: string): string {
   const h = `.react-flow .react-flow__handle.${side === 'source' ? 'target' : 'source'}`;
   const quote = (s: string) => `"${s.replace(/["\\]/g, '\\$&')}"`;
   const fit = key === 'order' ? `${h}.order-pin` : `${h}:not(.order-pin)${key === '*' ? '' : `:is([data-ty="*"], [data-ty=${quote(key)}])`}`;
-  return `.react-flow .react-flow__handle:not(.connectingfrom) { opacity: 0.3; }\n${fit} { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }`;
+  // The order socket is a diamond of gradients, so its edge takes the accent in place of a ring.
+  const ring = key === 'order' ? '--diamond: var(--accent)' : 'box-shadow: 0 0 0 2px var(--accent)';
+  return `.react-flow .react-flow__handle:not(.connectingfrom) { opacity: 0.3; }\n${fit} { opacity: 1; ${ring}; }`;
 }
 
 /**

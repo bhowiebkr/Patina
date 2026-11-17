@@ -4,7 +4,8 @@
 //! the self-check in a hidden window: it makes the project `<dir>/check`, edits, runs, saves and
 //! opens it again. Then it writes `<dir>/check.json` and `<dir>/check.png`. `patina --shot
 //! <project> <dir>` opens and runs the project in a hidden window. It writes a screenshot of each
-//! graph to `<dir>`.
+//! graph to `<dir>`. `patina --check <dir> --bench` runs the canvas bench in place of the
+//! self-check and writes its numbers to `<dir>/check.json`.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod analyzer;
@@ -63,6 +64,7 @@ struct Args {
 
 fn parse_args() -> Result<Args, String> {
     let mut args = Args { portable: None, check: None, shot: None };
+    let mut bench = false;
     let mut list = std::env::args_os().skip(1);
     while let Some(arg) = list.next() {
         let name = arg.to_string_lossy().into_owned();
@@ -74,8 +76,12 @@ fn parse_args() -> Result<Args, String> {
             "--portable" => args.portable = Some(folder()?),
             "--check" => args.check = Some(folder()?),
             "--shot" => (args.shot, args.check) = (Some(folder()?), Some(folder()?)),
+            "--bench" => bench = true,
             _ => return Err(format!("unknown argument {name}")),
         }
+    }
+    if bench && args.check.is_none() {
+        return Err("--bench needs --check <dir>".into());
     }
     Ok(args)
 }

@@ -1,7 +1,6 @@
 // The code buffers of the Code tab (spec 15.10): one Monaco model for each open file of a node
 // folder. Edits stay in the buffer until a save sends one SetCode edit for each changed file.
 
-// shortcut: Monaco is in the main script (3.7 MB); load it with the Code tab if the start gets slow.
 import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/editor/contrib/bracketMatching/browser/bracketMatching';
 import 'monaco-editor/editor/contrib/clipboard/browser/clipboard';

@@ -22,7 +22,8 @@
 .react-flow__node-patina .react-flow__handle.frame-pin {
   opacity: 0;
   pointer-events: none;
-  transform: translate(0, -50%);
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .patina-node:hover {
@@ -170,14 +171,15 @@
 
 /* The kind and clock-domain icons of a node (15.3). They are quieter than the name. */
 .node-icon {
-  display: inline-flex;
+  display: inline-block;
   flex: none;
-  color: var(--muted);
+  width: 14px;
+  height: 14px;
+  background: var(--icon) center / 14px no-repeat;
 }
 
 .patina-node.colored .node-icon {
-  color: var(--text);
-  opacity: 0.8;
+  background-image: var(--icon-colored);
 }
 
 .state-icon.compiling .dot {
@@ -259,6 +261,17 @@
   border: 2px solid var(--node);
   border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  /* Margins center a pin on the edge in place of the React Flow transforms, which make each frame slow at 2000 nodes. */
+  transform: none;
+  margin-top: -5.5px;
+}
+
+.react-flow__node-patina .react-flow__handle-left {
+  margin-left: -5.5px;
+}
+
+.react-flow__node-patina .react-flow__handle-right {
+  margin-right: -5.5px;
 }
 
 .react-flow__node-patina .react-flow__handle:hover {
@@ -269,28 +282,35 @@
   background: var(--disabled);
 }
 
-/* An order socket is a hollow diamond in the header: it carries no data (9.2). */
+/* An order socket is a hollow diamond in the header: it carries no data (9.2). One gradient in each
+   quarter draws it, because a rotate on each pin makes each frame slow at 2000 nodes. */
 .react-flow__node-patina .react-flow__handle.order-pin {
-  width: 9px;
-  height: 9px;
-  min-height: 9px;
-  background: var(--node);
-  border: 1.5px solid var(--subtle);
-  border-radius: 1px;
+  --diamond: var(--subtle);
+  --diamond-stops: transparent 47.5%, var(--diamond) 52.5% 62.5%, var(--node) 67.5%;
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  background:
+    linear-gradient(to bottom right, var(--diamond-stops)) top left / 50% 50% no-repeat,
+    linear-gradient(to bottom left, var(--diamond-stops)) top right / 50% 50% no-repeat,
+    linear-gradient(to top right, var(--diamond-stops)) bottom left / 50% 50% no-repeat,
+    linear-gradient(to top left, var(--diamond-stops)) bottom right / 50% 50% no-repeat;
+  border: none;
+  border-radius: 0;
   box-shadow: none;
+  margin-top: -7px;
 }
 
 .react-flow__node-patina .react-flow__handle-left.order-pin {
-  transform: translate(-50%, -50%) rotate(45deg);
+  margin-left: -7px;
 }
 
 .react-flow__node-patina .react-flow__handle-right.order-pin {
-  transform: translate(50%, -50%) rotate(45deg);
+  margin-right: -7px;
 }
 
 .react-flow__node-patina .react-flow__handle.order-pin:hover {
-  background: var(--node);
-  border-color: var(--text);
+  --diamond: var(--text);
 }
 
 .react-flow__attribution a {

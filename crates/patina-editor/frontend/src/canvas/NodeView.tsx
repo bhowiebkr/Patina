@@ -414,7 +414,8 @@ function FrameButton({ open, onClick }: { open: boolean; onClick: () => void }) 
 
 /** A pin of a frame on the inside: an input gives its value to the inner wires, an output takes it. */
 function FramePin({ id, output, top, socket }: { id: string; output: boolean; top: number; socket: Socket | undefined }) {
-  const style = socket ? { top, height: socketBar(socket.bits.length) } : { top };
+  const bar = socket && socketBar(socket.bits.length);
+  const style = bar ? { top, height: bar, marginTop: -bar / 2 } : { top };
   return <Handle id={id} type={output ? 'target' : 'source'} position={output ? Position.Right : Position.Left} isConnectable={false} className={socket ? 'frame-pin bus-pin' : 'frame-pin'} style={style} />;
 }
 
@@ -424,7 +425,8 @@ function PinLabel({ pin }: { pin: Pin | undefined }) {
 
 /** The pin of a row: a dot, or a bar as wide as the ribbon of a bus socket (15.9). */
 function PinHandle({ pin, generics = [], output, editable, top, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; top: number; socket: Socket | undefined }) {
-  const style = socket ? { top, height: socketBar(socket.bits.length) } : { top };
+  const bar = socket && socketBar(socket.bits.length);
+  const style = bar ? { top, height: bar, marginTop: -bar / 2 } : { top };
   return (
     <Handle
       id={pin.key}

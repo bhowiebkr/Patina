@@ -3,7 +3,8 @@
 // Without WebGL2, CSS shows the paths of the edges instead.
 
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent } from 'react';
-import { EdgeLabelRenderer, getBezierPath, Position, useReactFlow, useStore, type Edge, type EdgeProps } from '@xyflow/react';
+import { createPortal } from 'react-dom';
+import { getBezierPath, Position, useReactFlow, useStore, type Edge, type EdgeProps, type ReactFlowState } from '@xyflow/react';
 import type { Point } from '../api';
 import { dragRoute } from '../canvas/frames';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
@@ -27,6 +28,20 @@ export function OrderEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
 
 const CONFLICT = 'No clear path around the nodes. Move a node or a route point.';
 
+const labelHosts = new WeakMap<Element, Element>();
+
+/** The label layer of the flow. EdgeLabelRenderer queries the DOM for it in each edge at each store change. */
+function labelHost(s: ReactFlowState): Element | null {
+  const dom = s.domNode;
+  if (!dom) return null;
+  let host = labelHosts.get(dom);
+  if (!host?.isConnected) {
+    host = dom.querySelector('.react-flow__edgelabel-renderer') ?? undefined;
+    if (host) labelHosts.set(dom, host);
+  }
+  return host ?? null;
+}
+
 export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
   const { store, router, labels, onEdit, editable, values, stale, kinds } = useContext(WireContext)!;
   const hover = useContext(HoverContext);
@@ -48,6 +63,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const tip = useSyncExternalStore(hover.subscribe, () => (hover.get()?.wire === id ? hover.get() : null));
   // A bus shows one line with its width at a far zoom (15.9).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
+  const layer = useStore(labelHost);
   const { from, style, corners, cross = false, net = from } = data!;
   // A wire with the graph default look goes around the node bodies. Its route points are waypoints (15.9).
   const auto = style === undefined;
@@ -134,51 +150,54 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
       {/* shortcut: the SVG fallback has no crossing gaps (15.9); add a mask when the fallback is more than a lost context. */}
       <path className={cross ? 'wire-line cross' : 'wire-line'} d={d} />
       <path ref={hitRef} className="wire-hit" d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
-      <EdgeLabelRenderer>
-        {tip && (
-          <div className="lane-tip" style={{ transform: `translate(${tip.x}px, ${tip.y}px) translate(12px, calc(-100% - 8px))` }}>
-            {laneTip(bus, kind?.lanes ?? [], bits, tip.lane, value !== undefined)}
-          </div>
-        )}
-        {/* The type label or the bus label is above the badge (15.9). */}
-        {label && !covered && (
-          <div
-            className={`wire-type${data!.name ? ' named' : ''}${selected ? ' selected' : ''}`}
-            title={data!.ty}
-            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))`, maxWidth: selected ? undefined : room }}
-          >
-            {label}
-          </div>
-        )}
-        {conflict && (
-          <div
-            className="route-conflict"
-            role="img"
-            aria-label={CONFLICT}
-            title={CONFLICT}
-            style={{ transform: `translate(${conflict[0]}px, ${conflict[1]}px) translate(-50%, -50%)` }}
-          >
-            !
-          </div>
-        )}
-        {/* A dot where the wires of one output part, a ring on a bus (15.9). */}
-        {joints?.map(([x, y]) => (
-          <div
-            key={`${x} ${y}`}
-            className={width > 2 ? 'wire-joint bus' : 'wire-joint'}
-            aria-hidden
-            style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`, ...(width > 2 && { width: width + 6, height: width + 6 }) }}
-          />
-        ))}
-        {badge !== undefined && !badgeCovered && (
-          <div
-            className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}
-            style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)`, maxWidth: badgeRoom }}
-          >
-            {badge}
-          </div>
-        )}
-      </EdgeLabelRenderer>
+      {layer && createPortal(
+        <>
+          {tip && (
+            <div className="lane-tip" style={{ transform: `translate(${tip.x}px, ${tip.y}px) translate(12px, calc(-100% - 8px))` }}>
+              {laneTip(bus, kind?.lanes ?? [], bits, tip.lane, value !== undefined)}
+            </div>
+          )}
+          {/* The type label or the bus label is above the badge (15.9). */}
+          {label && !covered && (
+            <div
+              className={`wire-type${data!.name ? ' named' : ''}${selected ? ' selected' : ''}`}
+              title={data!.ty}
+              style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))`, maxWidth: selected ? undefined : room }}
+            >
+              {label}
+            </div>
+          )}
+          {conflict && (
+            <div
+              className="route-conflict"
+              role="img"
+              aria-label={CONFLICT}
+              title={CONFLICT}
+              style={{ transform: `translate(${conflict[0]}px, ${conflict[1]}px) translate(-50%, -50%)` }}
+            >
+              !
+            </div>
+          )}
+          {/* A dot where the wires of one output part, a ring on a bus (15.9). */}
+          {joints?.map(([x, y]) => (
+            <div
+              key={`${x} ${y}`}
+              className={width > 2 ? 'wire-joint bus' : 'wire-joint'}
+              aria-hidden
+              style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`, ...(width > 2 && { width: width + 6, height: width + 6 }) }}
+            />
+          ))}
+          {badge !== undefined && !badgeCovered && (
+            <div
+              className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}
+              style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)`, maxWidth: badgeRoom }}
+            >
+              {badge}
+            </div>
+          )}
+        </>,
+        layer,
+      )}
       {selected && editable && <RouteHandles route={route} dragging={draft !== null} setDraft={setDraft} send={send} />}
       {selected && editable && style === 'orthogonal' && !data!.fixed && (
         <SegmentHandles ends={[sourceX, sourceY, targetX, targetY]} route={route} setDraft={setDraft} send={send} />

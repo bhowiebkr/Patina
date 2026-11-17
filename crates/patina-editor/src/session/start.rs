@@ -16,6 +16,8 @@ pub struct StartInfo {
     projects_dir: PathBuf,
     check: Option<PathBuf>,
     shot: Option<PathBuf>,
+    /// `patina --check <dir> --bench` runs the canvas bench in place of the self-check.
+    bench: bool,
 }
 
 /// The settings screen (15.10): the toolchain, the folders and the trusted projects.
@@ -67,6 +69,7 @@ pub fn start_info(editor: State<'_, Editor>) -> StartInfo {
         projects_dir: editor.data.projects.clone(),
         check: editor.check.clone(),
         shot: editor.shot.clone(),
+        bench: editor.check.is_some() && std::env::args_os().any(|arg| arg == "--bench"),
     }
 }
 

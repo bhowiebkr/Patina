@@ -62,11 +62,12 @@ test('a delay output has the type of its input wire, also through a loop of dela
 
 test('a wire drag rings the sockets of the other side that fit, and an order drag rings order sockets', () => {
   assert.deepEqual(['T', 'std::vec::Vec<u8>', '&str'].map((ty) => socketKey(ty, ['T'])), ['*', 'Vec<u8>', 'String']);
-  const fit = (css: string) => css.split('\n')[1].replace(' { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }', '');
+  const fit = (css: string) => css.split('\n')[1].replace(/ \{ opacity: 1; (box-shadow: 0 0 0 2px|--diamond:) var\(--accent\); \}$/, '');
   const h = '.react-flow .react-flow__handle';
   assert.equal(fit(dragStyle('source', 'f64')), `${h}.target:not(.order-pin):is([data-ty="*"], [data-ty="f64"])`);
   assert.equal(fit(dragStyle('target', '*')), `${h}.source:not(.order-pin)`);
   assert.equal(fit(dragStyle('source', 'order')), `${h}.target.order-pin`);
+  assert.match(dragStyle('source', 'order'), /--diamond: var\(--accent\); \}$/);
   assert.equal(fit(dragStyle('source', 'a"b\\c')), `${h}.target:not(.order-pin):is([data-ty="*"], [data-ty="a\\"b\\\\c"])`);
   assert.match(dragStyle('source', 'f64'), /^\.react-flow \.react-flow__handle:not\(\.connectingfrom\) \{ opacity: 0\.3; \}\n/);
 });

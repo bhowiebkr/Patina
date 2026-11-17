@@ -71,6 +71,24 @@ editor with the built page, on the Windows 11 computer of the owner.
     screenshot code (1,597 bytes) only with `--shot`.
   - The page start, at the end of `DOMContentLoaded` in the hidden selfcheck window, went from
     137 ms and 131 ms to 31 ms and 34 ms (two runs each).
+- Canvas with 500 and 2000 nodes, 2026-11-17. `patina --check <dir> --bench` makes the graphs
+  and measures the mean time between frames of a pan at the zooms 1, 0.5, 0.3 and 0.2, and of a
+  node drag at the zoom 1.
+  - The cause was the Layerize step of Chromium. Each React Flow pin had a `translate`
+    transform, the order pin a `rotate`, and each icon an inline SVG.
+  - The pins now have margins, the order pin is a diamond of gradients, and each icon is a CSS
+    background.
+  - 2000 nodes: the pan went from 533, 514, 503 and 448 ms to 279, 274, 283 and 251 ms. The
+    drag went from 536 ms to 328 ms.
+  - 500 nodes: the pan went from 41 ms to 24, 23, 23 and 17 ms. The drag went from 82 ms to
+    41 ms. The old bench stayed at the zoom 1 for this graph.
+  - The view of 2000 nodes has 251,961 bytes. A move edit takes 62 ms, and 101 ms to its frame.
+  - Later runs had a game in the background. The same-run control stayed near 280 ms, so the
+    comparisons below are valid, but their absolute numbers are high.
+  - The pins that go out at the left and the right of a node still cost a factor of 4. An
+    injected CSS test put the pins in an 8 px padding of the node wrapper, with no `position`
+    on `.patina-node`. The 2000-node pan went to 69, 74, 86 and 69 ms, and the drag to 154 ms.
+    The 500-node pan went to 17 ms. See the known limits.
 
 ## Known limits
 
@@ -121,6 +139,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 ### Canvas editing
 
 - Known limits: the self-check drop is a page event, not a drag of the operating system.
+
+### Canvas speed
+
+- A pan of 2000 nodes takes about 280 ms for each frame, and a drag about 330 ms. The pins out
+  at the left and the right of each node cause most of it (see Speed measurements).
+- The fix needs the pins inside the node wrapper. Then the measured node width, the wire
+  obstacles, **Arrange** and the frame size must remove the new padding.
+- The bench ran only on Windows 11, with the debug editor and the built page. It did not run on
+  Linux or macOS, or in a release build.
 
 ### Process isolation
 
@@ -409,8 +436,6 @@ domain free of locks. These limits are still open:
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,
   which has the critical advisory GHSA-p98j-92pf-mc4p. `npm audit` now finds 0 problems.
 - These shortcuts are open in the code:
-  - Monaco is in the main page script, which is 3.7 MB. Load it when the **Code** tab opens if
-    the start time gets slow (`frontend/src/code/code.ts`).
   - The capture works only on Windows (`src/session/check.rs`).
   - One texture row holds the points of each wire. Above `MAX_TEXTURE_SIZE` wires (2048 or
     more, by GPU), SVG draws the wires (`frontend/src/wires/gl.ts`).
@@ -548,12 +573,11 @@ library in the target folder and the single run of the CLI. These limits are sti
 Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list together.
 
 - `crates/patina-cli/tests/run.rs:475`: The CLI test of `examples/gpu` checks only the build when no adapter exists. Add an adapter to CI when one is available.
-- `crates/patina-editor/frontend/src/code/code.ts:4`: Monaco is in the main script of 3.7 MB. Load it with the **Code** tab if the start gets slow.
 - `crates/patina-editor/frontend/src/wires/gl.ts:266`: One texture row holds each wire. Above `MAX_TEXTURE_SIZE` wires, SVG draws them. Pack the rows for larger graphs.
 - `crates/patina-editor/frontend/src/canvas/palette.ts:37`: The palette drops module paths, so two types of one name match. Rustc checks the types at build time.
 - `crates/patina-editor/frontend/src/wires/route.ts:36`: A graph with a larger route grid gets simple orthogonal paths. Use a sparser grid when such graphs matter.
-- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:133`: The SVG fallback draws a bus as one line. Draw its lanes when a GPU without WebGL2 matters.
-- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:134`: The SVG fallback has no crossing gaps. Add a mask when the fallback is more than a lost context.
+- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:149`: The SVG fallback draws a bus as one line. Draw its lanes when a GPU without WebGL2 matters.
+- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:150`: The SVG fallback has no crossing gaps. Add a mask when the fallback is more than a lost context.
 - `crates/patina-editor/frontend/src/wires/wires.ts:359`: A path with more than `MAX_POINTS` - 2 bends draws only its first bends. Split the row when this matters.
 - `crates/patina-editor/frontend/src/wires/wires.ts:561`: A new lane state builds the instances of all wires again. Put the lane states in a texture for larger graphs.
 - `crates/patina-editor/src/engine/frame.rs:96`: The editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when more FPS is needed.

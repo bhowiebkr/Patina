@@ -131,6 +131,15 @@
   border-radius: 3px;
 }
 
+/* The style of a bus pin sets its margin-top to half its height. */
+.react-flow__node-patina .react-flow__handle-left.bus-pin:not(.frame-pin) {
+  margin-left: -3.5px;
+}
+
+.react-flow__node-patina .react-flow__handle-right.bus-pin:not(.frame-pin) {
+  margin-right: -3.5px;
+}
+
 /* A public pin of a bus type: the socket fills the pin box, and the bar has the pin colors. */
 .patina-node.port.bus {
   width: 150px;

@@ -162,6 +162,8 @@ export interface StartInfo {
   check: string | null;
   /** The project of `patina --shot <project> <dir>`. */
   shot: string | null;
+  /** True for `patina --check <dir> --bench`: the canvas bench runs in place of the self-check. */
+  bench: boolean;
 }
 
 /** The settings screen (15.10). `rust` and `cargo` are null when Patina finds no toolchain. */
