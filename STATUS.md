@@ -1100,8 +1100,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - The fuse builds in a background thread, so the graph runs on during a fuse (fixed
   2026-11-17). The engine loads the fused clusters only when no change, pause or step came after
   the start of the fuse. Nobody measured the frames during a fuse.
-- A change during a fuse waits until the fuse ends, because one build runs at a time
-  (`crates/patina-editor/src/engine.rs`). A **Package** or a view build waits in its thread.
+- A change during a fuse waited until the fuse ended (fixed 2026-11-17). Now a change, an
+  unload or a pause stops the fuse, and the engine kills its cargo run (spec 7.2). The engine
+  test `a_stop_ends_cargo_and_its_build_script` checks that the build script ends too on
+  Windows. On Linux and macOS, the processes of a killed cargo run on until they end. A
+  **Package** or a view build still waits in its thread for a running build.
 - A change of a type alias or of a field in the folder of the node in the slot builds all
   (fixed 2026-11-17). Before, the slot built alone with the old types in the base. The base
   compares the outline of the folder: the code with no function bodies. A unit test of

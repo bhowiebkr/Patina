@@ -3,6 +3,7 @@
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 
 use serde::{Deserialize, Serialize};
 
@@ -95,16 +96,17 @@ impl Checked {
     /// Does `build`. `compiling` runs when cargo starts to compile a crate, so not when all crates
     /// are fresh.
     pub fn build_with(&self, toolchain: &Toolchain, mode: Mode, compiling: &dyn Fn()) -> Result<Cluster, Error> {
-        let compiled = self.compile(toolchain, mode, compiling)?;
+        let compiled = self.compile(toolchain, mode, compiling, &AtomicBool::new(false))?;
         self.load(compiled)
     }
 
     /// Does the cargo part of `build_with`, so another thread can do it while the engine runs (7.2).
-    pub fn compile(&self, toolchain: &Toolchain, mode: Mode, compiling: &dyn Fn()) -> Result<Compiled, Error> {
+    /// When `stop` becomes true, the build stops with an error.
+    pub fn compile(&self, toolchain: &Toolchain, mode: Mode, compiling: &dyn Fn(), stop: &AtomicBool) -> Result<Compiled, Error> {
         self.check_rust(toolchain)?;
         // Before the build, so a save during the build gives a new base.
         let base = self.base_hash();
-        let built = cargo::build(&self.root, toolchain, &self.plan, mode, compiling)?;
+        let built = cargo::build(&self.root, toolchain, &self.plan, mode, compiling, stop)?;
         let paths: Vec<PathBuf> = built.libraries.iter().map(|(_, path)| path.clone()).collect();
         let copies = copy_to_loaded(&self.root, "cluster-", &paths)?;
         let libraries: Vec<(node::Domain, PathBuf)> = built.libraries.iter().map(|(d, _)| *d).zip(copies).collect();

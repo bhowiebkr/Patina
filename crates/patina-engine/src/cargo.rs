@@ -5,7 +5,9 @@ use std::ffi::OsString;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::io::{BufRead, BufReader, Read};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -296,8 +298,9 @@ pub type Sources = Vec<(PathBuf, u64)>;
 
 /// Writes the files that Patina makes, builds the clusters in one cargo run and returns their
 /// libraries. The clusters build in `mode`, and the slot library in edit mode. `compiling` runs
-/// when cargo starts to compile a crate, so not when all crates are fresh.
-pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode, compiling: &dyn Fn()) -> Result<Built, Error> {
+/// when cargo starts to compile a crate, so not when all crates are fresh. When `stop` becomes
+/// true, cargo stops and the build gives an error.
+pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode, compiling: &dyn Fn(), stop: &AtomicBool) -> Result<Built, Error> {
     let domains = generate::domains(plan);
     remove_old_clusters(root, &domains, plan.slot.is_some())?;
     for &domain in &domains {
@@ -316,9 +319,9 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode, compil
             compiling();
         }
     };
-    let mut messages = run_cargo(root, toolchain, &packages, mode, &compiling)?;
+    let mut messages = run_cargo(root, toolchain, &packages, mode, &compiling, stop)?;
     if plan.slot.is_some() {
-        messages.extend(run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit, &compiling)?);
+        messages.extend(run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit, &compiling, stop)?);
     }
     let mut libraries = Vec::new();
     let mut clusters = Vec::new();
@@ -344,7 +347,7 @@ pub fn build(root: &Path, toolchain: &Toolchain, plan: &Plan, mode: Mode, compil
 pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) -> Result<(PathBuf, Vec<Option<u64>>), Error> {
     let slot = plan.slot.ok_or_else(|| Error::Build("no node is in the slot".to_owned()))?;
     write_slot(root, plan, slot)?;
-    let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit, &|| {})?;
+    let messages = run_cargo(root, toolchain, &[slot::PACKAGE.to_owned()], Mode::Edit, &|| {}, &AtomicBool::new(false))?;
     let (library, id) = artifact(&messages, slot::TARGET)?;
     let (_, keys, _) = keys(toolchain, plan, &messages, &[id], Some(common))?;
     Ok((library, keys))
@@ -354,7 +357,7 @@ pub fn build_slot(root: &Path, toolchain: &Toolchain, plan: &Plan, common: u64) 
 pub fn build_view(root: &Path, toolchain: &Toolchain, name: &str, mode: Mode) -> Result<PathBuf, Error> {
     crate::plan::check_name(name).map_err(Error::Build)?;
     write_workspace(root)?;
-    let messages = run_cargo(root, toolchain, &[name.to_owned()], mode, &|| {})?;
+    let messages = run_cargo(root, toolchain, &[name.to_owned()], mode, &|| {}, &AtomicBool::new(false))?;
     artifact(&messages, &name.replace('-', "_")).map(|(library, _)| library)
 }
 
@@ -364,8 +367,12 @@ fn write_slot(root: &Path, plan: &Plan, slot: usize) -> Result<(), Error> {
 }
 
 /// Runs one cargo build of `packages` in `mode`, and gives its JSON messages. `compiling` runs at
-/// the first crate that cargo compiles.
-fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode, compiling: &dyn Fn()) -> Result<Vec<Value>, Error> {
+/// the first crate that cargo compiles. When `stop` becomes true, cargo stops.
+fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode, compiling: &dyn Fn(), stop: &AtomicBool) -> Result<Vec<Value>, Error> {
+    let stopped = || Error::Build("the build stopped".to_owned());
+    if stop.load(Ordering::Relaxed) {
+        return Err(stopped());
+    }
     let mut command = toolchain.command(&toolchain.cargo)?;
     command.current_dir(root).arg("build").arg("--profile").arg(mode.profile());
     for package in packages {
@@ -377,15 +384,19 @@ fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|e| Error::Build(format!("cannot start {}: {e}", toolchain.cargo.display())))?;
     let (mut stdout, stderr) = (child.stdout.take().expect("stdout is piped"), child.stderr.take().expect("stderr is piped"));
-    let (out, err) = std::thread::scope(|s| {
+    let (out, err, status) = std::thread::scope(|s| {
         let out = s.spawn(move || {
             let mut out = Vec::new();
             stdout.read_to_end(&mut out).map(|_| out)
         });
+        let status = s.spawn(move || wait_or_stop(child, stop));
         let err = status_lines(BufReader::new(stderr), compiling);
-        (out.join().expect("the stdout reader does not panic"), err)
+        (out.join().expect("the stdout reader does not panic"), err, status.join().expect("the wait does not panic"))
     });
-    let status = child.wait().map_err(|e| Error::Build(format!("cannot wait for {}: {e}", toolchain.cargo.display())))?;
+    let status = status.map_err(|e| Error::Build(format!("cannot wait for {}: {e}", toolchain.cargo.display())))?;
+    if stop.load(Ordering::Relaxed) {
+        return Err(stopped());
+    }
     let read = |e: std::io::Error| Error::Build(format!("cannot read the output of {}: {e}", toolchain.cargo.display()));
     let (stdout, stderr) = (out.map_err(read)?, err.map_err(read)?);
     if !status.success() {
@@ -396,6 +407,23 @@ fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode
         return Err(Error::Compile(errors));
     }
     Ok(stdout.split(|b| *b == b'\n').filter_map(|line| serde_json::from_slice(line).ok()).collect())
+}
+
+/// Waits for `child`, and kills it when `stop` becomes true. On Windows, cargo puts the processes
+/// that it starts in a job object, so they end with it.
+fn wait_or_stop(mut child: Child, stop: &AtomicBool) -> std::io::Result<ExitStatus> {
+    let mut killed = false;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if !killed && stop.load(Ordering::Relaxed) {
+            killed = true;
+            // An error here means that cargo already ended, so the next try_wait gives its status.
+            let _ = child.kill();
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 /// Reads the status lines of cargo. Cargo writes a `Compiling` line for each crate that it
@@ -558,7 +586,7 @@ pub(crate) fn build_packages(root: &Path, toolchain: &Toolchain, packages: &[Str
         return Ok(());
     }
     write_workspace(root)?;
-    run_cargo(root, toolchain, packages, Mode::Edit, &|| {}).map(drop)
+    run_cargo(root, toolchain, packages, Mode::Edit, &|| {}, &AtomicBool::new(false)).map(drop)
 }
 
 /// Writes the manifest of the project workspace and the SDK crates.

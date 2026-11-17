@@ -183,6 +183,38 @@ fn compile_errors_point_to_project_files() {
 }
 
 #[test]
+fn a_stop_ends_cargo_and_its_build_script() {
+    let root = std::env::temp_dir().join(format!("patina-stop-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    let manifest = "[package]\nname = \"slow\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n\n[profile.edit]\ninherits = \"dev\"\n";
+    std::fs::write(root.join("Cargo.toml"), manifest).unwrap();
+    std::fs::write(root.join("src/lib.rs"), "").unwrap();
+    let (started, done) = (root.join("started"), root.join("done"));
+    let script = format!("fn main() {{ std::fs::write({started:?}, \"\").unwrap(); std::thread::sleep(std::time::Duration::from_secs(4)); std::fs::write({done:?}, \"\").unwrap(); }}");
+    std::fs::write(root.join("build.rs"), script).unwrap();
+    let stop = AtomicBool::new(false);
+    let result = std::thread::scope(|s| {
+        s.spawn(|| {
+            let until = std::time::Instant::now() + Duration::from_secs(120);
+            while !started.exists() && std::time::Instant::now() < until {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            stop.store(true, Ordering::Relaxed);
+        });
+        run_cargo(&root, &Toolchain::detect().unwrap(), &["slow".to_owned()], Mode::Edit, &|| {}, &stop)
+    });
+    assert!(started.exists(), "the build script did not start");
+    assert!(matches!(result, Err(Error::Build(ref text)) if text == "the build stopped"));
+    // On Linux and macOS, the build script of a killed cargo runs on (spec 13.5).
+    if cfg!(windows) {
+        std::thread::sleep(Duration::from_secs(5));
+        assert!(!done.exists(), "the build script ran on after the stop");
+    }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
 fn the_first_compiling_line_tells_and_fresh_crates_do_not() {
     let count = std::cell::Cell::new(0);
     let text = "   Compiling a v0.1.0\n   Compiling b v0.1.0\n    Finished `edit` profile\n";

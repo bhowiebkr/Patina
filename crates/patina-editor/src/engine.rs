@@ -95,32 +95,45 @@ struct Fuse {
     at: Option<Instant>,
     /// The number of builds, unloads and pauses. A fuse that started before the last one is old.
     changes: u64,
-    /// The fuse that builds now, with the value of `changes` at its start.
-    thread: Option<(JoinHandle<Result<Compiled, Error>>, u64)>,
+    /// The fuse that builds now, with the value of `changes` at its start and its stop flag.
+    thread: Option<FuseThread>,
 }
 
+type FuseThread = (JoinHandle<Result<Compiled, Error>>, u64, Arc<AtomicBool>);
+
 impl Fuse {
+    /// Counts a build, an unload or a pause. A fuse that builds now stops, because its result is
+    /// old, so the next build does not wait for it.
+    fn change(&mut self) {
+        self.changes += 1;
+        if let Some((_, _, stop)) = &self.thread {
+            stop.store(true, Ordering::Relaxed);
+        }
+    }
+
     /// Starts a fuse of `checked` in a background thread, unless a fuse of the same graph builds.
     fn start(&mut self, checked: &Checked, folder: &Path, toolchain: &mut Option<Toolchain>) {
         self.at = None;
-        if self.thread.as_ref().is_some_and(|(_, changes)| *changes == self.changes) {
+        if self.thread.as_ref().is_some_and(|(_, changes, _)| *changes == self.changes) {
             return;
         }
         let (checked, toolchain) = (checked.clone(), find_toolchain(folder, toolchain).cloned());
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = stop.clone();
         let thread = std::thread::Builder::new().name("patina-fuse".to_owned()).spawn(move || {
             let toolchain = toolchain?;
             let _build = lock(&BUILDING);
-            checked.compile(&toolchain, Mode::Bake, &|| {})
+            checked.compile(&toolchain, Mode::Bake, &|| {}, &flag)
         });
-        self.thread = thread.ok().map(|thread| (thread, self.changes));
+        self.thread = thread.ok().map(|thread| (thread, self.changes, stop));
     }
 
     /// Gives the result of a fuse that ended, when no change came after its start.
     fn done(&mut self) -> Option<Result<Compiled, Error>> {
-        if !self.thread.as_ref().is_some_and(|(thread, _)| thread.is_finished()) {
+        if !self.thread.as_ref().is_some_and(|(thread, _, _)| thread.is_finished()) {
             return None;
         }
-        let (thread, changes) = self.thread.take()?;
+        let (thread, changes, _) = self.thread.take()?;
         let result = thread.join().unwrap_or_else(|_| Err(Error::Build("the fuse build panicked".to_owned())));
         (changes == self.changes).then_some(result)
     }
@@ -362,7 +375,7 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
             match job {
                 Job::Unload => {
                     (loaded, newest, build, last, fuse.at, framed) = (None, None, false, None, None, false);
-                    fuse.changes += 1;
+                    fuse.change();
                     views.clear(out);
                     lock(&shared.values).clear();
                     lock(&shared.reports).clear();
@@ -371,7 +384,7 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
                 Job::Run(run) => {
                     if run.build {
                         shared.builds.fetch_sub(1, Ordering::SeqCst);
-                        fuse.changes += 1;
+                        fuse.change();
                         slot = if build && slot != run.slot { None } else { run.slot.clone() };
                         build = true;
                     }
@@ -379,7 +392,7 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
                 }
                 Job::Pause | Job::Step => {
                     (newest, build, rerun, bake, fuse.at, step) = (None, false, false, false, None, matches!(job, Job::Step));
-                    fuse.changes += 1;
+                    fuse.change();
                 }
                 Job::Bake => bake = true,
                 Job::Fused(done) => fused = Some(*done),
