@@ -69,7 +69,12 @@ sandbox-reason = "uses the cpal native audio library"
 
 **What the sandbox does not cover.** The build runs native. Build scripts and procedural macros run code on the computer (11). So trust still controls the build, and the sandbox protects only the run.
 
-**Downloads.** wasmtime makes the zip larger, and the `wasm32-wasip1` target makes the toolchain download larger. The owner approves these downloads before the work starts.
+**Downloads.** The sandbox is optional. The build, the zip and the installers of Patina do not contain wasmtime. This is an owner decision of 2026-11-16.
+
+- The user downloads the sandbox only when they want it. The **Sandbox** part of the settings screen (15.10) has **Download sandbox**. It shows each step, as **Install toolchain** does.
+- The download adds the `wasm32-wasip1` target to the toolchain and a sandbox node process to the data folder. The sandbox node process contains wasmtime. The editor starts it in place of the native node process for sandboxed nodes. This part is an agent decision of 2026-11-16. The owner can change it.
+- **Remove sandbox** deletes the sandbox node process. Then all node folders run native.
+- Without the sandbox, each trusted node folder runs native, as before. The default of "Which nodes run in the sandbox" applies only when the sandbox is downloaded.
 
 ## 17. Out of scope for version 1
 
