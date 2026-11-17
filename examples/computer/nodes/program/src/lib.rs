@@ -3,9 +3,13 @@ use std::path::PathBuf;
 
 use patina_sdk::{Mode, Ui, node, project_path};
 
-const WORDS: usize = 16;
-/// The operations of the CPU, in the order of their 3-bit codes.
-const OPS: [&str; 8] = ["LDI", "ADD", "OUT", "JMP", "JC", "ST", "LD", "JZ"];
+const WORDS: usize = 256;
+/// The rows of the memory view.
+const SHOWN: usize = 16;
+/// The operations of the CPU, in the order of their 4-bit codes.
+const OPS: [&str; 16] = ["LDI", "ADDI", "SUBI", "ANDI", "LD", "ADD", "SUB", "AND", "ST", "STX", "LDX", "TAX", "OUT", "JMP", "JC", "JZ"];
+/// The operations without an operand.
+const BARE: [&str; 2] = ["TAX", "OUT"];
 const TEXT: [u8; 3] = [238, 238, 235];
 const OFF: [u8; 3] = [102, 102, 97];
 const ON: [u8; 3] = [223, 166, 75];
@@ -14,13 +18,17 @@ const MARK: [u8; 3] = [70, 54, 26];
 const ROW: f32 = 16.0;
 /// The source of a program that **New** makes.
 const NEW: &str = "; A new program. Each line has an optional label, an instruction and a comment.
-; LDI k: A = k. ADD a: A = A + RAM a. OUT: write A. JMP a, JC a, JZ a: jump.
-; ST a: RAM a = A. LD a: A = RAM a.
+; A line NAME = number gives a name to the number.
+; LDI k: A = k. ADDI k, SUBI k, ANDI k: A = A + k, A - k, A and k.
+; LD a: A = M[a]. ADD a, SUB a, AND a: the same with M[a]. ST a: M[a] = A.
+; LDX a, STX a: LD and ST at the address a + X. TAX: X = A. OUT: write A.
+; JMP a, JC a, JZ a: jump, jump at a carry, jump when A is 0.
+STEP = 0x10         ; an address in the RAM
         LDI 1
-        ST 0        ; RAM 0 = 1
+        ST STEP     ; M[STEP] = 1
         LDI 0
 loop:   OUT
-        ADD 0       ; A = A + 1
+        ADD STEP    ; A = A + M[STEP]
         JMP loop
 ";
 
@@ -28,15 +36,22 @@ loop:   OUT
 type Error = (Option<usize>, String);
 
 /// An assembled program: the words, the source line of each word, from 0, and the count of words.
-#[derive(Clone, Copy, Debug, Default)]
+/// The high byte of a word is the operation and the low byte the operand.
+#[derive(Clone, Copy, Debug)]
 struct Image {
-    words: [u8; WORDS],
+    words: [u16; WORDS],
     lines: [usize; WORDS],
     len: usize,
 }
 
-/// The program memory of the CPU, with an assembler. It gives the instruction word at address
-/// `pc`: bits 0 to 3 are the operand and bits 4 to 6 the operation. `file` is the assembly source
+impl Default for Image {
+    fn default() -> Self {
+        Image { words: [0; WORDS], lines: [0; WORDS], len: 0 }
+    }
+}
+
+/// The program memory of the CPU, with an assembler. It gives the instruction at address `pc`:
+/// the operation on `out0`, 0 to 15, and the operand on `out1`. `file` is the assembly source
 /// in the project folder. The GUI selects the file, makes a new file and edits the source, and
 /// writes the file again after each change. The full size shows the line numbers, the line that
 /// runs and the errors.
@@ -56,7 +71,7 @@ impl Program {
         Program { file: String::new(), pick: String::new(), code: String::new(), image: Image::default(), errors: Vec::new(), pc: 0 }
     }
 
-    pub fn process(&mut self, pc: &u8, file: &str) -> u8 {
+    pub fn process(&mut self, pc: &u8, file: &str) -> (u8, u8) {
         if self.file != file {
             file.clone_into(&mut self.file);
             match std::fs::read_to_string(project_path(file)) {
@@ -68,8 +83,9 @@ impl Program {
                 Err(_) => {}
             }
         }
-        self.pc = pc % WORDS as u8;
-        self.image.words[usize::from(self.pc)]
+        self.pc = *pc;
+        let [op, k] = self.image.words[usize::from(self.pc)].to_be_bytes();
+        (op, k)
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
@@ -114,17 +130,19 @@ impl Program {
         for (_, error) in &self.errors {
             ui.label(error);
         }
-        let size = [180.0, ROW * WORDS as f32 + 4.0];
+        // The view shows 16 words around the PC.
+        let pc = usize::from(self.pc);
+        let first = pc.saturating_sub(SHOWN / 2).min(WORDS - SHOWN);
+        let size = [180.0, ROW * SHOWN as f32 + 4.0];
         let mut canvas = ui.canvas("Memory", size);
         canvas.rect([0.0, 0.0], size, BACK, true);
-        for (address, &word) in self.image.words.iter().enumerate() {
-            let y = 2.0 + address as f32 * ROW;
-            let here = address == usize::from(self.pc);
-            if here {
+        for (address, &word) in self.image.words.iter().enumerate().skip(first).take(SHOWN) {
+            let y = 2.0 + (address - first) as f32 * ROW;
+            if address == pc {
                 canvas.rect([0.0, y], [size[0], ROW], MARK, true);
             }
-            let color = if here { ON } else if address < self.image.len { TEXT } else { OFF };
-            canvas.text([6.0, y + 12.0], color, &format!("{address:X}  {word:07b}  {}", disassemble(word)));
+            let color = if address == pc { ON } else if address < self.image.len { TEXT } else { OFF };
+            canvas.text([6.0, y + 12.0], color, &format!("{address:02X}  {word:03X}  {}", disassemble(word)));
         }
     }
 
@@ -133,7 +151,7 @@ impl Program {
         match self.errors.first() {
             Some((_, error)) => error.clone(),
             None if self.file.is_empty() => "No program file.".to_owned(),
-            None => format!("PC {:X}: {}", self.pc, disassemble(self.image.words[usize::from(self.pc)])),
+            None => format!("PC {:02X}: {}", self.pc, disassemble(self.image.words[usize::from(self.pc)])),
         }
     }
 
@@ -164,22 +182,27 @@ fn new_file(path: impl Fn(&str) -> PathBuf) -> std::io::Result<String> {
     Err(std::io::Error::other("programs/new1.asm to programs/new999.asm are used"))
 }
 
-/// Assembles a program of up to 16 instructions. A line has an optional label `name:`, an
-/// optional instruction and an optional comment after `;`. An operand is a number from 0 to 15
-/// (decimal, `0x` or `0b`) or a label. `OUT` has no operand. Names are not case-sensitive.
+/// Assembles a program of up to 256 instructions. A line has an optional label `name:`, an
+/// optional instruction and an optional comment after `;`. A line `name = number` gives a name to
+/// a number. An operand is a number from -128 to 255 (decimal, `0x` or `0b`), a label or a name.
+/// `TAX` and `OUT` have no operand. Names are not case-sensitive.
 fn assemble(code: &str) -> Result<Image, Vec<Error>> {
-    let (mut labels, mut lines, mut errors) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut names, mut lines, mut errors) = (Vec::new(), Vec::new(), Vec::new());
     let error = |n: usize, text: String| (Some(n), format!("Line {}: {text}", n + 1));
     for (n, line) in code.lines().enumerate() {
         let mut line = line.split(';').next().unwrap_or("").trim();
+        if let Some((name, text)) = line.split_once('=') {
+            let text = text.trim();
+            let defined = number(text).ok_or_else(|| format!("\"{text}\" is not a number from -128 to 255.")).and_then(|v| define(&mut names, name.trim(), v));
+            if let Err(e) = defined {
+                errors.push(error(n, e));
+            }
+            continue;
+        }
         if let Some((label, rest)) = line.split_once(':') {
-            let label = label.trim();
-            if !is_name(label) {
-                errors.push(error(n, format!("\"{label}\" is not a label name.")));
-            } else if labels.iter().any(|(l, _): &(&str, usize)| l.eq_ignore_ascii_case(label)) {
-                errors.push(error(n, format!("the label \"{label}\" is already used.")));
-            } else {
-                labels.push((label, lines.len()));
+            // A label after word 255 has no address, and the count error below reports it.
+            if let Err(e) = define(&mut names, label.trim(), lines.len() as u8) {
+                errors.push(error(n, e));
             }
             line = rest.trim();
         }
@@ -198,45 +221,68 @@ fn assemble(code: &str) -> Result<Image, Vec<Error>> {
             errors.push(error(n, format!("\"{op}\" is not an instruction.")));
             continue;
         };
-        let k = match (OPS[code], operand) {
+        let op = OPS[code];
+        let k = match (operand, BARE.contains(&op)) {
             _ if extra => Err("too many operands.".to_owned()),
-            ("OUT", None) => Ok(0),
-            ("OUT", Some(_)) => Err("OUT has no operand.".to_owned()),
-            (op, None) => Err(format!("{op} needs an operand.")),
-            (_, Some(operand)) => value(operand, &labels),
+            (None, true) => Ok(0),
+            (Some(_), true) => Err(format!("{op} has no operand.")),
+            (None, false) => Err(format!("{op} needs an operand.")),
+            (Some(operand), false) => value(operand, &names),
         };
         match k {
-            Ok(k) => *word = (code as u8) << 4 | k,
+            Ok(k) => *word = (code as u16) << 8 | u16::from(k),
             Err(e) => errors.push(error(n, e)),
         }
     }
     if errors.is_empty() { Ok(image) } else { Err(errors) }
 }
 
-/// The value of an operand: a number from 0 to 15 or the address of a label.
-fn value(operand: &str, labels: &[(&str, usize)]) -> Result<u8, String> {
-    let lower = operand.to_ascii_lowercase();
-    let number = if let Some(hex) = lower.strip_prefix("0x") {
-        u8::from_str_radix(hex, 16).ok()
-    } else if let Some(bin) = lower.strip_prefix("0b") {
-        u8::from_str_radix(bin, 2).ok()
-    } else if lower.starts_with(|c: char| c.is_ascii_digit()) {
-        lower.parse().ok()
+/// Adds a label or a name with its value, or gives the error.
+fn define<'a>(names: &mut Vec<(&'a str, u8)>, name: &'a str, value: u8) -> Result<(), String> {
+    let valid = name.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    if !valid {
+        Err(format!("\"{name}\" is not a name."))
+    } else if names.iter().any(|(n, _)| n.eq_ignore_ascii_case(name)) {
+        Err(format!("the name \"{name}\" is already used."))
     } else {
-        let label = labels.iter().find(|(l, _)| l.eq_ignore_ascii_case(operand));
-        return label.map(|&(_, address)| address as u8).ok_or_else(|| format!("the label \"{operand}\" is not defined."));
-    };
-    number.filter(|&n| usize::from(n) < WORDS).ok_or_else(|| format!("the operand \"{operand}\" must be a number from 0 to 15."))
+        names.push((name, value));
+        Ok(())
+    }
 }
 
-fn is_name(text: &str) -> bool {
-    text.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && text.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+/// The value of an operand: a number, a label or a name.
+fn value(operand: &str, names: &[(&str, u8)]) -> Result<u8, String> {
+    if operand.starts_with(|c: char| c.is_ascii_digit() || c == '-') {
+        return number(operand).ok_or_else(|| format!("the operand \"{operand}\" must be a number from -128 to 255."));
+    }
+    let name = names.iter().find(|(n, _)| n.eq_ignore_ascii_case(operand));
+    name.map(|&(_, value)| value).ok_or_else(|| format!("the name \"{operand}\" is not defined."))
+}
+
+/// A number from -128 to 255, decimal, `0x` or `0b`. A negative number gives its byte in two's
+/// complement, so `-1` is 255.
+fn number(text: &str) -> Option<u8> {
+    let (minus, digits) = text.strip_prefix('-').map_or((false, text), |d| (true, d));
+    let lower = digits.to_ascii_lowercase();
+    let n = if let Some(hex) = lower.strip_prefix("0x") {
+        u16::from_str_radix(hex, 16)
+    } else if let Some(bin) = lower.strip_prefix("0b") {
+        u16::from_str_radix(bin, 2)
+    } else {
+        lower.parse()
+    };
+    match (minus, n.ok()?) {
+        (false, n @ 0..=255) => Some(n as u8),
+        (true, n @ 0..=128) => Some((n as u8).wrapping_neg()),
+        _ => None,
+    }
 }
 
 /// The assembly text of a word.
-fn disassemble(word: u8) -> String {
-    let op = OPS[usize::from(word >> 4 & 7)];
-    if op == "OUT" { op.to_owned() } else { format!("{op} {}", word & 15) }
+fn disassemble(word: u16) -> String {
+    let [op, k] = word.to_be_bytes();
+    let op = OPS[usize::from(op & 15)];
+    if BARE.contains(&op) { op.to_owned() } else { format!("{op} {k}") }
 }
 
 #[cfg(test)]
@@ -246,11 +292,11 @@ mod tests {
     #[test]
     fn assembles_the_fibonacci_program() {
         let image = assemble(include_str!("../../../programs/fibonacci.asm")).unwrap();
-        let program = [(0, 0), (5, 2), (0, 1), (5, 1), (2, 0), (1, 2), (4, 13), (5, 3), (6, 1), (5, 2), (6, 3), (5, 1), (3, 4), (0, 0), (2, 0), (7, 0)];
-        assert_eq!(image.words, program.map(|(op, k)| op << 4 | k));
-        assert_eq!(image.len, 16);
-        assert_eq!(disassemble(image.words[6]), "JC 13");
-        assert_eq!(disassemble(image.words[4]), "OUT");
+        let program = [(0, 0), (8, 0), (0, 1), (12, 0), (8, 1), (5, 0), (14, 0), (8, 2), (4, 1), (8, 0), (4, 2), (13, 3)];
+        assert_eq!(image.words[..12], program.map(|(op, k)| op << 8 | k));
+        assert_eq!(image.len, 12);
+        assert_eq!(disassemble(image.words[6]), "JC 0");
+        assert_eq!(disassemble(image.words[3]), "OUT");
     }
 
     #[test]
@@ -259,37 +305,41 @@ mod tests {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
             let code = std::fs::read_to_string(&path).unwrap();
-            assert!(assemble(&code).is_ok_and(|i| i.len <= 16), "{}", path.display());
+            assert!(assemble(&code).is_ok(), "{}", path.display());
         }
     }
 
     #[test]
     fn reads_numbers_labels_and_comments() {
-        let image = assemble("start: ldi 0x0F ; a comment\n\nadd 0b11\nend:\n jz start\nJMP End").unwrap();
-        assert_eq!(&image.words[..4], &[0x0F, 0x13, 0x70, 0x32]);
-        assert_eq!((image.len, &image.lines[..4]), (4, &[0, 2, 4, 5][..]));
+        let image = assemble("start: ldi 0x0F ; a comment\n\nadd 0b11\nTOP = -2\nend:\n jz start\nJMP End\nsubi top\ntax").unwrap();
+        assert_eq!(&image.words[..6], &[0x000F, 0x0503, 0x0F00, 0x0D02, 0x02FE, 0x0B00]);
+        assert_eq!((image.len, &image.lines[..6]), (6, &[0, 2, 5, 6, 7, 8][..]));
+        assert_eq!(disassemble(0x0B00), "TAX");
+        assert_eq!([number("-128"), number("255"), number("0x"), number("-0b1")], [Some(128), Some(255), None, Some(255)]);
         assert!(assemble(NEW).is_ok());
     }
 
     #[test]
     fn reports_each_error_with_its_line() {
-        let errors = assemble("LDI 16\nFOO 1\nOUT 1\nJMP\nJMP nowhere\nADD 1 2\n2x: LDI 1\na: OUT\nA: OUT").unwrap_err();
+        let errors = assemble("LDI 256\nFOO 1\nOUT 1\nJMP\nJMP nowhere\nADD 1 2\n2x: LDI 1\na: OUT\nA: OUT\nB = 300\nLDI -129").unwrap_err();
         assert_eq!(
             errors.iter().map(|(_, text)| text.as_str()).collect::<Vec<_>>(),
             [
-                "Line 7: \"2x\" is not a label name.",
-                "Line 9: the label \"A\" is already used.",
-                "Line 1: the operand \"16\" must be a number from 0 to 15.",
+                "Line 7: \"2x\" is not a name.",
+                "Line 9: the name \"A\" is already used.",
+                "Line 10: \"300\" is not a number from -128 to 255.",
+                "Line 1: the operand \"256\" must be a number from -128 to 255.",
                 "Line 2: \"FOO\" is not an instruction.",
                 "Line 3: OUT has no operand.",
                 "Line 4: JMP needs an operand.",
-                "Line 5: the label \"nowhere\" is not defined.",
+                "Line 5: the name \"nowhere\" is not defined.",
                 "Line 6: too many operands.",
+                "Line 11: the operand \"-129\" must be a number from -128 to 255.",
             ]
         );
-        assert_eq!(errors.iter().map(|&(line, _)| line).collect::<Vec<_>>(), [6, 8, 0, 1, 2, 3, 4, 5].map(Some));
-        let long = assemble(&"OUT\n".repeat(17)).unwrap_err();
-        assert!(long[0].1.starts_with("The program has 17 instructions.") && long[0].0 == Some(16));
+        assert_eq!(errors.iter().map(|&(line, _)| line).collect::<Vec<_>>(), [6, 8, 9, 0, 1, 2, 3, 4, 5, 10].map(Some));
+        let long = assemble(&"OUT\n".repeat(257)).unwrap_err();
+        assert!(long[0].1.starts_with("The program has 257 instructions.") && long[0].0 == Some(256));
     }
 
     #[test]
@@ -297,11 +347,11 @@ mod tests {
         let mut program = Program::init();
         program.code = "LDI 3\nOUT".to_owned();
         program.assemble();
-        program.code = "LDI 99".to_owned();
+        program.code = "LDI 999".to_owned();
         program.assemble();
-        assert_eq!(program.process(&17, ""), 0x20);
+        assert_eq!(program.process(&1, ""), (12, 0));
         assert_eq!((program.image.len, program.errors.len()), (2, 1));
-        assert_eq!(program.status(), "Line 1: the operand \"99\" must be a number from 0 to 15.");
+        assert_eq!(program.status(), "Line 1: the operand \"999\" must be a number from -128 to 255.");
     }
 
     #[test]

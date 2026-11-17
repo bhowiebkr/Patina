@@ -13,9 +13,25 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Bigger CPU of the computer
+
+- New: the `cpu` of `examples/computer` has 16 operations, a 4-bit opcode and an 8-bit k. It
+  has 794 NAND gates, the registers A and X and the flags C and Z. Its program counter has 8
+  bits, so the `program` node keeps 256 words.
+- New: the `ram` node is the RAM chip, a Rust node of 256 bytes with a node GUI. The CPU uses
+  addresses 0x00 to 0xEF for the RAM and 0xF0 to 0xFF for the IO ports.
+- New: the subgraphs `alu-8`, `incrementer-8` and `is-zero-8`. The assembler has names
+  `NAME = number` and numbers from -128 to 255. All 8 programs use the new operations.
+- New: the CLI test `computer.rs` compares each frame with a model of the CPU, for the Fibonacci
+  program and for a program that uses each of the 16 operations.
+- Checked: the workspace clippy and tests, and the clippy and tests of the `ram` and `program`
+  crates.
+- Known limits: node state does not save, so the RAM is 0 after an open. The program memory and
+  the RAM are apart, so a program cannot change its code.
+
 ## Joystick of the computer
 
-- New: a `joystick` node on ports 14 to 16 of the computer. Click its pad, then hold the arrow
+- New: a `joystick` node on ports 0xF6 to 0xF8 of the computer. Click its pad, then hold the arrow
   keys or W, A, S and D, and Space. A mouse press on a button of the pad holds it too.
 - New: `programs/paint.asm` moves a pen with the joystick and plots random colors on the screen.
 - New: `Canvas::keys` gives a canvas the key events, when its `ui` asks for them (spec 4.3). A
@@ -25,8 +41,7 @@ checks open.
   `programs/`. The CLI ran the example with the joystick in the IO chain. The hidden self-check
   (184 steps) clicks a key canvas, checks its focus, and sends the key K to the node.
 - Not checked: a hand test of the pad with a real keyboard on the desktop.
-- Known limits: the 4-bit CPU reads only ports 8 to 15, so it cannot read the button bits on
-  port 16. The bigger CPU of the plan will read them.
+- The bigger CPU reads the button bits on port 0xF8.
 
 ## Assembly editor of the computer
 
@@ -74,8 +89,8 @@ checks open.
 
 ## IO devices of the computer
 
-- The `cpu` subgraph of `examples/computer` has IO ports 8 to 15. ST and LD with k3 on go to a
-  port, and not to the RAM. The logic is NAND subgraphs. New nodes: `keyboard`, `terminal`,
+- The `cpu` subgraph of `examples/computer` has IO ports 0xF0 to 0xFF. A read or a write at
+  these addresses goes to a port, and not to the RAM. The logic is NAND subgraphs. New nodes: `keyboard`, `terminal`,
   `gpu` (32 x 32 pixels, 16 colors) and `screen`, with the `frame` type for the GPU bus.
 - Checked: unit tests of the five crates. The CLI ran `programs/stripes.asm` for 400 frames: the
   screen got one more pixel for each plot. The CLI test of the example still passes.
@@ -87,7 +102,7 @@ checks open.
 ## Program node of the computer
 
 - The `program` node of `examples/computer` is the program memory of the CPU, with an assembler.
-  It replaces the switch ROM in the `cpu` subgraph, which now has an **instr** byte input. The
+  It replaces the switch ROM in the `cpu` subgraph, which now has the byte inputs **op** and **k**. The
   node keeps the code in an `.asm` file of the project, so the program stays after a close.
 - Node GUIs have a code field: a text of many lines in a monospace font (spec 4.3).
 - Checked: the CLI test of `examples/computer` gives the same 560 frames as with the switch ROM.
@@ -282,8 +297,8 @@ The model is synchronous: one frame is one clock step, and a delay node is a D f
     as a copper ribbon of 7 lanes with the names a to g. A `seg-join` node in `hex-7seg` joins
     the segments, so each display gets one bus in place of 7 wires.
 23. Done: wire names on one line. A named wire of one line shows its name in place of the
-    type label. In the `cpu` graph, the 8 opcode lines of the decoder have the names `LDI` to
-    `JZ`.
+    type label. In the `cpu` graph, the opcode lines of the decoder have the names of their
+    operations, for example `ST` and `JZ`.
 24. Done: connection work in the editor (15.2). The **Project** panel has the groups
     **Connections** and **Types**, each with a **+** button and a start crate. A click opens
     the code in the **Inspector**. **Add crate** adds a type folder by its path.

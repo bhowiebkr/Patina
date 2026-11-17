@@ -50,6 +50,7 @@ dependencies = [
  "nand",
  "patina-sdk",
  "program",
+ "ram",
  "random",
  "readout",
  "screen",
@@ -128,6 +129,13 @@ dependencies = [
 
 [[package]]
 name = "program"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
+name = "ram"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",

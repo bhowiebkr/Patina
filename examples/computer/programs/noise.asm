@@ -1,5 +1,7 @@
 ; Paints random colors on the screen of the GPU, as the noise of an old TV. Each plot moves to the
-; next pixel. The random chip is on port 13.
-loop:   LD 13       ; A = a random byte
-        ST 11       ; plot the color A (the GPU uses the low 4 bits)
+; next pixel.
+PLOT = 0xF3         ; ST plots the color A at the GPU X and Y, then X moves one pixel
+RANDOM = 0xF5       ; LD gives a random byte
+loop:   LD RANDOM
+        ST PLOT
         JMP loop

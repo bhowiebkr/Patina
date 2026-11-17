@@ -1,0 +1,167 @@
+format = 1
+
+[[node]]
+id = "eb68af6c2ae09fc4"
+folder = "nodes/split"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "ba69566bb4a7bbd4"
+folder = "nodes/switch"
+pos = [0.0, 420.0]
+
+[node.params]
+on = "true"
+
+[[node]]
+id = "63e2e49e7b1ee343"
+subgraph = "half-adder"
+pos = [300.0, 190.0]
+
+[[node]]
+id = "5e4e51e05e1af4b8"
+subgraph = "half-adder"
+pos = [600.0, 75.0]
+
+[[node]]
+id = "c7c0e9b0b0d4e3c1"
+subgraph = "half-adder"
+pos = [900.0, 17.5]
+
+[[node]]
+id = "241641dcb130f23e"
+subgraph = "half-adder"
+pos = [1200.0, 0.0]
+
+[[node]]
+id = "abefb510260f8620"
+subgraph = "half-adder"
+pos = [1500.0, 0.0]
+
+[[node]]
+id = "d5ba540256e6eaeb"
+subgraph = "half-adder"
+pos = [1800.0, 0.0]
+
+[[node]]
+id = "86d0110d8f38cf20"
+subgraph = "half-adder"
+pos = [2100.0, 0.0]
+
+[[node]]
+id = "c8ca510b675c089b"
+subgraph = "half-adder"
+pos = [2400.0, 0.0]
+
+[[node]]
+id = "5cb3d2a5eae10f12"
+folder = "nodes/join"
+pos = [2700.0, 15.3]
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out0"
+to = "63e2e49e7b1ee343.9131f68f"
+
+[[wire]]
+from = "ba69566bb4a7bbd4.out"
+to = "63e2e49e7b1ee343.1e8b06d1"
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out1"
+to = "5e4e51e05e1af4b8.9131f68f"
+
+[[wire]]
+from = "63e2e49e7b1ee343.d84ec94f"
+to = "5e4e51e05e1af4b8.1e8b06d1"
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out2"
+to = "c7c0e9b0b0d4e3c1.9131f68f"
+
+[[wire]]
+from = "5e4e51e05e1af4b8.d84ec94f"
+to = "c7c0e9b0b0d4e3c1.1e8b06d1"
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out3"
+to = "241641dcb130f23e.9131f68f"
+
+[[wire]]
+from = "c7c0e9b0b0d4e3c1.d84ec94f"
+to = "241641dcb130f23e.1e8b06d1"
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out4"
+to = "abefb510260f8620.9131f68f"
+
+[[wire]]
+from = "241641dcb130f23e.d84ec94f"
+to = "abefb510260f8620.1e8b06d1"
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out5"
+to = "d5ba540256e6eaeb.9131f68f"
+
+[[wire]]
+from = "abefb510260f8620.d84ec94f"
+to = "d5ba540256e6eaeb.1e8b06d1"
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out6"
+to = "86d0110d8f38cf20.9131f68f"
+
+[[wire]]
+from = "d5ba540256e6eaeb.d84ec94f"
+to = "86d0110d8f38cf20.1e8b06d1"
+
+[[wire]]
+from = "eb68af6c2ae09fc4.out7"
+to = "c8ca510b675c089b.9131f68f"
+
+[[wire]]
+from = "86d0110d8f38cf20.d84ec94f"
+to = "c8ca510b675c089b.1e8b06d1"
+
+[[wire]]
+from = "63e2e49e7b1ee343.301a2640"
+to = "5cb3d2a5eae10f12.b0"
+
+[[wire]]
+from = "5e4e51e05e1af4b8.301a2640"
+to = "5cb3d2a5eae10f12.b1"
+
+[[wire]]
+from = "c7c0e9b0b0d4e3c1.301a2640"
+to = "5cb3d2a5eae10f12.b2"
+
+[[wire]]
+from = "241641dcb130f23e.301a2640"
+to = "5cb3d2a5eae10f12.b3"
+
+[[wire]]
+from = "abefb510260f8620.301a2640"
+to = "5cb3d2a5eae10f12.b4"
+
+[[wire]]
+from = "d5ba540256e6eaeb.301a2640"
+to = "5cb3d2a5eae10f12.b5"
+
+[[wire]]
+from = "86d0110d8f38cf20.301a2640"
+to = "5cb3d2a5eae10f12.b6"
+
+[[wire]]
+from = "c8ca510b675c089b.301a2640"
+to = "5cb3d2a5eae10f12.b7"
+
+[[input]]
+key = "70195841"
+name = "a"
+pos = [-300.0, 0.0]
+to = ["eb68af6c2ae09fc4.value"]
+
+[[output]]
+key = "9f9ebbe0"
+name = "sum"
+pos = [3000.0, 0.0]
+from = "5cb3d2a5eae10f12.out"

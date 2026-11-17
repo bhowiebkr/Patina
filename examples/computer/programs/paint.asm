@@ -1,16 +1,24 @@
 ; Paints with the joystick. Click the pad of the joystick node, then hold the arrow keys. Each
 ; step plots a random color at the pen. The GPU uses the low 5 bits of X and Y, so the pen wraps.
+GPU_X = 0xF1        ; the column of the next pixel
+GPU_Y = 0xF2        ; the row of the next pixel
+PLOT = 0xF3         ; ST plots the color A
+RANDOM = 0xF5       ; LD gives a random byte
+JOY_X = 0xF6        ; the x axis: 1 right, -1 left, else 0
+JOY_Y = 0xF7        ; the y axis: 1 down, -1 up, else 0
+PEN_X = 0x00        ; the pen, in the RAM
+PEN_Y = 0x01
         LDI 15
-        ST 0        ; X = 15, the middle
-        ST 1        ; Y = 15
-loop:   LD 14       ; A = the x axis: 1 right, 255 left, else 0
-        ADD 0
-        ST 0        ; X = X + the x axis
-        ST 9        ; the GPU X = X
-        LD 15       ; A = the y axis: 1 down, 255 up, else 0
-        ADD 1
-        ST 1        ; Y = Y + the y axis
-        ST 10       ; the GPU Y = Y
-        LD 13       ; A = a random color
-        ST 11       ; plot it at X and Y
+        ST PEN_X    ; the middle of the screen
+        ST PEN_Y
+loop:   LD JOY_X
+        ADD PEN_X
+        ST PEN_X    ; PEN_X = PEN_X + the x axis
+        ST GPU_X
+        LD JOY_Y
+        ADD PEN_Y
+        ST PEN_Y    ; PEN_Y = PEN_Y + the y axis
+        ST GPU_Y
+        LD RANDOM
+        ST PLOT     ; plot a random color at the pen
         JMP loop

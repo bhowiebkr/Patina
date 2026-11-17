@@ -171,7 +171,7 @@ folder = "nodes/keyboard"
 pos = [0.0, 1150.0]
 
 [node.params]
-address = "8"
+address = "240"
 
 [[node]]
 id = "e3a17c5d90b4f268"
@@ -179,7 +179,7 @@ folder = "nodes/random"
 pos = [0.0, 1420.0]
 
 [node.params]
-address = "13"
+address = "245"
 
 [[node]]
 id = "4f1c9a7e2b6d3085"
@@ -187,7 +187,12 @@ folder = "nodes/joystick"
 pos = [0.0, 1600.0]
 
 [node.params]
-address = "14"
+address = "246"
+
+[[node]]
+id = "5e2d7a91c4b8f036"
+folder = "nodes/ram"
+pos = [0.0, 1850.0]
 
 [[node]]
 id = "75be31a4da3cacb6"
@@ -195,7 +200,7 @@ folder = "nodes/terminal"
 pos = [700.0, 2352.0]
 
 [node.params]
-address = "8"
+address = "240"
 
 [[node]]
 id = "ad357059907f778c"
@@ -203,7 +208,7 @@ folder = "nodes/gpu"
 pos = [700.0, 2600.0]
 
 [node.params]
-address = "9"
+address = "241"
 
 [[node]]
 id = "778819ef9f467d80"
@@ -600,8 +605,28 @@ from = "a3efcc2ce595017a.566aa9ba"
 to = "3f6e2b9d81c4a057.pc"
 
 [[wire]]
-from = "3f6e2b9d81c4a057.out"
-to = "a3efcc2ce595017a.1a7c3e95"
+from = "3f6e2b9d81c4a057.out0"
+to = "a3efcc2ce595017a.cbe9ab2b"
+
+[[wire]]
+from = "3f6e2b9d81c4a057.out1"
+to = "a3efcc2ce595017a.8426c7db"
+
+[[wire]]
+from = "a3efcc2ce595017a.4cf4949d"
+to = "5e2d7a91c4b8f036.address"
+
+[[wire]]
+from = "a3efcc2ce595017a.78d48ca9"
+to = "5e2d7a91c4b8f036.data"
+
+[[wire]]
+from = "a3efcc2ce595017a.f7758476"
+to = "5e2d7a91c4b8f036.write"
+
+[[wire]]
+from = "5e2d7a91c4b8f036.out"
+to = "a3efcc2ce595017a.eb42a85e"
 
 [[wire]]
 from = "a3efcc2ce595017a.4cf4949d"

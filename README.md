@@ -285,7 +285,7 @@ cargo run -p patina-cli -- run examples/computer --frames 16
 In the editor, a 1-bit wire is lit when it is true. Run the project and double-click a use of a
 subgraph, for example the `cpu` node, or click its **Open subgraph** button. The subgraph opens
 with the live values of that use. The path bar shows each use from the main graph, for example
-**main / cpu / alu**. Click a name to go back to that graph.
+**main / cpu / alu-8**. Click a name to go back to that graph.
 To see the inside of a use with no change of graph, click **Show inner nodes** in its header. The
 use becomes a frame with its inner nodes and their live values. Click **Hide inner nodes** to
 close it. To edit the inner nodes, open the subgraph.
@@ -307,22 +307,37 @@ step, a memory, the three registers of the CPU and the segments of the three dis
 `ram-4x4` subgraph keeps 4 words of 4 bits. It writes the accumulator to the address of the
 count, so it shows the accumulator of 4 steps before.
 
-The `cpu` subgraph is a small 8-bit computer. At each tick of its **clk** input, it runs one
-instruction from the `program` node, which keeps 16 instructions. Lines 5 to 7 of a frame show its 4-bit program
-counter, its 8-bit register A and its 8-bit OUT register. The `ram-4x8` subgraph keeps 4 words of
-8 bits. The instructions have a 3-bit opcode and a 4-bit value k:
+The `cpu` subgraph is an 8-bit computer of 794 NAND gates. At each tick of its **clk** input, it
+runs one instruction from the `program` node, which keeps 256 instructions. Lines 5 to 7 of a
+frame show its program counter, its register A and its OUT register. The CPU also has the index
+register X, the carry flag C and the zero flag Z. The instructions have a 4-bit opcode and an
+8-bit value k:
 
-- **LDI k** (000): A takes k.
-- **ADD k** (001): A takes A + the RAM word at address k. The carry flag C takes the carry.
-- **OUT** (010): OUT takes A.
-- **JMP k** (011): the program counter takes k.
-- **JC k** (100): the program counter takes k when C is on.
-- **ST k** (101): the RAM word at address k takes A. When k is 8 to 15, A goes to IO port k.
-- **LD k** (110): A takes the RAM word at address k. When k is 8 to 15, A takes the value of
-  IO port k.
-- **JZ k** (111): the program counter takes k when Z is on.
+- **LDI k** (0): A takes k.
+- **ADDI k** (1): A takes A + k. C takes the carry.
+- **SUBI k** (2): A takes A - k. C is on when there is no borrow, so when A was k or more.
+- **ANDI k** (3): A takes A and k, bit by bit.
+- **LD k** (4): A takes the byte at address k.
+- **ADD k**, **SUB k** and **AND k** (5 to 7): as ADDI, SUBI and ANDI, with the byte at address k.
+- **ST k** (8): the byte at address k takes A.
+- **STX k** (9): the byte at address k + X takes A.
+- **LDX k** (10): A takes the byte at address k + X.
+- **TAX** (11): X takes A.
+- **OUT** (12): OUT takes A.
+- **JMP k** (13): the program counter takes k.
+- **JC k** (14): the program counter takes k when C is on.
+- **JZ k** (15): the program counter takes k when Z is on.
 
-The zero flag Z takes "A is 0" each time that A takes a new value.
+Z takes "A is 0" each time that A takes a new value. Addresses 0 to 239 (0x00 to 0xEF) are the
+RAM, and addresses 240 to 255 (0xF0 to 0xFF) are the IO ports. The `ram` node is the RAM chip,
+with 256 bytes. It is a Rust node, and the CPU stays NAND gates. The node shows the byte at the
+last address. Expand it to see all bytes in hexadecimal. A mark shows the last address, and the
+last byte that the CPU wrote is lit.
+
+Inside the `cpu`, a `decoder-4` subgraph gives one line for each opcode. Bits 0 and 1 of the
+opcode select the function of the `alu-8` subgraph: b, a + b, a - b or a and b. Bit 2 selects the
+byte at the address in place of k. An `adder-8` subgraph adds X to k for STX and LDX. The
+`incrementer-8` subgraph gives the next program counter, and `is-zero-8` gives Z.
 
 The `program` node is the program memory, with an assembler. Its **file** parameter is an
 assembly file of the project, for example `programs/fibonacci.asm`. The **File** dropdown of the
@@ -338,16 +353,18 @@ The node assembles the code and writes the file. The expanded node fills the gra
 the line numbers. A band marks the line that runs, and each line with an error is red. Hold the
 pointer on a red line number to see the error. **Back** or Esc returns to the graph, and the graph
 keeps running. When the code has an error, the node shows the line of the error, and the CPU runs
-the last good program. The **Memory** list shows the 16
-words, and the word at the program counter is lit. Bits 0 to 3 of a word are k, and bits 4 to 6
+the last good program. The **Memory** list shows 16 of the 256 words, around the program
+counter. The word at the program counter is lit. Bits 0 to 7 of a word are k, and bits 8 to 11
 are the opcode.
 
 A line of code has an optional label `name:`, an optional instruction and an optional comment
-after `;`. A value k is a number from 0 to 15, for example `12`, `0xC` or `0b1100`, or a label.
-Names are not case-sensitive.
+after `;`. A line `NAME = number` gives a name to a number, for example `KEY = 0xF0`. A value k
+is a number from -128 to 255, a label or a name. For example, write `12`, `0xC`, `0b1100` or
+`-1`. A negative number gives its byte in two's complement, so -1 gives 255. Names are not
+case-sensitive.
 
 The example program writes the Fibonacci numbers 1, 1, 2, 3, 5 to 233 to OUT. It keeps the last
-two numbers in the RAM. At the carry of the next sum, it writes 0 to OUT and starts again.
+two numbers in the RAM. At the carry of the next sum, it starts again.
 Select `programs/count.asm` for a program that counts up. The `rom-16x7` subgraph is a
 program memory of `switch` nodes, one for each bit.
 
@@ -356,40 +373,44 @@ example project runs at 240 frames each second, so the CPU runs 60 instructions 
 change the speed, set **FPS** in the toolbar (1 to 1000), or set **every** in the **Inspector**. Set **halt** to stop the clock, then click **Step** on the node
 to give one tick. The LED of the node is lit for the first half of each period.
 
-The CPU has IO ports 8 to 15 for devices. Its **port** output is k, its **a** output is A, and
-its **wr** and **rd** outputs are on during an ST or an LD to a port. Its **io** input is the value
-that LD reads. The main graph has six devices on the ports:
+The **address** output of the CPU is the address of the instruction, and its **a** output is A.
+Its **write** output is on during an ST or an STX to the RAM, and its **mem** input is the byte
+of the RAM. Its **wr** and **rd** outputs are on during a write or a read of an IO port. Its
+**io** input is the byte that a read of an IO port gives. The main graph has six devices on the
+ports:
 
-- `keyboard` (port 8): type a text into the **Type** field and press Enter. The characters and an
-  Enter key (13) go into a buffer. LD 8 reads the first key, or 0 when the buffer is empty.
-- `terminal` (port 8): ST 8 writes the ASCII character A, on 6 lines of 20 characters. Enter (13)
-  starts a new line, and backspace (8) removes the last character.
-- `gpu` (ports 9 to 12): a video chip with a frame of 32 x 32 pixels in 16 colors. ST 9 sets X, ST
-  10 sets Y, and ST 11 plots the color A at X and Y. Then X moves to the next pixel. ST 12 fills
-  the frame with the color A.
+- `keyboard` (port 0xF0): type a text into the **Type** field and press Enter. The characters and
+  an Enter key (13) go into a buffer. LD 0xF0 reads the first key, or 0 when the buffer is empty.
+- `terminal` (port 0xF0): ST 0xF0 writes the ASCII character A, on 6 lines of 20 characters.
+  Enter (13) starts a new line, and backspace (8) removes the last character.
+- `gpu` (ports 0xF1 to 0xF4): a video chip with a frame of 32 x 32 pixels in 16 colors. ST 0xF1
+  sets X, ST 0xF2 sets Y, and ST 0xF3 plots the color A at X and Y. Then X moves to the next
+  pixel. ST 0xF4 fills the frame with the color A.
 - `screen`: shows the frame of the `gpu`.
-- `random` (port 13): LD 13 reads a random byte, and each LD gives a new byte. At the other
+- `random` (port 0xF5): LD 0xF5 reads a random byte, and each LD gives a new byte. At the other
   ports, the byte on its **bus** input goes through to the **io** input of the CPU.
-- `joystick` (ports 14 to 16): click the pad, then hold the arrow keys or W, A, S and D, and Space
-  for fire. LD 14 reads the x axis: 1 for right, 255 for left, else 0. LD 15 reads the y axis: 1
-  for down, 255 for up. Port 16 has the button bits, for a CPU with more than 16 ports.
+- `joystick` (ports 0xF6 to 0xF8): click the pad, then hold the arrow keys or W, A, S and D, and
+  Space for fire. LD 0xF6 reads the x axis: 1 for right, 255 for left, else 0. LD 0xF7 reads the
+  y axis: 1 for down, 255 for up. LD 0xF8 reads the bits of the buttons: 1 up, 2 down, 4 left,
+  8 right and 16 fire.
 
 Select `programs/echo.asm` in **File** to show each key on the terminal. Select
 `programs/stripes.asm` to paint the screen. Select `programs/noise.asm` or
 `programs/confetti.asm` to paint random pixels. Select `programs/dice.asm` to show a random
-number on OUT at each key. Select `programs/paint.asm` to paint with the joystick. The **address** parameter of a device sets its first port. The
-`cpu` has one **io** input, so the devices are a chain: `keyboard` to `random` to `joystick` to
-the CPU.
+number on OUT at each key. Select `programs/paint.asm` to paint with the joystick. The programs
+give names to the ports, for example `KEY = 0xF0`. The **address** parameter of a device sets its
+first port. The `cpu` has one **io** input, so the devices are a chain: `keyboard` to `random` to
+`joystick` to the CPU.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
 puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8
 lanes, with the label `bus[7:0] / 8`. Each readout gets one byte wire from an output of its
 subgraph, for example **value**, or **pc**, **a** and **out** of the `cpu`.
 
-The data path of the `cpu` also uses byte wires. The `register-8`, `ram-4x8`, `adder-8` and
-`mux-8` subgraphs have byte inputs and outputs. Inside them, a `split` node gives the 8 bits of
-a byte, and a `join` node makes the byte output. A `join` node gives k of the instruction to the
-data path, and a `split` node gives the bits of the new A value to the zero test.
+The data path of the `cpu` also uses byte wires. The `register-8`, `ram-4x8`, `adder-8`,
+`mux-8`, `alu-8`, `incrementer-8` and `is-zero-8` subgraphs have byte inputs and outputs. Inside
+them, a `split` node gives the 8 bits of a byte, and a `join` node makes the byte output. The
+`program` node gives the opcode and k as two bytes.
 
 The `lcd` node shows 2 lines of 16 characters. The **strobe** output of the `cpu` is on in the tick of an OUT
 instruction. The `lcd-writer` subgraph then writes the two hex digits of OUT and a space to the

@@ -199,6 +199,12 @@ The `examples/computer` project has one Rust node for the gate, `nand`. The gate
 the 4-bit counter are subgraphs of these subgraphs. The CLI test runs 140 frames. Readout A shows
 the count, and readout B the count plus 3. So the four full adders get all 8 input vectors.
 
+The `cpu` subgraph has 794 NAND gates and 16 operations, with a 4-bit opcode and an 8-bit value
+k. The memory is a Rust node, `ram`, with 256 bytes, because a RAM of NAND gates makes the graph
+too large for the editor. The logic of the CPU stays NAND gates. Addresses 0x00 to 0xEF go to the
+RAM, and 0xF0 to 0xFF go to the IO devices. (Agent decision, 2026-11-16. The owner can change
+it.)
+
 ## Checks for a future implementation
 
 These are proposed acceptance checks. The full-adder vectors and the headless run are checked

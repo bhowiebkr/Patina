@@ -1,0 +1,118 @@
+format = 1
+
+[[node]]
+id = "f3223dd5bed2e430"
+folder = "nodes/split"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "7e3c5503855d582a"
+subgraph = "or"
+pos = [300.0, 0.0]
+
+[[node]]
+id = "3d52d590cb032cba"
+subgraph = "or"
+pos = [300.0, 180.0]
+
+[[node]]
+id = "c97845adf9739e15"
+subgraph = "or"
+pos = [300.0, 360.0]
+
+[[node]]
+id = "9e57866716df1549"
+subgraph = "or"
+pos = [300.0, 540.0]
+
+[[node]]
+id = "1d24b4bc15f8e06d"
+subgraph = "or"
+pos = [600.0, 70.0]
+
+[[node]]
+id = "35681e15da475378"
+subgraph = "or"
+pos = [600.0, 430.0]
+
+[[node]]
+id = "16cfdfd1f269dc42"
+subgraph = "or"
+pos = [900.0, 230.0]
+
+[[node]]
+id = "5e433ce4ad941335"
+subgraph = "not"
+pos = [1200.0, 210.0]
+
+[[wire]]
+from = "f3223dd5bed2e430.out0"
+to = "7e3c5503855d582a.37c6cc47"
+
+[[wire]]
+from = "f3223dd5bed2e430.out1"
+to = "7e3c5503855d582a.3fbd40e4"
+
+[[wire]]
+from = "f3223dd5bed2e430.out2"
+to = "3d52d590cb032cba.37c6cc47"
+
+[[wire]]
+from = "f3223dd5bed2e430.out3"
+to = "3d52d590cb032cba.3fbd40e4"
+
+[[wire]]
+from = "f3223dd5bed2e430.out4"
+to = "c97845adf9739e15.37c6cc47"
+
+[[wire]]
+from = "f3223dd5bed2e430.out5"
+to = "c97845adf9739e15.3fbd40e4"
+
+[[wire]]
+from = "f3223dd5bed2e430.out6"
+to = "9e57866716df1549.37c6cc47"
+
+[[wire]]
+from = "f3223dd5bed2e430.out7"
+to = "9e57866716df1549.3fbd40e4"
+
+[[wire]]
+from = "7e3c5503855d582a.67d0fbe0"
+to = "1d24b4bc15f8e06d.37c6cc47"
+
+[[wire]]
+from = "3d52d590cb032cba.67d0fbe0"
+to = "1d24b4bc15f8e06d.3fbd40e4"
+
+[[wire]]
+from = "c97845adf9739e15.67d0fbe0"
+to = "35681e15da475378.37c6cc47"
+
+[[wire]]
+from = "9e57866716df1549.67d0fbe0"
+to = "35681e15da475378.3fbd40e4"
+
+[[wire]]
+from = "1d24b4bc15f8e06d.67d0fbe0"
+to = "16cfdfd1f269dc42.37c6cc47"
+
+[[wire]]
+from = "35681e15da475378.67d0fbe0"
+to = "16cfdfd1f269dc42.3fbd40e4"
+
+[[wire]]
+from = "16cfdfd1f269dc42.67d0fbe0"
+to = "5e433ce4ad941335.5ade65ce"
+
+[[input]]
+key = "2535f7e2"
+name = "a"
+pos = [-300.0, 0.0]
+to = ["f3223dd5bed2e430.value"]
+
+[[output]]
+key = "098a8c74"
+name = "zero"
+pos = [1500.0, 0.0]
+from = "5e433ce4ad941335.7ff633ef"
