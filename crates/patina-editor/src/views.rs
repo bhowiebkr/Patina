@@ -9,7 +9,7 @@ use patina_engine::view::{Frame, View, snapshot};
 use patina_engine::{Edit, Frames, Project, Report, Toolchain};
 use serde::{Deserialize, Serialize};
 
-use crate::engine::{BUILDING, Shared, find_toolchain, lock};
+use crate::engine::{BUILDING, Shared, find_toolchain, lock, stop_fuse};
 use crate::node_process::Out;
 
 /// User input to view `name`, or a request for its widget lines when `events` is empty.
@@ -161,6 +161,7 @@ impl Views {
 fn build(toolchain: Toolchain, root: PathBuf, name: String) -> Result<JoinHandle<Result<PathBuf, String>>, String> {
     let work = move || {
         let project = Project::open(&root).map_err(|e| e.to_string())?;
+        stop_fuse();
         let _build = lock(&BUILDING);
         project.build_view(&toolchain, &name).map_err(|e| e.to_string())
     };

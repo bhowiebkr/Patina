@@ -6,12 +6,12 @@
 mod blocks;
 mod events;
 mod frame;
+mod fuse;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SendError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use patina_engine::clock::{self, Clock, frame_due};
@@ -23,6 +23,8 @@ use crate::node_process::Out;
 use crate::views::{ViewInput, Views};
 use blocks::{Blocks, Part};
 use frame::{Shown, alias, badges, changed, draw, frame, gui};
+use fuse::{FUSE_IDLE, Fuse};
+pub(crate) use fuse::stop_fuse;
 
 #[derive(Serialize, Deserialize)]
 pub enum Job {
@@ -78,66 +80,11 @@ impl Jobs {
     }
 }
 
-/// The time with no change after which the engine fuses the clusters (7.2, roadmap question 7).
-const FUSE_IDLE: Duration = Duration::from_secs(30);
-
 /// How often the engine looks for the end of a fuse while it waits for a job.
 const BUILD_POLL: Duration = Duration::from_millis(100);
 
 /// One build at a time: the builds of the project share its `build` folder (7.2).
 pub(crate) static BUILDING: Mutex<()> = Mutex::new(());
-
-/// The fuse of the clusters: a bake build with no slot (7.2). It builds in a background thread,
-/// so the graph runs on until the fused clusters load.
-#[derive(Default)]
-struct Fuse {
-    /// The time of the fuse while the graph is live and the clusters are not fused.
-    at: Option<Instant>,
-    /// The number of builds, unloads and pauses. A fuse that started before the last one is old.
-    changes: u64,
-    /// The fuse that builds now, with the value of `changes` at its start and its stop flag.
-    thread: Option<FuseThread>,
-}
-
-type FuseThread = (JoinHandle<Result<Compiled, Error>>, u64, Arc<AtomicBool>);
-
-impl Fuse {
-    /// Counts a build, an unload or a pause. A fuse that builds now stops, because its result is
-    /// old, so the next build does not wait for it.
-    fn change(&mut self) {
-        self.changes += 1;
-        if let Some((_, _, stop)) = &self.thread {
-            stop.store(true, Ordering::Relaxed);
-        }
-    }
-
-    /// Starts a fuse of `checked` in a background thread, unless a fuse of the same graph builds.
-    fn start(&mut self, checked: &Checked, folder: &Path, toolchain: &mut Option<Toolchain>) {
-        self.at = None;
-        if self.thread.as_ref().is_some_and(|(_, changes, _)| *changes == self.changes) {
-            return;
-        }
-        let (checked, toolchain) = (checked.clone(), find_toolchain(folder, toolchain).cloned());
-        let stop = Arc::new(AtomicBool::new(false));
-        let flag = stop.clone();
-        let thread = std::thread::Builder::new().name("patina-fuse".to_owned()).spawn(move || {
-            let toolchain = toolchain?;
-            let _build = lock(&BUILDING);
-            checked.compile(&toolchain, Mode::Bake, &|| {}, &flag)
-        });
-        self.thread = thread.ok().map(|thread| (thread, self.changes, stop));
-    }
-
-    /// Gives the result of a fuse that ended, when no change came after its start.
-    fn done(&mut self) -> Option<Result<Compiled, Error>> {
-        if !self.thread.as_ref().is_some_and(|(thread, _, _)| thread.is_finished()) {
-            return None;
-        }
-        let (thread, changes, _) = self.thread.take()?;
-        let result = thread.join().unwrap_or_else(|_| Err(Error::Build("the fuse build panicked".to_owned())));
-        (changes == self.changes).then_some(result)
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct GuiInput {

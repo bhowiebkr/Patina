@@ -1107,8 +1107,11 @@ Milestone 6 started on 2026-11-15. It adds the base, the slot, fuse back and **B
 - A change during a fuse waited until the fuse ended (fixed 2026-11-17). Now a change, an
   unload or a pause stops the fuse, and the engine kills its cargo run (spec 7.2). The engine
   test `a_stop_ends_cargo_and_its_build_script` checks that the build script ends too on
-  Windows. On Linux and macOS, the processes of a killed cargo run on until they end. A
-  **Package** or a view build still waits in its thread for a running build.
+  Windows. On Linux and macOS, the processes of a killed cargo run on until they end.
+- A view build waited for a running fuse (fixed 2026-11-17). Now it stops the fuse, and the fuse
+  starts again after 30 s. A **Package** waits for the fuse, because it builds the same bake
+  clusters and uses their crates. The unit test of `engine/fuse.rs` checks the restart time.
+  Nobody opened a view during a fuse in the editor.
 - A change of a type alias or of a field in the folder of the node in the slot builds all
   (fixed 2026-11-17). Before, the slot built alone with the old types in the base. The base
   compares the outline of the folder: the code with no function bodies. A unit test of
