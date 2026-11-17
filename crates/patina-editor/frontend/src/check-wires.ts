@@ -119,6 +119,17 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   if (v.graph.wire?.[0]?.style !== 'curved' || v.graph.wire[0].points?.length !== 1) throw new Error(`the route style or Reset route failed: ${JSON.stringify(v.graph.wire)}`);
   v = await step('undo the route style', () => api.undo());
   if (v.graph.wire?.[0]?.style !== undefined) throw new Error('undo did not give the graph default route');
+  // Lock bends saves the bends of the automatic route as route points, with undo.
+  const lock = () => [...document.querySelectorAll<HTMLButtonElement>('.panel button')].find((b) => b.textContent === 'Lock bends');
+  await until('Lock bends on for the automatic wire', RUN_MS, () => document.querySelectorAll('.route-point').length === 1 && lock()?.disabled === false);
+  lock()!.click();
+  const handles = () => document.querySelectorAll('.route-point').length;
+  await until('the locked bends', RUN_MS, () => handles() >= 2).catch((e: Error) => {
+    throw new Error(`${e.message}: ${handles()} route points, ${document.querySelectorAll('.wire-hit').length} wires, path ${document.querySelector('.wire-hit')?.getAttribute('d')}`);
+  });
+  v = await step('undo Lock bends', () => api.undo());
+  if (v.graph.wire?.[0]?.points?.length !== 1) throw new Error(`undo did not remove the locked bends: ${JSON.stringify(v.graph.wire)}`);
+  steps.push('bends locked');
   // An orthogonal wire shows a bar on each middle segment. A drag on the bar moves the segment
   // sideways, and an arrow key moves it by 10 px. Both are edits with undo.
   const before = JSON.stringify(v.graph.wire?.[0]?.points);

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, lockPoints, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Style } from './api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -18,6 +18,14 @@ function near(actual: number[][], expected: number[][]) {
   assert.equal(actual.length, expected.length);
   actual.forEach((v, k) => v.forEach((c, i) => assert.ok(Math.abs(c - expected[k][i]) < 1e-5, `point ${k}: ${v} is not ${expected[k]}`)));
 }
+
+test('a lock rounds the bends and drops repeated and in-line points, and keeps MAX_ROUTE at most', () => {
+  assert.deepEqual(lockPoints([[10.4, 0.2], [10.4, 0.4], [10, 30], [10, 60], [40.6, 60]]), [[10, 0], [10, 60], [41, 60]]);
+  const many = Array.from({ length: 30 }, (_, i): [number, number] => [i * 10, (i % 2) * 10]);
+  const locked = lockPoints(many);
+  assert.equal(locked.length, MAX_ROUTE);
+  assert.deepEqual([locked[0], locked[MAX_ROUTE - 1]], [many[0], many[29]]);
+});
 
 test('a straight line has unit normals', () => {
   near(miters(0, 0, 10, 0, 20, 0), [[0, 1], [0, 1], [0, 1]]);

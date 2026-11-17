@@ -496,6 +496,7 @@ A connection shows the value that it carries while the graph runs. Connections a
 - Provide curved, orthogonal and manually routed polyline paths. Keep route geometry, corner treatment and compact or ribbon display as separate choices.
 - Allow a graph default and a connection override. Changing a style does not change execution.
 - The **Inspector** shows the look of the selected wire in its **Look** section. There is no toolbar on the canvas. **Route** is **Automatic** (the graph default), **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded** or **Sharp**, and a curve has no corners. **Reset route** removes the route points and keeps the style. Each change is one edit with undo. (Agent decision, 2026-11-15. The owner can change it.)
+- **Lock bends** saves the bends of the automatic route as route points, in one edit with undo. The router then keeps these bends when a node moves, and routes only the free segments. It works only for an automatic wire. A route with more than 12 bends (6.4) keeps 12 of them, spread along the route. (Agent decision of 2026-11-17. The owner can change it.)
 - A rounded corner of a bus has a radius of half the ribbon width plus 10 px, so the inner lane does not fold. An S-bend with a leg shorter than two radii is two flat arcs that meet at the middle of the leg. (Agent decision, 2026-11-16. The owner can change it.)
 - The graph default is the automatic route: an orthogonal wire that goes around the node bodies. A graph setting for the default comes later. (Agent decision, 2026-11-16. It replaces the curved default of 2026-11-15. The owner can change it.)
 - The automatic route:
@@ -517,7 +518,7 @@ A connection shows the value that it carries while the graph runs. Connections a
   - A long wire that goes through a column keeps half its width plus 8 px, at least 10 px, from the nodes and wires above and below it.
   - A wire pulls its two ends to the same height with the square of its width. Thus a bus of 8 lanes (40 px) pulls 64 times as hard as a bool wire (5 px), and the buses get straight first.
 - An orthogonal wire is horizontal at its pins. It turns at a right angle before each route point that is not in line, and its last leg turns at the middle between the last point and the target. A leg that goes back leaves the pin by 20 px first. A curved wire with route points is a smooth curve through the points. (Agent decision, 2026-11-15. The owner can change it.)
-- **Bus** (compact or ribbon display), **Lock bends** and the crossing controls are later refinements of the automatic route (see the optional refinements below). (Agent decision, 2026-11-15. The owner can change it.)
+- **Bus** (compact or ribbon display) and the crossing controls are later refinements of the automatic route (see the optional refinements below). (Agent decision, 2026-11-15. The owner can change it.)
 - Use neutral wires by default. A project can use named color families for signal groups. Keep type labels, direction and lane identity available.
 - Selection uses the application accent without erasing the signal colors. Keep errors and stale values distinguishable from signal state.
 - Cross-domain connections remain dashed (15.3). An order wire remains identifiable as carrying no data (9.2).
@@ -539,10 +540,10 @@ A connection shows the value that it carries while the graph runs. Connections a
 
 **Optional refinements**
 
-Fixed-bend locks and raised crossing bridges are later refinements. The automatic
-route, the Arrange command and the simple gap at a crossing came first (2026-11-16). They are
-not gates for the first editor prototype. A bridge changes
-only their visual over/under order; it is not a graph node or an execution step.
+Raised crossing bridges are a later refinement. The automatic route, the Arrange command and
+the simple gap at a crossing came first (2026-11-16). **Lock bends** came on 2026-11-17. A bridge
+is not a gate for the first editor prototype. A bridge changes only the visual over/under order
+of two wires; it is not a graph node or an execution step.
 
 Future connection styles must preserve the same type, endpoint, selection,
 error and routing rules. The guide lists extension cases without requiring all

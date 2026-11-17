@@ -69,6 +69,7 @@ export function App() {
   const serial = useRef(-1);
   const revision = useRef(0);
   const current = useRef<View | null>(null);
+  const lockBends = useRef<(to: string) => void>(() => {});
   const unsaved = useSyncExternalStore(subscribe, unsavedFiles);
   const layoutSerial = useLayoutSerial();
   const fit = useFit();
@@ -363,6 +364,7 @@ export function App() {
           onSave={saveAll}
           onAddCrate={actions.addCrate}
           onPick={pick}
+          onLock={(to) => lockBends.current(to)}
         />
       ),
     },
@@ -453,7 +455,7 @@ export function App() {
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
                 <FireTrigger.Provider value={view.live && (view.graphName === 'main' || usePath) ? fire : null}>
-                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} />
+                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} lockRef={lockBends} />
                 </FireTrigger.Provider>
               </PortTest.Provider>
               {view.graphName !== 'main' && (

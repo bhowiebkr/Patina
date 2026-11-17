@@ -37,6 +37,8 @@ The editor has these mockup features. They are not gaps.
 - **Show inner nodes** on each use: the nodes of the subgraph in place, in a neutral frame,
   read-only and with live values. **Hide inner nodes** collapses it (mockups 3 and 11).
 - A drag on the end of a wire moves it to another socket (connections guide).
+- **Lock bends** in the **Inspector**: the bends of the automatic route become route points
+  (connections guide).
 - During a wire drag, the compatible sockets get a ring and the other sockets dim (connections
   guide).
 - A junction dot where the wires of one output part (connections guide).
@@ -50,9 +52,7 @@ The editor has these mockup features. They are not gaps.
 
 ## Editor gaps
 
-| Gap | Mockup | What the editor does now |
-|---|---|---|
-| **Lock bends** (optional in the guide) | Connections guide | The route points are fixed, and the router moves the free segments. |
+None.
 
 ## Shared widget gaps
 

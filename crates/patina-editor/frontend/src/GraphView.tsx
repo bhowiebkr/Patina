@@ -1,6 +1,6 @@
 // The graph canvas (spec 15.2). Navigation is snappy: no animation between two views.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type MutableRefObject } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -34,7 +34,7 @@ import { dragStyle, matchPin, socketKey } from './palette';
 import { OrderEdge, WireContext, WireEdge, WireLayer, type WireData } from './WireLayer';
 import { Labels } from './labels';
 import { Router, type Rect } from './route';
-import { WireStore } from './wires';
+import { lockPoints, WireStore } from './wires';
 import { useTouchpadPan } from './touchpad';
 import { buildEdges, buildNodes, portKey, portTypes, splitPin, type GraphNode } from './graphData';
 
@@ -170,9 +170,11 @@ interface Props {
   onCopy: (ids: string[]) => Promise<boolean>;
   /** Pastes the clipboard, or adds a library node with the wire of a pin drag, at a graph position (15.11, 6.2). */
   onPaste: (at: [number, number], library?: LibraryNode, link?: DragLink) => void;
+  /** Gets the function of the Lock bends button of the Inspector for the wire to an input (15.9). */
+  lockRef: MutableRefObject<(to: string) => void>;
 }
 
-export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand, onCopy, onPaste }: Props) {
+export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand, onCopy, onPaste, lockRef }: Props) {
   const flow = useReactFlow<GraphNode, Edge<WireData>>();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
@@ -228,6 +230,14 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const [rooms, setRooms] = useState<readonly Room[]>([]);
   // The view moves the nodes around the open frames, so each edit maps its points back to the graph.
   const edit = useCallback((e: Edit) => onEdit(graphEdit(e, rooms)), [onEdit, rooms]);
+  // Lock bends saves the bends of the automatic route as its route points (15.9).
+  useEffect(() => {
+    lockRef.current = (to) => {
+      const id = edges.find((e) => e.type === 'wire' && e.data?.to === to)?.id;
+      const bends = id === undefined ? undefined : router.bends(id);
+      if (bends?.length) void edit({ kind: 'SetRoute', to, points: lockPoints(bends) });
+    };
+  }, [lockRef, edges, router, edit]);
   // The socket of a wire drag, as a string so that a pointer move does not render the graph again.
   const from = useConnection((c) => (c.inProgress ? JSON.stringify([c.fromHandle.type, c.fromHandle.nodeId, c.fromHandle.id ?? '']) : ''));
   const dragCss = useMemo(() => {

@@ -32,6 +32,8 @@ interface Props {
   /** Adds a crate to a node or widget folder. It fails with the problem of the crate. */
   onAddCrate: (folder: string, spec: string) => Promise<void>;
   onPick: (at: Reveal) => void;
+  /** Saves the bends of the automatic route of the wire to an input as its route points (15.9). */
+  onLock: (to: string) => void;
 }
 
 function Tabs({ tab, only, onTab }: { tab: InspectorTab; only?: InspectorTab; onTab: (tab: InspectorTab) => void }) {
@@ -52,10 +54,11 @@ interface WireProps {
   from: string;
   to: string;
   onEdit: (edit: Edit) => void;
+  onLock: (to: string) => void;
 }
 
 /** A selected wire: its ends, its look and the full text of its live value (15.7, 15.9). */
-function WireView({ view, run, from, to, onEdit }: WireProps) {
+function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
   const [full, setFull] = useState<{ from: string; text: string | null } | null>(null);
   useEffect(() => {
     let current = true;
@@ -161,6 +164,9 @@ function WireView({ view, run, from, to, onEdit }: WireProps) {
         <button className="btn" disabled={locked || !wire?.points?.length} onClick={() => onEdit({ kind: 'SetRoute', to, points: [] })}>
           Reset route
         </button>
+        <button className="btn" disabled={locked || wire?.style !== undefined} title="Save the bends of the automatic route as route points" onClick={() => onLock(to)}>
+          Lock bends
+        </button>
       </div>
       <div className="section">
         <h3>Value</h3>
@@ -181,7 +187,7 @@ function hasFolder(view: View, folder: string): boolean {
   return (view[group as 'widgets' | 'views' | 'connections' | 'types'] ?? []).includes(name);
 }
 
-export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick }: Props) {
+export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick, onLock }: Props) {
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
   // A node with a GUI draws it in the Inspector size after each run, once the engine knows (4.3).
   const guiId = entry && guis.has(`0 ${entry.id}`) ? entry.id : null;
@@ -201,7 +207,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
       </aside>
     );
   }
-  if (inspect?.kind === 'wire') return <WireView view={view} run={run} from={inspect.from} to={inspect.to} onEdit={onEdit} />;
+  if (inspect?.kind === 'wire') return <WireView view={view} run={run} from={inspect.from} to={inspect.to} onEdit={onEdit} onLock={onLock} />;
   if (!entry) {
     return (
       <aside className="panel" aria-label="Inspector">

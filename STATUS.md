@@ -1475,6 +1475,9 @@ To run the editor from a checkout:
   is **Graph default**, **Curved**, **Orthogonal** or **Polyline**. **Corners** is **Rounded**
   or **Sharp**. **Reset route** removes the route points. The graph file keeps the style, and
   each change has undo.
+- **Lock bends** in the **Inspector** saves the bends of the automatic route as route points
+  (15.9, 2026-11-17). A frontend test checks the points, and the selfcheck locks the bends of a
+  wire and undoes the edit.
 - The graph file keeps the route points. Undo and redo work for each route edit. A route edit
   does not make the result of the run stale.
 - After each run, each wire shows the value that it carries in a badge (15.9). The badge shows
@@ -1751,7 +1754,9 @@ To run the editor from a checkout:
   value into a new `String`, and the badge text into a second `String`.
 - The segments at the two pins of an orthogonal wire cannot move, and a wire with the graph
   default style has no segment bars (15.9). The graph has no setting for the default style.
-  **Bus**, **Lock bends** and the crossing bridges are not made. A wire with a fixed style can go under a node.
+  **Bus** and the crossing bridges are not made. A wire with a fixed style can go under a node.
+- **Lock bends** keeps at most 12 bends of a longer route. Between two kept bends, the router
+  can then take a different path.
 - The automatic route and **Arrange** have no undo of a route change, because a route is not
   saved. The route changes when a node moves, and the wires of a large graph can jump.
   **Arrange** puts all nodes of a layer in one column, so a wide layer makes a tall column, for

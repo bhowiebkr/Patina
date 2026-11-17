@@ -101,6 +101,23 @@ export function segments(sx: number, sy: number, tx: number, ty: number, route: 
 }
 
 /**
+ * The route points that lock the bends of an automatic route (15.9): whole pixels, with no repeated
+ * or in-line point. A route with more than MAX_ROUTE bends keeps MAX_ROUTE of them, spread along it.
+ */
+export function lockPoints(bends: readonly Point[]): Point[] {
+  const out: Point[] = [];
+  for (const [x, y] of bends) {
+    const p: Point = [Math.round(x), Math.round(y)];
+    const [a, b] = [out[out.length - 2], out[out.length - 1]];
+    if (b && b[0] === p[0] && b[1] === p[1]) continue;
+    if (a && b && ((a[0] === b[0] && b[0] === p[0]) || (a[1] === b[1] && b[1] === p[1]))) out.pop();
+    out.push(p);
+  }
+  if (out.length <= MAX_ROUTE) return out;
+  return Array.from({ length: MAX_ROUTE }, (_, i) => out[Math.round((i * (out.length - 1)) / (MAX_ROUTE - 1))]);
+}
+
+/**
  * The route after segment k of an orthogonal path moves sideways by d. The two segments next to
  * it stretch, so the path stays connected. The route keeps the corner at the end of each vertical
  * run, because orthogonal() adds the corner before it. A route that gets too long does not change.
