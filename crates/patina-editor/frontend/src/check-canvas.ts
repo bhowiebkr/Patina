@@ -75,9 +75,21 @@ export async function checkCanvas(step: Step, until: Until, steps: string[], v: 
   entry('Canvas', 'Paste')!.click();
   const selected = () => [...document.querySelectorAll(`${NODES}.selected`)].map((n) => n.getAttribute('data-id'));
   await until('the pasted node, selected', RUN_MS, () => count(NODES) === nodes + 1 && selected().length === 1 && selected()[0] !== copied.getAttribute('data-id'));
-  v = await step('undo the paste', () => api.undo());
+  // Ctrl+C, Ctrl+X and Ctrl+V over the canvas copy and cut the pasted node, and paste it again.
+  const press = (key: string) => pane.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true }));
+  const id = selected()[0]!;
+  press('c');
+  await until('the clip of Ctrl+C', RUN_MS, () => {
+    clipboard.read().then((text) => (clip = text));
+    return clip.includes(`"${id}"`);
+  });
+  press('x');
+  await until('the node cut with Ctrl+X', RUN_MS, () => count(NODES) === nodes);
+  press('v');
+  await until('the node of Ctrl+V, selected', RUN_MS, () => count(NODES) === nodes + 1 && selected().length === 1);
+  for (const what of ['the paste of Ctrl+V', 'the cut', 'the paste']) v = await step(`undo ${what}`, () => api.undo());
   await until('the graph after the undo of the paste', RUN_MS, () => count(NODES) === nodes);
-  steps.push('copy and paste of a node');
+  steps.push('copy, cut and paste of a node, from the menus and the keys');
 
   // The menu of a connection.
   const wires = count('.wire-hit');

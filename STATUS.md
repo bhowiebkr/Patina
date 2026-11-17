@@ -26,14 +26,14 @@ checks open.
 - New: Ctrl+G keeps the new subgraph in memory until Save, as a paste does.
 - Checked: engine unit tests for a paste in the same project, a paste into another project with
   a renamed subgraph and imported folders, a failed paste that changes nothing, and bad clips.
-  Frontend unit tests for the menu entries. On a hidden desktop, the editor self-check copies a
-  node from its menu and pastes it from the canvas menu, with a clip in memory.
-- Not checked: a paste between two running editors by hand, a library pick in the editor, and
-  the Ctrl+C, Ctrl+X and Ctrl+V keys. `library_nodes` has no Rust test.
+  Frontend unit tests for the menu entries. An editor unit test for the palette list of the
+  libraries. On a hidden desktop, the editor self-check copies a node from its menu, pastes it
+  from the canvas menu, and then uses Ctrl+C, Ctrl+X and Ctrl+V, with a clip in memory.
+- Not checked: a paste between two running editors by hand, and a library pick in the editor.
 - Known limits: libraries are local folders. The Git download, the pinned tags and the index of
   spec 18 question 14 are not done. A cable name of the clip can repeat a cable name of the
   graph. A clip has 256 subgraphs at most. An undone paste or collapse keeps its new subgraph in
-  memory, and Save writes it. A library pick from a drag of a pin does not connect the pin.
+  memory, and Save writes it. The palette of a pin drag does not show the library nodes.
 
 ## Gate speed
 

@@ -1,6 +1,6 @@
 //! The commands of copy, paste and the node libraries (6.2, 15.11).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use patina_engine::project::{self, ProjectFile};
 use patina_engine::{NodeInfo, Pasted, Project, Toolchain};
@@ -8,6 +8,7 @@ use serde::Serialize;
 use tauri::State;
 
 use super::{Editor, View, folder_name, full_path};
+use crate::data::Data;
 
 /// The view after a paste, with the IDs of the new nodes and the warnings (15.11).
 #[derive(Serialize)]
@@ -94,9 +95,13 @@ pub fn remove_library(editor: State<'_, Editor>, path: PathBuf) -> Result<Vec<Pa
 #[tauri::command(async)]
 pub fn library_nodes(editor: State<'_, Editor>) -> Vec<LibraryNode> {
     let open = editor.lock().as_ref().map(|s| s.project.root().to_owned());
+    library_list(&editor.data, open.as_deref())
+}
+
+fn library_list(data: &Data, open: Option<&Path>) -> Vec<LibraryNode> {
     let mut list = Vec::new();
-    for path in editor.data.libraries() {
-        if !editor.data.is_trusted(&path) || open.as_deref().is_some_and(|root| crate::data::same_path(root, &path)) {
+    for path in data.libraries() {
+        if !data.is_trusted(&path) || open.is_some_and(|root| crate::data::same_path(root, &path)) {
             continue;
         }
         let Ok(library) = Project::open(&path) else { continue };
@@ -105,4 +110,33 @@ pub fn library_nodes(editor: State<'_, Editor>) -> Vec<LibraryNode> {
         list.extend(infos.map(|info| LibraryNode { library: name.clone(), path: path.clone(), info }));
     }
     list
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn the_palette_lists_only_trusted_libraries_that_are_not_open() {
+        let dir = std::env::temp_dir().join(format!("patina-libraries-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let data = Data::find(Some(dir.join("user"))).unwrap();
+        let (lib, other) = (dir.join("lib"), dir.join("other"));
+        for root in [&lib, &other] {
+            Project::create(root, "1.94.0").unwrap();
+            data.add_library(root).unwrap();
+        }
+        fs::write(lib.join("graphs/half.toml"), "format = 1
+").unwrap();
+        data.trust(&lib).unwrap();
+        let list = library_list(&data, None);
+        let open = library_list(&data, Some(&lib));
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(!list.is_empty() && list.iter().all(|n| n.path == lib && n.library == "lib"), "the other library is not trusted");
+        assert!(list.iter().any(|n| n.info.subgraph && n.info.name == "half"));
+        assert!(list.iter().any(|n| !n.info.subgraph));
+        assert!(open.is_empty(), "the open project is not a library of itself");
+    }
 }
