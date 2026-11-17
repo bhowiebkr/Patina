@@ -72,30 +72,77 @@ pub fn output<F: Future>(_: F) -> F::Output {
 
 /// Polls `future` on this thread until it is ready or the user clicks **Stop**.
 fn wait<T>(future: impl Future<Output = T>, rep: &Reporter, node: u32) -> Option<std::thread::Result<T>> {
-    // shortcut: each call allocates its future, and the run thread blocks while it waits. Change
-    // it when event runs share the worker threads.
-    let mut future = Box::pin(future);
-    let result = runtime().block_on(async {
-        let mut tick = tokio::time::interval(CHECK);
-        tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
-        poll_fn(|cx| {
-            if patina_sdk::stop_requested() {
-                return Poll::Ready(None);
-            }
-            match catch_quiet(AssertUnwindSafe(|| future.as_mut().poll(cx))) {
-                Ok(Poll::Ready(value)) => Poll::Ready(Some(Ok(value))),
-                Err(payload) => Poll::Ready(Some(Err(payload))),
-                Ok(Poll::Pending) => {
-                    while tick.poll_tick(cx).is_ready() {}
-                    Poll::Pending
+    // shortcut: the run thread blocks while it waits. Change it when event runs share the worker threads.
+    let mut result = None;
+    // The future stays on the stack and drops at the end of the closure, in the catch (4.7).
+    let caught = catch_quiet(AssertUnwindSafe(|| {
+        let mut future = std::pin::pin!(future);
+        result = runtime().block_on(async {
+            let mut tick = tokio::time::interval(CHECK);
+            tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
+            poll_fn(|cx| {
+                if patina_sdk::stop_requested() {
+                    return Poll::Ready(None);
                 }
-            }
-        })
-        .await
-    });
-    glue::drop_value(Some(future), rep, node);
+                match catch_quiet(AssertUnwindSafe(|| future.as_mut().poll(cx))) {
+                    Ok(Poll::Ready(value)) => Poll::Ready(Some(Ok(value))),
+                    Err(payload) => Poll::Ready(Some(Err(payload))),
+                    Ok(Poll::Pending) => {
+                        while tick.poll_tick(cx).is_ready() {}
+                        Poll::Pending
+                    }
+                }
+            })
+            .await
+        });
+        Ok(())
+    }));
+    glue::finish(caught, rep, node);
     if result.is_none() {
         rep.send(node, STOPPED, "");
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::c_void;
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+
+    use patina_sdk::glue::{PANIC, Reporter};
+
+    unsafe extern "C" fn keep(ctx: *mut c_void, node: u32, kind: u32, text: *const u8, len: usize) {
+        // SAFETY: the test gives a `Vec` as the context, and a text that is valid during the call.
+        let (sent, bytes) = unsafe { (&mut *ctx.cast::<Vec<(u32, u32, String)>>(), std::slice::from_raw_parts(text, len)) };
+        sent.push((node, kind, String::from_utf8_lossy(bytes).into_owned()));
+    }
+
+    /// A future that is ready at once, and panics when it drops.
+    struct Loud;
+
+    impl Future for Loud {
+        type Output = u8;
+        fn poll(self: Pin<&mut Self>, _: &mut Context) -> Poll<u8> {
+            Poll::Ready(7)
+        }
+    }
+
+    impl Drop for Loud {
+        fn drop(&mut self) {
+            panic!("loud drop");
+        }
+    }
+
+    #[test]
+    fn a_panic_in_the_drop_of_a_future_goes_to_its_node() {
+        let mut sent: Vec<(u32, u32, String)> = Vec::new();
+        let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+        assert!(matches!(super::wait(Loud, &rep, 3), Some(Ok(7))));
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].0, 3);
+        assert_eq!(sent[0].1, PANIC);
+        assert!(sent[0].2.contains("loud drop"), "{}", sent[0].2);
+    }
 }

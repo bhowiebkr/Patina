@@ -615,7 +615,8 @@ Milestone 12 started and ended on 2026-11-16. It adds the event domain: async no
 
 - These shortcuts are open in the code:
   - `patina-event`: each cluster build makes its own runtime, and each wait of an async node
-    allocates its future and blocks the thread of its run.
+    blocks the thread of its run. The future of the wait stays on the stack, with no allocation
+    (fixed 2026-11-17). A unit test checks that a panic in its drop goes to its node.
   - `events/watch.rs` of `patina-engine`: `file_change` polls its folder.
   - `engine.rs` of `patina-editor`: no event runs when the slot keeps a value that is not
     `Sync` and holds an event node and a node of another domain.
