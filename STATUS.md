@@ -680,11 +680,16 @@ check used a slow `ui` function of a frame node while the audio thread ran.
   items and texts. The frames swap their emptied lists with the lists of the audio thread. A
   unit test counted 0 allocations in 100 rounds of two blocks, a hand-over and a swap, after two
   first rounds (2026-11-16).
+- At the end of a run, the device waits for its reported latency and its last buffer, at most
+  1 s (fixed 2026-11-17, before it waited 50 ms). The unit test `tail` of `device.rs` checks the
+  time.
+- In the editor, only the first audio block after a frame took the results sends values and
+  run times. The blocks between the frames are quiet (fixed 2026-11-17). A unit test checks
+  that a quiet block keeps the times of the last block that sent them.
 
 ### Known limits
 
 - These shortcuts are open in the code:
-  - `device.rs` of `patina-engine`: a fixed wait of 50 ms for the buffer of the device at the end.
   - `engine.rs` of `patina-editor`: when a library is not parallel, the blocks run on the engine
     thread between the frames, so a slow frame or node GUI makes them late.
 - While the audio thread of the editor runs, a view reads no output of an audio node, and the
@@ -1776,8 +1781,8 @@ To run the editor from a checkout:
     more, by GPU), SVG draws the wires (`frontend/src/gl.ts`).
   - A route of more than 62 points draws only its first 62 points. Only a graph file that a
     person edited has such a route (`frontend/src/wires.ts`).
-  - Each run formats and sends each held value, also when a graph runs faster than the display
-    (15.6) (`crates/patina-sdk/src/glue/probe.rs`).
+  - Each event run of the CLI formats and sends each held value, which nobody shows
+    (`crates/patina-sdk/src/glue/probe.rs`).
   - A new lane state builds the instances of all wires again (`frontend/src/wires.ts`).
   - The SVG wires draw a bus as one line, and have no gap at a crossing (`frontend/src/WireLayer.tsx`).
   - A wire with more than 62 points after its gaps draws without its last gaps (`frontend/src/wires.ts`).

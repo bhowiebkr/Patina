@@ -93,7 +93,10 @@ impl Blocks {
         part.logs.iter().for_each(|l| self.logs.push(l));
         self.skipped.set(part.skipped);
         self.stopped.set(part.stopped);
-        self.times.set(part.times);
+        // A quiet block sends no times, so the times of the last block that sent them stay.
+        if !part.times.is_empty() {
+            self.times.set(part.times);
+        }
     }
 
     /// Adds a log line for a change of the audio device.
@@ -218,6 +221,8 @@ mod tests {
         let mut blocks = Blocks::default();
         blocks.gather(&Part::from(&block(false, "1", 1.0)));
         blocks.gather(&Part::from(&block(true, "2", 2.0)));
+        // A quiet block sends no values and no times, so the last ones stay.
+        blocks.gather(&Part::from(&Outcome { ok: true, ..Outcome::default() }));
         let part = blocks.part();
         assert!(!part.ok && part.reports.len() == 1 && part.values.len() == 1 && part.logs.len() == 2);
         assert_eq!((part.values[0].text.as_str(), part.times[0].ms), ("2", 2.0));

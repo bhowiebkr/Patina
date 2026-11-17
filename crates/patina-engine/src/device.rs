@@ -19,12 +19,14 @@ struct Ring {
     written: AtomicUsize,
     read: AtomicUsize,
     failed: AtomicBool,
+    /// The time in microseconds from the last callback of the device to the end of its sound.
+    tail: AtomicU32,
 }
 
 impl Ring {
     fn new(len: usize) -> Ring {
         let samples = (0..len).map(|_| AtomicU32::new(0)).collect();
-        Ring { samples, written: AtomicUsize::new(0), read: AtomicUsize::new(0), failed: AtomicBool::new(false) }
+        Ring { samples, written: AtomicUsize::new(0), read: AtomicUsize::new(0), failed: AtomicBool::new(false), tail: AtomicU32::new(0) }
     }
 
     fn queued(&self) -> usize {
@@ -79,7 +81,11 @@ impl Device {
         let stream = device
             .build_output_stream(
                 &config.config(),
-                move |out: &mut [f32], _: &cpal::OutputCallbackInfo| reader.fill(out, channels),
+                move |out: &mut [f32], info: &cpal::OutputCallbackInfo| {
+                    let at = info.timestamp();
+                    reader.tail.store(tail(at.playback.duration_since(&at.callback), out.len() / channels, rate), Relaxed);
+                    reader.fill(out, channels);
+                },
                 move |_| failer.failed.store(true, Relaxed),
                 None,
             )
@@ -105,9 +111,16 @@ impl Device {
         while self.ring.queued() > 0 && !self.ring.failed.load(Relaxed) {
             sleep(Duration::from_millis(1));
         }
-        // shortcut: a fixed wait for the buffer of the device, read its latency if a sound gets cut.
-        sleep(Duration::from_millis(50));
+        sleep(Duration::from_micros(self.ring.tail.load(Relaxed).into()));
     }
+}
+
+/// The time in microseconds from a callback of the device to the end of the sound of its
+/// `frames`: the latency of the device and the time of the frames at `rate`. At most 1 s, so a
+/// device that reports a bad latency does not stop the end of a run.
+fn tail(latency: Option<Duration>, frames: usize, rate: u32) -> u32 {
+    let play = Duration::from_secs(frames as u64) / rate;
+    latency.unwrap_or_default().saturating_add(play).min(Duration::from_secs(1)).as_micros() as u32
 }
 
 /// Paces the blocks of the audio domain: the timer until a node plays, then the device (9.3).
@@ -208,6 +221,14 @@ mod tests {
     #[test]
     fn the_audio_thread_gets_a_high_priority_on_windows() {
         assert_eq!(std::thread::spawn(raise_priority).join().unwrap(), cfg!(windows));
+    }
+
+    #[test]
+    fn the_tail_adds_the_latency_to_the_frames_and_stops_at_one_second() {
+        let ms = |ms| Some(Duration::from_millis(ms));
+        assert_eq!(tail(ms(10), 480, 48_000), 20_000);
+        assert_eq!(tail(None, 480, 48_000), 10_000);
+        assert_eq!(tail(ms(5_000), 480, 48_000), 1_000_000);
     }
 
     #[test]

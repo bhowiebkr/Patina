@@ -616,9 +616,11 @@ fn frames_only(live: &mut Live, part: &mut Frames) -> Option<Job> {
 /// make the blocks late. Each frame shows the results of the blocks since the last frame.
 fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
     let (stop, out) = (&AtomicBool::new(false), &Mutex::new(Blocks::default()));
+    // True when the frames took the results of the blocks since the last block that sent values.
+    let taken = &AtomicBool::new(true);
     let shared = live.shared;
     std::thread::scope(|s| {
-        s.spawn(move || play(audio, shared, stop, out));
+        s.spawn(move || play(audio, shared, stop, out, taken));
         let (mut clock, mut blocks, mut tick) = (Clock::new(clock::FRAME), Blocks::default(), 0);
         let job = loop {
             clock.wait();
@@ -632,6 +634,7 @@ fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
             }
             // The swap gives the audio thread the emptied blocks of the last frame, with their texts.
             std::mem::swap(&mut *lock(out), &mut blocks);
+            taken.store(true, Ordering::Relaxed);
             if !live.frame(part, &mut blocks, count) {
                 break None;
             }
@@ -643,13 +646,15 @@ fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
 
 /// The audio thread: runs the blocks until `stop`, **Stop** or a failed block. It gives their
 /// results to the frames in `out`, and never waits for the lock while the blocks run (4.3). It
-/// does not allocate after the first blocks.
-fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Blocks>) {
+/// does not allocate after the first blocks. Only the first block after the frames took the results
+/// sends its values and times, so they come at the frame rate, not at each block (15.6).
+fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Blocks>, taken: &AtomicBool) {
     raise_priority();
     // Each thread has its own control: the control keeps the node that runs (15.2).
     let (control, mut pace, mut blocks) = (Control::default(), Pace::default(), Blocks::default());
     while !stop.load(Ordering::Relaxed) && !shared.control.stopped() {
         pace.wait();
+        control.set_quiet(!taken.swap(false, Ordering::Relaxed));
         let block = audio.block(&control);
         let ok = block.ok;
         blocks.gather(&Part::from(block));
@@ -677,13 +682,17 @@ fn between(live: &mut Live, part: &mut Frames) -> Option<Job> {
         if let Some(end) = live.job(part) {
             return end;
         }
-        blocks.gather(&Part::from(part.block(&live.shared.control)?));
         block += 1;
+        let due = (live.frames..).take_while(|&frame| frame_due(frame, block, live.rate)).count() as u64;
+        // Only a block before a frame sends its values and times (15.6).
+        live.shared.control.set_quiet(due == 0);
+        let ran = part.block(&live.shared.control).map(|outcome| blocks.gather(&Part::from(outcome)));
+        live.shared.control.set_quiet(false);
+        ran?;
         if let Some(notice) = pace.play(part.sound().map(|s| s.as_slice())) {
             blocks.device(notice);
         }
         // A failed block ends the run at once, with a frame that shows its results.
-        let due = (live.frames..).take_while(|&frame| frame_due(frame, block, live.rate)).count() as u64;
         if (!blocks.part().ok || due > 0) && !live.frame(part, &mut blocks, due.max(1)) {
             return None;
         }
