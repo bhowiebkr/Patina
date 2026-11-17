@@ -27,16 +27,19 @@ checks open.
 - New: **Add from Git** downloads a tag of a Git repository as a library, and pins its commit
   (spec 6.2). **Check for updates** shows a newer tag and a moved tag. **Update to** replaces the
   copy. The download uses the curl of the system and refuses unsafe archives.
+- New: **Browse libraries** shows the library index, `libraries.toml` in the Patina repository
+  (spec 6.2). **Add** downloads the pinned tag of a library. A pull request adds a library.
 - Checked: engine unit tests for a paste in the same project, a paste into another project with a
   renamed subgraph and imported folders, a failed paste that changes nothing, and bad clips.
   Frontend unit tests for the menu entries. An editor unit test for the palette list of the
   libraries. Engine unit tests for the tags, the URL check, a download and bad archives, with a
   fake host. An editor unit test for the pins. On a hidden desktop, the editor self-check copies a
   node from its menu, pastes it from the canvas menu, and then uses Ctrl+C, Ctrl+X and Ctrl+V,
-  with a clip in memory. It also finds the Git fields of the libraries.
+  with a clip in memory. It also finds the Git fields of the libraries and **Browse libraries**.
+  An engine unit test reads an index with a fake host, and leaves out the bad entries.
 - Not checked: a paste between two running editors by hand, a library pick in the editor, and a
-  live download from GitHub or GitLab.
-- Known limits: the library index of spec 18 question 14 is not done. A cable name of the clip can
+  live download from GitHub or GitLab, and a live download of the index.
+- Known limits: the index has no libraries yet. A cable name of the clip can
   repeat a cable name of the graph. A clip has 256 subgraphs at most. An undone paste or collapse
   keeps its new subgraph in memory, and Save writes it. The palette of a pin drag does not show
   the library nodes.
@@ -210,8 +213,8 @@ checks open.
   counts two frames in each frame event.
 - After the last change of the generated code, the CLI ran the bake build at 1000 FPS. 10,000
   frames took 10.05 s, so a bake frame takes less than 1 ms.
-- Known limits: in the editor, a frame of the edit build takes about 1 ms, so a rate above about
-  600 FPS makes the clock skip ticks. Then the CPU runs slower than the rate, but frames never
+- Known limits: in the editor, a frame of the edit build takes about 1 ms. At a high rate, the
+  frames of a tick stop after one tick period, so the CPU runs slower than the rate. Frames never
   queue.
 
 ## IO devices of the computer

@@ -120,6 +120,8 @@ To reuse nodes and subgraphs:
 - To add a library from a Git repository, type its HTTPS URL in **Git URL** and a tag in
   **Tag**, then push **Add from Git**. An empty tag selects the newest tag. Patina downloads
   that tag into its data folder and pins its commit.
+- Push **Browse libraries** to show the shared libraries of the index. Push **Add** to download
+  the pinned tag of a library.
 - Push **Check for updates** to compare the pinned tags with the repositories. Push
   **Update to** to download a newer tag. **Remove** deletes a downloaded copy, but not a local
   project.

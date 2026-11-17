@@ -1,0 +1,11 @@
+# The index of the shared Patina libraries (spec 6.2). Settings > Libraries > Browse libraries
+# shows this list. To share a library, send a pull request that adds a table:
+#
+# [[library]]
+# name = "logic"
+# url = "https://github.com/owner/patina-logic"
+# description = "NAND gates, adders and registers"
+# tag = "v1.0.0"
+#
+# The repository must be a Patina project with patina.toml in its root. Use a release tag, and
+# do not move it to another commit.

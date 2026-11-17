@@ -189,6 +189,14 @@ export interface Library {
   pin: LibraryPin | null;
 }
 
+/** A library of the index (6.2). */
+export interface IndexEntry {
+  name: string;
+  url: string;
+  description: string;
+  tag: string;
+}
+
 /** The result of **Check for updates** for a library from Git (6.2). */
 export interface Checked {
   path: string;
@@ -398,6 +406,8 @@ export const api = {
   /** Downloads a tag of a Git repository, or the newest tag when `tag` is empty, as a library (6.2). */
   addGitLibrary: (url: string, tag: string) => invoke<Library[]>('add_git_library', { url, tag }),
   checkLibraries: () => invoke<Checked[]>('check_libraries'),
+  /** Downloads the index of the shared libraries (6.2). */
+  libraryIndex: () => invoke<IndexEntry[]>('library_index'),
   /** Replaces a copy from Git with another tag of its repository (6.2). */
   updateLibrary: (path: string, tag: string) => invoke<Library[]>('update_library', { path, tag }),
   edit: (edit: Edit) => invoke<View>('edit', { edit }),

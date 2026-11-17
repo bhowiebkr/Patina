@@ -134,6 +134,15 @@ pub fn check_libraries(editor: State<'_, Editor>) -> Vec<Checked> {
     list
 }
 
+/// Downloads the index of the shared libraries (6.2).
+#[tauri::command(async)]
+pub fn library_index(editor: State<'_, Editor>) -> Result<Vec<git::Entry>, String> {
+    let work = editor.data.git_dir().join(".index");
+    let list = git::index(&work).map_err(|e| e.to_string());
+    let _ = fs::remove_dir_all(&work);
+    list
+}
+
 /// Replaces a copy from Git with another tag of its repository, at the same place in the list (6.2).
 #[tauri::command(async)]
 pub fn update_library(editor: State<'_, Editor>, path: PathBuf, tag: String) -> Result<Vec<Library>, String> {

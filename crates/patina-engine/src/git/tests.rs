@@ -127,3 +127,36 @@ fn a_bad_archive_is_refused_and_leaves_nothing() {
     refuse(b"not gzip".to_vec(), "does not unpack");
     fs::remove_dir_all(&root).unwrap();
 }
+
+#[test]
+fn the_index_lists_only_the_libraries_with_a_good_url_and_tag() {
+    let text = r#"
+[[library]]
+name = "logic"
+url = "https://github.com/owner/logic.git"
+description = "NAND gates"
+tag = "v1.0.0"
+
+[[library]]
+name = "bad url"
+url = "http://github.com/owner/x"
+tag = "v1"
+
+[[library]]
+name = "bad tag"
+url = "https://github.com/owner/y"
+tag = "v1 && x"
+"#;
+    let root = dir("index");
+    let fetch = |url: &str, file: &Path| match url {
+        "https://example.org/libraries.toml" => fs::write(file, text).map_err(|e| Error::Io(file.to_owned(), e)),
+        _ => Err(bad("404")),
+    };
+    let list = index_with("https://example.org/libraries.toml", &root, &fetch).unwrap();
+    assert_eq!(list, [Entry { name: "logic".to_owned(), url: "https://github.com/owner/logic".to_owned(), description: "NAND gates".to_owned(), tag: "v1.0.0".to_owned() }]);
+    assert!(!root.join("libraries.toml").exists(), "the download goes");
+    assert!(parse_index("").unwrap().is_empty());
+    assert!(parse_index("library = 3").is_err());
+    assert!(index_with("https://example.org/other.toml", &root, &fetch).is_err());
+    fs::remove_dir_all(&root).unwrap();
+}

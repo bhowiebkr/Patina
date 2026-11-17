@@ -30,6 +30,20 @@ pub struct Check {
     pub moved: bool,
 }
 
+/// A library of the index (6.2).
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Entry {
+    pub name: String,
+    pub url: String,
+    #[serde(default)]
+    pub description: String,
+    pub tag: String,
+}
+
+/// The index of the shared libraries, a file of the Patina repository (6.2). A pull request adds a
+/// library.
+pub const INDEX: &str = "https://raw.githubusercontent.com/bhowiebkr/Patina/main/libraries.toml";
+
 const MAX_FILES: usize = 20_000;
 const MAX_BYTES: usize = 512 << 20;
 /// The names that Windows keeps for devices. A file with such a name cannot be written.
@@ -72,6 +86,11 @@ pub fn download(url: &str, tag: &str, dir: &Path) -> Result<(PathBuf, Pin), Erro
     download_with(url, tag, dir, &curl_get)
 }
 
+/// Downloads the index and returns its libraries (6.2).
+pub fn index(work: &Path) -> Result<Vec<Entry>, Error> {
+    index_with(INDEX, work, &curl_get)
+}
+
 fn curl_get(url: &str, file: &Path) -> Result<(), Error> {
     run_text(
         command(&curl())
@@ -90,6 +109,34 @@ fn tags_with(url: &str, work: &Path, fetch: Fetch) -> Result<Vec<(String, String
     let read = fetch(&format!("{url}/info/refs?service=git-upload-pack"), &file).and_then(|()| fs::read(&file).map_err(|e| Error::Io(file.clone(), e)));
     let _ = fs::remove_file(&file);
     parse_refs(&read?)
+}
+
+fn index_with(url: &str, work: &Path, fetch: Fetch) -> Result<Vec<Entry>, Error> {
+    fs::create_dir_all(work).map_err(|e| Error::Io(work.to_owned(), e))?;
+    let file = work.join("libraries.toml");
+    let read = fetch(url, &file).and_then(|()| fs::read_to_string(&file).map_err(|e| Error::Io(file.clone(), e)));
+    let _ = fs::remove_file(&file);
+    parse_index(&read?)
+}
+
+/// Reads the index. An entry with a bad URL or tag is left out, so it does not hide the others.
+fn parse_index(text: &str) -> Result<Vec<Entry>, Error> {
+    #[derive(Deserialize)]
+    struct Index {
+        #[serde(default)]
+        library: Vec<Entry>,
+    }
+    let index: Index = toml::from_str(text).map_err(|e| bad(format!("the library index is not valid: {e}")))?;
+    let good = |mut entry: Entry| {
+        entry.url = repository(&entry.url).ok()?;
+        tag_name(&entry.tag).then_some(entry)
+    };
+    Ok(index.library.into_iter().filter_map(good).collect())
+}
+
+/// A tag name that Patina accepts: letters, digits and `._+-/`.
+fn tag_name(tag: &str) -> bool {
+    !tag.is_empty() && tag.bytes().all(|b| b.is_ascii_alphanumeric() || b"._+-/".contains(&b))
 }
 
 fn download_with(url: &str, tag: &str, dir: &Path, fetch: Fetch) -> Result<(PathBuf, Pin), Error> {
@@ -172,7 +219,7 @@ fn parse_refs(bytes: &[u8]) -> Result<Vec<(String, String)>, Error> {
             continue;
         }
         let (tag, peeled) = tag.strip_suffix("^{}").map_or((tag, false), |t| (t, true));
-        if !tag.bytes().all(|b| b.is_ascii_alphanumeric() || b"._+-/".contains(&b)) {
+        if !tag_name(tag) {
             continue;
         }
         match tags.iter_mut().find(|(t, _)| t == tag) {

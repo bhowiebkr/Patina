@@ -1,7 +1,7 @@
 // The libraries part of the settings (spec 6.2, 15.10): local Patina projects and copies from Git.
 
 import { useState } from 'react';
-import { api, type Checked, type Library } from './api';
+import { api, type Checked, type IndexEntry, type Library } from './api';
 
 /** `onChange` reads the settings again, because a library change also changes the trusted list. */
 export function LibrarySettings({ libraries, projectsDir, onChange, onError }: { libraries: Library[] | undefined; projectsDir: string; onChange: () => void; onError: (text: string) => void }) {
@@ -9,6 +9,7 @@ export function LibrarySettings({ libraries, projectsDir, onChange, onError }: {
   const [tag, setTag] = useState('');
   const [busy, setBusy] = useState('');
   const [checks, setChecks] = useState<Checked[]>([]);
+  const [index, setIndex] = useState<IndexEntry[] | null>(null);
   const run = async (step: string, job: () => Promise<unknown>) => {
     onError('');
     setBusy(step);
@@ -33,6 +34,8 @@ export function LibrarySettings({ libraries, projectsDir, onChange, onError }: {
       setTag('');
     });
   const check = () => run('Patina reads the tags of the libraries from Git', async () => setChecks(await api.checkLibraries()));
+  const browse = () => run('Patina downloads the library index', async () => setIndex(await api.libraryIndex()));
+  const addEntry = (e: IndexEntry) => run(`Patina downloads ${e.tag} of ${e.url}`, () => api.addGitLibrary(e.url, e.tag));
   const update = (path: string, newer: string) =>
     run(`Patina downloads ${newer}`, async () => {
       await api.updateLibrary(path, newer);
@@ -76,6 +79,9 @@ export function LibrarySettings({ libraries, projectsDir, onChange, onError }: {
               Check for updates
             </button>
           )}
+          <button className="btn" disabled={disabled} onClick={browse}>
+            Browse libraries
+          </button>
           <button className="btn" disabled={disabled} onClick={addLocal}>
             Add library
           </button>
@@ -88,6 +94,18 @@ export function LibrarySettings({ libraries, projectsDir, onChange, onError }: {
           Add from Git
         </button>
       </div>
+      {index?.length === 0 && <div className="label">The library index has no libraries yet.</div>}
+      {index?.map((e) => (
+        <div key={e.url} className="settings-row">
+          <span className="path" title={e.url}>
+            {e.name} {e.tag}
+            <span className="label"> {e.description}</span>
+          </span>
+          <button className="btn" disabled={disabled || libraries?.some((l) => l.pin?.url === e.url)} aria-label={`Add ${e.name}`} onClick={() => addEntry(e)}>
+            Add
+          </button>
+        </div>
+      ))}
     </section>
   );
 }

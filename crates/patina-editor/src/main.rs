@@ -242,6 +242,7 @@ fn main() {
             session::remove_library,
             session::add_git_library,
             session::check_libraries,
+            session::library_index,
             session::update_library,
             session::library_nodes,
             session::edit,
