@@ -54,7 +54,8 @@ cycles. These are the known exceptions:
 1. The page calls a Tauri command. The commands are in `patina-editor/src/session.rs` and in
    `session/`. One `Mutex` keeps the open `Session`.
 2. The command changes the project through `Project` of the engine. Then it sends the full view
-   back to the page: the graph, the nodes and the kinds.
+   back to the page: the graph, the nodes and the kinds. An edit that changes only the layout,
+   for example a move of a node, keeps the domains and the problems of the last check.
 3. When the graph is live, the session checks the graph (`Project::check`) and sends the parts
    of the checked graph to the node process (spec 16.1). The node process is the same program,
    started with a hidden argument. The messages are lines of JSON.

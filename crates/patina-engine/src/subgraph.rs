@@ -1,13 +1,14 @@
 //! Subgraphs (spec 6.1, 6.4): each use of a subgraph becomes the nodes and wires of its file. A
 //! node of a use gets the ID `<use ID>/<node ID>`, so two uses of one subgraph do not share IDs.
 
-use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::path::Path;
+use std::rc::Rc;
 
+use crate::node::{self, Node};
 use crate::project::{self, GraphFile, Order, Wire};
-use crate::{NodeInfo, Pin, node};
+use crate::{NodeInfo, Pin};
 
 mod collapse;
 
@@ -26,12 +27,46 @@ pub(crate) type Alias = (String, String);
 /// The subgraphs of the editor, by name, with their unsaved changes.
 pub(crate) type Edits<'a> = &'a [(&'a str, &'a GraphFile)];
 
+/// The subgraph files and node folders of one call. Each is read one time, because a large graph
+/// has many uses of one subgraph. A graph of `edits` replaces its file.
+struct Files<'a> {
+    root: &'a Path,
+    edits: Edits<'a>,
+    graphs: HashMap<String, Result<Rc<GraphFile>, String>>,
+    nodes: HashMap<String, Option<Rc<Node>>>,
+}
+
+impl<'a> Files<'a> {
+    fn new(root: &'a Path, edits: Edits<'a>) -> Self {
+        Files { root, edits, graphs: HashMap::new(), nodes: HashMap::new() }
+    }
+
+    /// The subgraph `name`: its graph in `edits`, or else its file.
+    fn graph(&mut self, name: &str) -> Result<Rc<GraphFile>, String> {
+        if let Some(found) = self.graphs.get(name) {
+            return found.clone();
+        }
+        let found = match self.edits.iter().find(|(edit, _)| *edit == name) {
+            Some((_, graph)) => Ok(Rc::new((*graph).clone())),
+            None => project::read(&self.root.join("graphs").join(format!("{name}.toml")), |g: &GraphFile| g.format).map(Rc::new).map_err(|e| e.to_string()),
+        };
+        self.graphs.insert(name.to_owned(), found.clone());
+        found
+    }
+
+    /// The pins of the node folder `nodes/<name>`, or `None` if it does not read.
+    fn node(&mut self, name: &str) -> Option<Rc<Node>> {
+        let root = self.root;
+        self.nodes.entry(name.to_owned()).or_insert_with(|| project::read_node(root, name).ok().map(Rc::new)).clone()
+    }
+}
+
 /// Gives the graph with each use of a subgraph replaced by the nodes of the subgraph file, and
 /// the aliases of the output pins of the uses. The collars and cables stay out, because only the
 /// editor draws them. Each graph of `edits` is a subgraph of the editor that replaces its file.
 pub(crate) fn flatten(root: &Path, graph: &GraphFile, edits: Edits) -> Result<(GraphFile, Vec<Alias>), Vec<String>> {
     let mut problems = Vec::new();
-    let (flat, mut aliases) = expand(root, graph, edits, &mut Vec::new(), &mut problems);
+    let (flat, mut aliases) = expand(&mut Files::new(root, edits), graph, &mut Vec::new(), &mut problems);
     // An inner public input pin can get its value from an outer public input pin.
     let map: HashMap<String, String> = aliases.iter().cloned().collect();
     for (_, from) in &mut aliases {
@@ -42,7 +77,7 @@ pub(crate) fn flatten(root: &Path, graph: &GraphFile, edits: Edits) -> Result<(G
     if problems.is_empty() { Ok((flat, aliases)) } else { Err(problems) }
 }
 
-fn expand(root: &Path, graph: &GraphFile, edits: Edits, stack: &mut Vec<String>, problems: &mut Vec<String>) -> (GraphFile, Vec<Alias>) {
+fn expand(files: &mut Files, graph: &GraphFile, stack: &mut Vec<String>, problems: &mut Vec<String>) -> (GraphFile, Vec<Alias>) {
     if graph.node.iter().all(|n| n.subgraph.is_none()) {
         return (graph.clone(), Vec::new());
     }
@@ -69,7 +104,7 @@ fn expand(root: &Path, graph: &GraphFile, edits: Edits, stack: &mut Vec<String>,
             fail(format!("the subgraph {name} uses itself"));
             continue;
         }
-        let file = match read_graph(root, name, edits) {
+        let file = match files.graph(name) {
             Ok(file) => file,
             Err(e) => {
                 fail(e);
@@ -77,7 +112,7 @@ fn expand(root: &Path, graph: &GraphFile, edits: Edits, stack: &mut Vec<String>,
             }
         };
         stack.push(name.clone());
-        let (inner, inner_aliases) = expand(root, &file, edits, stack, problems);
+        let (inner, inner_aliases) = expand(files, &file, stack, problems);
         stack.pop();
         let prefix = |end: &str| format!("{id}/{end}");
         // The editor shows the values inside a use, so the uses inside it keep their aliases (15.9).
@@ -188,15 +223,16 @@ pub(crate) fn infos(root: &Path, edits: Edits) -> Vec<NodeInfo> {
         names.extend(path.file_stem().and_then(|s| s.to_str()).filter(|n| toml && *n != "main").map(str::to_owned));
     }
     let mut infos = Vec::new();
+    let files = &mut Files::new(root, edits);
     for name in &names {
         let mut info = NodeInfo { name: name.clone(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, color: None, subgraph: true, kind: "subgraph" };
-        match read_graph(root, name, edits) {
+        match files.graph(name) {
             Ok(graph) => {
                 let stack = &mut vec![name.clone()];
                 let mut generics = Vec::new();
                 // A pin that ends at a generic pin is generic too, so the palette offers each type (4.5).
                 let mut pin = |key: &str, pin: &str, end: Option<&String>, input| {
-                    let (ty, of_node) = end.and_then(|end| end_type(root, edits, &graph, end, input, stack)).unwrap_or_else(|| ("?".to_owned(), Vec::new()));
+                    let (ty, of_node) = end.and_then(|end| end_type(files, &graph, end, input, stack)).unwrap_or_else(|| ("?".to_owned(), Vec::new()));
                     if of_node.contains(&ty) && !generics.contains(&ty) {
                         generics.push(ty.clone());
                     }
@@ -213,22 +249,14 @@ pub(crate) fn infos(root: &Path, edits: Edits) -> Vec<NodeInfo> {
     infos
 }
 
-/// The subgraph `name`: its graph in `edits`, or else its file.
-fn read_graph<'a>(root: &Path, name: &str, edits: Edits<'a>) -> Result<Cow<'a, GraphFile>, String> {
-    match edits.iter().find(|(edit, _)| *edit == name) {
-        Some((_, graph)) => Ok(Cow::Borrowed(*graph)),
-        None => project::read(&root.join("graphs").join(format!("{name}.toml")), |g: &GraphFile| g.format).map(Cow::Owned).map_err(|e| e.to_string()),
-    }
-}
-
 /// The use path (6.4) of each use of the subgraph `name` in `graph`, also inside other uses (15.9).
 pub(crate) fn use_paths(root: &Path, graph: &GraphFile, edits: Edits, name: &str) -> Vec<String> {
     let mut paths = Vec::new();
-    find_uses(root, graph, edits, name, ("", &mut Vec::new()), &mut paths);
+    find_uses(&mut Files::new(root, edits), graph, name, ("", &mut Vec::new()), &mut paths);
     paths
 }
 
-fn find_uses(root: &Path, graph: &GraphFile, edits: Edits, name: &str, (at, stack): (&str, &mut Vec<String>), paths: &mut Vec<String>) {
+fn find_uses(files: &mut Files, graph: &GraphFile, name: &str, (at, stack): (&str, &mut Vec<String>), paths: &mut Vec<String>) {
     for entry in &graph.node {
         let Some(sub) = &entry.subgraph else { continue };
         let path = if at.is_empty() { entry.id.clone() } else { format!("{at}/{}", entry.id) };
@@ -236,10 +264,10 @@ fn find_uses(root: &Path, graph: &GraphFile, edits: Edits, name: &str, (at, stac
             paths.push(path);
         } else if !stack.contains(sub)
             && project::check_name(sub).is_ok()
-            && let Ok(inner) = read_graph(root, sub, edits)
+            && let Ok(inner) = files.graph(sub)
         {
             stack.push(sub.clone());
-            find_uses(root, &inner, edits, name, (&path, stack), paths);
+            find_uses(files, &inner, name, (&path, stack), paths);
             stack.pop();
         }
     }
@@ -247,20 +275,20 @@ fn find_uses(root: &Path, graph: &GraphFile, edits: Edits, name: &str, (at, stac
 
 /// The value type of the wire end `<node ID>.<pin key>` of a graph, through the uses of subgraphs,
 /// and the type parameters of its node. An input `&bool` gives `bool`.
-fn end_type(root: &Path, edits: Edits, graph: &GraphFile, end: &str, input: bool, stack: &mut Vec<String>) -> Option<(String, Vec<String>)> {
+fn end_type(files: &mut Files, graph: &GraphFile, end: &str, input: bool, stack: &mut Vec<String>) -> Option<(String, Vec<String>)> {
     let (id, key) = end.split_once('.')?;
     let entry = graph.node.iter().find(|n| n.id == id)?;
     let node = match (&entry.folder, &entry.builtin, &entry.subgraph) {
-        (Some(folder), None, None) => project::read_node(root, folder.strip_prefix("nodes/")?).ok()?,
-        (None, Some(builtin), None) => node::Builtin::parse(builtin)?.node(),
+        (Some(folder), None, None) => files.node(folder.strip_prefix("nodes/")?)?,
+        (None, Some(builtin), None) => Rc::new(node::Builtin::parse(builtin)?.node()),
         (None, None, Some(name)) if project::check_name(name).is_ok() && !stack.contains(name) => {
-            let inner = read_graph(root, name, edits).ok()?;
+            let inner = files.graph(name).ok()?;
             let end = match input {
                 true => inner.input.iter().find(|p| p.key == key)?.to.first()?.clone(),
                 false => inner.output.iter().find(|p| p.key == key)?.from.clone(),
             };
             stack.push(name.clone());
-            let ty = end_type(root, edits, &inner, &end, input, stack);
+            let ty = end_type(files, &inner, &end, input, stack);
             stack.pop();
             return ty;
         }
@@ -268,7 +296,7 @@ fn end_type(root: &Path, edits: Edits, graph: &GraphFile, end: &str, input: bool
     };
     let ty = match input {
         true => node.inputs.iter().find(|i| i.key == key).map(|i| i.value.clone()),
-        false => node.output_keys().into_iter().zip(node.output_types).find(|(k, _)| k == key).map(|(_, ty)| ty),
+        false => node.output_keys().into_iter().zip(&node.output_types).find(|(k, _)| k == key).map(|(_, ty)| ty.clone()),
     }?;
     // A generic output, as of a delay, has the type of the wire into an input of the same type (4.5).
     let seen = format!("#{end}");
@@ -276,14 +304,14 @@ fn end_type(root: &Path, edits: Edits, graph: &GraphFile, end: &str, input: bool
         let to = node.inputs.iter().find(|i| i.value == ty).map(|i| format!("{id}.{}", i.key));
         if let Some(from) = to.and_then(|to| graph.wire.iter().find(|w| w.to == to)).map(|w| w.from.clone()) {
             stack.push(seen);
-            let found = end_type(root, edits, graph, &from, false, stack);
+            let found = end_type(files, graph, &from, false, stack);
             stack.pop();
             if let Some((found, of)) = found.filter(|(found, of)| !of.contains(found)) {
                 return Some((found, of));
             }
         }
     }
-    Some((ty, node.generics))
+    Some((ty, node.generics.clone()))
 }
 
 #[cfg(test)]

@@ -1,7 +1,8 @@
 //! The project files of spec 6.4. A file with a key that Patina does not know does not open.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -229,9 +230,25 @@ pub fn name_key(name: &str) -> String {
     name.to_ascii_lowercase().replace('-', "_")
 }
 
+/// The last parse of each node folder, with the code that it came from. A parse of Rust code is
+/// slow, and each edit in the editor reads all the node folders again.
+static PARSED: Mutex<BTreeMap<PathBuf, Parsed>> = Mutex::new(BTreeMap::new());
+
+/// The code of a node folder and the result of its parse.
+type Parsed = (String, Result<Node, String>);
+
 /// Reads the pins of the node folder `nodes/<name>` (4.1).
 pub fn read_node(root: &Path, name: &str) -> Result<Node, String> {
-    node::parse(&read_crate(root, "nodes", name)?).map_err(|e| format!("src/lib.rs: {e}"))
+    let code = read_crate(root, "nodes", name)?;
+    let dir = root.join("nodes").join(name);
+    if let Some((old, node)) = PARSED.lock().unwrap_or_else(PoisonError::into_inner).get(&dir)
+        && *old == code
+    {
+        return node.clone();
+    }
+    let node = node::parse(&code).map_err(|e| format!("src/lib.rs: {e}"));
+    PARSED.lock().unwrap_or_else(PoisonError::into_inner).insert(dir, (code, node.clone()));
+    node
 }
 
 /// Reads `src/lib.rs` of the crate folder `<group>/<name>`, after the checks of its name.
@@ -252,6 +269,26 @@ pub(crate) fn read_crate(root: &Path, group: &str, name: &str) -> Result<String,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_changed_node_folder_reads_again() {
+        let root = std::env::temp_dir().join(format!("patina-read-node-{}", std::process::id()));
+        let dir = root.join("nodes").join("n");
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join("Cargo.toml"), "[package]
+name = \"n\"
+").unwrap();
+        let inputs = |code: &str| {
+            std::fs::write(dir.join("src/lib.rs"), format!("#[patina_sdk::node]
+{code}")).unwrap();
+            read_node(&root, "n").map(|n| n.inputs.len())
+        };
+        assert_eq!(inputs("pub fn n(a: f32) -> f32 { a }"), Ok(1));
+        assert_eq!(inputs("pub fn n(a: f32) -> f32 { a }"), Ok(1));
+        assert_eq!(inputs("pub fn n(a: f32, b: f32) -> f32 { a + b }"), Ok(2));
+        assert!(inputs("pub fn n(").is_err());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn unknown_keys_and_newer_formats_do_not_open() {

@@ -157,8 +157,12 @@ Measure before and after each change. Write the numbers into STATUS.md.
   gave a pan of 69 ms for each frame at 2000 nodes. Remove the padding from the node width in
   the wire obstacles, **Arrange** and the frame size. The pan of 2000 nodes went from 280 ms to
   70 ms, and the drag from 350 ms to 155 ms, against a control in the same run (STATUS.md).
-- [ ] Measure the size of the view and the time of an edit on the computer example. If an edit
-  is slower than one frame of 16 ms, send only the changed parts of the view.
+- [x] Measure the size of the view and the time of an edit on the computer example. If an edit
+  is slower than one frame of 16 ms, send only the changed parts of the view. A move went from
+  about 500 ms to 31 ms in the debug editor (STATUS.md). Agent decision, 2026-11-17: the view
+  stays whole. Its JSON costs 0.2 ms, and the time was in the engine. So the engine now reads
+  each subgraph file one time, keeps the parse of the node folders, and skips the check after
+  an edit of only the layout.
 - [ ] Remove the allocations of the editor frame loop, or record the measured cost if it is
   small.
 - [ ] Find the slowest tests of `cargo test --workspace` and of the selfcheck. Make them

@@ -94,6 +94,21 @@ editor with the built page, on the Windows 11 computer of the owner.
     27 ms. The edit frame did not change.
   - The rule that sends a click in the gutter to the canvas costs nothing: the same pan with
     and without it.
+- Edit on the computer example, 2026-11-17. A game ran in the background, so the absolute
+  numbers are high. The old code ran as the control in the same run.
+  - The view has 177,944 bytes. The domains are 150,005 bytes of it (1728 entries), the graph
+    10,945 and the node kinds 19,907. The JSON costs 0.2 ms, and a parse in the page 0.2 ms.
+  - The time was in the engine. A release test of the view parts went from about 148 ms to
+    28 ms: the check from 75 to 21 ms, the subgraph pins from 61 to 3.4 ms, and the node folders
+    from 11.6 to 1.7 ms.
+  - The causes: each use of a subgraph read and parsed its file again, and each edit parsed the
+    Rust code of all node folders again. A move of a node also ran the full check.
+  - Now one call reads each subgraph file one time, the parse of a node folder stays until its
+    code changes, and an edit of only the layout keeps the last check. A move gives the same
+    domains and problems as before.
+  - In the debug editor page, a move went from about 500 ms to 31 ms, and an undo to 30 ms. An
+    open of the graph takes 135 ms, because it runs the check. In release, a move needs about
+    6 ms in the engine.
 
 ## Known limits
 
@@ -151,6 +166,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   measurements). A game ran in the background, so the times without load are lower.
 - The bench ran only on Windows 11, with the debug editor and the built page. It did not run on
   Linux or macOS, or in a release build.
+
+### Edit speed
+
+- An edit of only the layout keeps the domains and the problems of the last check. A change to a
+  node or subgraph file from outside the editor shows at the next edit that runs the check.
+- The parse cache of the node folders keeps one entry for each folder that the program read.
+- The edit times ran only on Windows 11. The page times are from the debug editor.
 
 ### Process isolation
 

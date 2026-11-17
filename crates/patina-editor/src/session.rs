@@ -61,6 +61,8 @@ struct Session {
     recovery: Option<Recovery>,
     /// The error of the last read or write of the recovery file.
     recovery_error: Option<String>,
+    /// The domains and the problems of the last check. An edit of only the layout keeps them.
+    checked: Option<(BTreeMap<String, &'static str>, Vec<String>)>,
 }
 
 /// All that the page shows of the open project.
@@ -185,7 +187,7 @@ impl Editor {
         self.analyzer.stop();
         let mut session = self.lock();
         // A project opens paused (15.10).
-        let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error };
+        let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error, checked: None };
         let session = session.insert(new);
         // The view goes first, so the window knows the serial of the load events.
         let view = session.view(&self.engine, None, None);
@@ -213,7 +215,7 @@ impl Editor {
             if !session.trusted {
                 return Err("Trust the project before you change it.".to_owned());
             }
-            let old = session.live.then(|| session.project.graph().clone());
+            let old = session.project.graph().clone();
             let code = session.project.code_revision();
             f(&mut session.project)?;
             session.keep_recovery(&self.data);
@@ -224,7 +226,12 @@ impl Editor {
                 self.engine.send(Job::CloseView(name));
             }
             let built = (coded && view.is_none()).then_some(true);
-            let build = old.and_then(|old| built.or(affects_run(&old, session.project.graph())));
+            let run = built.or_else(|| affects_run(&old, session.project.graph()));
+            // A move of a node changes no domain and no problem, so it needs no check of a large graph.
+            if !coded && run.is_none() && session.checked.is_some() {
+                return Ok(session.show());
+            }
+            let build = run.filter(|_| session.live);
             let slot = built.and(session.project.last_code()).and_then(slot_folder);
             Ok(session.view(&self.engine, build, slot))
         })
@@ -253,11 +260,10 @@ impl Session {
 
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
     /// `slot` is the node folder of a code change, for the slot (7.1).
-    fn view(&self, engine: &Host, build: Option<bool>, slot: Option<String>) -> View {
-        let project = &self.project;
+    fn view(&mut self, engine: &Host, build: Option<bool>, slot: Option<String>) -> View {
         let checked = match &self.test {
-            Some(inputs) => project.check_test(inputs),
-            None => project.check(),
+            Some(inputs) => self.project.check_test(inputs),
+            None => self.project.check(),
         };
         let (checked, problems) = match checked {
             Ok(checked) => (Some(checked), Vec::new()),
@@ -268,6 +274,14 @@ impl Session {
         if let (Some(checked), Some(build), true) = (checked, build, self.live) {
             engine.run(self.serial, checked, build, slot, true);
         }
+        self.checked = Some((domains, problems));
+        self.show()
+    }
+
+    /// The view with the domains and the problems of the last check.
+    fn show(&self) -> View {
+        let project = &self.project;
+        let (domains, problems) = self.checked.clone().unwrap_or_default();
         let (mut nodes, mut problems) = match project.nodes() {
             Ok(nodes) => (nodes, problems),
             Err(e) => (Vec::new(), [e.to_string()].into_iter().chain(problems).collect()),
