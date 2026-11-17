@@ -675,6 +675,8 @@ questions.
 - [Mockup gaps](docs/mockup-gaps.md): the controls and behaviors of the mockups that the editor
   does not have yet.
 - [Circuit graph design](docs/circuit-graph-design.md): buses, ribbon wires and logic circuits.
+- [Gate speed](docs/gate-speed.md): why a NAND circuit is slower than in Digital Logic Sim 2,
+  and the plan to make it faster.
 - [Laser measurement design](docs/laser-measurement-design.md): nodes and views for a laser
   measurement tool.
 - [Before building](docs/before-building.md): the setup, prototypes and decisions that are still

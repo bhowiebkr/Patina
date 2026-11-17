@@ -121,11 +121,14 @@ pub fn try_run<F, T, E: fmt::Debug, A: Args<F, Out = Result<T, E>>>(f: F, args: 
 /// copy of the code, so a cluster of many gates builds fast. Returns false when the call failed.
 #[inline(never)]
 pub fn step<F, A: Args<F>>(rep: &Reporter, node: u32, f: F, args: A, out: &mut Option<A::Out>) -> bool {
-    let (start, mut ok) = (std::time::Instant::now(), true);
+    // A quiet run sends no times (9.1), so it does not read the clock for each gate.
+    let (start, mut ok) = ((!rep.quiet()).then(std::time::Instant::now), true);
     if let Some(value) = done(run(f, args), rep, node, &mut ok) {
         *out = Some(value);
     }
-    rep.time(node, start);
+    if let Some(start) = start {
+        rep.time(node, start);
+    }
     ok
 }
 

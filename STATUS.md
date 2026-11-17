@@ -13,6 +13,17 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Gate speed
+
+- New: [docs/gate-speed.md](docs/gate-speed.md) compares the NAND circuits of Patina with
+  Digital Logic Sim 2, and gives the plan to make them faster (owner request, 2026-11-17).
+- New: a quiet run does not read the clock for each node of a fused cluster.
+- Checked: a bake build of `examples/computer` at no frame pacing. The median frame went from
+  about 175 us to about 141 us. A benchmark of one gate net gave the cost of each step.
+- Not checked: the edit build, and Digital Logic Sim 2 itself.
+- Known limits: each gate costs about 85 ns of glue: a task, locks of the wire values and a
+  catch. Items 2 to 4 of the plan are open.
+
 ## Touchpad pan
 
 - New: a two-finger touchpad scroll pans the graph view on the two axes (owner request,
