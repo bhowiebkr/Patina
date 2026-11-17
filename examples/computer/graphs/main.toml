@@ -541,3 +541,19 @@ to = "01e6fe323c4fd5e2.value"
 [[wire]]
 from = "a1ab1827b8780af9.39cc0465"
 to = "94a519f494e21966.value"
+
+[[node]]
+id = "3f6e2b9d81c4a057"
+folder = "nodes/program"
+pos = [-520.0, 918.0]
+
+[node.params]
+file = "programs/fibonacci.asm"
+
+[[wire]]
+from = "a3efcc2ce595017a.566aa9ba"
+to = "3f6e2b9d81c4a057.pc"
+
+[[wire]]
+from = "3f6e2b9d81c4a057.out"
+to = "a3efcc2ce595017a.1a7c3e95"

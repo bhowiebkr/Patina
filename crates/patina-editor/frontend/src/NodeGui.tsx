@@ -2,7 +2,7 @@
 
 import { Component, createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from './api';
-import { AssetPicker, Field } from './Field';
+import { AssetPicker, CodeField, Field } from './Field';
 import { eventLine, nest, parseTree, type Block, type Shape, type Widget } from './gui';
 import { guiIcon } from './icons';
 import { LayerStack } from './LayerStack';
@@ -251,6 +251,8 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
           case 'text':
           case 'path':
             return <Field key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'code':
+            return <CodeField key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'asset':
             return <AssetPicker key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'tabs':
@@ -337,7 +339,7 @@ export function FullGui({ id, tree, disabled, onBack }: { id: string; tree: stri
       onKeyDown={(e) => {
         // The keys do not change the graph under the GUI. The Ctrl keys still reach the app.
         if (!e.ctrlKey && !e.metaKey) e.stopPropagation();
-        const field = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
+        const field = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement;
         if (e.key === 'Escape' && !field) onBack();
       }}
     >

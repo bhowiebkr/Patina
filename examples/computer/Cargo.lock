@@ -46,6 +46,7 @@ dependencies = [
  "lcd",
  "nand",
  "patina-sdk",
+ "program",
  "readout",
  "seg-join",
  "segment-bus",
@@ -91,6 +92,13 @@ name = "patina-sdk"
 version = "0.0.0"
 dependencies = [
  "patina-macros",
+]
+
+[[package]]
+name = "program"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
 ]
 
 [[package]]

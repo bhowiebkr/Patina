@@ -66,6 +66,14 @@ export async function checkWidgets(until: Until, gui: string) {
   source()!.value = 'patina.toml';
   source()!.dispatchEvent(new Event('change', { bubbles: true }));
   await until('the picked asset', RUN_MS, () => source()?.value === 'patina.toml');
+  // The code field keeps line breaks, tabs and backslashes through the round trip to the node.
+  const code = () => document.querySelector<HTMLTextAreaElement>(`${gui} textarea.gui-code`);
+  if (code()?.value !== 'LDI 1\nOUT') throw new Error(`the code field shows ${JSON.stringify(code()?.value)}`);
+  const program = 'LDI 2\n\tOUT ; a\\b';
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(code(), program);
+  code()!.dispatchEvent(new Event('input', { bubbles: true }));
+  code()!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+  await until('the edited code field', RUN_MS, () => code()?.value === program);
   // A pointer down on the canvas goes to the node, and the node draws its dot at the point.
   const pad = () => document.querySelector<SVGSVGElement>(`${gui} svg.gui-canvas`);
   const dotX = () => Number(pad()?.querySelector('circle')?.getAttribute('cx'));

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { eventLine, nest, nodeWidth, parseTree, rampGradient, stepped } from './gui.ts';
+import { escapeCode, eventLine, nest, nodeWidth, parseTree, rampGradient, stepped, unescapeCode } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
   const tree = 'label\tTick\nwheel\tX\nbutton\tReset\ntoggle\tOn\t1\nslider\tCount\t2.5\t0\t10\nslider\tBad\tx\t0\t1';
@@ -23,6 +23,16 @@ test('fields and dropdowns keep their values, and an event text stays on one lin
     { kind: 'dropdown', index: 2, text: 'Wave', selected: 1, options: ['Sine', 'Saw'] },
   ]);
   assert.equal(eventLine(1, 'x\ny'), '1 x y');
+});
+
+test('a code field keeps its line breaks, tabs and backslashes', () => {
+  const text = 'LDI 1\n\tOUT ; a\\b\nend\\';
+  const line = escapeCode(`${text.slice(0, 5)}\r${text.slice(5)}`);
+  assert.equal(line, 'LDI 1\\n\\tOUT ; a\\\\b\\nend\\\\');
+  assert.equal(unescapeCode(line), text);
+  assert.equal(unescapeCode('a\\qb\\'), 'a\\qb\\');
+  assert.deepEqual(parseTree(`code\tProgram\t${line}`), [{ kind: 'code', index: 0, text: 'Program', value: text }]);
+  assert.equal(eventLine(0, line), `0 ${line}`);
 });
 
 test('a unit, tabs and sections keep their values, and an end line closes the last section', () => {

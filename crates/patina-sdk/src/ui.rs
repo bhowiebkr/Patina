@@ -4,6 +4,7 @@
 use std::fmt::Write;
 use std::ops::RangeInclusive;
 
+mod code;
 mod layers;
 mod path;
 mod ramp;

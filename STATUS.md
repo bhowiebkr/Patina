@@ -13,6 +13,18 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Program node of the computer
+
+- The `program` node of `examples/computer` is the program memory of the CPU, with an assembler.
+  It replaces the switch ROM in the `cpu` subgraph, which now has an **instr** byte input. The
+  node keeps the code in an `.asm` file of the project, so the program stays after a close.
+- Node GUIs have a code field: a text of many lines in a monospace font (spec 4.3).
+- Checked: the CLI test of `examples/computer` gives the same 560 frames as with the switch ROM.
+  Unit tests check the assembler, the code field of the SDK and its frontend parser. The hidden
+  self-check edits a code field and reads the text back from the node.
+- Known limits: the node reads the file again only when **file** changes. A change of the file
+  from outside the editor shows after the next open.
+
 ## Open with no rebuild
 
 - An open of a trusted project with a build loads the clusters of that build, and the graph

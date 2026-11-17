@@ -308,7 +308,7 @@ step, a memory, the three registers of the CPU and the segments of the three dis
 count, so it shows the accumulator of 4 steps before.
 
 The `cpu` subgraph is a small 8-bit computer. At each tick of its **clk** input, it runs one
-instruction from the `rom-16x7` subgraph, which keeps 16 instructions. Lines 5 to 7 of a frame show its 4-bit program
+instruction from the `program` node, which keeps 16 instructions. Lines 5 to 7 of a frame show its 4-bit program
 counter, its 8-bit register A and its 8-bit OUT register. The `ram-4x8` subgraph keeps 4 words of
 8 bits. The instructions have a 3-bit opcode and a 4-bit value k:
 
@@ -323,10 +323,25 @@ counter, its 8-bit register A and its 8-bit OUT register. The `ram-4x8` subgraph
 
 The zero flag Z takes "A is 0" each time that A takes a new value.
 
-Each bit of the ROM is a `switch` node. To change the program, open `rom-16x7` and set the
-switches. Bits i0 to i3 are k, and bits i4 to i6 are the opcode. The example program writes the
-Fibonacci numbers 1, 1, 2, 3, 5 to 233 to OUT. It keeps the last two numbers in the RAM. At the
-carry of the next sum, it writes 0 to OUT and starts again.
+The `program` node is the program memory, with an assembler. Its **file** parameter is an
+assembly file of the project, for example `programs/fibonacci.asm`. To change the program:
+
+1. Edit the code in the **Program** field of the node.
+2. Click outside the field, or press Ctrl+Enter.
+
+The node assembles the code and writes the file. When the code has an error, the node shows the
+line of the error, and the CPU runs the last good program. The **Memory** list shows the 16
+words, and the word at the program counter is lit. Bits 0 to 3 of a word are k, and bits 4 to 6
+are the opcode.
+
+A line of code has an optional label `name:`, an optional instruction and an optional comment
+after `;`. A value k is a number from 0 to 15, for example `12`, `0xC` or `0b1100`, or a label.
+Names are not case-sensitive.
+
+The example program writes the Fibonacci numbers 1, 1, 2, 3, 5 to 233 to OUT. It keeps the last
+two numbers in the RAM. At the carry of the next sum, it writes 0 to OUT and starts again. Set
+**file** to `programs/count.asm` for a program that counts up. The `rom-16x7` subgraph is a
+program memory of `switch` nodes, one for each bit.
 
 The `clock` node gives the ticks of the CPU. It gives one tick each **every** frames, so the
 example runs 15 instructions each second at 60 frames each second. Set **every** in the

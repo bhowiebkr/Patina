@@ -22,15 +22,16 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 ## What it shows
 
-- **The CPU.** The `cpu` subgraph runs the program of the `rom-16x7` subgraph. The program
-  writes the Fibonacci numbers 1 to 233 to the OUT register.
+- **The CPU.** The `cpu` subgraph runs the program of the `program` node. Edit the assembly
+  code in the node. The example program writes the Fibonacci numbers 1 to 233 to the OUT
+  register.
 - **Byte wires.** A wire of the `byte` kind is a ribbon of 8 lanes. The badge shows the value
   of the byte. Each lane is lit when its bit is true.
 - **Segment buses.** A `segment-bus` wire has the 7 lanes a to g of a 7-segment display. It
   is copper.
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
-- **Node GUIs.** The `readout`, `display`, `lcd`, `clock` and `analyzer` nodes draw their
+- **Node GUIs.** The `program`, `readout`, `display`, `lcd`, `clock` and `analyzer` nodes draw their
   values in the graph.
 
 ![A byte wire with the value 34 in the ram-4x8 subgraph](images/ram-4x8.png)
@@ -41,7 +42,8 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 | Folder | Parts |
 | --- | --- |
-| `nodes/` | `nand`, `switch`, `clock`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer` |
+| `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer` |
+| `programs/` | `fibonacci.asm`, `count.asm` |
 | `connections/` | `byte`, `segment-bus` |
 | `types/` | `segments` |
 | `graphs/` | `main` and 24 subgraphs |
@@ -61,4 +63,5 @@ The subgraphs, from small to large:
 
 Each instruction has a 3-bit opcode and a 4-bit value k. The
 [Logic circuits](../../README.md#logic-circuits) section of the main README gives the full
-list, the clock and the LCD. To change the program, open `rom-16x7` and set the switches.
+list, the assembly language, the clock and the LCD. To change the program, edit the code in the
+`program` node.

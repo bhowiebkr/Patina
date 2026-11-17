@@ -29,8 +29,8 @@ pos = [-100.0, 116.0]
 on = "true"
 
 [[node]]
-id = "c03d8aca7005e2e0"
-subgraph = "rom-16x7"
+id = "5b1d0c7e2a9f4361"
+folder = "nodes/split"
 pos = [-100.0, 258.0]
 
 [[node]]
@@ -254,15 +254,15 @@ folder = "nodes/split"
 pos = [-100.0, 1273.0]
 
 [[wire]]
-from = "c03d8aca7005e2e0.f0600ea7"
+from = "5b1d0c7e2a9f4361.out4"
 to = "242ca5fc0b4cf5de.d24ca236"
 
 [[wire]]
-from = "c03d8aca7005e2e0.433cf61e"
+from = "5b1d0c7e2a9f4361.out5"
 to = "242ca5fc0b4cf5de.5c81fcf2"
 
 [[wire]]
-from = "c03d8aca7005e2e0.f3cd0aca"
+from = "5b1d0c7e2a9f4361.out6"
 to = "242ca5fc0b4cf5de.33ab9726"
 
 [[wire]]
@@ -331,10 +331,6 @@ to = "ff7c3a08ed1d07de.1e8b06d1"
 
 [[wire]]
 from = "e5136af71e75ea74.out"
-to = "c03d8aca7005e2e0.441b6f25"
-
-[[wire]]
-from = "e5136af71e75ea74.out"
 to = "ff7c3a08ed1d07de.9131f68f"
 
 [[wire]]
@@ -342,7 +338,7 @@ from = "ff7c3a08ed1d07de.301a2640"
 to = "a2ce3d12cdee8269.987c7f5a"
 
 [[wire]]
-from = "c03d8aca7005e2e0.88c89ac4"
+from = "5b1d0c7e2a9f4361.out0"
 to = "a2ce3d12cdee8269.36ab6f8b"
 
 [[wire]]
@@ -363,10 +359,6 @@ to = "e5136af71e75ea74.value"
 
 [[wire]]
 from = "e50f5c54fc617548.out"
-to = "c03d8aca7005e2e0.d4246d74"
-
-[[wire]]
-from = "e50f5c54fc617548.out"
 to = "34e7f6281f66897e.9131f68f"
 
 [[wire]]
@@ -378,7 +370,7 @@ from = "34e7f6281f66897e.301a2640"
 to = "7b5971a000087be7.987c7f5a"
 
 [[wire]]
-from = "c03d8aca7005e2e0.dc0fe240"
+from = "5b1d0c7e2a9f4361.out1"
 to = "7b5971a000087be7.36ab6f8b"
 
 [[wire]]
@@ -399,10 +391,6 @@ to = "e50f5c54fc617548.value"
 
 [[wire]]
 from = "e7c44e2b24c3d72f.out"
-to = "c03d8aca7005e2e0.d75987f8"
-
-[[wire]]
-from = "e7c44e2b24c3d72f.out"
 to = "0b8944778adf762a.9131f68f"
 
 [[wire]]
@@ -414,7 +402,7 @@ from = "0b8944778adf762a.301a2640"
 to = "ce22bfbc00945f93.987c7f5a"
 
 [[wire]]
-from = "c03d8aca7005e2e0.56622906"
+from = "5b1d0c7e2a9f4361.out2"
 to = "ce22bfbc00945f93.36ab6f8b"
 
 [[wire]]
@@ -435,10 +423,6 @@ to = "e7c44e2b24c3d72f.value"
 
 [[wire]]
 from = "fa4c6d70eb7e50bb.out"
-to = "c03d8aca7005e2e0.6e099bd1"
-
-[[wire]]
-from = "fa4c6d70eb7e50bb.out"
 to = "7161ccf10f59d9e2.9131f68f"
 
 [[wire]]
@@ -450,7 +434,7 @@ from = "7161ccf10f59d9e2.301a2640"
 to = "e09624d6bb72ed42.987c7f5a"
 
 [[wire]]
-from = "c03d8aca7005e2e0.c6a56ee9"
+from = "5b1d0c7e2a9f4361.out3"
 to = "e09624d6bb72ed42.36ab6f8b"
 
 [[wire]]
@@ -537,11 +521,11 @@ from = "1a16c6a267cdea5f.7ff633ef"
 to = "a49a664ddd98fa59.36ab6f8b"
 
 [[wire]]
-from = "c03d8aca7005e2e0.f0600ea7"
+from = "5b1d0c7e2a9f4361.out4"
 to = "1407db02aa8c9d6b.b7e6186b"
 
 [[wire]]
-from = "c03d8aca7005e2e0.f3cd0aca"
+from = "5b1d0c7e2a9f4361.out6"
 to = "d291c16eda56e8d0.b7e6186b"
 
 [[wire]]
@@ -563,11 +547,11 @@ from = "c8ebb529ab154a72.72b5072c"
 to = "9e0d7645658b8d1c.cd54aa93"
 
 [[wire]]
-from = "c03d8aca7005e2e0.88c89ac4"
+from = "5b1d0c7e2a9f4361.out0"
 to = "9e0d7645658b8d1c.854ec2ea"
 
 [[wire]]
-from = "c03d8aca7005e2e0.dc0fe240"
+from = "5b1d0c7e2a9f4361.out1"
 to = "9e0d7645658b8d1c.09ec663f"
 
 [[wire]]
@@ -591,19 +575,19 @@ from = "145c8a556e8a4cf6.a1a82dd8"
 to = "0995919e5d3210f0.3dc1d708"
 
 [[wire]]
-from = "c03d8aca7005e2e0.88c89ac4"
+from = "5b1d0c7e2a9f4361.out0"
 to = "eb8c93d2bbe8d496.b0"
 
 [[wire]]
-from = "c03d8aca7005e2e0.dc0fe240"
+from = "5b1d0c7e2a9f4361.out1"
 to = "eb8c93d2bbe8d496.b1"
 
 [[wire]]
-from = "c03d8aca7005e2e0.56622906"
+from = "5b1d0c7e2a9f4361.out2"
 to = "eb8c93d2bbe8d496.b2"
 
 [[wire]]
-from = "c03d8aca7005e2e0.c6a56ee9"
+from = "5b1d0c7e2a9f4361.out3"
 to = "eb8c93d2bbe8d496.b3"
 
 [[wire]]
@@ -673,6 +657,12 @@ to = "e1fc1b93edd28cef.37c6cc47"
 [[wire]]
 from = "7e1e52471c41202d.out7"
 to = "e1fc1b93edd28cef.3fbd40e4"
+
+[[input]]
+key = "1a7c3e95"
+name = "instr"
+pos = [-300.0, 258.0]
+to = ["5b1d0c7e2a9f4361.value"]
 
 [[input]]
 key = "4654170b"

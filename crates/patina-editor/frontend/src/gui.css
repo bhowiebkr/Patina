@@ -598,6 +598,23 @@ html.native-viewport .gui-viewport {
   height: 24px;
 }
 
+/* A code field puts its label over a text of many lines in a monospace font. */
+.gui-code-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gui-code {
+  height: auto;
+  min-width: 200px;
+  padding: 6px 8px;
+  resize: vertical;
+  white-space: pre;
+  tab-size: 4;
+  font: 12px/16px Consolas, 'Cascadia Mono', monospace;
+}
+
 /* A number field puts its unit beside the value, and its step buttons after it (controls guide). */
 .node-gui .gui-row > .gui-unit {
   flex: none;

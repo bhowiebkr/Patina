@@ -10,6 +10,7 @@ export type Widget =
   | { kind: 'slider'; index: number; text: string; value: number; low: number; high: number }
   | { kind: 'number'; index: number; text: string; value: number; step: number; unit: string }
   | { kind: 'text'; index: number; text: string; value: string }
+  | { kind: 'code'; index: number; text: string; value: string }
   | { kind: 'path'; index: number; text: string; pick: 'open' | 'save' | 'folder'; value: string }
   | { kind: 'asset'; index: number; text: string; extensions: string[]; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
@@ -183,6 +184,7 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'slider' && [value, low, high].every(Number.isFinite) && low <= high) widgets.push({ kind, index, text, value, low, high });
     else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value, step: low > 0 && Number.isFinite(low) ? low : 0, unit: rest[2] ?? '' });
     else if (kind === 'text') widgets.push({ kind, index, text, value: rest[0] ?? '' });
+    else if (kind === 'code') widgets.push({ kind, index, text, value: unescapeCode(rest[0] ?? '') });
     else if (kind === 'path' && (rest[0] === 'open' || rest[0] === 'save' || rest[0] === 'folder')) widgets.push({ kind, index, text, pick: rest[0], value: rest[1] ?? '' });
     else if (kind === 'asset') widgets.push({ kind, index, text, extensions: (rest[0] ?? '').split(' ').filter(Boolean), value: rest[1] ?? '' });
     else if ((kind === 'dropdown' || kind === 'tabs') && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });
@@ -269,6 +271,16 @@ export function rampGradient(stops: Stop[], blend: Blend): string {
 /** `value` plus `count` steps. The rounding to 12 digits removes the float error, so 0.1 + 0.2 is 0.3. */
 export function stepped(value: number, step: number, count: number): number {
   return Number((value + step * count).toPrecision(12));
+}
+
+/** A code field line keeps its line breaks and tabs as `\n` and `\t`, and `\` as `\\` (spec 4.3). */
+export function escapeCode(text: string): string {
+  return text.replace(/\r/g, '').replace(/[\\\n\t]/g, (c) => (c === '\\' ? '\\\\' : c === '\n' ? '\\n' : '\\t'));
+}
+
+/** Reads the text that `escapeCode` writes. A `\` before another character stays. */
+export function unescapeCode(text: string): string {
+  return text.replace(/\\(.?)/gs, (all, c: string) => (c === 'n' ? '\n' : c === 't' ? '\t' : c === '\\' ? '\\' : all));
 }
 
 /** The event line of a user input to widget `index`. A line break in a text becomes a space. */

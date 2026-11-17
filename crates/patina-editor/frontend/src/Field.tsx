@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import { stepped, type Widget } from './gui';
+import { escapeCode, stepped, type Widget } from './gui';
 import { guiIcon } from './icons';
 
 const Icon = ({ d }: { d: string }) => (
@@ -73,6 +73,37 @@ export function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'numbe
           </button>
         </span>
       )}
+    </label>
+  );
+}
+
+/** A field for a text of many lines, for example a program. It sends its text when it loses the
+ * focus and on Ctrl+Enter. Esc restores the text. */
+export function CodeField({ w, send, disabled }: { w: Extract<Widget, { kind: 'code' }>; send: (value: string) => void; disabled: boolean }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? w.value;
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    if (draft !== w.value) send(escapeCode(draft));
+  };
+  return (
+    <label className="gui-code-row">
+      <span className="label">{w.text}</span>
+      <textarea
+        className="field gui-code"
+        rows={Math.min(24, Math.max(6, text.split('\n').length + 1))}
+        spellCheck={false}
+        wrap="off"
+        value={text}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commit();
+          else if (e.key === 'Escape') setDraft(null);
+        }}
+      />
     </label>
   );
 }

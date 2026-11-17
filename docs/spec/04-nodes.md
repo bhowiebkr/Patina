@@ -121,13 +121,15 @@ impl AdsrEnvelope {
 
 | Group | Widgets |
 |---|---|
-| Basic | Label, button, icon button, toggle, slider, number field (with a unit and step buttons), text field, file path field (with a **Browse** button), dropdown, tabs, section |
+| Basic | Label, button, icon button, toggle, slider, number field (with a unit and step buttons), text field, code field, file path field (with a **Browse** button), dropdown, tabs, section |
 | Values | Color picker, color ramp, layer stack, asset picker, curve with an optional histogram, plot with optional axes, scatter plot, progress bar, table, image, waveform |
 | Canvas | Lines, rectangles, circles, text, images. Mouse and key events |
 | Viewport | A GPU surface that the code draws into with `wgpu` (15.8). Not in the node body |
 | Custom | Widgets from widget folders (6.2) |
 
 The canvas lets a node author make custom controls, for example a gradient editor, a gizmo, an envelope editor, or a timeline. To reuse a custom control, put it in a widget folder (6.2). A custom widget implements the `Widget` trait from `patina-sdk`. Node GUIs and views use it like a built-in widget.
+
+The code field edits a text of many lines in a monospace font, for example a program. It sends the text when it loses the focus and on Ctrl+Enter. Esc puts back the last text. In the GUI tree, a line break is `\n`, a tab is `\t` and a backslash is `\\`. (Agent decision, 2026-11-16. The owner can change it.)
 
 **Rules**
 

@@ -80,6 +80,7 @@ pub struct Number {
     path: String,
     source: String,
     dot: [f32; 2],
+    code: String,
 }
 
 impl Number {
@@ -88,7 +89,7 @@ impl Number {
             patina_sdk::Layer { name: "Edge polish".into(), color: [232, 176, 128], visible: true, amount: Some(0.35) },
             patina_sdk::Layer { name: "Verdigris".into(), color: [52, 190, 160], visible: true, amount: Some(0.62) },
             patina_sdk::Layer { name: "Copper".into(), color: [180, 100, 56], visible: true, amount: None },
-        ], layer: 1, path: "out/frame_####.png".into(), source: String::new(), dot: [20.0, 24.0] }
+        ], layer: 1, path: "out/frame_####.png".into(), source: String::new(), dot: [20.0, 24.0], code: "LDI 1\\nOUT".into() }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -109,6 +110,7 @@ impl Number {
         ui.layer_stack("Layers", &mut self.layers, &mut self.layer);
         ui.file_path("Path", &mut self.path, patina_sdk::PathKind::Save);
         ui.asset_picker("Source", &mut self.source, &["toml"]);
+        ui.code_field("Code", &mut self.code);
         let mut pad = ui.canvas("Pad", [160.0, 48.0]);
         if let Some(patina_sdk::Pointer::Down(p) | patina_sdk::Pointer::Move(p)) = pad.pointer().last().copied() {
             self.dot = p;
