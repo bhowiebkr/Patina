@@ -52,8 +52,8 @@ pub fn run(toolchain: PathBuf) -> ! {
             ToNode::Stop(stop) => shared.control.set_stop(stop),
             ToNode::Ask { id, ask: Ask::Running } => out.reply(id, Ok(shared.running())),
             ToNode::Ask { id, ask: Ask::Value(from) } => {
-                let text = lock(&shared.values).iter().find(|v| v.from == from).map(|v| v.text.clone());
-                out.reply(id, Ok(text));
+                let value = lock(&shared.values).iter().find(|v| v.from == from).cloned();
+                out.reply(id, Ok(value));
             }
             ToNode::Ask { id, ask: Ask::Fire { id: node, text } } => {
                 let remote = lock(&shared.remote).clone();

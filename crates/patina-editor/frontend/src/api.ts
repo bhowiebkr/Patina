@@ -242,6 +242,8 @@ export interface Value {
   lanes?: Lanes;
   /** The thumbnail of the `Viewer` (5.3): "<width> <height> <base64 RGBA>". */
   thumb?: string;
+  /** The widget lines of `Viewer::show` (5.3). Only `api.value` gives them. */
+  view?: string;
 }
 
 /** The size and the RGBA pixels of a thumbnail (5.3), or null for a bad text. */
@@ -513,8 +515,8 @@ export const api = {
   running: () => invoke<string | null>('running'),
   /** Fires the `trigger` node `id` of the live run with `text` (9.4). */
   fire: (id: string, text: string) => invoke<void>('fire', { id, text }),
-  /** The full text of the live value of an output after the last run (15.7), or null. */
-  value: (from: string) => invoke<string | null>('value', { from }),
+  /** The live value of an output after the last run, with its full text and widgets (15.7), or null. */
+  value: (from: string) => invoke<Value | null>('value', { from }),
   /** The saved layout of a project (15.2), or null. */
   layout: (id: string) => invoke<string | null>('layout', { id }),
   saveLayout: (id: string, text: string) => invoke<void>('save_layout', { id, text }),

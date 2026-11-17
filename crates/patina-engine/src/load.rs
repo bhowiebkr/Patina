@@ -63,6 +63,9 @@ pub struct Value {
     /// The thumbnail of the `Viewer` (5.3): "<width> <height> <base64 RGBA>", or an empty text.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub thumb: String,
+    /// The widget lines of `Viewer::show` (5.3), or an empty text.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub view: String,
 }
 
 /// Reads the text of a `THUMB` report into `thumb`, and keeps its buffer. A defective cluster can
@@ -585,15 +588,17 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
                 let value = reuse(&mut out.values, &mut values);
                 put(&mut value.from, from);
                 put(&mut value.text, text);
-                // The thumbnail and the lanes come after the text of the same value.
+                // The thumbnail, the widgets and the lanes come after the text of the same value.
                 let thumb = items.next_if(|&(i, k, _)| (i, k) == (index, glue::THUMB));
                 read_thumb(thumb.map(|(_, _, text)| text), &mut value.thumb);
+                let view = items.next_if(|&(i, k, _)| (i, k) == (index, glue::VIEW));
+                put(&mut value.view, view.map_or("", |(_, _, text)| text));
                 let lanes = items.next_if(|&(i, k, _)| (i, k) == (index, glue::LANES));
                 Lanes::read(lanes.map(|(_, _, text)| text), &mut value.lanes);
             }
-            // Lanes or a thumbnail with no value before them come only from a defective cluster.
-            // `Cluster::ui` reads the widget lines and the parameter writes.
-            glue::LANES | glue::THUMB | glue::UI | glue::EDIT => {}
+            // Lanes, a thumbnail or widgets with no value before them come only from a defective
+            // cluster. `Cluster::ui` reads the widget lines and the parameter writes.
+            glue::LANES | glue::THUMB | glue::VIEW | glue::UI | glue::EDIT => {}
             glue::TIME => {
                 // A defective cluster can send a bad text or index. Its time has no node to show on.
                 if let (Some((id, _)), Ok(ns)) = (name, text.parse::<u64>()) {
@@ -714,8 +719,10 @@ mod tests {
         let run = sink(&[
             (0, glue::VALUE, "2.5"),
             (0, glue::THUMB, "1 1 AQIDBA=="),
+            (0, glue::VIEW, "label\tx"),
             (0, glue::LANES, "0110 data bus"),
             (0, glue::THUMB, "1 1 AQIDBA=="),
+            (0, glue::VIEW, "label\ty"),
             (7, glue::VALUE, "x"),
             (0, glue::PANIC, "p"),
             (0, glue::TIME, "2500000"),
@@ -734,6 +741,7 @@ mod tests {
         assert_eq!((out.values[0].from.as_str(), out.values[0].text.as_str()), ("a1.out", "2.5"));
         assert_eq!(out.values[0].lanes, Some(Lanes { bits: "0110".to_owned(), label: "data bus".to_owned() }));
         assert_eq!(out.values[0].thumb, "1 1 AQIDBA==");
+        assert_eq!(out.values[0].view, "label\tx");
         for bad in [None, Some("1 1"), Some("0 1 "), Some("65 1 AQIDBA=="), Some("1 1 AQIDBA="), Some("1 1 AQ.DBA=="), Some("x 1 AQIDBA==")] {
             let mut thumb = out.values[0].thumb.clone();
             read_thumb(bad, &mut thumb);

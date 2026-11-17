@@ -145,6 +145,8 @@ impl Sink {
                 self.text.push_str(text);
                 kind
             }
+            // The widgets of a value are optional, so too many lines give no widgets.
+            glue::VIEW if text.len() > MAX_TREE => kind,
             glue::ERROR | glue::PANIC | glue::BAD_PARAM if text.len() > MAX_TEXT => {
                 self.text.push_str(&text[..text.floor_char_boundary(MAX_TEXT)]);
                 self.text.push_str("...");
@@ -338,12 +340,14 @@ mod tests {
         sink.push(2, glue::PANIC, &"\u{e9}".repeat(MAX_TEXT));
         sink.push(3, glue::UI, "ok");
         sink.push(4, glue::EDIT, &"e".repeat(MAX_TEXT + 1));
+        sink.push(5, glue::VIEW, &"v".repeat(MAX_TREE + 1));
         let items: Vec<_> = sink.iter().collect();
         assert_eq!((items[0].0, items[0].1), (1, glue::ERROR));
         assert!(items[0].2.starts_with("the GUI has more than 1 MB"));
         assert_eq!(items[1].2, format!("{}...", "\u{e9}".repeat(MAX_TEXT / 2)));
         assert_eq!(items[2], (3, glue::UI, "ok"));
         assert_eq!(items[3].2.len(), MAX_TEXT + 1);
+        assert_eq!(items[4], (5, glue::VIEW, ""));
     }
 
     #[test]

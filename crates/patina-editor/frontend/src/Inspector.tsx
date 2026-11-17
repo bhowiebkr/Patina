@@ -3,10 +3,10 @@
 
 import { useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { KindIcon } from './icons';
-import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type View } from './api';
+import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from './api';
 import { CodeTab, revealOf, type Reveal } from './CodeTab';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from './NodeView';
-import { ExpandButton, NodeGui } from './NodeGui';
+import { ExpandButton, GuiWidgets, NodeGui } from './NodeGui';
 import type { Inspect } from './ProjectPanel';
 import { SubgraphInterface } from './SubgraphInterface';
 import { Thumbnail } from './ValueWidgets';
@@ -58,12 +58,12 @@ interface WireProps {
   onLock: (to: string) => void;
 }
 
-/** A selected wire: its ends, its look and the full text of its live value (15.7, 15.9). */
+/** A selected wire: its ends, its look and the full text and widgets of its live value (15.7, 15.9). */
 function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
-  const [full, setFull] = useState<{ from: string; text: string | null } | null>(null);
+  const [full, setFull] = useState<{ from: string; value: Value | null } | null>(null);
   useEffect(() => {
     let current = true;
-    api.value(from).then((text) => current && setFull({ from, text }), reportError);
+    api.value(from).then((value) => current && setFull({ from, value }), reportError);
     return () => {
       current = false;
     };
@@ -75,7 +75,8 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
   };
   // The badge text shows until the full text arrives.
   const value = run.values.get(from);
-  const text = (full?.from === from ? full.text : null) ?? value?.text;
+  const fresh = full?.from === from ? full.value : null;
+  const text = fresh?.text ?? value?.text;
   const lanes = value?.lanes;
   const stale = valueStale(run, from);
   const wire = view.graph.wire?.find((w) => w.to === to);
@@ -177,6 +178,7 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
         ) : (
           <pre className={stale ? 'value-text stale' : 'value-text'}>{text}</pre>
         )}
+        {fresh?.view && <GuiWidgets tree={fresh.view} disabled label="Value widgets" send={() => {}} />}
       </div>
     </aside>
   );

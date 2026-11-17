@@ -132,7 +132,7 @@ fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) 
         match kept[at..].iter().position(same).map(|i| i + at).or_else(|| kept[..at].iter().position(same)) {
             Some(i) => {
                 at = i + 1;
-                if kept[i].text != value.text || kept[i].lanes != value.lanes || kept[i].thumb != value.thumb {
+                if kept[i].text != value.text || kept[i].lanes != value.lanes || kept[i].thumb != value.thumb || kept[i].view != value.view {
                     kept[i].clone_from(value);
                     changed.push(value.clone());
                 }
@@ -153,9 +153,10 @@ pub(super) fn alias(values: &[Value], aliases: &[(String, String)]) -> Vec<Value
     aliases.iter().filter_map(value).collect()
 }
 
-/// The values with the badge texts (15.9).
+/// The values with the badge texts (15.9), and without the widgets. The **Inspector** asks for the
+/// full value (15.7).
 pub(super) fn badges(values: &[Value]) -> Vec<Value> {
-    values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone(), thumb: v.thumb.clone() }).collect()
+    values.iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone(), thumb: v.thumb.clone(), view: String::new() }).collect()
 }
 
 /// Cuts a text for its badge at a character boundary.
@@ -214,7 +215,10 @@ mod tests {
         assert_eq!((changed.len(), changed[0].text.as_str(), kept.len()), (1, "5", 3));
         // A new thumbnail with the same text is a change too.
         let thumb = Value { thumb: "1 1 AQIDBA==".to_owned(), ..value("c.out", "4") };
-        assert_eq!(keep(&mut kept, &[thumb]).len(), 1);
+        assert_eq!(keep(&mut kept, std::slice::from_ref(&thumb)).len(), 1);
+        let view = Value { view: "label\tx".to_owned(), ..thumb };
+        assert_eq!(keep(&mut kept, &[view]).len(), 1);
+        assert_eq!(badges(&kept)[2].view, "", "the run event has no widgets");
         let extra = alias(&kept, &[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
         assert_eq!((extra.len(), extra[0].from.as_str(), extra[0].text.as_str()), (1, "v.0000000a", "3"));
     }

@@ -37,7 +37,7 @@ export async function checkWires(step: Step, until: Until, steps: string[], v: V
   steps.push('wire drawn and selected');
   // The Inspector shows the full text of the selected wire (15.7), from the engine.
   await until('the value in the Inspector', RUN_MS, () => document.querySelector('.value-text')?.textContent === '2.5');
-  if ((await api.value(`${A}.out`)) !== '2.5') throw new Error('the engine has no full text of the value');
+  if ((await api.value(`${A}.out`))?.text !== '2.5') throw new Error('the engine has no full text of the value');
   steps.push('value in the inspector');
   // A lost WebGL context shows the wires as SVG lines, and the restore draws them in WebGL again (15.1).
   const lose = document.querySelector<HTMLCanvasElement>('canvas.wire-layer')?.getContext('webgl2')?.getExtension('WEBGL_lose_context');

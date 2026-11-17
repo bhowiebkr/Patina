@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Lanes, Thumbnail, Viewer};
+use crate::{Lanes, Mode, Thumbnail, Ui, Viewer};
 
 struct NoDebug;
 
@@ -37,8 +37,14 @@ fn values_use_the_viewer_then_debug_then_the_type_name() {
     assert_eq!(sent[4].2, "the text of the value panicked");
 }
 
-/// A value with a thumbnail of 2 x 1 pixels, with no thumbnail, or with a panic.
+/// A value with a thumbnail of 2 x 1 pixels and widgets, with neither, or with panics.
 struct Dot(u8);
+
+/// The widgets of `Dot(1)`.
+fn dot_widgets(ui: &mut Ui) {
+    ui.label(if ui.mode() == Mode::Large { "large" } else { "other" });
+    ui.plot("p", &[1.0, 2.0], 0.0..=2.0);
+}
 
 impl Viewer for Dot {
     fn text(&self, out: &mut Text<'_>) -> fmt::Result {
@@ -52,20 +58,33 @@ impl Viewer for Dot {
             _ => panic!("no picture"),
         }
     }
+
+    fn show(&self, ui: &mut Ui) {
+        match self.0 {
+            0 => {}
+            1 => dot_widgets(ui),
+            _ => panic!("no widgets"),
+        }
+    }
 }
 
 #[test]
 #[allow(clippy::needless_borrow, reason = "the calls are the same as in the generated code")]
-fn a_viewer_sends_its_thumbnail_after_the_text() {
+fn a_viewer_sends_its_thumbnail_and_widgets_after_the_text() {
     let mut sent: Vec<(u32, u32, String)> = Vec::new();
     let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
-    for (i, dot) in [Dot(1), Dot(0), Dot(2)].iter().enumerate() {
+    for (i, dot) in [Dot(1), Dot(0), Dot(2), Dot(1)].iter().enumerate() {
         send_value(&rep, i as u32, dot, (&&&Probe(dot)).view_fns());
     }
-    send_value(&rep, 3, &Hex(1), (&&&Probe(&Hex(1))).view_fns());
+    send_value(&rep, 4, &Hex(1), (&&&Probe(&Hex(1))).view_fns());
     let kinds: Vec<_> = sent.iter().map(|&(i, k, _)| (i, k)).collect();
-    assert_eq!(kinds, [(0, VALUE), (0, THUMB), (1, VALUE), (2, VALUE), (3, VALUE)]);
+    assert_eq!(kinds, [(0, VALUE), (0, THUMB), (0, VIEW), (1, VALUE), (2, VALUE), (3, VALUE), (3, THUMB), (3, VIEW), (4, VALUE)]);
     assert_eq!(sent[1].2, "2 1 AQIDBAUGBwg=");
+    // The second value starts with an empty buffer, in the Inspector size.
+    let mut ui = Ui::new(1, "");
+    dot_widgets(&mut ui);
+    assert!(ui.tree().contains("large"));
+    assert_eq!((sent[2].2.as_str(), sent[7].2.as_str()), (ui.tree(), ui.tree()));
     let mut buf = Vec::new();
     assert_eq!(Thumbnail::new(&mut buf).pixels(100, 2).len(), 64 * 2 * 4, "a long side becomes MAX");
 }

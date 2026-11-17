@@ -137,6 +137,7 @@ impl Refill for Value {
         self.from.clone_from(&from.from);
         self.text.clone_from(&from.text);
         self.thumb.clone_from(&from.thumb);
+        self.view.clone_from(&from.view);
         match (&mut self.lanes, &from.lanes) {
             (Some(old), Some(new)) => {
                 old.bits.clone_from(&new.bits);

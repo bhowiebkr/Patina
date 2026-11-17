@@ -521,6 +521,18 @@ impl Ui {
         &self.tree
     }
 
+    /// A GUI in the Inspector size with no events, for `Viewer::show` (5.3). It writes its lines
+    /// to the buffer `tree`.
+    pub(crate) fn viewer(mut tree: String) -> Ui {
+        tree.clear();
+        Ui { mode: Mode::Large, events: Vec::new(), tree, next: 0, params: Vec::new() }
+    }
+
+    /// The buffer of the widget lines, for the next viewer.
+    pub(crate) fn into_tree(self) -> String {
+        self.tree
+    }
+
     /// Adds the line of the next widget, and returns its event.
     fn push(&mut self, kind: &str, text: &str) -> Option<&str> {
         let index = self.next;

@@ -1511,7 +1511,8 @@ To run the editor from a checkout:
 - Below a zoom of 0.5, the nodes show no pin names and no parameter text, and the wires show no
   badges and type labels (15.1). A selected wire keeps its badge.
 - Select a wire to see its ends and the full text of its value in the **Inspector**, up to 4096
-  bytes (15.7). A type crate implements the `Viewer` trait of `patina-sdk` to give its own text.
+  bytes (15.7). A type crate implements the `Viewer` trait of `patina-sdk` to give its own text,
+  a thumbnail, and widgets such as a plot, a waveform or a table (5.3).
 - Delete removes the selected nodes and wires. F and **Fit** fit the graph. Esc clears the
   selection.
 - The **Inspector** has the **Parameters**, **Code** and **Logs** tabs of the selected node. A
@@ -1763,9 +1764,12 @@ To run the editor from a checkout:
   error with no node (fixed 2026-11-16). The glue test checks the three cases.
 - A `log` crate with another name or in a target table now turns on the logger (fixed
   2026-11-16). The plan test reads four manifests. No build ran with such a node.
-- The `Viewer` gives text and a thumbnail of 64 x 64 pixels at most (5.3, thumbnail fixed
-  2026-11-17). The table, the plot and the waveform come later. The **Inspector** reads the full
-  text one time after each run. The glue, load, frame and frontend tests check the thumbnail.
+- The `Viewer` gives text, a thumbnail of 64 x 64 pixels at most, and the widgets of a node GUI
+  (5.3, fixed 2026-11-17). `Viewer::show` gives the plot, the waveform and the table with the
+  `Ui` widgets. The **Inspector** reads the full text and the widgets one time after each run.
+  The glue, load, sink and frame tests check the widget lines. The cluster makes the widget lines
+  of each probed value at each run, also when no **Inspector** shows them. No example type has
+  widgets yet, so no selfcheck or hand test showed them in the **Inspector**.
 - The editor has no bench with 500 nodes, so the far zoom form was not measured for frame
   drops. Two badges can cover each other. After each run, the engine copies the text of each
   value into a new `String`, and the badge text into a second `String`.

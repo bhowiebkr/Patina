@@ -128,10 +128,10 @@ pub fn fire(editor: State<'_, Editor>, id: String, text: String) -> Result<(), S
     }
 }
 
-/// The full text of the live value of output `from` ("<node id>.<output key>") after the last run
-/// (15.7). A read never changes the run (9.2).
+/// The live value of output `from` ("<node id>.<output key>") after the last run, with its full
+/// text and its widgets (15.7, 5.3). A read never changes the run (9.2).
 #[tauri::command(async)]
-pub fn value(editor: State<'_, Editor>, from: String) -> Option<String> {
+pub fn value(editor: State<'_, Editor>, from: String) -> Option<Box<serde_json::value::RawValue>> {
     editor.engine.ask(false, |id| ToNode::Ask { id, ask: Ask::Value(from) }).unwrap_or_default()
 }
 

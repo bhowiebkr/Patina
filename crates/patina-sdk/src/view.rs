@@ -1,6 +1,8 @@
-//! The text, the thumbnail and the lanes of a value in the editor (spec 5.3, 6.3).
+//! The text, the thumbnail, the widgets and the lanes of a value in the editor (spec 5.3, 6.3).
 
 use std::fmt;
+
+use crate::Ui;
 
 /// A type crate implements `Viewer` to show its values in the editor (5.3). Without it, the
 /// editor shows the `Debug` text of the value, or the type name and the size.
@@ -27,6 +29,29 @@ pub trait Viewer {
     /// under the pins, and the **Inspector** shows it for a selected wire. The default draws none.
     fn thumbnail(&self, out: &mut Thumbnail<'_>) {
         let _ = out;
+    }
+
+    /// Shows the value with the widgets of a node GUI (4.3), for example a plot, a waveform or a
+    /// table. The **Inspector** shows them under the text of a selected wire. The widgets take no
+    /// input, and `ui.mode()` is `Mode::Large`. The default shows none.
+    ///
+    /// ```
+    /// use std::fmt::{self, Write};
+    ///
+    /// pub struct Samples(pub Vec<f32>);
+    ///
+    /// impl patina_sdk::Viewer for Samples {
+    ///     fn text(&self, out: &mut patina_sdk::Text<'_>) -> fmt::Result {
+    ///         write!(out, "{} samples", self.0.len())
+    ///     }
+    ///
+    ///     fn show(&self, ui: &mut patina_sdk::Ui) {
+    ///         ui.waveform("Samples", &self.0, None);
+    ///     }
+    /// }
+    /// ```
+    fn show(&self, ui: &mut Ui) {
+        let _ = ui;
     }
 }
 
