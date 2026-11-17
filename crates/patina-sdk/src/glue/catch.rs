@@ -41,6 +41,10 @@ pub fn finish_state<T>(caught: std::thread::Result<Result<(), String>>, state: &
 
 /// Drops a value that no node took, with its own catch (spec 4.7).
 pub fn drop_value<T>(value: Option<T>, rep: &Reporter, node: u32) -> bool {
+    // A type with no drop code cannot panic in a drop, so it needs no catch and no code.
+    if !std::mem::needs_drop::<T>() {
+        return true;
+    }
     rep.set_node(node);
     let caught = catch_quiet(AssertUnwindSafe(move || {
         drop(value);

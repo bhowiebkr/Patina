@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::node_process::Out;
 use crate::views::{ViewInput, Views};
 use blocks::{Blocks, Part};
-use frame::{Shown, alias, badges, draw, frame, gui, keep};
+use frame::{Shown, alias, badges, changed, draw, frame, gui};
 
 #[derive(Serialize, Deserialize)]
 pub enum Job {
@@ -156,8 +156,10 @@ pub enum Event {
     Lost { serial: u64, text: String },
     /// The result of one frame (9.1). The fields are as in `Ran`, for the nodes of the frame domain
     /// and for the blocks of the audio domain since the last frame (9.3).
+    /// The last of `frames` frames (9.1). `run_ms` is the time of all the frames.
     Frame {
         serial: u64,
+        frames: u64,
         run_ms: f64,
         ok: bool,
         skipped: Vec<String>,
@@ -332,7 +334,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
             }
         }
         if let (true, true, Some(loaded), Some(serial)) = (step && newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-            frame(out, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, serial, &mut Blocks::default());
+            frame(out, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, (serial, 1, 1), &mut Blocks::default());
             out.emit(&Event::Ended { serial, frames: 1 });
         }
         fuse &= build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -378,7 +380,7 @@ fn run_jobs(out: &Out, jobs: &Receiver<Job>, shared: &Shared, folder: &Path) {
         if let (true, Some(loaded)) = (drawn, loaded.as_mut()) {
             draw(out, &shared.control, &mut loaded.cluster.frame_part(), run.serial, &shown, true);
             if goes_on {
-                let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0 };
+                let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse_at, frames: 0, shows: 0, rate: run.checked.frame_rate() };
                 next = run_frames(live, &mut loaded.cluster);
             }
         }
@@ -410,6 +412,10 @@ struct Live<'a> {
     fuse_at: Option<Instant>,
     /// The number of frames of the run.
     frames: u64,
+    /// The number of frames that the page showed, at most 60 each second.
+    shows: u64,
+    /// The frames each second (9.1).
+    rate: u32,
 }
 
 impl Live<'_> {
@@ -441,14 +447,17 @@ impl Live<'_> {
         None
     }
 
-    /// Runs one frame with the results of `blocks`. Returns false when the frame or a block failed.
-    fn frame(&mut self, part: &mut Frames, blocks: &mut Blocks) -> bool {
-        self.frames += 1;
-        frame(self.out, (part, self.shown, self.aliases), self.shared, self.serial, blocks)
+    /// Runs `count` frames and shows the last, with the results of `blocks`. Returns false when a
+    /// frame or a block failed.
+    fn frame(&mut self, part: &mut Frames, blocks: &mut Blocks, count: u64) -> bool {
+        self.shows += 1;
+        let (ok, ran) = frame(self.out, (part, self.shown, self.aliases), self.shared, (self.serial, self.shows, count), blocks);
+        self.frames += ran;
+        ok
     }
 }
 
-/// Runs the frame domain at 60 FPS, the audio domain at each block (9.3) and the event domain at
+/// Runs the frame domain at the frame rate of the project, the audio domain at each block (9.3) and the event domain at
 /// each fire (9.4) until a job comes, the user stops the run, a frame or a block fails or the time
 /// of the fuse comes (9.1, 7.2). Returns the job that ended the run.
 fn run_frames(mut live: Live, cluster: &mut Cluster) -> Option<Job> {
@@ -477,15 +486,17 @@ fn run_frames(mut live: Live, cluster: &mut Cluster) -> Option<Job> {
 /// The frames of a graph with no audio nodes.
 fn frames_only(live: &mut Live, part: &mut Frames) -> Option<Job> {
     let mut clock = Clock::new(clock::FRAME);
-    loop {
+    for tick in 1.. {
         clock.wait();
         if let Some(end) = live.job(part) {
             return end;
         }
-        if !live.frame(part, &mut Blocks::default()) {
+        let count = clock::frames_at(tick, live.rate);
+        if count > 0 && !live.frame(part, &mut Blocks::default(), count) {
             return None;
         }
     }
+    None
 }
 
 /// The frames, while an audio thread runs the blocks (9.3), so a slow frame or node GUI does not
@@ -495,15 +506,20 @@ fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
     let shared = live.shared;
     std::thread::scope(|s| {
         s.spawn(move || play(audio, shared, stop, out));
-        let (mut clock, mut blocks) = (Clock::new(clock::FRAME), Blocks::default());
+        let (mut clock, mut blocks, mut tick) = (Clock::new(clock::FRAME), Blocks::default(), 0);
         let job = loop {
             clock.wait();
             if let Some(end) = live.job(part) {
                 break end;
             }
+            tick += 1;
+            let count = clock::frames_at(tick, live.rate);
+            if count == 0 {
+                continue;
+            }
             // The swap gives the audio thread the emptied blocks of the last frame, with their texts.
             std::mem::swap(&mut *lock(out), &mut blocks);
-            if !live.frame(part, &mut blocks) {
+            if !live.frame(part, &mut blocks, count) {
                 break None;
             }
         };
@@ -554,7 +570,8 @@ fn between(live: &mut Live, cluster: &mut Cluster) -> Option<Job> {
             blocks.device(notice);
         }
         // A failed block ends the run at once, with a frame that shows its results.
-        if (!blocks.part().ok || frame_due(live.frames, block)) && !live.frame(&mut cluster.frame_part(), &mut blocks) {
+        let due = (live.frames..).take_while(|&frame| frame_due(frame, block, live.rate)).count() as u64;
+        if (!blocks.part().ok || due > 0) && !live.frame(&mut cluster.frame_part(), &mut blocks, due.max(1)) {
             return None;
         }
     }

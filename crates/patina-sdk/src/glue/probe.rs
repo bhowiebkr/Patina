@@ -53,7 +53,11 @@ impl<T> NameText<T> for Probe<'_, T> {
 
 /// Sends the text of held value `index` (15.9), with its own catch.
 // shortcut: each run formats and sends each held value, send them at the display rate (15.6) when a graph runs faster than the display.
+#[inline(never)]
 pub fn send_value<T>(rep: &Reporter, index: u32, value: &T, text: TextFn<T>) {
+    if rep.quiet() {
+        return;
+    }
     let mut buf = [0; TEXT_LEN + 3];
     let mut out = Text::new(&mut buf);
     if catch_unwind(AssertUnwindSafe(|| text(value, &mut out))).is_err() {
@@ -65,6 +69,9 @@ pub fn send_value<T>(rep: &Reporter, index: u32, value: &T, text: TextFn<T>) {
 
 /// Sends the lanes of held value `index` (6.3), with its own catch. A panic sends no lanes.
 pub fn send_lanes<T>(rep: &Reporter, index: u32, value: &T, lanes: impl FnOnce(&T) -> Lanes) {
+    if rep.quiet() {
+        return;
+    }
     let Ok(lanes) = catch_unwind(AssertUnwindSafe(|| lanes(value))) else { return };
     let mut buf = [0; 64 + 1 + 64 + 3];
     let mut out = Text::new(&mut buf);

@@ -456,6 +456,12 @@ fn inline(s: &mut String, plan: &Plan, n: usize) {
     let krate = name.replace('-', "_");
     let (mut args, mut muts) = (Vec::new(), Vec::new());
     let mut call = format!("::{krate}::{}", node.func);
+    let plain = node.state.is_none() && !plan.is_delay(n) && !node.is_async && !node.fallible && node.output == Output::One;
+    if plain && step.consumers[0] > 0 && node.inputs.iter().all(|i| i.pass != Pass::Mut) {
+        let args: String = inputs(plan, n, true).iter().map(|arg| format!("{arg}, ")).collect();
+        let _ = writeln!(s, "{indent}ok &= ::patina_sdk::glue::step(rep, {n}, {call}, ({args}), &mut {});", held(plan, n, 0)[2]);
+        return;
+    }
     if let Some(state) = &node.state {
         let _ = writeln!(s, "{indent}let mut st = s{n}.lock();");
         // A panic in `init` leaves no state, so the next run calls `init` again (4.7).

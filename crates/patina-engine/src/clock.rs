@@ -4,8 +4,20 @@ use std::time::{Duration, Instant};
 
 pub use patina_sdk::audio::SAMPLE_RATE;
 
-/// The frame period at 60 FPS.
+/// The frame period at 60 FPS, the period of the clock of the frame domain.
 pub const FRAME: Duration = Duration::from_nanos(16_666_667);
+
+/// The frame rates that a project can have (6.4), and the rate of a project with no rate.
+pub const RATES: std::ops::RangeInclusive<u32> = 1..=1000;
+pub const RATE: u32 = 60;
+
+/// The number of frames that run at tick `tick` (from 1) of the 60 FPS clock, for `rate` frames
+/// each second (9.1). The first tick runs a frame. A rate of 600 gives 10 frames at each tick, and
+/// 30 gives 1 frame at each second tick.
+pub fn frames_at(tick: u64, rate: u32) -> u64 {
+    let done = |tick: u64| (tick * u64::from(rate)).div_ceil(60);
+    done(tick) - done(tick.saturating_sub(1))
+}
 
 /// The period of one block of the audio domain (9.3).
 pub const BLOCK: Duration =
@@ -37,10 +49,11 @@ impl Clock {
     }
 }
 
-/// True when frame `frame` starts at or before the start of audio block `block`. A run with
-/// blocks and frames on one thread runs a frame before the first block after its time (9.3).
-pub fn frame_due(frame: u64, block: u64) -> bool {
-    u128::from(frame) * FRAME.as_nanos() <= u128::from(block) * BLOCK.as_nanos()
+/// True when frame `frame` starts at or before the start of audio block `block`, at `rate` frames
+/// each second. A run with blocks and frames on one thread runs a frame before the first block
+/// after its time (9.3).
+pub fn frame_due(frame: u64, block: u64, rate: u32) -> bool {
+    u128::from(frame) * 1_000_000_000 <= u128::from(block) * BLOCK.as_nanos() * u128::from(rate)
 }
 
 #[cfg(test)]
@@ -49,7 +62,20 @@ mod tests {
 
     #[test]
     fn a_frame_runs_before_the_first_block_after_its_time() {
-        assert!(frame_due(0, 0) && frame_due(1, 4) && !frame_due(1, 3) && frame_due(2, 7) && !frame_due(2, 6));
+        let due = |frame, block| frame_due(frame, block, RATE);
+        assert!(due(0, 0) && due(1, 4) && !due(1, 3) && due(2, 7) && !due(2, 6));
+        assert!(frame_due(5, 4, 4 * RATE) && !frame_due(6, 4, 4 * RATE));
+    }
+
+    #[test]
+    fn a_rate_gives_its_frames_at_the_60_fps_ticks() {
+        let sum = |rate| (1..=60).map(|tick| frames_at(tick, rate)).collect::<Vec<_>>();
+        assert_eq!(sum(60), [1; 60]);
+        assert_eq!(sum(600), [10; 60]);
+        assert_eq!(sum(30)[..4], [1, 0, 1, 0]);
+        for rate in [1, 7, 61, 1000] {
+            assert_eq!(sum(rate).iter().sum::<u64>(), u64::from(rate));
+        }
     }
 
     #[test]

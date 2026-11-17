@@ -13,6 +13,7 @@ use crate::{Checked, Cluster, Error, Mode, Toolchain, cargo, generate, node, pla
 pub struct Parts {
     root: PathBuf,
     rust: String,
+    frame_rate: u32,
     graph: project::GraphFile,
     aliases: Vec<(String, String)>,
     test: bool,
@@ -25,14 +26,19 @@ impl Parts {
         if self.test {
             plan.probe_all(&self.aliases);
         }
-        Ok(Checked { root: self.root, rust: self.rust, plan, graph: self.graph, aliases: self.aliases, test: self.test })
+        Ok(Checked { root: self.root, rust: self.rust, frame_rate: self.frame_rate, plan, graph: self.graph, aliases: self.aliases, test: self.test })
     }
 }
 
 impl Checked {
     /// The data of the checked graph, to send to the node process (16.1).
     pub fn into_parts(self) -> Parts {
-        Parts { root: self.root, rust: self.rust, graph: self.graph, aliases: self.aliases, test: self.test }
+        Parts { root: self.root, rust: self.rust, frame_rate: self.frame_rate, graph: self.graph, aliases: self.aliases, test: self.test }
+    }
+
+    /// The frames each second of the frame domain (6.4, 9.1).
+    pub fn frame_rate(&self) -> u32 {
+        self.frame_rate
     }
 
     /// The checked graph, with each use of a subgraph replaced by its nodes (6.4).

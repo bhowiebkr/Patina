@@ -159,6 +159,21 @@ fn lanes_send_the_bits_msb_first_and_the_label() {
     assert_eq!(sent[2], (5, LANES, format!("{} x", "1".repeat(64))));
 }
 
+#[test]
+fn a_quiet_run_sends_no_values_and_no_times_but_logs() {
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let control = Control::default();
+    control.set_quiet(true);
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: &control };
+    send_value(&rep, 0, &1_u8, (&&Probe(&1_u8)).text_fn());
+    send_lanes(&rep, 1, &1, |v| Lanes::bits(1, *v));
+    rep.time(2, std::time::Instant::now());
+    rep.send(3, LOG, "hi");
+    control.set_quiet(false);
+    send_value(&rep, 4, &1_u8, (&&Probe(&1_u8)).text_fn());
+    assert_eq!(sent, [(3, LOG, "hi".to_owned()), (4, VALUE, "1".to_owned())]);
+}
+
 /// Runs task 0 and ends the run.
 ///
 /// # Safety

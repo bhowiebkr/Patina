@@ -11,6 +11,8 @@ use crate::node_process::Out;
 
 /// The longest text of a badge, in bytes. A longer text ends with "...".
 const BADGE_LEN: usize = 64;
+/// The frames send the node times at each 6th frame: 10 Hz at 60 FPS (15.9).
+const TIMES_EVERY: u64 = 6;
 
 /// Gives the GUI input to node `input.id`, and sends its new widget lines. Returns `Some` when
 /// the change must run the graph again: `Some(true)` when the node is in the frame domain.
@@ -67,41 +69,77 @@ pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64,
     }
 }
 
-/// Runs one frame, and sends its values, the results of `blocks` and the node GUIs. Then
-/// empties `blocks`. Returns false when the frame or a block failed.
-pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, serial: u64, blocks: &mut Blocks) -> bool {
-    let start = Instant::now();
-    let outcome = part.frame(&shared.control);
+/// Runs `count` frames (9.1), and sends the values that changed in the last frame, the logs of all
+/// the frames, the results of `blocks` and the node GUIs. The other frames are quiet: they send no
+/// values and no times. A failed frame shows at once. Display frame `show` of the run sends the
+/// node times only at 10 Hz (15.9). Then empties `blocks`. Returns false when a frame or a block
+/// failed, and the number of frames that ran.
+pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, (serial, show, count): (u64, u64, u64), blocks: &mut Blocks) -> (bool, u64) {
+    let (start, control) = (Instant::now(), &shared.control);
+    let (mut quiet_logs, mut ran) = (Vec::new(), 0);
+    for left in (0..count.max(1)).rev() {
+        control.set_quiet(left > 0);
+        let outcome = part.frame(control);
+        ran += 1;
+        if left == 0 || !outcome.ok {
+            break;
+        }
+        quiet_logs.extend_from_slice(&outcome.logs);
+    }
+    control.set_quiet(false);
+    let outcome = part.outcome();
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     // shortcut: the editor copies each frame and its blocks into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
     let b = blocks.part();
-    let mut values: Vec<Value> = outcome.values.iter().chain(b.values).cloned().collect();
-    let extra = alias(&values, aliases);
-    values.extend(extra);
-    keep(&mut lock(&shared.values), &values);
+    let values = changed(shared, aliases, outcome.values.iter().chain(b.values));
     let reports: Vec<Report> = outcome.reports.iter().chain(b.reports).cloned().collect();
     lock(&shared.reports).clone_from(&reports);
     let ok = outcome.ok && b.ok;
     let both = |a: &[String], b: &[String]| a.iter().chain(b).cloned().collect();
     let (skipped, stopped) = (both(&outcome.skipped, b.skipped), both(&outcome.stopped, b.stopped));
-    let times = outcome.times.iter().chain(b.times).cloned().collect();
-    let logs = outcome.logs.iter().chain(b.logs).cloned().collect();
+    let times = match show % TIMES_EVERY {
+        1 => outcome.times.iter().chain(b.times).cloned().collect(),
+        _ => Vec::new(),
+    };
+    quiet_logs.extend(outcome.logs.iter().chain(b.logs).cloned());
     blocks.clear();
-    let values = badges(&values);
-    out.emit(&Event::Frame { serial, run_ms, ok, skipped, stopped, times, logs, reports, values });
-    draw(out, &shared.control, part, serial, shown, false);
-    ok
+    out.emit(&Event::Frame { serial, frames: ran, run_ms, ok, skipped, stopped, times, logs: quiet_logs, reports, values });
+    draw(out, control, part, serial, shown, false);
+    (ok, ran)
 }
 
-/// Puts the values of a frame in place of the old values of the same outputs. The values of the
-/// batch domain stay.
-pub(super) fn keep(kept: &mut Vec<Value>, values: &[Value]) {
+/// Keeps the values of a run and their copies for the pins of the subgraph uses. Returns the
+/// badges of the values that are new or changed, because the page keeps the other values (15.9).
+pub(super) fn changed<'a>(shared: &Shared, aliases: &[(String, String)], values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
+    let mut kept = lock(&shared.values);
+    let mut changed = keep(&mut kept, values);
+    let extra = alias(&changed, aliases);
+    changed.extend(keep(&mut kept, &extra));
+    badges(&changed)
+}
+
+/// Puts the values of a run in place of the old values of the same outputs, and returns the values
+/// that are new or changed. The values of the batch domain stay. Each frame gives its values in the
+/// same order, so the search starts after the last match.
+fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
+    let (mut at, mut changed) = (0, Vec::new());
     for value in values {
-        match kept.iter_mut().find(|v| v.from == value.from) {
-            Some(old) => old.clone_from(value),
-            None => kept.push(value.clone()),
+        let same = |v: &Value| v.from == value.from;
+        match kept[at..].iter().position(same).map(|i| i + at).or_else(|| kept[..at].iter().position(same)) {
+            Some(i) => {
+                at = i + 1;
+                if kept[i].text != value.text || kept[i].lanes != value.lanes {
+                    kept[i].clone_from(value);
+                    changed.push(value.clone());
+                }
+            }
+            None => {
+                kept.push(value.clone());
+                changed.push(value.clone());
+            }
         }
     }
+    changed
 }
 
 /// A copy of the value of each inner output for the output pin of its subgraph use (6.4).
@@ -151,9 +189,13 @@ mod tests {
     fn a_frame_replaces_only_the_values_of_its_outputs() {
         let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), lanes: None };
         let mut kept = vec![value("a.out", "1"), value("b.out", "2")];
-        keep(&mut kept, &[value("b.out", "3"), value("c.out", "4")]);
+        let changed = keep(&mut kept, &[value("b.out", "3"), value("c.out", "4")]);
         let texts: Vec<_> = kept.iter().map(|v| (v.from.as_str(), v.text.as_str())).collect();
         assert_eq!(texts, [("a.out", "1"), ("b.out", "3"), ("c.out", "4")]);
+        assert_eq!(changed.len(), 2);
+        // Only the changed values return, also in a new order.
+        let changed = keep(&mut kept, &[value("c.out", "4"), value("a.out", "5"), value("b.out", "3")]);
+        assert_eq!((changed.len(), changed[0].text.as_str(), kept.len()), (1, "5", 3));
         let extra = alias(&kept, &[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
         assert_eq!((extra.len(), extra[0].from.as_str(), extra[0].text.as_str()), (1, "v.0000000a", "3"));
     }

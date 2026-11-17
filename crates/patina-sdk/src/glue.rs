@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 18;
+pub const ABI_VERSION: u32 = 19;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -54,17 +54,19 @@ pub type ReportFn = unsafe extern "C" fn(*mut c_void, u32, u32, *const u8, usize
 pub const IDLE: u32 = u32::MAX;
 
 /// The engine side of **Stop** (15.2): the stop flag, the node index of the call that started
-/// last, and the number of log lines of the run (15.7).
+/// last, the number of log lines of the run (15.7), and the quiet flag of a run that nobody shows
+/// (9.1).
 #[repr(C)]
 pub struct Control {
     stop: AtomicBool,
     node: AtomicU32,
     lines: AtomicU32,
+    quiet: AtomicBool,
 }
 
 impl Default for Control {
     fn default() -> Control {
-        Control { stop: AtomicBool::new(false), node: AtomicU32::new(IDLE), lines: AtomicU32::new(0) }
+        Control { stop: AtomicBool::new(false), node: AtomicU32::new(IDLE), lines: AtomicU32::new(0), quiet: AtomicBool::new(false) }
     }
 }
 
@@ -77,6 +79,17 @@ impl Control {
     /// True when the user asked the runs to stop (15.2).
     pub fn stopped(&self) -> bool {
         self.stop.load(Relaxed)
+    }
+
+    /// While `quiet` is true, the runs send no values and no run times, because nobody shows them
+    /// (9.1). The logs, the reports and the failures still come.
+    pub fn set_quiet(&self, quiet: bool) {
+        self.quiet.store(quiet, Relaxed);
+    }
+
+    /// True while the runs send no values and no run times.
+    pub fn quiet(&self) -> bool {
+        self.quiet.load(Relaxed)
     }
 
     /// The index of the node that started last in the active run. None between runs.
@@ -119,6 +132,9 @@ impl Reporter {
     /// Sends the time since `start` as the run time of node `node` (15.7). It does not allocate. The
     /// text has a fixed width, so a slow run does not make the report buffers of the engine grow.
     pub fn time(&self, node: u32, start: std::time::Instant) {
+        if self.quiet() {
+            return;
+        }
         let mut buf = [0; 39 + 3];
         let mut out = Text::new(&mut buf);
         let _ = write!(out, "{:020}", start.elapsed().as_nanos());
@@ -130,6 +146,11 @@ impl Reporter {
         if let Some(control) = self.control() {
             control.node.store(node, Relaxed);
         }
+    }
+
+    /// True when the control of the run is quiet: the run sends no values and no run times.
+    pub fn quiet(&self) -> bool {
+        self.control().is_some_and(Control::quiet)
     }
 
     fn control(&self) -> Option<&Control> {

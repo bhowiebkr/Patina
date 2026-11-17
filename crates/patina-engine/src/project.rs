@@ -17,6 +17,9 @@ pub struct ProjectFile {
     pub format: u32,
     pub id: String,
     pub rust: String,
+    /// The frames each second of the frame domain (9.1). None is 60.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_rate: Option<u32>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub imports: BTreeMap<String, Import>,
 }

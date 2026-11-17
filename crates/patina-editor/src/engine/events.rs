@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use patina_engine::clock::{self, Clock};
 use patina_engine::{Audio, EventRun, Events, Frames, NodeLog, Outcome, Report, Value};
 
-use super::{Event, Job, Live, alias, badges, frames_only, keep, lock, split};
+use super::{Event, Job, Live, changed, frames_only, lock, split};
 use crate::node_process::Out;
 
 /// Runs the event domain until a job comes or the user stops the run, with the frames when the
@@ -64,12 +64,9 @@ fn jobs_only(live: &mut Live, part: &mut Frames, ended: &AtomicBool) -> Option<J
 /// Keeps the values and the node errors of an event run for the **Inspector** and the views, and
 /// sends the run to the page.
 fn done(out: &Out, shared: &super::Shared, serial: u64, aliases: &[(String, String)], run: &EventRun) {
-    let mut values = run.out.values.clone();
-    let extra = alias(&values, aliases);
-    values.extend(extra);
-    keep(&mut lock(&shared.values), &values);
+    let values = changed(shared, aliases, &run.out.values);
     merge(&mut lock(&shared.event_reports), &run.out);
-    send(out, serial, run, badges(&values));
+    send(out, serial, run, values);
 }
 
 fn send(out: &Out, serial: u64, run: &EventRun, values: Vec<Value>) {

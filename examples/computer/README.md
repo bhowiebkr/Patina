@@ -44,7 +44,7 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 | Folder | Parts |
 | --- | --- |
-| `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `screen` |
+| `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `screen`, `random` |
 | `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm` |
 | `connections/` | `byte`, `segment-bus` |
 | `types/` | `segments`, `frame` |

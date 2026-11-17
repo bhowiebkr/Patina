@@ -54,6 +54,16 @@ pub fn bake(editor: State<'_, Editor>) -> Result<View, String> {
     })
 }
 
+/// Sets the frames each second of the project (9.1). A live graph runs again at the new rate, as
+/// after a parameter change.
+#[tauri::command(async)]
+pub fn frame_rate(editor: State<'_, Editor>, rate: u32) -> Result<View, String> {
+    editor.with(|session| {
+        session.project.set_frame_rate(rate).map_err(|e| e.to_string())?;
+        Ok(session.view(&editor.engine, Some(false), None))
+    })
+}
+
 /// Stops the live runs. The active run finishes (15.2).
 #[tauri::command(async)]
 pub fn pause(editor: State<'_, Editor>) -> Result<View, String> {

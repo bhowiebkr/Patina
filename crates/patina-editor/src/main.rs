@@ -267,6 +267,7 @@ fn main() {
             session::step,
             session::test,
             session::bake,
+            session::frame_rate,
             session::stop,
             session::gui,
             session::visible,

@@ -50,8 +50,22 @@ export async function checkDomains(c: DomainCheck, v: View, lib: string, changed
   await until('the frame of Step', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
   const stepEnd = ofRun().find((e) => e.state === 'ended');
   if (frameCount() !== 1 || stepEnd?.state !== 'ended' || stepEnd.frames !== 1) throw new Error(`Step did not run one frame: ${JSON.stringify(ofRun())}`);
+  // The frame rate (9.1): at 120 FPS, each frame event shows the last of two frames.
+  v = await step('set 120 FPS', () => api.frameRate(120));
+  if (v.frameRate !== 120) throw new Error(`the view has ${v.frameRate} FPS`);
+  await until('120 in the FPS field', RUN_MS, () => document.querySelector<HTMLInputElement>('.fps input')?.value === '120');
+  from = mark();
+  v = await step('run at 120 FPS', () => api.run());
+  const twos = () => ofRun().filter((e) => e.state === 'frame' && e.frames === 2).length;
+  await until('three events of two frames', BUILD_MS, () => twos() >= 3);
+  topButton('Stop')!.click();
+  await until('the end of the 120 FPS run', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+  const ran = ofRun().reduce((sum, e) => sum + (e.state === 'frame' ? e.frames : 0), 0);
+  const fastEnd = ofRun().find((e) => e.state === 'ended');
+  if (fastEnd?.state !== 'ended' || fastEnd.frames !== ran) throw new Error(`the end of the 120 FPS run does not count ${ran} frames: ${JSON.stringify(fastEnd)}`);
+  v = await step('set 60 FPS', () => api.frameRate(60));
   v = await step('undo the frame node', () => api.undo());
-  steps.push(`frames until Stop: ${count}`);
+  steps.push(`frames until Stop: ${count}, at 120 FPS: ${ran}`);
 
   // The audio domain (9.3): Run runs the blocks with the frames until Stop. The node does not
   // call `audio::play`, so no sound plays.

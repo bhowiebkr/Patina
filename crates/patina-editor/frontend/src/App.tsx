@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExt
 import { useViewport } from '@xyflow/react';
 import { api, folderName, newId, onCloseRequested, scopeDomains, type Edit, type StartInfo, type View } from './api';
 import { HelpMenu } from './About';
+import { Field } from './Field';
 import { runCheck } from './check';
 import { runShot } from './shot';
 import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
@@ -395,6 +396,9 @@ export function App() {
         <button className="btn" title="Fuse the node in the slot back into the base now" disabled={!live || run.fused} onClick={() => act(api.bake())}>
           Bake
         </button>
+        <span className="fps" title="The frames each second of the project. The clock node ticks each 4 frames.">
+          <Field w={{ kind: 'number', index: 0, text: 'FPS', value: view.frameRate, step: 0, unit: '' }} send={(rate) => act(api.frameRate(Math.round(Number(rate))))} disabled={false} />
+        </span>
         <span className="sep" />
         <ViewsMenu views={view.views} />
         <HelpMenu />

@@ -49,6 +49,7 @@ dependencies = [
  "nand",
  "patina-sdk",
  "program",
+ "random",
  "readout",
  "screen",
  "seg-join",
@@ -119,6 +120,13 @@ dependencies = [
 
 [[package]]
 name = "program"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
+name = "random"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",

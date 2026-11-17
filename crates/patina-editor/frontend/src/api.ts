@@ -136,6 +136,8 @@ export interface View {
   kinds: KindInfo[];
   /** The clock domain of each node use of the checked main graph, by flattened ID (9.1). Empty when the check fails. */
   domains: Record<string, Domain>;
+  /** The frames each second of the project (9.1). */
+  frameRate: number;
 }
 
 /** The unsaved text of the Code tab, by path. */
@@ -245,7 +247,7 @@ export type EngineEvent =
   | { state: 'loaded'; serial: number; builtMs: number | null; fused: boolean; slot: string | null; errors: Diagnostic[] }
   | { state: 'lost'; serial: number; text: string }
   /** One frame of the frame domain (9.1). Only the nodes of the frame domain ran. */
-  | { state: 'frame'; serial: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
+  | { state: 'frame'; serial: number; frames: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
   /** One event run ended (9.4). Only the nodes of the run ran. `id` is 0 for a report of a trigger or of Patina. */
   | { state: 'fired'; serial: number; id: number; trigger: string; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
   /** The live run ended after `frames` frames. */
@@ -389,6 +391,8 @@ export const api = {
   run: () => invoke<View>('run'),
   pause: () => invoke<View>('pause'),
   step: () => invoke<View>('step'),
+  /** Sets the frames each second of the project, 1 to 1000 (9.1). */
+  frameRate: (rate: number) => invoke<View>('frame_rate', { rate }),
   /** Runs the open subgraph alone with these public input values. Null ends the test (15.9). */
   test: (inputs: Record<string, string> | null) => invoke<View>('test', { inputs }),
   /** Fuses the node in the slot back into the base now (7.2). */

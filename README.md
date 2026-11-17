@@ -233,7 +233,7 @@ Each node runs in a clock domain. The domain decides when the node runs.
 | Domain | When it runs | Example uses |
 |---|---|---|
 | Batch | One time, when you click **Run** or an input changes | Data processing, export |
-| Frame | Each display or simulation tick, at 60 FPS | Interactive tools, previews |
+| Frame | Each display or simulation tick, at the frame rate of the project (60 FPS by default, **FPS** in the toolbar) | Interactive tools, previews |
 | Audio | Each block of samples from the audio device | Sound effects, synthesis |
 | Event | On a schedule, a webhook, a file change or a GUI event | Automation pipelines |
 
@@ -344,14 +344,14 @@ two numbers in the RAM. At the carry of the next sum, it writes 0 to OUT and sta
 **file** to `programs/count.asm` for a program that counts up. The `rom-16x7` subgraph is a
 program memory of `switch` nodes, one for each bit.
 
-The `clock` node gives the ticks of the CPU. It gives one tick each **every** frames, so the
-example runs 15 instructions each second at 60 frames each second. Set **every** in the
-**Inspector** to change the speed. Set **halt** to stop the clock, then click **Step** on the node
+The `clock` node gives the ticks of the CPU. It gives one tick each **every** frames. The
+example project runs at 240 frames each second, so the CPU runs 60 instructions each second. To
+change the speed, set **FPS** in the toolbar (1 to 1000), or set **every** in the **Inspector**. Set **halt** to stop the clock, then click **Step** on the node
 to give one tick. The LED of the node is lit for the first half of each period.
 
 The CPU has IO ports 8 to 15 for devices. Its **port** output is k, its **a** output is A, and
 its **wr** and **rd** outputs are on during an ST or an LD to a port. Its **io** input is the value
-that LD reads. The main graph has four devices on the ports:
+that LD reads. The main graph has five devices on the ports:
 
 - `keyboard` (port 8): type a text into the **Type** field and press Enter. The characters and an
   Enter key (13) go into a buffer. LD 8 reads the first key, or 0 when the buffer is empty.
@@ -361,10 +361,14 @@ that LD reads. The main graph has four devices on the ports:
   10 sets Y, and ST 11 plots the color A at X and Y. Then X moves to the next pixel. ST 12 fills
   the frame with the color A.
 - `screen`: shows the frame of the `gpu`.
+- `random` (port 13): LD 13 reads a random byte, and each LD gives a new byte. At the other
+  ports, the byte on its **bus** input goes through to the **io** input of the CPU.
 
 Set **file** to `programs/echo.asm` to show each key on the terminal. Set **file** to
-`programs/stripes.asm` to paint the screen. The **address** parameter of a device sets its first
-port. The `cpu` has one **io** input, so only one device can give values to LD.
+`programs/stripes.asm` to paint the screen. Set **file** to `programs/noise.asm` or
+`programs/confetti.asm` to paint random pixels. Set **file** to `programs/dice.asm` to show a
+random number on OUT at each key. The **address** parameter of a device sets its first port. The
+`cpu` has one **io** input, so the `keyboard` gives its key to the **bus** input of `random`.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
 puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8

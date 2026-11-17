@@ -116,6 +116,19 @@ pub fn try_run<F, T, E: fmt::Debug, A: Args<F, Out = Result<T, E>>>(f: F, args: 
     catch_quiet(AssertUnwindSafe(move || args.call(f).map_err(|e| format!("{e:?}"))))
 }
 
+/// Calls plain node function `f` with `args` in a catch, and times the call. A call that worked
+/// stores its value in `out`. Each step of the same function and argument types shares this one
+/// copy of the code, so a cluster of many gates builds fast. Returns false when the call failed.
+#[inline(never)]
+pub fn step<F, A: Args<F>>(rep: &Reporter, node: u32, f: F, args: A, out: &mut Option<A::Out>) -> bool {
+    let (start, mut ok) = (std::time::Instant::now(), true);
+    if let Some(value) = done(run(f, args), rep, node, &mut ok) {
+        *out = Some(value);
+    }
+    rep.time(node, start);
+    ok
+}
+
 /// Reports the result of `run`, and gives the value of a call that worked.
 pub fn done<R>(caught: Caught<R>, rep: &Reporter, node: u32, ok: &mut bool) -> Option<R> {
     let caught = match caught {

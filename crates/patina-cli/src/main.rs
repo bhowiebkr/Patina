@@ -119,7 +119,7 @@ fn run(folder: &Path, counts: Counts, mode: Mode) -> Result<bool, String> {
     let start = Instant::now();
     let mut cluster = checked.build(&toolchain, mode).map_err(|e| e.to_string())?;
     eprintln!("Built in {:.2} s", start.elapsed().as_secs_f64());
-    Ok(drive(&mut cluster, checked.graph(), counts))
+    Ok(drive(&mut cluster, checked.graph(), counts, checked.frame_rate()))
 }
 
 /// Builds the project and writes a package to the folder `out` (14).
@@ -155,15 +155,17 @@ fn run_package(dir: &Path, args: &[String]) -> Result<bool, String> {
         *count = Some(args.next().and_then(|n| n.parse().ok()).ok_or_else(|| format!("{arg} needs a count"))?);
     }
     package::set_args(&mut checked, &params)?;
-    Ok(drive(&mut cluster, checked.graph(), counts))
+    Ok(drive(&mut cluster, checked.graph(), counts, checked.frame_rate()))
 }
 
 /// Runs the batch domain one time. Then it runs the event runs, the frames and the audio blocks of
-/// `counts`. The blocks run on their own thread, at the same time as the frames (9.3). Returns
-/// false when a node failed.
-fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
+/// `counts`, with `rate` frames each second. The blocks run on their own thread, at the same time
+/// as the frames (9.3). Returns false when a node failed.
+fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts, rate: u32) -> bool {
     interrupt::catch();
     let control: &Control = &interrupt::CONTROL;
+    // The CLI shows no values and no run times, so the runs do not send them (9.1).
+    control.set_quiet(true);
     // A node with a bad parameter does not run, so the graph does not run.
     if !show(&cluster.set_params(graph)) || !show(&cluster.run(control)) {
         return false;
@@ -175,10 +177,10 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
     let has_frames = cluster.frames();
     if !cluster.blocks() {
         let count = if has_frames { counts.frames } else { Some(0) };
-        return frames(|| show(cluster.frame(control)), count, &AtomicBool::new(false));
+        return frames(|| show(cluster.frame(control)), count, rate, &AtomicBool::new(false));
     }
     let Some((mut frame, mut audio)) = cluster.split() else {
-        return between(cluster, counts, has_frames);
+        return between(cluster, counts, has_frames, rate);
     };
     // A domain without a count runs until each domain with a count is done, or a node fails.
     let stop = AtomicBool::new(false);
@@ -190,7 +192,7 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
     };
     std::thread::scope(|scope| {
         let thread = scope.spawn(|| done(blocks(&mut audio, counts.blocks, &stop), counts.frames.filter(|_| has_frames)));
-        let framed = !has_frames || done(frames(|| show(frame.frame(control)), counts.frames, &stop), counts.blocks);
+        let framed = !has_frames || done(frames(|| show(frame.frame(control)), counts.frames, rate, &stop), counts.blocks);
         // A panic of the audio thread is a failure of the run.
         thread.join().unwrap_or(false) && framed
     })
@@ -198,18 +200,23 @@ fn drive(cluster: &mut Cluster, graph: &GraphFile, counts: Counts) -> bool {
 
 /// Runs `count` frames on the frame clock, or frames until `stop`. Returns false when a node
 /// failed.
-fn frames(mut frame: impl FnMut() -> bool, count: Option<u64>, stop: &AtomicBool) -> bool {
-    let mut clock = Clock::new(clock::FRAME);
-    for n in 0..count.unwrap_or(u64::MAX) {
-        if n > 0 {
-            clock.wait();
+fn frames(mut frame: impl FnMut() -> bool, count: Option<u64>, rate: u32, stop: &AtomicBool) -> bool {
+    let (mut clock, count, mut done) = (Clock::new(clock::FRAME), count.unwrap_or(u64::MAX), 0_u64);
+    for tick in 1.. {
+        let due = done.saturating_add(clock::frames_at(tick, rate)).min(count);
+        while done < due {
+            if stop.load(Relaxed) || interrupt::stopped() {
+                return true;
+            }
+            if !frame() {
+                return false;
+            }
+            done += 1;
         }
-        if stop.load(Relaxed) || interrupt::stopped() {
-            break;
+        if done == count || stop.load(Relaxed) || interrupt::stopped() {
+            return true;
         }
-        if !frame() {
-            return false;
-        }
+        clock.wait();
     }
     true
 }
@@ -219,6 +226,7 @@ fn frames(mut frame: impl FnMut() -> bool, count: Option<u64>, stop: &AtomicBool
 fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
     raise_priority();
     let (control, mut pace) = (Control::default(), Pace::default());
+    control.set_quiet(true);
     for block in 0..count.unwrap_or(u64::MAX) {
         if block > 0 {
             pace.wait();
@@ -238,7 +246,7 @@ fn blocks(audio: &mut Audio, count: Option<u64>, stop: &AtomicBool) -> bool {
 /// Runs the blocks and the frames on one thread, when the audio domain cannot have its own
 /// thread (9.3). A frame runs before the first block that starts at or after its time. Returns
 /// false when a node failed.
-fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool) -> bool {
+fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool, rate: u32) -> bool {
     let (control, mut pace): (&Control, _) = (&interrupt::CONTROL, Pace::default());
     let limit = if has_frames { counts.frames.unwrap_or(u64::MAX) } else { 0 };
     let mut frame = 0;
@@ -250,7 +258,7 @@ fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool) -> bool {
         if block > 0 {
             pace.wait();
         }
-        while frame < limit && frame_due(frame, block) {
+        while frame < limit && frame_due(frame, block, rate) {
             if !show(cluster.frame(control)) {
                 return false;
             }
@@ -263,7 +271,7 @@ fn between(cluster: &mut Cluster, counts: Counts, has_frames: bool) -> bool {
     }
     pace.drain();
     let rest = counts.frames.filter(|_| has_frames).map_or(0, |count| count - frame);
-    frames(|| show(cluster.frame(control)), Some(rest), &AtomicBool::new(false))
+    frames(|| show(cluster.frame(control)), Some(rest), rate, &AtomicBool::new(false))
 }
 
 /// Shows a change of the audio device.

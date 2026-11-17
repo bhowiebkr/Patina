@@ -174,6 +174,7 @@ The project files are TOML. Patina writes them, and Git can merge them. A person
 format = 1
 id = "3f9c2a7d41e0b85c"     # the stable random ID of the project (6.2)
 rust = "1.94.0"             # the Rust version of the project (8.1)
+frame_rate = 600            # optional: the frames each second, 1 to 1000 (9.1)
 
 [imports."nodes/curve-editor"]   # the folder in this project (6.2)
 project = "9a1b4c0d2e7f6385"     # the ID of the other project
@@ -188,6 +189,7 @@ copy = "sha256:<64 hex characters>"   # the copy in this project after the impor
 
 - The import hash is a SHA-256 hash of the sorted relative paths and the bytes of each file in the folder. The paths use `/` on each platform. For each file, the hash reads the path, a zero byte, the length as 8 little-endian bytes, and the bytes. Hidden files, links and `target` folders are not part of a folder. (Agent decision, 2026-11-15. The owner can change it.)
 - An import record holds no path of the other project (6.2).
+- `frame_rate` is optional. Without it, the frame domain runs at 60 FPS. Patina does not write the default value. The **FPS** field in the toolbar of the editor sets it. (Agent decision, 2026-11-16. The owner can change it.)
 - The `copy` hash uses the same method. An old record with no `copy` key counts as a copy that changed. (Agent decision, 2026-11-15. The owner can change it.)
 - A hash of the `files` table uses the same method with only that file. It is the hash of the file from the other project, with the crate names of this project in `Cargo.toml`. (Agent decision, 2026-11-16. The owner can change it.)
 

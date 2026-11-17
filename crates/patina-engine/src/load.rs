@@ -15,7 +15,7 @@ use crate::node::Domain;
 use crate::plan::Plan;
 use crate::pool;
 use crate::project::GraphFile;
-use crate::run::{Audio, Calls, Frames, Nodes, Run};
+use crate::run::{Audio, Calls, Frames, Nodes, Pace, Run};
 use crate::{Error, generate};
 
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -148,8 +148,8 @@ pub struct Cluster {
     domains: Vec<Domain>,
     /// The state key of each node, by node index (7.2). A node with no state has none.
     keys: Vec<Option<u64>>,
-    /// The sum of the node run times of the last run of each domain, in ms.
-    work: [f64; 4],
+    /// The times of the last runs of each domain (9.2).
+    pace: [Pace; 4],
     /// The ID and the folder name of each node, by node index.
     names: Vec<(String, String)>,
     /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).
@@ -222,7 +222,7 @@ impl Cluster {
             mode: crate::Mode::Edit,
             domains: plan.steps.iter().map(|s| s.domain).collect(),
             keys,
-            work: [f64::INFINITY; 4],
+            pace: [Pace::default(); 4],
             names,
             guis,
             has_text: vec![false; slots.len()],
@@ -377,8 +377,8 @@ impl Cluster {
         // One thread runs all audio nodes (9.3), so the audio domain never uses the pool.
         let pool = !audio && self.slot.as_ref().is_none_or(|(slot, _)| slot.parallel);
         let calls = if audio { &mut self.block_calls } else { &mut self.calls };
-        let (names, probes, work) = (&self.names, &self.probes, &mut self.work[domain as usize]);
-        Run { library: self.libraries[domain as usize].as_ref(), pool, names, probes, calls, work }.domain(domain, control);
+        let (names, probes, pace) = (&self.names, &self.probes, &mut self.pace[domain as usize]);
+        Run { library: self.libraries[domain as usize].as_ref(), pool, names, probes, calls, pace }.domain(domain, control);
     }
 
     /// Splits the cluster into its frame domain and its audio domain, so that the audio domain
@@ -418,7 +418,7 @@ impl Cluster {
     /// domain. `audio` and `events` are false when other threads run these domains, so the frame
     /// part refuses their nodes.
     fn parts(&mut self, audio: bool, events: bool) -> (Frames<'_>, Run<'_>, &mut [f32; BLOCK], Option<Events<'_>>) {
-        let [_, frame_work, audio_work, _] = &mut self.work;
+        let [_, frame_pace, audio_pace, _] = &mut self.pace;
         let [_, frame, audio_library, event_library] = &self.libraries;
         let (names, probes) = (&self.names, &self.probes);
         // The frames use the pool only when the slot library allows it (9.2).
@@ -432,8 +432,8 @@ impl Cluster {
             audio,
             events,
         };
-        let run = Run { library: frame.as_ref(), pool, names, probes, calls: &mut self.calls, work: frame_work };
-        let blocks = Run { library: audio_library.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, work: audio_work };
+        let run = Run { library: frame.as_ref(), pool, names, probes, calls: &mut self.calls, pace: frame_pace };
+        let blocks = Run { library: audio_library.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, pace: audio_pace };
         let events = event_library.as_ref().map(|library| Events::new(library, pool, &self.triggers, names, probes, &self.root));
         (Frames { run, nodes }, blocks, &mut self.sound, events)
     }

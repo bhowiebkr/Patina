@@ -90,6 +90,8 @@ pub struct Project {
     /// The stable ID of `patina.toml` (5.3). The text is not checked.
     id: String,
     rust: String,
+    /// The frames each second of the frame domain (6.4, 9.1).
+    frame_rate: u32,
     /// The name of the open graph: `main` or the name of a subgraph (6.1).
     name: String,
     history: edit::History,
@@ -176,6 +178,7 @@ pub fn builtins() -> Vec<NodeInfo> {
 pub struct Checked {
     root: PathBuf,
     rust: String,
+    frame_rate: u32,
     plan: plan::Plan,
     graph: project::GraphFile,
     aliases: Vec<(String, String)>,
@@ -199,9 +202,10 @@ impl Project {
         // The path must be absolute, because cargo reads the target folder from a variable.
         let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
         let file = project::read(&root.join("patina.toml"), |f: &project::ProjectFile| f.format)?;
+        let frame_rate = check_rate(file.frame_rate.unwrap_or(clock::RATE)).map_err(|e| Error::File(root.join("patina.toml"), e))?;
         let graph = project::read(&graph_path(&root, MAIN), |g: &GraphFile| g.format)?;
         let history = edit::History::new(graph);
-        Ok(Project { root, id: file.id, rust: file.rust, name: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
+        Ok(Project { root, id: file.id, rust: file.rust, frame_rate, name: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
     }
 
     /// Makes a new project in a new or empty folder, with the `number` and `show` nodes and an
@@ -268,6 +272,22 @@ impl Project {
     /// The Rust version that the project builds with (6.4).
     pub fn rust(&self) -> &str {
         &self.rust
+    }
+
+    /// The frames each second of the frame domain (6.4, 9.1).
+    pub fn frame_rate(&self) -> u32 {
+        self.frame_rate
+    }
+
+    /// Writes a new frame rate into `patina.toml`. The next run uses it.
+    pub fn set_frame_rate(&mut self, rate: u32) -> Result<(), Error> {
+        let path = self.root.join("patina.toml");
+        check_rate(rate).map_err(|e| Error::File(path.clone(), e))?;
+        let mut file = project::read(&path, |f: &project::ProjectFile| f.format)?;
+        file.frame_rate = (rate != clock::RATE).then_some(rate);
+        project::write(&path, &file)?;
+        self.frame_rate = rate;
+        Ok(())
     }
 
     /// The open graph.
@@ -550,7 +570,7 @@ impl Project {
         let open = (self.name != MAIN).then_some((self.name.as_str(), &self.history.graph));
         let (graph, aliases) = subgraph::flatten(&self.root, main, open).map_err(fail)?;
         let plan = plan::check(&self.root, &graph).map_err(fail)?;
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases, test: false })
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: false })
     }
 
     /// Checks one use of the open subgraph alone, with `params` for its public inputs (15.9). The
@@ -565,7 +585,7 @@ impl Project {
         let (graph, aliases) = subgraph::flatten(&self.root, &root, Some((&self.name, &self.history.graph))).map_err(fail)?;
         let mut plan = plan::check(&self.root, &graph).map_err(fail)?;
         plan.probe_all(&aliases);
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), plan, graph, aliases, test: true })
+        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: true })
     }
 }
 
@@ -579,6 +599,14 @@ fn graph_path(root: &Path, name: &str) -> PathBuf {
     root.join("graphs").join(format!("{name}.toml"))
 }
 
+/// A frame rate of `patina.toml` must be in `clock::RATES` (6.4).
+fn check_rate(rate: u32) -> Result<u32, String> {
+    match clock::RATES.contains(&rate) {
+        true => Ok(rate),
+        false => Err(format!("the frame rate {rate} is not 1 to 1000")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -589,6 +617,13 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         let mut project = Project::create(&root, "1.94.0").unwrap();
         assert!(Project::create(&root, "1.94.0").is_err(), "a folder with files is not used");
+        assert_eq!(project.frame_rate(), 60);
+        assert!(project.set_frame_rate(0).is_err() && project.set_frame_rate(1001).is_err());
+        project.set_frame_rate(600).unwrap();
+        assert!(fs::read_to_string(root.join("patina.toml")).unwrap().contains("frame_rate = 600"));
+        assert_eq!((Project::open(&root).unwrap().frame_rate(), project.check().unwrap().frame_rate()), (600, 600));
+        project.set_frame_rate(60).unwrap();
+        assert!(!fs::read_to_string(root.join("patina.toml")).unwrap().contains("frame_rate"));
         let nodes = project.nodes().unwrap();
         let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, ["number", "show"]);

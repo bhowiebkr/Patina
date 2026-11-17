@@ -13,6 +13,30 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Speed, frame rate and random numbers of the computer
+
+- A profile of `examples/computer` found three costs. The editor merged all values of a frame in
+  O(n x n) and sent all of them. The worker pool cost more than the small tasks. The generated
+  code of each gate was large, so the bake build was slow.
+- Now the editor sends only the values that changed, and the node times at 10 Hz (spec 15.9).
+  The pool runs only when the nodes of the last run took 0.1 ms or more (spec 9.2). Each gate
+  calls a shared `glue::step` function.
+- Measured, frame of the computer: the editor (edit build) went from 8.3 ms to 1.8 ms. The CLI
+  (bake build) went from 0.87 ms to 0.51 ms. The bake build went from 111 s to 52 s.
+- New: the frame rate of a project, 1 to 1000 FPS (`frame_rate` in `patina.toml`, the **FPS**
+  field in the toolbar, spec 6.4 and 9.1). The example runs at 240 FPS: 60 instructions each
+  second. In the editor, only the last frame of each 60 Hz tick sends its values.
+- New: the `random` node on port 13, and the programs `noise.asm`, `confetti.asm` and `dice.asm`.
+  The `random` node passes the key of the `keyboard` on its **bus** input at the other ports.
+- Checked: the CLI (bake build) ran 2400 frames at 240 FPS in 10.4 s and 5000 frames at 1000 FPS
+  in 5.4 s, with the start. The CLI ran a program of LD 13 and OUT for 600 frames: the LCD
+  showed new random bytes, for example `39 10 BA 77 41`. Unit tests check the frame counts of a rate, the quiet runs of the
+  SDK, the rate in `patina.toml` and the `random` node. The hidden self-check sets 120 FPS and
+  counts two frames in each frame event.
+- Known limits: in the editor, a frame of the edit build takes about 1 ms, so a rate above about
+  600 FPS makes the clock skip ticks. Then the CPU runs slower than the rate, but frames never
+  queue. The bake run time after the last change of the generated code was not measured again.
+
 ## IO devices of the computer
 
 - The `cpu` subgraph of `examples/computer` has IO ports 8 to 15. ST and LD with k3 on go to a
@@ -20,10 +44,10 @@ checks open.
   `gpu` (32 x 32 pixels, 16 colors) and `screen`, with the `frame` type for the GPU bus.
 - Checked: unit tests of the five crates. The CLI ran `programs/stripes.asm` for 400 frames: the
   screen got one more pixel for each plot. The CLI test of the example still passes.
-- Known limits: the `cpu` has one **io** input, so only one device gives values to LD. Node state
+- Known limits: the `cpu` has one **io** input, so each device that gives values to LD passes the
+  values of the device before it (see the `random` node). Node state
   does not save, so the terminal, the frame and the key buffer are empty after an open. The
   keyboard path to the terminal is checked only by unit tests, because it needs typed input.
-  The CLI ran at about 20 ms for each frame with the GPU and the screen.
 
 ## Program node of the computer
 

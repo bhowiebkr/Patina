@@ -117,11 +117,12 @@ export function useRun(serial: RefObject<number>) {
         ok: e.ok,
         // The reports of the event runs stay, because the event nodes are not in the frame domain.
         reports: [...e.reports, ...r.eventReports],
-        values: new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]),
+        // A frame sends only the values that changed, and the times at 10 Hz (15.9).
+        values: e.values.length > 0 ? new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]) : r.values,
         idle: idleOf(e.skipped, e.stopped),
-        times: new Map([...r.times, ...e.times.map((t) => [t.id, t.ms] as const)]),
+        times: e.times.length > 0 ? new Map([...r.times, ...e.times.map((t) => [t.id, t.ms] as const)]) : r.times,
         logs: e.logs,
-        frames: r.frames + 1,
+        frames: r.frames + e.frames,
       }));
       const lines = nodeLines(e);
       if (lines.length > 0) log(lines);

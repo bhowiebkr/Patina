@@ -38,8 +38,7 @@ pub(crate) struct Run<'a> {
     pub(crate) names: &'a [(String, String)],
     pub(crate) probes: &'a [String],
     pub(crate) calls: &'a mut Calls,
-    /// The sum of the node run times of the last run, in ms.
-    pub(crate) work: &'a mut f64,
+    pub(crate) pace: &'a mut Pace,
 }
 
 impl Run<'_> {
@@ -56,11 +55,14 @@ impl Run<'_> {
         tasks.state.store(library.state, Relaxed);
         tasks.control.store(std::ptr::from_ref(control).cast_mut(), Relaxed);
         tasks.ok.store(true, Relaxed);
-        if use_pool(self.pool && library.parallel, tasks.inputs.len(), *self.work) {
+        let start = std::time::Instant::now();
+        let pooled = self.pace.pool(self.pool && library.parallel, tasks.inputs.len());
+        if pooled {
             pool::run(tasks.clone());
         } else {
             (0..tasks.inputs.len()).for_each(|task| tasks.run(task));
         }
+        self.pace.took(pooled, start.elapsed().as_secs_f64() * 1000.0);
         tasks.control.store(std::ptr::null_mut(), Relaxed);
         self.calls.sink.clear();
         for task in &tasks.sinks {
@@ -71,7 +73,10 @@ impl Run<'_> {
         // during the call.
         self.calls.call(self.names, self.probes, control, |rep| unsafe { end(state, domain as u32, rep) });
         self.calls.out.ok &= ok && begun;
-        *self.work = self.calls.out.times.iter().map(|t| t.ms).sum();
+        // A quiet run sends no times (9.1), so the last measure stays.
+        if !control.quiet() {
+            self.pace.work = self.calls.out.times.iter().map(|t| t.ms).sum();
+        }
     }
 }
 
@@ -86,6 +91,11 @@ impl Frames<'_> {
     /// Runs one frame, as `Cluster::frame`.
     pub fn frame(&mut self, control: &Control) -> &Outcome {
         self.run.domain(Domain::Frame, control);
+        &self.run.calls.out
+    }
+
+    /// The outcome of the last frame.
+    pub fn outcome(&self) -> &Outcome {
         &self.run.calls.out
     }
 
@@ -200,10 +210,36 @@ impl Audio<'_> {
     }
 }
 
-/// Spec 9.2: the pool runs the tasks only when the nodes of the last run took 0.1 ms or more.
-/// Under that, the wake of the workers costs more time than the pool saves.
-fn use_pool(parallel: bool, tasks: usize, last_ms: f64) -> bool {
-    parallel && tasks > 1 && last_ms >= 0.1
+/// The times of the last runs of a domain, to choose the pool or the calling thread (9.2).
+#[derive(Clone, Copy)]
+pub(crate) struct Pace {
+    /// The sum of the node run times of the last run, in ms.
+    work: f64,
+    /// The mean wall time of the tasks with the pool and on the calling thread, in ms. 0 is not
+    /// measured.
+    taken: [f64; 2],
+    runs: u32,
+}
+
+impl Default for Pace {
+    fn default() -> Self {
+        Pace { work: f64::INFINITY, taken: [0.0; 2], runs: 0 }
+    }
+}
+
+impl Pace {
+    /// Spec 9.2: the pool runs only when the nodes of the last run took 0.1 ms or more. Then the
+    /// faster of the two ways runs, and each 64th run measures the other way again.
+    fn pool(&self, parallel: bool, tasks: usize) -> bool {
+        let [pool, alone] = self.taken;
+        parallel && tasks > 1 && self.work >= 0.1 && ((pool <= alone) != (self.runs % 64 == 63))
+    }
+
+    fn took(&mut self, pooled: bool, ms: f64) {
+        let mean = &mut self.taken[usize::from(!pooled)];
+        *mean = if *mean == 0.0 { ms } else { (*mean + ms) / 2.0 };
+        self.runs = self.runs.wrapping_add(1);
+    }
 }
 
 #[cfg(test)]
@@ -211,8 +247,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_heavy_runs_use_the_pool() {
-        assert!(use_pool(true, 2, f64::INFINITY), "the first run");
-        assert!(!use_pool(true, 2, 0.05) && !use_pool(true, 1, 1.0) && !use_pool(false, 2, 1.0));
+    fn the_pool_runs_when_it_is_faster() {
+        let mut pace = Pace::default();
+        assert!(pace.pool(true, 2), "the first run");
+        assert!(!pace.pool(false, 2) && !pace.pool(true, 1));
+        pace.took(true, 0.9);
+        // The second run measures the calling thread.
+        assert!(!pace.pool(true, 2));
+        pace.took(false, 0.5);
+        assert!(!pace.pool(true, 2), "the calling thread is faster");
+        (2..63).for_each(|_| pace.took(false, 0.5));
+        assert!(pace.pool(true, 2), "each 64th run measures the pool again");
+        pace.took(true, 0.05);
+        assert!(pace.pool(true, 2), "now the pool is faster");
+        pace.work = 0.05;
+        assert!(!pace.pool(true, 2), "a light run");
     }
 }

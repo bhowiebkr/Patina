@@ -25,10 +25,15 @@ impl Keeps {
     /// Keeps a copy of `value` when a view asked for held value `index`. The copy uses the
     /// buffers of the last copy again.
     pub fn keep<T: Clone + Send + 'static>(&self, index: u32, value: &T) {
-        let Some((on, copy)) = self.0.get(index as usize) else { return };
-        if !on.load(Relaxed) {
-            return;
+        if self.0.get(index as usize).is_some_and(|(on, _)| on.load(Relaxed)) {
+            self.copy(index, value);
         }
+    }
+
+    /// The copy of `keep`, out of line, so the generated code of each held value stays small.
+    #[inline(never)]
+    fn copy<T: Clone + Send + 'static>(&self, index: u32, value: &T) {
+        let Some((_, copy)) = self.0.get(index as usize) else { return };
         let mut copy = copy.lock().unwrap_or_else(PoisonError::into_inner);
         let caught = catch_unwind(AssertUnwindSafe(|| match copy.as_mut().and_then(|c| c.downcast_mut::<T>()) {
             Some(old) => old.clone_from(value),

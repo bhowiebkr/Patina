@@ -202,6 +202,11 @@ select {
 }
 
 /* The branding artwork (assets/branding) fades to the right. The name sits on the fade. */
+.topbar .fps .gui-field {
+  flex: 0 0 52px;
+  min-width: 0;
+}
+
 .topbar .brand {
   position: relative;
   flex: none;

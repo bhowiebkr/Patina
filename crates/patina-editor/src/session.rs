@@ -97,6 +97,8 @@ pub struct View {
     test: Option<BTreeMap<String, String>>,
     /// The clock domain of each node use of the checked graph, empty when the check fails (9.1, 15.3).
     domains: BTreeMap<String, &'static str>,
+    /// The frames each second of the project (9.1).
+    frame_rate: u32,
 }
 
 /// The answer to a recovery file: the view and the unsaved code for the Code tab (15.10).
@@ -322,6 +324,7 @@ impl Session {
             recovery: self.recovery.is_some(),
             test: self.test.clone(),
             domains,
+            frame_rate: project.frame_rate(),
         }
     }
 }
