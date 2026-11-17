@@ -376,7 +376,7 @@ to give one tick. The LED of the node is lit for the first half of each period.
 The **address** output of the CPU is the address of the instruction, and its **a** output is A.
 Its **write** output is on during an ST or an STX to the RAM, and its **mem** input is the byte
 of the RAM. Its **wr** and **rd** outputs are on during a write or a read of an IO port. Its
-**io** input is the byte that a read of an IO port gives. The main graph has six devices on the
+**io** input is the byte that a read of an IO port gives. The main graph has seven devices on the
 ports:
 
 - `keyboard` (port 0xF0): type a text into the **Type** field and press Enter. The characters and
@@ -385,8 +385,13 @@ ports:
   Enter (13) starts a new line, and backspace (8) removes the last character.
 - `gpu` (ports 0xF1 to 0xF4): a video chip with a frame of 32 x 32 pixels in 16 colors. ST 0xF1
   sets X, ST 0xF2 sets Y, and ST 0xF3 plots the color A at X and Y. Then X moves to the next
-  pixel. ST 0xF4 fills the frame with the color A.
-- `screen`: shows the frame of the `gpu`.
+  pixel. ST 0xF4 fills the frame with the color A. LD 0xF3 reads the color of the pixel at X and
+  Y, and X does not move.
+- `sprites` (ports 0xF9 to 0xFD): 8 sprites of 8 x 8 pixels over the frame of the `gpu`. ST 0xF9
+  selects sprite A. ST 0xFA sets its X, and ST 0xFB sets its Y. ST 0xFC sets its color, and color
+  0 hides it. ST 0xFD writes the next row of its pattern, and bit 7 is the left pixel. A new
+  sprite is one dot, so two writes move it. Sprite 0 is on top of the other sprites.
+- `screen`: shows the frame of the `sprites` node.
 - `random` (port 0xF5): LD 0xF5 reads a random byte, and each LD gives a new byte. At the other
   ports, the byte on its **bus** input goes through to the **io** input of the CPU.
 - `joystick` (ports 0xF6 to 0xF8): click the pad, then hold the arrow keys or W, A, S and D, and
@@ -400,7 +405,10 @@ Select `programs/echo.asm` in **File** to show each key on the terminal. Select
 number on OUT at each key. Select `programs/paint.asm` to paint with the joystick. The programs
 give names to the ports, for example `KEY = 0xF0`. The **address** parameter of a device sets its
 first port. The `cpu` has one **io** input, so the devices are a chain: `keyboard` to `random` to
-`joystick` to the CPU.
+`joystick` to `gpu` to the CPU.
+
+The `monitor` view draws the screen on the real GPU, with a dark gap between the pixels. Open it
+from the **Views** menu. The view does not take keys, so click the pad of the `joystick` to play.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node
 puts 8 bits into a byte. The `byte` connection kind draws each byte wire as a ribbon of 8

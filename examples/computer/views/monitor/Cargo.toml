@@ -1,0 +1,14 @@
+[package]
+name = "monitor"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+patina-sdk = { workspace = true }
+# A direct path, because cargo keeps the default features of a workspace dependency. The `wesl`
+# feature needs a newer Rust than the computer example uses.
+patina-gpu = { path = "../../build/sdk/patina-gpu", default-features = false }
+frame = { path = "../../types/frame" }

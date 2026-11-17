@@ -5,8 +5,8 @@ description = "The shared GPU context, GPU types and the WESL linker of node cod
 edition.workspace = true
 publish.workspace = true
 license.workspace = true
-# The wesl crate needs this Rust version.
-rust-version = "1.97.1"
+# The examples use this Rust version. The `wesl` feature needs Rust 1.97.1.
+rust-version = "1.94"
 
 [lints]
 workspace = true
@@ -15,4 +15,8 @@ workspace = true
 patina-sdk = { path = "../patina-sdk" }
 # No GL and no WebGPU backends, as in the viewport (spec 15.8). Each backend adds compile time.
 wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "vulkan", "wgsl"] }
-wesl = "0.6"
+# The WESL linker. A project on an older Rust turns off the default features (10.3).
+wesl = { version = "0.6", optional = true }
+
+[features]
+default = ["wesl"]

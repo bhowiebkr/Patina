@@ -211,6 +211,14 @@ pos = [700.0, 2600.0]
 address = "241"
 
 [[node]]
+id = "5b0e8d3f71c2a964"
+folder = "nodes/sprites"
+pos = [930.0, 2600.0]
+
+[node.params]
+address = "249"
+
+[[node]]
 id = "778819ef9f467d80"
 folder = "nodes/screen"
 pos = [1162.0, 2352.0]
@@ -666,6 +674,10 @@ to = "4f1c9a7e2b6d3085.port"
 
 [[wire]]
 from = "4f1c9a7e2b6d3085.out"
+to = "ad357059907f778c.bus"
+
+[[wire]]
+from = "ad357059907f778c.out1"
 to = "a3efcc2ce595017a.316d50d0"
 
 [[wire]]
@@ -685,5 +697,21 @@ from = "a3efcc2ce595017a.35baac86"
 to = "ad357059907f778c.wr"
 
 [[wire]]
-from = "ad357059907f778c.out"
+from = "ad357059907f778c.out0"
+to = "5b0e8d3f71c2a964.frame"
+
+[[wire]]
+from = "a3efcc2ce595017a.4cf4949d"
+to = "5b0e8d3f71c2a964.port"
+
+[[wire]]
+from = "a3efcc2ce595017a.78d48ca9"
+to = "5b0e8d3f71c2a964.data"
+
+[[wire]]
+from = "a3efcc2ce595017a.35baac86"
+to = "5b0e8d3f71c2a964.wr"
+
+[[wire]]
+from = "5b0e8d3f71c2a964.out"
 to = "778819ef9f467d80.frame"

@@ -185,6 +185,7 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
 - The `patina-cuda` crate gives the shared CUDA context of device 0 and its default stream, also through the host. Patina copies it into `build/sdk/` as `patina-gpu`. `Cuda::kernel` compiles CUDA C++ with NVRTC and gives the compile log as the error. Agent decision of 2026-11-15, the owner can change it.
 - `cudarc` loads the driver and NVRTC at run time, so a build needs no CUDA Toolkit. NVRTC is not part of the driver: `nvrtc64_120_0.dll` comes with the CUDA Toolkit 12. Until a package can carry NVRTC, a CUDA node fails with a message on a computer without it. Agent decision of 2026-11-15, the owner can change it.
 - `wgpu` 30 and `wesl` 0.6 need Rust 1.97.1 or later, so a project with GPU nodes sets that Rust or a later one in `patina.toml`. Agent decision of 2026-11-15, the owner can change it.
+- The `wesl` linker is the default feature `wesl` of `patina-gpu`. `wgpu` 30 needs only Rust 1.87, so a crate on an older Rust than 1.97.1 turns off the default features: `patina-gpu = { path = "../../build/sdk/patina-gpu", default-features = false }`. It uses a path, because cargo keeps the default features of a workspace dependency. Without `wesl`, the crate compiles WGSL with `Gpu::shader`. The `monitor` view of `examples/computer` does this on Rust 1.94. (Agent decision, 2026-11-17. The owner can change it.)
 
 ### 10.3 Shader nodes
 

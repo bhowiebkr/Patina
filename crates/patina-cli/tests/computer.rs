@@ -5,6 +5,8 @@ use std::path::Path;
 
 mod common;
 use common::{copy, run};
+use patina_engine::view::{View, snapshot};
+use patina_engine::{Project, Toolchain};
 
 /// The clock of the CPU ticks each 4 frames.
 const EVERY: u32 = 4;
@@ -93,7 +95,42 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_programs() {
     // The program node reads its file again at the start of the run.
     fs::write(project.join("programs/fibonacci.asm"), TEST).unwrap();
     assert_eq!(check(&project, 480, &TEST_WORDS)[..9], [44, 250, 10, 7, 17, 10, 2, 248, 44]);
+    // LD at the plot port gives the color of a pixel. The sprite chip draws one dot over the frame.
+    fs::write(project.join("programs/fibonacci.asm"), SPRITE).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--frames", "100"]);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(stdout.lines().rfind(|l| l.starts_with("lcd ")), Some("lcd |05 06           |                |"));
+    // The dot shows at 0,0, then moves to 10,0 and 10,10.
+    let screens: Vec<_> = stdout.lines().filter(|l| l.starts_with("screen ")).collect();
+    assert_eq!(screens, ["1 pixels on", "2 pixels on", "2 pixels on", "2 pixels on"].map(|n| format!("screen 32 x 32, {n}")));
+    // The monitor view builds. Without a window, it draws nothing (15.8).
+    let opened = Project::open(&project).unwrap();
+    let library = opened.build_view(&Toolchain::detect().unwrap(), "monitor").unwrap();
+    let mut view = View::load(&library, &project).unwrap();
+    let tree = view.ui(0, "", &snapshot(opened.graph(), &[], &[], &[]), None).unwrap().tree;
+    assert!(tree.starts_with("viewport	Monitor	320
+label	No frame yet."), "{tree}");
 }
+
+/// A program for the gpu read port and the sprite chip.
+const SPRITE: &str = "LDI 3
+ST 0xF1      ; X = 3
+ST 0xF2      ; Y = 3
+LDI 5
+ST 0xF3      ; color 5 at 3,3, and X goes to 4
+LDI 3
+ST 0xF1
+LD 0xF3      ; A = 5
+OUT
+ADDI 1
+OUT
+LDI 14
+ST 0xFC      ; sprite 0 gets color 14
+LDI 10
+ST 0xFA
+ST 0xFB
+end: JMP end
+";
 
 /// Runs the example and compares each frame with a model of the CPU. Gives the values of OUT.
 fn check(project: &Path, frames: u32, program: &[(u8, u8)]) -> Vec<u8> {

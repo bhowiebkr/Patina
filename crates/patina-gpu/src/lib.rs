@@ -4,6 +4,7 @@
 //! links its WESL files with [`link`] and compiles the WGSL with [`Gpu::shader`] (10.3).
 
 mod image;
+#[cfg(feature = "wesl")]
 mod link;
 mod viewport;
 
@@ -13,6 +14,7 @@ use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Waker};
 
 pub use image::GpuImage;
+#[cfg(feature = "wesl")]
 pub use link::{PACKAGE, link, link_source};
 pub use viewport::ViewportSurface;
 pub use wgpu;

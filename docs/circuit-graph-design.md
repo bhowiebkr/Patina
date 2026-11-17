@@ -205,6 +205,13 @@ too large for the editor. The logic of the CPU stays NAND gates. Addresses 0x00 
 RAM, and 0xF0 to 0xFF go to the IO devices. (Agent decision, 2026-11-16. The owner can change
 it.)
 
+The screen has two Rust nodes on the IO ports. The `gpu` keeps the frame, and a read of its plot
+port gives the color of a pixel, so a game can test the pixel in front of a player. The `sprites`
+node draws 8 sprites over the frame on the CPU, so the `screen` node and the CLI see them. The
+`monitor` view draws the same frame on the real GPU. The view does not send keys to the
+`joystick`, because a parameter change from a view is an edit with an undo step. (Agent decision,
+2026-11-17. The owner can change it.)
+
 ## Checks for a future implementation
 
 These are proposed acceptance checks. The full-adder vectors and the headless run are checked

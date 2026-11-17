@@ -13,6 +13,24 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Sprite GPU of the computer
+
+- New: a `sprites` node on ports 0xF9 to 0xFD of the computer. It draws 8 sprites of 8 x 8 pixels
+  over the frame of the `gpu`, and gives the frame to the `screen`. A new sprite is one dot, so
+  two writes, X and Y, move it.
+- New: LD 0xF3 reads the color of the pixel at X and Y of the `gpu`. The `gpu` is now in the IO
+  chain, after the `joystick`.
+- New: the `monitor` view draws the screen on the real GPU with `wgpu`, in a viewport (15.8).
+- New: the WESL linker of `patina-gpu` is the default feature `wesl`. A crate on Rust 1.94 turns
+  off the default features, because `wesl` needs Rust 1.97.1. The `monitor` view does this.
+- Checked: the workspace clippy and tests. The clippy and tests of the `gpu`, `sprites` and
+  `monitor` crates on Rust 1.94.0. The pipeline test of `monitor` built the pipeline on the GPU
+  of this computer. The CLI ran a program that reads a pixel and moves a sprite, with the clock
+  **every** at 4 and at 1. The CLI test `computer.rs` checks this program, and builds the view.
+- Not checked: the `monitor` view in the editor on the desktop. A hand test must open it.
+- Known limit: the `monitor` view does not send keys to the `joystick`. A view can change a
+  parameter only as an edit, so each key would add an undo step. Click the pad of the joystick.
+
 ## Bigger CPU of the computer
 
 - New: the `cpu` of `examples/computer` has 16 operations, a 4-bit opcode and an 8-bit k. It

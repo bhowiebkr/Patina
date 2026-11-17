@@ -35,9 +35,9 @@ pub(super) const SDK_FILES: [(&str, &str); 30] = [
     (
         "build/sdk/patina-gpu/Cargo.toml",
         "[package]\nname = \"patina-gpu\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\
-         rust-version = \"1.97.1\"\n\n[dependencies]\npatina-sdk = { path = \"../patina-sdk\" }\n\
+         rust-version = \"1.94\"\n\n[dependencies]\npatina-sdk = { path = \"../patina-sdk\" }\n\
          wgpu = { version = \"30\", default-features = false, features = [\"std\", \"parking_lot\", \"dx12\", \"metal\", \"vulkan\", \"wgsl\"] }\n\
-         wesl = \"0.6\"\n",
+         wesl = { version = \"0.6\", optional = true }\n\n[features]\ndefault = [\"wesl\"]\n",
     ),
     ("build/sdk/patina-gpu/src/lib.rs", include_str!("../../../patina-gpu/src/lib.rs")),
     ("build/sdk/patina-gpu/src/image.rs", include_str!("../../../patina-gpu/src/image.rs")),
