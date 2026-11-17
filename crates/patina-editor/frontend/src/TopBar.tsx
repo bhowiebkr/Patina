@@ -1,11 +1,11 @@
 // The top bar of an open project: the path, Close, the run controls and the menus (15.1).
 import { useViewport } from '@xyflow/react';
 import { api, folderName, type NodeEntry, type View } from './api';
-import { HelpMenu } from './About';
-import { ViewsMenu } from './Dock';
-import { Field } from './Field';
-import { useFit } from './GraphView';
-import type { RunState } from './NodeView';
+import { HelpMenu } from './dialogs/About';
+import { ViewsMenu } from './panels/Dock';
+import { Field } from './controls/Field';
+import { useFit } from './canvas/GraphView';
+import type { RunState } from './canvas/NodeView';
 
 function Zoom() {
   const { zoom } = useViewport();

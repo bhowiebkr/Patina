@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { Rect } from './layout';
+import type { Rect } from './panels/layout';
 
 export type Point = [number, number];
 
@@ -51,7 +51,8 @@ export interface PublicOutput {
   key: string;
   name: string;
   pos?: Point;
-  from: string;
+  /** Not in the file for an output that is not connected yet. */
+  from?: string;
 }
 
 /** A graph file in `graphs/` (spec 6.4). Empty lists are left out. */

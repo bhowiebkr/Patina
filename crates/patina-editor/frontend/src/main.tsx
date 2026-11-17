@@ -3,16 +3,16 @@ import { createRoot } from 'react-dom/client';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './theme.css';
-import './code.css';
-import './start.css';
-import './dock.css';
-import './canvas.css';
+import './code/code.css';
+import './dialogs/start.css';
+import './panels/dock.css';
+import './canvas/canvas.css';
 import './gui.css';
-import './controls.css';
-import './bus.css';
+import './controls/controls.css';
+import './canvas/bus.css';
 import { App } from './App';
 import { reportError } from './api';
-import { FloatView } from './Floats';
+import { FloatView } from './panels/Floats';
 
 window.addEventListener('error', (e) => {
   // Monaco (automaticLayout) makes the browser defer a resize notice to the next frame. That is not a fault.

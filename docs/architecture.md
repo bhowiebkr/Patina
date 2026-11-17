@@ -85,8 +85,20 @@ The audio thread, the frame loop, the scheduler and the live-value path must not
 ## 5. Frontend
 
 The frontend is React with `@xyflow/react` for the canvas and Monaco for the **Code** tab.
-`api.ts` holds the calls of the Tauri commands. The store keeps the graph and the live values.
-`GraphView.tsx` holds the canvas, and `NodeView.tsx` and `WireLayer.tsx` draw the nodes and the
-wires. The `check*.ts` files are the selfcheck that `patina --selfcheck` runs.
+`api.ts` holds the calls of the Tauri commands, and `App.tsx` holds the window. The other
+files are in one folder for each part of `src/`:
+
+| Folder | Part |
+| --- | --- |
+| `canvas/` | The graph canvas: `GraphView.tsx`, the nodes, the edits, the menus and the keys. |
+| `wires/` | The wires: the routes, the WebGL layer, the edges and the labels. |
+| `controls/` | The shared controls of the GUI guide and the node GUIs. |
+| `panels/` | The dock, its panels and the dock layout. |
+| `dialogs/` | The start screen, the settings and the dialogs. |
+| `run/` | The run state, the run status and the Logs. |
+| `code/` | The **Code** tab and the language server. |
+| `check/` | The selfcheck that `patina --selfcheck` runs, and the `--shot` code. |
+
+A test file is next to the file that it tests.
 
 The [quality plan](quality-plan.md) lists the open changes to this structure.

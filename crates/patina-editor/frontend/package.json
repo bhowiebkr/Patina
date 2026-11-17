@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
-    "test": "node --test src/api.test.ts src/wires.test.ts src/bus.test.ts src/layout.test.ts src/palette.test.ts src/gui.test.ts src/layers.test.ts src/backdrop.test.ts src/route.test.ts src/arrange.test.ts src/labels.test.ts src/crumbs.test.ts src/frames.test.ts src/canvasMenu.test.ts src/touchpad.test.ts src/timeline.test.ts src/lspMap.test.ts"
+    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "build": "npm run check && vite build",
+    "test": "node --test src/api.test.ts src/wires/wires.test.ts src/canvas/bus.test.ts src/panels/layout.test.ts src/canvas/palette.test.ts src/controls/gui.test.ts src/panels/layers.test.ts src/dialogs/backdrop.test.ts src/wires/route.test.ts src/wires/arrange.test.ts src/wires/labels.test.ts src/canvas/crumbs.test.ts src/canvas/frames.test.ts src/canvas/canvasMenu.test.ts src/canvas/touchpad.test.ts src/panels/timeline.test.ts src/code/lspMap.test.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
