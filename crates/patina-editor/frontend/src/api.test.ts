@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duration, firstSentence, logKind, nodeProblems, openType, scopeDomains } from './api.ts';
+import { duration, firstSentence, logKind, nodeProblems, openType, paramEdit, scopeDomains } from './api.ts';
 
 test('a node run time uses seconds, milliseconds or microseconds', () => {
   assert.equal(duration(2400), '2.4 s');
@@ -39,4 +39,13 @@ test('the status bar shows the first sentence of a failure', () => {
   const crash = 'The node process stopped without a request (exit code: 0xc0000005). The node states are lost.\nmore';
   assert.equal(firstSentence(crash), 'The node process stopped without a request (exit code: 0xc0000005).');
   assert.equal(firstSentence('no toolchain\nmore'), 'no toolchain');
+});
+
+test('a node GUI writes only the parameters that change, of the nodes in the open graph', () => {
+  const graph = { format: 1, node: [{ id: 'a', params: { file: 'x.asm' } }, { id: 'b' }] };
+  const set = (id: string, key: string, text: string) => ({ id, key, text });
+  assert.equal(paramEdit(graph, [set('a', 'file', 'x.asm'), set('c', 'file', 'y.asm')]), null);
+  assert.deepEqual(paramEdit(graph, [set('a', 'file', 'y.asm'), set('a', 'file', 'z.asm')]), { kind: 'SetParam', id: 'a', key: 'file', text: 'z.asm' });
+  const both = paramEdit(graph, [set('a', 'file', 'y.asm'), set('b', 'file', 'y.asm')]);
+  assert.equal(both?.kind === 'Group' && both.edits.length, 2);
 });

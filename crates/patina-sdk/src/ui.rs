@@ -187,6 +187,8 @@ pub struct Ui {
     /// One line for each widget: the kind, the text and the value, with tabs between them.
     tree: String,
     next: u32,
+    /// The parameter writes of `set_param`: the key and the text.
+    pub(crate) params: Vec<(String, String)>,
 }
 
 impl Ui {
@@ -205,12 +207,19 @@ impl Ui {
                 Some((index.parse().ok()?, value.to_owned()))
             })
             .collect();
-        Ui { mode, events, tree: String::new(), next: 0 }
+        Ui { mode, events, tree: String::new(), next: 0, params: Vec::new() }
     }
 
     /// The size to draw (4.3).
     pub fn mode(&self) -> Mode {
         self.mode
+    }
+
+    /// Sets the parameter `key` of this node from the text of `value` (4.3), for example the file
+    /// that a picker selected. The editor applies it through its edit path, so undo removes it and
+    /// the project saves it. Only a call with user input writes, and a view uses `Graph::set_param`.
+    pub fn set_param(&mut self, key: &str, value: impl std::fmt::Display) {
+        self.params.push((key.to_owned(), value.to_string()));
     }
 
     /// Shows a custom widget.

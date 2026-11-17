@@ -22,8 +22,9 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 ## What it shows
 
-- **The CPU.** The `cpu` subgraph runs the program of the `program` node. Edit the assembly
-  code in the node. The example program writes the Fibonacci numbers 1 to 233 to the OUT
+- **The CPU.** The `cpu` subgraph runs the program of the `program` node. Select a program in
+  the **File** dropdown of the node, or click **New**. Expand the node to edit the code with line
+  numbers, the line that runs and the errors. The example program writes the Fibonacci numbers 1 to 233 to the OUT
   register.
 - **Byte wires.** A wire of the `byte` kind is a ribbon of 8 lanes. The badge shows the value
   of the byte. Each lane is lit when its bit is true.
@@ -45,7 +46,7 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 | Folder | Parts |
 | --- | --- |
 | `nodes/` | `nand`, `switch`, `clock`, `program`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `screen`, `random` |
-| `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm` |
+| `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm` |
 | `connections/` | `byte`, `segment-bus` |
 | `types/` | `segments`, `frame` |
 | `graphs/` | `main` and 24 subgraphs |
@@ -65,5 +66,5 @@ The subgraphs, from small to large:
 
 Each instruction has a 3-bit opcode and a 4-bit value k. The
 [Logic circuits](../../README.md#logic-circuits) section of the main README gives the full
-list, the assembly language, the clock, the LCD and the IO ports. To change the program, edit the code in the
-`program` node.
+list, the assembly language, the clock, the LCD and the IO ports. To change the program, select the `program`
+node and edit its code, or expand the node.

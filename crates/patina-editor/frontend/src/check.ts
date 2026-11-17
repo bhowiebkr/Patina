@@ -560,13 +560,21 @@ fn broken() -> u32 {
     from = mark();
     v = await step('run the node GUI', () => api.run());
     await result(v, from, '2.5', BUILD_MS);
-    const guiButton = () =>
-      [...document.querySelectorAll<HTMLButtonElement>(`.react-flow__node[data-id="${A}"] .node-gui button`)].find((b) => b.textContent === 'Add 1');
-    await until('the button of the node GUI', RUN_MS, () => guiButton()?.disabled === false);
+    const guiButton = (text: string) =>
+      [...document.querySelectorAll<HTMLButtonElement>(`.react-flow__node[data-id="${A}"] .node-gui button`)].find((b) => b.textContent === text);
+    await until('the button of the node GUI', RUN_MS, () => guiButton('Add 1')?.disabled === false);
     from = mark();
-    guiButton()!.click();
+    guiButton('Add 1')!.click();
     const clicked = await result(v, from, '3.5', RUN_MS);
     if (clicked.builtMs !== null) throw new Error('a click in a node GUI built the graph again');
+    // A node GUI writes its own parameter through the edit path, so undo removes the write.
+    from = mark();
+    guiButton('Set 4')!.click();
+    await result(v, from, '5', RUN_MS);
+    from = mark();
+    v = await step('undo the parameter write of the node GUI', () => api.undo());
+    await result(v, from, '3.5', RUN_MS);
+    if (v.graph.node?.find((n) => n.id === A)?.params?.value !== '2.5') throw new Error('undo did not remove the parameter write of the node GUI');
     const gui = `.react-flow__node[data-id="${A}"] .node-gui`;
     await checkWidgets(until, gui);
     await checkGuard(until);

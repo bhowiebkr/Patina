@@ -6,7 +6,7 @@ use std::time::Instant;
 use patina_engine::{Control, Frames, Report, Value};
 
 use super::blocks::Blocks;
-use super::{Event, GuiInput, Shared, Tree, lock};
+use super::{Event, GuiInput, ParamWrite, Shared, Tree, lock};
 use crate::node_process::Out;
 
 /// The longest text of a badge, in bytes. A longer text ends with "...".
@@ -22,7 +22,8 @@ pub(super) fn gui(out: &Out, control: &Control, part: &mut Frames, serial: u64, 
     }
     let (tree, done) = part.ui(control, &input.id, input.mode, &input.events);
     let trees = tree.map(|tree| Tree { id: input.id.clone(), mode: input.mode, tree }).into_iter().collect();
-    out.emit(&Event::Gui { serial, trees, reports: done.reports });
+    let params = done.params.into_iter().map(|(key, text)| ParamWrite { id: input.id.clone(), key, text }).collect();
+    out.emit(&Event::Gui { serial, trees, reports: done.reports, params });
     let frame = part.guis().iter().find(|(id, _)| *id == input.id).map(|&(_, frame)| frame)?;
     (input.rerun && !input.events.is_empty()).then_some(frame)
 }
@@ -65,7 +66,7 @@ pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64,
         }
     }
     if !trees.is_empty() || !reports.is_empty() {
-        out.emit(&Event::Gui { serial, trees, reports });
+        out.emit(&Event::Gui { serial, trees, reports, params: Vec::new() });
     }
 }
 

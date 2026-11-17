@@ -125,6 +125,8 @@ pub struct Outcome {
     pub times: Vec<NodeTime>,
     /// The log lines of the nodes, in the order of the run (15.7).
     pub logs: Vec<NodeLog>,
+    /// The parameter writes of a call of `ui`, as the key and the text, for the node of the call (4.3).
+    pub params: Vec<(String, String)>,
 }
 
 /// The loaded clusters of a graph, one for each clock domain (8.2), with their parameters and
@@ -554,8 +556,8 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
                 Lanes::read(lanes.map(|(_, _, text)| text), &mut value.lanes);
             }
             // Lanes with no value before them come only from a defective cluster. `Cluster::ui`
-            // reads the widget lines.
-            glue::LANES | glue::UI => {}
+            // reads the widget lines and the parameter writes.
+            glue::LANES | glue::UI | glue::EDIT => {}
             glue::TIME => {
                 // A defective cluster can send a bad text or index. Its time has no node to show on.
                 if let (Some((id, _)), Ok(ns)) = (name, text.parse::<u64>()) {

@@ -31,7 +31,14 @@ test('a code field keeps its line breaks, tabs and backslashes', () => {
   assert.equal(line, 'LDI 1\\n\\tOUT ; a\\\\b\\nend\\\\');
   assert.equal(unescapeCode(line), text);
   assert.equal(unescapeCode('a\\qb\\'), 'a\\qb\\');
-  assert.deepEqual(parseTree(`code\tProgram\t${line}`), [{ kind: 'code', index: 0, text: 'Program', value: text }]);
+  const plain = { kind: 'code', index: 0, text: 'Program', value: text, editor: false, current: -1, errors: [] };
+  assert.deepEqual(parseTree(`code\tProgram\t${line}`), [plain]);
+  // A code editor: the current line, then a line and a text for each error. A bad mark is dropped.
+  const editor = parseTree(`code\tProgram\t${line}\t2\t0 bad\\tword\tx y\t1 \ncode\tB\t\t\t`);
+  assert.deepEqual(editor, [
+    { ...plain, editor: true, current: 2, errors: [[0, 'bad\tword'], [1, '']] },
+    { kind: 'code', index: 1, text: 'B', value: '', editor: true, current: -1, errors: [] },
+  ]);
   assert.equal(eventLine(0, line), `0 ${line}`);
 });
 

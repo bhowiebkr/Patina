@@ -325,13 +325,20 @@ counter, its 8-bit register A and its 8-bit OUT register. The `ram-4x8` subgraph
 The zero flag Z takes "A is 0" each time that A takes a new value.
 
 The `program` node is the program memory, with an assembler. Its **file** parameter is an
-assembly file of the project, for example `programs/fibonacci.asm`. To change the program:
+assembly file of the project, for example `programs/fibonacci.asm`. The **File** dropdown of the
+node lists the `.asm` files of the project. Select a file to run its program. To start a new
+program, click **New** in the **Inspector**. The node writes `programs/new1.asm` and selects it.
+Undo puts back the last file. To change the program:
 
-1. Edit the code in the **Program** field of the node.
-2. Click outside the field, or press Ctrl+Enter.
+1. Select the node. For more room, click the expand button of the node.
+2. Edit the code in the **Program** field.
+3. Click outside the field, or press Ctrl+Enter.
 
-The node assembles the code and writes the file. When the code has an error, the node shows the
-line of the error, and the CPU runs the last good program. The **Memory** list shows the 16
+The node assembles the code and writes the file. The expanded node fills the graph area and shows
+the line numbers. A band marks the line that runs, and each line with an error is red. Hold the
+pointer on a red line number to see the error. **Back** or Esc returns to the graph, and the graph
+keeps running. When the code has an error, the node shows the line of the error, and the CPU runs
+the last good program. The **Memory** list shows the 16
 words, and the word at the program counter is lit. Bits 0 to 3 of a word are k, and bits 4 to 6
 are the opcode.
 
@@ -340,8 +347,8 @@ after `;`. A value k is a number from 0 to 15, for example `12`, `0xC` or `0b110
 Names are not case-sensitive.
 
 The example program writes the Fibonacci numbers 1, 1, 2, 3, 5 to 233 to OUT. It keeps the last
-two numbers in the RAM. At the carry of the next sum, it writes 0 to OUT and starts again. Set
-**file** to `programs/count.asm` for a program that counts up. The `rom-16x7` subgraph is a
+two numbers in the RAM. At the carry of the next sum, it writes 0 to OUT and starts again.
+Select `programs/count.asm` for a program that counts up. The `rom-16x7` subgraph is a
 program memory of `switch` nodes, one for each bit.
 
 The `clock` node gives the ticks of the CPU. It gives one tick each **every** frames. The
@@ -364,10 +371,10 @@ that LD reads. The main graph has five devices on the ports:
 - `random` (port 13): LD 13 reads a random byte, and each LD gives a new byte. At the other
   ports, the byte on its **bus** input goes through to the **io** input of the CPU.
 
-Set **file** to `programs/echo.asm` to show each key on the terminal. Set **file** to
-`programs/stripes.asm` to paint the screen. Set **file** to `programs/noise.asm` or
-`programs/confetti.asm` to paint random pixels. Set **file** to `programs/dice.asm` to show a
-random number on OUT at each key. The **address** parameter of a device sets its first port. The
+Select `programs/echo.asm` in **File** to show each key on the terminal. Select
+`programs/stripes.asm` to paint the screen. Select `programs/noise.asm` or
+`programs/confetti.asm` to paint random pixels. Select `programs/dice.asm` to show a random
+number on OUT at each key. The **address** parameter of a device sets its first port. The
 `cpu` has one **io** input, so the `keyboard` gives its key to the **bus** input of `random`.
 
 In the editor, the `readout` nodes show a byte as 8 lamps and as a number. The `join` node

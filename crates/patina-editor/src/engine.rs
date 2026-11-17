@@ -94,6 +94,14 @@ pub struct Tree {
     tree: String,
 }
 
+/// A parameter write of a node GUI (4.3). The page applies it as a `SetParam` edit, so undo works.
+#[derive(Serialize, Clone)]
+pub struct ParamWrite {
+    id: String,
+    key: String,
+    text: String,
+}
+
 /// Builds the graph when `build` is true or no cluster is loaded. Then sets the parameters and
 /// runs the graph one time.
 pub struct Run {
@@ -185,8 +193,9 @@ pub enum Event {
     },
     /// The live run ended after `frames` frames: by **Pause**, **Stop**, a new run or a failed frame.
     Ended { serial: u64, frames: u64 },
-    /// The widget lines of the node GUIs (4.3), and the problems of their `ui` calls.
-    Gui { serial: u64, trees: Vec<Tree>, reports: Vec<Report> },
+    /// The widget lines of the node GUIs (4.3), the problems of their `ui` calls, and the parameter
+    /// writes of a GUI that got user input.
+    Gui { serial: u64, trees: Vec<Tree>, reports: Vec<Report>, params: Vec<ParamWrite> },
 }
 
 /// A loaded cluster and the generated code that it was built from.

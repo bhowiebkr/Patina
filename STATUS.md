@@ -13,6 +13,23 @@ milestone 3 are not made yet: the WiX tools need a download that the owner did n
 Milestone 1, the engine and the CLI, works. Milestone 0 ended on 2026-11-15, with three owner
 checks open.
 
+## Assembly editor of the computer
+
+- New: the `program` node of `examples/computer` has an assembly editor in its full size. It
+  shows line numbers, a band on the line of the PC, and red lines with the error text.
+- New: the **File** dropdown selects a file of `programs/`. **New** in the **Inspector** makes
+  `programs/newN.asm` from a template. The compact node shows a status line.
+- New: `Ui::set_param` lets a node GUI write a parameter of its node (spec 4.3). The editor
+  applies the write as an edit, so **Undo** works and the project saves it.
+- New: `Ui::code_editor`, a code field with line numbers, a current line and error lines.
+- Checked: the workspace clippy and tests, the frontend type check, tests and build, and the
+  clippy and tests of the `program` crate. The hidden self-check (184 steps) clicks a node GUI
+  button that calls `set_param`, reads the new value, and undoes it.
+- Not checked: the look of the line numbers and the band on a real desktop.
+- Known limits: a node in a subgraph that is not open cannot write its parameters. A change of
+  the `.asm` file outside Patina shows only after the **file** parameter changes. **Pause** and
+  **Step** are not done.
+
 ## Speed, frame rate and random numbers of the computer
 
 - A profile of `examples/computer` found three costs. The editor merged all values of a frame in

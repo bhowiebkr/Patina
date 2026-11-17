@@ -131,6 +131,10 @@ The canvas lets a node author make custom controls, for example a gradient edito
 
 The code field edits a text of many lines in a monospace font, for example a program. It sends the text when it loses the focus and on Ctrl+Enter. Esc puts back the last text. In the GUI tree, a line break is `\n`, a tab is `\t` and a backslash is `\\`. (Agent decision, 2026-11-16. The owner can change it.)
 
+A code editor is a code field with line numbers, for a full size. The node gives a current line, for example the line that runs, and errors with a line each. The editor shows a band on the current line, colors each error line, and shows the error text as the tooltip of its line number. (Agent decision, 2026-11-16. The owner can change it.)
+
+A node GUI can set a parameter of its own node with `ui.set_param(key, value)`, for example the file that an asset picker selected. The editor applies the write as a parameter edit, so undo removes it and the project saves it. Only a call of `ui` with user input writes. The editor skips a write that changes nothing. Limit: a node in a subgraph that is not open cannot write. (Agent decision, 2026-11-16. The owner can change it.)
+
 **Rules**
 
 The width and height of a node body fit its GUI. Nodes do not have to share a size. Give plots and image controls room, and keep small utility nodes compact.

@@ -101,7 +101,8 @@ impl Frames<'_> {
 
     /// Calls the `ui` function of node `id` (4.3), in mode `mode` (0 compact, 1 large, 2 full).
     /// `events` has a line for each user input: the widget index and the value. Returns the
-    /// widget lines, or `None` when the node has no GUI or failed (see the outcome). While the
+    /// widget lines, or `None` when the node has no GUI or failed (see the outcome), and the
+    /// parameter writes of the GUI in the outcome. While the
     /// audio thread runs, an audio node gives `None` (4.3). During the call, `control` keeps the
     /// node, so a second **Stop** can end a GUI that does not return (15.2).
     pub fn ui(&mut self, control: &Control, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
@@ -116,7 +117,10 @@ impl Frames<'_> {
         // and the reporter are valid during the call.
         calls.call(names, probes, control, |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
         let tree = calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
-        (tree, std::mem::take(&mut calls.out))
+        let mut out = std::mem::take(&mut calls.out);
+        let edits = calls.sink.iter().filter(|&(_, kind, _)| kind == glue::EDIT).filter_map(|(_, _, text)| text.split_once('\t'));
+        out.params = edits.map(|(key, text)| (key.to_owned(), text.to_owned())).collect();
+        (tree, out)
     }
 
     /// The kept copy of output `key` of node `id` for a view (15.8 rule 3), as a pointer to a

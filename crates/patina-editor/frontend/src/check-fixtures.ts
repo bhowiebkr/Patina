@@ -100,6 +100,9 @@ impl Number {
         if ui.button("Add 1").clicked() {
             self.added += 1.0;
         }
+        if ui.button("Set 4").clicked() {
+            ui.set_param("value", 4);
+        }
         if ui.icon_button("rotate-right", "Rotate right").clicked() {
             self.turns = (self.turns + 1) % 4;
         }

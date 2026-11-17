@@ -10,7 +10,8 @@ export type Widget =
   | { kind: 'slider'; index: number; text: string; value: number; low: number; high: number }
   | { kind: 'number'; index: number; text: string; value: number; step: number; unit: string }
   | { kind: 'text'; index: number; text: string; value: string }
-  | { kind: 'code'; index: number; text: string; value: string }
+  /** `editor` adds line numbers, the `current` line (-1 for none) and the `errors` by line, from 0. */
+  | { kind: 'code'; index: number; text: string; value: string; editor: boolean; current: number; errors: [number, string][] }
   | { kind: 'path'; index: number; text: string; pick: 'open' | 'save' | 'folder'; value: string }
   | { kind: 'asset'; index: number; text: string; extensions: string[]; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
@@ -184,7 +185,7 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'slider' && [value, low, high].every(Number.isFinite) && low <= high) widgets.push({ kind, index, text, value, low, high });
     else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value, step: low > 0 && Number.isFinite(low) ? low : 0, unit: rest[2] ?? '' });
     else if (kind === 'text') widgets.push({ kind, index, text, value: rest[0] ?? '' });
-    else if (kind === 'code') widgets.push({ kind, index, text, value: unescapeCode(rest[0] ?? '') });
+    else if (kind === 'code') widgets.push({ kind, index, text, value: unescapeCode(rest[0] ?? ''), ...codeLines(rest.slice(1)) });
     else if (kind === 'path' && (rest[0] === 'open' || rest[0] === 'save' || rest[0] === 'folder')) widgets.push({ kind, index, text, pick: rest[0], value: rest[1] ?? '' });
     else if (kind === 'asset') widgets.push({ kind, index, text, extensions: (rest[0] ?? '').split(' ').filter(Boolean), value: rest[1] ?? '' });
     else if ((kind === 'dropdown' || kind === 'tabs') && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });
@@ -281,6 +282,16 @@ export function escapeCode(text: string): string {
 /** Reads the text that `escapeCode` writes. A `\` before another character stays. */
 export function unescapeCode(text: string): string {
   return text.replace(/\\(.?)/gs, (all, c: string) => (c === 'n' ? '\n' : c === 't' ? '\t' : c === '\\' ? '\\' : all));
+}
+
+/** The line marks of a code editor: the current line, then `<line> <error>` for each error. */
+function codeLines(fields: string[]): { editor: boolean; current: number; errors: [number, string][] } {
+  const line = (text: string) => (/^\d+$/.test(text) ? Number(text) : -1);
+  const errors = fields.slice(1).flatMap((f): [number, string][] => {
+    const at = f.indexOf(' ');
+    return at > 0 && line(f.slice(0, at)) >= 0 ? [[line(f.slice(0, at)), unescapeCode(f.slice(at + 1))]] : [];
+  });
+  return { editor: fields.length > 0, current: line(fields[0] ?? ''), errors };
 }
 
 /** The event line of a user input to widget `index`. A line break in a text becomes a space. */

@@ -78,32 +78,62 @@ export function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'numbe
 }
 
 /** A field for a text of many lines, for example a program. It sends its text when it loses the
- * focus and on Ctrl+Enter. Esc restores the text. */
+ * focus and on Ctrl+Enter. Esc restores the text. A code editor also shows the line numbers, a band
+ * on the current line and the error lines, with the error text as a tooltip. */
 export function CodeField({ w, send, disabled }: { w: Extract<Widget, { kind: 'code' }>; send: (value: string) => void; disabled: boolean }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [scroll, setScroll] = useState(0);
   const text = draft ?? w.value;
+  const lines = text.split('\n').length;
   const commit = () => {
     if (draft === null) return;
     setDraft(null);
     if (draft !== w.value) send(escapeCode(draft));
   };
+  const area = (
+    <textarea
+      className="field gui-code"
+      rows={w.editor ? Math.min(40, Math.max(16, lines + 1)) : Math.min(24, Math.max(6, lines + 1))}
+      spellCheck={false}
+      wrap="off"
+      value={text}
+      disabled={disabled}
+      onChange={(e) => setDraft(e.currentTarget.value)}
+      onBlur={commit}
+      onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commit();
+        else if (e.key === 'Escape') setDraft(null);
+      }}
+    />
+  );
+  if (!w.editor) {
+    return (
+      <label className="gui-code-row">
+        <span className="label">{w.text}</span>
+        {area}
+      </label>
+    );
+  }
+  const errors = new Map<number, string>();
+  for (const [line, error] of w.errors) errors.set(line, errors.has(line) ? `${errors.get(line)}\n${error}` : error);
+  const mark = (i: number) => [i === w.current && 'current', errors.has(i) && 'error'].filter(Boolean).join(' ') || undefined;
   return (
     <label className="gui-code-row">
       <span className="label">{w.text}</span>
-      <textarea
-        className="field gui-code"
-        rows={Math.min(24, Math.max(6, text.split('\n').length + 1))}
-        spellCheck={false}
-        wrap="off"
-        value={text}
-        disabled={disabled}
-        onChange={(e) => setDraft(e.currentTarget.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commit();
-          else if (e.key === 'Escape') setDraft(null);
-        }}
-      />
+      <div className="gui-code-box">
+        <div className="gui-code-gutter" aria-hidden="true">
+          <div style={{ transform: `translateY(${-scroll}px)` }}>
+            {Array.from({ length: lines }, (_, i) => (
+              <div key={i} className={mark(i)} title={errors.get(i)}>
+                {i + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+        {area}
+        {w.current >= 0 && <div className="gui-code-line" style={{ top: 6 + w.current * 16 - scroll }} />}
+      </div>
     </label>
   );
 }

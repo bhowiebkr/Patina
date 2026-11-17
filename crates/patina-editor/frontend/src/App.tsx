@@ -3,7 +3,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
-import { api, folderName, newId, onCloseRequested, scopeDomains, type Edit, type StartInfo, type View } from './api';
+import { api, folderName, newId, onCloseRequested, onEngine, paramEdit, scopeDomains, type Edit, type EngineEvent, type StartInfo, type View } from './api';
 import { HelpMenu } from './About';
 import { Field } from './Field';
 import { runCheck } from './check';
@@ -113,6 +113,12 @@ export function App() {
     (e: Edit) => act(api.edit(e), onlyGeometry(e) ? undefined : markStale),
     [act, markStale],
   );
+  // A node GUI writes its own parameters through the edit path, so undo removes them (4.3).
+  useEvent(onEngine, (e: EngineEvent) => {
+    if (e.serial !== serial.current || e.state !== 'gui' || e.params.length === 0 || !current.current) return;
+    const change = paramEdit(current.current.graph, e.params);
+    if (change) edit(change);
+  });
   const undo = useCallback(() => act(api.undo(), markStale), [act, markStale]);
   const redo = useCallback(() => act(api.redo(), markStale), [act, markStale]);
   // Ctrl+S saves all: one SetCode edit for each changed code file, then the graph (15.10).

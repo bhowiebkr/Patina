@@ -1,5 +1,7 @@
 //! The code field of a node GUI (spec 4.3): a text of many lines, for example a program.
 
+use std::fmt::Write;
+
 use super::{Response, Ui, changed};
 
 impl Ui {
@@ -10,6 +12,21 @@ impl Ui {
         self.tree.push('\t');
         escape(&mut self.tree, value);
         changed(event.map(|v| *value = v))
+    }
+
+    /// Shows a code field with line numbers, for the full size. `current` marks a line, from 0,
+    /// for example the line that runs. Each item of `errors` marks its line and gives its text.
+    pub fn code_editor<'a>(&mut self, text: &str, value: &mut String, current: Option<usize>, errors: impl IntoIterator<Item = (usize, &'a str)>) -> Response {
+        let response = self.code_field(text, value);
+        self.tree.push('\t');
+        if let Some(line) = current {
+            let _ = write!(self.tree, "{line}");
+        }
+        for (line, error) in errors {
+            let _ = write!(self.tree, "\t{line} ");
+            escape(&mut self.tree, error);
+        }
+        response
     }
 }
 
@@ -66,5 +83,10 @@ mod tests {
         assert!(ui.code_field("Program", &mut value).changed());
         assert_eq!(value, "JMP 0\nOUT");
         assert_eq!(ui.tree(), "code\tProgram\told");
+
+        let mut ui = Ui::new(2, "");
+        ui.code_editor("Program", &mut value, Some(1), [(0, "bad\tword"), (2, "x")]);
+        ui.code_editor("Other", &mut value, None, std::iter::empty());
+        assert_eq!(ui.tree(), "code\tProgram\tJMP 0\\nOUT\t1\t0 bad\\tword\t2 x\ncode\tOther\tJMP 0\\nOUT\t");
     }
 }

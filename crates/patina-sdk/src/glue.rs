@@ -38,7 +38,8 @@ pub const TIME: u32 = 8;
 pub const LOG: u32 = 9;
 /// The widget lines of a call of `ui` (4.3), from `Ui::tree`.
 pub const UI: u32 = 10;
-/// A write of a view to the graph (15.8), from `Graph::set_param`.
+/// A write of a view to the graph (15.8), from `Graph::set_param`, or a parameter write of a node
+/// GUI (4.3), from `Ui::set_param`: the key, a tab and the text.
 pub const EDIT: u32 = 11;
 
 /// The most log lines of one run (15.7). The cluster does not send the lines after them.
@@ -383,18 +384,21 @@ pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &
     rep.set_node(node);
     let mut st = state.lock();
     let mut gui = crate::Ui::new(cmd.0, cmd.1);
+    let mut params = Vec::new();
     let caught = catch_quiet(AssertUnwindSafe(|| {
         let value = st.get_or_insert_with(init);
         ui(value, &mut gui);
         // A widget writes its value before it applies its event, so draw again with the new state.
+        // Only the call with the events writes parameters.
         if !cmd.1.is_empty() {
-            gui = crate::Ui::new(cmd.0, "");
+            params = std::mem::replace(&mut gui, crate::Ui::new(cmd.0, "")).params;
             ui(value, &mut gui);
         }
         Ok(())
     }));
     let ok = finish_state(caught, &mut st, rep, node);
     if ok {
+        params.iter().for_each(|(key, text)| rep.send(node, EDIT, &format!("{key}\t{text}")));
         rep.send(node, UI, gui.tree());
     }
     rep.set_node(IDLE);

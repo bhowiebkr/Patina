@@ -252,8 +252,28 @@ export type EngineEvent =
   | { state: 'fired'; serial: number; id: number; trigger: string; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
   /** The live run ended after `frames` frames. */
   | { state: 'ended'; serial: number; frames: number }
-  /** The widget lines of node GUIs (4.3), and the problems of their `ui` calls. */
-  | { state: 'gui'; serial: number; trees: Tree[]; reports: Report[] };
+  /** The widget lines of node GUIs (4.3), the problems of their `ui` calls, and the parameter writes of a GUI that got user input. */
+  | { state: 'gui'; serial: number; trees: Tree[]; reports: Report[]; params: ParamWrite[] };
+
+/** A parameter write of a node GUI (4.3), from `Ui::set_param`. */
+export interface ParamWrite {
+  id: string;
+  key: string;
+  text: string;
+}
+
+/** The edit of the parameter writes of a node GUI (4.3), or null when no write changes the open
+ * graph. A later write of the same parameter wins, and a node that is not in the open graph is skipped. */
+export function paramEdit(graph: GraphFile, params: readonly ParamWrite[]): Edit | null {
+  const last = new Map(params.map((p) => [`${p.id} ${p.key}`, p] as const));
+  const edits: Edit[] = [...last.values()]
+    .filter((p) => {
+      const node = graph.node?.find((n) => n.id === p.id);
+      return node !== undefined && node.params?.[p.key] !== p.text;
+    })
+    .map((p) => ({ kind: 'SetParam', id: p.id, key: p.key, text: p.text }));
+  return edits.length === 0 ? null : edits.length === 1 ? edits[0] : { kind: 'Group', edits };
+}
 
 /** The widget lines of a node GUI: mode 0 for the node body, 1 for the Inspector (4.3). */
 export interface Tree {
