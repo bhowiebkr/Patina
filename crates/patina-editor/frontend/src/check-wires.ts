@@ -4,8 +4,24 @@
 import { api, type View } from './api';
 import { A, B, BUILD_MS, RUN_MS, SWITCH_NODE, amber, anyPixel, gray, icon, wireColumn, type CheckContext } from './check-fixtures';
 
+/** The select of an Inspector field, by its label. */
+const field = (name: string) =>
+    [...document.querySelectorAll('.param')].find((p) => p.querySelector('.label')?.textContent === name)?.querySelector('select');
+/** The texts of the live value badges. */
+const values = () => [...document.querySelectorAll('.wire-value:not(.stale)')].map((b) => b.textContent);
+
 /** Runs the wire steps on the graph of A to B, and returns the last view. */
-export async function checkWires({ step, until, steps }: CheckContext, v: View): Promise<View> {
+export async function checkWires(c: CheckContext, v: View): Promise<View> {
+  v = await checkDrag(c, v);
+  v = await checkRoutePoints(c, v);
+  v = await checkLook(c, v);
+  v = await checkSegments(c, v);
+  v = await checkDelay(c, v);
+  return checkSwitch(c, v);
+}
+
+/** A node drag, the selection of a wire, the Inspector value and a lost WebGL context. */
+async function checkDrag({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // A mouse drag moves a node (15.2). The drop is one edit with undo, and the wire follows the node.
   const nodeB = () => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${B}"]`)!;
   const posB = (view: View) => JSON.stringify(view.graph.node?.find((n) => n.id === B)?.pos);
@@ -48,7 +64,11 @@ export async function checkWires({ step, until, steps }: CheckContext, v: View):
   await until('the WebGL wires after the restore', RUN_MS, () => !document.querySelector('.react-flow.svg-wires'));
   if (!anyPixel((await wireColumn()).column, amber)) throw new Error('the restored WebGL wires do not draw');
   steps.push('the wires show as SVG while the WebGL context is lost');
+  return v;
+}
 
+/** The route points of a wire: add, drag, Esc, an arrow key, Delete and the keyboard. */
+async function checkRoutePoints({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // Route points (15.9): a double-click adds one, a drag moves it, and Delete on its handle
   // removes the point but keeps the wire. Undo and redo go through the engine.
   const hitPath = document.querySelector<SVGPathElement>('.wire-hit')!;
@@ -101,10 +121,13 @@ export async function checkWires({ step, until, steps }: CheckContext, v: View):
   v = await step('undo the route point of the keyboard', () => api.undo());
   if (v.graph.wire?.[0]?.points?.length !== 1) throw new Error('undo did not remove the route point of the keyboard');
   steps.push('route point added from the keyboard');
+  return v;
+}
+
+/** The look of a wire: the Route field, Reset route, the graph default route and Lock bends. */
+async function checkLook({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // The look of the wire (15.9): the Route field of the Inspector sets the style, and Reset route
   // removes the route points. Both are edits with undo.
-  const field = (name: string) =>
-    [...document.querySelectorAll('.param')].find((p) => p.querySelector('.label')?.textContent === name)?.querySelector('select');
   const rounded = () => (document.querySelector('.wire-hit')?.getAttribute('d')?.match(/Q/g) ?? []).length;
   await until('the Route field and the corners of the automatic route', RUN_MS, () => !!field('Route') && rounded() >= 2);
   field('Route')!.value = 'curved';
@@ -133,6 +156,11 @@ export async function checkWires({ step, until, steps }: CheckContext, v: View):
   v = await step('undo Lock bends', () => api.undo());
   if (v.graph.wire?.[0]?.points?.length !== 1) throw new Error(`undo did not remove the locked bends: ${JSON.stringify(v.graph.wire)}`);
   steps.push('bends locked');
+  return v;
+}
+
+/** The segment bars of an orthogonal wire, and the conflict mark of a blocked route. */
+async function checkSegments({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // An orthogonal wire shows a bar on each middle segment. A drag on the bar moves the segment
   // sideways, and an arrow key moves it by 10 px. Both are edits with undo.
   const before = JSON.stringify(v.graph.wire?.[0]?.points);
@@ -177,6 +205,11 @@ export async function checkWires({ step, until, steps }: CheckContext, v: View):
   v = await step('undo the route point in the body', () => api.undo());
   await until('no conflict mark after the undo', RUN_MS, () => document.querySelector('.route-conflict') === null);
   steps.push('routing conflict marked');
+  return v;
+}
+
+/** A delay: the kind and domain icons, a moved wire end, a dashed wire and a junction dot. */
+async function checkDelay({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // A delay is in the frame domain (9.1). Each node shows its kind icon and its domain icon (15.3).
   const D = 'd000000000000004';
   v = await step('add a delay', () => api.edit({ kind: 'AddNode', id: D, folder: 'delay', builtin: true, pos: [300, 300] }));
@@ -204,7 +237,6 @@ export async function checkWires({ step, until, steps }: CheckContext, v: View):
   // The delay is generic (4.5), and the wire from A gives it f64. The live graph runs A through the
   // delay to B, one frame late, so both wires show 2.5.
   v = await step('wire the delay to B', () => api.edit({ kind: 'Connect', from: `${D}.out`, to: `${B}.value` }));
-  const values = () => [...document.querySelectorAll('.wire-value:not(.stale)')].map((b) => b.textContent);
   await until('the value of A through the generic delay', BUILD_MS, () => values().join() === '2.5,2.5');
   v = await step('undo the wire from the delay', () => api.undo());
   v = await step('undo the move of the wire end', () => api.undo());
@@ -223,6 +255,11 @@ export async function checkWires({ step, until, steps }: CheckContext, v: View):
   v = await step('undo the removal of the route point', () => api.undo());
   v = await step('undo the delay', () => api.undo());
   steps.push('domain icons, a wire end moved to a ringed socket, a dashed cross-domain wire and a junction dot');
+  return v;
+}
+
+/** The switch of a bool input: in the node, in the Inspector and in the Test mode of a subgraph. */
+async function checkSwitch({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // An unwired bool input is a switch in the node row (15.3) and a check box in the Inspector (15.7).
   // A click on the switch also selects the node. Each click is an edit, and the live graph runs again.
   v = await step('make a node with a switch', () => api.edit({ kind: 'SetCode', path: 'nodes/number/src/lib.rs', text: SWITCH_NODE }));
