@@ -223,7 +223,6 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
       }),
     [view, files, shown],
   );
-  // shortcut: the route points of the inner wires stay in place during a drag of the frame; move them with the frame when users ask.
   const toggle = useCallback((use: string) => setShown(toggleFrame(view.graphName, use)), [view.graphName]);
   // The room of each open frame, from its measured size and the last closed size of its use (15.3).
   const closed = useRef(new Map<string, readonly [number, number]>());

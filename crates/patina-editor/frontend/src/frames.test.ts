@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FRAME_LEFT, FRAME_TOP, frameOf, graphEdit, place, shownFrames, toggleFrame, unplace, type Room } from './frames.ts';
+import { FRAME_LEFT, FRAME_TOP, dragRoute, frameOf, graphEdit, place, shownFrames, toggleFrame, unplace, type Room } from './frames.ts';
 
 test('the inner nodes get the use prefix and start at the inner corner of the frame', () => {
   const file = {
@@ -67,4 +67,13 @@ test('an edit of the view gets graph points', () => {
   assert.deepEqual(place([{ ...room, x: 800 }, { ...far, x: 100, y: 100 }], [800, 100]), [1000, 100], 'the use shows at the place of the drop');
   const edit = { kind: 'Connect', from: 'a.y', to: 'b.x' } as const;
   assert.equal(graphEdit(edit, [room]), edit);
+});
+
+test('the route points of an inner wire move with the drag of its use', () => {
+  const route: [number, number][] = [[10, 20], [30, 40]];
+  const frame = { use: 'u', at: [100, 200] as [number, number] };
+  assert.deepEqual(dragRoute(route, frame, { x: 105, y: 190 }), [[15, 10], [35, 30]]);
+  assert.equal(dragRoute(route, frame, { x: 100, y: 200 }), route);
+  assert.equal(dragRoute(route, undefined, { x: 5, y: 5 }), route);
+  assert.equal(dragRoute(route, frame, undefined), route);
 });

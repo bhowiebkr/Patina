@@ -55,6 +55,19 @@ export function frameOf(use: string, file: GraphFile): Frame {
   };
 }
 
+/** The use of an inner wire, and the view place of the use when the wire got its route points. */
+export interface FrameAt {
+  use: string;
+  at: Point;
+}
+
+/** `route` moved by the drag of its use from `frame.at` to `now`, so the route points of an inner wire move with the frame (15.3). */
+export function dragRoute(route: readonly Point[], frame: FrameAt | undefined, now: { x: number; y: number } | undefined): readonly Point[] {
+  if (!frame || !now) return route;
+  const [dx, dy] = [now.x - frame.at[0], now.y - frame.at[1]];
+  return dx === 0 && dy === 0 ? route : route.map(([x, y]): Point => [x + dx, y + dy]);
+}
+
 /** The uses that show their inner nodes, by graph name. They stay while the editor runs. */
 const shown = new Map<string, ReadonlySet<string>>();
 

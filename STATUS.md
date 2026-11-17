@@ -1747,8 +1747,9 @@ To run the editor from a checkout:
   did not use the editor yet.
   The owner check: make the first workflow of 15.10 with the mouse.
 - The capture works only on Windows. The check did not run on Linux or macOS.
-- The route points of the wires in a frame stay in place during a drag of the use. The frame
-  is read-only. Open the subgraph to edit its nodes.
+- The route points of the wires in a frame move with the use during a drag (fixed 2026-11-17).
+  A frontend unit test checks the move. Nobody dragged an open frame by hand. The frame is
+  read-only. Open the subgraph to edit its nodes.
 - These parts of spec 15 are not in the editor yet: view tabs in the center
   (15.2), rust-analyzer in Monaco (15.1) and the **Debug** tab.
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type

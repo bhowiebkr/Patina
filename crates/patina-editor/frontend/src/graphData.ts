@@ -152,7 +152,7 @@ function innerEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: re
     const wires = f.wires.map((w) => {
       const [a, b] = [domains.get(splitPin(w.from)[0]), domains.get(splitPin(w.to)[0])];
       const bus = w.name ?? pinName(view, infos, w.from, true) ?? pinName(view, infos, w.to, false);
-      return edge(`${w.from}>${w.to}`, splitPin(w.from), splitPin(w.to), { from: w.from, to: w.to, route: w.points.map(([x, y]): Point => [x + ux, y + uy]), style: w.style, corners: w.corners, ty: ty(w.from), name: w.name, bus, cross: a !== undefined && b !== undefined && a !== b });
+      return edge(`${w.from}>${w.to}`, splitPin(w.from), splitPin(w.to), { from: w.from, to: w.to, route: w.points.map(([x, y]): Point => [x + ux, y + uy]), frame: { use: f.use, at: [ux, uy] }, style: w.style, corners: w.corners, ty: ty(w.from), name: w.name, bus, cross: a !== undefined && b !== undefined && a !== b });
     });
     // A wire from a frame pin shows the value of the outer wire. It routes as its own net, from the frame edge.
     const ins = f.inputs.map(({ key, to }) => {

@@ -17,6 +17,7 @@ import {
 } from 'react';
 import { EdgeLabelRenderer, getBezierPath, Position, useReactFlow, useStore, useStoreApi, ViewportPortal, type Edge, type EdgeProps } from '@xyflow/react';
 import type { Corners, Edit, KindInfo, Point, Style, Value } from './api';
+import { dragRoute, type FrameAt } from './frames';
 import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from './bus';
 import { FAR_ZOOM, GlWires } from './gl';
 import type { Labels } from './labels';
@@ -30,7 +31,8 @@ const HANDLE = 10;
 
 /** The ends of a wire, its route points, its look, the type of its value, its wire name and its bus name (spec 15.9). */
 /** `cross` is true for a wire between two clock domains, which is dashed (15.3). `net` is the route net when it is not `from`. */
-export type WireData = { from: string; to: string; route: readonly Point[]; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean; net?: string };
+/** `frame` is the use of an inner wire of a frame. */
+export type WireData = { from: string; to: string; route: readonly Point[]; frame?: FrameAt; style?: Style; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean; net?: string };
 
 export interface WireTools {
   store: WireStore;
@@ -68,7 +70,11 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const flow = useReactFlow();
   // The route during a drag. It stays until the edit gives the new graph, so the wire does not jump back.
   const [draft, setDraft] = useState<readonly Point[] | null>(null);
-  const route = draft ?? data!.route;
+  const base = draft ?? data!.route;
+  // The route points of an inner wire move with its use during a drag (15.3).
+  const frame = data!.frame;
+  const now = useStore((s) => (frame ? s.nodeLookup.get(frame.use)?.position : undefined));
+  const route = useMemo(() => dragRoute(base, frame, now), [base, frame, now]);
   const value = values.get(data!.from);
   const kind = kindOf(kinds, data!.ty);
   // A bool wire is one lane: lit when true. A kind with lanes shows its lanes before a run (15.9).
