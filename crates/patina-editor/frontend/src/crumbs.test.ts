@@ -26,7 +26,9 @@ test('the path ends at the open graph, or starts again with no use', () => {
   assert.deepEqual(trailOf(trail, 'main'), []);
   const loose = trailOf(trail, 'bank');
   assert.deepEqual(loose, [{ graph: 'bank', use: '', label: 'bank' }]);
-  assert.equal(usePathOf(trail), 'u1/u2');
-  assert.equal(usePathOf([...loose, { graph: 'cell', use: 'u3', label: 'cell' }]), '');
-  assert.equal(usePathOf([]), '');
+  assert.equal(usePathOf(trail, ['u7']), 'u1/u2');
+  assert.equal(usePathOf([...loose, { graph: 'cell', use: 'u3', label: 'cell' }], []), '');
+  assert.equal(usePathOf([], []), '');
+  assert.equal(usePathOf(loose, ['u1/u4']), 'u1/u4', 'the only use gives the live values');
+  assert.equal(usePathOf(loose, ['u1/u4', 'u5']), '', 'two uses give no use');
 });

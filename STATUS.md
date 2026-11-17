@@ -935,8 +935,13 @@ and 6.4).
 - The editor shows a use of a subgraph as one node with the public pins, and **Add node** lists
   the subgraphs. The output pins of a use show the live values of their inner outputs, and a run
   error of an inner node shows on the use.
-- In an open subgraph, the inner nodes show no live values and no run errors, because a
-  subgraph can have many uses. The frame of **Show inner nodes** shows them for one use.
+- A subgraph that opens with a double-click on a use shows the live values of that use. A
+  subgraph that opens from the **Project** panel shows the live values of its only use (fixed
+  2026-11-17). With more than one use, it shows none, because no use is selected. The frame of
+  **Show inner nodes** shows the values of one use.
+- Checked: the engine test `the_use_paths_go_through_the_uses_inside_uses`, the frontend test of
+  the path bar, and a selfcheck step that opens `fire_check` from the **Project** panel and finds
+  the domain of its only use.
 - A removed public pin keeps the wires of the uses to it. The check shows a problem for each.
 - Ctrl+G collapses the selected nodes into a new subgraph, with public pins for the wires that
   cross. Save writes its file while a graph uses it. An undo keeps it for a redo. Ctrl+Shift+G expands

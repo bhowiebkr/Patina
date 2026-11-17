@@ -216,6 +216,13 @@ impl Project {
         Ok(())
     }
 
+    /// The use path (6.4) of each use of the open subgraph in the main graph, also inside other
+    /// uses (15.9). The main graph has none.
+    pub fn use_paths(&self) -> Vec<String> {
+        let Some(main) = self.parked.get(MAIN) else { return Vec::new() };
+        subgraph::use_paths(&self.root, &main.graph, &self.edits(), &self.name)
+    }
+
     /// The subgraphs that the editor has in memory, with their unsaved changes. They replace their
     /// files in a check (6.1).
     pub(crate) fn edits(&self) -> Vec<(&str, &GraphFile)> {

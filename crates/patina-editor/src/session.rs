@@ -101,6 +101,8 @@ pub struct View {
     domains: BTreeMap<String, &'static str>,
     /// The frames each second of the project (9.1).
     frame_rate: u32,
+    /// The use path of each use of the open subgraph, for its live values (6.4, 15.9).
+    uses: Vec<String>,
 }
 
 /// The answer to a recovery file: the view and the unsaved code for the Code tab (15.10).
@@ -328,6 +330,7 @@ impl Session {
             test: self.test.clone(),
             domains,
             frame_rate: project.frame_rate(),
+            uses: project.use_paths(),
         }
     }
 }

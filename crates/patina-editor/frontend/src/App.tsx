@@ -165,7 +165,7 @@ export function App() {
   const path = view ? trailOf(trail, view.graphName) : [];
   const testing = view?.test != null;
   // The run IDs of the open graph start with this use path (6.4). A subgraph with no use has none.
-  const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : usePathOf(path);
+  const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : usePathOf(path, view?.uses ?? []);
   const scoped = useMemo(() => scopeRun(run, usePath), [run, usePath]);
   // A subgraph with no use has no checked nodes, so its nodes show no domain.
   const domains = useMemo(() => scopeDomains(view && (view.graphName === 'main' || usePath) ? view.domains : {}, usePath), [view, usePath]);

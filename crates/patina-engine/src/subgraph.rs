@@ -215,6 +215,30 @@ fn read_graph<'a>(root: &Path, name: &str, edits: Edits<'a>) -> Result<Cow<'a, G
     }
 }
 
+/// The use path (6.4) of each use of the subgraph `name` in `graph`, also inside other uses (15.9).
+pub(crate) fn use_paths(root: &Path, graph: &GraphFile, edits: Edits, name: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    find_uses(root, graph, edits, name, ("", &mut Vec::new()), &mut paths);
+    paths
+}
+
+fn find_uses(root: &Path, graph: &GraphFile, edits: Edits, name: &str, (at, stack): (&str, &mut Vec<String>), paths: &mut Vec<String>) {
+    for entry in &graph.node {
+        let Some(sub) = &entry.subgraph else { continue };
+        let path = if at.is_empty() { entry.id.clone() } else { format!("{at}/{}", entry.id) };
+        if sub == name {
+            paths.push(path);
+        } else if !stack.contains(sub)
+            && plan::check_name(sub).is_ok()
+            && let Ok(inner) = read_graph(root, sub, edits)
+        {
+            stack.push(sub.clone());
+            find_uses(root, &inner, edits, name, (&path, stack), paths);
+            stack.pop();
+        }
+    }
+}
+
 /// The value type of the wire end `<node ID>.<pin key>` of a graph, through the uses of subgraphs,
 /// and the type parameters of its node. An input `&bool` gives `bool`.
 fn end_type(root: &Path, edits: Edits, graph: &GraphFile, end: &str, input: bool, stack: &mut Vec<String>) -> Option<(String, Vec<String>)> {
@@ -492,6 +516,26 @@ from = "00000000000000a1.out"
 
     fn graph(text: &str) -> GraphFile {
         toml::from_str(text).unwrap()
+    }
+
+    #[test]
+    fn the_use_paths_go_through_the_uses_inside_uses() {
+        let uses = |names: &[(&str, &str)]| {
+            let nodes: String = names.iter().map(|(id, sub)| format!("[[node]]
+id = \"{id}\"
+subgraph = \"{sub}\"
+")).collect();
+            graph(&format!("format = 1
+{nodes}"))
+        };
+        let main = uses(&[("d1", "outer"), ("d2", "half"), ("d3", "loop")]);
+        let (outer, looped) = (uses(&[("e1", "half"), ("e2", "half")]), uses(&[("f1", "loop")]));
+        let edits: [(&str, &GraphFile); 3] = [("outer", &outer), ("half", &graph(HALF)), ("loop", &looped)];
+        let root = Path::new("no-such-folder");
+        assert_eq!(use_paths(root, &main, &edits, "half"), ["d1/e1", "d1/e2", "d2"]);
+        assert_eq!(use_paths(root, &main, &edits, "outer"), ["d1"]);
+        assert_eq!(use_paths(root, &main, &edits, "loop"), ["d3"], "a loop of uses ends");
+        assert!(use_paths(root, &main, &edits, "none").is_empty());
     }
 
     #[test]

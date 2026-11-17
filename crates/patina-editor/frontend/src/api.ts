@@ -138,6 +138,8 @@ export interface View {
   domains: Record<string, Domain>;
   /** The frames each second of the project (9.1). */
   frameRate: number;
+  /** The use path of each use of the open subgraph in the main graph, also inside other uses (6.4, 15.9). */
+  uses: string[];
 }
 
 /** The unsaved text of the Code tab, by path. */

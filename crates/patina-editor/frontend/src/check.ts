@@ -772,6 +772,12 @@ fn broken() -> u32 {
     steps.push('subgraph interface');
     [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
     await until('the main graph from the path bar', BUILD_MS, () => document.querySelector('.graph-path') === null);
+    // The only use of a subgraph gives its values when it opens from the Project panel (15.9).
+    leftTab('Project').click();
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')].find((b) => b.textContent === 'fire_check')!.click();
+    await until('the domain of the only use', BUILD_MS, () => document.querySelector('.graph-path') !== null && !!document.querySelector(`.react-flow__node[data-id="${T}"] .domain-icon`));
+    [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
+    await until('the main graph again', BUILD_MS, () => document.querySelector('.graph-path') === null);
     steps.push('open a subgraph use and fire its trigger');
 
     // Show inner nodes puts the nodes of the use in place, in a frame, with the wire to the frame pin (15.3).

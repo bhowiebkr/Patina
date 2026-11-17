@@ -19,7 +19,9 @@ export function trailOf(trail: Crumb[], graph: string): Crumb[] {
   return trail.at(-1)?.graph === graph ? trail : [{ graph, use: '', label: graph }];
 }
 
-/** The use path of the run IDs (6.4), or '' when the path has a graph with no use. */
-export function usePathOf(trail: Crumb[]): string {
-  return trail.every((c) => c.use) ? trail.map((c) => c.use).join('/') : '';
+/** The use path of the run IDs (6.4). A path with a graph with no use gives the only use of the
+ * open graph in `uses`, or '' when the graph has no use or more than one. */
+export function usePathOf(trail: Crumb[], uses: readonly string[]): string {
+  if (trail.every((c) => c.use)) return trail.map((c) => c.use).join('/');
+  return uses.length === 1 ? uses[0] : '';
 }
