@@ -114,7 +114,7 @@ Split by responsibility. Keep the error handling and the validation of each move
   Then split the functions over 100 lines: `generate.rs` `source`, `edit.rs` `change`,
   `events.rs` `run`, `subgraph.rs` `expand` and `slot.rs` `source`. `load.rs` has 458 lines
   after phase 1.
-- [ ] Engine: move the connection kinds and `outline` out of `node.rs`.
+- [x] Engine: move the connection kinds and `outline` out of `node.rs`.
 - [x] Editor backend: split `engine.rs` `run_jobs` and `main.rs` `main`. Move the commands of
   the start screen from `session.rs` to `session/start.rs`.
 - [ ] Add `#[allow(clippy::too_many_lines)]` to the long tests and prototypes of section 1.3.
