@@ -1653,11 +1653,14 @@ numbers come from the long run. The memory is the growth of the test process.
   `RUSTFLAGS`, rustc also refused. Spec 8.3 now has bake mode without LTO, as an agent decision.
 - **The cargo target folder grows fast.** Each types reload added about 5.8 MB in `dev` and
   1 MB in `release`, mostly incremental data. The engine needs a cleanup of the target folder.
+- **Each build removes the old copies.** The test `a_new_build_removes_only_the_old_copies_of_its_prefix`
+  checks that a build removes the old copies of its prefix in `build/loaded/`, and keeps the copies of
+  other prefixes. The same bytes keep the same name. Thus the first build after an open removes the
+  old builds (8.5).
 
 ### Known limits
 
 - The test ran only on Windows, because the loader supports only Windows.
-- The cleanup of old builds when a project opens (8.5) is not tested.
 - The memory of one row is noisy, because the test and the Windows loader also allocate. Use
   the totals of a long run.
 - `/Brepro` is a flag of the MSVC linker. With `rust-lld` on `x86_64-pc-windows-gnu`, the flag

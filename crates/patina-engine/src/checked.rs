@@ -200,6 +200,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_new_build_removes_only_the_old_copies_of_its_prefix() {
+        let root = std::env::temp_dir().join(format!("patina-loaded-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let built = [root.join("cluster.dll")];
+        fs::write(&built[0], "one").unwrap();
+        let first = copy_to_loaded(&root, "cluster-", &built).unwrap();
+        let slot = copy_to_loaded(&root, "slot-", &built).unwrap();
+        let again = copy_to_loaded(&root, "cluster-", &built).unwrap();
+        fs::write(&built[0], "two").unwrap();
+        let second = copy_to_loaded(&root, "cluster-", &built).unwrap();
+        let state = (first[0].exists(), second[0].exists(), slot[0].exists());
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(first, again, "the same bytes keep the name");
+        assert_ne!(first, second);
+        assert_eq!(state, (false, true, true), "only the old copy of the prefix goes");
+    }
+
+    #[test]
     fn the_shared_runtime_is_copied_one_time() {
         let root = std::env::temp_dir().join(format!("patina-std-{}", std::process::id()));
         let (libdir, loaded) = (root.join("lib"), root.join("build").join("loaded"));
