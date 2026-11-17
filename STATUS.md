@@ -1,8 +1,9 @@
 # Status
 
 All milestones of the roadmap (spec section 16) ended. Milestone 12, the event domain, ended on
-2026-11-16. The current work is the open items of the known limits and of
-[docs/before-building.md](docs/before-building.md).
+2026-11-16. The current work is the [quality plan](docs/quality-plan.md) of 2026-11-17: the
+code quality, the architecture and the speed come before more major work. Then the open items of
+the known limits and of [docs/before-building.md](docs/before-building.md).
 Milestone 11, the audio domain, ended on 2026-11-16. Its step 3, the GUI of audio nodes, stays
 deferred by the owner.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is

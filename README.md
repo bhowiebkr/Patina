@@ -704,6 +704,8 @@ questions.
   measurement tool.
 - [Before building](docs/before-building.md): the setup, prototypes and decisions that are still
   open, by milestone.
+- [Quality plan](docs/quality-plan.md): the review of the code quality, the architecture and the
+  speed, and the plan to fix them before more major work.
 - [AGENTS.md](AGENTS.md): working rules for AI agents in this repository.
 
 ## Contributing
