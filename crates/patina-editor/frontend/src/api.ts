@@ -426,6 +426,9 @@ export const api = {
   settings: () => invoke<Settings>('settings'),
   installToolchain: () => invoke<void>('install_toolchain'),
   updateToolchain: () => invoke<void>('update_toolchain'),
+  analyzerStart: () => invoke<number>('analyzer_start'),
+  analyzerSend: (serial: number, text: string) => invoke<void>('analyzer_send', { serial, text }),
+  analyzerStop: () => invoke<void>('analyzer_stop'),
   /** Reads the newest release from GitHub (15.3). Null means that Patina has no release yet. */
   checkUpdate: () => invoke<Release | null>('check_update'),
   /** Takes a folder off the list of trusted projects (11), and returns the new list. */
@@ -556,6 +559,11 @@ export interface InstallProgress {
 
 export function onToolchain(handler: (progress: InstallProgress) => void): Promise<UnlistenFn> {
   return listen<InstallProgress>('toolchain', (e) => handler(e.payload));
+}
+
+/** A message of rust-analyzer start `serial`, or null text when the process stopped (15.1). */
+export function onAnalyzer(handler: (message: { serial: number; text: string | null }) => void): Promise<UnlistenFn> {
+  return listen<{ serial: number; text: string | null }>('analyzer', (e) => handler(e.payload));
 }
 
 export function onOutput(handler: (output: OutputText) => void): Promise<UnlistenFn> {

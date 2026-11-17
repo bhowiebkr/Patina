@@ -39,6 +39,8 @@ pub struct Editor {
     closing: Mutex<Vec<String>>,
     /// True while a layout change of the page waits for its save (15.2).
     pub layout_pending: AtomicBool,
+    /// rust-analyzer of the Code tab (15.1).
+    pub analyzer: crate::analyzer::Analyzer,
 }
 
 struct Session {
@@ -150,7 +152,7 @@ pub struct Recent {
 
 impl Editor {
     pub fn new(data: Data, engine: Host, check: Option<PathBuf>, shot: Option<PathBuf>) -> Editor {
-        Editor { data, engine, session: Mutex::new(None), check, shot, serial: AtomicU64::new(0), closing: Mutex::default(), layout_pending: AtomicBool::new(false) }
+        Editor { data, engine, session: Mutex::new(None), check, shot, serial: AtomicU64::new(0), closing: Mutex::default(), layout_pending: AtomicBool::new(false), analyzer: Default::default() }
     }
 
     /// True when the open project or the Code tab has changes that are not saved.
@@ -173,7 +175,7 @@ impl Editor {
     }
 
     /// The root of the open project, when the user trusts it (11). `to` says what needs the trust.
-    fn trusted_root(&self, to: &str) -> Result<PathBuf, String> {
+    pub(crate) fn trusted_root(&self, to: &str) -> Result<PathBuf, String> {
         self.with(|session| match session.trusted {
             true => Ok(session.project.root().to_owned()),
             false => Err(format!("Trust the project before you {to}.")),
@@ -214,6 +216,7 @@ impl Editor {
             Err(e) => (None, Some(e)),
         };
         self.engine.unload(serial);
+        self.analyzer.stop();
         let mut session = self.lock();
         // A project opens paused (15.10).
         let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error };
@@ -227,6 +230,7 @@ impl Editor {
     /// Closes the project. The user saved or discarded the changes, so the recovery file goes. A
     /// recovery file without an answer stays for the next open.
     fn close(&self) {
+        self.analyzer.stop();
         if let Some(session) = self.lock().take()
             && session.recovery.is_none()
             && let Err(e) = self.data.remove_recovery(session.project.root())

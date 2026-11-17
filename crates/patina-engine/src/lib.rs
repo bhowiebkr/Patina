@@ -40,7 +40,7 @@ use edit::Disk;
 use folders::{code_file, code_folder, write_file};
 pub(crate) use folders::list_files;
 
-pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
+pub use cargo::{Diagnostic, Mode, Toolchain, add_crate, write_workspace};
 pub use checked::{Compiled, Parts};
 pub use clip::{Link, Pasted};
 pub use edit::Edit;

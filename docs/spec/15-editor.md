@@ -14,6 +14,9 @@ Part of the [Patina Specification](README.md).
 | Code editor | Monaco, connected to rust-analyzer |
 
 - Dark theme.
+- rust-analyzer gives completion and hover in the **Code** tab. The editor starts the rust-analyzer of the toolchain when the **Code** tab opens a Rust file of a trusted project. rust-analyzer runs the build scripts and the procedural macros, so a project that the user does not trust gets no rust-analyzer (11). The editor stops it when the project closes.
+- Before the start, the editor writes the workspace manifest and the SDK crates, as a build does. rust-analyzer gets the `rustc` flags of the build and its own target folder `build/analyzer`, so it does not wait for a build. It has no check on save. The compile errors of the **Code** tab come from the build (15.5).
+- Without rust-analyzer, the **Code** tab works with no completion. The reason goes to the **Output** tab. (Agent decision, 2026-11-17. The owner can change it.)
 - Sharp text and graphics on high-DPI screens at all zoom levels.
 - If HTML/SVG becomes slow with thousands of nodes, change the graph view to a WebGL canvas.
 - The connections (15.9) draw on one WebGL2 canvas under the nodes, not as SVG edges. In the connections prototype (19), SVG dropped frames in a pan, and the WebGL layer held 60 FPS with 2 to 11 times less CPU. React Flow with this layer met the targets, so the framework is React. Svelte Flow was not measured. (Agent decision, 2026-11-15. The owner can change it. The measurements are in STATUS.md.)

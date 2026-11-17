@@ -7,6 +7,7 @@
 //! graph to `<dir>`.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod analyzer;
 mod data;
 mod dialog;
 mod engine;
@@ -296,6 +297,9 @@ fn main() {
             session::capture,
             toolchain::install_toolchain,
             toolchain::update_toolchain,
+            analyzer::analyzer_start,
+            analyzer::analyzer_send,
+            analyzer::analyzer_stop,
             dialog::pick_folder,
             dialog::pick_path,
             session::asset_files,

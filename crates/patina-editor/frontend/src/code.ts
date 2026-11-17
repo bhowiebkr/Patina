@@ -1,7 +1,6 @@
 // The code buffers of the Code tab (spec 15.10): one Monaco model for each open file of a node
 // folder. Edits stay in the buffer until a save sends one SetCode edit for each changed file.
 
-// shortcut: no rust-analyzer; connect it when the toolchain install has it (spec 15.1).
 // shortcut: Monaco is in the main script (3.7 MB); load it with the Code tab if the start gets slow.
 import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/editor/contrib/bracketMatching/browser/bracketMatching';
@@ -13,12 +12,14 @@ import 'monaco-editor/editor/contrib/hover/browser/hoverContribution';
 import 'monaco-editor/editor/contrib/indentation/browser/indentation';
 import 'monaco-editor/editor/contrib/linesOperations/browser/linesOperations';
 import 'monaco-editor/editor/contrib/multicursor/browser/multicursor';
+import 'monaco-editor/editor/contrib/suggest/browser/suggestController';
 import 'monaco-editor/editor/contrib/wordHighlighter/browser/wordHighlighter';
 import 'monaco-editor/editor/contrib/wordOperations/browser/wordOperations';
 import 'monaco-editor/features/find/register';
 import 'monaco-editor/languages/definitions/rust/register';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { api, errorText, type Code, type Diagnostic, type View } from './api';
+import { trackModel } from './lsp';
 
 export { monaco };
 
@@ -131,6 +132,7 @@ export async function openFile(path: string): Promise<monaco.editor.ITextModel> 
   const buffer = { model, saved: text, marks: [] };
   buffers.set(path, buffer);
   model.onDidChangeContent(update);
+  trackModel(path, model);
   mark(path, buffer);
   return model;
 }

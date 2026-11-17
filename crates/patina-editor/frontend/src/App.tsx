@@ -10,6 +10,7 @@ import { runCheck } from './check';
 import { clipboard } from './clip';
 import { runShot } from './shot';
 import { closeCode, onCodeError, reloadCode, restoreCode, saveCode, showErrors, subscribe, unsavedFiles } from './code';
+import { analyzerProject } from './lsp';
 import type { Reveal } from './CodeTab';
 import { Confirm } from './Confirm';
 import { crumbLabel, trailOf, usePathOf, type Crumb } from './crumbs';
@@ -251,6 +252,11 @@ export function App() {
   }, [start, show, pick, markStale, openGraph]);
 
   useEffect(() => showErrors(run.errors), [run.errors]);
+
+  // The serial makes a new process after the same project opens again, because Rust stopped the old one.
+  const analyzed = view?.trusted ? view.root : null;
+  const opening = view?.serial ?? 0;
+  useEffect(() => analyzerProject(analyzed, opening), [analyzed, opening]);
 
   useEvent(onCloseRequested, (ask) => (ask ? setAsk('quit') : flushLayout().then(() => api.quit())));
 

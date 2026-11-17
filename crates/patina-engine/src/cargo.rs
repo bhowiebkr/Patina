@@ -224,7 +224,7 @@ impl Toolchain {
     /// The `rustc` flags of a build. Each library links `std` as a shared library, so the clusters
     /// and the slot use one copy of `std` (5.2). The link gives the same bytes for the same code
     /// (8.5). On Linux and macOS, a library finds `std` in its own folder.
-    fn rustflags(&self) -> String {
+    pub fn rustflags(&self) -> String {
         let mut flags = vec!["-Cprefer-dynamic".to_owned()];
         if self.host.ends_with("windows-msvc") {
             flags.push("-Clink-arg=/Brepro".to_owned());
@@ -604,8 +604,8 @@ pub(crate) fn build_packages(root: &Path, toolchain: &Toolchain, packages: &[Str
     run_cargo(root, toolchain, packages, Mode::Edit, &|| {}, &AtomicBool::new(false)).map(drop)
 }
 
-/// Writes the manifest of the project workspace and the SDK crates.
-fn write_workspace(root: &Path) -> Result<(), Error> {
+/// Writes the manifest of the project workspace and the SDK crates, for a build or rust-analyzer.
+pub fn write_workspace(root: &Path) -> Result<(), Error> {
     write(root, "Cargo.toml", &workspace(root))?;
     for (path, text) in SDK_FILES {
         write(root, path, text)?;

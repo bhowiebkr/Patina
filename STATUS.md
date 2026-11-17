@@ -1777,7 +1777,11 @@ To run the editor from a checkout:
 - The route points of the wires in a frame move with the use during a drag (fixed 2026-11-17).
   A frontend unit test checks the move. Nobody dragged an open frame by hand. The frame is
   read-only. Open the subgraph to edit its nodes.
-- This part of spec 15 is not in the editor yet: rust-analyzer in Monaco (15.1).
+- rust-analyzer gives completion and hover in the **Code** tab (15.1, added 2026-11-17). A Rust
+  unit test checks the message frames. A frontend unit test checks the conversion of the results.
+  A script sent the messages of the client to rust-analyzer 1.100 on a copy of `examples/hello`.
+  Completion, resolve and hover gave correct results. The editor did not run with rust-analyzer,
+  because the selfcheck toolchain has none. Nobody typed in the **Code** tab with it.
 - A view opens as a tab in the center, after the fixed **Graph** tab (15.2, added 2026-11-17).
   The active view covers the graph, so the graph keeps its state. A layout unit test checks the
   center. The selfcheck checks that a view opens in the center and that **Graph** shows the
@@ -1834,7 +1838,6 @@ To run the editor from a checkout:
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,
   which has the critical advisory GHSA-p98j-92pf-mc4p. `npm audit` now finds 0 problems.
 - These shortcuts are open in the code:
-  - Monaco has no rust-analyzer (15.1, `frontend/src/code.ts`).
   - Monaco is in the main page script, which is 3.7 MB. Load it when the **Code** tab opens if
     the start time gets slow (`frontend/src/code.ts`).
   - The capture works only on Windows (`src/session/check.rs`).
