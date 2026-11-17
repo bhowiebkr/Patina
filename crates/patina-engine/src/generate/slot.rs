@@ -50,6 +50,9 @@ pub(super) fn call(s: &mut String, plan: &Plan, n: usize) {
         call = format!("::{krate}::{state}::{}", node.func);
     }
     let mut call = format!("{call}({})", args.join(", "));
+    if node.is_async {
+        call = format!("::patina_event::output({call})");
+    }
     if node.fallible {
         call = format!("match {call} {{ ::std::result::Result::Ok(v) => v, ::std::result::Result::Err(_) => ::std::unreachable!() }}");
     }
@@ -72,14 +75,16 @@ pub fn manifest(plan: &Plan, slot: usize) -> String {
          publish = false\n\n[lib]\ncrate-type = [\"cdylib\"]\npath = \"lib.rs\"\n\n\
          [dependencies]\npatina-sdk = {{ workspace = true }}\n"
     );
-    if plan.nodes[slot].1.generics.is_empty() {
+    let is_async = if plan.nodes[slot].1.generics.is_empty() {
         let _ = writeln!(text, "{name} = {{ path = \"../../../nodes/{name}\" }}");
+        plan.nodes[slot].1.is_async
     } else {
         let steps = super::witnessed_from(plan, uses(plan));
         text.push_str(&super::crates(plan, &steps));
-        if steps.iter().any(|&n| plan.nodes[plan.steps[n].node].1.is_async) {
-            text.push_str("patina-event = { workspace = true }\n");
-        }
+        steps.iter().any(|&n| plan.nodes[plan.steps[n].node].1.is_async)
+    };
+    if is_async {
+        text.push_str("patina-event = { workspace = true }\n");
     }
     if plan.log {
         text.push_str("patina-log = { package = \"log\", version = \"0.4\" }\n");
@@ -151,7 +156,14 @@ pub fn source(plan: &Plan, slot: usize) -> String {
             }
             args.push(format!("a{j}"));
         }
-        let call = format!("{call}({})", args.join(", "));
+        let mut call = format!("{call}({})", args.join(", "));
+        if node.is_async {
+            // The call waits for the future on the thread of the run. After **Stop** the result stays empty (9.4).
+            call = format!(
+                "match ::patina_event::wait_in_slot({call}, rep, {n}) {{ ::std::option::Option::Some(v) => v, \
+                 ::std::option::Option::None => return ::std::result::Result::Ok(()) }}"
+            );
+        }
         if node.fallible {
             let _ = writeln!(
                 s,

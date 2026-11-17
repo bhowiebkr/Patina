@@ -232,3 +232,59 @@ fn a_generic_node_in_the_slot_gets_a_copy_for_each_use() {
     cluster.set_params(opened.graph());
     assert_eq!(values(&mut cluster)("b4"), "0.0");
 }
+
+/// An async node. It waits, then gives the length of the text plus 7.
+const SHOUT: &str = "#[patina_sdk::node]
+pub async fn shout(text: &String) -> f64 {
+    patina_event::tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    text.len() as f64 + 7.0
+}
+";
+
+/// An event node goes into the slot: the slot call waits for the future of an async node (9.4).
+#[test]
+fn an_event_node_in_the_slot_waits_for_its_future() {
+    let project = copy(&hello(), "event-slot");
+    let manifest = fs::read_to_string(project.join("nodes/add/Cargo.toml")).unwrap();
+    let folder = project.join("nodes/shout");
+    fs::create_dir_all(folder.join("src")).unwrap();
+    fs::write(folder.join("Cargo.toml"), manifest.replace("\"add\"", "\"shout\"") + "patina-event = { workspace = true }\n").unwrap();
+    fs::write(folder.join("src/lib.rs"), SHOUT).unwrap();
+    let graph = "format = 1\n\n\
+        [[node]]\nid = \"00000000000000e0\"\nbuiltin = \"trigger\"\n\n\
+        [[node]]\nid = \"00000000000000e1\"\nfolder = \"nodes/shout\"\n\n\
+        [[node]]\nid = \"00000000000000e2\"\nfolder = \"nodes/show\"\n\n\
+        [[wire]]\nfrom = \"00000000000000e0.out\"\nto = \"00000000000000e1.text\"\n\n\
+        [[wire]]\nfrom = \"00000000000000e1.out\"\nto = \"00000000000000e2.value\"\n";
+    fs::write(project.join("graphs/main.toml"), graph).unwrap();
+    let toolchain = Toolchain::detect().unwrap();
+    let control = Control::default();
+    let opened = Project::open(&project).unwrap();
+    let slotted = |name: &str| {
+        let mut checked = Project::open(&project).unwrap().check().unwrap();
+        checked.set_slot(Some(name)).unwrap();
+        checked
+    };
+    let value = |cluster: &mut patina_engine::Cluster| {
+        let mut text = None;
+        assert!(cluster.run_events(1, &control, |run| {
+            assert!(run.out.ok, "{:?}", run.out.reports);
+            text = run.out.values.iter().find(|v| v.from == "00000000000000e1.out").map(|v| v.text.clone());
+        }));
+        text.expect("no value of e1")
+    };
+
+    let mut cluster = slotted("shout").build(&toolchain, Mode::Edit).unwrap();
+    cluster.set_params(opened.graph());
+    assert_eq!(value(&mut cluster), "7.0");
+
+    // An edit of the body builds the slot alone.
+    fs::write(folder.join("src/lib.rs"), SHOUT.replace("+ 7.0", "+ 8.0")).unwrap();
+    assert!(slotted("shout").build_slot(&toolchain, &mut cluster).unwrap());
+    assert_eq!(value(&mut cluster), "8.0");
+
+    // A node that is not async also goes into the slot in the event domain.
+    let mut cluster = slotted("show").build(&toolchain, Mode::Edit).unwrap();
+    cluster.set_params(opened.graph());
+    assert_eq!(value(&mut cluster), "8.0");
+}

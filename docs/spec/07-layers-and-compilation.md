@@ -24,6 +24,7 @@ Patina compiles a graph in two layers:
 - The base takes the type of the result from dead code with the call of the node, as a link does (8.2). Thus the base depends on the node crate, but runs no code of it.
 - The engine builds the slot alone only while the code of the base and the signature of N stay the same. Else it builds the base and the slot again. A change of a type alias in the node folder does not change the signature text, so it needs a full build. This is a shortcut.
 - The slot library names no type. A witness of each use of a generic node gives the types by inference, as in the base (4.5). Thus the slot library also depends on the node crates that give the types. (Agent decision of 2026-11-17. The owner can change it.)
+- An event node also goes into the slot (9.4). The slot call of an async node waits for its future on the thread of the run. After **Stop** the result stays empty. (Agent decision of 2026-11-17. The owner can change it.)
 - A new slot library gives new states to the uses of N, because the code of N changed. When N fuses back, the base takes the state of each use from the slot library, if the key did not change (7.2).
 
 ### 7.2 Edit cycle

@@ -81,10 +81,6 @@ impl Checked {
         if plan.is_builtin_node(node) {
             return Err(Error::Build(format!("the {name} node is built in, so it does not go into the slot")));
         }
-        if plan.steps.iter().any(|s| s.node == node && s.domain == crate::node::Domain::Event) {
-            // shortcut: an event node does not go into the slot; the slot call has no async wait (7.1). Add it when an event node needs a fast edit.
-            return Err(Error::Build(format!("the node {name} is in the event domain, and an event node does not go into the slot yet")));
-        }
         self.plan.slot = Some(node);
         Ok(())
     }

@@ -59,6 +59,12 @@ pub fn done<R>(caught: Option<Caught<R>>, rep: &Reporter, node: u32, ok: &mut bo
     caught.and_then(|caught| glue::done(caught, rep, node, ok))
 }
 
+/// Waits for the future of an async node in the slot library (7.1). None after **Stop**, as `run`
+/// gives. A panic of the future goes on to the catch of the slot call.
+pub fn wait_in_slot<T>(future: impl Future<Output = T>, rep: &Reporter, node: u32) -> Option<T> {
+    wait(future, rep, node).map(|caught| caught.unwrap_or_else(|payload| std::panic::resume_unwind(payload)))
+}
+
 /// The output type of a future, for the type check of the generated code. It never runs.
 pub fn output<F: Future>(_: F) -> F::Output {
     unreachable!("the type check of a cluster never runs")
