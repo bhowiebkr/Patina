@@ -1822,7 +1822,9 @@ To run the editor from a checkout:
   tall as wide (fixed 2026-11-17, before a wide layer made one tall column). With estimated node
   sizes, `rom-16x7` went from 2006 x 11472 px to 2596 x 5433 px. The router of the editor found a
   path around the nodes for each wire. The wires were 17% shorter, with 12% more bends. A
-  frontend unit test checks the split. Nobody used it in the editor yet.
+  frontend unit test checks the split. A `--shot` run on a hidden desktop pressed Shift+L in the
+  editor on `rom-16x7`. The constant column split into 3 columns with no overlap. Nobody used it
+  by hand yet.
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did
   not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
   old recovery file, and its new changes do not go into the file until the user answers.
