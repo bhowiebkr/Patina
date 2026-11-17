@@ -31,10 +31,48 @@ const WRAPPERS: [&str; 3] = ["zig-cc.exe", "zig-ar.exe", "zig-dlltool.exe"];
 /// A retry continues with the files of the last try. `wrapper` is the program that becomes the
 /// Zig wrappers (see [`run_wrapper`]). `step` gets the name of each step.
 pub fn install(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
-    steps(folder, wrapper, step).map_err(|e| match e {
+    steps(folder, wrapper, step).map_err(install_error)
+}
+
+/// Updates the Rust of the toolchain in `folder` to the newest stable release and returns its
+/// version (13.2). Rustup replaces the toolchain in one transaction, so a failed update keeps the
+/// old Rust. Zig and the crate cache stay. A retry keeps the downloads with a correct hash.
+pub fn update(folder: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
+    update_steps(folder, step).map_err(install_error)
+}
+
+fn install_error(e: Error) -> Error {
+    match e {
         Error::Build(text) => Error::Install(text),
         e => e,
-    })
+    }
+}
+
+fn update_steps(folder: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
+    if !cfg!(windows) {
+        return Err(Error::Build("Update toolchain works only on Windows in this version".into()));
+    }
+    if !Toolchain::installed(folder) {
+        return Err(Error::Build(format!("{} has no toolchain to update. Install the toolchain first", folder.display())));
+    }
+    let downloads = beside(folder, "-update");
+    make_dir(&downloads)?;
+    let server = mirror(folder, &downloads, step)?;
+    step("Update Rust");
+    let bin = folder.join("cargo").join("bin");
+    run_text(tool(folder, &bin.join("rustup.exe"))?.env("RUSTUP_DIST_SERVER", &server).args(["update", "stable", "--no-self-update"]))?;
+    step("Check the toolchain");
+    let release = Toolchain::find(folder)?.release;
+    run_text(tool(folder, &bin.join("rust-analyzer.exe"))?.arg("--version"))?;
+    fs::remove_dir_all(&downloads).map_err(|e| Error::Io(downloads.clone(), e))?;
+    Ok(release)
+}
+
+/// The folder `<folder><suffix>` next to `folder`.
+fn beside(folder: &Path, suffix: &str) -> PathBuf {
+    let mut name = folder.as_os_str().to_owned();
+    name.push(suffix);
+    PathBuf::from(name)
 }
 
 fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
@@ -45,9 +83,7 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
         add_wrappers(folder, wrapper)?;
         return Ok(Toolchain::find(folder)?.release);
     }
-    let mut name = folder.as_os_str().to_owned();
-    name.push("-install");
-    let work = PathBuf::from(name);
+    let work = beside(folder, "-install");
     let downloads = work.join("downloads");
     make_dir(&downloads)?;
     if !Toolchain::installed(&work) {
@@ -146,6 +182,26 @@ fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(),
     step("Download rustup-init");
     let init = downloads.join("rustup-init.exe");
     download_checked(work, &format!("{DIST}/rustup/dist/{HOST}/rustup-init.exe"), &init)?;
+    let server = mirror(work, downloads, step)?;
+    step("Install Rust");
+    run_text(tool(work, &init)?.env("RUSTUP_DIST_SERVER", &server).args([
+        "-y",
+        "--no-modify-path",
+        "--profile",
+        "minimal",
+        "--component",
+        "rust-analyzer",
+        "--default-host",
+        HOST,
+        "--default-toolchain",
+        "stable",
+    ]))?;
+    Ok(())
+}
+
+/// Downloads the newest stable channel manifest and its packages of [`PACKAGES`] into a copy of
+/// the server in `downloads`, and returns the `file:` URL of the copy for rustup.
+fn mirror(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
     step("Download the Rust channel manifest");
     let mirror = downloads.join("mirror");
     let manifest = mirror.join("dist").join("channel-rust-stable.toml");
@@ -162,21 +218,7 @@ fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(),
             verify(&file, &hash)?;
         }
     }
-    step("Install Rust");
-    let server = format!("file:///{}", mirror.display().to_string().replace('\\', "/"));
-    run_text(tool(work, &init)?.env("RUSTUP_DIST_SERVER", &server).args([
-        "-y",
-        "--no-modify-path",
-        "--profile",
-        "minimal",
-        "--component",
-        "rust-analyzer",
-        "--default-host",
-        HOST,
-        "--default-toolchain",
-        "stable",
-    ]))?;
-    Ok(())
+    Ok(format!("file:///{}", mirror.display().to_string().replace('\\', "/")))
 }
 
 /// Returns the name, the xz URL and the hash of each package of [`PACKAGES`].
@@ -339,6 +381,15 @@ mod tests {
         let text = |name: &str| fs::read_to_string(zig.join(name)).unwrap();
         assert_eq!([text("zig-cc.exe"), text("zig-ar.exe"), text("zig-dlltool.exe")], ["old", "new", "new"]);
         fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn an_update_needs_an_installed_toolchain() {
+        let folder = std::env::temp_dir().join(format!("patina-update-{}", std::process::id()));
+        let error = update(&folder, &mut |_| panic!("no step")).unwrap_err().to_string();
+        assert!(error.contains(if cfg!(windows) { "Install the toolchain first" } else { "only on Windows" }), "{error}");
+        assert!(!beside(&folder, "-update").exists());
+        assert_eq!(beside(Path::new("a/toolchain"), "-update"), Path::new("a/toolchain-update"));
     }
 
     #[test]

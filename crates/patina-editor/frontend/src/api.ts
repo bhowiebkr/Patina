@@ -425,6 +425,7 @@ export const api = {
   trustProject: () => invoke<View>('trust_project'),
   settings: () => invoke<Settings>('settings'),
   installToolchain: () => invoke<void>('install_toolchain'),
+  updateToolchain: () => invoke<void>('update_toolchain'),
   /** Reads the newest release from GitHub (15.3). Null means that Patina has no release yet. */
   checkUpdate: () => invoke<Release | null>('check_update'),
   /** Takes a folder off the list of trusted projects (11), and returns the new list. */

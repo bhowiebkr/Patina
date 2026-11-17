@@ -22,12 +22,19 @@ checks open.
   toolchain of the same or a newer version builds it. An older toolchain gives an error.
 - New: an **Import**, an **Update** or a paste from a project of a newer Rust version raises
   the `rust` of this project (spec 6.2). An older toolchain stops it, and the project stays.
+- New: **Update toolchain** in the settings brings the own toolchain to the newest stable Rust
+  (spec 13.2). Rustup updates in place from a checked local copy, so Zig and the crate cache
+  stay. The error of a too old toolchain now names **Update toolchain**.
+- All projects share one toolchain. A toolchain for each exact Rust version is an open option
+  (spec 8.1).
 - Cause of the gap: the CLI tests changed the `rust` of each example to the version of the test
   toolchain, so no test built an example as the zip has it. The tests now keep the version.
 - Checked: an engine unit test of the version order, with pre-releases. The CLI tests built the
   examples `hello` (Rust 1.94.0) and `gpu` (Rust 1.100.0) with Rust 1.100.0.
+- Checked: a unit test of **Update toolchain** on a folder without a toolchain.
 - Not checked: an **Install toolchain** of the new package, and a build of an example in the
-  editor of the zip, by hand.
+  editor of the zip, by hand. A live **Update toolchain** did not run, because it downloads
+  about 300 MB and a check must not download without the approval of the owner.
 
 ## Copy, paste and libraries
 

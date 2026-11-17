@@ -295,6 +295,7 @@ fn main() {
             session::page_error,
             session::capture,
             toolchain::install_toolchain,
+            toolchain::update_toolchain,
             dialog::pick_folder,
             dialog::pick_path,
             session::asset_files,

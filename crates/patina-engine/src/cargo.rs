@@ -193,7 +193,14 @@ impl Toolchain {
     pub fn builds(&self, rust: &str) -> Result<(), String> {
         match release_fits(&self.release, rust) {
             true => Ok(()),
-            false => Err(format!("the project needs Rust {rust} or newer, but the toolchain is Rust {}", self.release)),
+            false => Err(format!(
+                "the project needs Rust {rust} or newer, but the toolchain is Rust {}. {}",
+                self.release,
+                match self.own {
+                    Some(_) => "Click Update toolchain in the settings of the editor (13.2)",
+                    None => "Update the Rust of the system, for example with rustup update",
+                }
+            )),
         }
     }
 

@@ -32,10 +32,10 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       (e) => setError(String(e)),
     );
   };
-  const startInstall = () => {
+  const start = (call: () => Promise<void>) => () => {
     setError('');
-    setInstall({ step: 'Start the install', done: false, error: null });
-    api.installToolchain().catch((e) => {
+    setInstall({ step: 'Start', done: false, error: null });
+    call().catch((e) => {
       setInstall(null);
       setError(String(e));
     });
@@ -78,8 +78,18 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
               <span className="label">
                 {installing ? (install?.step ?? 'Patina installs the toolchain') : 'Patina downloads Rust and Zig, about 265 MB, into the toolchain folder.'}
               </span>
-              <button className="btn" disabled={installing} onClick={startInstall}>
+              <button className="btn" disabled={installing} onClick={start(api.installToolchain)}>
                 {install?.error ? 'Retry' : 'Install toolchain'}
+              </button>
+            </div>
+          )}
+          {s?.ownToolchain && (
+            <div className="settings-row">
+              <span className="label">
+                {installing ? (install?.step ?? 'Patina updates the toolchain') : 'Patina downloads the newest stable Rust into the toolchain folder. Zig and the crate cache stay.'}
+              </span>
+              <button className="btn" disabled={installing} onClick={start(api.updateToolchain)}>
+                {install?.error ? 'Retry' : 'Update toolchain'}
               </button>
             </div>
           )}

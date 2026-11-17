@@ -659,7 +659,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 This is an agent decision of 2026-11-15. The owner can change it.
 
 - The start screen has a **Settings** button. The settings screen replaces the start screen. **Back** or Esc returns to the start screen.
-- The **Toolchain** part shows the Rust version and the path of `cargo`, or the problem that stops a build. It is the toolchain panel of 13.2. When the toolchain folder has no `cargo`, the part shows **Install toolchain**, and then each install step.
+- The **Toolchain** part shows the Rust version and the path of `cargo`, or the problem that stops a build. It is the toolchain panel of 13.2. When the toolchain folder has no `cargo`, the part shows **Install toolchain**, and then each install step. When the toolchain is installed, the part shows **Update toolchain** (13.2), and then each update step.
 - The **Folders** part shows the data folder, with **(portable)** for the portable edition (13.3), and the folder of new projects.
 - The **Libraries** part lists the library folders (6.2). **Add library** adds a Patina project folder, and Patina trusts it. **Remove** takes a folder off the list, and the folder stays trusted.
 - The **Libraries** part also has a **Git URL** field, a **Tag** field and **Add from Git** (6.2). A library from Git shows its URL and tag. **Check for updates** shows **Update to** for a newer tag, and a warning for a moved tag. Agent decision of 2026-11-17. The owner can change it.
