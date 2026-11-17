@@ -114,6 +114,9 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     if (evaluated || fetched) throw new Error(`the content security policy let ${evaluated ? 'eval' : 'a request to another host'} through`);
     steps.push('the content security policy refuses eval and other hosts');
 
+    // A second new project is a library of the check: the palette shows its nodes (6.2).
+    const libProject = await step('new library project', () => api.newProject(dir, 'checklib'));
+    await api.addLibrary(libProject.root);
     let v = await step('new project', () => api.newProject(dir, 'check'));
     if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0) throw new Error('a new project is trusted, paused and empty');
     v = await step('add nodes', () =>
@@ -442,7 +445,7 @@ fn broken() -> u32 {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search(), 'SHO');
     search()!.dispatchEvent(new Event('input', { bubbles: true }));
     const options = () => [...document.querySelectorAll('.palette [role=option]')].map((o) => o.textContent);
-    await until('one match for SHO', RUN_MS, () => options().join() === 'show');
+    await until('two matches for SHO', RUN_MS, () => options().join() === 'show,showchecklib');
     search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     const newNode = () => [...document.querySelectorAll('.react-flow__node')].find((n) => ![A, B].includes(n.getAttribute('data-id')!));
     await until('the added node', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'show');
@@ -454,28 +457,40 @@ fn broken() -> u32 {
 
     // A drag from a pin into an empty area opens the palette with only the nodes that fit the pin
     // (15.2). The new node and its wire are one undo step.
-    const pinEl = document.querySelector(`.react-flow__node[data-id="${B}"] .react-flow__handle[data-handleid="value"]`)!;
-    const pinBox = pinEl.getBoundingClientRect();
-    pinEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: pinBox.left + pinBox.width / 2, clientY: pinBox.top + pinBox.height / 2 }));
-    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...at }));
-    document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...at }));
-    await until('the palette after a drag from a pin', RUN_MS, () => !!search());
+    const dragFromPin = async (what: string) => {
+      const pinEl = document.querySelector(`.react-flow__node[data-id="${B}"] .react-flow__handle[data-handleid="value"]`)!;
+      const pinBox = pinEl.getBoundingClientRect();
+      pinEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: pinBox.left + pinBox.width / 2, clientY: pinBox.top + pinBox.height / 2 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...at }));
+      document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...at }));
+      await until(`the palette after ${what}`, RUN_MS, () => !!search());
+    };
+    const fedFromPin = async (what: string) => {
+      await until(`the ${what} node from the pin`, RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'number');
+      const fed = newNode()!.getAttribute('data-id');
+      v = await step(`undo the ${what} node and its wire`, () => api.undo());
+      if (v.graph.node?.length !== 2 || v.graph.wire?.[0]?.from !== `${A}.out`) throw new Error(`one undo did not remove the node and its wire: ${JSON.stringify(v.graph.wire)}`);
+      v = await step(`redo the ${what} node and its wire`, () => api.redo());
+      if (v.graph.wire?.length !== 1 || v.graph.wire[0].from !== `${fed}.out` || v.graph.wire[0].to !== `${B}.value`) {
+        throw new Error(`the new node does not feed the pin: ${JSON.stringify(v.graph.wire)}`);
+      }
+      v = await step(`undo the ${what} node from a pin`, () => api.undo());
+    };
+    await dragFromPin('a drag from a pin');
     // The show node has no output. The output of the built-in delay is generic, so it fits. The
-    // subgraph of the Test mode step has an f64 output.
-    await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number,switch_checksubgraph,delaybuilt-in').catch((e: Error) => {
+    // subgraph of the Test mode step and the number node of the library have an f64 output.
+    await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number,numberchecklib,switch_checksubgraph,delaybuilt-in').catch((e: Error) => {
       throw new Error(`${e.message} (options ${options().join()})`);
     });
     search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await until('the added node from the pin', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'number');
-    const fed = newNode()!.getAttribute('data-id');
-    v = await step('undo the node and its wire', () => api.undo());
-    if (v.graph.node?.length !== 2 || v.graph.wire?.[0]?.from !== `${A}.out`) throw new Error(`one undo did not remove the node and its wire: ${JSON.stringify(v.graph.wire)}`);
-    v = await step('redo the node and its wire', () => api.redo());
-    if (v.graph.wire?.length !== 1 || v.graph.wire[0].from !== `${fed}.out` || v.graph.wire[0].to !== `${B}.value`) {
-      throw new Error(`the new node does not feed the pin: ${JSON.stringify(v.graph.wire)}`);
-    }
-    v = await step('undo the node from a pin', () => api.undo());
-    steps.push('add a node from a pin');
+    await fedFromPin('added');
+    // A library node from the palette of a drag gets the wire in the same undo step (6.2).
+    await dragFromPin('a second drag from a pin');
+    const libOption = () => [...document.querySelectorAll<HTMLElement>('.palette [role=option]')].find((o) => o.textContent === 'numberchecklib');
+    await until('the library node in the palette of the drag', RUN_MS, () => !!libOption());
+    libOption()!.click();
+    await fedFromPin('library');
+    steps.push('add a node and a library node from a pin');
 
     // Order wires (9.2): a drag from the order socket of A to the order socket of B connects them,
     // and Delete on the selected order wire removes it. Both are edits with undo.

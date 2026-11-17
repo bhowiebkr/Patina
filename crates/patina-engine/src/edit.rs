@@ -193,7 +193,7 @@ fn step(
     Ok(true)
 }
 
-fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
+pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
     match edit {
         Edit::AddNode { id, folder, builtin, pos } => {
             if !is_id(id) {

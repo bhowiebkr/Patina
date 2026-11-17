@@ -35,6 +35,9 @@ to = \"000000000000000d.value\"
 [[order]]
 before = \"000000000000000a\"
 after = \"000000000000000b\"
+[[cable]]
+name = \"bus\"
+wires = [\"000000000000000b.value\"]
 ";
 
 fn project(name: &str, half: &str) -> (std::path::PathBuf, Project) {
@@ -61,7 +64,7 @@ fn a_paste_in_the_same_project_gives_new_ids_at_the_place() {
     assert!(project.copy(&[]).is_err() && project.copy(&ids(&["f"])).is_err(), "nothing to copy");
     let text = project.copy(&ids(&["a", "b", "c"])).unwrap();
     assert!(text.starts_with("patina-clip") && text.contains("[graphs.half]"), "{text}");
-    let pasted = project.paste(&text, [200.0, 300.0], None, |_| None).unwrap();
+    let pasted = project.paste(&text, [200.0, 300.0], None, |_| None, None).unwrap();
     assert_eq!((pasted.ids.len(), pasted.warnings.len()), (3, 0));
     let [a, b, c] = [0, 1, 2].map(|i| node(&project, &pasted.ids[i]).clone());
     assert_eq!((a.pos, b.pos, c.pos), (Some([200.0, 300.0]), Some([290.0, 300.0]), Some([240.0, 360.0])));
@@ -73,23 +76,37 @@ fn a_paste_in_the_same_project_gives_new_ids_at_the_place() {
     assert_eq!(wire.points, [[230.0, 310.0]]);
     let order = graph.order.last().unwrap();
     assert_eq!((graph.order.len(), &order.before, &order.after), (2, &a.id, &b.id));
+    let cable = graph.cable.last().unwrap();
+    assert_eq!((graph.cable.len(), cable.name.as_str(), &cable.wires), (2, "bus-2", &vec![format!("{}.value", b.id)]), "the cable name is free");
     assert_eq!(project.unsaved().map(|g| g.0).collect::<Vec<_>>(), ["main"], "the paste uses the same subgraph");
-    assert!(project.paste("hello", [0.0, 0.0], None, |_| None).unwrap_err().contains("no Patina nodes"));
+    assert!(project.paste("hello", [0.0, 0.0], None, |_| None, None).unwrap_err().contains("no Patina nodes"));
     project.undo().unwrap();
     assert_eq!(project.graph().node.len(), 4, "one undo removes the paste");
 
     // A node of a library is a clip of one node.
     let lib = project.library_clip("half", true).unwrap();
     assert!(project.library_clip("missing", false).is_err() && project.library_clip("../x", true).is_err());
-    let pasted = project.paste(&lib, [5.0, 6.0], None, |_| None).unwrap();
+    let pasted = project.paste(&lib, [5.0, 6.0], None, |_| None, None).unwrap();
     let used = node(&project, &pasted.ids[0]);
     assert_eq!((used.subgraph.as_deref(), used.pos), (Some("half"), Some([5.0, 6.0])));
     let one = project.library_clip("number", false).unwrap();
-    assert!(project.paste(&one, [0.0, 0.0], None, |_| None).is_ok());
+    assert!(project.paste(&one, [0.0, 0.0], None, |_| None, None).is_ok());
+
+    // A pin drag adds the node with its wire in the same step. The new wire replaces the old source.
+    let link = Link { end: "000000000000000b.value".to_owned(), output: false, key: "out".to_owned() };
+    let steps = project.graph().clone();
+    let linked = project.paste(&one, [0.0, 0.0], None, |_| None, Some(&link)).unwrap();
+    let from = format!("{}.out", linked.ids[0]);
+    assert!(linked.warnings.is_empty() && project.graph().wire.iter().any(|w| w.from == from && w.to == link.end));
+    assert!(!project.graph().wire.iter().any(|w| w.from == "000000000000000a.out" && w.to == link.end));
+    project.undo().unwrap();
+    assert_eq!(*project.graph(), steps, "one undo removes the node and its wire");
+    let bad = Link { end: "00000000000000ff.value".to_owned(), ..link };
+    assert!(project.paste(&one, [0.0, 0.0], None, |_| None, Some(&bad)).unwrap().warnings[0].contains("did not connect"));
 
     // A subgraph can not use itself.
     project.open_graph("half").unwrap();
-    assert!(project.paste(&text, [0.0, 0.0], None, |_| None).unwrap_err().contains("can not use itself"));
+    assert!(project.paste(&text, [0.0, 0.0], None, |_| None, None).unwrap_err().contains("can not use itself"));
     assert_eq!(project.graph().node.len(), 1, "a failed paste changes nothing");
     fs::remove_dir_all(&root).unwrap();
 }
@@ -101,7 +118,7 @@ fn a_paste_into_another_project_renames_a_different_subgraph_and_imports_the_fol
     let text = from.copy(&ids(&["a", "c"])).unwrap();
     let id = from.id.clone();
     let find = |want: &str| (want == id).then(|| source.clone());
-    let pasted = project.paste(&text, [0.0, 0.0], None, find).unwrap();
+    let pasted = project.paste(&text, [0.0, 0.0], None, find, None).unwrap();
     assert_eq!(pasted.warnings, Vec::<String>::new(), "the node folders are the same");
     assert_eq!(node(&project, &pasted.ids[1]).subgraph.as_deref(), Some("half-2"));
     assert!(!root.join("graphs/half-2.toml").exists(), "only a save writes a graph");
@@ -110,7 +127,7 @@ fn a_paste_into_another_project_renames_a_different_subgraph_and_imports_the_fol
     assert!(root.join("graphs/half-2.toml").is_file());
 
     // The second paste uses the subgraph of the first paste.
-    let again = project.paste(&text, [0.0, 0.0], None, find).unwrap();
+    let again = project.paste(&text, [0.0, 0.0], None, find, None).unwrap();
     assert_eq!(node(&project, &again.ids[1]).subgraph.as_deref(), Some("half-2"));
 
     // A folder that this project does not have needs the source project and the toolchain.
@@ -118,16 +135,16 @@ fn a_paste_into_another_project_renames_a_different_subgraph_and_imports_the_fol
     from.apply(&Edit::AddNode { id: "00000000000000e1".to_owned(), folder: "nodes/extra".to_owned(), builtin: false, pos: [0.0, 0.0] }).unwrap();
     let text = from.copy(&ids(&["e1"])).unwrap();
     let count = project.graph().node.len();
-    assert!(project.paste(&text, [0.0, 0.0], None, |_| None).unwrap_err().contains("Open the project"));
-    assert!(project.paste(&text, [0.0, 0.0], None, find).unwrap_err().contains("toolchain"));
+    assert!(project.paste(&text, [0.0, 0.0], None, |_| None, None).unwrap_err().contains("Open the project"));
+    assert!(project.paste(&text, [0.0, 0.0], None, find, None).unwrap_err().contains("toolchain"));
     assert!(!root.join("nodes/extra").exists() && project.graph().node.len() == count, "a failed paste changes nothing");
     // A folder with other files stays, with a warning.
     let show = source.join("nodes/show/src/lib.rs");
     fs::write(&show, fs::read_to_string(&show).unwrap() + "// other\n").unwrap();
     let text = from.copy(&ids(&["b"])).unwrap();
-    assert_eq!(project.paste(&text, [0.0, 0.0], None, find).unwrap().warnings.len(), 1);
+    assert_eq!(project.paste(&text, [0.0, 0.0], None, find, None).unwrap().warnings.len(), 1);
     // Without the source project, the folders of this project are used.
-    assert_eq!(project.paste(&text, [0.0, 0.0], None, |_| None).unwrap().warnings.len(), 1);
+    assert_eq!(project.paste(&text, [0.0, 0.0], None, |_| None, None).unwrap().warnings.len(), 1);
     for dir in [&source, &root] {
         fs::remove_dir_all(dir).unwrap();
     }

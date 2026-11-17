@@ -3,7 +3,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useViewport } from '@xyflow/react';
-import { api, folderName, newId, onCloseRequested, onEngine, paramEdit, scopeDomains, type Edit, type EngineEvent, type LibraryNode, type StartInfo, type View } from './api';
+import { api, folderName, newId, onCloseRequested, onEngine, paramEdit, scopeDomains, type Edit, type EngineEvent, type LibraryNode, type DragLink, type StartInfo, type View } from './api';
 import { HelpMenu } from './About';
 import { Field } from './Field';
 import { runCheck } from './check';
@@ -203,9 +203,9 @@ export function App() {
     }
   }, []);
   const paste = useCallback(
-    async (at: [number, number], library?: LibraryNode) => {
+    async (at: [number, number], library?: LibraryNode, link?: DragLink) => {
       try {
-        const p = await (library ? api.pasteLibrary(library, at) : api.pasteClip(await clipboard.read(), at));
+        const p = await (library ? api.pasteLibrary(library, at, link) : api.pasteClip(await clipboard.read(), at));
         show(p.view);
         markStale(p.view);
         setFocus({ ids: p.ids, n: 0 });

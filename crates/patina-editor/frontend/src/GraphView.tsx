@@ -22,7 +22,7 @@ import {
 import { arrange, type Box, type Link } from './arrange';
 import { AddNode } from './AddNode';
 import { NameField } from './NameField';
-import { api, newId, type Domain, type Edit, type GraphFile, type LibraryNode, type NodeInfo, type Point, type View } from './api';
+import { api, newId, type Domain, type Edit, type GraphFile, type LibraryNode, type DragLink, type NodeInfo, type Point, type View } from './api';
 import { HoverContext, HoverStore, kindOf, wireBits, wireWidth } from './bus';
 import { Menu, savedViewport, saveViewport, type Item } from './Dock';
 import { canvasMenu, type MenuAction, type MenuTarget } from './canvasMenu';
@@ -168,8 +168,8 @@ interface Props {
   onExpand: (ids: string[]) => void;
   /** Copies the nodes to the clipboard, and is true when it did (15.11). */
   onCopy: (ids: string[]) => Promise<boolean>;
-  /** Pastes the clipboard, or adds a library node, at a graph position (15.11, 6.2). */
-  onPaste: (at: [number, number], library?: LibraryNode) => void;
+  /** Pastes the clipboard, or adds a library node with the wire of a pin drag, at a graph position (15.11, 6.2). */
+  onPaste: (at: [number, number], library?: LibraryNode, link?: DragLink) => void;
 }
 
 export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand, onCopy, onPaste }: Props) {
@@ -393,9 +393,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
       copy: () => copied.length > 0 && onCopy(copied),
       // A cut removes only the copied nodes. A public pin does not go in a clip.
       cut: () => copied.length > 0 && onCopy(copied).then((ok) => void (ok && group(copied.map((id): Edit => ({ kind: 'RemoveNode', id }))))),
-      paste: (at: { x: number; y: number }, library?: LibraryNode) => {
+      paste: (at: { x: number; y: number }, library?: LibraryNode, link?: DragLink) => {
         const p = flow.screenToFlowPosition(at);
-        onPaste([Math.round(p.x), Math.round(p.y)], library);
+        onPaste([Math.round(p.x), Math.round(p.y)], library, link);
       },
       remove: () => {
         const removed = new Set(selected.map((n) => n.id));
@@ -508,7 +508,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   };
   const end = palette?.end;
   const all = view.graphName === 'main' ? view.nodes : [...view.nodes, PUBLIC_INPUT, PUBLIC_OUTPUT];
-  const choices = end ? all.filter((n) => matchPin(n, end.output, end.ty) !== undefined) : [...all, ...library];
+  const choices = [...all, ...library].filter((n) => !end || matchPin(n, end.output, end.ty) !== undefined);
+  /** The wire from the drag end to a new library node, or undefined without a drag. */
+  const link = (n: LibraryNode): DragLink | undefined => end && { end: end.pin, output: end.output, key: matchPin(n, end.output, end.ty)! };
 
   const onDrop = (e: DragEvent) => {
     const info = view.nodes.find((n) => n.name === e.dataTransfer.getData(NODE_MIME));
@@ -593,7 +595,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
             none={end && `No node has a pin of type ${end.ty}.`}
             onAdd={(n) =>
               'library' in n
-                ? act.paste(palette, n as LibraryNode)
+                ? act.paste(palette, n as LibraryNode, link(n as LibraryNode))
                 : n === PUBLIC_INPUT || n === PUBLIC_OUTPUT
                 ? addPin(n === PUBLIC_INPUT, palette.x, palette.y, end)
                 : addNode(nodeSource(n), palette.x, palette.y, end, n)

@@ -374,6 +374,13 @@ export interface Pasted {
 /** A node or a subgraph of a library, for the node palette (6.2). */
 export type LibraryNode = NodeInfo & { library: string; path: string };
 
+/** The wire of a pin drag to the pin `key` of a new library node (15.3). `output` is true when `end` is an output. */
+export interface DragLink {
+  end: string;
+  output: boolean;
+  key: string;
+}
+
 export type ImportChoice = { kind: 'Replace' } | { kind: 'Keep' } | { kind: 'Rename'; name: string };
 
 export const api = {
@@ -397,7 +404,7 @@ export const api = {
   copyClip: (ids: string[]) => invoke<string>('copy_clip', { ids }),
   pasteClip: (text: string, at: [number, number]) => invoke<Pasted>('paste_clip', { text, at }),
   /** Adds a node or a subgraph of a library, as a paste of one node (6.2). */
-  pasteLibrary: (n: LibraryNode, at: [number, number]) => invoke<Pasted>('paste_library', { path: n.path, name: n.name, subgraph: n.subgraph, at }),
+  pasteLibrary: (n: LibraryNode, at: [number, number], link?: DragLink) => invoke<Pasted>('paste_library', { path: n.path, name: n.name, subgraph: n.subgraph, at, link: link ?? null }),
   libraryNodes: () => invoke<LibraryNode[]>('library_nodes'),
   /** Adds a Patina project to the libraries and trusts it (6.2), and returns the new list. */
   addLibrary: (path: string) => invoke<Library[]>('add_library', { path }),

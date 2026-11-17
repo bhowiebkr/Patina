@@ -29,6 +29,8 @@ checks open.
   copy. The download uses the curl of the system and refuses unsafe archives.
 - New: **Browse libraries** shows the library index, `libraries.toml` in the Patina repository
   (spec 6.2). **Add** downloads the pinned tag of a library. A pull request adds a library.
+- New: the palette of a pin drag also shows the library nodes that fit the pin. The paste and
+  its wire are one undo step.
 - Checked: engine unit tests for a paste in the same project, a paste into another project with a
   renamed subgraph and imported folders, a failed paste that changes nothing, and bad clips.
   Frontend unit tests for the menu entries. An editor unit test for the palette list of the
@@ -36,13 +38,14 @@ checks open.
   fake host. An editor unit test for the pins. On a hidden desktop, the editor self-check copies a
   node from its menu, pastes it from the canvas menu, and then uses Ctrl+C, Ctrl+X and Ctrl+V,
   with a clip in memory. It also finds the Git fields of the libraries and **Browse libraries**.
-  An engine unit test reads an index with a fake host, and leaves out the bad entries.
-- Not checked: a paste between two running editors by hand, a library pick in the editor, and a
-  live download from GitHub or GitLab, and a live download of the index.
-- Known limits: the index has no libraries yet. A cable name of the clip can
-  repeat a cable name of the graph. A clip has 256 subgraphs at most. An undone paste or collapse
-  keeps its new subgraph in memory, and Save writes it. The palette of a pin drag does not show
-  the library nodes.
+  An engine unit test reads an index with a fake host, and leaves out the bad entries. An engine
+  unit test pastes a library node with the wire of a pin drag, and undoes both in one step. The
+  self-check makes a second project as a library, and adds its `number` node from a pin drag.
+  The paste test also gives a free name to a pasted cable.
+- Not checked: a paste between two running editors by hand, and a live download from GitHub or
+  GitLab, and a live download of the index.
+- Known limits: the index has no libraries yet. A clip has 256 subgraphs at most. An undone
+  paste or collapse keeps its new subgraph in memory, and Save writes it.
 
 ## Gate speed
 

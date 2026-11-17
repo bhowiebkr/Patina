@@ -94,7 +94,7 @@ A project is a folder with a stable random ID. Each node, view, custom widget, c
 The owner asked for a way to reuse nodes and subgraphs from other projects (2026-11-17). This is an agent decision of 2026-11-17. The owner can change it.
 
 - A library is a normal Patina project folder (18, question 14). The user adds it in **Settings** > **Libraries** (15.10), and Patina trusts it, because a pick builds its code (11).
-- The **Add node** palette shows the node folders and the subgraphs of each library, with the name of the library. The open project does not show as a library.
+- The **Add node** palette shows the node folders and the subgraphs of each library, with the name of the library. The open project does not show as a library. The palette of a pin drag (15.2) shows the library nodes that fit the pin. The paste and its wire are one undo step. (Agent decision of 2026-11-17. The owner can change it.)
 - A pick adds the node or the subgraph as a paste of one node (15.11). The paste imports the node folders and the subgraphs that the pick needs.
 - **Copy** in one project and **Paste** in another project also reuse nodes and networks (15.11).
 - A library can also come from a Git repository. The user gives the HTTPS URL of the repository and a tag. An empty tag selects the newest tag. Agent decision of 2026-11-17. The owner can change it.

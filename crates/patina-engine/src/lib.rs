@@ -42,7 +42,7 @@ pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate};
 pub use checked::Parts;
-pub use clip::Pasted;
+pub use clip::{Link, Pasted};
 pub use edit::Edit;
 pub use events::{EventRun, Events, Inbox, Remote, remote};
 pub use run::{Audio, Frames};

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::import::{self, Choice, State};
 use crate::plan::check_name;
 use crate::project::{FORMAT, GraphFile, NodeEntry, Wire, is_id};
-use crate::{MAIN, Project, Toolchain};
+use crate::{Edit, MAIN, Project, Toolchain};
 
 /// The version of the clip text.
 const VERSION: u32 = 1;
@@ -44,6 +44,16 @@ pub struct Pasted {
     /// The IDs of the new nodes in the open graph, in the order of the clip.
     pub ids: Vec<String>,
     pub warnings: Vec<String>,
+}
+
+/// A wire between the free end of a pin drag and the pin `key` of the first pasted node (15.3).
+#[derive(Deserialize, Debug)]
+pub struct Link {
+    /// The pin `<node id>.<key>` where the drag started.
+    pub end: String,
+    /// True when `end` is an output.
+    pub output: bool,
+    pub key: String,
 }
 
 impl Project {
@@ -109,8 +119,8 @@ impl Project {
     /// Pastes the clip `text` into the open graph, with the top left node at `at`, as one step of
     /// undo (15.11). `source` gives the folder of the trusted project with an ID. A node folder
     /// that this project does not have comes from that project with an import and a build check
-    /// (6.2). A new subgraph stays in memory until a save.
-    pub fn paste(&mut self, text: &str, at: [f64; 2], toolchain: Option<&Toolchain>, source: impl Fn(&str) -> Option<PathBuf>) -> Result<Pasted, String> {
+    /// (6.2). A new subgraph stays in memory until a save. The wire of `link` goes in the same step.
+    pub fn paste(&mut self, text: &str, at: [f64; 2], toolchain: Option<&Toolchain>, source: impl Fn(&str) -> Option<PathBuf>, link: Option<&Link>) -> Result<Pasted, String> {
         let clip = parse(text)?;
         let order = leaves_first(&clip)?;
         let (renames, new) = self.place_graphs(&clip, &order)?;
@@ -124,7 +134,7 @@ impl Project {
         for (name, graph) in new {
             self.add_graph(&name, graph);
         }
-        let ids = self.paste_nodes(clip.nodes, &renames, at);
+        let ids = self.paste_nodes(clip.nodes, &renames, at, link, &mut warnings);
         Ok(Pasted { ids, warnings })
     }
 
@@ -208,7 +218,7 @@ impl Project {
     }
 
     /// Adds the nodes of the clip to the open graph with new IDs, moved to `at`.
-    fn paste_nodes(&mut self, clip: GraphFile, renames: &HashMap<String, String>, at: [f64; 2]) -> Vec<String> {
+    fn paste_nodes(&mut self, clip: GraphFile, renames: &HashMap<String, String>, at: [f64; 2], link: Option<&Link>, warnings: &mut Vec<String>) -> Vec<String> {
         let mut graph = self.history.graph.clone();
         let mut taken: HashSet<String> = graph.node.iter().map(|n| n.id.clone()).collect();
         let state = RandomState::new();
@@ -251,7 +261,21 @@ impl Project {
         }
         for mut cable in clip.cable {
             cable.wires = cable.wires.iter().map(end).collect();
+            // A cable name of the graph gets a free name `<name>-2`, `<name>-3` and so on.
+            let (base, mut n) = (cable.name.clone(), 1);
+            while graph.cable.iter().any(|c| c.name == cable.name) {
+                n += 1;
+                cable.name = format!("{base}-{n}");
+            }
             graph.cable.push(cable);
+        }
+        if let (Some(link), Some(first)) = (link, new.first()) {
+            let pin = format!("{first}.{}", link.key);
+            let (from, to) = if link.output { (link.end.clone(), pin) } else { (pin, link.end.clone()) };
+            // The folders are already in, so a wire that fails is a warning and not an error.
+            if let Err(e) = crate::edit::change(&mut graph, &Edit::Connect { from, to }) {
+                warnings.push(format!("the wire to {} did not connect: {e}", link.end));
+            }
         }
         self.history.replace(graph);
         new

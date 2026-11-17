@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use patina_engine::git::{self, Check};
 use patina_engine::project::{self, ProjectFile};
-use patina_engine::{NodeInfo, Pasted, Project, Toolchain};
+use patina_engine::{Link, NodeInfo, Pasted, Project, Toolchain};
 use serde::Serialize;
 use tauri::State;
 
@@ -38,24 +38,25 @@ pub fn copy_clip(editor: State<'_, Editor>, ids: Vec<String>) -> Result<String, 
 /// Pastes a clip at the graph position `at` (15.11).
 #[tauri::command(async)]
 pub fn paste_clip(editor: State<'_, Editor>, text: String, at: [f64; 2]) -> Result<PastedView, String> {
-    paste(&editor, &text, at)
+    paste(&editor, &text, at, None)
 }
 
-/// Adds the node or the subgraph `name` of a library, as a paste of one node (6.2).
+/// Adds the node or the subgraph `name` of a library, as a paste of one node (6.2). A pin drag
+/// gives `link`, the wire to the new node (15.3).
 #[tauri::command(async)]
-pub fn paste_library(editor: State<'_, Editor>, path: PathBuf, name: String, subgraph: bool, at: [f64; 2]) -> Result<PastedView, String> {
+pub fn paste_library(editor: State<'_, Editor>, path: PathBuf, name: String, subgraph: bool, at: [f64; 2], link: Option<Link>) -> Result<PastedView, String> {
     if !editor.data.libraries().iter().any(|p| crate::data::same_path(p, &path)) || !editor.data.is_trusted(&path) {
         return Err(format!("Add {} to the libraries in Settings first.", path.display()));
     }
     let text = Project::open(&path).map_err(|e| e.to_string())?.library_clip(&name, subgraph)?;
-    paste(&editor, &text, at)
+    paste(&editor, &text, at, link.as_ref())
 }
 
-fn paste(editor: &Editor, text: &str, at: [f64; 2]) -> Result<PastedView, String> {
+fn paste(editor: &Editor, text: &str, at: [f64; 2], link: Option<&Link>) -> Result<PastedView, String> {
     let toolchain = Toolchain::find(&editor.data.toolchain).ok();
     let mut pasted = None;
     let view = editor.change(|project| {
-        pasted = Some(project.paste(text, at, toolchain.as_ref(), |id| trusted_by_id(editor, id))?);
+        pasted = Some(project.paste(text, at, toolchain.as_ref(), |id| trusted_by_id(editor, id), link)?);
         Ok(())
     })?;
     let pasted = pasted.ok_or_else(|| "The paste did not run.".to_owned())?;

@@ -668,6 +668,7 @@ The owner asked for a copy and a paste of nodes and networks, also between two r
 - A clip is TOML text that starts with `patina-clip = 1`. It holds the ID and the folder name of the source project, the copied nodes, and each subgraph that they use, also through other subgraphs. It holds no code.
 - A wire, an order wire, a collar or a cable goes into the clip only when all of its nodes do.
 - Each pasted node gets a new ID. The top left node goes to the point of the paste, and the other nodes keep their distance to it. The wires keep their bend points.
+- A pasted cable with the name of a cable of the graph gets a free name: `<name>-2`, `<name>-3` and so on.
 - A subgraph of the clip with the same name and the same graph as a subgraph of the project is used again. A different graph gets a free name: `<name>-2`, `<name>-3` and so on. A new subgraph stays in memory until Save (15.10).
 - A node folder that the project does not have comes from the source project with **Import** (6.2), with its type and widget folders. Patina finds the source project by its ID in the trusted projects. A build check of the new folders runs before the paste, and a failed check changes nothing.
 - A node folder that the project has with other files stays, and the paste shows a warning in the log. Without the source project, the paste uses the folders of the project, with a warning. A missing folder without the source project is an error.
