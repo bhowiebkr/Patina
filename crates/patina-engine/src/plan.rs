@@ -100,6 +100,11 @@ impl Plan {
         self.builtin(n) == Some(Builtin::Delay)
     }
 
+    /// True when step `n` is a light node (9.2): it reads and gives only number values.
+    pub fn is_light(&self, n: usize) -> bool {
+        is_light(&self.steps, &self.nodes, n, self.is_delay(n))
+    }
+
     /// True when step `n` is a trigger that starts event runs (9.4).
     pub fn is_trigger(&self, n: usize) -> bool {
         self.builtin(n).is_some_and(Builtin::fires)
@@ -528,11 +533,20 @@ fn sort(count: usize, edges: &[(usize, usize)]) -> Result<Vec<usize>, Vec<usize>
     }
 }
 
+/// True for a `bool`, `char` or number type, also behind `&` or `&mut`.
+fn scalar(ty: &str) -> bool {
+    const SCALARS: [&str; 16] = ["bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
+    SCALARS.contains(&ty.trim_start_matches('&').trim_start_matches("mut ").trim())
+}
+
+/// True for a scalar type of 64 bits or fewer. Its value can go between tasks without a lock (9.2).
+pub fn is_word(ty: &str) -> bool {
+    scalar(ty) && !ty.contains("128")
+}
+
 /// True when step `n` is so small that a task of its own costs more than the step (9.2): a delay,
 /// or a node with only `bool`, `char` and number values, for example a NAND gate. `heavy` stops it.
 fn is_light(steps: &[Step], nodes: &[(String, Node)], n: usize, is_delay: bool) -> bool {
-    const SCALARS: [&str; 16] = ["bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
-    let scalar = |ty: &str| SCALARS.contains(&ty.trim_start_matches('&').trim_start_matches("mut ").trim());
     let (step, node) = (&steps[n], &nodes[steps[n].node].1);
     let input = |(i, source): (&node::Input, &Source)| match *source {
         Source::Wire { step, output } => scalar(&steps[step].types[output]),

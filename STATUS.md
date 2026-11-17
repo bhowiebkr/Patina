@@ -21,11 +21,17 @@ checks open.
 - New: light nodes, for example NAND gates, share one task for each domain (spec 9.2). Their
   wires are local variables, with no locks. `#[node(heavy)]` keeps a node in a task of its own
   (spec 4.1, owner request).
+- New: nets (spec 9.2). A row of plain gates in one task shares one **Stop** check, one catch
+  and one clock read, and its probes send after the net. A number value between two tasks and
+  a number parameter are atomic cells, not locks.
 - Checked: a bake build of `examples/computer` at no frame pacing. The median frame went from
-  about 175 us to about 141 us, and then to about 52 us with light tasks. A benchmark of one gate net gave the cost of each step.
+  about 175 us to about 141 us, then to about 52 us with light tasks, and then to about 13.5 us with nets (without the
+  standard output of the example nodes; about 28 us with it). A benchmark of one gate net gave
+  the cost of each step. Glue tests check the atomic cell and a panic in a net.
 - Not checked: the edit build, and Digital Logic Sim 2 itself.
-- Known limits: each gate still costs about 30 ns: a call, a catch and an `Option` for each
-  value. Items 3 and 4 of the plan are open. A gate net does not run in parallel. A
+- Known limits: each gate still costs up to about 8 ns: an `Option` for each value and a node
+  index for the log. The readout, display and lcd example nodes print a line in each frame,
+  which costs more than the gates. Item 4 of the plan is open. A gate net does not run in parallel. A
   light node that does much work runs in parallel only with `#[node(heavy)]`.
 
 ## Touchpad pan

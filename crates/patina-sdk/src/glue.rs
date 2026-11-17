@@ -136,9 +136,13 @@ impl Reporter {
         if self.quiet() {
             return;
         }
+        self.send_time(node, start.elapsed().as_nanos());
+    }
+
+    fn send_time(&self, node: u32, nanos: u128) {
         let mut buf = [0; 39 + 3];
         let mut out = Text::new(&mut buf);
-        let _ = write!(out, "{:020}", start.elapsed().as_nanos());
+        let _ = write!(out, "{nanos:020}");
         self.send(node, TIME, out.finish());
     }
 
@@ -746,6 +750,8 @@ pub unsafe fn free(cluster: *mut Cluster) {
     }
 }
 
+mod atom;
+pub use atom::*;
 mod call;
 pub use call::*;
 mod catch;
@@ -754,6 +760,8 @@ mod keep;
 pub use keep::*;
 mod latest;
 pub use latest::*;
+mod net;
+pub use net::*;
 mod probe;
 pub use probe::*;
 mod slot;

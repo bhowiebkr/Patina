@@ -14,18 +14,27 @@ use super::{Cluster, Cmd, Probe, Reporter, catch_unwind};
 type Copy = Option<Box<dyn Any + Send>>;
 
 /// The kept copies of the held values of a cluster, in the order of `Plan::held`. A copy is made
-/// only after a view asked for it.
-pub struct Keeps(Box<[(AtomicBool, Mutex<Copy>)]>);
+/// only after a view asked for it. `any` is true after the first ask, so a net checks it once.
+pub struct Keeps {
+    held: Box<[(AtomicBool, Mutex<Copy>)]>,
+    any: AtomicBool,
+}
 
 impl Keeps {
     pub fn new(count: usize) -> Keeps {
-        Keeps((0..count).map(|_| (AtomicBool::new(false), Mutex::new(None))).collect())
+        Keeps { held: (0..count).map(|_| (AtomicBool::new(false), Mutex::new(None))).collect(), any: AtomicBool::new(false) }
+    }
+
+    /// True when a view asked for a held value of the cluster.
+    #[inline(always)]
+    pub fn any(&self) -> bool {
+        self.any.load(Relaxed)
     }
 
     /// Keeps a copy of `value` when a view asked for held value `index`. The copy uses the
     /// buffers of the last copy again.
     pub fn keep<T: Clone + Send + 'static>(&self, index: u32, value: &T) {
-        if self.0.get(index as usize).is_some_and(|(on, _)| on.load(Relaxed)) {
+        if self.held.get(index as usize).is_some_and(|(on, _)| on.load(Relaxed)) {
             self.copy(index, value);
         }
     }
@@ -33,7 +42,7 @@ impl Keeps {
     /// The copy of `keep`, out of line, so the generated code of each held value stays small.
     #[inline(never)]
     fn copy<T: Clone + Send + 'static>(&self, index: u32, value: &T) {
-        let Some((_, copy)) = self.0.get(index as usize) else { return };
+        let Some((_, copy)) = self.held.get(index as usize) else { return };
         let mut copy = copy.lock().unwrap_or_else(PoisonError::into_inner);
         let caught = catch_unwind(AssertUnwindSafe(|| match copy.as_mut().and_then(|c| c.downcast_mut::<T>()) {
             Some(old) => old.clone_from(value),
@@ -47,7 +56,8 @@ impl Keeps {
     /// The copy of held value `index` as a pointer to its `Box<dyn Any + Send>`, or null. The
     /// first read only asks for copies, so it gives null.
     pub fn read(&self, index: u32) -> *mut c_void {
-        let Some((on, copy)) = self.0.get(index as usize) else { return std::ptr::null_mut() };
+        let Some((on, copy)) = self.held.get(index as usize) else { return std::ptr::null_mut() };
+        self.any.store(true, Relaxed);
         if !on.swap(true, Relaxed) {
             return std::ptr::null_mut();
         }

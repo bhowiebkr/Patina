@@ -119,11 +119,13 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
     let own = |slot: &&crate::plan::Slot| mine(slot.step) && !plan.is_trigger(slot.step);
     for (i, slot) in plan.slots.iter().enumerate().filter(|(_, slot)| own(slot)) {
         let ty = if slot.is_str { ": ::patina_sdk::glue::Shared<::std::string::String>" } else { "" };
-        let id = &plan.steps[slot.step].id;
+        let step = &plan.steps[slot.step];
+        let word = plan.nodes[step.node].1.inputs.iter().any(|i| i.key == slot.key && crate::plan::is_word(&i.value));
+        let cell = if word { "Atom" } else { "Shared" };
         let _ = writeln!(
             s,
-            "    let p{i}{ty} = ::patina_sdk::glue::Shared::new(::patina_sdk::glue::default_value()); // {id}.{}",
-            slot.key
+            "    let p{i}{ty} = ::patina_sdk::glue::{cell}::new(::patina_sdk::glue::default_value()); // {}.{}",
+            step.id, slot.key
         );
         shared.push(format!("p{i}"));
     }
@@ -143,6 +145,8 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
             "::patina_sdk::glue::Latest::new()".to_owned()
         } else if is_kept(plan, n, k) {
             format!("::std::sync::Arc::new(::patina_sdk::glue::Shared::new({empty}))")
+        } else if is_atom(plan, n, k) {
+            format!("::patina_sdk::glue::Atom::new({empty})")
         } else {
             format!("::patina_sdk::glue::Shared::new({empty})")
         };
@@ -190,6 +194,7 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         probes.push(probe);
         probe += step.consumers.iter().filter(|&&c| c > 0).count();
     }
+    let gates: Vec<bool> = (0..plan.steps.len()).map(|n| is_gate(plan, n)).collect();
     // The tasks with a delay come last, so Rust knows the type of the delay before its probe (9.2).
     let mut order: Vec<usize> = (0..plan.tasks.len()).filter(|&t| plan.tasks[t].domain == domain).collect();
     order.sort_by_key(|&t| plan.tasks[t].steps.iter().any(|&n| plan.is_delay(n)));
@@ -203,8 +208,12 @@ pub fn source(plan: &Plan, domain: Domain) -> String {
         for (n, k) in &local {
             let _ = writeln!(s, "            let mut n{n}_{k} = ::std::option::Option::None;");
         }
-        for &n in &task.steps {
-            step(&mut s, plan, n, probes[n]);
+        for run in task.steps.chunk_by(|&a, &b| gates[a] && gates[b]) {
+            if gates[run[0]] {
+                net(&mut s, plan, run, &probes);
+            } else {
+                step(&mut s, plan, run[0], probes[run[0]]);
+            }
         }
         for (n, k) in &local {
             let _ = writeln!(s, "            ok &= ::patina_sdk::glue::drop_value(n{n}_{k}, rep, {n});");
@@ -375,6 +384,15 @@ fn is_shared(plan: &Plan, n: usize, k: usize) -> bool {
     plan.steps.iter().enumerate().any(|(m, step)| (step.task != plan.steps[n].task || plan.is_delay(m)) && step.inputs.iter().any(reads))
 }
 
+/// True when output `k` of step `n` is a number that goes to another task of its domain. It goes
+/// in an `Atom`, without a lock (9.2). A delay reads a `Shared` value.
+fn is_atom(plan: &Plan, n: usize, k: usize) -> bool {
+    let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
+    crate::plan::is_word(&plan.steps[n].types[k])
+        && !is_kept(plan, n, k)
+        && !plan.steps.iter().enumerate().any(|(m, step)| plan.is_delay(m) && step.inputs.iter().any(reads))
+}
+
 /// True when a node of another domain reads output `k` of step `n`: a latest-value wire (9.1).
 /// Batch ends before the frames start, so its lock never waits.
 fn is_kept(plan: &Plan, n: usize, k: usize) -> bool {
@@ -437,6 +455,76 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
     for k in (0..step.consumers.len()).filter(|&k| is_latest(plan, n, k)) {
         let _ = writeln!(s, "            n{n}_{k}.publish();");
     }
+}
+
+/// True when step `n` can be a gate of a net (9.2): a light node with no state, no error, no
+/// `&mut` input and one output, which no other domain reads.
+fn is_gate(plan: &Plan, n: usize) -> bool {
+    let node = &plan.nodes[plan.steps[n].node].1;
+    plan.is_light(n)
+        && plan.builtin(n).is_none()
+        && !plan.in_slot(n)
+        && node.state.is_none()
+        && !node.fallible
+        && node.output == Output::One
+        && node.inputs.iter().all(|i| i.pass != Pass::Mut)
+        && !is_kept(plan, n, 0)
+}
+
+/// Writes the gates of `net`, which are in a row in one task, in one block (9.2). The block has
+/// one **Stop** check, one catch and one clock read. The values are numbers, so a gate copies its
+/// inputs, and the probes of the net come after the block (15.9). After a panic, the block runs
+/// again from the next gate, so each gate gets the result of its own catch (4.7, 15.3).
+fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
+    let nodes: Vec<String> = net.iter().map(usize::to_string).collect();
+    let _ = writeln!(s, "            if let ::std::option::Option::Some(net) = ::patina_sdk::glue::Net::new(rep, &[{}]) {{", nodes.join(", "));
+    s.push_str("                ok &= net.run(&mut |at, cur| {
+");
+    for (i, &n) in net.iter().enumerate() {
+        let step = &plan.steps[n];
+        let (name, node) = &plan.nodes[step.node];
+        let (mut pats, mut wired, mut args) = (Vec::new(), Vec::new(), Vec::new());
+        for (input, source) in node.inputs.iter().zip(&step.inputs) {
+            let value = match *source {
+                Source::Slot(p) => format!("*p{p}.read()"),
+                Source::Wire { step: from, output } => {
+                    pats.push(format!("::std::option::Option::Some(a{})", wired.len()));
+                    wired.push(format!("{}.as_ref()", held(plan, from, output)[0]));
+                    format!("*a{}", wired.len() - 1)
+                }
+            };
+            args.push(if input.pass == Pass::Ref { format!("&{value}") } else { value });
+        }
+        let call = format!("::{}::{}({})", name.replace('-', "_"), node.func, args.join(", "));
+        let run = if step.consumers[0] > 0 {
+            format!("net.enter({n}); {} = ::std::option::Option::Some({call});", held(plan, n, 0)[2])
+        } else {
+            format!("net.enter({n}); let _ = {call};")
+        };
+        let run = if wired.is_empty() {
+            run
+        } else {
+            format!("if let ({},) = ({},) {{ {run} }} else {{ net.skip({n}); }}", pats.join(", "), wired.join(", "))
+        };
+        let at = if i == 0 { "at == 0".to_owned() } else { format!("at <= {i}") };
+        let _ = writeln!(s, "                    if {at} {{ *cur = {i}; {run} }} // {}: nodes/{name}", step.id);
+    }
+    s.push_str("                });\n");
+    // A gate has one output. One check of `quiet` and one of `any` cover the probes of the net.
+    let shown: Vec<usize> = net.iter().copied().filter(|&n| plan.steps[n].consumers[0] > 0).collect();
+    if !shown.is_empty() {
+        s.push_str("                if !rep.quiet() {\n");
+        for &n in &shown {
+            let _ = writeln!(s, "                    if let ::std::option::Option::Some(v) = {}.as_ref() {{ {} }}", held(plan, n, 0)[0], send(plan, n, 0, first[n]));
+        }
+        s.push_str("                }\n                if keeps.any() {\n");
+        for &n in &shown {
+            let _ = writeln!(s, "                    if let ::std::option::Option::Some(v) = {}.as_ref() {{ {} }}", held(plan, n, 0)[0], keep(first[n]));
+        }
+        s.push_str("                }\n");
+    }
+    s.push_str("            }
+");
 }
 
 /// Stores the event of trigger step `n` (9.4): the text of a trigger, or the count of a schedule.
@@ -572,15 +660,26 @@ fn probes(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
     let step = &plan.steps[n];
     let indent = "                ";
     for k in (0..step.consumers.len()).filter(|k| step.consumers[*k] > 0) {
-        let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {
-            format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, v, ::{}::{});", name.replace('-', "_"), kind.func)
-        });
         let _ = writeln!(
             s,
-            "{indent}if let ::std::option::Option::Some(v) = {}.as_ref() {{ ::patina_sdk::glue::send_value(rep, {probe}, \
-             v, (&&&::patina_sdk::glue::Probe(v)).text_fn());{lanes} (&&::patina_sdk::glue::Probe(v)).keep(&keeps, {probe}); }}",
-            held(plan, n, k)[0]
+            "{indent}if let ::std::option::Option::Some(v) = {}.as_ref() {{ {} {} }}",
+            held(plan, n, k)[0],
+            send(plan, n, k, probe),
+            keep(probe)
         );
         probe += 1;
     }
+}
+
+/// The code that sends the text and the lanes (6.3) of held value `v` with index `probe`.
+fn send(plan: &Plan, n: usize, k: usize, probe: usize) -> String {
+    let lanes = plan.kind(n, k).map_or(String::new(), |(name, kind)| {
+        format!(" ::patina_sdk::glue::send_lanes(rep, {probe}, v, ::{}::{});", name.replace('-', "_"), kind.func)
+    });
+    format!("::patina_sdk::glue::send_value(rep, {probe}, v, (&&&::patina_sdk::glue::Probe(v)).text_fn());{lanes}")
+}
+
+/// The code that keeps a copy of held value `v` with index `probe` for a view (15.8).
+fn keep(probe: usize) -> String {
+    format!("(&&::patina_sdk::glue::Probe(v)).keep(&keeps, {probe});")
 }

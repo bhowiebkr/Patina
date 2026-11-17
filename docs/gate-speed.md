@@ -26,6 +26,8 @@ NAND, ROM or RAM chips. It is the older version 1. Patina did not run it.
 
 ## How Patina runs a circuit
 
+This section shows the engine before the plan of this study. The plan changed these steps.
+
 - One frame is one clock step. A `delay` node is a D flip-flop, so a frame needs no settle steps.
 - Each NAND is a Rust node: `!(*a && *b)`. The code generator puts the gates in one cluster.
 - The planner joins a node to the task of its predecessor only in a plain chain (spec 9.2). A
@@ -47,6 +49,9 @@ All numbers are from the owner's Windows computer, on 2026-11-17, with a release
 | A frame of `examples/computer`, bake build, quiet, no frame pacing | about 175 us (median of 5000) |
 | The same frame, after plan item 1 | about 141 us (median of 5000, three runs) |
 | The same frame, after plan item 2 | about 52 us (median of 5000, three runs) |
+| The same frame, after plan item 3, without the standard output of the example nodes | about 13.5 us (median of 5000) |
+| The same frame, after plan item 3, with that output into a file | about 28 us (median of 5000) |
+| Generated Rust of the frame cluster | 2.26 MB before item 3, 2.02 MB after item 3 |
 | Nodes and tasks in that frame | 1577 NAND gates and 63 other nodes, in 1330 tasks (13 after item 2) |
 | Time for each node | about 107 ns (about 32 ns after item 2) |
 | Benchmark, one net of 1577 gates, the Patina steps above | 71 ns for each gate |
@@ -83,9 +88,16 @@ The items are in order of the gain for each change.
    local `Option`, with no lock, no sink lock and no call for each gate. The frame went from
    about 141 us to about 52 us. The frame cluster has 13 tasks, not 1330. A light node that does
    much work can set `#[node(heavy)]` to keep a task of its own, so it can run in parallel.
-3. Straight-line code for plain gates. A node with no state, no panic and `bool` values becomes
-   one line, for example `v[12] = !(v[3] & v[7]);`. The catch and the probe move to the end of
-   the net. The goal is less than 1 ns for each gate. This also makes the bake build faster.
+3. Done: nets (spec 9.2). A gate is a light node with no state, no `Result`, no `&mut` input
+   and one output. A row of gates in one task is a net, with one **Stop** check, one catch and
+   one clock read. Each gate is one line that copies its inputs. The probes of the net come
+   after the net, behind one `quiet` check. A number value between two tasks, and a number
+   parameter, is an `Atom` (atomic cell) and not an `RwLock`. The frame went from about 52 us
+   to about 13.5 us: 25 us with nets, 18.5 us with atoms, 13.5 us with the grouped probes. The
+   computer has 1605 gates in 36 nets and 63 other nodes, so a gate costs less than 8.5 ns, not
+   1 ns. A wire is still an `Option`, and each gate records its node index for the log.
+   The example nodes `readout`, `display` and `lcd` write a line to the standard output in each
+   frame. The CLI test reads these lines. This output costs more than all the gates together.
 4. More frames each second. After items 2 and 3, a frame of the computer can take less than
    20 us. Then a limit of 1000 FPS is too low. Let the editor run many frames in each 60 Hz tick,
    as DLS2 does with its steps each second.

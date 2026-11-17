@@ -354,3 +354,38 @@ fn a_view_reads_a_kept_copy_after_it_asked_for_it() {
     assert!(copy(1).is_none() && copy(1).is_none(), "a type without Clone has no copy");
     assert!(copy(9).is_none());
 }
+
+#[test]
+fn an_atom_keeps_all_bits_of_a_number() {
+    let byte = Atom::new(Some(-5_i8));
+    assert_eq!(*byte.read(), Some(-5));
+    *byte.write() = None;
+    assert_eq!(byte.get(), None);
+    let _ = byte.write().insert(7);
+    assert_eq!(byte.get(), Some(7));
+    assert_eq!(Atom::new(-1.5_f32).get().to_bits(), (-1.5_f32).to_bits());
+    assert_eq!(Atom::new(Some('\u{e9}')).get(), Some('\u{e9}'));
+    assert_eq!(Atom::new(u64::MAX).get(), u64::MAX);
+    assert!(Atom::new(true).get());
+}
+
+#[test]
+fn a_net_reports_a_panic_and_runs_the_next_calls() {
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+    let mut ran = Vec::new();
+    let net = Net::new(&rep, &[4, 5, 6]).unwrap();
+    // The generated code has the same form: each call runs when `at` is at or before it.
+    let ok = net.run(&mut |at, cur| {
+        for i in at..3 {
+            *cur = i;
+            assert!(i != 1, "gate 5");
+            ran.push(i);
+        }
+    });
+    assert!(!ok);
+    assert_eq!(ran, [0, 2]);
+    let panics: Vec<u32> = sent.iter().filter(|s| s.1 == PANIC).map(|s| s.0).collect();
+    assert_eq!(panics, [5]);
+    assert!(sent.iter().any(|s| s.1 == PANIC && s.2.contains("gate 5")));
+}
