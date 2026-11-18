@@ -5,6 +5,9 @@ use std::io::{Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::Path;
 use std::process::Command;
+use std::time::{Duration, Instant};
+
+use patina_engine::{Control, Mode, Project, Toolchain};
 
 use crate::common::{copy, run, run_while};
 
@@ -65,6 +68,28 @@ impl Beep {
 }
 ";
 
+/// An event node with a GUI. A run with an empty text takes 600 ms. The GUI shows the runs.
+const COUNT: &str = "#[patina_sdk::node(domain = event)]
+pub struct Count {
+    runs: u32,
+}
+
+impl Count {
+    pub fn init() -> Self {
+        Count { runs: 0 }
+    }
+
+    pub fn process(&mut self, text: &String) {
+        std::thread::sleep(std::time::Duration::from_millis(if text.is_empty() { 600 } else { 0 }));
+        self.runs += 1;
+    }
+
+    pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
+        ui.label(&format!(\"{} runs\", self.runs));
+    }
+}
+";
+
 fn node(id: &str, kind: &str) -> String {
     let kind = if ["schedule", "trigger", "file_change", "webhook"].contains(&kind) { format!("builtin = \"{kind}\"") } else { format!("folder = \"nodes/{kind}\"") };
     format!("[[node]]\nid = \"00000000000000{id}\"\n{kind}\n\n")
@@ -78,7 +103,7 @@ fn wire(from: &str, to: &str) -> String {
 #[allow(clippy::too_many_lines)]
 fn triggers_start_runs_and_their_rules_hold() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "events");
-    for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false), ("tick", TICK, false), ("beep", BEEP, false)] {
+    for (name, code, event) in [("wait", WAIT, true), ("say", SAY, false), ("hear", HEAR, false), ("tick", TICK, false), ("beep", BEEP, false), ("count", COUNT, false)] {
         let folder = project.join("nodes").join(name);
         fs::create_dir_all(folder.join("src")).unwrap();
         let more = if event { "patina-event = { workspace = true }\n" } else { "" };
@@ -228,4 +253,28 @@ overlap = \"skip\"")).unwrap();
         assert!(error().contains("input `every_ms`"), "{}", error());
         patina_close(package);
     }
+
+    // The GUI of an event node draws while the event runs go on (4.3). While the slow run holds
+    // the state, a GUI call gives no lines at once and does not wait for the run.
+    fs::write(&main, format!("format = 1\n\n{}{}{}", node("e0", "trigger"), node("e3", "count"), wire("e0.out", "e3.text"))).unwrap();
+    let opened = Project::open(&project).unwrap();
+    let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
+    cluster.set_params(opened.graph());
+    let (id, control) = ("00000000000000e3", Control::default());
+    assert_eq!(cluster.ui(&control, id, 0, "").0.as_deref(), Some("label\t0 runs"));
+    let (mut frames, _, events) = cluster.live().unwrap();
+    let (held, after) = std::thread::scope(|s| {
+        let run = s.spawn(|| events.run(1, &Control::default(), None, |_| {}));
+        let (start, mut held) = (Instant::now(), None);
+        while held.is_none() && start.elapsed() < Duration::from_secs(10) && !run.is_finished() {
+            let call = Instant::now();
+            let (tree, out) = frames.ui(&control, id, 0, "");
+            held = (out.ok && tree.is_none()).then(|| call.elapsed());
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(run.join().unwrap());
+        (held, frames.ui(&control, id, 0, "").0)
+    });
+    assert!(held.is_some_and(|time| time < Duration::from_millis(300)), "{held:?}");
+    assert_eq!(after.as_deref(), Some("label\t1 runs"));
 }

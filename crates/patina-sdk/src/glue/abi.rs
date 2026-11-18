@@ -45,7 +45,8 @@ pub unsafe fn set(
 ///
 /// # Safety
 ///
-/// The same as for `set`, and no run of the cluster is active.
+/// The same as for `set`. No run of the cluster is active, or the cluster is `parallel` and only
+/// event runs are active.
 pub unsafe fn ui(cluster: *const Cluster, node: u32, mode: u32, text: *const u8, len: usize, rep: *const Reporter) -> bool {
     // SAFETY: the caller keeps the rules of this function.
     let (cluster, rep, bytes) = unsafe { (&*cluster, &*rep, std::slice::from_raw_parts(text, len)) };

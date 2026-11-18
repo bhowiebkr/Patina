@@ -112,7 +112,8 @@ struct Entry {
 
 // SAFETY: the cluster lets other threads call `patina_cluster_fire` (glue::fire). When it keeps a
 // value that is not `Sync`, the gate of `Events::run` lets one run call it at a time. While
-// `Cluster::live` lasts, the frame part refuses the event nodes, and the event domain shares only
+// `Cluster::live` lasts, the frame part refuses the event nodes, but for their GUIs when the
+// cluster is parallel (`Nodes::event_guis`), and the event domain shares only
 // the batch values with the other domains (plan::reaches), which do not change.
 unsafe impl Send for Entry {}
 // SAFETY: as for `Send`. The entry is only read.

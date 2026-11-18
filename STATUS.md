@@ -235,8 +235,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     `Sync` and holds an event node and a node of another domain.
 - In the editor, a change, **Pause** and a failed frame wait for the active event runs. A code
   swap does not keep the active runs on the old builds (9.4).
-- While the event domain runs, a view reads no output of an event node, and the GUI of an event
-  node does not draw.
+- While the event domain runs, a view reads no output of an event node. The GUI of an event
+  node draws only when the event and the slot libraries are parallel. A GUI input is lost when
+  a run holds the node at that time.
 - The first build of a project with an async node needs `tokio` from crates.io or the cargo
   cache.
 

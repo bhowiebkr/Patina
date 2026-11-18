@@ -12,12 +12,12 @@ use std::fmt::{self, Write as _};
 use std::marker::PhantomData;
 use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
 use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 21;
+pub const ABI_VERSION: u32 = 22;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -391,13 +391,24 @@ impl<T> State<T> {
     pub fn lock(&self) -> MutexGuard<'_, Option<T>> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
+
+    /// The lock, or `None` while another call holds it.
+    pub fn try_lock(&self) -> Option<MutexGuard<'_, Option<T>>> {
+        match self.0.try_lock() {
+            Ok(guard) => Some(guard),
+            Err(TryLockError::Poisoned(e)) => Some(e.into_inner()),
+            Err(TryLockError::WouldBlock) => None,
+        }
+    }
 }
 
-/// Calls the `ui` function of a stateful node between two runs (4.3), and sends its widget lines.
-/// A panic drops the state, as in `process` (4.7). The control keeps the node during the call (15.2).
+/// Calls the `ui` function of a stateful node between two runs, or during an event run (4.3), and
+/// sends its widget lines. While a run holds the state, it sends nothing, so the GUI keeps its last
+/// lines. A panic drops the state, as in `process` (4.7). The control keeps the node during the call (15.2).
 pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &mut crate::Ui), cmd: (u32, &str), rep: &Reporter, node: u32) -> bool {
+    // A slow call of an event node holds its state, so the GUI must not wait for it.
+    let Some(mut st) = state.try_lock() else { return true };
     rep.set_node(node);
-    let mut st = state.lock();
     let mut gui = crate::Ui::new(cmd.0, cmd.1);
     let mut params = Vec::new();
     let caught = catch_quiet(AssertUnwindSafe(|| {

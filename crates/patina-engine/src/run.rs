@@ -121,8 +121,9 @@ impl Frames<'_> {
     /// `events` has a line for each user input: the widget index and the value. Returns the
     /// widget lines, or `None` when the node has no GUI or failed (see the outcome), and the
     /// parameter writes of the GUI in the outcome. While the
-    /// audio thread runs, an audio node gives `None` (4.3). During the call, `control` keeps the
-    /// node, so a second **Stop** can end a GUI that does not return (15.2).
+    /// audio thread runs, an audio node gives `None` (4.3). While the event runs go on, an event
+    /// node gives `None` when the cluster is not parallel, or while a run holds its state. During
+    /// the call, `control` keeps the node, so a second **Stop** can end a GUI that does not return (15.2).
     pub fn ui(&mut self, control: &Control, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
         let (names, probes) = (self.run.names, self.run.probes);
         let Some(n) = names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
@@ -131,8 +132,9 @@ impl Frames<'_> {
         let calls = &mut *self.gui;
         calls.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run of this thread is active, the
-        // audio thread never calls the library of a node that is not an audio node, and `events`
-        // and the reporter are valid during the call.
+        // audio thread never calls the library of a node that is not an audio node, the event runs
+        // share only a parallel library with this call (`Nodes::event_guis`), and `events` and the
+        // reporter are valid during the call.
         calls.call(names, probes, control, |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
         let tree = calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
         // A GUI call reports little, so the caller gets its lists.
@@ -151,7 +153,7 @@ impl Frames<'_> {
         let (Some(index), Some(n)) = (self.run.probes.iter().position(is), self.run.names.iter().position(|(n, _)| n == id)) else {
             return std::ptr::null();
         };
-        let (Some(library), Ok(index)) = (self.nodes.library(n), u32::try_from(index)) else { return std::ptr::null() };
+        let (Some(library), Ok(index)) = (self.nodes.library(n, false), u32::try_from(index)) else { return std::ptr::null() };
         // A sink of its own, so the outcome of the last run stays.
         let mut sink = Sink::default();
         let rep = Reporter { ctx: (&raw mut sink).cast(), report: collect, control: std::ptr::null() };
@@ -178,29 +180,34 @@ pub(crate) struct Nodes<'a> {
     pub(crate) audio: bool,
     /// False while the event runs call the event domain (`Cluster::live`).
     pub(crate) events: bool,
+    /// True when the event runs call the cluster from many threads at a time (`Events::new`), so the
+    /// GUI of an event node can draw while they go on (4.3).
+    pub(crate) event_guis: bool,
 }
 
 impl Nodes<'_> {
     /// False for an audio node while the audio thread runs, for an event node while the event
-    /// runs go on, and for an unknown node.
-    fn callable(&self, n: usize) -> bool {
+    /// runs go on, and for an unknown node. A `gui` call of an event node can run with parallel
+    /// event runs.
+    fn callable(&self, n: usize, gui: bool) -> bool {
         self.domains.get(n).is_some_and(|&domain| match domain {
             Domain::Audio => self.audio,
-            Domain::Event => self.events,
+            Domain::Event => self.events || (gui && self.event_guis),
             _ => true,
         })
     }
 
     /// The cluster of the domain of node `n`.
-    fn library(&self, n: usize) -> Option<&Library> {
-        self.callable(n).then(|| self.libraries[self.domains[n] as usize].as_ref()).flatten()
+    fn library(&self, n: usize, gui: bool) -> Option<&Library> {
+        self.callable(n, gui).then(|| self.libraries[self.domains[n] as usize].as_ref()).flatten()
     }
 
-    /// The library that keeps the state of node `n`: the slot library for a node in the slot.
+    /// The library that keeps the state of node `n`, for its GUI: the slot library for a node in
+    /// the slot.
     fn owner(&self, n: usize) -> Option<&Library> {
         match self.slotted.get(n)? {
-            true => self.slot.filter(|_| self.callable(n)),
-            false => self.library(n),
+            true => self.slot.filter(|_| self.callable(n, true)),
+            false => self.library(n, true),
         }
     }
 }

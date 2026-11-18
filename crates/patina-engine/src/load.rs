@@ -340,6 +340,7 @@ impl Cluster {
             guis: &self.guis,
             audio,
             events,
+            event_guis: event_library.as_ref().is_some_and(|library| library.parallel) && pool,
         };
         let run = Run { library: frame.as_ref(), pool, names, probes, calls: &mut self.calls, pace: frame_pace };
         let blocks = Run { library: audio_library.as_ref(), pool: false, names, probes, calls: &mut self.block_calls, pace: audio_pace };

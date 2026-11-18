@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use patina_engine::clock::{self, Clock};
 use patina_engine::{Audio, EventRun, Events, Frames, NodeLog, Outcome, Report, Value};
 
-use super::{Event, Job, Live, between, changed, frames_only, lock, split};
+use super::{Event, Job, Live, between, changed, draw, frames_only, lock, split};
 use crate::node_process::Out;
 
 /// Runs the event domain until a job comes or the user stops the run, with the frames when the
@@ -18,10 +18,13 @@ pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, even
     let (remote, inbox) = patina_engine::remote();
     let (out, shared, serial, aliases) = (live.out, live.shared, live.serial, live.aliases);
     *lock(&shared.remote) = Some(remote.clone());
-    let ended = AtomicBool::new(false);
+    let (ended, ran) = (AtomicBool::new(false), AtomicBool::new(false));
     let job = std::thread::scope(|s| {
         let dispatch = std::thread::Builder::new().name("patina-events".to_owned()).spawn_scoped(s, || {
-            events.run(u64::MAX, &shared.control, Some(inbox), |run| done(out, shared, serial, aliases, run));
+            events.run(u64::MAX, &shared.control, Some(inbox), |run| {
+                done(out, shared, serial, aliases, run);
+                ran.store(true, Ordering::Relaxed);
+            });
             ended.store(true, Ordering::Relaxed);
         });
         if let Err(e) = dispatch {
@@ -32,7 +35,7 @@ pub(super) fn run(live: &mut Live, part: &mut Frames, audio: Option<Audio>, even
             (Some(audio), _) => split(live, part, audio),
             (None, _) if blocks => between(live, part),
             (None, true) => frames_only(live, part),
-            (None, false) => jobs_only(live, part, &ended),
+            (None, false) => jobs_only(live, part, &ended, &ran),
         };
         remote.end();
         job
@@ -50,13 +53,16 @@ pub(super) fn warn(live: &Live, text: String) {
 }
 
 /// Takes the jobs of a graph with only event nodes after batch, until a job ends the run or the
-/// event runs end.
-fn jobs_only(live: &mut Live, part: &mut Frames, ended: &AtomicBool) -> Option<Job> {
+/// event runs end. After the event runs that `ran` shows, the node GUIs draw (4.3), as after a frame.
+fn jobs_only(live: &mut Live, part: &mut Frames, ended: &AtomicBool, ran: &AtomicBool) -> Option<Job> {
     let mut clock = Clock::new(clock::FRAME);
     loop {
         clock.wait();
         if let Some(end) = live.job(part) {
             return end;
+        }
+        if ran.swap(false, Ordering::Relaxed) {
+            draw(live.out, &live.shared.control, part, live.serial, live.shown, false);
         }
         if ended.load(Ordering::Relaxed) {
             return None;

@@ -125,6 +125,20 @@ fn the_control_keeps_the_node_while_its_gui_draws() {
 }
 
 #[test]
+fn a_gui_sends_nothing_while_a_run_holds_the_state() {
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let control = Control::default();
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: &raw const control };
+    let state = State::new();
+    let held = state.lock();
+    assert!(draw(&state, || 0, |_: &mut i32, _| panic!("the state is held"), (0, ""), &rep, 3));
+    assert_eq!((control.node(), sent.len()), (None, 0));
+    drop(held);
+    assert!(draw(&state, || 0, |_: &mut i32, _| {}, (0, ""), &rep, 3));
+    assert_eq!(sent.iter().filter(|s| s.1 == UI).count(), 1);
+}
+
+#[test]
 fn node_calls_catch_errors_and_panics_with_the_copies_in_the_catch() {
     struct Bad;
     impl Clone for Bad {
