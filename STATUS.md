@@ -215,11 +215,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   (2026-11-18). A unit test checks the folder names that can go. No check clicked it.
 - The **Logs** panel shows the full compile errors, with highlight and **Fix:** lines from a list
   of common errors (2026-11-18). The **Output** panel has the same highlight. A unit test checks
-  the highlight parts. The **Debug** panel is a timeline with no text, so it has no highlight.
+  the highlight parts. The self-check reads the highlight and the **Fix:** line of a type error.
+  The **Debug** panel is a timeline with no text, so it has no highlight.
 - A lost parameter does not block a load, a paste or a run (2026-11-18). The node shows it with
   an **x** that deletes it. An engine test checks that it is no problem. The self-check clicks the
   **x** on a free knob and undoes the delete.
-- The **Code** tab highlights TOML, and the **About** dialog has the GitHub page (2026-11-18).
+- The **Code** tab highlights TOML, and the **About** dialog has the GitHub page (2026-11-18). The
+  self-check sees more than two token colors in a `Cargo.toml`.
 - Known limits: **Delete** in the **Project** panel shows an error on Linux and macOS.
 
 ### Canvas editing
@@ -229,7 +231,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The doc comment of a node is its description (2026-11-18). The node header, the palette and
   the **Project** panel show it as a tooltip, and the **Inspector** shows it as text. The engine
   test reads it. The self-check reads the tooltips of a free node caption and of its **Project**
-  item. No check looks at the palette tooltip.
+  item and of a palette entry.
 - The **Code** tab has a **Save** button (2026-11-18). The self-check fixes a slot error with it,
   and checks that it is off when no file has changes.
 - When the rustup toolchain has no rust-analyzer, the editor adds it with rustup (2026-11-18).
@@ -245,7 +247,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   leaves a free pin only to the left or the right. A free node shows a bus pin as a dot.
 - `#[node(symbol = "<shape>")]` shows a gate or block symbol in place of the box (2026-11-18).
   A subgraph sets **Shape** and **Label** in the **Look** section, with undo. The engine, CLI
-  and frontend tests read it. The self-check gives a subgraph the chip shape and undoes it.
+  and frontend tests read it. The self-check gives a subgraph the chip shape and undoes it. It
+  also adds a node with the AND symbol.
 - Each example has a style crate (2026-11-18): `widgets/parts` (a circuit board) in computer,
   `widgets/calc` (a pocket calculator) in hello and `widgets/scope` (a lab instrument) in gpu.
   A placed image or field fills the width to the same right margin. A free node shows no canvas
@@ -254,6 +257,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   node has no GUI widgets. Only the hidden shots checked the look of the examples.
 - An unwired input whose type has no parameter support gives a graph problem on its node, not
   a compile error (2026-11-18). The engine test checks it. A hidden shot showed three problems.
+  The self-check adds a node with such an input and reads the problem on the node.
 - Known limits: a generic input that resolves to a type with no parameter support still gives
   a compile error. The check does not find an `impl Param` that a macro makes.
 - The hello example has a pocket calculator (2026-11-18): two **keypad** nodes, an

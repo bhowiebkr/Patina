@@ -4,7 +4,7 @@
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
 import { revealOf, type Reveal } from '../code/reveal';
-import { A, B, BUILD_MS, RUN_MS, helloNodes, leftTab, statusText, topButton, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, helloNodes, leftTab, statusText, tab, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */
 export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string, pick: (at: Reveal) => void) {
@@ -70,6 +70,15 @@ fn broken() -> u32 {
     document.querySelector('.patina-node.compile-error') !== null && document.querySelector('.status-link') !== null,
   );
   steps.push('compile error shown');
+  // The Logs panel highlights the error and adds a Fix line from the list of common errors (15.8).
+  const shown = tab('Logs')!.parentElement?.querySelector<HTMLElement>('[role=tab][aria-selected=true]');
+  tab('Logs')!.click();
+  const logs = () => document.querySelector('[role=log][aria-label=Logs]');
+  await until('the highlight and the Fix line of the error in the Logs panel', RUN_MS, () =>
+    !!logs()?.querySelector('.hl-sev-err') && [...(logs()?.querySelectorAll('.hl-fix') ?? [])].some((f) => f.parentElement?.textContent?.includes('another type')),
+  );
+  shown?.click();
+  steps.push('the Logs panel highlights an error and gives a fix');
   await new Promise((r) => setTimeout(r, 300));
   await api.capture('code-error');
 
@@ -79,6 +88,10 @@ fn broken() -> u32 {
   const tabOf = (box: string, name: (t: HTMLElement) => boolean) => [...document.querySelectorAll<HTMLElement>(`${box} [role=tab]`)].find(name)!;
   tabOf('.code-tab .files', (t) => t.title.endsWith('/Cargo.toml')).click();
   await until('Cargo.toml in the Code tab', RUN_MS, () => codeEditor()?.getModel()?.uri.path.endsWith('/Cargo.toml') === true);
+  // The Code tab highlights TOML, so the lines of Cargo.toml have more than two token colors.
+  const colors = () => new Set([...document.querySelectorAll('.code-box .view-line span[class^=mtk]')].map((s) => s.className)).size;
+  await until('the TOML highlight of Cargo.toml', RUN_MS, () => codeEditor()?.getModel()?.getLanguageId() === 'toml' && colors() > 2);
+  steps.push('the Code tab highlights TOML');
   tabOf('.code-tab .files', (t) => t.title === lib).click();
   await until('the cursor at the error again', RUN_MS, () => lineAt() === error.start[0]);
   codeEditor()!.setPosition({ lineNumber: 2, column: 1 });

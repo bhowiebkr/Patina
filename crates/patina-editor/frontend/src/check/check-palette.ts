@@ -28,6 +28,9 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
   search()!.dispatchEvent(new Event('input', { bubbles: true }));
   const options = () => [...document.querySelectorAll('.palette [role=option]')].map((o) => o.textContent);
   await until('two matches for SHO', RUN_MS, () => options().join() === 'show,showchecklib');
+  // The doc comment of a node is its tooltip in the palette.
+  const tip = document.querySelector('.palette [role=option]')?.getAttribute('title');
+  if (tip !== 'Writes the value to the standard output.') throw new Error(`the palette tooltip of show is ${tip}`);
   search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   const newNode = () => [...document.querySelectorAll('.react-flow__node')].find((n) => ![A, B].includes(n.getAttribute('data-id')!));
   await until('the added node', RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'show');
