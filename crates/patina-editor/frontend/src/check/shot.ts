@@ -5,16 +5,16 @@
 import { api, onEngine, type EngineEvent, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
-import { button, enterText, entry, mouseWheel, rightClick } from './check-fixtures';
+import { BUILD_MS, button, closeMenu, enterText, entry, mouseWheel, rightClick } from './check-fixtures';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Waits up to 30 s for `test`, or throws the text of `what`. */
-async function wait(test: () => boolean, what: () => string) {
-  const end = Date.now() + 30_000;
+/** Waits up to `ms` for `test`, or throws the text of `what`. */
+async function wait(test: () => boolean, what: () => string, ms = 30_000) {
+  const end = Date.now() + ms;
   while (!test()) {
     if (Date.now() > end) throw new Error(what());
     await sleep(100);
@@ -168,6 +168,47 @@ function chromeFit(where: string) {
   return `chrome ${where}: ${seen} items`;
 }
 
+/** Opens the menus of the canvas at its right bottom corner, a node, a wire, the Views button, a dock tab and a Project item, and throws on a menu out of the window or an item that cuts its text (15.2). */
+async function menusFit(where: string) {
+  const bad: string[] = [];
+  const menus: string[] = [];
+  const check = async (open: () => void) => {
+    open();
+    await wait(() => !!document.querySelector('.menu'), () => `no menu in ${where} after the menu ${menus.length + 1}`);
+    const m = document.querySelector<HTMLElement>('.menu')!;
+    const label = m.getAttribute('aria-label') ?? '';
+    menus.push(label);
+    const r = m.getBoundingClientRect();
+    if (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push(`out ${label}`);
+    for (const b of m.querySelectorAll('button'))
+      if (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) bad.push(`cut ${label} "${b.textContent}"`);
+    bad.push(...unnamed(m).map((b) => `${label} ${b}`));
+    closeMenu();
+    await wait(() => !document.querySelector('.menu'), () => `the menu ${label} does not close`);
+  };
+  const pane = document.querySelector('.react-flow__pane')!;
+  const p = pane.getBoundingClientRect();
+  await check(() => rightClick(pane, p.right - 4, p.bottom - 4));
+  const node = document.querySelector('.react-flow__node');
+  if (node) await check(() => rightClick(node));
+  const hit = document.querySelector<SVGPathElement>('.react-flow__edge .wire-hit');
+  if (hit) {
+    const at = hit.getPointAtLength(hit.getTotalLength() / 2);
+    const m = hit.getScreenCTM()!;
+    await check(() => rightClick(hit, m.a * at.x + m.c * at.y + m.e, m.b * at.x + m.d * at.y + m.f));
+  }
+  await check(() => button('Views')!.click());
+  const tab = [...document.querySelectorAll('[role=tab][draggable=true]')].pop();
+  if (tab) await check(() => rightClick(tab));
+  // The last item in the window of a group with a menu: not a None item and not an import.
+  const item = [...document.querySelectorAll('aside[aria-label="Project"] button.item:not([title^="Compare"])')]
+    .filter((w) => w.getBoundingClientRect().width > 0 && w.getBoundingClientRect().bottom <= innerHeight)
+    .pop();
+  if (item) await check(() => rightClick(item));
+  if (bad.length) throw new Error(`the menus of ${where} are wrong: ${bad.join(', ')}`);
+  return `menus ${where}: ${menus.join(', ')}`;
+}
+
 /** Throws on a wire through a body that is not one of its ends, or on a route conflict mark (15.9). */
 function wiresClear(where: string) {
   const bad: string[] = [];
@@ -301,6 +342,60 @@ async function fullSizes(where: string, ids = [...document.querySelectorAll<HTML
   return { text: `full ${where}: ${seen} nodes`, code };
 }
 
+/** The views of the examples: an input on the viewport, and the text of the view after it. gpu: a wheel turn up sets the light to 60 %. computer: the monitor shows the frame of the run. */
+const VIEWS: Record<string, { input?: () => Event; shows: RegExp }> = {
+  scene: { input: () => new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true }), shows: /light: 60 %/ },
+  monitor: { shows: /Click the monitor/ },
+};
+
+/** Opens view `name` from the Views menu, gives it its input of `VIEWS`, and throws on a view that does not build, a side scroll, a widget out of the panel or a label that cuts its text (15.8). Captures `view-<name>`. */
+async function openView(name: string) {
+  const panel = () => document.querySelector<HTMLElement>('aside[aria-label="View"]');
+  const text = () => {
+    const failed = panel()?.querySelector('.error-text')?.textContent;
+    if (failed) throw new Error(`the view ${name} failed: ${failed}`);
+    return panel()?.querySelector('.node-gui')?.textContent ?? '';
+  };
+  button('Views')!.click();
+  const item = () => [...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find((e) => e.textContent?.trim() === name);
+  await wait(() => !!item(), () => `no item ${name} in the Views menu`);
+  item()!.click();
+  await wait(() => text() !== '', () => `the view ${name} shows: ${panel()?.textContent ?? 'no panel'}`, BUILD_MS);
+  const known = VIEWS[name];
+  const area = panel()!.querySelector('.gui-viewport');
+  if (known?.input) {
+    if (!area) throw new Error(`the view ${name} has no viewport: ${text()}`);
+    area.dispatchEvent(known.input());
+  }
+  if (area) {
+    // The page is transparent over a viewport, so only its parents can be under it (15.8).
+    const root = document.documentElement.classList;
+    await wait(() => root.contains('native-viewport'), () => `the page is not transparent over the viewport of the view ${name}`);
+    const r = area.getBoundingClientRect();
+    for (let i = 1; i < 8; i++)
+      for (let j = 1; j < 8; j++) {
+        const under = document.elementsFromPoint(r.left + (r.width * i) / 8, r.top + (r.height * j) / 8).find((e) => !e.contains(area));
+        if (under) throw new Error(`a ${under.tagName} ${under.getAttribute('class')} covers the viewport of the view ${name} at ${i}/8, ${j}/8`);
+      }
+  }
+  if (known) await wait(() => known.shows.test(text()), () => `the view ${name} shows: ${text()}`);
+  await sleep(500);
+  await api.capture(`view-${name}`);
+  const a = panel()!;
+  const b = a.getBoundingClientRect();
+  const bad: string[] = [];
+  if (a.scrollWidth > a.clientWidth + 1) bad.push('a side scroll');
+  for (const w of a.querySelectorAll('.node-gui :is(svg.gui-canvas, canvas, input, select, button, textarea, .label, .gui-viewport)')) {
+    const r = w.getBoundingClientRect();
+    if (r.width === 0) continue;
+    const what = `${w.tagName.toLowerCase()} ${w.getAttribute('aria-label') ?? w.textContent?.slice(0, 20) ?? ''}`;
+    if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
+    if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
+  }
+  if (bad.length) throw new Error(`the view ${name} is wrong: ${bad.join(', ')}`);
+  return [`view-${name}`, `view ${name}: ${text()}`, chromeFit(`view ${name}`)];
+}
+
 /** computer: picks the echo program, and waits for the keys of the key buffer on the terminal. Returns false when no node can pick `echo.asm`. */
 async function echo() {
   const pick = document.querySelector<HTMLSelectElement>('.react-flow__node select:has(option[value$="echo.asm"])');
@@ -371,11 +466,12 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       steps.push(guiFit('main'));
       steps.push(wiresClear('main'));
       steps.push(chromeFit('main'));
+      steps.push(await menusFit('main'));
       // A laptop of 1920 x 1080 pixels at 150% gives a window of 1280 x 720 (15.2).
       await api.checkResize(1280, 720);
       await sleep(1000);
       await api.capture('main-small');
-      const small = [chromeFit('small'), guiFit('small')];
+      const small = [chromeFit('small'), guiFit('small'), await menusFit('small')];
       await api.checkResize(1440, 900);
       await sleep(1000);
       steps.push(...small);
@@ -392,6 +488,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     if (full.code) steps.push('main-full');
     steps.push(full.text);
     if (await echo()) steps.push('main-echo');
+    for (const name of v.views) steps.push(...(await openView(name)));
     // A subgraph inspects the first node of each kind that the shot did not inspect yet.
     const kinds = new Set((v.graph.node ?? []).map((n) => n.folder ?? n.subgraph ?? n.builtin));
     // Depth first: open each subgraph one time, through its first use, then go back.
@@ -406,6 +503,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         steps.push(guiFit(n.subgraph));
         steps.push(wiresClear(n.subgraph));
         steps.push(chromeFit(n.subgraph));
+        steps.push(await menusFit(n.subgraph));
         const fresh = (inner.graph.node ?? []).filter((m) => !kinds.has(m.folder ?? m.subgraph ?? m.builtin) && kinds.add(m.folder ?? m.subgraph ?? m.builtin));
         if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)), (await fullSizes(n.subgraph, fresh.map((m) => m.id))).text);
         // A public pin of a bus type shows its contacts only near (15.9).

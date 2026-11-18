@@ -536,7 +536,7 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     assert!(tree.starts_with("canvas\tPreview 64 x 16\t200\t") && tree.contains("\nplace\t\t18 28\nimage\t\t64\t16\t"), "{tree}");
 
     // The scene view shows a viewport. Without a window, it reads the wheel and draws nothing (15.8).
-    let library = opened.build_view(&Toolchain::detect().unwrap(), "scene").unwrap();
+    let library = opened.build_view(&Toolchain::detect().unwrap(), "scene", Mode::Edit).unwrap();
     let mut view = patina_engine::view::View::load(&library, &project).unwrap();
     let tree = view.ui(0, "0 wheel 100\n0 key down ArrowDown", &patina_engine::view::snapshot(opened.graph(), &[], &[], &[]), None).unwrap().tree;
     assert!(tree.starts_with("viewport	Scene	320
@@ -575,7 +575,7 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     let mut opened = Project::open(&project).unwrap();
     opened.new_view("panel").unwrap();
     fs::write(project.join("views/panel/src/lib.rs"), VIEW).unwrap();
-    let library = opened.build_view(&Toolchain::detect().unwrap(), "panel").unwrap();
+    let library = opened.build_view(&Toolchain::detect().unwrap(), "panel", Mode::Edit).unwrap();
     let graph = snapshot(opened.graph(), &[], &[], &[]);
     let mut view = View::load(&library, &project).unwrap();
     let frame = view.ui(0, "", &graph, None).unwrap();

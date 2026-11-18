@@ -116,6 +116,7 @@ pub struct Frames<'a> {
     pub(crate) nodes: Nodes<'a>,
     /// The audio domain, when this thread runs the blocks between the frames.
     pub(crate) audio: Option<Audio<'a>>,
+    pub(crate) mode: crate::Mode,
 }
 
 impl Frames<'_> {
@@ -216,6 +217,12 @@ impl Frames<'_> {
         // audio thread never calls the library of a node that is not an audio node, and the
         // reporter is valid during the call.
         unsafe { (library.read)(library.state, index, &rep) }
+    }
+
+    /// The build mode of the cluster. A view that reads typed outputs builds in the same mode, so
+    /// it links the same build of each type crate (15.8 rule 3).
+    pub fn mode(&self) -> crate::Mode {
+        self.mode
     }
 
     /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).

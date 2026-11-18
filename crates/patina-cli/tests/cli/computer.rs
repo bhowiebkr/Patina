@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::common::{copy, run};
 use patina_engine::view::{View, snapshot};
-use patina_engine::{Project, Toolchain};
+use patina_engine::{Control, Mode, Project, Toolchain};
 
 /// The clock of the CPU ticks each 4 frames.
 const EVERY: u32 = 4;
@@ -116,12 +116,25 @@ fn the_computer_example_of_nand_gates_counts_adds_and_runs_programs() {
     assert_eq!(on.iter().max(), Some(&6), "{on:?}");
     assert!(on[on.len() - 6..].iter().all(|n| (5..=6).contains(n)), "{on:?}");
     // The monitor view builds. Without a window, it draws nothing (15.8).
-    let opened = Project::open(&project).unwrap();
-    let library = opened.build_view(&Toolchain::detect().unwrap(), "monitor").unwrap();
+    let (opened, toolchain, control) = (Project::open(&project).unwrap(), Toolchain::detect().unwrap(), Control::default());
+    let library = opened.build_view(&toolchain, "monitor", Mode::Bake).unwrap();
     let mut view = View::load(&library, &project).unwrap();
-    let tree = view.ui(0, "", &snapshot(opened.graph(), &[], &[], &[]), None).unwrap().tree;
+    let graph = snapshot(opened.graph(), &[], &[], &[]);
+    let tree = view.ui(0, "", &graph, None).unwrap().tree;
     assert!(tree.starts_with("viewport	Monitor	320
 label	No frame yet."), "{tree}");
+    // A view of the build mode of the cluster links the same frame type, so it reads the frame of
+    // the sprite chip. The first read only asks for copies (15.8 rule 3).
+    let mut cluster = opened.check().unwrap().build(&toolchain, Mode::Bake).unwrap();
+    cluster.set_params(opened.graph());
+    assert!(cluster.run(&control).ok);
+    let mut frame = || {
+        assert!(cluster.frame(&control).ok);
+        view.ui(0, "", &graph, Some(&mut cluster.frame_part())).unwrap().tree
+    };
+    assert!(frame().contains("No frame yet."));
+    let tree = frame();
+    assert!(tree.contains("label	32 x 32, ") && tree.contains("Click the monitor"), "{tree}");
 }
 
 /// A program for the gpu read port and the sprite chip.

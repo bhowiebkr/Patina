@@ -347,7 +347,7 @@ impl Cluster {
         let blocks = has_blocks.then_some(Audio { run: blocks, mix, sound: &mut self.sound });
         let events = event_library.as_ref().map(|library| Events::new(library, pool, &self.triggers, names, probes, &self.root));
         let (here, apart) = if audio { (blocks, None) } else { (None, blocks) };
-        (Frames { run, gui: &mut self.gui_calls, nodes, audio: here }, apart, events)
+        (Frames { run, gui: &mut self.gui_calls, nodes, audio: here, mode: self.mode }, apart, events)
     }
 
     /// Calls the `ui` function of node `id` between two runs, as `Frames::ui` (4.3).

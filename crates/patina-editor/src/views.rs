@@ -6,7 +6,7 @@ use std::thread::{self, JoinHandle};
 
 use patina_engine::project::GraphFile;
 use patina_engine::view::{Frame, View, snapshot};
-use patina_engine::{Edit, Frames, Project, Report, Toolchain};
+use patina_engine::{Edit, Frames, Mode, Project, Report, Toolchain};
 use serde::{Deserialize, Serialize};
 
 use crate::engine::{BUILDING, Shared, find_toolchain, lock, stop_fuse};
@@ -35,11 +35,11 @@ pub struct ViewReply {
     pub select: Option<Vec<String>>,
 }
 
-/// The loaded view instances: the view name, the instance and the view. An instance builds on its
-/// first input, in a background thread, so the frames go on (15.8).
+/// The loaded view instances: the view name, the instance, the view and its build mode. An
+/// instance builds on its first input, in a background thread, so the frames go on (15.8).
 #[derive(Default)]
 pub struct Views {
-    open: Vec<(String, String, View)>,
+    open: Vec<(String, String, View, Mode)>,
     building: Vec<Building>,
 }
 
@@ -49,6 +49,7 @@ struct Building {
     instance: String,
     root: PathBuf,
     toolchain: Toolchain,
+    mode: Mode,
     thread: JoinHandle<Result<PathBuf, String>>,
     inputs: Vec<ViewInput>,
     /// True when the code of the view changed during the build, so it builds again.
@@ -60,18 +61,21 @@ impl Views {
     /// of `frames`, when a cluster is loaded. The first input of an instance gets its reply after
     /// the build, from `poll`.
     pub fn ui(&mut self, out: &Out, shared: &Shared, (folder, toolchain): (&Path, &mut Option<Toolchain>), input: ViewInput, frames: Option<&mut Frames>) {
-        // A slot that shows another view now drops the old instance.
-        self.open.retain(|(name, instance, _)| *instance != input.instance || *name == input.name);
+        // A slot that shows another view now drops the old instance. A view links the type crates
+        // of one build mode, so an instance of another mode than the cluster builds again (15.8).
+        let mode = frames.as_ref().map(|frames| frames.mode());
+        self.open.retain(|(name, instance, _, built)| *instance != input.instance || (*name == input.name && mode.is_none_or(|m| m == *built)));
         self.cancel(out, |b| b.instance == input.instance && b.name != input.name, "The panel shows another view.");
-        if self.open.iter().any(|(_, instance, _)| *instance == input.instance) {
+        if self.open.iter().any(|(_, instance, _, _)| *instance == input.instance) {
             return out.reply(input.ask, self.reply(shared, &input, frames));
         }
         if let Some(waits) = self.building.iter_mut().find(|b| b.instance == input.instance) {
             return waits.inputs.push(input);
         }
-        let started = find_toolchain(folder, toolchain).map_err(|e| e.to_string()).and_then(|toolchain| Ok((toolchain.clone(), build(toolchain.clone(), input.root.clone(), input.name.clone())?)));
+        let mode = mode.unwrap_or(Mode::Edit);
+        let started = find_toolchain(folder, toolchain).map_err(|e| e.to_string()).and_then(|toolchain| Ok((toolchain.clone(), build(toolchain.clone(), input.root.clone(), input.name.clone(), mode)?)));
         match started {
-            Ok((toolchain, thread)) => self.building.push(Building { name: input.name.clone(), instance: input.instance.clone(), root: input.root.clone(), toolchain, thread, inputs: vec![input], again: false }),
+            Ok((toolchain, thread)) => self.building.push(Building { name: input.name.clone(), instance: input.instance.clone(), root: input.root.clone(), toolchain, mode, thread, inputs: vec![input], again: false }),
             Err(e) => out.reply(input.ask, Err::<ViewReply, _>(e)),
         }
     }
@@ -93,15 +97,16 @@ impl Views {
             let built = done.thread.join().unwrap_or_else(|_| Err("The view build panicked.".to_owned()));
             let fail = |inputs: Vec<ViewInput>, e: String| inputs.into_iter().for_each(|input| out.reply(input.ask, Err::<ViewReply, _>(e.clone())));
             if done.again {
-                match build(done.toolchain.clone(), done.root.clone(), done.name.clone()) {
-                    Ok(thread) => self.building.push(Building { thread, again: false, ..done }),
+                let mode = frames.as_ref().map_or(done.mode, |frames| frames.mode());
+                match build(done.toolchain.clone(), done.root.clone(), done.name.clone(), mode) {
+                    Ok(thread) => self.building.push(Building { thread, mode, again: false, ..done }),
                     Err(e) => fail(done.inputs, e),
                 }
                 continue;
             }
             match built.and_then(|library| View::load(&library, &done.root)) {
                 Ok(view) => {
-                    self.open.push((done.name, done.instance, view));
+                    self.open.push((done.name, done.instance, view, done.mode));
                     for input in done.inputs {
                         out.reply(input.ask, self.reply(shared, &input, frames.as_deref_mut()));
                     }
@@ -116,7 +121,7 @@ impl Views {
             let reports: Vec<Report> = lock(&shared.reports).iter().chain(lock(&shared.event_reports).iter()).cloned().collect();
             snapshot(&input.graph, &lock(&shared.values), &reports, &input.selected)
         };
-        let view = self.open.iter_mut().find(|(_, instance, _)| *instance == input.instance).ok_or("The view is not loaded.")?;
+        let view = self.open.iter_mut().find(|(_, instance, _, _)| *instance == input.instance).ok_or("The view is not loaded.")?;
         let frame: Frame = view.2.ui(0, &input.events, &graph, frames)?;
         // The fires come before the edits, because an edit ends the event domain (9.4).
         let remote = lock(&shared.remote).clone();
@@ -140,24 +145,25 @@ impl Views {
     /// Drops each instance of view `name`, so the next input builds it again, for example after a
     /// code change. A build of the view that runs builds again.
     pub fn close(&mut self, name: &str) {
-        self.open.retain(|(open, _, _)| open != name);
+        self.open.retain(|(open, _, _, _)| open != name);
         self.building.iter_mut().filter(|b| b.name == name).for_each(|b| b.again = true);
     }
 
     /// Drops one instance, for example when its panel closes.
     pub fn drop_instance(&mut self, out: &Out, instance: &str) {
-        self.open.retain(|(_, open, _)| open != instance);
+        self.open.retain(|(_, open, _, _)| open != instance);
         self.cancel(out, |b| b.instance == instance, "The panel closed.");
     }
 }
 
-/// Builds view `name` of the project `root` in a background thread. Builds run one at a time.
-fn build(toolchain: Toolchain, root: PathBuf, name: String) -> Result<JoinHandle<Result<PathBuf, String>>, String> {
+/// Builds view `name` of the project `root` in `mode`, in a background thread. Builds run one at a
+/// time.
+fn build(toolchain: Toolchain, root: PathBuf, name: String, mode: Mode) -> Result<JoinHandle<Result<PathBuf, String>>, String> {
     let work = move || {
         let project = Project::open(&root).map_err(|e| e.to_string())?;
         stop_fuse();
         let _build = lock(&BUILDING);
-        project.build_view(&toolchain, &name).map_err(|e| e.to_string())
+        project.build_view(&toolchain, &name, mode).map_err(|e| e.to_string())
     };
     thread::Builder::new().name("patina-view".to_owned()).spawn(work).map_err(|e| format!("The view build cannot start: {e}"))
 }

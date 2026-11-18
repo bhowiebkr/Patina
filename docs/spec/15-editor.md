@@ -376,6 +376,10 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
    of a project link one build of each type crate (5.2). A view reads only an output with a
    wire. (Agent decision, 2026-11-15. The owner can change it. Reason: a copy costs only for
    the outputs that a view reads, and a clone keeps the run free of locks on the value.)
+   An edit build and a bake build of a type crate have different type IDs. Thus a view builds
+   in the mode of the loaded cluster. When the mode of the cluster changes, for example after a
+   fuse, the view builds again, and the state of each instance resets. (Agent decision of
+   2026-11-18. The owner can change it.)
 4. The CLI and packages do not run views. A graph with views still runs headless. See also 18.
 5. Views are native code. Section 11 applies to them.
 
@@ -407,10 +411,11 @@ change it.)
 - `#[view]` writes five exports: `patina_abi_version`, `patina_view_host`, `patina_view_new`,
   `patina_view_ui` and `patina_view_free`. `patina_view_host` takes the shared GPU context and
   the project folder before the first call. The writes of the view use the report kind `EDIT`. The ABI version stays 14.
-- The engine builds a view in edit mode on its first `ui` call, in a background thread, so the
-  frames go on. The call gets its reply after the build. (Agent decision of 2026-11-17. The
-  owner can change it.) It copies the library to
-  `build/loaded/view.<name>.<hash>`, with the Rust runtime, as for the clusters (8.5).
+- The engine builds a view on its first `ui` call, in a background thread, so the frames go on.
+  It uses the mode of the loaded cluster, or edit mode when no cluster is loaded (rule 3). The
+  call gets its reply after the build. (Agent decision of 2026-11-17. The owner can change it.)
+  It copies the library to `build/loaded/view.<name>.<hash>`, with the Rust runtime, as for the
+  clusters (8.5).
 - The `Graph` handle is a copy of the open graph as text lines: the nodes, the parameters, the
   wires, the live values and the node errors of the last run, and the selected nodes. The read
   functions are `nodes`, `folder`, `param`, `wires`, `output_text`, `output`, `error` and
@@ -467,7 +472,7 @@ The limits of version 1:
   the ID `<use ID>/<node ID>`.
 - One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node
   GUIs.
-- No bake build of a view.
+- A change of the cluster mode builds each open view again, and its state resets (rule 3).
 
 ### 15.9 Connections and routing
 

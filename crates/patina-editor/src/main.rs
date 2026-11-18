@@ -51,6 +51,8 @@ const CSP: &str = "default-src 'self'; connect-src 'self' ipc: http://ipc.localh
 
 /// The self-check stops after this time, also when the page does not answer.
 const CHECK_LIMIT: Duration = Duration::from_secs(180);
+/// The shot opens each subgraph and view of a project, so a large project needs more time.
+const SHOT_LIMIT: Duration = Duration::from_secs(360);
 
 #[derive(Serialize, Clone)]
 struct OutputText {
@@ -196,10 +198,10 @@ fn check_update() -> Result<Option<patina_engine::update::Release>, String> {
 }
 
 /// Writes a failed result and stops the editor when the self-check takes too long.
-fn limit_check(dir: PathBuf) {
+fn limit_check(dir: PathBuf, limit: Duration) {
     std::thread::spawn(move || {
-        std::thread::sleep(CHECK_LIMIT);
-        let text = format!("the self-check took more than {} s", CHECK_LIMIT.as_secs());
+        std::thread::sleep(limit);
+        let text = format!("the self-check took more than {} s", limit.as_secs());
         session::write_check(&dir, &serde_json::json!({ "ok": false, "error": text }));
         std::process::exit(1);
     });
@@ -369,7 +371,7 @@ fn setup(app: &mut tauri::App, data: Data, check: Option<PathBuf>, shot: Option<
     let engine = node_process::Host::new(app.handle().clone(), data.toolchain.clone(), tab);
     let webview_dir = data.webview.clone();
     if let Some(dir) = &check {
-        limit_check(dir.clone());
+        limit_check(dir.clone(), if shot.is_some() { SHOT_LIMIT } else { CHECK_LIMIT });
     }
     let is_check = check.is_some();
     app.manage(Editor::new(data, engine, check, shot));

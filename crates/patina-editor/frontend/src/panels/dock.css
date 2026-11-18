@@ -134,6 +134,16 @@
   background: var(--panel);
 }
 
+/* A viewport is transparent over the native surface, so the graph under it must not draw (15.8). */
+html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas {
+  visibility: hidden;
+}
+
+/* React Flow sets an inline visibility on each node. A joined rule broke in the minifier. */
+html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas .react-flow__node {
+  visibility: hidden !important;
+}
+
 .menu-layer {
   position: fixed;
   inset: 0;

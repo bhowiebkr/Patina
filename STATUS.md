@@ -323,6 +323,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The shot checks that each button, field and tab of the page, of each **Inspector** and of each
   full size has an accessible name for a screen reader (added 2026-11-18). All three examples
   pass.
+- The shot opens the menus of the pane, a node, a wire, **Views**, a view tab and the
+  **Project** panel (added 2026-11-18). Each menu must be in the window, must not cut a text and
+  must name each button. It does this in the main graph, at 1280 x 720 and in each subgraph.
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol
@@ -425,7 +428,18 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 ### Milestone 10: views
 
 - The limits of version 1 are in spec 15.8: four instances, typed values only of wired outputs,
-  one viewport on Windows only, and no bake build.
+  and one viewport on Windows only.
+- The **monitor** view of computer showed **No frame yet** while the graph ran (fixed
+  2026-11-18). The fused cluster was a bake build and the view an edit build, so the two `Frame`
+  types had different type IDs. A view now builds in the mode of the loaded cluster. The
+  computer CLI test reads a frame with a bake cluster and a bake view. After a fuse, the view
+  builds again, and its panel keeps the last frame until the build ends.
+- The graph showed through the transparent viewport of a view in the center (fixed 2026-11-18).
+  The graph now hides under a view with a viewport. React Flow sets the visibility of each node,
+  so the first fix still showed a node there. The shot opens each view of the example, checks
+  that only the parents of the viewport are under 49 points of it, and captures
+  `view-<name>.png`. The shot has a limit of 360 s. Computer took 163 s, and one run under load
+  took more than 180 s. All three examples pass.
 - Nobody looked at a viewport in the editor yet. The self-check keeps its window hidden, so it
   cannot show the surface. The colors, the resize and the scroll clip need a check on screen.
 - A viewport draws in the `ui` call on the engine thread, so a slow run delays its frames.

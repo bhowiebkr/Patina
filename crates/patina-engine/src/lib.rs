@@ -380,10 +380,10 @@ impl Project {
         self.crate_folders("types")
     }
 
-    /// Builds the view folder `views/<name>` in edit mode and gives its library for `View::load`
+    /// Builds the view folder `views/<name>` in `mode` and gives its library for `View::load`
     /// (15.8). The library is a copy in `build/loaded/`, as the clusters are (8.5).
-    pub fn build_view(&self, toolchain: &Toolchain, name: &str) -> Result<PathBuf, Error> {
-        let library = cargo::build_view(&self.root, toolchain, name, Mode::Edit)?;
+    pub fn build_view(&self, toolchain: &Toolchain, name: &str, mode: Mode) -> Result<PathBuf, Error> {
+        let library = cargo::build_view(&self.root, toolchain, name, mode)?;
         // A dot is not in a name, so the prefix of one view is not the prefix of another view.
         let copy = checked::copy_to_loaded(&self.root, &format!("view.{name}."), &[library])?;
         checked::copy_runtime(&self.root.join("build").join("loaded"), &toolchain.libdir)?;
