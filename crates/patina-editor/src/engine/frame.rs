@@ -52,9 +52,10 @@ impl Shown {
 
 /// Sends the widget lines of the node GUIs (4.3): the node body size of the nodes in view, and
 /// the larger sizes of the nodes in `shown`. After a run, `all` draws each node one time, so that
-/// each node gets its size.
+/// each node gets its size. A user input that waited for a run of the node applies in this
+/// draw, so its parameter writes go with the lines.
 pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64, shown: &Shown, all: bool) {
-    let (mut trees, mut reports) = (Vec::new(), Vec::new());
+    let (mut trees, mut reports, mut params) = (Vec::new(), Vec::new(), Vec::new());
     for n in 0..part.guis().len() {
         let modes = [0, 1, 2].map(|m| shown.draws(&part.guis()[n].0, m, all));
         if !modes.contains(&true) {
@@ -64,11 +65,12 @@ pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64,
         for mode in (0..3).filter(|&m| modes[m as usize]) {
             let (tree, done) = part.ui(control, &id, mode, "");
             reports.extend(done.reports);
+            params.extend(done.params.into_iter().map(|(key, text)| ParamWrite { id: id.clone(), key, text }));
             trees.extend(tree.map(|tree| Tree { id: id.clone(), mode, tree }));
         }
     }
-    if !trees.is_empty() || !reports.is_empty() {
-        out.emit(&Event::Gui { serial, trees, reports, params: Vec::new() });
+    if !trees.is_empty() || !reports.is_empty() || !params.is_empty() {
+        out.emit(&Event::Gui { serial, trees, reports, params });
     }
 }
 

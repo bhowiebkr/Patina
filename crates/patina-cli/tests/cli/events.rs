@@ -68,7 +68,8 @@ impl Beep {
 }
 ";
 
-/// An event node with a GUI. A run with an empty text takes 600 ms. The GUI shows the runs.
+/// An event node with a GUI. A run with an empty text takes 600 ms. The GUI shows the runs, and
+/// its button adds 10.
 const COUNT: &str = "#[patina_sdk::node(domain = event)]
 pub struct Count {
     runs: u32,
@@ -86,6 +87,9 @@ impl Count {
 
     pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
         ui.label(&format!(\"{} runs\", self.runs));
+        if ui.button(\"Add\").clicked() {
+            self.runs += 10;
+        }
     }
 }
 ";
@@ -255,15 +259,16 @@ overlap = \"skip\"")).unwrap();
     }
 
     // The GUI of an event node draws while the event runs go on (4.3). While the slow run holds
-    // the state, a GUI call gives no lines at once and does not wait for the run.
+    // the state, a GUI call gives no lines at once and does not wait for the run. A user input in
+    // that time waits, and each click counts after the run.
     fs::write(&main, format!("format = 1\n\n{}{}{}", node("e0", "trigger"), node("e3", "count"), wire("e0.out", "e3.text"))).unwrap();
     let opened = Project::open(&project).unwrap();
     let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
     cluster.set_params(opened.graph());
     let (id, control) = ("00000000000000e3", Control::default());
-    assert_eq!(cluster.ui(&control, id, 0, "").0.as_deref(), Some("label\t0 runs"));
+    assert_eq!(cluster.ui(&control, id, 0, "").0.as_deref(), Some("label\t0 runs\nbutton\tAdd"));
     let (mut frames, _, events) = cluster.live().unwrap();
-    let (held, after) = std::thread::scope(|s| {
+    let (held, clicks, after) = std::thread::scope(|s| {
         let run = s.spawn(|| events.run(1, &Control::default(), None, |_| {}));
         let (start, mut held) = (Instant::now(), None);
         while held.is_none() && start.elapsed() < Duration::from_secs(10) && !run.is_finished() {
@@ -272,9 +277,11 @@ overlap = \"skip\"")).unwrap();
             held = (out.ok && tree.is_none()).then(|| call.elapsed());
             std::thread::sleep(Duration::from_millis(5));
         }
+        let clicks = [0; 2].map(|_| frames.ui(&control, id, 0, "1 1").0.is_none());
         assert!(run.join().unwrap());
-        (held, frames.ui(&control, id, 0, "").0)
+        (held, clicks, frames.ui(&control, id, 0, "").0)
     });
     assert!(held.is_some_and(|time| time < Duration::from_millis(300)), "{held:?}");
-    assert_eq!(after.as_deref(), Some("label\t1 runs"));
+    assert_eq!(clicks, [true; 2], "the clicks came while the run held the state");
+    assert_eq!(after.as_deref(), Some("label\t21 runs\nbutton\tAdd"));
 }

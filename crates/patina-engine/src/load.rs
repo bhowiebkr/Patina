@@ -14,7 +14,7 @@ use crate::outcome::{Outcome, Report, ReportKind};
 use crate::plan::Plan;
 use crate::pool;
 use crate::project::GraphFile;
-use crate::run::{Audio, Calls, Frames, Nodes, Pace, Run};
+use crate::run::{Audio, Calls, Frames, Gui, Nodes, Pace, Run};
 use crate::{Error, generate};
 
 /// The loaded clusters of a graph, one for each clock domain (8.2), with their parameters and
@@ -57,7 +57,7 @@ pub struct Cluster {
     /// The reports and the outcome of the last block, apart, so that an audio thread fills them (9.3).
     block_calls: Calls,
     /// The reports and the outcome of the last call of `ui`, apart, so that the frame outcome stays.
-    gui_calls: Calls,
+    gui_calls: Gui,
     /// The mix that the audio nodes of the project play into (9.3).
     mix: &'static Mix,
     /// The mix of the last block.
@@ -125,7 +125,7 @@ impl Cluster {
             probes,
             calls: Calls { sink, ..Calls::default() },
             block_calls: Calls::default(),
-            gui_calls: Calls::default(),
+            gui_calls: Gui::default(),
             mix: glue::shared_in(&root.to_string_lossy(), Mix::default),
             sound: [0.0; BLOCK],
             triggers: (0..plan.steps.len())

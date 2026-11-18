@@ -32,6 +32,29 @@ impl Calls {
     }
 }
 
+/// The most bytes of user input that wait for the node GUIs, so that a node that a run holds for
+/// a long time does not grow the list without end.
+const MAX_WAITING: usize = 64 * 1024;
+
+/// The calls of the node GUIs, and the user input that a GUI could not take yet (4.3).
+#[derive(Default)]
+pub(crate) struct Gui {
+    calls: Calls,
+    /// The node index, the mode and the event lines of each input that came while a run held the
+    /// node.
+    waiting: Vec<(usize, u32, String)>,
+}
+
+impl Gui {
+    /// Keeps `events` for the next call of node `n` in mode `mode`. Drops them past the cap.
+    fn keep(&mut self, n: usize, mode: u32, events: &str) {
+        let size: usize = self.waiting.iter().map(|w| w.2.len()).sum();
+        if !events.is_empty() && size + events.len() <= MAX_WAITING {
+            self.waiting.push((n, mode, events.to_owned()));
+        }
+    }
+}
+
 /// What one thread needs for a run of one domain.
 pub(crate) struct Run<'a> {
     pub(crate) library: Option<&'a Library>,
@@ -89,7 +112,7 @@ impl Run<'_> {
 pub struct Frames<'a> {
     pub(crate) run: Run<'a>,
     /// The calls of `ui`, apart from the frames, so that the outcome of the last frame stays.
-    pub(crate) gui: &'a mut Calls,
+    pub(crate) gui: &'a mut Gui,
     pub(crate) nodes: Nodes<'a>,
     /// The audio domain, when this thread runs the blocks between the frames.
     pub(crate) audio: Option<Audio<'a>>,
@@ -121,16 +144,45 @@ impl Frames<'_> {
     /// Calls the `ui` function of node `id` (4.3), in mode `mode` (0 compact, 1 large, 2 full).
     /// `events` has a line for each user input: the widget index and the value. Returns the
     /// widget lines, or `None` when the node has no GUI or failed (see the outcome), and the
-    /// parameter writes of the GUI in the outcome. While the
-    /// audio thread runs, an audio node gives `None` (4.3). While the event runs go on, an event
-    /// node gives `None` when the cluster is not parallel, or while a run holds its state. During
-    /// the call, `control` keeps the node, so a second **Stop** can end a GUI that does not return (15.2).
+    /// parameter writes of the GUI in the outcome. While the audio thread runs, an audio node
+    /// gives `None` (4.3). While the event runs go on, an event node gives `None` when the cluster
+    /// is not parallel, or while a run holds its state. Then the input waits, and the next call of
+    /// the node in the same mode applies it first. During the call, `control` keeps the node, so a
+    /// second **Stop** can end a GUI that does not return (15.2).
     pub fn ui(&mut self, control: &Control, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
+        let Some(n) = self.run.names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
+        let keep = self.nodes.guis.iter().any(|(g, _)| g == id);
+        // One call for each waiting input, in order, so that each click counts.
+        let mut earlier = Outcome::default();
+        while let Some(i) = self.gui.waiting.iter().position(|w| w.0 == n && w.1 == mode) {
+            let text = self.gui.waiting.remove(i).2;
+            let (tree, out, wait) = self.call(control, n, mode, &text);
+            earlier = join(earlier, out);
+            if wait {
+                self.gui.waiting.insert(i, (n, mode, text));
+                if keep {
+                    self.gui.keep(n, mode, events);
+                }
+                return (None, earlier);
+            }
+            if tree.is_none() {
+                return (None, earlier);
+            }
+        }
+        let (tree, out, wait) = self.call(control, n, mode, events);
+        if wait && keep {
+            self.gui.keep(n, mode, events);
+        }
+        (tree, join(earlier, out))
+    }
+
+    /// One call of the `ui` function of node `n`, and true when the node cannot take the input
+    /// now: a run holds its state, or its cluster is not callable.
+    fn call(&mut self, control: &Control, n: usize, mode: u32, events: &str) -> (Option<String>, Outcome, bool) {
         let (names, probes) = (self.run.names, self.run.probes);
-        let Some(n) = names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
-        let (Some(library), Ok(node)) = (self.nodes.owner(n), u32::try_from(n)) else { return (None, Outcome::default()) };
+        let (Some(library), Ok(node)) = (self.nodes.owner(n), u32::try_from(n)) else { return (None, Outcome::default(), true) };
         let (state, ui, own) = (library.state, library.ui, library.node);
-        let calls = &mut *self.gui;
+        let calls = &mut self.gui.calls;
         calls.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run of this thread is active, the
         // audio thread never calls the library of a node that is not an audio node, the event runs
@@ -142,7 +194,9 @@ impl Frames<'_> {
         let mut out = std::mem::take(&mut calls.out);
         let edits = calls.sink.iter().filter(|&(_, kind, _)| kind == glue::EDIT).filter_map(|(_, _, text)| text.split_once('\t'));
         out.params = edits.map(|(key, text)| (key.to_owned(), text.to_owned())).collect();
-        (tree, out)
+        // A call that succeeds with no widget lines found the state held by a run (`glue::draw`).
+        let wait = out.ok && tree.is_none();
+        (tree, out, wait)
     }
 
     /// The kept copy of output `key` of node `id` for a view (15.8 rule 3), as a pointer to a
@@ -167,6 +221,22 @@ impl Frames<'_> {
     /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).
     pub fn guis(&self) -> &[(String, bool)] {
         self.nodes.guis
+    }
+}
+
+/// `later` with the reports, the logs and the parameter writes of `earlier` before its own.
+fn join(mut earlier: Outcome, mut later: Outcome) -> Outcome {
+    prepend(&mut earlier.reports, &mut later.reports);
+    prepend(&mut earlier.logs, &mut later.logs);
+    prepend(&mut earlier.params, &mut later.params);
+    later
+}
+
+/// Puts the items of `first` before the items of `list`. It does not allocate when `first` is empty.
+fn prepend<T>(first: &mut Vec<T>, list: &mut Vec<T>) {
+    if !first.is_empty() {
+        first.append(list);
+        std::mem::swap(first, list);
     }
 }
 
