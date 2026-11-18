@@ -375,10 +375,10 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       await api.checkResize(1280, 720);
       await sleep(1000);
       await api.capture('main-small');
-      const small = chromeFit('small');
+      const small = [chromeFit('small'), guiFit('small')];
       await api.checkResize(1440, 900);
       await sleep(1000);
-      steps.push(small);
+      steps.push(...small);
     }
     steps.push(await inspectNodes('main'));
     const inspected = await inspectThumb();
@@ -405,6 +405,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         steps.push(n.subgraph);
         steps.push(guiFit(n.subgraph));
         steps.push(wiresClear(n.subgraph));
+        steps.push(chromeFit(n.subgraph));
         const fresh = (inner.graph.node ?? []).filter((m) => !kinds.has(m.folder ?? m.subgraph ?? m.builtin) && kinds.add(m.folder ?? m.subgraph ?? m.builtin));
         if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)), (await fullSizes(n.subgraph, fresh.map((m) => m.id))).text);
         // A public pin of a bus type shows its contacts only near (15.9).

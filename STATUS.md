@@ -313,8 +313,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   **Gradient** in gpu (fixed 2026-11-18). The name now starts after the left pin. The shot checks
   that no pin covers the title of a node.
 - The shot checks that no button, tab, title or label of the panels and the bars cuts its text
-  or is out of the window. It does this at 1440 x 900 and again at 1280 x 720, and captures
-  `main-small.png` (added 2026-11-18).
+  or is out of the window. It does this at 1440 x 900 in the main graph and in each subgraph.
+  It does it again at 1280 x 720 with the node fit check, and captures `main-small.png` (added
+  2026-11-18).
 - A node with a free layout and a full size, for example **ram** in computer, had no expand
   button on the canvas (fixed 2026-11-18). The button is now after its name. The shot opens the
   full size of each node in the main graph, and of each new kind in a subgraph. A full size must
