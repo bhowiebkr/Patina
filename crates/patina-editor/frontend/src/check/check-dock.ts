@@ -4,6 +4,7 @@
 import { api, type EngineEvent, type View } from '../api';
 import { flushLayout, savedViewport } from '../panels/Dock';
 import { layoutText, parseLayout } from '../panels/layout';
+import { FAR_ZOOM } from '../wires/gl';
 import { A, B, BUILD_MS, RUN_MS, badge, mouseWheel, scale, tab, transform, type CheckContext } from './check-fixtures';
 
 /** Saves, closes and opens the project again. It returns the last view and the middle of the canvas. */
@@ -98,7 +99,7 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   if (label !== 'f64') throw new Error(`the wire type label is ${label}, not f64`);
   steps.push('live value and type label on the wire');
 
-  // Below a zoom of 0.5, the nodes have no row text and the wires have no badge (15.1).
+  // Below FAR_ZOOM, the nodes have no row text and the wires have no badge (15.1).
   const nodeElements = () => document.querySelectorAll('.react-flow__node *').length;
   const wheel = (deltaY: number) =>
     document.querySelector('.react-flow__pane')!.dispatchEvent(mouseWheel(deltaY, at.clientX, at.clientY));
@@ -106,7 +107,7 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   const heights = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => n.offsetHeight).join(' ');
   const boxes = heights();
   let outs = 0;
-  while (scale() >= 0.5) {
+  while (scale() >= FAR_ZOOM) {
     const z = scale();
     wheel(240);
     outs++;

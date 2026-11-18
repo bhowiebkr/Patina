@@ -2,7 +2,54 @@
 // delay and the runs of a trigger node (9.1, 9.2, 9.4).
 
 import { api, type EngineEvent, type View } from '../api';
+import { frameStats } from './benchGraph';
 import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, fireButton, icon, statusText, topButton, type CheckContext } from './check-fixtures';
+
+/**
+ * A node drag while the frames run (15.2). The node follows the mouse in each animation frame and
+ * does not jump back to its saved place. After the drop it stays, and the move is undone.
+ */
+async function checkRunDrag({ step, until, steps }: CheckContext, frames: () => number): Promise<View> {
+  const node = () => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${A}"]`)!;
+  const top = () => node().getBoundingClientRect().top;
+  const [top0, grip] = [top(), node().querySelector('.title')!.getBoundingClientRect()];
+  const mouse = (dy: number) => ({ bubbles: true, cancelable: true, view: window, button: 0, clientX: grip.left + 10, clientY: grip.top + grip.height / 2 + dy });
+  const frame = () => new Promise<number>((r) => requestAnimationFrame(r));
+  const realEdit = api.edit;
+  let drop: Promise<View> | undefined;
+  api.edit = (e) => (drop = realEdit(e));
+  const [first, gaps] = [frames(), [] as number[]];
+  let [last, most] = [await frame(), 0];
+  // The drag starts after the first move, so the node can be a few px behind the mouse.
+  try {
+    node().querySelector('.title')!.dispatchEvent(new MouseEvent('mousedown', mouse(0)));
+    for (let dy = 3; dy <= 150; dy += 3) {
+      document.dispatchEvent(new MouseEvent('mousemove', mouse(dy)));
+      const now = await frame();
+      gaps.push(now - last);
+      last = now;
+      const moved = top() - top0;
+      if (moved < most - 2) throw new Error(`the node jumped back from ${most} px to ${moved} px in a drag while the frames run`);
+      most = Math.max(most, moved);
+    }
+    if (most < 100) throw new Error(`the node moved only ${most} px in a drag of 150 px while the frames run`);
+    document.dispatchEvent(new MouseEvent('mouseup', mouse(150)));
+    await until('the move edit of the drag while the frames run', RUN_MS, () => drop !== undefined);
+  } finally {
+    api.edit = realEdit;
+  }
+  const ran = frames() - first;
+  if (ran < 3) throw new Error(`only ${ran} frames ran in the drag`);
+  await drop;
+  const end = frames();
+  await until('three frames after the drop', RUN_MS, () => frames() >= end + 3);
+  if (Math.abs(top() - top0 - most) > 2) throw new Error(`the node is ${top() - top0} px from its start after the drop, not ${most} px`);
+  const v = await step('undo the drag while the frames run', () => api.undo());
+  await until('the node at its start after the undo', RUN_MS, () => Math.abs(top() - top0) <= 2);
+  const s = frameStats(gaps);
+  steps.push(`node dragged while ${ran} frames ran: animation frames mean ${s.mean} ms, p95 ${s.p95} ms, max ${s.max} ms`);
+  return v;
+}
 
 /** Runs the domain steps with the node of code file `lib`, and returns the last view. */
 export async function checkDomains(c: CheckContext, v: View, lib: string, changedCode: string): Promise<View> {
@@ -22,6 +69,7 @@ export async function checkDomains(c: CheckContext, v: View, lib: string, change
     return frameCount() >= 3 && fresh().filter((l) => l === '2.5').length >= 3;
   });
   await until('the frame number in the status bar', RUN_MS, () => /Frame \d+/.test(statusText()));
+  v = await checkRunDrag(c, frameCount);
   topButton('Stop')!.click();
   let frameEnd: EngineEvent | undefined;
   await until('the end of the frames', RUN_MS, () => (frameEnd = ofRun().find((e) => e.state === 'ended')) !== undefined);

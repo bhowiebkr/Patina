@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useStore } from '@xyflow/react';
 import { api, type GraphFile, type View } from '../api';
 import { gutter, HEADER, ROW } from './NodeView';
-import { GUI_ZOOM } from '../wires/gl';
+import { FAR_ZOOM } from '../wires/gl';
 import { NODE_WIDTH } from '../controls/gui';
 import { frameOf, shownFrames, toggleFrame, type Room } from './frames';
 import type { Labels } from '../wires/labels';
@@ -11,11 +11,11 @@ import type { Rect } from '../wires/route';
 import type { Router } from '../wires/router';
 import type { GraphNode } from './graphData';
 
-/** Tells the engine the nodes in view, so that the frames draw only their GUIs (4.3 rule 3). None below GUI_ZOOM. */
+/** Tells the engine the nodes in view, so that the frames draw only their GUIs (4.3 rule 3). None below FAR_ZOOM. */
 export function useVisibleGuis() {
   const visible = useStore((s) => {
     const [tx, ty, zoom] = s.transform;
-    if (zoom < GUI_ZOOM) return '';
+    if (zoom < FAR_ZOOM) return '';
     const [x0, y0] = [-tx / zoom, -ty / zoom];
     const [x1, y1] = [x0 + s.width / zoom, y0 + s.height / zoom];
     const ids: string[] = [];

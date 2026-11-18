@@ -3,7 +3,8 @@
 import { errorText, logKind, millis, reportText, seconds, type Diagnostic, type EngineEvent, type NodeLog, type Report } from '../api';
 import { revealOf } from '../code/reveal';
 import type { Line } from './Lines';
-import { NO_RUN, valueStale, type RunState } from '../canvas/NodeView';
+import { NO_RUN, type RunState } from '../canvas/NodeView';
+import { valueStale } from '../canvas/liveValues';
 
 /** An engine event that changes the run state or the Logs. */
 export type RunEvent = Exclude<EngineEvent, { state: 'gui' | 'started' }>;

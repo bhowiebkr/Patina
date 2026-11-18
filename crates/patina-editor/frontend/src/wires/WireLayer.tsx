@@ -16,7 +16,9 @@ const HIT_WIDTH = 12;
 /** The ends of a wire, its route points, its look, the type of its value, its wire name and its bus name (spec 15.9). */
 /** `cross` is true for a wire between two clock domains, which is dashed (15.3). `net` is the route net when it is not `from`. */
 /** `frame` is the use of an inner wire of a frame. */
-export type WireData = { from: string; to: string; route: readonly Point[]; frame?: FrameAt; style?: Path; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean; net?: string };
+export type WireData = { from: string; to: string; route: readonly Point[]; frame?: FrameAt; style?: Path; corners?: Corners; ty?: string; fixed?: boolean; name?: string; bus?: string; cross?: boolean; net?: string;
+  /** The live value of the wire, and true when it is from an old run (15.9). */
+  value?: Value; old?: boolean };
 
 export interface WireTools {
   store: WireStore;
@@ -26,9 +28,6 @@ export interface WireTools {
   labels: Labels;
   onEdit: (edit: Edit) => Promise<void>;
   editable: boolean;
-  /** Each live value by output (15.9), and true when it is from an old run. */
-  values: ReadonlyMap<string, Value>;
-  stale: (from: string) => boolean;
   /** The kinds of the connection types, for the lanes of each bus (6.3). */
   kinds: readonly KindInfo[];
 }

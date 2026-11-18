@@ -4,7 +4,7 @@
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RUN_MS, enterText, type CheckContext } from './check-fixtures';
-import { FAR_ZOOM, GUI_ZOOM } from '../wires/gl';
+import { FAR_ZOOM } from '../wires/gl';
 import { Guard } from '../controls/NodeGui';
 
 type Until = CheckContext['until'];
@@ -109,24 +109,19 @@ export async function checkGuard(until: Until) {
   }
 }
 
-/** The node GUI `gui` draws below FAR_ZOOM and hides below GUI_ZOOM (15.1). The zoom comes back. */
+/** The node GUI `gui` and the rows draw down to FAR_ZOOM, and both hide below it at the same zoom (15.1). The zoom comes back. */
 export async function checkGuiZoom(until: Until, gui: string, wheel: (deltaY: number) => void, scale: () => number) {
   const node = () => document.querySelector(gui)!.closest('.patina-node')!;
   const shown = () => getComputedStyle(document.querySelector(gui)!).visibility !== 'hidden';
   let outs = 0;
-  const out = async (limit: number) => {
-    while (scale() >= limit) {
-      const z = scale();
-      wheel(240);
-      outs++;
-      await until('a smaller zoom', RUN_MS, () => scale() < z);
-    }
-  };
-  await out(FAR_ZOOM);
-  await until('the simple node form', RUN_MS, () => node().classList.contains('far'));
-  if (scale() < GUI_ZOOM || !shown()) throw new Error(`the node GUI does not draw at the zoom ${scale()}`);
-  await out(GUI_ZOOM);
-  await until('the hidden node GUI', RUN_MS, () => !shown());
+  while (scale() >= FAR_ZOOM) {
+    if (node().classList.contains('far') || !shown()) throw new Error(`the node rows or GUI do not draw at the zoom ${scale()}`);
+    const z = scale();
+    wheel(240);
+    outs++;
+    await until('a smaller zoom', RUN_MS, () => scale() < z);
+  }
+  await until('the simple node form without the GUI', RUN_MS, () => node().classList.contains('far') && !shown());
   for (; outs > 0; outs--) {
     const z = scale();
     wheel(-240);

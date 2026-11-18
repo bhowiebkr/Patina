@@ -13,10 +13,8 @@ const EDGE = (PITCH - LANE_WIDTH) / 2;
 /** The soft shadow on each side of a ribbon, and its darkest alpha. */
 const SHADOW = 4;
 const SHADOW_ALPHA = 0.55;
-/** Below this zoom, a bus draws as one line of FAR_WIDTH (15.9). */
-export const FAR_ZOOM = 0.5;
-/** Below this zoom, the node GUIs do not draw (15.1). */
-export const GUI_ZOOM = 0.25;
+/** Below this zoom, the nodes, their GUIs and the wires take the simple form together (15.1). A bus is one line of FAR_WIDTH (15.9). */
+export const FAR_ZOOM = 0.25;
 const FAR_WIDTH = 4;
 const WIRE = [187, 187, 181];
 const ACCENT = [223, 166, 75];

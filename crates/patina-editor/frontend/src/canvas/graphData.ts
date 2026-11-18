@@ -1,15 +1,27 @@
 // The nodes and the edges of the graph canvas, made from the view of the engine (spec 15.2, 15.3).
 
-import type { Edge } from '@xyflow/react';
+import type { Edge, XYPosition } from '@xyflow/react';
 import type { Domain, KindInfo, NodeInfo, Pin, Point, View } from '../api';
 import { kindOf, socketOf, type Socket } from './bus';
-import { GUTTER, ORDER, infoOf, nodeState, outputType, valueStale, type NodeData, type PatinaNode, type PortNode, type RunState } from './NodeView';
+import { GUTTER, ORDER, infoOf, nodeState, outputType, type NodeData, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { place, type Frame, type Room } from './frames';
 import { outputTypeOf } from './palette';
 import type { WireData } from '../wires/WireLayer';
 import { pathOf } from '../wires/wires';
+import { same } from './same';
+import { valueStale } from './liveValues';
 
 const NO_POINTS: readonly Point[] = [];
+
+/**
+ * The node `before` with a new place and data, or `before` itself when they did not change, so a run
+ * frame renders only the nodes that changed. A node in a drag, or in `held`, keeps its place (15.2).
+ */
+function kept<T extends GraphNode>(before: T, position: XYPosition, data: T['data'], held: ReadonlySet<string>): T {
+  const at = before.dragging || held.has(before.id) ? before.position : position;
+  if (at.x === before.position.x && at.y === before.position.y && same(before.data, data, 3)) return before;
+  return { ...before, position: at, data };
+}
 
 /** `<node ID>.<pin key>` to the node ID and the pin key. */
 export function splitPin(pin: string): [string, string] {
@@ -63,7 +75,7 @@ export function portKey(id: string): string | null {
 }
 
 /** The public pins of the open subgraph (6.4). The editor moves, connects, renames and removes them. */
-function buildPorts(view: View, run: RunState, rooms: readonly Room[], old: Map<string, GraphNode>): PortNode[] {
+function buildPorts(view: View, run: RunState, rooms: readonly Room[], old: Map<string, GraphNode>, held: ReadonlySet<string>): PortNode[] {
   const types = portTypes(view);
   const port = (id: string, name: string, pos: Point | undefined, input: boolean, from?: string): PortNode => {
     const [x, y] = place(rooms, pos ?? [0, 0]);
@@ -77,7 +89,7 @@ function buildPorts(view: View, run: RunState, rooms: readonly Room[], old: Map<
     const socket = socketOf(kindOf(view.kinds, ty), name, run.values.get(pin), valueStale(run, input ? pin : (from ?? pin)), input ? pin : (from ?? ''), input ? null : pin);
     const data = { name, ty, input, value, testing: view.test != null, socket };
     const before = old.get(id);
-    return before?.type === 'port' ? { ...before, position, data } : { id, type: 'port', position, deletable: false, data };
+    return before?.type === 'port' ? kept(before, position, data, held) : { id, type: 'port', position, deletable: false, data };
   };
   const inputs = (view.graph.input ?? []).map((p) => port(`in:${p.key}`, p.name, p.pos, true));
   return [...inputs, ...(view.graph.output ?? []).map((p) => port(`out:${p.key}`, p.name, p.pos, false, p.from))];
@@ -110,13 +122,15 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
       const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run) };
       const position = { x, y };
       const before = old.get(entry.id);
-      return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina', parentId: f.use, position, data, ...lock };
+      return before?.type === 'patina' ? kept(before, position, data, NONE) : { id: entry.id, type: 'patina', parentId: f.use, position, data, ...lock };
     });
   });
 }
 
-/** Keeps the selection and the measured size of the nodes that stay. */
-export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[], prev: GraphNode[]): GraphNode[] {
+const NONE: ReadonlySet<string> = new Set();
+
+/** Keeps the selection and the measured size of the nodes that stay. The nodes of `held` keep their place. */
+export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[], prev: GraphNode[], held: ReadonlySet<string>): GraphNode[] {
   const old = new Map(prev.map((n) => [n.id, n]));
   const wires = view.graph.wire ?? [];
   const sources = sourcesOf(view);
@@ -133,10 +147,11 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const domain = domains.get(entry.id);
     const data = { entry, info, wired, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run) };
     const before = old.get(entry.id);
-    return before?.type === 'patina' ? { ...before, position, data } : { id: entry.id, type: 'patina' as const, position, data };
+    return before?.type === 'patina' ? kept(before, position, data, held) : { id: entry.id, type: 'patina' as const, position, data };
   });
   // A parent comes before its children in the list.
-  return [...nodes, ...buildPorts(view, run, rooms, old), ...innerNodes(view, run, guis, domains, frames, old)];
+  const next = [...nodes, ...buildPorts(view, run, rooms, old, held), ...innerNodes(view, run, guis, domains, frames, old)];
+  return next.length === prev.length && next.every((n, i) => n === prev[i]) ? prev : next;
 }
 
 /** The wires of each frame: between the inner nodes, and between the frame pins and the inner nodes (15.3). */

@@ -43,7 +43,7 @@ function labelHost(s: ReactFlowState): Element | null {
 }
 
 export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
-  const { store, router, labels, onEdit, editable, values, stale, kinds } = useContext(WireContext)!;
+  const { store, router, labels, onEdit, editable, kinds } = useContext(WireContext)!;
   const hover = useContext(HoverContext);
   const flow = useReactFlow();
   // The route during a drag. It stays until the edit gives the new graph, so the wire does not jump back.
@@ -53,12 +53,11 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   const frame = data!.frame;
   const now = useStore((s) => (frame ? s.nodeLookup.get(frame.use)?.position : undefined));
   const route = useMemo(() => dragRoute(base, frame, now), [base, frame, now]);
-  const value = values.get(data!.from);
+  const { value, old = false } = data!;
   const kind = kindOf(kinds, data!.ty);
   // A bool wire is one lane: lit when true. A kind with lanes shows its lanes before a run (15.9).
   const bits = wireBits(value, kind);
   const family = familyOf(kind);
-  const old = stale(data!.from);
   const lane = useSyncExternalStore(hover.subscribe, () => hoveredLane(hover.get(), data!.from, data!.to));
   const tip = useSyncExternalStore(hover.subscribe, () => (hover.get()?.wire === id ? hover.get() : null));
   // A bus shows one line with its width at a far zoom (15.9).

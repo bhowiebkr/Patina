@@ -20,7 +20,7 @@ import { NameField } from '../controls/NameField';
 import type { Domain, Edit, LibraryNode, DragLink, View } from '../api';
 import { HoverContext, HoverStore } from './bus';
 import { savedViewport, saveViewport } from '../panels/Dock';
-import { FrameToggle, gutter, NodeEdit, NodeView, PortView, valueStale, type RunState } from './NodeView';
+import { FrameToggle, gutter, NodeEdit, NodeView, PortView, type RunState } from './NodeView';
 import { graphEdit } from './frames';
 import { dragStyle } from './palette';
 import { OrderEdge, WireEdge } from '../wires/WireEdge';
@@ -31,6 +31,7 @@ import { lockPoints, WireStore } from '../wires/wires';
 import { useTouchpadPan } from './touchpad';
 import { useCanvasKeys } from './keys';
 import { buildEdges, buildNodes, portKey, type GraphNode } from './graphData';
+import { withValues } from './liveValues';
 import { FIT, useCanvasActions, type At } from './canvasActions';
 import { useFrames, useObstacles, useVisibleGuis } from './canvasLayout';
 import { connectEdit, disconnectEdit, dragKey, moveEdit, orderMatch } from './graphEdits';
@@ -41,6 +42,7 @@ const NODE_TYPES = { patina: NodeView, port: PortView };
 const EDGE_TYPES = { wire: WireEdge, order: OrderEdge };
 const PAN_BUTTONS = [1];
 const MULTI_KEYS = ['Shift', 'Control'];
+const NO_IDS: ReadonlySet<string> = new Set();
 
 /** A dialog at a screen point that asks for a name. */
 function NameDialog({ label, at, children }: { label: string; at: At; children: ReactNode }) {
@@ -116,13 +118,20 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const save = useCallback((v: Viewport) => saveViewport(view.graphName, v), [view.graphName]);
   const scrolling = useTouchpadPan(pane, flow, save);
   const tools = useMemo(
-    () => ({ store: wires, router, labels, onEdit: edit, editable: view.trusted, values: run.values, stale: (from: string) => valueStale(run, from), kinds: view.kinds }),
-    [wires, router, labels, edit, view.trusted, run, view.kinds],
+    () => ({ store: wires, router, labels, onEdit: edit, editable: view.trusted, kinds: view.kinds }),
+    [wires, router, labels, edit, view.trusted, view.kinds],
   );
   useObstacles(nodes, router, labels);
 
-  useEffect(() => setNodes((prev) => buildNodes(view, run, guis, domains, frames, rooms, prev)), [view, run, guis, domains, frames, rooms]);
+  // The nodes of the last drag keep their place until the view of their move comes back.
+  const moved = useRef<{ view: View; ids: ReadonlySet<string> } | null>(null);
+  useEffect(() => {
+    const held = moved.current?.view === view ? moved.current.ids : NO_IDS;
+    setNodes((prev) => buildNodes(view, run, guis, domains, frames, rooms, prev, held));
+  }, [view, run, guis, domains, frames, rooms]);
   useEffect(() => setEdges((prev) => buildEdges(view, domains, frames, rooms, prev)), [view, domains, frames, rooms]);
+  // After the effect above, so a new build of the edges gets the values too.
+  useEffect(() => setEdges((prev) => withValues(prev, run)), [view, domains, frames, rooms, run]);
   useEffect(() => {
     if (!focus) return;
     const ids = new Set(focus.ids);
@@ -145,9 +154,15 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const onNodeDragStop = useCallback(
     (_: unknown, __: GraphNode, dragged: GraphNode[]) => {
       const moves = dragged.map((n) => moveEdit(n.id, [Math.round(n.position.x + gutter(n)), Math.round(n.position.y)]));
-      if (moves.length > 0) edit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves });
+      if (moves.length === 0) return;
+      const hold = { view, ids: new Set(dragged.map((n) => n.id)) };
+      moved.current = hold;
+      // The edit shows its view before it ends. After a failed move, the next build puts the nodes back.
+      void edit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves }).then(() => {
+        if (moved.current === hold) moved.current = null;
+      });
     },
-    [edit],
+    [edit, view],
   );
 
   // A wire from a public input or to a public output connects the pin. A wire between two pins is refused.

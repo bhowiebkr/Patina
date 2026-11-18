@@ -136,6 +136,16 @@ editor with the built page, on the Windows 11 computer of the owner.
     stopped the wait, but a change of the page did not. Now it looks every 20 ms.
   - The selfcheck went from 62.4 s to 33.6 s, with the same 201 steps. The slowest steps that
     stay do real work: a build, the 2 s flood test and the stop of an endless loop.
+- Node drag while the graph runs, 2026-11-17 (owner report: the drag stuttered). A game ran in
+  the background.
+  - The cause: each run frame made all nodes again from the view, so a dragged node jumped back
+    to its saved place, and all nodes and wires rendered at each frame.
+  - Now a frame keeps each node and wire whose data did not change. A node in a drag, or in a
+    move edit that did not end, keeps its place.
+  - The selfcheck drags a node for 50 animation frames while the frame node runs. The node does
+    not jump back, and it stays at the drop point. The animation frames took 16.7 ms on average
+    and 16.8 ms at most, so no frame dropped. The test graph is small: nobody measured the drag
+    on the computer example.
 
 ## Known limits
 
@@ -464,8 +474,8 @@ domain free of locks. These limits are still open:
   The glue, load, sink and frame tests check the widget lines. The cluster makes the widget lines
   of each probed value at each run, also when no **Inspector** shows them. No example type has
   widgets yet, so no selfcheck or hand test showed them in the **Inspector**.
-- The node GUIs draw down to a zoom of 25 percent (2026-11-17), so a far view draws more GUIs
-  in each frame. Nobody measured the frame time of a large graph between 25 and 50 percent.
+- The node GUIs, the row text, the pins and the bus lanes draw down to a zoom of 25 percent
+  (2026-11-17). All change to the simple form at the same zoom.
 - **Lock bends** keeps at most 12 bends of a longer route. Between two kept bends, the router
   can then take a different path.
 - The automatic route and **Arrange** have no undo of a route change, because a route is not
@@ -477,11 +487,11 @@ domain free of locks. These limits are still open:
   crates of 5.1. A panic in a kind gives no lanes. Its message shows only in the **Output**
   panel, from the standard error (4.7). A compile error in a kind
   stops the build of all of the graph.
-- The lanes have no groups. The lane hover works only on the WebGL wires, at a zoom of 0.5 or
+- The lanes have no groups. The lane hover works only on the WebGL wires, at a zoom of 0.25 or
   more. The badge is always the viewer text.
 - The self-check makes a connection kind with **New connection**, but no value of the self-check
   uses it. The lanes ran in the CLI test, and the look
-  had one manual check with fake lanes in the page. No check zoomed a bus out below 0.5.
+  had one manual check with fake lanes in the page. No check zoomed a bus out below 0.25.
 - The check did not drag a tab or a splitter with the mouse.
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
   of the page script. The build is correct.

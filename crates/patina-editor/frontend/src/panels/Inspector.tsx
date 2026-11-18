@@ -5,7 +5,8 @@ import { lazy, Suspense, useEffect, useState, type FocusEvent, type KeyboardEven
 import { KindIcon } from '../controls/icons';
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
-import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, valueStale, type RunState } from '../canvas/NodeView';
+import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
+import { valueStale } from '../canvas/liveValues';
 import { ExpandButton, GuiWidgets, NodeGui } from '../controls/NodeGui';
 import type { Inspect } from './ProjectPanel';
 import { SubgraphInterface } from './SubgraphInterface';

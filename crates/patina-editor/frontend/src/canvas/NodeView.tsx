@@ -5,7 +5,7 @@ import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/r
 import { duration, errorText, folderName, nodeProblems, openType, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type Value, type View } from '../api';
 import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
-import { FAR_ZOOM, GUI_ZOOM } from '../wires/gl';
+import { FAR_ZOOM } from '../wires/gl';
 import { ExpandButton, NodeGui } from '../controls/NodeGui';
 import { Thumbnail } from '../controls/ValueWidgets';
 import { outputTypeOf, socketKey } from './palette';
@@ -90,11 +90,6 @@ export function scopeRun(run: RunState, scope: string): RunState {
     if (k.startsWith(`${scope}.`)) values.set(`out:${k.slice(scope.length + 1)}.pin`, { ...v, from: `out:${k.slice(scope.length + 1)}.pin` });
   }
   return { ...run, values, idle: new Map(inner(run.idle)) };
-}
-
-/** True when the value of output `from`, "<node id>.<output key>", is from an old run. */
-export function valueStale(run: RunState, from: string): boolean {
-  return run.stale || run.idle.has(from.slice(0, from.lastIndexOf('.')));
 }
 
 /** The compile errors in the folder of a node. */
@@ -276,9 +271,8 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     tops.push(tops[i] + Math.max(ROW, a ? socketHeight(a.bits.length) : 0, b ? socketHeight(b.bits.length) : 0));
   }
   const pinTop = (i: number, s: Socket | undefined) => (s ? socketPin(tops[i], s.bits.length) : tops[i] + ROW / 2);
-  // At a far zoom, the rows keep their size but have no text, so the page has fewer elements (15.1).
+  // At a far zoom, the rows keep their size but have no text and the GUI does not draw, so the page has fewer elements (15.1).
   const far = useStore((s) => s.transform[2] < FAR_ZOOM);
-  const noGui = useStore((s) => s.transform[2] < GUI_ZOOM);
   const edit = useContext(NodeEdit);
   const toggle = useContext(FrameToggle);
   // The right and bottom edges of the inner nodes, as one number so that a pan does not render the frame.
@@ -296,7 +290,6 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   if (open) classes.push('frame');
   if (selected) classes.push('selected');
   if (far) classes.push('far');
-  if (noGui) classes.push('no-gui');
   if (info?.color) classes.push('colored');
   const style = { width: gui === undefined ? undefined : nodeWidth(gui), minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
   const use = entry.subgraph !== undefined && !inner;

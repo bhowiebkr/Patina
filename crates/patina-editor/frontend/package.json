@@ -6,7 +6,7 @@
   "scripts": {
     "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "build": "npm run check && vite build",
-    "test": "node --test src/api.test.ts src/wires/wires.test.ts src/canvas/bus.test.ts src/panels/layout.test.ts src/canvas/palette.test.ts src/controls/gui.test.ts src/panels/layers.test.ts src/dialogs/backdrop.test.ts src/wires/route.test.ts src/wires/arrange.test.ts src/wires/labels.test.ts src/canvas/crumbs.test.ts src/canvas/frames.test.ts src/canvas/canvasMenu.test.ts src/canvas/touchpad.test.ts src/panels/timeline.test.ts src/code/lspMap.test.ts src/check/benchGraph.test.ts"
+    "test": "node --test src/api.test.ts src/wires/wires.test.ts src/canvas/bus.test.ts src/panels/layout.test.ts src/canvas/palette.test.ts src/controls/gui.test.ts src/panels/layers.test.ts src/dialogs/backdrop.test.ts src/wires/route.test.ts src/wires/arrange.test.ts src/wires/labels.test.ts src/canvas/crumbs.test.ts src/canvas/frames.test.ts src/canvas/canvasMenu.test.ts src/canvas/touchpad.test.ts src/panels/timeline.test.ts src/code/lspMap.test.ts src/check/benchGraph.test.ts src/canvas/same.test.ts src/canvas/liveValues.test.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
