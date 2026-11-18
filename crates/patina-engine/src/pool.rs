@@ -208,8 +208,9 @@ mod tests {
         }
     }
 
-    /// Task 0 waits a little, and task 1 waits longer than the spin of the calling thread.
-    struct Sleeps(Mutex<Vec<usize>>);
+    /// Task 0 waits a little, and task 1 waits longer than the spin of the calling thread. Each
+    /// task gives the pool index of its thread.
+    struct Sleeps(Mutex<Vec<u32>>);
 
     impl Work for Sleeps {
         fn inputs(&self) -> &[u32] {
@@ -222,7 +223,7 @@ mod tests {
 
         fn run(&self, task: usize) {
             std::thread::sleep([SPIN / 2, SPIN * 10][task]);
-            lock(&self.0).push(task);
+            lock(&self.0).push(thread());
         }
     }
 
@@ -231,6 +232,22 @@ mod tests {
         let work = Arc::new(Sleeps(Mutex::new(Vec::new())));
         run(work.clone());
         assert_eq!(lock(&work.0).len(), 2);
+    }
+
+    /// The timeline of the **Debug** tab shows the pool index of each call (15.7).
+    #[test]
+    fn a_task_on_a_worker_gives_its_pool_index() {
+        let cores = u32::try_from(std::thread::available_parallelism().map_or(1, |n| n.get())).unwrap_or(u32::MAX);
+        // While another test holds the pool, this thread runs all the tasks, so try again.
+        let on_worker = (0..100).any(|_| {
+            let work = Arc::new(Sleeps(Mutex::new(Vec::new())));
+            run(work.clone());
+            let threads = lock(&work.0);
+            assert!(threads.iter().all(|&t| t < cores), "{threads:?} with {cores} cores");
+            threads.iter().any(|&t| t > 0)
+        });
+        assert_eq!(thread(), 0, "the thread of the run is 0");
+        assert!(on_worker || cores == 1, "no task ran on a worker in 100 runs");
     }
 
     /// `n` tasks of `spins` loop steps each, in a chain or apart, or `n` x `spins` in one task.

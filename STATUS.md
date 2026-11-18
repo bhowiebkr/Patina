@@ -473,7 +473,8 @@ domain free of locks. These limits are still open:
   keeps its view tabs in the right area.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
-  No check showed a call on a pool thread above 0, and nobody looked at the tab by hand.
+  A pool unit test sees a task on a worker give its pool index above 0. No graph check showed
+  such a call, and nobody looked at the tab by hand.
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type
   alias does not match its type, and two types of one name in two modules match.
 - `stop_requested()` is false on a thread that a node starts. The limits of milestone 12 tell how
