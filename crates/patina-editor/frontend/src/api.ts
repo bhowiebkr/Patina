@@ -526,6 +526,7 @@ export const api = {
   subgraphFile: (name: string) => invoke<GraphFile>('subgraph_file', { name }),
   /** Moves the nodes into the new subgraph `name`, with the use `useId` in their place (6.1). */
   collapse: (name: string, ids: string[], useId: string) => invoke<View>('collapse', { name, ids, useId }),
+  newGraph: (name: string) => invoke<View>('new_graph', { name }),
   /** Puts the nodes of each subgraph use in its place (6.1). */
   expand: (ids: string[]) => invoke<View>('expand', { ids }),
   run: () => invoke<View>('run'),

@@ -8,6 +8,7 @@ import { revealOf, type Reveal } from '../code/reveal';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
 import { valueStale } from '../canvas/liveValues';
 import { ExpandButton, GuiWidgets, NodeGui } from '../controls/NodeGui';
+import { NameField } from '../controls/NameField';
 import type { Inspect } from './ProjectPanel';
 import { SubgraphInterface } from './SubgraphInterface';
 import { Thumbnail } from '../controls/ValueWidgets';
@@ -53,6 +54,41 @@ interface Props {
   onPick: (at: Reveal) => void;
   /** Saves the bends of the automatic route of the wire to an input as its route points (15.9). */
   onLock: (to: string) => void;
+  /** Moves the nodes into a new subgraph with this name (6.1). It fails with the problem of the name. */
+  onCollapse: (name: string, ids: string[]) => Promise<void>;
+  /** Puts the nodes of each subgraph use back into the graph (6.1). */
+  onExpand: (ids: string[]) => void;
+}
+
+/** Two or more selected items: the subgraph tools of the selection (6.1). */
+function SelectionView({ view, ids, onCollapse, onExpand }: { view: View; ids: string[]; onCollapse: Props['onCollapse']; onExpand: Props['onExpand'] }) {
+  const [naming, setNaming] = useState(false);
+  const chosen = new Set(ids);
+  const nodes = (view.graph.node ?? []).filter((n) => chosen.has(n.id));
+  const uses = nodes.filter((n) => n.subgraph).map((n) => n.id);
+  return (
+    <aside className="panel" aria-label="Inspector">
+      <div className="panel-title">{ids.length} items selected</div>
+      <div className="section">
+        <h3>Subgraph</h3>
+        {naming ? (
+          <NameField label="Subgraph name" onMake={(name) => onCollapse(name, nodes.map((n) => n.id))} onClose={() => setNaming(false)} />
+        ) : (
+          <button className="btn" disabled={!view.trusted || nodes.length === 0} onClick={() => setNaming(true)}>
+            Collapse into subgraph...
+          </button>
+        )}
+        {uses.length > 0 && (
+          <button className="btn" disabled={!view.trusted} onClick={() => onExpand(uses)}>
+            {uses.length === 1 ? 'Expand subgraph' : 'Expand subgraphs'}
+          </button>
+        )}
+        <p className="label">
+          Ctrl+G collapses the selection, and Ctrl+Shift+G expands it. Double-click the new node to open it. In the subgraph, click the empty canvas to edit its inputs and outputs here.
+        </p>
+      </div>
+    </aside>
+  );
 }
 
 function Tabs({ tab, only, onTab }: { tab: InspectorTab; only?: InspectorTab; onTab: (tab: InspectorTab) => void }) {
@@ -208,7 +244,7 @@ function hasFolder(view: View, folder: string): boolean {
   return (view[group as 'widgets' | 'views' | 'connections' | 'types'] ?? []).includes(name);
 }
 
-export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick, onLock }: Props) {
+export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick, onLock, onCollapse, onExpand }: Props) {
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
   // A node with a GUI draws it in the Inspector size after each run, once the engine knows (4.3).
   const guiId = entry && guis.has(`0 ${entry.id}`) ? entry.id : null;
@@ -230,12 +266,13 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
       </aside>
     );
   }
+  if (inspect?.kind === 'nodes') return <SelectionView view={view} ids={inspect.ids} onCollapse={onCollapse} onExpand={onExpand} />;
   if (inspect?.kind === 'wire') return <WireView view={view} run={run} from={inspect.from} to={inspect.to} onEdit={onEdit} onLock={onLock} />;
   if (!entry) {
     return (
       <aside className="panel" aria-label="Inspector">
         <div className="panel-title">Inspector</div>
-        <div className="section label">Select a node to see its parameters and code, or a wire to see its value.</div>
+        <div className="section label">Select a node to see its parameters and code, or a wire to see its value. Select two or more nodes to collapse them into a subgraph.</div>
         <div className="section">
           <h3>Look</h3>
           <label className="param">

@@ -432,6 +432,8 @@ pub fn delete_folder(editor: State<'_, Editor>, folder: String) -> Result<View, 
         if session.code.keys().any(|file| file.starts_with(&inside)) {
             return Err(format!("The Code tab has unsaved changes in {folder}. Save or undo them first."));
         }
+        // rust-analyzer watches each folder, so Windows cannot move one while it runs. The Code tab starts it again.
+        editor.analyzer.stop();
         start::recycle(&path)?;
         session.project.outside_change();
         if let Some(name) = folder.strip_prefix("views/") {
@@ -617,6 +619,12 @@ pub fn subgraph_file(editor: State<'_, Editor>, name: String) -> Result<GraphFil
 #[tauri::command(async)]
 pub fn collapse(editor: State<'_, Editor>, name: String, ids: Vec<String>, use_id: String) -> Result<View, String> {
     editor.change(|project, _| project.collapse(&name, &ids, &use_id))
+}
+
+/// Makes the new empty subgraph `name` in memory (6.1). Only a save writes its file.
+#[tauri::command(async)]
+pub fn new_graph(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.change(|project, _| project.new_graph(&name))
 }
 
 /// Puts the nodes of the selected subgraph uses in their place (6.1).

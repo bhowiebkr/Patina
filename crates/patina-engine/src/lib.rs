@@ -620,6 +620,12 @@ mod tests {
         project.save().unwrap();
         let kept = root.join("graphs/part.toml").is_file();
         let count = project.graph().node.len();
+        // A new subgraph is empty, and a save writes it only after an edit or a use.
+        assert!(project.new_graph("Part").is_err(), "the graph exists");
+        assert!(project.new_graph("a/b").is_err(), "a bad name");
+        project.new_graph("blank").unwrap();
+        assert!(project.subgraphs().iter().any(|s| s.name == "blank"));
+        assert!(!project.dirty(), "nothing changed");
         fs::remove_dir_all(&root).unwrap();
         assert_eq!((unused, kept, count), (false, true, 2));
     }

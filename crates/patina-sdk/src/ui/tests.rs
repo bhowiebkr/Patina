@@ -128,8 +128,9 @@ fn a_canvas_takes_keys_only_when_it_asks_for_them() {
     assert_eq!(pad.keys(), [Key::Down("ArrowUp".into()), Key::Up("ArrowUp".into())]);
     assert_eq!(pad.pointer(), [Pointer::Down([1.0, 2.0])]);
     pad.rect([0.0, 0.0], [1.0, 1.0], [0, 0, 0], true);
+    pad.grab();
     ui.canvas("Plain", [8.0, 8.0]);
-    assert_eq!(ui.tree(), "canvas\tPad\t8\t8\tkeys\trect 0 0 1 1 #000000 1\ncanvas\tPlain\t8\t8");
+    assert_eq!(ui.tree(), "canvas\tPad\t8\t8\tkeys\trect 0 0 1 1 #000000 1\tgrab\ncanvas\tPlain\t8\t8");
 }
 
 #[test]

@@ -70,10 +70,7 @@ impl Project {
     /// in their place, as one step of undo (6.1). The new subgraph stays in memory until a save.
     /// An undo keeps the subgraph for a redo.
     pub fn collapse(&mut self, name: &str, ids: &[String], use_id: &str) -> Result<(), String> {
-        project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
-        if self.has_graph(name) {
-            return Err(format!("the graph {name} exists"));
-        }
+        self.check_new_graph(name)?;
         let state = RandomState::new();
         let mut count = 0u32;
         let key = || {
@@ -83,6 +80,22 @@ impl Project {
         let (outer, inner) = subgraph::collapse(&self.history.graph, ids, use_id, name, key)?;
         self.add_graph(name, inner);
         self.history.replace(outer);
+        Ok(())
+    }
+
+    /// Adds the new empty subgraph `name` in memory (6.1). A save writes its file only after an edit
+    /// or a use (15.10).
+    pub fn new_graph(&mut self, name: &str) -> Result<(), String> {
+        self.check_new_graph(name)?;
+        self.add_graph(name, GraphFile { format: self.history.graph.format, ..GraphFile::default() });
+        Ok(())
+    }
+
+    fn check_new_graph(&self, name: &str) -> Result<(), String> {
+        project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+        if self.has_graph(name) {
+            return Err(format!("the graph {name} exists"));
+        }
         Ok(())
     }
 

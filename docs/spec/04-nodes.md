@@ -143,6 +143,8 @@ The canvas lets a node author make custom controls, for example an envelope edit
 
 A canvas gets key events only when its `ui` calls `keys()`, for example a joystick pad. A click on such a canvas gives it the focus, and Tab moves the focus away. Each key goes to the node one time when it goes down and one time when it comes up, by its physical name, for example `KeyW` or `ArrowLeft`. A key without Ctrl, Alt or Meta stops at the canvas, so a shortcut of the graph does not act. When the canvas loses the focus, each held key comes up. (Agent decision, 2026-11-16. The owner can change it.)
 
+A drag on a canvas of a graph node moves the node. Thus the user can move a node that draws its whole body. A press that moves less than 4 px is a click. The canvas gets the down at the release, or after a hold of 250 ms. A canvas that calls `grab()` gets each press at once, with the moves. Examples are a slider, a joystick and a button that acts while it is held. A canvas in a view always gets each press at once. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+
 The code field edits a text of many lines in a monospace font, for example a program. It sends the text when it loses the focus and on Ctrl+Enter. Esc puts back the last text. In the GUI tree, a line break is `\n`, a tab is `\t` and a backslash is `\\`. (Agent decision, 2026-11-16. The owner can change it.)
 
 A code editor is a code field with line numbers, for a full size. The node gives a current line, for example the line that runs, and errors with a line each. The editor shows a band on the current line, colors each error line, and shows the error text as the tooltip of its line number. (Agent decision, 2026-11-16. The owner can change it.)
@@ -201,7 +203,9 @@ pub struct Button { held: bool }
 - A wire still leaves an output to the right and goes into an input from the left.
 - `ui.place([x, y])` puts the next widget at a point, on top of the other widgets. A widget in a section keeps its place in the section.
 - `canvas.path(data, color, fill)` draws SVG path data, for example `M 0 0 L 40 0 L 20 30 Z`. The editor skips a path with other letters than the path commands.
-- The name and the state icon of the node show above the shape. The user drags the node by its name, because the GUI takes the pointer. The selection is an outline. An error message shows below the shape.
+- The name and the state icon of the node show above the shape. The selection is an outline. An error message shows below the shape.
+- The name, the state icon and the order pins show only when the pointer is on the node, or when the node is selected, has the focus or has an error. The order pins also show during a wire drag. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+- The user drags the node by its name or by a drag on a canvas (see the canvas text above).
 - Until the node draws its first GUI, it shows the normal layout.
 - (Agent decision of 2026-11-18. The owner can change it.)
 

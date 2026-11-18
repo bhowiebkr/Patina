@@ -164,6 +164,10 @@ left corner. A color is `[red, green, blue]`.
   `Pointer::Move` and `Pointer::Up`, each with a point.
 - `canvas.keys()` lets the canvas take the focus on a click. It then gives `Key::Down` and
   `Key::Up` with the physical key name, for example `KeyW`.
+- A drag on a canvas moves the node. A click gives `Pointer::Down` at the release, and a hold
+  gives it after 250 ms.
+- `canvas.grab()` gives each press to the canvas at once, with the moves. Call it for a drag in
+  the canvas, as a slider or a joystick has, or for a button that acts while it is held.
 - Read the pointer before the draw calls when the input changes what the canvas draws.
 - An empty `text` shows no label above the canvas.
 
@@ -228,6 +232,7 @@ impl Button {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let mut canvas = ui.canvas("", [56.0, 56.0]);
+        canvas.grab();
         for p in canvas.pointer() {
             match p {
                 Pointer::Down(_) => self.held = true,

@@ -70,11 +70,20 @@ function ShapeView({ s }: { s: Shape }) {
   }
 }
 
+/** A press on a canvas of a graph node waits this long for a drag before the canvas takes it. */
+const HOLD_MS = 250;
+/** A pointer that moves this far in screen pixels during the wait starts a drag of the node. */
+const DRAG_PX = 4;
+
 /** A canvas sends a pointer down, the moves of a drag (one for each frame at most) and the up. A
- * key canvas also takes the focus on a click and sends the keys, as a viewport does. */
+ * key canvas also takes the focus on a click and sends the keys, as a viewport does. On a graph
+ * node, a canvas that does not grab gives a drag to the node, and sends the down at the release
+ * or after a short hold (4.3). */
 function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas' }>; send: (value: string) => void; disabled: boolean }) {
   const pending = useRef<string | null>(null);
   const held = useRef(false);
+  const press = useRef<{ x: number; y: number; at: string; node: Element; timer: number } | null>(null);
+  useEffect(() => () => clearTimeout(press.current?.timer), []);
   const keys = useKeys(send);
   const live = w.keys && !disabled;
   // The point in canvas pixels. A zoom of the graph scales the element, so divide by its size.
@@ -87,18 +96,47 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
     if (pending.current !== null) send(`move ${pending.current}`);
     pending.current = null;
   };
+  const take = () => {
+    const p = press.current;
+    if (!p) return;
+    clearTimeout(p.timer);
+    press.current = null;
+    held.current = true;
+    send(`down ${p.at}`);
+  };
+  const drop = () => {
+    clearTimeout(press.current?.timer);
+    press.current = null;
+    held.current = false;
+  };
   const down = (e: PointerEvent<SVGSVGElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    held.current = true;
     if (live) e.currentTarget.focus();
+    const node = w.grab || e.button !== 0 ? null : e.currentTarget.closest('.react-flow__node');
+    if (node) {
+      press.current = { x: e.clientX, y: e.clientY, at: at(e), node, timer: window.setTimeout(take, HOLD_MS) };
+      return;
+    }
+    held.current = true;
     send(`down ${at(e)}`);
   };
   const move = (e: PointerEvent<SVGSVGElement>) => {
+    const p = press.current;
+    if (p) {
+      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_PX) return;
+      drop();
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      // React Flow starts a node drag on a mouse down outside of a nodrag element. The real moves and the up continue it.
+      const start = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, clientX: p.x, clientY: p.y };
+      p.node.dispatchEvent(new MouseEvent('mousedown', start));
+      return;
+    }
     if (!held.current) return;
     if (pending.current === null) requestAnimationFrame(flush);
     pending.current = at(e);
   };
   const up = (e: PointerEvent<SVGSVGElement>) => {
+    take();
     if (!held.current) return;
     held.current = false;
     flush();
@@ -124,8 +162,8 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
         onPointerDown={disabled ? undefined : down}
         onPointerMove={disabled ? undefined : move}
         onPointerUp={disabled ? undefined : up}
-        onPointerCancel={() => (held.current = false)}
-        onLostPointerCapture={() => (held.current = false)}
+        onPointerCancel={drop}
+        onLostPointerCapture={drop}
       >
         {w.shapes.map((s, i) => (
           <ShapeView key={i} s={s} />

@@ -59,9 +59,9 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
     v = await step(`undo the ${what} node from a pin`, () => api.undo());
   };
   await dragFromPin('a drag from a pin');
-  // The show node has no output. The output of the built-in delay is generic, so it fits. The
-  // subgraph of the Test mode step and the number node of the library have an f64 output.
-  await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number,numberchecklib,switch_checksubgraph,delaybuilt-in').catch((e: Error) => {
+  // The show node has no output. The subgraph of the Test mode step and the number node of the
+  // library have an f64 output. The built-in delay fits, but it shows only for a search (15.2).
+  await until('only the nodes with an f64 output', RUN_MS, () => options().join() === 'number,numberchecklib,switch_checksubgraph').catch((e: Error) => {
     throw new Error(`${e.message} (options ${options().join()})`);
   });
   search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -74,6 +74,8 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
   await fedFromPin('library');
   // The built-in delay from the palette of a drag gets its type from the pin that it feeds (4.5).
   await dragFromPin('a third drag from a pin');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search(), 'del');
+  search()!.dispatchEvent(new Event('input', { bubbles: true }));
   const delayOption = () => [...document.querySelectorAll<HTMLElement>('.palette [role=option]')].find((o) => o.textContent === 'delaybuilt-in');
   await until('the built-in delay in the palette of the drag', RUN_MS, () => !!delayOption());
   delayOption()!.click();

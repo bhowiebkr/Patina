@@ -32,6 +32,7 @@ export function useRun(serial: RefObject<number>) {
   /** Clears all results, for another project. */
   const reset = useCallback(() => {
     setRun(NO_RUN);
+    setGuis(new Map());
     setBusy(false);
     endStop();
     setOutput([]);
@@ -71,7 +72,6 @@ export function useRun(serial: RefObject<number>) {
     setBusy(active);
     if (!active) endStop();
     if (e.state === 'started') return;
-    if (e.state === 'building') setGuis(new Map());
     setRun((r) => nextRun(r, e));
     const lines = eventLines(e);
     if (lines.length > 0) log(lines);

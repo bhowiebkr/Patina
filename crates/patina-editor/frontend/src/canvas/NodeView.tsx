@@ -20,6 +20,8 @@ export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-
 export interface RunState {
   /** 'lost' is the end of the node process after a run (16.1). The build stays. */
   phase: 'none' | 'building' | 'loaded' | 'ran' | 'failed' | 'lost';
+  /** The phase before the current build. The nodes keep its states during a build (7.2). */
+  last: Exclude<RunState['phase'], 'building'>;
   builtMs: number | null;
   /** The time of the last build that compiled. */
   lastBuildMs: number | null;
@@ -58,6 +60,7 @@ export interface RunState {
 
 export const NO_RUN: RunState = {
   phase: 'none',
+  last: 'none',
   builtMs: null,
   lastBuildMs: null,
   baseMs: null,
@@ -180,7 +183,11 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
   if (info.error) return ['compile-error', info.error];
   const problems = nodeProblems(view.problems, entry.id);
   if (problems.length > 0) return [problems.every(openType) ? 'unresolved' : 'compile-error', problems.join('\n')];
-  if (run.phase === 'building') return ['compiling', ''];
+  if (run.phase === 'building') {
+    // A node compiles alone only in the slot. A base build mostly compiles the cluster crate, so the other nodes keep their states (7.2).
+    if (run.building.slot !== null && entry.folder === run.building.slot) return ['compiling', ''];
+    return nodeState(entry, info, view, { ...run, phase: run.last });
+  }
   const errors = info.subgraph ? [] : nodeErrors(run, info.name);
   if (errors.length > 0) return ['compile-error', errors.map((e) => `line ${e.start[0]}: ${errorText(e)}`).join('\n')];
   if (run.phase === 'failed' || run.phase === 'lost') return ['stale', ''];

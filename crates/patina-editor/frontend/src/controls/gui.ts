@@ -20,7 +20,7 @@ export type Widget =
   | { kind: 'tabs'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'section'; index: number; text: string; open: boolean }
   | { kind: 'end'; index: number; text: string }
-  | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[]; keys: boolean }
+  | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[]; keys: boolean; grab: boolean }
   | { kind: 'viewport'; index: number; text: string; height: number }
   | { kind: 'color'; index: number; text: string; value: string }
   | { kind: 'plot'; index: number; text: string; low: number; high: number; values: number[]; axes: Axes | null }
@@ -266,7 +266,8 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'canvas' && value > 0 && low > 0) {
       const shapes = rest.slice(2).flatMap((f) => parseShape(f) ?? []);
       const keys = rest.slice(2).includes('keys');
-      widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes, keys });
+      const grab = rest.slice(2).includes('grab');
+      widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes, keys, grab });
     } else if (kind === 'viewport' && value > 0) widgets.push({ kind, index, text, height: Math.min(value, MAX_SIDE) });
     else {
       const widget = parseValue(kind, index, text, rest);

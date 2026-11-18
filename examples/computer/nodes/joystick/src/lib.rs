@@ -49,6 +49,7 @@ impl Joystick {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let mut pad = ui.canvas("Pad", [112.0, 64.0]);
+        pad.grab();
         for key in pad.keys() {
             match key {
                 Key::Down(name) => self.keys |= button(name),

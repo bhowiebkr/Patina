@@ -67,7 +67,7 @@ export function nextRun(r: RunState, e: RunEvent): RunState {
     case 'ended':
       return r;
     case 'building':
-      return { ...r, phase: 'building', building: { base: e.base, slot: e.slot } };
+      return { ...r, phase: 'building', last: r.phase === 'building' ? r.last : r.phase, building: { base: e.base, slot: e.slot } };
     case 'ran': {
       const failed = e.errors.length > 0;
       const idle = idleOf(e.skipped, e.stopped);
@@ -76,6 +76,7 @@ export function nextRun(r: RunState, e: RunEvent): RunState {
       for (const [from, v] of r.values) if (!values.has(from) && valueStale({ ...r, stale: false, idle }, from)) values.set(from, v);
       return {
         phase: 'ran',
+        last: r.last,
         builtMs: e.builtMs,
         lastBuildMs: e.builtMs !== null && !failed ? e.builtMs : r.lastBuildMs,
         // A build of the base with a node in the slot also builds the slot (7.1).

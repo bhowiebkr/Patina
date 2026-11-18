@@ -149,6 +149,7 @@ export function App() {
     setInspect((old) => {
       if (ids.length === 1) return { kind: 'node', id: ids[0] };
       if (ids.length === 0 && wires.length === 1) return { kind: 'wire', from: wires[0].from, to: wires[0].to };
+      if (ids.length > 1) return { kind: 'nodes', ids };
       return old?.kind === 'type' || old?.kind === 'folder' ? old : null;
     });
   }, [sendFloat]);
@@ -181,6 +182,10 @@ export function App() {
           onUpdate={actions.pickUpdate}
           onPackage={actions.makePackage}
           onOpen={openGraph}
+          onNewGraph={async (name) => {
+            show(await api.newGraph(name));
+            await openGraph(name);
+          }}
           onDelete={actions.deleteFolder}
         />
       ),
@@ -200,6 +205,8 @@ export function App() {
           onAddCrate={actions.addCrate}
           onPick={pick}
           onLock={(to) => lockBends.current(to)}
+          onCollapse={collapse}
+          onExpand={expandUses}
         />
       ),
     },

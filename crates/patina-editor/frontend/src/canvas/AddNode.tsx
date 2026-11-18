@@ -75,7 +75,9 @@ export function AddNode({ x, y, nodes, none = 'The project has no nodes.', onAdd
               {n.error && <span className="hint error-text">error</span>}
             </div>
           ))}
-          {hits.length === 0 && <div className="empty">{nodes.length === 0 ? none : 'No node matches.'}</div>}
+          {hits.length === 0 && (
+            <div className="empty">{query.trim() !== '' ? 'No node matches.' : nodes.some((n) => n.builtin) ? `${none} Type a name to find a built-in node.` : none}</div>
+          )}
         </div>
       </div>
     </div>

@@ -14,6 +14,10 @@ interface Server {
   chain: Promise<unknown>;
   /** The paths of the files that the server has open. */
   open: Set<string>;
+  /** True after `initialized`. A stop after that, for example for a Delete, starts a new server. */
+  ready: boolean;
+  /** The time of the start, in ms. */
+  born: number;
 }
 
 const CAPABILITIES = {
@@ -89,7 +93,7 @@ async function start(at: string, gen: number): Promise<Server | null> {
     if (!starting) api.analyzerStop().catch(() => {});
     return null;
   }
-  const s: Server = { serial, next: 1, pending: new Map(), chain: Promise.resolve(), open: new Set() };
+  const s: Server = { serial, next: 1, pending: new Map(), chain: Promise.resolve(), open: new Set(), ready: false, born: Date.now() };
   current = s;
   const uri = monaco.Uri.file(at.replaceAll('\\', '/')).toString();
   const result = await request(s, 'initialize', {
@@ -101,6 +105,7 @@ async function start(at: string, gen: number): Promise<Server | null> {
   });
   if (current !== s || result === null) return null;
   notify(s, 'initialized', {});
+  s.ready = true;
   tracked.forEach((model, path) => openIn(s, path, model));
   return s;
 }
@@ -112,6 +117,10 @@ function receive(message: { serial: number; text: string | null }) {
     console.warn('rust-analyzer stopped.');
     s.pending.forEach((resolve) => resolve(null));
     current = null;
+    if (!s.ready) return;
+    starting = null;
+    // A server that stops soon after each start does not start again in a loop. The next request starts it.
+    if (tracked.size > 0 && Date.now() - s.born > 10000) void server();
     return;
   }
   let m: { id?: number | string; method?: string; result?: unknown; error?: unknown };

@@ -19,6 +19,10 @@ window.addEventListener('error', (e) => {
   if (!e.message.startsWith('ResizeObserver loop')) reportError(e.error ?? e.message);
 });
 window.addEventListener('unhandledrejection', (e) => reportError(e.reason));
+// The menu of the WebView (Back, Refresh, Print) has no use in the editor. Text fields keep it for Cut, Copy and Paste (15.2).
+window.addEventListener('contextmenu', (e) => {
+  if (!(e.target instanceof Element && e.target.closest('input, textarea, [contenteditable="true"]'))) e.preventDefault();
+});
 
 // A float window (15.8) opens this page with the view slot and the view name in the query.
 const params = new URLSearchParams(location.search);

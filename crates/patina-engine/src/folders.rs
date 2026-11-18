@@ -141,6 +141,8 @@ impl patina_sdk::Widget for NAME {
     fn show(&mut self, ui: &mut patina_sdk::Ui) -> patina_sdk::Response {
         const SIZE: [f32; 2] = [120.0, 16.0];
         let mut canvas = ui.canvas(\"\", SIZE);
+        // The bar takes each press at once, so a drag on it sets the value and does not move the node.
+        canvas.grab();
         let mut changed = false;
         for pointer in canvas.pointer() {
             if let patina_sdk::Pointer::Down(at) | patina_sdk::Pointer::Move(at) = pointer {

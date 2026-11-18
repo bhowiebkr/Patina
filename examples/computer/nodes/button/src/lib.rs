@@ -22,6 +22,8 @@ impl Button {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let mut canvas = ui.canvas("", [56.0, 56.0]);
+        // The button acts while it is held, so a press must not wait for a drag.
+        canvas.grab();
         for p in canvas.pointer() {
             match p {
                 Pointer::Down(_) => self.held = true,

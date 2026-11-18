@@ -85,6 +85,7 @@ This is an agent decision of 2026-11-15 for question 8 (18). The owner can chang
 - The **Project** tab lists the folders of the project (6.2) in groups: **Graphs**, **Nodes**, **Widgets**, **Views**, **Connections** and **Types**.
 - The user drags a node folder into the graph to add a node. The node goes with its top left corner at the drop point. The editor windows turn off the file drop of Tauri, because on Windows it stops this drag (fixed 2026-11-16).
 - The **Graphs** group lists **main** and each subgraph. A click opens the graph. The user drags a subgraph into the open graph to add a use of it (6.1). The **Nodes** group lists only node folders. This is an agent decision of 2026-11-15. The owner can change it.
+- In a trusted project, the **New subgraph** button in the title of the **Graphs** group asks for a name. It makes an empty subgraph in memory and opens it. Save writes the subgraph only when it has an edit or a use (see **Collapse into a subgraph**). (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - A click on a widget, view, connection or type folder opens its code in the inspector.
 - **Import** copies a folder from another project (6.2).
 - **Update** compares an imported folder with its origin, and copies the new version when the user confirms (6.2).
@@ -117,7 +118,9 @@ The **Import** button at the end of the **Project** panel copies a folder from a
 - An untrusted project has no **Import** button.
 - Above the **Import** button, the **Imports** list shows each imported folder. A click on a folder opens the **Update** dialog for it. Patina finds the other project, or opens the folder dialog.
 - The **Package** button after **Import** opens the folder dialog. Patina makes an executable package in `<chosen folder>/<project name>` (14.1). A package builds from the files, so the editor refuses it while the project has unsaved changes. The **Logs** panel shows **Making the package**, the warnings and the package folder. An error shows in the status bar. (Agent decision, 2026-11-15. The owner can change it.) The package builds in a background thread, so the graph runs on. (Agent decision of 2026-11-17. The owner can change it.)
-- A right-click on a subgraph, a node folder or an item of another group in the **Project** panel opens a menu with **Delete**. The Delete key on the focused item does the same. A dialog asks first. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+- A right-click on an item of the **Project** panel opens a menu. A graph has **Open**, a node folder has **Inspect** and an item of another group has **Open**. In a trusted project, each item except `main` also has **Delete**. The Delete key on the focused item does the same. A dialog asks first. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+- A right-click on a group title of the **Project** panel opens a menu with **New node**, **New widget** or the entry of that group, in a trusted project. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+- The editor shows no menu of the WebView, for example **Back**, **Refresh** or **Print**. A right-click on a place with no menu of the editor does nothing. A text field keeps the menu of the system, for **Cut**, **Copy** and **Paste**. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
   - **Delete** moves the folder, or the file of the subgraph, to the Recycle Bin. Undo cannot get it back, but the Recycle Bin can.
   - The main graph, the open graph and a folder with unsaved changes in the **Code** tab cannot go. An untrusted project has no **Delete**.
   - The nodes and the uses that need the folder stay, and show the error of a missing folder until the user deletes them.
@@ -177,6 +180,7 @@ The **Add node** palette is the second way to add a node, after a drag from the 
 
 - A double-click opens it at the pointer. Shift+A opens it at the pointer, or at the middle of the canvas when the pointer is not on it.
 - It has a search field and a list of the nodes of the project. The list shows each name that contains the text, with no regard to case. The names that start with the text come first.
+- The built-in nodes, for example `delay`, `schedule` and `trigger` (9.2), show only when the search field has text. They come after the nodes of the project. An empty project thus shows an empty list, with a text that tells the user to type a name. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The arrow keys move in the list. Enter or a click adds the node, with its top left corner at the point where the palette opened. Esc or a click out of the palette closes it.
 - A drag from a pin that ends on an empty area opens the palette at that point. The list has only the nodes with a pin that can join the pin of the drag: an input for an output, and an output for an input, of the same type. The add connects the first such pin of the new node. The new node and its wire are one undo step. (Agent decision, 2026-11-15. The owner can change it.)
 - In this match, a `&T` or `&mut T` input takes a `T`, and a `&str` input takes a `String` (5.1). The editor compares the type text with no spaces and no module paths, so `std::string::String` matches `String`. The build does the full type check (5.2). (Agent decision, 2026-11-16. The owner can change it.)
@@ -240,7 +244,7 @@ Node bodies fit their contents; their widths and heights need not match. A node 
 | State | Display |
 |---|---|
 | Ready | Green dot |
-| Compiling | Animated dot |
+| Compiling | Animated dot. Only the node in the slot, during a build of the slot (7.2) |
 | Compile error | Red border, error icon |
 | Run error | Red border, error icon, error text on the node |
 | Stale | Dim. Inputs changed or the last run stopped. Old values and times stay visible but dim |
@@ -630,6 +634,8 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The editor refuses a name that has a graph, and a selection that makes a cycle through the use.
 - The change of the open graph is one undo step. An undo keeps the new subgraph in memory, so a redo can use it.
 - Save writes a new subgraph of a paste or a collapse only when a graph in memory uses it, or when it has edits of its own. The same rule applies to the unsaved changes and the recovery file. A new subgraph that nothing uses goes when the project closes. (Agent decision of 2026-11-17. The owner can change it.)
+- When two or more nodes are selected, the **Inspector** shows **N items selected**. It has **Collapse into subgraph...**, which asks for the name, and **Expand subgraph** when the selection has a use. A short text gives the keys and tells how to edit the inputs and outputs. The empty **Inspector** also tells the user to select two or more nodes. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+- Reason: the owner did not find Ctrl+G and the node menu. The **Inspector** shows the subgraph tools where the user looks after a selection.
 - Ctrl+Shift+G expands each selected use: the nodes of the subgraph take its place, as one undo step. Their top left corner goes to the position of the use. An inner node keeps its ID, unless the graph has the ID. A parameter of the use goes to the inner inputs of its pin. The subgraph file stays.
 
 **Recovery file**

@@ -191,7 +191,20 @@
   outline-offset: 3px;
 }
 
-/* The name above a free node. It is the drag handle, because the GUI takes the pointer. */
+/* The caption and the order pins of a free node show only when they help, so the shape stays clean (4.3).
+   Opacity keeps their places, so the order wires stay on their pins. */
+.patina-node.free > :is(.free-caption, .order-pin) {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.react-flow__node:hover .patina-node.free > :is(.free-caption, .order-pin),
+.patina-node.free:is(.selected, :focus-within, .compile-error, .run-error) > :is(.free-caption, .order-pin),
+.react-flow:has(.react-flow__connectionline) .patina-node.free > .order-pin {
+  opacity: 1;
+}
+
+/* The name above a free node. It is a drag handle, as a drag on a canvas is. */
 .free-caption {
   position: absolute;
   bottom: 100%;

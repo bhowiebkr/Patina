@@ -293,6 +293,7 @@ fn main() {
             session::open_graph,
             session::subgraph_file,
             session::collapse,
+            session::new_graph,
             session::expand,
             session::run,
             session::pause,

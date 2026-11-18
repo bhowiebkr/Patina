@@ -19,6 +19,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- Subgraph tools: **New subgraph** in the **Graphs** group makes an empty subgraph. Two or more selected nodes show **Collapse into subgraph...** in the **Inspector**.
+- Editor menus: The **Project** panel has right-click menus, and the WebView menu does not show. A build keeps the node GUIs, and only the slot node shows **Compiling**.
 - Rust version of a project: The `rust` of `patina.toml` is the oldest Rust version that builds the project. **Update toolchain** raises the toolchain.
 - Copy, paste and libraries: **Copy**, **Cut** and **Paste** of nodes work. **Settings** > **Libraries** and **Add from Git** give nodes from other projects.
 - Gate speed: Light nodes share one task, nets share one check and skip the `Option` checks when their inputs have values, and the frame rate goes up to 100000 FPS.

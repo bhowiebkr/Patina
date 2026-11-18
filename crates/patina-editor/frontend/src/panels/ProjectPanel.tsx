@@ -6,7 +6,7 @@ import type { View } from '../api';
 import { NODE_MIME } from '../canvas/useAddNode';
 import { NameField } from '../controls/NameField';
 import { Confirm } from '../dialogs/Confirm';
-import { Menu } from './Dock';
+import { Menu, type Item } from './Dock';
 
 /** `type` is a node folder. `folder` is a widget, view, connection or type folder, for example `types/segments`. */
 export type Inspect =
@@ -14,6 +14,8 @@ export type Inspect =
   | { kind: 'type'; name: string }
   | { kind: 'folder'; folder: string }
   | { kind: 'wire'; from: string; to: string }
+  /** Two or more selected items of the graph. */
+  | { kind: 'nodes'; ids: string[] }
   | null;
 
 /** The code groups after **Nodes**: the folder group, the title and the field label. */
@@ -39,6 +41,8 @@ interface Props {
   onUpdate: (folder: string) => void;
   /** Opens the main graph or a subgraph (6.1). */
   onOpen: (name: string) => void;
+  /** Makes an empty subgraph and opens it (6.1). It fails with the problem of the name. */
+  onNewGraph: (name: string) => Promise<void>;
   /** Moves a folder, for example `nodes/switch` or `graphs/filter`, to the Recycle Bin (15.4). */
   onDelete: (folder: string) => void;
 }
@@ -57,21 +61,23 @@ function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpdate, onPackage, onOpen, onDelete }: Props) {
-  const [naming, setNaming] = useState<Group | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; folder: string } | null>(null);
+export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpdate, onPackage, onOpen, onNewGraph, onDelete }: Props) {
+  const [naming, setNaming] = useState<Group | 'graphs' | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; label: string; items: Item[] } | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
-  // A right-click or the Delete key on an item asks to delete its folder (15.4).
-  const deleting = (folder: string) =>
-    view.trusted
-      ? {
-          onContextMenu: (e: MouseEvent) => {
-            e.preventDefault();
-            setMenu({ x: e.clientX, y: e.clientY, folder });
-          },
-          onKeyDown: (e: KeyboardEvent) => e.key === 'Delete' && setAsking(folder),
-        }
-      : {};
+  const menuOf = (label: string, items: Item[]) => (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (items.length > 0) setMenu({ x: e.clientX, y: e.clientY, label, items });
+  };
+  // The right-click menu of an item opens it, and in a trusted project deletes its folder. The Delete key also asks (15.4).
+  const actions = (folder: string | null, open: Exclude<Item, 'line'>) => {
+    const del = folder !== null && view.trusted;
+    return {
+      onContextMenu: menuOf(folder ?? open.label, del ? [open, 'line', { label: 'Delete', keys: 'Del', run: () => setAsking(folder) }] : [open]),
+      onKeyDown: (e: KeyboardEvent) => del && e.key === 'Delete' && setAsking(folder),
+    };
+  };
   const close = () => setNaming(null);
   const startDrag = (e: DragEvent, name: string) => {
     e.dataTransfer.setData(NODE_MIME, name);
@@ -79,8 +85,8 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
   };
   const subgraphs = view.nodes.filter((n) => n.subgraph);
   const nodes = view.nodes.filter((n) => !n.subgraph);
-  const title = (group: Group, text: string, one: string) => (
-    <div className="group-title">
+  const title = (group: Group | 'graphs', text: string, one: string) => (
+    <div className="group-title" onContextMenu={menuOf(text, view.trusted ? [{ label: `New ${one.toLowerCase()}`, run: () => setNaming(group) }] : [])}>
       {text}
       {view.trusted && <NewButton label={`New ${one.toLowerCase()}`} onClick={() => setNaming(group)} />}
     </div>
@@ -90,7 +96,8 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
   return (
     <aside className="panel" aria-label="Project">
       <div className="group">
-        <div className="group-title">Graphs</div>
+        {title('graphs', 'Graphs', 'Subgraph')}
+        {naming === 'graphs' && <NameField label="Subgraph name" onMake={onNewGraph} onClose={close} />}
         {[{ name: 'main', error: null }, ...subgraphs].map((n) => (
           <button
             key={n.name}
@@ -98,7 +105,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             draggable={view.trusted && n.name !== 'main'}
             onDragStart={(e) => startDrag(e, n.name)}
             onClick={() => onOpen(n.name)}
-            {...(n.name === 'main' ? {} : deleting(`graphs/${n.name}`))}
+            {...actions(n.name === 'main' ? null : `graphs/${n.name}`, { label: 'Open', run: () => onOpen(n.name) })}
             title={n.name === 'main' ? 'Open the main graph' : 'Open the subgraph, or drag it to the graph to add a use'}
           >
             {n.name}
@@ -117,7 +124,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             draggable={view.trusted}
             onDragStart={(e) => startDrag(e, n.name)}
             onClick={() => onInspect({ kind: 'type', name: n.name })}
-            {...deleting(`nodes/${n.name}`)}
+            {...actions(`nodes/${n.name}`, { label: 'Inspect', run: () => onInspect({ kind: 'type', name: n.name }) })}
             title={[n.doc, view.trusted && 'Drag to the graph to add the node'].filter(Boolean).join('\n\n') || undefined}
           >
             <span className="swatch" style={{ background: n.color ?? undefined }} aria-hidden="true" />
@@ -138,7 +145,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
                 key={name}
                 className={inspect?.kind === 'folder' && inspect.folder === folder ? 'item active' : 'item'}
                 onClick={() => onInspect({ kind: 'folder', folder })}
-                {...deleting(folder)}
+                {...actions(folder, { label: 'Open', run: () => onInspect({ kind: 'folder', folder }) })}
               >
                 {name}
               </button>
@@ -163,7 +170,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
           </button>
         </div>
       )}
-      {menu && <Menu x={menu.x} y={menu.y} label={menu.folder} items={[{ label: 'Delete', keys: 'Del', run: () => setAsking(menu.folder) }]} onClose={() => setMenu(null)} />}
+      {menu && <Menu x={menu.x} y={menu.y} label={menu.label} items={menu.items} onClose={() => setMenu(null)} />}
       {asking && (
         <Confirm
           title={`Delete ${asking}?`}

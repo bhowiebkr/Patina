@@ -16,9 +16,9 @@ test('a name that starts with the query comes before a name that contains it', (
   assert.deepEqual(names('um'), ['number', 'sum']);
 });
 
-test('the nodes of the project come before the built-in nodes', () => {
+test('the nodes of the project come before the built-in nodes, which show only for a search', () => {
   const all = [{ name: 'delay', builtin: true }, { name: 'number' }, { name: 'dice' }];
-  assert.deepEqual(matchNodes(all, '').map((n) => n.name), ['dice', 'number', 'delay']);
+  assert.deepEqual(matchNodes(all, ' ').map((n) => n.name), ['dice', 'number']);
   assert.deepEqual(matchNodes(all, 'd').map((n) => n.name), ['dice', 'delay']);
 });
 

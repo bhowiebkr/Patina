@@ -127,6 +127,14 @@ impl Canvas<'_> {
         &self.keys
     }
 
+    /// Lets the canvas take each press at once: the down, the moves and the up. Call it for a drag
+    /// in the canvas or for a button that acts while it is held. Without it, a drag on the canvas
+    /// of a graph node moves the node. The canvas then gets the down at the release or after a
+    /// short hold (4.3).
+    pub fn grab(&mut self) {
+        self.tree.push_str("\tgrab");
+    }
+
     pub fn line(&mut self, from: [f32; 2], to: [f32; 2], color: [u8; 3]) {
         self.shape("line", &[from[0], from[1], to[0], to[1]], color, None);
     }

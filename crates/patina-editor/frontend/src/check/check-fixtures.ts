@@ -185,6 +185,7 @@ impl Number {
         ui.asset_picker("Source", &mut self.source, &["toml"]);
         ui.code_field("Code", &mut self.code);
         let mut pad = ui.canvas("Pad", [160.0, 48.0]);
+        pad.grab();
         if pad.keys().contains(&patina_sdk::Key::Down("KeyK".into())) {
             self.dot[0] += 10.0;
         }
