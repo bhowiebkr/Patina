@@ -124,6 +124,7 @@ The **Import** button at the end of the **Project** panel copies a folder from a
   - **Delete** moves the folder, or the file of the subgraph, to the Recycle Bin. Undo cannot get it back, but the Recycle Bin can.
   - The main graph, the open graph and a folder with unsaved changes in the **Code** tab cannot go. An untrusted project has no **Delete**.
   - The nodes and the uses that need the folder stay, and show the error of a missing folder until the user deletes them.
+  - An imported folder keeps its record in `patina.toml`, but goes from the **Imports** list. A restore from the Recycle Bin shows it again. (Agent decision of 2026-11-18. The owner can change it.)
   - On Linux and macOS, **Delete** shows an error for now.
 - The **Update** dialog lists the files that are different, with **Only in the other project**, **Only in this project** or **Different**. A file that only one side changed shows the version that the update takes: **Other project** or **This project**. A file that the two sides changed has a choice of **Other project** or **This project** (6.2). **Update** stays off until each such file has a choice, or when the other project did not change. During the build check the dialog shows **Building**.
 

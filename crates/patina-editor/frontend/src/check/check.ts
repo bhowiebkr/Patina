@@ -11,8 +11,10 @@ import { checkFree } from './check-free';
 import { checkSymbol } from './check-symbol';
 import { checkThreads } from './check-threads';
 import { checkViewer } from './check-viewer';
+import { checkWidget } from './check-widget';
 import type { CheckContext } from './check-fixtures';
 import { checkIsolation } from './check-isolation';
+import { checkPackage } from './check-package';
 import { checkPalette } from './check-palette';
 import { checkProject, checkRecovery } from './check-project';
 import { checkStart } from './check-start';
@@ -97,9 +99,10 @@ export async function runCheck(dir: string, show: (v: View) => void, edited: (v:
     const recovered = await checkRecovery(c, v, lib, original);
     v = await checkDomains(c, recovered.v, lib, recovered.changedCode);
     v = await checkViews(c, v, lib, dock.at);
-    v = await checkViewer(c, await checkSymbol(c, await checkFree(c, v)));
+    v = await checkViewer(c, await checkSymbol(c, await checkWidget(c, await checkFree(c, v))));
     v = await checkThreads(c, await checkBus(c, v));
     await checkSubgraph(c, v, lib);
+    await checkPackage(c, dir);
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');

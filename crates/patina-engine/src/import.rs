@@ -103,8 +103,10 @@ impl Project {
     }
 
     /// The imported folders of the project (6.4), for example `nodes/blur`.
+    /// A deleted folder keeps its record, so a restore from the Recycle Bin shows it again.
     pub fn imports(&self) -> Vec<String> {
-        read_project(&self.root).map(|f| f.imports.into_keys().collect()).unwrap_or_default()
+        let here = |folder: &String| self.root.join(folder).is_dir();
+        read_project(&self.root).map(|f| f.imports.into_keys().filter(here).collect()).unwrap_or_default()
     }
 
     pub(crate) fn check_toolchain(&self, toolchain: &Toolchain) -> Result<(), String> {

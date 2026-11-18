@@ -52,4 +52,11 @@ fn an_import_builds_and_a_bad_update_goes_back() {
     let out = cluster.run(&Control::default());
     assert!(out.ok, "{:?}", out.reports);
     assert_eq!(out.values.into_iter().find(|v| v.from == "00000000000000f0.out").unwrap().text, "19.5");
+
+    // A deleted folder is not in the list, and a restore shows it again.
+    let (folder, gone) = (this.join("nodes/scale"), this.join("scale-gone"));
+    fs::rename(&folder, &gone).unwrap();
+    assert!(opened.imports().is_empty());
+    fs::rename(&gone, &folder).unwrap();
+    assert_eq!(opened.imports(), ["nodes/scale"]);
 }

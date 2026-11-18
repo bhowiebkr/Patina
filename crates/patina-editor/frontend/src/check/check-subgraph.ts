@@ -209,6 +209,40 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   [...importBox()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Cancel')!.click();
   await until('the closed Import dialog', RUN_MS, () => !importBox());
   steps.push('the Import dialog lists the folders of another project, and Cancel closes it');
+  // nodes/number of this project has other code, so the import of the library folder needs a rename (6.2).
+  // The copy goes in the Imports list, and its Update dialog shows that the library did not change.
+  const dialogButton = (box: Element | null, label: string) => [...(box?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((b) => b.textContent === label);
+  const imported = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')].find((b) => b.title.startsWith('Compare') && b.textContent?.startsWith('nodes/number-2'));
+  const pick = (select: HTMLSelectElement, value: string) => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  api.pickFolder = async () => libRoot;
+  try {
+    button('Import')!.click();
+    const list = () => importBox()?.querySelector<HTMLSelectElement>('select[aria-label="Folder to import"]');
+    await until('nodes/number in the Import dialog', RUN_MS, () => [...(list()?.options ?? [])].some((o) => o.value === 'nodes/number'));
+    pick(list()!, 'nodes/number');
+    const choice = () => importBox()?.querySelector<HTMLSelectElement>('select[aria-label="Choice for nodes/number"]');
+    await until('the conflict of nodes/number', RUN_MS, () => !!choice());
+    pick(choice()!, 'Rename');
+    await until('the name number-2', RUN_MS, () => importBox()?.querySelector<HTMLInputElement>('input[aria-label="New name for nodes/number"]')?.value === 'number-2');
+    dialogButton(importBox(), 'Import')!.click();
+    await until('the copy in the Imports list', BUILD_MS, () => !importBox() && !!imported()).catch((e: Error) => {
+      throw new Error(`${e.message} (${importBox()?.querySelector('.error-text')?.textContent ?? 'no error'})`);
+    });
+    imported()!.click();
+    const unchanged = () => importBox()?.querySelector('h2')?.textContent === 'Update nodes/number-2 from checklib' && !!importBox()?.textContent?.includes('The folder in the other project did not change.');
+    await until('the Update dialog of the copy', RUN_MS, unchanged);
+    if (!dialogButton(importBox(), 'Update')?.disabled) throw new Error('Update is on with no change in the other project');
+    dialogButton(importBox(), 'Cancel')!.click();
+    await until('the closed Update dialog', RUN_MS, () => !importBox());
+  } finally {
+    api.pickFolder = pickFolder;
+  }
+  await api.checkWrite('nodes/number-2', null);
+  await until('no copy after a delete from outside the editor', BUILD_MS, () => !imported());
+  steps.push('import a library folder with a new name, open its Update dialog, and delete the copy');
 
   // A node GUI in a subgraph use shows and takes input, on the canvas and in the Inspector (4.3, 6.4).
   const lamp = 'f12e000000000002';

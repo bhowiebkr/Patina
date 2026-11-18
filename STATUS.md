@@ -227,10 +227,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   status bar, the error line in the **Logs** tab of the **Inspector**, and the middle crumb of
   the path bar in a nested subgraph. On an automation lane, a double click adds a point and the Delete key removes it.
   The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+G, Ctrl+Shift+G, Shift+L and F.
-- Known limits: the self-check does not click **Package**, **Float in a window** or **Open
-  GitHub page**. These open a folder dialog, a window or the web browser.
-- Known limits: the self-check opens the **Import** dialog and clicks **Cancel**, but it does not
-  click **Import**. An import writes folders and has no undo. The engine tests cover the import.
+- The self-check saves and clicks **Package** with a folder in place of the folder dialog. It
+  waits for the log line of the package (2026-11-18). The local check copies `patina-cli` next
+  to the editor, so the full package build runs.
+- Known limits: the self-check does not click **Float in a window** or **Open GitHub page**.
+  These open a window or the web browser. It does not open the package.
+- The self-check opens the **Import** dialog and clicks **Cancel**. Then it imports `nodes/number`
+  of the library with **Rename**, clicks the copy in the **Imports** list, and sees that
+  **Update** is off. Then it deletes the copy from outside the editor (2026-11-18).
 - Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
 - The first start shows an **Install the toolchain** card, and the install shows a progress bar
   (2026-11-18). A unit test checks the percent parse and the step math. No check ran a full
@@ -414,8 +418,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The notices of the crates of the runner are only in the portable zip. A runner from a
   checkout gives a warning.
 - **Open project** on a package opens its original project. A build there writes a `build/`
-  folder into the package. The **Package** button and the opening did not run in the window yet.
-  It needs `patina-cli` next to the editor, as in the portable folder.
+  folder into the package. The self-check clicks **Package** (2026-11-18). The opening of a
+  package did not run in the window yet. **Package** needs `patina-cli` next to the editor, as
+  in the portable folder.
 - A test builds and loads the `patina_capi` library. It checks each function of
   `patina_capi.h` and the error texts (fixed 2026-11-17). A full package run through the C API
   is only in the Rust test of the crate and in the manual `ctypes` check on Windows.
@@ -455,8 +460,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - **Import** and **Update** work only from a trusted project. A renamed folder keeps the comments
   and the key order of its `Cargo.toml` (fixed 2026-11-17, before they were lost). The import
   test checks a comment. A CLI test with the real toolchain imports a node and builds it. It
-  puts back an update that does not compile, then builds and runs a good update. The two
-  dialogs did not run in the window yet.
+  puts back an update that does not compile, then builds and runs a good update. The self-check
+  runs the two dialogs in the window (2026-11-18). A deleted imported folder kept its line in the
+  **Imports** list (fixed 2026-11-18). Its record stays, so a restore shows it again.
 
 ### Milestone 6: layers
 
@@ -521,8 +527,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   domain (milestone 11).
 - The **Widgets** group of the **Project** tab makes widget folders with a start widget. **Add
   crate** with a widget name adds the widget by its path. A manual check built a node that shows
-  a widget folder in `patina-cli`. The editor self-check makes a widget folder, but does not
-  build a node that shows it.
+  a widget folder in `patina-cli`. The editor self-check makes a widget folder. Then it builds a
+  node that shows the start widget, and a press on the widget sets the value (2026-11-18).
 - A node GUI can have a canvas with lines, rectangles, circles and text. The canvas sends the
   pointer down, the moves of a drag (one for each frame at most) and the up. A custom widget
   implements the `Widget` trait. The editor selfcheck clicks a canvas and drags on it, and the
