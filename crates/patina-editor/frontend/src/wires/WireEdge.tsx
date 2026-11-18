@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { getBezierPath, Position, useReactFlow, useStore, type Edge, type EdgeProps, type ReactFlowState } from '@xyflow/react';
 import type { Point } from '../api';
 import { dragRoute } from '../canvas/frames';
+import type { NodeData } from '../canvas/NodeView';
 import { HoverContext, PITCH, busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
 import { FAR_ZOOM } from './gl';
 import { RouteHandles, SegmentHandles } from './RouteHandles';
@@ -27,6 +28,12 @@ export function OrderEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
   );
 }
 
+/** True for a node that shows its pins as dots: a free layout or a circuit symbol (4.3). */
+function dots(n: { type?: string; data: unknown } | undefined) {
+  const d = n?.type === 'patina' ? (n.data as NodeData) : undefined;
+  return !!d && !d.open && (!!d.info?.symbol || (!!d.info?.free && d.gui !== undefined));
+}
+
 const CONFLICT = 'No clear path around the nodes. Move a node or a route point.';
 
 const labelHosts = new WeakMap<Element, Element>();
@@ -43,7 +50,7 @@ function labelHost(s: ReactFlowState): Element | null {
   return host ?? null;
 }
 
-export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
+export function WireEdge({ id, source, target, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
   const { store, router, labels, onEdit, editable, kinds } = useContext(WireContext)!;
   const hover = useContext(HoverContext);
   const flow = useReactFlow();
@@ -59,6 +66,8 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   // A bool wire is one lane: lit when true. A kind with lanes shows its lanes before a run (15.9).
   const bits = wireBits(value, kind);
   const family = familyOf(kind);
+  // The lanes of a bus fan in to the dot pin of a free or symbol node (15.9).
+  const taper = useStore((s) => (bits.length > 1 ? (dots(s.nodeLookup.get(source)) ? 1 : 0) | (dots(s.nodeLookup.get(target)) ? 2 : 0) : 0));
   const lane = useSyncExternalStore(hover.subscribe, () => hoveredLane(hover.get(), data!.from, data!.to));
   const tip = useSyncExternalStore(hover.subscribe, () => (hover.get()?.wire === id ? hover.get() : null));
   // A bus shows one line with its width at a far zoom (15.9).
@@ -77,8 +86,8 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     [auto, sourceX, sourceY, targetX, targetY, routed, route, drawn, corners, width],
   );
   useLayoutEffect(
-    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross, gaps),
-    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane, cross, gaps],
+    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross, gaps, taper),
+    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane, cross, gaps, taper],
   );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, lockPoints, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, pathOf, segments, shape, STALE, STRIDE, WireStore, wirePath, wirePoints } from './wires.ts';
+import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, lockPoints, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, pathOf, segments, shape, STALE, STRIDE, TAPER, taperEnds, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Path } from '../api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -203,6 +203,38 @@ test('a bus keeps its color family, and the hovered lane is marked', () => {
   assert.equal(store.across('bus', 40, -3), -3);
   assert.equal(store.across('bus', 140, 4), 4, 'beyond the end, the nearest segment');
   assert.equal(store.across('none', 0, 0), null);
+});
+
+test('a bus fans its lanes in to a dot pin over the last TAPER px', () => {
+  const line = (...xy: number[]) => {
+    const p = new Float32Array(MAX_POINTS * STRIDE);
+    for (let k = 0; k < xy.length / 2; k++) p.set([xy[k * 2], xy[k * 2 + 1]], k * STRIDE);
+    return p;
+  };
+  // + 0 turns the -0 of a normal into 0.
+  const plus = (a: Float32Array) => [...a].map((v) => v + 0);
+  const p = line(0, 0, 100, 0);
+  const holes = new Uint8Array(MAX_POINTS);
+  holes[0] = 1;
+  assert.equal(taperEnds(p, 0, holes, 2, 2, 0.25), 3);
+  assert.deepEqual(plus(p.subarray(STRIDE, 3 * STRIDE)), [100 - TAPER, 0, 0, 1, 100, 0, 0, 0.25]);
+  assert.deepEqual([...holes.subarray(0, 2)], [1, 1], 'the two parts of a split segment keep its gap flag');
+  const q = line(0, 0, 100, 0);
+  assert.equal(taperEnds(q, 0, new Uint8Array(MAX_POINTS), 2, 3, 0.25), 4, 'both ends');
+  assert.deepEqual(plus(q.subarray(0, 2 * STRIDE)), [0, 0, 0, 0.25, TAPER, 0, 0, 1]);
+  const short = line(0, 0, 10, 0);
+  assert.equal(taperEnds(short, 0, new Uint8Array(MAX_POINTS), 2, 2, 0.5), 2, 'a short wire only scales its end');
+  assert.deepEqual(plus(short.subarray(STRIDE, 2 * STRIDE)), [10, 0, 0, 0.5]);
+  // In the taper, the lane distance comes back to the full pitch.
+  const store = new WireStore();
+  store.set('bus', 0, 0, 100, 0, shape(0, 0, 100, 0, [], 'polyline'), false, '10101010', false, 0, -1, false, undefined, 2);
+  assert.equal(store.counts[0], 3);
+  const scale = 7 / 40;
+  assert.ok(Math.abs(store.across('bus', 100, 4 * scale)! - 4) < 1e-4);
+  assert.ok(Math.abs(store.across('bus', 92, 4 * (1 + scale) / 2)! - 4) < 1e-4);
+  assert.equal(store.across('bus', 40, -3), -3, 'before the taper, the full pitch');
+  store.set('one', 0, 0, 100, 0, shape(0, 0, 100, 0, [], 'polyline'), false, '1', false, 0, -1, false, undefined, 3);
+  assert.equal(store.counts[1], 2, 'a wire of one lane has no taper');
 });
 
 test('a cross-domain wire has the dashed flag, and a change of the flag needs new instances', () => {

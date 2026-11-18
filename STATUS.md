@@ -244,7 +244,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   the down to the up is one input. The writes go out in order. An engine test and the free knob
   step of the self-check read it.
 - Known limits: the self-check drop is a page event, not a drag of the operating system. A wire
-  leaves a free pin only to the left or the right. A free node shows a bus pin as a dot.
+  leaves a free pin only to the left or the right.
+- A bus wire fans its lanes in to the dot pin of a free node or a symbol node over its last 16 px
+  (2026-11-18). A frontend unit test reads the geometry and the lane under the pointer in the
+  taper. A hidden shot showed the 8 lanes of **op** fan in to the **SPLIT** dot of the cpu.
 - `#[node(symbol = "<shape>")]` shows a gate or block symbol in place of the box (2026-11-18).
   A subgraph sets **Shape** and **Label** in the **Look** section, with undo. The engine, CLI
   and frontend tests read it. The self-check gives a subgraph the chip shape and undoes it. It
@@ -769,13 +772,13 @@ Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list t
 
 - `crates/patina-cli/tests/run.rs:475`: The CLI test of `examples/gpu` checks only the build when no adapter exists. Add an adapter to CI when one is available.
 - `crates/patina-editor/frontend/src/wires/gl.ts:266`: One texture row holds each wire. Above `MAX_TEXTURE_SIZE` wires, SVG draws them. Pack the rows for larger graphs.
-- `crates/patina-editor/frontend/src/canvas/NodeView.tsx:305`: A wire leaves a free pin only to the left or the right. Add a side to `Ui::pin` when a node needs it.
+- `crates/patina-editor/frontend/src/canvas/NodeView.tsx:332`: A wire leaves a free pin only to the left or the right. Add a side to `Ui::pin` when a node needs it.
 - `crates/patina-editor/frontend/src/canvas/palette.ts:37`: The palette drops module paths, so two types of one name match. Rustc checks the types at build time.
 - `crates/patina-editor/frontend/src/wires/route.ts:36`: A graph with a larger route grid gets simple orthogonal paths. Use a sparser grid when such graphs matter.
-- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:149`: The SVG fallback draws a bus as one line. Draw its lanes when a GPU without WebGL2 matters.
-- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:150`: The SVG fallback has no crossing gaps. Add a mask when the fallback is more than a lost context.
-- `crates/patina-editor/frontend/src/wires/wires.ts:359`: A path with more than `MAX_POINTS` - 2 bends draws only its first bends. Split the row when this matters.
-- `crates/patina-editor/frontend/src/wires/wires.ts:561`: A new lane state builds the instances of all wires again. Put the lane states in a texture for larger graphs.
+- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:164`: The SVG fallback draws a bus as one line. Draw its lanes when a GPU without WebGL2 matters.
+- `crates/patina-editor/frontend/src/wires/WireEdge.tsx:165`: The SVG fallback has no crossing gaps. Add a mask when the fallback is more than a lost context.
+- `crates/patina-editor/frontend/src/wires/wires.ts:360`: A path with more than `MAX_POINTS` - 2 bends draws only its first bends. Split the row when this matters.
+- `crates/patina-editor/frontend/src/wires/wires.ts:601`: A new lane state builds the instances of all wires again. Put the lane states in a texture for larger graphs.
 - `crates/patina-editor/src/engine.rs:518`: No event runs when the slot holds a value that is not `Sync`, an event node and a node of another domain. Give event nodes their own slot library.
 - `crates/patina-editor/src/engine.rs:614`: When a library is not parallel, the blocks run between the frames, so a slow frame makes them late. Give such a graph its own thread.
 - `crates/patina-editor/src/session/check.rs:47`: Screenshots work only on Windows. Add a path for Linux when the check runs there.

@@ -9,6 +9,7 @@ export function pathOf(style: Style | undefined, graph: GraphFile): Path | undef
   return s === 'automatic' ? undefined : s;
 }
 import type { Gap } from './marks.ts';
+import { PITCH } from '../canvas/bus.ts';
 
 export const MAX_POINTS = 64;
 /** x, y, nx, ny for each point. (nx, ny) is the miter normal, so two segments touch at a joint. */
@@ -476,6 +477,44 @@ export function cutGap(p: Float32Array, at: number, holes: Uint8Array, n: number
   return n;
 }
 
+/** The length of the end of a bus wire where its lanes fan in to a dot pin (15.9). */
+export const TAPER = 16;
+
+/** The inner width of a pin dot (canvas.css). */
+const DOT = 7;
+
+/**
+ * Fans the lanes in at each end in `ends` (1: the source, 2: the target): puts a point TAPER from
+ * the end, and scales the normal of the end by `scale`. Returns the number of points.
+ */
+export function taperEnds(p: Float32Array, at: number, holes: Uint8Array, n: number, ends: number, scale: number): number {
+  for (let end = 1; end <= 2; end++) {
+    if (!(ends & end) || n + 1 > MAX_POINTS) continue;
+    const e = end === 1 ? 0 : n - 1;
+    const k = end === 1 ? 1 : n - 2;
+    const ex = p[at + e * STRIDE];
+    const ey = p[at + e * STRIDE + 1];
+    const dx = p[at + k * STRIDE] - ex;
+    const dy = p[at + k * STRIDE + 1] - ey;
+    const len = Math.hypot(dx, dy);
+    if (len <= TAPER + 1) continue;
+    // The new point splits a segment, so the two parts keep its gap flag.
+    const i = end === 1 ? 1 : n - 1;
+    p.copyWithin(at + (i + 1) * STRIDE, at + i * STRIDE, at + n * STRIDE);
+    holes.copyWithin(i, i - 1, n - 1);
+    put(p, at, i, ex + (dx / len) * TAPER, ey + (dy / len) * TAPER);
+    n++;
+  }
+  normals(p, at, n);
+  for (let end = 1; end <= 2; end++) {
+    if (!(ends & end)) continue;
+    const e = at + (end === 1 ? 0 : n - 1) * STRIDE;
+    p[e + 2] *= scale;
+    p[e + 3] *= scale;
+  }
+  return n;
+}
+
 const NO_GAPS: readonly Gap[] = [];
 const cuts = new Uint8Array(MAX_POINTS);
 
@@ -547,7 +586,8 @@ export class WireStore {
     this.notify = fn;
   }
 
-  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false, family = 0, hover = -1, dashed = false, gaps: readonly Gap[] = NO_GAPS) {
+  /** `taper` names the ends at a dot pin, 1 for the source and 2 for the target. The lanes of a bus fan in there (15.9). */
+  set(id: string, sx: number, sy: number, tx: number, ty: number, shape: Shape, selected: boolean, bits = '', stale = false, family = 0, hover = -1, dashed = false, gaps: readonly Gap[] = NO_GAPS, taper = 0) {
     let slot = this.slots.get(id);
     if (slot === undefined) {
       slot = this.free.pop() ?? this.slots.size;
@@ -571,6 +611,7 @@ export class WireStore {
     cuts.fill(0);
     for (const [x, y, half] of gaps) n = cutGap(this.points, at, cuts, n, x, y, half);
     if (gaps.length) normals(this.points, at, n);
+    if (taper && bits.length > 1) n = taperEnds(this.points, at, cuts, n, taper, Math.min(1, DOT / (bits.length * PITCH)));
     // A new number of points or new gaps need new segment lists, or the old segments read stale points.
     if (this.counts[slot] !== n) this.layout = true;
     for (let k = 0, base = slot * MAX_POINTS; k < MAX_POINTS; k++) {
@@ -620,8 +661,10 @@ export class WireStore {
       const distance = Math.hypot(ax + t * dx - x, ay + t * dy - y);
       if (distance < best) {
         best = distance;
-        // The normal (-dy, dx) of normals(): (x - a) . n / |d|.
-        signed = ((x - ax) * -dy + (y - ay) * dx) / Math.sqrt(len2);
+        // The normal (-dy, dx) of normals(): (x - a) . n / |d|. A taper end has a shorter normal, so its lanes are closer.
+        const na = p[at + k * STRIDE + 2] * -dy + p[at + k * STRIDE + 3] * dx;
+        const nb = p[at + (k + 1) * STRIDE + 2] * -dy + p[at + (k + 1) * STRIDE + 3] * dx;
+        signed = ((x - ax) * -dy + (y - ay) * dx) / (na + t * (nb - na));
       }
     }
     return signed;
