@@ -19,6 +19,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- Ember sound workbench: a 16-step score, drums, twin oscillators, ADSR, filter, echo, live waveform cables, and spectrum display.
+
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
 - Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.
 - Subgraph tools: **New subgraph** in the **Graphs** group makes an empty subgraph. Two or more selected nodes show **Collapse into subgraph...** in the **Inspector**.
@@ -156,6 +158,17 @@ editor with the built page, on the Windows 11 computer of the owner.
 ## Known limits
 
 The open items of each section. Items that the text marks as fixed are in [docs/history.md](docs/history.md).
+
+### Ember sound workbench, 2026-11-18
+
+- The first patch has 13 nodes and six instrument panels. Panels use different sizes for their controls.
+- Windows checks passed: workspace clippy and tests, frontend build and tests, and the example tests.
+- The hidden editor check operated the waveform buttons, detune knob, and sequencer transport.
+- It checked 14 cable routes, the Inspector, six full panels, text contrast, focus, and the small window layout.
+- Edit and Bake produced matching finite audio. The warm core DSP averaged 0.016 ms per block, with zero allocations.
+- These are numerical and hidden GUI checks. Speaker playback, Linux, and macOS were not checked.
+- The first patch is mono and monophonic. MIDI, sample import, export, and song arrangement remain open.
+- The [workbench notes](docs/sound-workbench.md) record the planned library and shared GUI needs.
 
 ### Performance audit, 2026-11-18
 

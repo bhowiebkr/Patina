@@ -7,3 +7,4 @@ mod imports;
 mod nodes;
 mod run;
 mod slot;
+mod synth;

@@ -693,6 +693,7 @@ questions.
 - Examples: [hello](examples/hello/README.md), the smallest project.
   [computer](examples/computer/README.md), an 8-bit computer of NAND gates.
   [gpu](examples/gpu/README.md), WESL shaders on the GPU.
+  [synth](examples/synth/README.md), the Ember sound workbench.
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
 - [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free

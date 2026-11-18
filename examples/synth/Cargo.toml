@@ -1,0 +1,7 @@
+# Patina writes this workspace again when it builds the project.
+[workspace]
+resolver = "3"
+members = ["nodes/*", "types/*", "widgets/*"]
+
+[workspace.dependencies]
+patina-sdk = { path = "../../crates/patina-sdk" }

@@ -50,6 +50,11 @@ type Open = (name: string, use?: string) => Promise<View | undefined>;
 type Poke = { from: RegExp; path: [number, number][] | string; to: RegExp; also?: RegExp };
 
 const POKES: Poke[] = [
+  // synth: switch the oscillator, drag detune, and stop and restart the score.
+  { from: /^Timbre shape 1$/, path: [[30, 80]], to: /^Timbre shape 0$/ },
+  { from: /^DETUNE 9\.00 ct$/, path: [[44, 39], [44, 11]], to: /^DETUNE 15\.00 ct$/ },
+  { from: /^Ember sequencer playing$/, path: [[380, 30]], to: /^Ember sequencer hold$/ },
+  { from: /^Ember sequencer hold$/, path: [[380, 30]], to: /^Ember sequencer playing$/ },
   // hello: C and 7 on the keypad give 7 x 3 = 21 on the tape, and the + key gives 7 + 3 = 10.
   { from: /^Keypad 12$/, path: [[141, 92.5]], to: /^Keypad 0$/ },
   { from: /^Keypad 0$/, path: [[27, 92.5]], to: /^Keypad 7$/, also: /^Tape 21$/ },

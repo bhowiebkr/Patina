@@ -1,0 +1,178 @@
+format = 1
+style = "curved"
+
+[[node]]
+id = "e6be000000000010"
+folder = "nodes/sequence"
+pos = [0.0, 0.0]
+
+[node.params]
+bpm = "112"
+swing = "0.12"
+gate = "0.58"
+playing = "true"
+pattern = "0 -1 3 4 0 5 3 -1 1 -1 4 3 0 7 5 3"
+kick = "4369"
+snare = "4112"
+hat = "21845"
+
+[[node]]
+id = "e6be000000000011"
+folder = "nodes/timbre"
+pos = [550.0, -30.0]
+
+[node.params]
+shape = "1"
+detune = "9"
+sub = "0.28"
+octave = "0"
+
+[[node]]
+id = "e6be000000000012"
+folder = "nodes/contour"
+pos = [940.0, -30.0]
+
+[node.params]
+attack = "0.008"
+decay = "0.20"
+sustain = "0.35"
+release = "0.24"
+
+[[node]]
+id = "e6be000000000013"
+folder = "nodes/color"
+pos = [1410.0, -30.0]
+
+[node.params]
+cutoff = "1600"
+resonance = "0.4"
+motion = "1.2"
+rate = "0.18"
+
+[[node]]
+id = "e6be000000000014"
+folder = "nodes/space"
+pos = [1760.0, -30.0]
+
+[node.params]
+seconds = "0.402"
+feedback = "0.42"
+mix = "0.3"
+
+[[node]]
+id = "e6be000000000020"
+folder = "nodes/clock"
+pos = [550.0, 370.0]
+
+[[node]]
+id = "e6be000000000021"
+folder = "nodes/oscillator"
+pos = [830.0, 370.0]
+
+[[node]]
+id = "e6be000000000022"
+folder = "nodes/envelope"
+pos = [1110.0, 370.0]
+
+[[node]]
+id = "e6be000000000023"
+folder = "nodes/filter"
+pos = [1410.0, 440.0]
+
+[[node]]
+id = "e6be000000000024"
+folder = "nodes/echo"
+pos = [1760.0, 370.0]
+
+[[node]]
+id = "e6be000000000025"
+folder = "nodes/drums"
+pos = [830.0, 650.0]
+
+[[node]]
+id = "e6be000000000026"
+folder = "nodes/output"
+pos = [1110.0, 730.0]
+
+[node.params]
+level = "0.65"
+rhythm = "0.65"
+audible = "true"
+
+[[node]]
+id = "e6be000000000027"
+folder = "nodes/scope"
+pos = [1460.0, 760.0]
+
+[[wire]]
+from = "e6be000000000010.out"
+to = "e6be000000000020.settings"
+name = "SCORE"
+
+[[wire]]
+from = "e6be000000000020.out"
+to = "e6be000000000021.notes"
+name = "NOTES"
+
+[[wire]]
+from = "e6be000000000011.out"
+to = "e6be000000000021.tone"
+name = "TONE"
+
+[[wire]]
+from = "e6be000000000021.out"
+to = "e6be000000000022.sound"
+name = "RAW"
+
+[[wire]]
+from = "e6be000000000020.out"
+to = "e6be000000000022.notes"
+name = "NOTES"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000012.out"
+to = "e6be000000000022.contour"
+name = "ENVELOPE"
+
+[[wire]]
+from = "e6be000000000022.out"
+to = "e6be000000000023.sound"
+name = "SHAPED"
+
+[[wire]]
+from = "e6be000000000013.out"
+to = "e6be000000000023.color"
+name = "FILTER"
+
+[[wire]]
+from = "e6be000000000023.out"
+to = "e6be000000000024.sound"
+name = "FILTERED"
+
+[[wire]]
+from = "e6be000000000014.out"
+to = "e6be000000000024.space"
+name = "ECHO"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000020.out"
+to = "e6be000000000025.notes"
+name = "NOTES"
+
+[[wire]]
+from = "e6be000000000024.out"
+to = "e6be000000000026.synth"
+name = "ECHO OUT"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000025.out"
+to = "e6be000000000026.drums"
+name = "DRUMS"
+
+[[wire]]
+from = "e6be000000000026.out"
+to = "e6be000000000027.sound"
+name = "MASTER"
