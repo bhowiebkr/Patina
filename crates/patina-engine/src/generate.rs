@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::fmt::Write;
 
 use crate::node::{Builtin, Domain, Output, Pass};
-use crate::plan::{Plan, Slot, Source};
+use crate::plan::{Plan, Slot, Source, Step};
 
 mod exports;
 pub mod slot;
@@ -46,8 +46,12 @@ pub fn links(plan: &Plan) -> Vec<(usize, usize)> {
 
 /// True when a step of `domain` reads output `k` of step `n`.
 pub fn reads(plan: &Plan, n: usize, k: usize, domain: Domain) -> bool {
-    let wire = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
-    plan.steps.iter().any(|step| step.domain == domain && step.inputs.iter().any(wire))
+    readers(plan, n, k).any(|(_, step)| step.domain == domain)
+}
+
+/// The steps that read output `k` of step `n`, with their indices.
+fn readers(plan: &Plan, n: usize, k: usize) -> impl Iterator<Item = (usize, &Step)> {
+    plan.steps[n].readers[k].iter().map(|&m| (m, &plan.steps[m]))
 }
 
 /// The links that the cluster of `domain` reads from another cluster.
@@ -427,24 +431,19 @@ fn witness(s: &mut String, plan: &Plan, steps: BTreeSet<usize>) {
 /// True when a node of another task or a delay reads output `k` of step `n`. The value is then in
 /// a shared slot of the cluster. Else it is a local variable of its task (9.2).
 fn is_shared(plan: &Plan, n: usize, k: usize) -> bool {
-    let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
-    plan.steps.iter().enumerate().any(|(m, step)| (step.task != plan.steps[n].task || plan.is_delay(m)) && step.inputs.iter().any(reads))
+    readers(plan, n, k).any(|(m, step)| step.task != plan.steps[n].task || plan.is_delay(m))
 }
 
 /// True when output `k` of step `n` is a number that goes to another task of its domain. It goes
 /// in an `Atom`, without a lock (9.2). A delay reads a `Shared` value.
 fn is_atom(plan: &Plan, n: usize, k: usize) -> bool {
-    let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
-    crate::plan::is_word(&plan.steps[n].types[k])
-        && !is_kept(plan, n, k)
-        && !plan.steps.iter().enumerate().any(|(m, step)| plan.is_delay(m) && step.inputs.iter().any(reads))
+    crate::plan::is_word(&plan.steps[n].types[k]) && !is_kept(plan, n, k) && !readers(plan, n, k).any(|(m, _)| plan.is_delay(m))
 }
 
 /// True when a node of another domain reads output `k` of step `n`: a latest-value wire (9.1).
 /// Batch ends before the frames start, so its lock never waits.
 fn is_kept(plan: &Plan, n: usize, k: usize) -> bool {
-    let reads = |s: &Source| matches!(s, Source::Wire { step, output } if (*step, *output) == (n, k));
-    plan.steps.iter().any(|step| step.domain != plan.steps[n].domain && step.inputs.iter().any(reads))
+    readers(plan, n, k).any(|(_, step)| step.domain != plan.steps[n].domain)
 }
 
 /// True for a latest-value wire into or out of the audio domain. It does not lock (9.3).

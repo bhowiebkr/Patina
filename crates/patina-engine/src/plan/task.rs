@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn chains_become_one_task_and_branches_split() {
-        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain: Domain::Batch }).collect();
+        let mut steps: Vec<Step> = (0..6).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), readers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain: Domain::Batch }).collect();
         // 0 -> 1 -> 2 is a chain. 2 feeds 3 and 4, and both feed 5. An order wire 1 -> 2 doubles a data wire.
         let tasks = split(&mut steps, &[(0, 1), (1, 2), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5)], &[None; 6], &[false; 6]);
         let parts: Vec<(&[usize], u32, &[usize])> = tasks.iter().map(|t| (&t.steps[..], t.inputs, &t.next[..])).collect();
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn light_steps_share_a_task_after_the_tasks_they_read() {
-        let mut steps: Vec<Step> = (0..7).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain: Domain::Batch }).collect();
+        let mut steps: Vec<Step> = (0..7).map(|_| Step { id: String::new(), node: 0, inputs: Vec::new(), consumers: Vec::new(), readers: Vec::new(), types: Vec::new(), pins: Vec::new(), task: 0, domain: Domain::Batch }).collect();
         steps[6].domain = Domain::Frame;
         // Step 2 is heavy. Step 4 reads it, so 4 cannot join the older light task. Step 6 is in another domain.
         let light = [true, true, false, true, true, true, true];

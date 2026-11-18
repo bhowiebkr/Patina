@@ -58,6 +58,8 @@ pub struct Step {
     pub inputs: Vec<Source>,
     /// The number of wires from each output, in the order of `Node::output_keys`.
     pub consumers: Vec<usize>,
+    /// The steps that read each output, one entry for each wire, in the order of `consumers`.
+    pub readers: Vec<Vec<usize>>,
     /// The type of each output, with the types of the wires in the parameters of a generic node (4.5).
     pub types: Vec<String>,
     /// The steps that read an output and give a type parameter that no input wire gives (4.5).
@@ -196,6 +198,7 @@ fn make_steps(order: &[usize], step_of: &[usize], entries: &[Entry], nodes: &[(S
             node: entries[e].node,
             inputs: Vec::new(),
             consumers: vec![0; nodes[entries[e].node].1.output_keys().len()],
+            readers: vec![Vec::new(); nodes[entries[e].node].1.output_keys().len()],
             types: Vec::new(),
             pins: Vec::new(),
             task: 0,
@@ -209,6 +212,7 @@ fn make_steps(order: &[usize], step_of: &[usize], entries: &[Entry], nodes: &[(S
             let source = match *wired {
                 Some((from, output)) => {
                     steps[step_of[from]].consumers[output] += 1;
+                    steps[step_of[from]].readers[output].push(step);
                     Source::Wire { step: step_of[from], output }
                 }
                 None if is_delay(entry.node) => {
@@ -487,7 +491,7 @@ to = \"000000000000000f.value\"
         let plan = good.unwrap_or_else(|p| panic!("{p:?}"));
         assert_eq!(plan.steps.len(), 2);
         assert_eq!(plan.slots.len(), 1);
-        assert_eq!(plan.steps[0].consumers, [1]);
+        assert_eq!((plan.steps[0].consumers.as_slice(), plan.steps[0].readers.as_slice()), (&[1][..], &[vec![1]][..]));
         assert!(matches!(plan.steps[1].inputs[0], Source::Wire { step: 0, output: 0 }));
         // Only the kind of a held value goes into the plan.
         assert_eq!(plan.kinds.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["wide"]);
