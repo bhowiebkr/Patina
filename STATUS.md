@@ -348,7 +348,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - There is one cluster for each clock domain. No cluster boundary is at a large node yet.
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.
-- Nobody ran the state move in the editor. The editor calls the same engine code as the test.
+- The editor selfcheck clicks **Bake** after a click in a node GUI. The fuse keeps the state of
+  that node from the slot. No check moved a state in the editor after a change of the wiring.
 - The modes have no debug assertions, so a `debug_assert!` in a node does not run (8.3).
 - The fuse builds in a background thread, so the graph runs on during a fuse (fixed
   2026-11-17). The engine loads the fused clusters only when no change, pause or step came after
