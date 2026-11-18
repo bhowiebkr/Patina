@@ -335,6 +335,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   focus rules of the style sheets, not the pixels. It found that a node showed no mark, because
   React Flow removes its outline (fixed 2026-11-18). The node box now shows the accent outline.
   A frontend test reads the selector parts.
+- The shot checks that each text of a node GUI drawing or a symbol stays in its drawing and does
+  not cover another text (added 2026-11-18). It reads more than 1000 drawn texts in the three
+  examples on the canvas, in the **Inspector** and in the full size, and found no problem. A
+  frontend test checks the box rule.
 - The self-check records each button, menu item and tab that shows, and each click (added
   2026-11-18). Its last step lists the controls with no click. The node GUIs and the code
   editor are out. The list found **New subgraph**, **New view**, **Add input**, **Remove** of a

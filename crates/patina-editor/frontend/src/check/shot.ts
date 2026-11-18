@@ -8,6 +8,7 @@ import { openPanel } from '../panels/layout';
 import { BUILD_MS, button, closeMenu, enterText, entry, mouseWheel, rightClick } from './check-fixtures';
 import { lowContrast } from './contrast';
 import { noFocusLook } from './focus';
+import { textsMeet } from './boxes';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -92,6 +93,22 @@ function placesOnCanvas() {
   return guis.length > 0;
 }
 
+/** The texts of the node GUI drawings and the symbols in `root` that are out of the drawing or cover half of another text (4.3). A symbol can draw a text out of its body. */
+function textsClear(root: ParentNode) {
+  const bad: string[] = [];
+  for (const svg of root.querySelectorAll('svg.gui-canvas, .patina-node.symbol > svg')) {
+    const s = svg.getBoundingClientRect();
+    const owner = svg.closest('[data-id]')?.getAttribute('data-id') ?? svg.closest('[aria-label]')?.getAttribute('aria-label');
+    const texts = [...svg.querySelectorAll('text')].map((t) => [t.textContent?.trim() ?? '', t.getBoundingClientRect()] as const).filter(([t, r]) => t && r.width > 0);
+    for (const [i, [t, r]] of texts.entries()) {
+      if (svg.matches('.gui-canvas') && (r.left < s.left - 2 || r.top < s.top - 2 || r.right > s.right + 2 || r.bottom > s.bottom + 2)) bad.push(`text out ${owner} "${t}"`);
+      for (const [u, q] of texts.slice(i + 1))
+        if (textsMeet(r, q)) bad.push(`text over ${owner} "${t}" "${u}"`);
+    }
+  }
+  return bad;
+}
+
 /** Throws on a widget out of its node or the Inspector, a label that cuts its text, a GUI that cannot draw, or two nodes that overlap (4.3). */
 function guiFit(where: string) {
   const bad: string[] = [];
@@ -110,6 +127,7 @@ function guiFit(where: string) {
   }
   const nodes = [...document.querySelectorAll('.react-flow__node')].map((n) => [n.getAttribute('data-id'), n.getBoundingClientRect()] as const);
   for (const e of document.querySelectorAll('.node-gui [role=alert]')) bad.push(`a GUI cannot draw: ${e.textContent}`);
+  bad.push(...textsClear(document));
   // A pin shows on hover, so it must not cover the text of the title (15.3).
   for (const node of document.querySelectorAll('.react-flow__node'))
     for (const t of node.querySelectorAll('.title')) {
@@ -126,7 +144,7 @@ function guiFit(where: string) {
   for (const [i, [a, p]] of nodes.entries())
     for (const [b, q] of nodes.slice(i + 1)) if (Math.min(p.right, q.right) - Math.max(p.left, q.left) > 2 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 2) bad.push(`over ${a} ${b}`);
   if (bad.length) throw new Error(`the layout of ${where} is wrong: ${bad.join(', ')}`);
-  return `fit ${where}: ${seen} widgets and ${nodes.length} nodes`;
+  return `fit ${where}: ${seen} widgets, ${document.querySelectorAll('svg.gui-canvas text, .patina-node.symbol > svg text').length} drawn texts and ${nodes.length} nodes`;
 }
 
 /** The buttons, fields and tabs in `root` that have no accessible name, for a screen reader (15.3). */
@@ -293,7 +311,7 @@ async function inspectNodes(where: string, ids = [...document.querySelectorAll<H
       if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
       if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
     }
-    bad.push(...unnamed(a).map((b) => `${id} ${b}`));
+    bad.push(...unnamed(a).map((b) => `${id} ${b}`), ...textsClear(a));
     placesOnCanvas();
   }
   if (bad.length) throw new Error(`the Inspector of ${where} is wrong: ${bad.join(', ')}`);
@@ -366,7 +384,7 @@ async function fullSizes(where: string, ids = [...document.querySelectorAll<HTML
       if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
       if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
     }
-    bad.push(...unnamed(f).map((b) => `${id} ${b}`));
+    bad.push(...unnamed(f).map((b) => `${id} ${b}`), ...textsClear(f));
     f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await wait(() => !full(), () => 'Esc did not close the full size');
   }
