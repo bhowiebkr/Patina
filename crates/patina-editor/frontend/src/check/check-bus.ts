@@ -98,6 +98,14 @@ export async function checkBus({ step, until, result, mark, steps }: CheckContex
     throw new Error(`${e.message} (${lanesRow()})`);
   });
   steps.push('the Inspector shows the bus name and the live lanes');
+  // The Name field of the wire renames the bus label and the Lanes row. React reads its edit at focusout.
+  const nameField = () => document.querySelector<HTMLInputElement>('aside[aria-label="Inspector"] input[placeholder="Default"][maxlength="32"]');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(nameField()!, 'data');
+  nameField()!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+  await until('the bus label of the wire name', RUN_MS, () => label() === 'data[15:0] / 16' && lanesRow() === `data[15:0] / 16: ${BITS}`);
+  v = await step('undo the wire name', () => api.undo());
+  await until('the bus label of the input name after the undo', RUN_MS, () => label() === 'value[15:0] / 16' && nameField()?.value === '');
+  steps.push('the Name field of a wire renames its bus label');
 
   // The pointer on the middle of the ribbon shows the tooltip of one lane with its live state.
   const at = mid();

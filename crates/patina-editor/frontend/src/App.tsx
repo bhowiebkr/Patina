@@ -118,7 +118,7 @@ export function App() {
       // The self-check and the screenshot code load only with their command-line flags.
       if (shot) import('./check/shot').then((m) => m.runShot(shot, show, openGraph));
       else if (start.bench) import('./check/bench').then((m) => m.runBench(check, show));
-      else import('./check/check').then((m) => m.runCheck(check, show, pick, markStale));
+      else import('./check/check').then((m) => m.runCheck(check, show, markStale));
     }
   }, [start, show, pick, markStale, openGraph]);
 

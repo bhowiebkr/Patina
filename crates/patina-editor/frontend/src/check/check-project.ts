@@ -3,11 +3,10 @@
 
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
-import { revealOf, type Reveal } from '../code/reveal';
 import { A, B, BUILD_MS, RUN_MS, button, enterText, helloNodes, leftTab, statusText, tab, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */
-export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string, pick: (at: Reveal) => void) {
+export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string) {
   // A second new project is a library of the check: the palette shows its nodes (6.2).
   const libProject = await step('new library project', () => api.newProject(dir, 'checklib'));
   await helloNodes();
@@ -91,12 +90,12 @@ fn broken() -> u32 {
   if (old.length > 0) throw new Error('a run showed the errors of an older save');
   const error = broken.errors.find((e) => e.file === lib);
   if (!error) throw new Error(`no compile error in ${lib}: ${JSON.stringify(broken.errors)}`);
-  pick(revealOf(error, Date.now())!);
+  // The compile error link of the status bar opens the first error in the Code tab.
+  const errorLink = () => [...document.querySelectorAll<HTMLButtonElement>('.status-link')].find((b) => b.textContent === '1 compile error');
+  await until('the error on the node and in the status bar', RUN_MS, () => document.querySelector('.patina-node.compile-error') !== null && !!errorLink());
+  errorLink()!.click();
   await until('the file in the Code tab', RUN_MS, () => bufferOf(lib) !== undefined && document.querySelector('.monaco-editor') !== null);
   await until('the error mark in the gutter', RUN_MS, () => document.querySelector('.gutter-error') !== null);
-  await until('the error on the node and in the status bar', RUN_MS, () =>
-    document.querySelector('.patina-node.compile-error') !== null && document.querySelector('.status-link') !== null,
-  );
   steps.push('compile error shown');
   // The Logs panel highlights the error and adds a Fix line from the list of common errors (15.8).
   const shown = tab('Logs')!.parentElement?.querySelector<HTMLElement>('[role=tab][aria-selected=true]');

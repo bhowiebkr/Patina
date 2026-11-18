@@ -3,7 +3,6 @@
 // have the groups of steps.
 
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from '../api';
-import type { Reveal } from '../code/reveal';
 import { checkBus } from './check-bus';
 import { checkCanvas } from './check-canvas';
 import { checkDock } from './check-dock';
@@ -28,7 +27,7 @@ function startMs(): number {
   return Math.round(nav?.domContentLoadedEventEnd ?? -1);
 }
 
-export async function runCheck(dir: string, show: (v: View) => void, pick: (at: Reveal) => void, edited: (v: View) => void) {
+export async function runCheck(dir: string, show: (v: View) => void, edited: (v: View) => void) {
   keepClipInMemory();
   const steps: string[] = [];
   const events: EngineEvent[] = [];
@@ -89,7 +88,7 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
   const c: CheckContext = { step, until, result, mark, events, steps, fresh: () => output.slice(outputFrom) };
   try {
     await checkStart(c);
-    const made = await checkProject(c, dir, pick);
+    const made = await checkProject(c, dir);
     const { lib, original } = made;
     const dock = await checkDock(c, await checkIsolation(c, made.v));
     let v = await checkWires(c, dock.v);

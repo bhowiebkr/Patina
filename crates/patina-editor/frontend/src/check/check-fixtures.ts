@@ -164,7 +164,7 @@ impl Number {
             patina_sdk::Layer { name: "Copper".into(), color: [180, 100, 56], visible: true, amount: None },
         ], layer: 1, path: "out/frame_####.png".into(), source: String::new(), dot: [20.0, 24.0], code: "LDI 1\\nOUT".into(), tf: patina_sdk::Transform2d::default(), tl: patina_sdk::Timeline { length: 3.0, lanes: vec![patina_sdk::Lane { name: "Impact".into(), mute: false, solo: false, kind: patina_sdk::LaneKind::Clips(vec![
             patina_sdk::Clip { name: "Hit".into(), color: [64, 128, 192], start: 0.0, length: 1.0, offset: 0.0, source: 0.0, samples: (0..64).map(|i| (i as f32 * 0.4).sin()).collect() },
-        ]) }], ..patina_sdk::Timeline::default() } }
+        ]) }, patina_sdk::Lane { name: "Cutoff".into(), mute: false, solo: false, kind: patina_sdk::LaneKind::Automation(patina_sdk::Automation { range: [0.0, 1.0], unit: String::new(), points: vec![[0.5, 0.5]] }) }], ..patina_sdk::Timeline::default() } }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {

@@ -244,6 +244,14 @@ async function checkDrags(until: Until, gui: string) {
   await until('the solo that the node keeps', RUN_MS, () => pressed('Solo'));
   ms('Solo').click();
   await until('the lane without solo', RUN_MS, () => !pressed('Solo'));
+  // A double click on an automation lane adds a point, and the Delete key on a point removes it.
+  const keys = () => timeline.querySelectorAll<HTMLElement>('.tl-point');
+  const auto = timeline.querySelector<HTMLElement>('.tl-area[title="Double click to add a point"]')!;
+  const laneBox = auto.getBoundingClientRect();
+  auto.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: laneBox.left + laneBox.width * 0.8, clientY: laneBox.top + laneBox.height / 2 }));
+  await until('a second point on the automation lane', RUN_MS, () => keys().length === 2);
+  keys()[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+  await until('one point after the Delete key', RUN_MS, () => keys().length === 1);
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */

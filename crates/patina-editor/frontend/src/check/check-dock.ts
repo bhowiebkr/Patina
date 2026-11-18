@@ -132,6 +132,27 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   await until('Logs in the bottom area after Reset layout', RUN_MS, () => !!tab('Logs')?.closest('.area.bottom'));
   if (transform() !== zoomed) throw new Error('Reset layout changed the pan and zoom');
   steps.push('dock layout restored and reset');
+  // The x of the active panel and Close in its tab menu close it. The Views menu shows it again.
+  // The Inspector has a Logs tab too, so the steps look only in the tab rows of the dock.
+  const dockLogs = () => [...document.querySelectorAll<HTMLElement>('[role=tablist][aria-label^="The "] [role=tab]')].find((t) => t.textContent === 'Logs');
+  const showLogs = async () => {
+    views.click();
+    await until('the unchecked Logs in the Views menu', RUN_MS, () => menuItem('Logs')?.getAttribute('aria-checked') === 'false');
+    menuItem('Logs')!.click();
+    await until('Logs in the bottom area again', RUN_MS, () => !!dockLogs()?.closest('.area.bottom'));
+  };
+  const closeLogs = () => document.querySelector<HTMLButtonElement>('[aria-label="Close Logs"]');
+  dockLogs()!.click();
+  await until('the Close button of Logs', RUN_MS, () => !!closeLogs());
+  closeLogs()!.click();
+  await until('no Logs tab after its Close button', RUN_MS, () => !dockLogs());
+  await showLogs();
+  dockLogs()!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+  await until('Close in the tab menu', RUN_MS, () => menuItem('Close') !== undefined);
+  menuItem('Close')!.click();
+  await until('no Logs tab after Close in the tab menu', RUN_MS, () => !dockLogs());
+  await showLogs();
+  steps.push('close a panel with its Close button and its tab menu, and show it again in the Views menu');
   // The rail icon of the active left panel folds the left area, and a second click unfolds it.
   const rail = (name: string) => document.querySelector<HTMLButtonElement>(`nav.strip button[aria-label="${name}"]`)!;
   rail('Project').click();
@@ -153,6 +174,12 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   // The Debug tab shows a bar for each node call on the timeline of its thread (15.7).
   tab('Debug')!.click();
   await until('a bar for each node in the Debug tab', RUN_MS, () => document.querySelectorAll('.debug-call:not(:disabled)').length >= 2);
+  // A click on a bar selects its node.
+  const selected = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node.selected')].map((n) => n.dataset.id);
+  document.querySelector<HTMLButtonElement>('.debug-call:not(:disabled)')!.click();
+  await until('the node of the Debug bar selected', RUN_MS, () => selected().length === 1 && [A, B].includes(selected()[0]!));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await until('no selected node after Esc', RUN_MS, () => selected().length === 0);
   steps.push(`Debug tab: ${document.querySelector('.debug-lane header')?.textContent}`);
   tab('Output')!.click();
   await until('the live value on the wire', RUN_MS, () => badge()?.textContent === '2.5');
