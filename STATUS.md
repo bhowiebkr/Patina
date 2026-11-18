@@ -427,8 +427,10 @@ domain free of locks. These limits are still open:
   stays on one thread also when it is heavy. The measurement ran only on Windows.
 - The frame loop of the editor allocates about 12 times for each shown frame on the computer
   example, in the frame of the engine part. The list of changed values uses its buffer again
-  (fixed 2026-11-17). The CLI test graph gives 0, so the 12 are probably in the node code. The
-  frames of the CLI do not allocate. Nobody measured the editor again on the computer example.
+  (fixed 2026-11-17). The CLI test graph gives 0. The `ui` functions of the computer nodes make
+  their labels with `format!` and `collect`, for example `ram`, `readout` and `analyzer`. So the
+  12 are in the node code. This is from the source, not from a measurement. The frames of the
+  CLI do not allocate. Nobody measured the editor again on the computer example.
 - The allocation test counts only the thread of the run. In the test graph, this thread runs
   all the frame tasks, because the second task waits for the first.
 - A text that is longer than the text of the last frame grows its buffer one time.
