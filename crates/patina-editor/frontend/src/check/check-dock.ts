@@ -14,8 +14,17 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   const saved = JSON.stringify(v.graph);
   await step('pause', () => api.pause());
 
-  // The dock (15.2): the menu of a tab moves it, the keys move a splitter, and the layout and the
-  // pan and zoom of the graph come back when the project opens again.
+  // The dock (15.2): a drag and the menu of a tab move it, the keys and a drag move a splitter, and
+  // the layout and the pan and zoom of the graph come back when the project opens again.
+  const data = new DataTransfer();
+  const drag = (el: Element, type: string) => el.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
+  const logs = tab('Logs')!;
+  drag(logs, 'dragstart');
+  await new Promise((r) => setTimeout(r));
+  drag(tab('Project')!, 'dragover');
+  drag(tab('Project')!, 'drop');
+  drag(logs, 'dragend');
+  await until('Logs before Project in the left area after a drag', RUN_MS, () => tab('Logs')?.closest('.area.left') !== null && tab('Logs')?.nextElementSibling === tab('Project'));
   const menuItem = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.menu button')].find((b) => b.textContent === label);
   tab('Logs')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
   await until('the menu of the tab', RUN_MS, () => menuItem('Move to the right area') !== undefined);
@@ -24,6 +33,17 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   const splitter = () => document.querySelector<HTMLElement>('[aria-label="Size of the left area"]')!;
   splitter().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
   await until('a wider left area', RUN_MS, () => splitter().getAttribute('aria-valuenow') === '324');
+  // Chromium gives page pointer events no capture, so the moves go to the splitter itself.
+  const line = splitter().getBoundingClientRect();
+  const press = (type: string, dx: number) =>
+    splitter().dispatchEvent(new PointerEvent(type, { clientX: line.left + dx, clientY: line.top + 40, bubbles: true, pointerId: 1, isPrimary: true, button: 0 }));
+  press('pointerdown', 0);
+  press('pointermove', 40);
+  await until('a left area 40 px wider during a splitter drag', RUN_MS, () => splitter().getAttribute('aria-valuenow') === '364');
+  press('pointermove', 0);
+  press('pointerup', 0);
+  await until('the left area back to 324 px after the drag', RUN_MS, () => splitter().getAttribute('aria-valuenow') === '324');
+  steps.push('drag a tab and a splitter');
   const pane = document.querySelector('.react-flow__pane')!.getBoundingClientRect();
   const was = savedViewport('main');
   const at = { clientX: pane.left + pane.width / 2, clientY: pane.top + pane.height / 2 };

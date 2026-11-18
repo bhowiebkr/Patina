@@ -506,7 +506,8 @@ domain free of locks. These limits are still open:
 - The self-check makes a connection kind with **New connection**, but no value of the self-check
   uses it. The lanes ran in the CLI test, and the look
   had one manual check with fake lanes in the page. No check zoomed a bus out below 0.25.
-- The check did not drag a tab or a splitter with the mouse.
+- The editor selfcheck drags a tab to another area and drags a splitter with page events, not
+  with the real mouse. No check dropped a view tab out of the window to float it.
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
   of the page script. The build is correct.
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,
