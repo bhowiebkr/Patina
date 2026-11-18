@@ -2,7 +2,7 @@
 import { useCallback, type RefObject } from 'react';
 import { api, newId, onEngine, paramEdit, type DragLink, type Edit, type EngineEvent, type LibraryNode, type View } from '../api';
 import { clipboard } from './clip';
-import { saveCode } from '../code/codeState';
+import { saveCode, undoRedo } from '../code/codeState';
 import type { Line } from '../run/Lines';
 import { useEvent } from '../useEvent';
 
@@ -42,8 +42,8 @@ export function useGraphEdits(p: {
     // The inner nodes of a use are read-only (15.3), so their writes do not apply.
     else if (e.params.some((p) => !graph.node?.some((n) => n.id === p.id))) setError('A node in a subgraph use can not change its parameters. Open the subgraph and use the Inspector.');
   });
-  const undo = useCallback(() => act(api.undo(), markStale), [act, markStale]);
-  const redo = useCallback(() => act(api.redo(), markStale), [act, markStale]);
+  const undo = useCallback(() => act(undoRedo(api.undo), markStale), [act, markStale]);
+  const redo = useCallback(() => act(undoRedo(api.redo), markStale), [act, markStale]);
   // Ctrl+S saves all: one SetCode edit for each changed code file, then the graph (15.10).
   const saveAll = useCallback(async () => {
     try {

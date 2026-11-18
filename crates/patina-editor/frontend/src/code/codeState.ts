@@ -11,6 +11,8 @@ export interface CodeModule {
   unsavedFiles(): string[];
   saveCode(): Promise<View | null>;
   reloadCode(): Promise<void>;
+  flushCode(): Promise<void>;
+  putCode(path: string, text: string): Promise<void>;
   restoreCode(code: Code): Promise<string>;
   closeCode(): void;
   analyzerProject(next: string | null, serial: number): void;
@@ -66,9 +68,29 @@ export function saveCode(): Promise<View | null> {
   return mod ? mod.saveCode() : Promise.resolve(null);
 }
 
-/** Reads the open files again after undo or redo wrote one. */
+/** Reads the open files again after an edit or an undo of a folder changed them. */
 export function reloadCode(): Promise<void> {
   return mod ? mod.reloadCode() : Promise.resolve();
+}
+
+let steps: Promise<unknown> = Promise.resolve();
+
+/**
+ * Runs an undo or a redo after the Rust side has the newest unsaved text. An undo of a code
+ * change writes no file: its text goes into the buffer as an unsaved change (15.10).
+ */
+export function undoRedo(job: () => Promise<View>): Promise<View> {
+  const run = steps.then(async () => {
+    await mod?.flushCode();
+    const v = await job();
+    if (v.codeText) {
+      await loadCode();
+      await mod!.putCode(v.codeText.path, v.codeText.text);
+    }
+    return v;
+  });
+  steps = run.catch(() => undefined);
+  return run;
 }
 
 /** Puts the text of a recovery file into the buffers (15.10). Returns an error, or ''. */

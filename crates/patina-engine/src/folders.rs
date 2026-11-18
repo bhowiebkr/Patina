@@ -1,6 +1,7 @@
 //! The node, widget, view, connection and type folders of a project (6.2): new folders, their
 //! start code, and safe reads and writes of their code files.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -42,32 +43,44 @@ fn start_files(group: &str, name: &str) -> [(&'static str, String); 2] {
     [("Cargo.toml", manifest), ("src/lib.rs", start_code(group, name))]
 }
 
+/// True when the unsaved code of a new folder is not its start code, so undo keeps the folder and
+/// its step (15.2). `code` has the unsaved text of each code file.
+pub(crate) fn unsaved_in(folder: &str, code: &BTreeMap<String, String>) -> bool {
+    let Some((group, name)) = folder.split_once('/') else { return false };
+    let start = start_files(group, name);
+    code.iter()
+        .filter_map(|(path, text)| Some((path.strip_prefix(folder)?.strip_prefix('/')?, text)))
+        .any(|(file, text)| !start.iter().any(|(f, s)| *f == file && s == text))
+}
+
 /// Removes a new crate folder for undo (15.2). A folder with other files or changed files stays,
-/// because they are work of the user.
-fn remove_new_folder(root: &Path, group: &str, name: &str) -> Result<(), String> {
+/// because they are work of the user. A file counts with its unsaved text in `code`, and the
+/// unsaved text of the folder goes with it.
+fn remove_new_folder(root: &Path, group: &str, name: &str, code: &mut BTreeMap<String, String>) -> Result<(), String> {
     let dir = root.join(group).join(name);
+    let folder = format!("{group}/{name}/");
     let names = |dir: &Path| {
         let mut names: Vec<String> = fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
         names.sort();
         names
     };
-    let same = start_files(group, name).iter().all(|(file, text)| fs::read_to_string(dir.join(file)).is_ok_and(|old| old == *text));
+    let same = start_files(group, name).iter().all(|(file, text)| match code.get(&format!("{folder}{file}")) {
+        Some(unsaved) => unsaved == text,
+        None => fs::read_to_string(dir.join(file)).is_ok_and(|old| old == *text),
+    });
     if !same || names(&dir) != ["Cargo.toml", "src"] || names(&dir.join("src")) != ["lib.rs"] {
         return Err(format!("Undo kept the folder {group}/{name}, because it has changes. Delete it in the file manager."));
     }
-    fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))
+    fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    code.retain(|path, _| !path.starts_with(&folder));
+    Ok(())
 }
 
-/// Writes a change of the files for undo or redo, and returns the change that reverses it.
-pub(crate) fn write_disk(root: &Path, disk: &Disk) -> Result<Disk, String> {
-    match disk {
-        Disk::Code { path, text } => Ok(Disk::Code { path: path.clone(), text: swap_code(root, path, text)? }),
-        Disk::Folder { path, made } => {
-            let (group, name) = path.split_once('/').ok_or_else(|| format!("{path} is not a crate folder"))?;
-            if *made { remove_new_folder(root, group, name)? } else { new_folder(root, group, name)? }
-            Ok(Disk::Folder { path: path.clone(), made: !made })
-        }
-    }
+/// Removes or makes a new folder for undo or redo, and returns the step that reverses it.
+pub(crate) fn flip_folder(root: &Path, path: &str, made: bool, code: &mut BTreeMap<String, String>) -> Result<Disk, String> {
+    let (group, name) = path.split_once('/').ok_or_else(|| format!("{path} is not a crate folder"))?;
+    if made { remove_new_folder(root, group, name, code)? } else { new_folder(root, group, name)? }
+    Ok(Disk::Folder { path: path.to_owned(), made: !made })
 }
 
 /// The start code of a node, widget, view, connection or type folder.
@@ -210,6 +223,11 @@ pub(crate) fn swap_code(root: &Path, path: &str, text: &str) -> Result<String, S
     Ok(old)
 }
 
+/// The text of a code file on disk, for example `nodes/number/src/lib.rs`.
+pub(crate) fn read_code(root: &Path, path: &str) -> Result<String, String> {
+    fs::read_to_string(code_file(root, path)?).map_err(|e| format!("{path}: {e}"))
+}
+
 pub(crate) fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) -> Result<(), Error> {
     for entry in fs::read_dir(dir).map_err(|e| Error::Io(dir.to_owned(), e))? {
         let entry = entry.map_err(|e| Error::Io(dir.to_owned(), e))?;
@@ -231,6 +249,8 @@ pub(crate) fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) ->
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use crate::{Edit, Project};
 
     #[test]
@@ -238,22 +258,26 @@ mod tests {
         let root = std::env::temp_dir().join(format!("patina-folder-undo-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let mut project = Project::create(&root, "1.94.0").unwrap();
-        let dir = root.join("views/panel");
+        let (dir, lib) = (root.join("views/panel"), "views/panel/src/lib.rs");
         project.new_view("panel").unwrap();
-        let code = Edit::SetCode { path: "views/panel/src/lib.rs".to_owned(), text: "// mine\n".to_owned() };
-        project.apply(&code).unwrap();
+        project.apply(&Edit::SetCode { path: lib.to_owned(), text: "// mine\n".to_owned() }).unwrap();
         assert_eq!(project.undo_folder(), None, "the code edit comes first");
-        assert!(project.undo().unwrap());
+        let mut unsaved = BTreeMap::new();
+        let start = project.undo(&mut unsaved).unwrap().unwrap().text;
         assert_eq!(project.undo_folder(), Some("views/panel"));
-        assert!(project.undo().unwrap());
-        assert!(!dir.exists(), "undo removes the new folder");
+        unsaved.insert(lib.to_owned(), "// draft\n".to_owned());
+        assert!(project.undo(&mut unsaved).unwrap_err().contains("Save or undo"), "unsaved changes keep the folder");
+        unsaved.insert(lib.to_owned(), start);
+        project.undo(&mut unsaved).unwrap();
+        assert!(!dir.exists() && unsaved.is_empty(), "undo removes the new folder and its unsaved start code");
         assert_eq!(project.last_code(), Some("views/panel/Cargo.toml"));
-        assert!(project.redo().unwrap() && project.redo().unwrap());
-        assert_eq!(project.read_code("views/panel/src/lib.rs").unwrap(), "// mine\n", "redo makes the folder and writes the code");
+        project.redo(&mut unsaved).unwrap();
+        assert_eq!(project.redo(&mut unsaved).unwrap().unwrap().text, "// mine\n", "redo makes the folder and gives the code");
+        assert!(unsaved[lib] == "// mine\n" && project.read_code(lib).unwrap() != "// mine\n", "redo writes no code file");
 
         std::fs::write(dir.join("notes.txt"), "mine").unwrap();
-        assert!(project.undo().unwrap());
-        let kept = project.undo().unwrap_err();
+        project.undo(&mut unsaved).unwrap();
+        let kept = project.undo(&mut unsaved).unwrap_err();
         assert!(kept.contains("views/panel") && dir.join("notes.txt").is_file(), "{kept}");
         assert!(!project.can_undo(), "the folder step goes, so undo goes on with the edits before it");
         std::fs::remove_dir_all(&root).unwrap();

@@ -142,8 +142,8 @@ impl History {
         self.redo.clear();
     }
 
-    /// Removes the last edit. Returns false when there is no edit to remove. `write` writes a
-    /// change of the files and returns the change that reverses it.
+    /// Removes the last edit. Returns false when there is no edit to remove. `write` applies a
+    /// change of the files or of the unsaved code and returns the change that reverses it.
     pub fn undo(&mut self, write: impl FnOnce(&Disk) -> Result<Disk, String>) -> Result<bool, String> {
         step(&mut self.graph, &mut self.undo, &mut self.redo, write)
     }

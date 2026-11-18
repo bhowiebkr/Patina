@@ -55,7 +55,7 @@ pub fn paste_library(editor: State<'_, Editor>, path: PathBuf, name: String, sub
 fn paste(editor: &Editor, text: &str, at: [f64; 2], link: Option<&Link>) -> Result<PastedView, String> {
     let toolchain = Toolchain::find(&editor.data.toolchain).ok();
     let mut pasted = None;
-    let view = editor.change(|project| {
+    let view = editor.change(|project, _| {
         pasted = Some(project.paste(text, at, toolchain.as_ref(), |id| trusted_by_id(editor, id), link)?);
         Ok(())
     })?;

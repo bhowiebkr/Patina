@@ -3,7 +3,7 @@
 
 import { api, type EngineEvent, type View } from '../api';
 import { frameStats } from './benchGraph';
-import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, fireButton, icon, statusText, topButton, type CheckContext } from './check-fixtures';
+import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, fireButton, icon, statusText, topButton, undoCode, type CheckContext } from './check-fixtures';
 
 /**
  * A node drag while the frames run (15.2). The node follows the mouse in each animation frame and
@@ -110,7 +110,7 @@ export async function checkDomains(c: CheckContext, v: View, lib: string, change
   const slowest = Math.max(...ticks.map((e) => e.runMs));
   if (slowest > 50) throw new Error(`a tick ran its frames for ${slowest} ms`);
   v = await step('set 60 FPS', () => api.frameRate(60));
-  v = await step('undo the frame node', () => api.undo());
+  v = await step('undo the frame node', undoCode);
   steps.push(`frames until Stop: ${count}, at 120 FPS: ${ran}, at 100000 FPS: up to ${Math.max(...ticks.map((e) => e.frames))} in ${slowest.toFixed(1)} ms`);
 
   // The audio domain (9.3): Run runs the blocks with the frames until Stop. The node does not
@@ -147,7 +147,7 @@ export async function checkDomains(c: CheckContext, v: View, lib: string, change
   );
   await until('the audio domain of the delay', RUN_MS, () => icon(delay, 'domain-icon.audio'));
   v = await step('undo the audio delay', () => api.undo());
-  v = await step('undo the audio node', () => api.undo());
+  v = await step('undo the audio node', undoCode);
   steps.push(`blocks until Stop: ${blocks} in ${audioFrames} frames`);
 
   // The event domain (9.4): Run starts the triggers. The button of a `trigger` node fires one
@@ -212,7 +212,7 @@ export async function checkDomains(c: CheckContext, v: View, lib: string, change
   });
   if (navigator.userAgent.includes('Windows') && !lost.includes(`node \`${A}\` ran`)) throw new Error(`the crash text has no node: ${lost}`);
   v = await step('undo the trigger', () => api.undo());
-  v = await step('undo the event node', () => api.undo());
+  v = await step('undo the event node', undoCode);
   steps.push('fire a trigger node', 'the second Stop and a crash end an event run');
   return v;
 }

@@ -96,7 +96,7 @@ The **+** button in the title of the **Nodes** group makes a new node folder. (A
 - The new folder has a `Cargo.toml` and a `src/lib.rs` with a start node: a `#[node]` function with the crate name, an `f64` input `value` and an `f64` output. The **Inspector** shows the new `src/lib.rs`.
 - Undo removes the new folder while it has only its start files with the start text. Redo makes the folder again. (Agent decision, 2026-11-16. The owner can change it.)
   - A folder with other files or changed files stays, because these files are work of the user. Undo shows a message and goes on with the edits before the folder at the next undo.
-  - Undo does not remove a folder while the **Code** tab has unsaved changes in it. The message tells the user to save or undo the changes first.
+  - Undo does not remove a folder while the **Code** tab has unsaved changes in it. The message tells the user to save or undo the changes first. Unsaved text that is the start text does not count, so the undos of the code edits can come first. (Agent decision, 2026-11-17. The owner can change it.)
   - Undo and redo of a folder change the crates, as a change of its `Cargo.toml` does. A live run builds again.
 - The **Widgets** group has the same **+** button. A new widget folder has a start widget: a struct that implements `Widget` and draws a bar on a canvas (4.3). The **Inspector** shows its code with the **Code** tab only.
 - An untrusted project has no **+** button. The **Views** group has the same button (15.8).
@@ -596,7 +596,8 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The path bar of an open subgraph has a **Test** button. It runs one use of the subgraph alone, with the ID `7e57000000000000`, in place of the main graph. Each public input with a `bool` type starts as `false`. Patina shows a switch at the left of each such input node, and a lamp at the right of each output node with a `bool` value. A click on a switch toggles the input and runs the subgraph again. Other inputs and outputs show their value next to the pin. **End test** or a change of graph returns to the main graph. An untrusted project has no test. This is an agent decision of 2026-11-15. The owner can change it.
 - Reason: the user of a gate subgraph, for example a full adder, must see its truth table before a use. A test needs no outer graph and no change of the files.
 - Reason: the owner often opens a project only to try things. A graph file must change only when the user saves.
-- Exceptions: a new folder, **Import**, **Add crate**, and an undo or a redo of a code change or a folder change write their files at once. Cargo builds from these files, or the user asked for the new file.
+- Exceptions: a new folder, **Import**, **Add crate**, and an undo or a redo of a folder change write their files at once. Cargo builds from these files, or the user asked for the new file.
+- An undo or a redo of a code edit writes no file. It puts the text into the **Code** tab as an unsaved change, and Ctrl+S saves it. A redo gives back the text that the **Code** tab showed before the undo. (Agent decision, 2026-11-17. The owner can change it.)
 
 **Collapse into a subgraph**
 

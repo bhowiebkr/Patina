@@ -65,7 +65,7 @@ export function App() {
         setInspect(null);
         setReveal(null);
       } else if (v.codeRevision !== revision.current) {
-        // An edit, undo or redo wrote a code file.
+        // An edit wrote a code file, or an undo changed a folder.
         revision.current = v.codeRevision;
         reloadCode();
       }

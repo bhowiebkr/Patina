@@ -80,7 +80,7 @@ fn a_paste_in_the_same_project_gives_new_ids_at_the_place() {
     assert_eq!((graph.cable.len(), cable.name.as_str(), &cable.wires), (2, "bus-2", &vec![format!("{}.value", b.id)]), "the cable name is free");
     assert_eq!(project.unsaved().map(|g| g.0).collect::<Vec<_>>(), ["main"], "the paste uses the same subgraph");
     assert!(project.paste("hello", [0.0, 0.0], None, |_| None, None).unwrap_err().contains("no Patina nodes"));
-    project.undo().unwrap();
+    project.undo(&mut Default::default()).unwrap();
     assert_eq!(project.graph().node.len(), 4, "one undo removes the paste");
 
     // A node of a library is a clip of one node.
@@ -99,7 +99,7 @@ fn a_paste_in_the_same_project_gives_new_ids_at_the_place() {
     let from = format!("{}.out", linked.ids[0]);
     assert!(linked.warnings.is_empty() && project.graph().wire.iter().any(|w| w.from == from && w.to == link.end));
     assert!(!project.graph().wire.iter().any(|w| w.from == "000000000000000a.out" && w.to == link.end));
-    project.undo().unwrap();
+    project.undo(&mut Default::default()).unwrap();
     assert_eq!(*project.graph(), steps, "one undo removes the node and its wire");
     let bad = Link { end: "00000000000000ff.value".to_owned(), ..link };
     assert!(project.paste(&one, [0.0, 0.0], None, |_| None, Some(&bad)).unwrap().warnings[0].contains("did not connect"));
@@ -128,9 +128,9 @@ subgraph = \"inner\"
     assert_eq!(node(&project, &pasted.ids[1]).subgraph.as_deref(), Some("half-2"));
     assert!(!root.join("graphs/half-2.toml").exists(), "only a save writes a graph");
     // An undone paste keeps its new subgraphs for a redo, but they are not unsaved changes (15.10).
-    project.undo().unwrap();
+    project.undo(&mut Default::default()).unwrap();
     assert_eq!(project.unsaved().count(), 0, "nothing uses half-2 or inner");
-    project.redo().unwrap();
+    project.redo(&mut Default::default()).unwrap();
     let mut unsaved: Vec<_> = project.unsaved().map(|g| g.0).collect();
     unsaved.sort();
     assert_eq!(unsaved, ["half-2", "inner", "main"], "inner has a use in half-2");

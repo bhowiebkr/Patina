@@ -156,7 +156,7 @@ export async function saveCode(): Promise<View | null> {
   return view;
 }
 
-/** Reads the open files again after undo or redo wrote one. A buffer with changes keeps them. */
+/** Reads the open files again after an edit or an undo of a folder. A buffer with changes keeps them. */
 export async function reloadCode() {
   for (const [path, buffer] of buffers) {
     const text = await api.readCode(path).catch(() => null);
@@ -170,6 +170,12 @@ export async function reloadCode() {
     }
   }
   update();
+}
+
+/** Puts the text of an undo or a redo into a buffer, so the Monaco undo can go back (15.10). */
+export async function putCode(path: string, text: string) {
+  const model = await openFile(path);
+  model.pushEditOperations([], [{ range: model.getFullModelRange(), text }], () => null);
 }
 
 /** Puts the text of a recovery file into the buffers (15.10). Returns an error, or ''. */
@@ -193,4 +199,4 @@ export function closeCode() {
   update();
 }
 
-attachCode({ onCodeError, showErrors, subscribe, unsavedFiles, saveCode, reloadCode, restoreCode, closeCode, analyzerProject });
+attachCode({ onCodeError, showErrors, subscribe, unsavedFiles, saveCode, reloadCode, flushCode, putCode, restoreCode, closeCode, analyzerProject });

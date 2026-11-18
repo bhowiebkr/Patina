@@ -157,7 +157,7 @@ pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, i
     let view = match reply.edits.is_empty() {
         true => None,
         // The writes of one call are one step of undo.
-        false => Some(editor.change(|project| project.apply(&Edit::Group { edits: reply.edits }))?),
+        false => Some(editor.change(|project, _| project.apply(&Edit::Group { edits: reply.edits }))?),
     };
     Ok(ViewFrame { tree: reply.tree, view, select: reply.select })
 }

@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
-use patina_engine::{Edit, Error, KindInfo, NodeInfo, Project, Toolchain};
+use patina_engine::{CodeText, Edit, Error, KindInfo, NodeInfo, Project, Toolchain};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tauri::{AppHandle, State};
@@ -97,8 +97,12 @@ pub struct View {
     live: bool,
     can_undo: bool,
     can_redo: bool,
-    /// Changes when an edit, undo or redo writes a code file, so the page reads the file again.
+    /// Changes when an edit writes a code file or an undo changes a folder, so the page reads the
+    /// files again.
     code_revision: u64,
+    /// The text that an undo or a redo of a code change puts into the **Code** tab (15.10).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    code_text: Option<CodeText>,
     /// True when the project has a recovery file and the user did not answer yet (15.10).
     recovery: bool,
     /// The values of the public inputs while the open subgraph runs alone, or none (15.9).
@@ -210,14 +214,14 @@ impl Editor {
 
     /// Applies a change to the graph or the code, then sends the graph to the engine when it is
     /// live. A code change needs a build (15.10).
-    fn change(&self, f: impl FnOnce(&mut Project) -> Result<(), String>) -> Result<View, String> {
+    fn change(&self, f: impl FnOnce(&mut Project, &mut BTreeMap<String, String>) -> Result<(), String>) -> Result<View, String> {
         self.with(|session| {
             if !session.trusted {
                 return Err("Trust the project before you change it.".to_owned());
             }
             let old = session.project.graph().clone();
             let code = session.project.code_revision();
-            f(&mut session.project)?;
+            f(&mut session.project, &mut session.code)?;
             session.keep_recovery(&self.data);
             let coded = session.project.code_revision() != code;
             // A view is not part of the clusters, so its code drops only the loaded view (15.8).
@@ -235,6 +239,17 @@ impl Editor {
             let slot = built.and(session.project.last_code()).and_then(slot_folder);
             Ok(session.view(&self.engine, build, slot))
         })
+    }
+
+    /// An undo or a redo. The project refuses to remove a new folder with unsaved changes (15.2).
+    fn step(&self, undo: bool) -> Result<View, String> {
+        let mut text = None;
+        let mut view = self.change(|project, code| {
+            text = if undo { project.undo(code) } else { project.redo(code) }?;
+            Ok(())
+        })?;
+        view.code_text = text;
+        Ok(view)
     }
 }
 
@@ -310,6 +325,7 @@ impl Session {
             can_undo: project.can_undo(),
             can_redo: project.can_redo(),
             code_revision: project.code_revision(),
+            code_text: None,
             recovery: self.recovery.is_some(),
             test: self.test.clone(),
             domains,
@@ -371,25 +387,19 @@ fn full_path(path: &Path) -> Result<(), String> {
 
 #[tauri::command(async)]
 pub fn edit(editor: State<'_, Editor>, edit: Edit) -> Result<View, String> {
-    editor.change(|project| project.apply(&edit))
+    editor.change(|project, _| project.apply(&edit))
 }
 
-/// Undo and redo with nothing to do give the same view. Undo does not remove a new folder while
-/// the Code tab has unsaved changes in it (15.2).
+/// Undo and redo with nothing to do give the same view. An undo of a code change writes no file:
+/// the view has the text for the Code tab (15.10).
 #[tauri::command(async)]
 pub fn undo(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.with(|session| match session.project.undo_folder() {
-        Some(folder) if session.code.keys().any(|path| path.strip_prefix(folder).is_some_and(|rest| rest.starts_with('/'))) => {
-            Err(format!("Save or undo the changes of {folder} first."))
-        }
-        _ => Ok(()),
-    })?;
-    editor.change(|project| project.undo().map(drop))
+    editor.step(true)
 }
 
 #[tauri::command(async)]
 pub fn redo(editor: State<'_, Editor>) -> Result<View, String> {
-    editor.change(|project| project.redo().map(drop))
+    editor.step(false)
 }
 
 #[tauri::command(async)]
@@ -430,7 +440,7 @@ pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Res
     // Cargo reads the index of crates.io, so the session stays unlocked while it runs.
     let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
     let text = patina_engine::add_crate(&root, &toolchain, &folder, &spec)?;
-    editor.change(|project| {
+    editor.change(|project, _| {
         if project.root() != root {
             return Err("Another project opened while cargo ran.".to_owned());
         }
@@ -441,31 +451,31 @@ pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Res
 /// Makes the node folder `nodes/<name>` (15.2). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_node(editor: State<'_, Editor>, name: String) -> Result<View, String> {
-    editor.change(|project| project.new_node(&name))
+    editor.change(|project, _| project.new_node(&name))
 }
 
 /// Makes the widget folder `widgets/<name>` (4.3). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_widget(editor: State<'_, Editor>, name: String) -> Result<View, String> {
-    editor.change(|project| project.new_widget(&name))
+    editor.change(|project, _| project.new_widget(&name))
 }
 
 /// Makes the view folder `views/<name>` (15.8). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_view(editor: State<'_, Editor>, name: String) -> Result<View, String> {
-    editor.change(|project| project.new_view(&name))
+    editor.change(|project, _| project.new_view(&name))
 }
 
 /// Makes the connection folder `connections/<name>` (6.3). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_connection(editor: State<'_, Editor>, name: String) -> Result<View, String> {
-    editor.change(|project| project.new_connection(&name))
+    editor.change(|project, _| project.new_connection(&name))
 }
 
 /// Makes the type folder `types/<name>` (5.1). Undo removes the folder while it has only its start files.
 #[tauri::command(async)]
 pub fn new_type(editor: State<'_, Editor>, name: String) -> Result<View, String> {
-    editor.change(|project| project.new_type(&name))
+    editor.change(|project, _| project.new_type(&name))
 }
 
 /// The page sends the unsaved text of the Code tab, so a close of the window asks first and the
@@ -525,13 +535,13 @@ pub fn subgraph_file(editor: State<'_, Editor>, name: String) -> Result<GraphFil
 /// Moves the selected nodes into a new subgraph (6.1).
 #[tauri::command(async)]
 pub fn collapse(editor: State<'_, Editor>, name: String, ids: Vec<String>, use_id: String) -> Result<View, String> {
-    editor.change(|project| project.collapse(&name, &ids, &use_id))
+    editor.change(|project, _| project.collapse(&name, &ids, &use_id))
 }
 
 /// Puts the nodes of the selected subgraph uses in their place (6.1).
 #[tauri::command(async)]
 pub fn expand(editor: State<'_, Editor>, ids: Vec<String>) -> Result<View, String> {
-    editor.change(|project| project.expand(&ids))
+    editor.change(|project, _| project.expand(&ids))
 }
 
 #[tauri::command(async)]

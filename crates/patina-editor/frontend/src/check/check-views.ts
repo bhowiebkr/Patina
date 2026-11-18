@@ -6,7 +6,7 @@ import { api, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { floatPanel, showGraph } from '../panels/layout';
 import { checkGuard, checkGuiZoom, checkWidgets } from './check-gui';
-import { A, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, button, mouseWheel, scale, statusText, tab, topButton, type At, type CheckContext } from './check-fixtures';
+import { A, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, button, mouseWheel, scale, statusText, tab, topButton, undoCode, type At, type CheckContext } from './check-fixtures';
 
 /** Runs the node GUI and view steps with the code file `lib` of node A, and returns the last view. */
 export async function checkViews({ step, until, result, mark, events, steps, fresh }: CheckContext, v: View, lib: string, at: At) {
@@ -52,7 +52,7 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   full()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await until('the closed full size', RUN_MS, () => !full());
   await step('pause', () => api.pause());
-  v = await step('undo the node GUI', () => api.undo());
+  v = await step('undo the node GUI', undoCode);
   steps.push('click a node GUI');
 
   // A view (15.8): the Views menu opens it in the View panel. Its button writes a parameter
@@ -125,7 +125,7 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   topButton('Stop')!.click();
   await until('the end of the event runs of the view', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
   v = await step('undo the trigger of the view', () => api.undo());
-  v = await step('undo the event node of the view', () => api.undo());
+  v = await step('undo the event node of the view', undoCode);
   steps.push('a view fires a trigger node');
   button('Views')!.click();
   await until('the Views menu again', RUN_MS, () => !!item());

@@ -1,13 +1,22 @@
 // The fixtures of the self-check (check.ts): its node IDs, the code that it writes, and the pixel
 // reads of the wire layer.
 
-import type { EngineEvent, View } from '../api';
+import { api, type EngineEvent, type View } from '../api';
+import { saveCode, undoRedo } from '../code/codeState';
 
 export const BUILD_MS = 150_000;
 export const RUN_MS = 20_000;
 export const A = 'a000000000000001';
 export const B = 'b000000000000002';
 export const T = 'c000000000000003';
+
+/** Undoes a code change. The text goes into the Code tab and writes no file, so a save builds it (15.10). */
+export async function undoCode(): Promise<View> {
+  const v = await undoRedo(api.undo);
+  if (!v.codeText) throw new Error('the undo gave no text to the Code tab');
+  if ((await api.readCode(v.codeText.path)) === v.codeText.text) throw new Error(`the undo wrote ${v.codeText.path}`);
+  return (await saveCode()) ?? v;
+}
 
 /** The screen point of a mouse event. */
 export type At = { clientX: number; clientY: number };

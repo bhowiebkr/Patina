@@ -131,8 +131,10 @@ export interface View {
   live: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  /** Changes when an edit, undo or redo writes a code file. */
+  /** Changes when an edit writes a code file or an undo changes a folder. */
   codeRevision: number;
+  /** The text that an undo or a redo of a code change puts into the Code tab (15.10). */
+  codeText?: { path: string; text: string };
   /** True when the project has a recovery file and the user did not answer yet (15.10). */
   recovery: boolean;
   /** The values of the public inputs while the open subgraph runs alone, or null (15.9). */

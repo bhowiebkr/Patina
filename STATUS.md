@@ -24,7 +24,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Gate speed: Light nodes share one task, nets share one check and skip the `Option` checks when their inputs have values, and the frame rate goes up to 100000 FPS.
 - Touchpad pan: A two-finger touchpad scroll pans the graph. The mouse wheel and a pinch zoom.
 - Arrange with node sizes and bus widths: **Arrange** uses node sizes and wire widths. The 25 graphs of `examples/computer` have 0 node overlaps.
-- No save without Save: Only Ctrl+S or **Save** writes graph files. The recovery file keeps the unsaved graphs.
+- No save without Save: Only Ctrl+S or **Save** writes graph files. The recovery file keeps the unsaved graphs. An undo of a code edit puts the text into the **Code** tab and writes no file.
 - Snake on the computer: The `programs/snake.asm` game runs on the computer. The CLI test checks 400 frames.
 - Sprite GPU of the computer: The `sprites` node draws 8 sprites, and the `monitor` view draws the screen on the GPU.
 - Bigger CPU of the computer: The `cpu` has 16 operations and 794 NAND gates. The `ram` node holds 256 bytes.
@@ -168,8 +168,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### No save without Save
 
-- Known limits: a new folder, **Import**, **Add crate**, and an undo or a redo of a code change
-  or a folder change still write their files at once.
+- Known limits: a new folder, **Import**, **Add crate**, and an undo or a redo of a folder change
+  still write their files at once.
+- Checked on 2026-11-17: the engine tests and the self-check undo code edits with no file write.
 
 ### Snake on the computer
 

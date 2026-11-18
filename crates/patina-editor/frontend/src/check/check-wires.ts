@@ -2,7 +2,7 @@
 // conflict mark, the cross-domain dash and the switch of a bool input (15.1, 15.3, 15.9).
 
 import { api, type View } from '../api';
-import { A, B, BUILD_MS, RUN_MS, SWITCH_NODE, amber, anyPixel, gray, icon, wireColumn, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, SWITCH_NODE, amber, anyPixel, gray, icon, undoCode, wireColumn, type CheckContext } from './check-fixtures';
 
 /** The select of an Inspector field, by its label. */
 const field = (name: string) =>
@@ -318,7 +318,7 @@ async function checkSwitch({ step, until, steps }: CheckContext, v: View): Promi
     throw new Error(`${e.message} (values ${values().join()}, problems ${v.problems.join(' | ')})`);
   });
   steps.push('a subgraph run alone in the Test mode, with a click on the switch of its bool input');
-  v = await step('undo the switch node', () => api.undo());
+  v = await step('undo the switch node', undoCode);
   steps.push('a bool input set with the switch in the node and the Inspector check box');
   return v;
 }

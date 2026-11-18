@@ -38,7 +38,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use edit::Disk;
-use folders::{code_file, code_folder, write_file};
+use folders::{code_folder, write_file};
 pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate, write_workspace};
@@ -108,6 +108,14 @@ pub struct Project {
     code_revision: u64,
     /// The path of the last code write.
     last_code: Option<String>,
+}
+
+/// The text that an undo or a redo of a code change gives to the **Code** tab. The file changes
+/// only when the user saves (15.10).
+#[derive(Serialize, Debug, PartialEq)]
+pub struct CodeText {
+    pub path: String,
+    pub text: String,
 }
 
 /// An input or an output of a node (spec 4.1).
@@ -399,8 +407,7 @@ impl Project {
 
     /// The text of a file in a node or widget folder, for example `nodes/number/src/lib.rs`.
     pub fn read_code(&self, path: &str) -> Result<String, String> {
-        let file = code_file(&self.root, path)?;
-        fs::read_to_string(&file).map_err(|e| format!("{path}: {e}"))
+        folders::read_code(&self.root, path)
     }
 
     /// Checks the main graph and puts its nodes in run order. Each graph adds its unsaved changes.
@@ -506,10 +513,16 @@ mod tests {
         project.apply(&code).unwrap();
         assert!(project.apply(&code).is_err(), "an edit that changes nothing is not kept");
         assert_eq!((project.read_code(&path).unwrap().as_str(), project.code_revision()), ("// new\n", 1));
-        assert!(project.undo().unwrap());
-        assert!(project.read_code(&path).unwrap().contains("println!"), "undo writes the old text");
-        assert!(project.redo().unwrap());
-        assert_eq!((project.read_code(&path).unwrap().as_str(), project.code_revision()), ("// new\n", 3));
+        // An undo of a code change gives the old text to the Code tab and writes no file (15.10).
+        let mut unsaved = BTreeMap::new();
+        let old = project.undo(&mut unsaved).unwrap().unwrap();
+        assert!(old.path == path && old.text.contains("println!") && unsaved[&path] == old.text);
+        assert_eq!((project.read_code(&path).unwrap().as_str(), project.code_revision()), ("// new\n", 1), "undo writes no file");
+        unsaved.insert(path.clone(), "// draft\n".to_owned());
+        assert_eq!(project.redo(&mut unsaved).unwrap().unwrap().text, "// new\n");
+        assert!(unsaved.is_empty(), "the text of the file is not an unsaved change");
+        assert_eq!(project.undo(&mut unsaved).unwrap().unwrap().text, "// draft\n", "undo gives back the unsaved text");
+        assert_eq!((project.read_code(&path).unwrap().as_str(), project.code_revision()), ("// new\n", 1));
         assert_eq!(project.last_code(), Some(path.as_str()));
         let missing = Edit::SetCode { path: "nodes/show/src/new.rs".to_owned(), text: String::new() };
         assert!(project.apply(&missing).is_err(), "a code edit does not make a file");
@@ -579,13 +592,13 @@ mod tests {
         project.expand(&["00000000000000c1".to_owned()]).unwrap();
         assert_eq!(project.graph().node[1].id, "000000000000000a", "the expand gives the node again");
         assert!(project.expand(&ids).is_err(), "the node is not a use");
-        project.undo().unwrap();
-        project.undo().unwrap();
+        project.undo(&mut BTreeMap::new()).unwrap();
+        project.undo(&mut BTreeMap::new()).unwrap();
         // An undone collapse keeps the subgraph for a redo. Save writes it only while a graph uses it.
         assert!(!project.dirty(), "nothing uses the new subgraph");
         project.save().unwrap();
         let unused = root.join("graphs/part.toml").is_file();
-        project.redo().unwrap();
+        project.redo(&mut BTreeMap::new()).unwrap();
         assert!(project.dirty());
         project.save().unwrap();
         let kept = root.join("graphs/part.toml").is_file();

@@ -1,13 +1,13 @@
 //! The graphs of a project: the open graph, the subgraphs in memory, the undo history and the
 //! save (spec 6.1, 15.10).
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::hash::{BuildHasher, RandomState};
 
 use crate::edit::Disk;
 use crate::folders::{self, swap_code};
 use crate::project::{self, GraphFile};
-use crate::{Edit, Error, MAIN, Project, edit, graph_path, subgraph};
+use crate::{CodeText, Edit, Error, MAIN, Project, edit, graph_path, subgraph};
 
 impl Project {
     /// The open graph.
@@ -125,42 +125,59 @@ impl Project {
         self.history.replace(graph);
     }
 
-    /// Removes the last edit. Returns false when there is no edit to remove.
-    pub fn undo(&mut self) -> Result<bool, String> {
-        self.step(true)
+    /// Removes the last edit. `code` has the unsaved text of each code file of the **Code** tab.
+    /// An undo of a code change writes no file: it puts the old text into `code` and returns it
+    /// (15.10). An undo of a new folder removes it.
+    pub fn undo(&mut self, code: &mut BTreeMap<String, String>) -> Result<Option<CodeText>, String> {
+        if let Some(folder) = self.history.undo_folder()
+            && folders::unsaved_in(folder, code)
+        {
+            return Err(format!("Save or undo the changes of {folder} first."));
+        }
+        self.step(true, code)
     }
 
-    /// Applies the last removed edit again. Returns false when there is no such edit.
-    pub fn redo(&mut self) -> Result<bool, String> {
-        self.step(false)
+    /// Applies the last removed edit again, as `undo` does.
+    pub fn redo(&mut self, code: &mut BTreeMap<String, String>) -> Result<Option<CodeText>, String> {
+        self.step(false, code)
     }
 
-    fn step(&mut self, undo: bool) -> Result<bool, String> {
+    fn step(&mut self, undo: bool, code: &mut BTreeMap<String, String>) -> Result<Option<CodeText>, String> {
         let root = &self.root;
-        let mut wrote = None;
-        let write = |disk: &Disk| {
-            // A new or removed folder changes the crates, as a change of its Cargo.toml does.
-            wrote = Some(match disk {
-                Disk::Code { path, .. } => path.clone(),
-                Disk::Folder { path, .. } => format!("{path}/Cargo.toml"),
-            });
-            folders::write_disk(root, disk)
+        let (mut folder, mut shown) = (None, None);
+        let write = |disk: &Disk| match disk {
+            Disk::Code { path, text } => {
+                let saved = folders::read_code(root, path)?;
+                let same = *text == saved;
+                // The reverse step keeps the text that the Code tab shows now.
+                let now = code.remove(path).unwrap_or(saved);
+                if !same {
+                    code.insert(path.clone(), text.clone());
+                }
+                shown = Some(CodeText { path: path.clone(), text: text.clone() });
+                Ok(Disk::Code { path: path.clone(), text: now })
+            }
+            Disk::Folder { path, made } => {
+                folder = Some(path.clone());
+                folders::flip_folder(root, path, *made, code)
+            }
         };
         let done = if undo { self.history.undo(write) } else { self.history.redo(write) };
-        if let (Some(path), true) = (wrote, done.is_ok()) {
+        // A new or removed folder changes the crates, as a change of its Cargo.toml does.
+        if let (Some(path), true) = (folder, done.is_ok()) {
             self.code_revision += 1;
-            self.last_code = Some(path);
+            self.last_code = Some(format!("{path}/Cargo.toml"));
         }
-        done
+        done.map(|_| shown)
     }
 
-    /// Changes when an edit, undo or redo writes a code file, or when undo or redo removes or makes
-    /// a folder. Each step writes one file or one folder.
+    /// Changes when an edit writes a code file, or when undo or redo removes or makes a folder.
     pub fn code_revision(&self) -> u64 {
         self.code_revision
     }
 
-    /// The path of the last code file that an edit, undo or redo wrote.
+    /// The path of the last code file that an edit wrote, or the `Cargo.toml` of the last folder
+    /// that undo or redo removed or made.
     pub fn last_code(&self) -> Option<&str> {
         self.last_code.as_deref()
     }

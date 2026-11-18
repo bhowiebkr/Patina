@@ -31,7 +31,7 @@ pub fn import_plan(editor: State<'_, Editor>, other: PathBuf, folder: String) ->
 pub fn import_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, choices: BTreeMap<String, import::Choice>) -> Result<View, String> {
     import_source(&editor, &other)?;
     let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
-    editor.change(|project| project.import(&toolchain, &other, &folder, &choices))
+    editor.change(|project, _| project.import(&toolchain, &other, &folder, &choices))
 }
 
 /// The trusted project that the imported `folder` came from, or None when Patina does not know
@@ -54,7 +54,7 @@ pub fn update_changes(editor: State<'_, Editor>, other: PathBuf, folder: String)
 pub fn update_folder(editor: State<'_, Editor>, other: PathBuf, folder: String, picks: BTreeMap<String, import::Pick>) -> Result<View, String> {
     import_source(&editor, &other)?;
     let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
-    editor.change(|project| project.update(&toolchain, &other, &folder, &picks))
+    editor.change(|project, _| project.update(&toolchain, &other, &folder, &picks))
 }
 
 /// The package folder and the warnings of a package build (14.1).
