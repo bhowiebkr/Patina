@@ -45,6 +45,7 @@ pub use cargo::{Diagnostic, Mode, Toolchain, add_crate, write_workspace};
 pub use checked::{Compiled, Parts};
 pub use clip::{Link, Pasted};
 pub use edit::Edit;
+pub use folders::Stamps;
 pub use events::{EventRun, Events, Inbox, Remote, remote};
 pub use run::{Audio, Frames};
 pub use library::{in_unnamed_call, thread_node};

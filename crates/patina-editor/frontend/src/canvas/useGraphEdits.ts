@@ -1,5 +1,5 @@
 // The edits of the open project: the graph edits, undo, redo, save, copy and paste (15.10, 15.11).
-import { useCallback, type RefObject } from 'react';
+import { useCallback, useEffect, type RefObject } from 'react';
 import { api, newId, onEngine, paramEdit, type DragLink, type Edit, type EngineEvent, type LibraryNode, type View } from '../api';
 import { clipboard } from './clip';
 import { saveCode, undoRedo } from '../code/codeState';
@@ -42,6 +42,25 @@ export function useGraphEdits(p: {
     // The inner nodes of a use are read-only (15.3), so their writes do not apply.
     else if (e.params.some((p) => !graph.node?.some((n) => n.id === p.id))) setError('A node in a subgraph use can not change its parameters. Open the subgraph and use the Inspector.');
   });
+  // A change of a code or graph file from outside the editor checks and builds again (15.10).
+  useEffect(() => {
+    let pending = false;
+    const refresh = () => {
+      if (pending || !current.current) return;
+      pending = true;
+      api
+        .refresh()
+        .then((v) => v && (show(v), markStale(v)))
+        .catch((e) => setError(String(e)))
+        .finally(() => (pending = false));
+    };
+    const timer = setInterval(refresh, 2000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [current, show, markStale, setError]);
   const undo = useCallback(() => act(undoRedo(api.undo), markStale), [act, markStale]);
   const redo = useCallback(() => act(undoRedo(api.redo), markStale), [act, markStale]);
   // Ctrl+S saves all: one SetCode edit for each changed code file, then the graph (15.10).

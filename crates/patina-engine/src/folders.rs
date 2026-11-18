@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::edit::Disk;
 use crate::{Error, project};
@@ -228,6 +229,20 @@ pub(crate) fn read_code(root: &Path, path: &str) -> Result<String, String> {
     fs::read_to_string(code_file(root, path)?).map_err(|e| format!("{path}: {e}"))
 }
 
+/// The time and the size of each file of the code folders and of `graphs/`, by path.
+pub type Stamps = BTreeMap<String, (Option<SystemTime>, u64)>;
+
+/// The stamps of the project files that a change from outside the editor can change (15.10).
+pub(crate) fn stamps(root: &Path) -> Stamps {
+    let mut files = Vec::new();
+    for group in ["nodes", "views", "widgets", "connections", "types", "graphs"] {
+        // A group with no folder has no files.
+        let _ = list_files(&root.join(group), group, &mut files);
+    }
+    let stamp = |file: String| fs::metadata(root.join(&file)).ok().map(|m| (file, (m.modified().ok(), m.len())));
+    files.into_iter().filter_map(stamp).collect()
+}
+
 pub(crate) fn list_files(dir: &Path, relative: &str, files: &mut Vec<String>) -> Result<(), Error> {
     for entry in fs::read_dir(dir).map_err(|e| Error::Io(dir.to_owned(), e))? {
         let entry = entry.map_err(|e| Error::Io(dir.to_owned(), e))?;
@@ -280,6 +295,27 @@ mod tests {
         let kept = project.undo(&mut unsaved).unwrap_err();
         assert!(kept.contains("views/panel") && dir.join("notes.txt").is_file(), "{kept}");
         assert!(!project.can_undo(), "the folder step goes, so undo goes on with the edits before it");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_stamps_change_with_a_code_file_and_skip_target_folders() {
+        let root = std::env::temp_dir().join(format!("patina-stamps-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for dir in ["nodes/n/src", "nodes/n/target", "graphs", "build"] {
+            std::fs::create_dir_all(root.join(dir)).unwrap();
+        }
+        let write = |file: &str, text: &str| std::fs::write(root.join(file), text).unwrap();
+        for file in ["nodes/n/src/lib.rs", "nodes/n/target/x", "graphs/main.toml", "build/y"] {
+            write(file, "1");
+        }
+        let first = super::stamps(&root);
+        assert_eq!(first.keys().collect::<Vec<_>>(), ["graphs/main.toml", "nodes/n/src/lib.rs"]);
+        write("nodes/n/target/x", "12");
+        write("build/y", "12");
+        assert_eq!(super::stamps(&root), first, "build output is not a change");
+        write("nodes/n/src/lib.rs", "12");
+        assert_ne!(super::stamps(&root), first, "a new size is a change");
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

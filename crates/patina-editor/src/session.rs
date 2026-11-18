@@ -1,12 +1,12 @@
 //! The open project and the commands of the page (spec 15.10).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
-use patina_engine::{CodeText, Edit, Error, KindInfo, NodeInfo, Project, Toolchain};
+use patina_engine::{CodeText, Edit, Error, KindInfo, NodeInfo, Project, Stamps, Toolchain};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tauri::{AppHandle, State};
@@ -63,6 +63,8 @@ struct Session {
     recovery_error: Option<String>,
     /// The domains and the problems of the last check. An edit of only the layout keeps them.
     checked: Option<(BTreeMap<String, &'static str>, Vec<String>)>,
+    /// The stamps of the code and graph files at the last check, to find a change from outside the editor.
+    stamps: Stamps,
 }
 
 /// All that the page shows of the open project.
@@ -191,7 +193,7 @@ impl Editor {
         self.analyzer.stop();
         let mut session = self.lock();
         // A project opens paused (15.10).
-        let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error, checked: None };
+        let new = Session { project, serial, trusted, live: false, code: BTreeMap::new(), test: None, recovery, recovery_error, checked: None, stamps: Stamps::new() };
         let session = session.insert(new);
         // The view goes first, so the window knows the serial of the load events.
         let view = session.view(&self.engine, None, None);
@@ -290,6 +292,7 @@ impl Session {
             engine.run(self.serial, checked, build, slot, true);
         }
         self.checked = Some((domains, problems));
+        self.stamps = self.project.stamps();
         self.show()
     }
 
@@ -388,6 +391,39 @@ fn full_path(path: &Path) -> Result<(), String> {
 #[tauri::command(async)]
 pub fn edit(editor: State<'_, Editor>, edit: Edit) -> Result<View, String> {
     editor.change(|project, _| project.apply(&edit))
+}
+
+/// Checks the graph again when a code file or a graph file changed from outside the editor, and
+/// builds a live graph (15.10). The page calls it at a set time. Gives None when no file changed.
+#[tauri::command(async)]
+pub fn refresh(editor: State<'_, Editor>) -> Result<Option<View>, String> {
+    editor.with(|session| {
+        let stamps = session.project.stamps();
+        if stamps == session.stamps {
+            return Ok(None);
+        }
+        let (views, other) = outside_changes(&session.stamps, &stamps);
+        session.project.outside_change();
+        for name in views {
+            editor.engine.send(Job::CloseView(name));
+        }
+        let build = (other && session.live).then_some(true);
+        Ok(Some(session.view(&editor.engine, build, None)))
+    })
+}
+
+/// The views of the files that changed, came or went, and true when another file did.
+fn outside_changes(old: &Stamps, new: &Stamps) -> (BTreeSet<String>, bool) {
+    let came = new.iter().filter(|&(path, stamp)| old.get(path) != Some(stamp)).map(|(path, _)| path);
+    let went = old.keys().filter(|path| !new.contains_key(*path));
+    let (mut views, mut other) = (BTreeSet::new(), false);
+    for path in came.chain(went) {
+        match view_folder(path) {
+            Some(name) => _ = views.insert(name),
+            None => other = true,
+        }
+    }
+    (views, other)
 }
 
 /// Undo and redo with nothing to do give the same view. An undo of a code change writes no file:
@@ -585,6 +621,18 @@ mod tests {
         assert_eq!(slot_folder("widgets/bar/src/lib.rs"), None);
         assert_eq!(view_folder("views/map/src/lib.rs").as_deref(), Some("map"));
         assert_eq!(view_folder("nodes/map/src/lib.rs"), None);
+    }
+
+    #[test]
+    fn an_outside_change_of_a_view_closes_only_the_view() {
+        let stamp = |len: u64| (None, len);
+        let old: Stamps = [("views/map/src/lib.rs".to_owned(), stamp(1)), ("nodes/n/src/lib.rs".to_owned(), stamp(1))].into();
+        let mut new = old.clone();
+        new.insert("views/map/src/lib.rs".to_owned(), stamp(2));
+        assert_eq!(outside_changes(&old, &new), (["map".to_owned()].into(), false));
+        new.remove("nodes/n/src/lib.rs");
+        assert!(outside_changes(&old, &new).1, "a removed file is a change");
+        assert_eq!(outside_changes(&old, &old), (BTreeSet::new(), false));
     }
 
     #[test]

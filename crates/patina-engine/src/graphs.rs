@@ -171,9 +171,20 @@ impl Project {
         done.map(|_| shown)
     }
 
-    /// Changes when an edit writes a code file, or when undo or redo removes or makes a folder.
+    /// Changes when an edit writes a code file, when undo or redo removes or makes a folder, or
+    /// after a change from outside the editor.
     pub fn code_revision(&self) -> u64 {
         self.code_revision
+    }
+
+    /// The stamps of the code files and the graph files, to find a change from outside the editor (15.10).
+    pub fn stamps(&self) -> folders::Stamps {
+        folders::stamps(&self.root)
+    }
+
+    /// Notes a change of the files from outside the editor, so the Code tab reads them again.
+    pub fn outside_change(&mut self) {
+        self.code_revision += 1;
     }
 
     /// The path of the last code file that an edit wrote, or the `Cargo.toml` of the last folder

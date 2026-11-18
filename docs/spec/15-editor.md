@@ -575,6 +575,8 @@ This is an agent decision of 2026-11-15 for question 9 (18). The owner can chang
 - Reason: Cargo builds from the files on disk. Thus the build that runs always matches a saved file. Patina does not write half-typed code into the folder of the user.
 - After each change, Patina writes the unsaved changes to a recovery file in `data/` (11). A save deletes the recovery file. When a project opens with a recovery file, Patina asks the user to restore it or to discard it. The next part gives the details.
 - When the user closes a project with unsaved changes, Patina asks: **Save**, **Discard** or **Cancel**.
+- A change from outside the editor to a file of the code folders or of `graphs/` shows in about 2 s, or when the editor window gets the focus. Patina reads the node folders again, runs the check and builds a live graph again. A Code tab buffer with no unsaved changes reads the new text. A buffer with unsaved changes keeps them. A graph that is open in memory keeps its version. An outside change to a view folder closes the view. (Agent decision of 2026-11-17. The owner can change it.)
+- Reason: the user and other tools, for example an AI agent or Git, change node files while the editor runs. A poll of the file times and sizes costs little and needs no watcher thread.
 
 **Open a subgraph**
 

@@ -461,6 +461,8 @@ export const api = {
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),
   save: () => invoke<View>('save'),
+  /** Checks again after a change of a code or graph file from outside the editor, or gives null (15.10). */
+  refresh: () => invoke<View | null>('refresh'),
   /** The files of a code folder, for example `nodes/number`. */
   folderFiles: (folder: string) => invoke<string[]>('folder_files', { folder }),
   /** Makes the node folder `nodes/<name>` (15.2). */
@@ -543,6 +545,8 @@ export const api = {
   layoutPending: (pending: boolean) => invoke<void>('layout_pending', { pending }),
   quit: () => invoke<void>('quit'),
   checkDone: (result: object) => invoke<void>('check_done', { result }),
+  /** Writes or, with null, removes a file or folder of the open project, as a change from outside the editor. Only the self-check can. */
+  checkWrite: (path: string, text: string | null) => invoke<void>('check_write', { path, text }),
   capture: (name: string) => invoke<void>('capture', { name }),
 };
 

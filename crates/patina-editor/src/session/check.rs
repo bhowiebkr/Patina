@@ -1,6 +1,6 @@
 //! The commands of the self-check (15.10).
 
-use std::path::Path;
+use std::path::{Component, Path};
 
 use serde_json::Value;
 use tauri::{AppHandle, State, WebviewWindow};
@@ -14,6 +14,22 @@ pub fn check_done(app: AppHandle, editor: State<'_, Editor>, result: Value) {
     let ok = result["ok"] == true;
     write_check(dir, &result);
     app.exit(if ok { 0 } else { 1 });
+}
+
+/// Writes or, with no text, removes a file or folder of the open project, as a change from
+/// outside the editor (15.10). Only the self-check can do it.
+#[tauri::command(async)]
+pub fn check_write(editor: State<'_, Editor>, path: String, text: Option<String>) -> Result<(), String> {
+    if editor.check.is_none() || !Path::new(&path).components().all(|c| matches!(c, Component::Normal(_))) {
+        return Err(format!("The self-check can not write {path}."));
+    }
+    let file = editor.project_root()?.join(&path);
+    let done = match text {
+        Some(text) => file.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&file, text)),
+        None if file.is_dir() => std::fs::remove_dir_all(&file),
+        None => std::fs::remove_file(&file),
+    };
+    done.map_err(|e| format!("{path}: {e}"))
 }
 
 #[tauri::command(async)]

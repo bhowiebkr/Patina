@@ -80,6 +80,16 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the main graph again', BUILD_MS, () => document.querySelector('.graph-path') === null);
   steps.push('open a subgraph use and fire its trigger');
 
+  // A node folder that comes or goes from outside the editor shows in the Project panel (15.10).
+  const outside = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')].find((b) => b.textContent?.startsWith('outside'));
+  await api.checkWrite('nodes/outside/src/lib.rs', '#[patina_sdk::node]\npub fn outside(a: f64) -> f64 {\n    a\n}\n');
+  await api.checkWrite('nodes/outside/Cargo.toml', '[package]\nname = "outside"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\npatina-sdk = { workspace = true }\n');
+  leftTab('Project').click();
+  await until('the node from outside the editor', BUILD_MS, () => !!outside());
+  await api.checkWrite('nodes/outside', null);
+  await until('no node from outside the editor', BUILD_MS, () => !outside());
+  steps.push('a node folder from outside the editor');
+
   // Show inner nodes puts the nodes of the use in place, in a frame, with the wire to the frame pin (15.3).
   const frameButton = () => document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${use}"] .frame-toggle`);
   const innerNode = () => document.querySelector(`.react-flow__node[data-id="${use}/${T}"]`);
