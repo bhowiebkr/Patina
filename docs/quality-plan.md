@@ -171,9 +171,11 @@ Measure before and after each change. Write the numbers into STATUS.md.
   faster without less cover. The tests of `patina-cli` went from 30.0 s to 12.4 s, and the
   selfcheck from 62.4 s to 33.6 s (STATUS.md). The code generation of the computer example
   went from about 1060 ms to 30 ms.
-- [ ] Measure the compile time of `patina-engine` after a change to one file. Split the crate
+- [x] Measure the compile time of `patina-engine` after a change to one file. Split the crate
   into the model, the build and the runtime only if the time is high. Write the decision into
-  the spec.
+  the spec. After an edit of one function, a check took 0.7 s, an engine build 1.2 s, the
+  engine tests 2.0 s and an editor build 4.0 s. Agent decision, 2026-11-17: no split (spec
+  section 3).
 
 ### Phase 5: documents
 
@@ -191,4 +193,3 @@ Measure before and after each change. Write the numbers into STATUS.md.
 
 - The npm download of ESLint and Prettier (phase 3).
 - The time of the format commit, because another agent works in the repository (phase 3).
-- A split of `patina-engine` into more crates, if the measurement shows a need (phase 4).

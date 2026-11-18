@@ -30,6 +30,11 @@ Example uses (not limits): sound effect editors, image and shader editors, autom
 
 All code is Rust, except the web frontend of the editor.
 
+`patina-engine` stays one crate. After an edit of one of its functions, a check of the crate
+took 0.7 s, a debug build 1.2 s and a debug build of the editor 4.0 s, with a game in the
+background. A split into the model, the build and the runtime would save little time. (Agent
+decision, 2026-11-17. The owner can change it.)
+
 The web frontend builds with Node.js 22 or later and npm, from the `package-lock.json` of its
 folder. Only contributors need them. The portable folder and the installers contain the built
 page, so a user does not need Node.js. A contributor can use the zip edition of Node.js, which
