@@ -132,6 +132,11 @@ impl Project {
         Ok(())
     }
 
+    /// Applies a parameter write of a node GUI. The writes of one `gesture` are one step of undo (4.3).
+    pub fn apply_gesture(&mut self, edit: &Edit, gesture: u64) -> Result<(), String> {
+        self.history.apply_gesture(edit, gesture)
+    }
+
     /// Replaces the open graph as one step of undo, for example with the graph of a recovery file
     /// (15.10). The graph is not saved.
     pub fn restore_graph(&mut self, graph: GraphFile) {

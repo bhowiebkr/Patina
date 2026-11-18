@@ -90,17 +90,19 @@ pub(crate) struct History {
     saved: GraphFile,
     undo: Vec<Step>,
     redo: Vec<Step>,
+    /// The gesture of the last step of undo, while no other step came after it (4.3).
+    gesture: Option<u64>,
 }
 
 impl History {
     pub fn new(graph: GraphFile) -> History {
-        History { saved: graph.clone(), graph, undo: Vec::new(), redo: Vec::new() }
+        History { saved: graph.clone(), graph, undo: Vec::new(), redo: Vec::new(), gesture: None }
     }
 
     /// A new graph with no file yet. It stays dirty, so the next save writes it (15.10).
     pub fn unsaved(graph: GraphFile) -> History {
         let saved = GraphFile::default();
-        History { saved, graph, undo: Vec::new(), redo: Vec::new() }
+        History { saved, graph, undo: Vec::new(), redo: Vec::new(), gesture: None }
     }
 
     /// Applies the edit. An edit that is not valid or changes nothing does not go into the history.
@@ -111,6 +113,27 @@ impl History {
             return Err("the edit changes nothing".to_owned());
         }
         self.replace(next);
+        Ok(())
+    }
+
+    /// Applies a parameter write of a node GUI (4.3). The writes of one gesture, for example the
+    /// moves of a canvas drag, go into one step of undo. A gesture that ends at its start removes it.
+    pub fn apply_gesture(&mut self, edit: &Edit, gesture: u64) -> Result<(), String> {
+        if self.gesture != Some(gesture) {
+            self.apply(edit)?;
+            self.gesture = Some(gesture);
+            return Ok(());
+        }
+        let mut next = self.graph.clone();
+        change(&mut next, edit)?;
+        if next == self.graph {
+            return Err("the edit changes nothing".to_owned());
+        }
+        if matches!(self.undo.last(), Some(Step::Graph(old)) if *old == next) {
+            self.undo.pop();
+            self.gesture = None;
+        }
+        self.graph = next;
         Ok(())
     }
 
@@ -142,16 +165,19 @@ impl History {
         }
         self.undo.push(step);
         self.redo.clear();
+        self.gesture = None;
     }
 
     /// Removes the last edit. Returns false when there is no edit to remove. `write` applies a
     /// change of the files or of the unsaved code and returns the change that reverses it.
     pub fn undo(&mut self, write: impl FnOnce(&Disk) -> Result<Disk, String>) -> Result<bool, String> {
+        self.gesture = None;
         step(&mut self.graph, &mut self.undo, &mut self.redo, write)
     }
 
     /// Applies the last removed edit again. Returns false when there is no such edit.
     pub fn redo(&mut self, write: impl FnOnce(&Disk) -> Result<Disk, String>) -> Result<bool, String> {
+        self.gesture = None;
         step(&mut self.graph, &mut self.redo, &mut self.undo, write)
     }
 
@@ -709,6 +735,28 @@ corners = \"sharp\""), "{text}");
         assert!(history.apply(&name(Some(&"x".repeat(33)))).is_err());
         history.apply(&name(Some("  "))).unwrap();
         assert_eq!(history.graph.wire[0].name, None, "a blank name gives the default name");
+    }
+
+    #[test]
+    fn the_writes_of_one_gesture_are_one_step_of_undo() {
+        let mut history = History::new(toml::from_str("format = 1").unwrap());
+        history.apply(&add(A)).unwrap();
+        let set = |v: &str| Edit::SetParam { id: A.to_owned(), key: "value".to_owned(), text: Some(v.to_owned()) };
+        for v in ["1", "2", "3"] {
+            history.apply_gesture(&set(v), 7).unwrap();
+        }
+        history.apply_gesture(&set("4"), 8).unwrap();
+        assert!(history.undo(no_code).unwrap());
+        assert_eq!(history.graph.node[0].params.get("value").map(String::as_str), Some("3"));
+        history.apply_gesture(&set("5"), 8).unwrap();
+        assert!(history.undo(no_code).unwrap(), "an undo ends the gesture, so the write after it is a new step");
+        assert_eq!(history.graph.node[0].params.get("value").map(String::as_str), Some("3"));
+        assert!(history.undo(no_code).unwrap());
+        assert!(history.graph.node[0].params.is_empty(), "one undo removes all writes of a gesture");
+        history.apply_gesture(&set("1"), 9).unwrap();
+        history.apply_gesture(&Edit::SetParam { id: A.to_owned(), key: "value".to_owned(), text: None }, 9).unwrap();
+        assert!(history.undo(no_code).unwrap(), "a gesture that ends at its start leaves no step");
+        assert!(history.graph.node.is_empty());
     }
 
     #[test]

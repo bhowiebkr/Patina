@@ -126,6 +126,9 @@ impl Panel {
 }
 `;
 
+/** The Cargo.toml of a node folder that the self-check writes. */
+export const nodeToml = (name: string) => `[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\npatina-sdk = { workspace = true }\n`;
+
 export const GUI_NODE = `use patina_sdk::node;
 
 #[node(full_gui)]

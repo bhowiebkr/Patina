@@ -342,6 +342,10 @@ export type EngineEvent =
   /** The widget lines of node GUIs (4.3), the problems of their `ui` calls, and the parameter writes of a GUI that got user input. */
   | { state: 'gui'; serial: number; trees: Tree[]; reports: Report[]; params: ParamWrite[] };
 
+let gesture = 0;
+/** The number of the last input of a node GUI. The moves and the up of a canvas drag keep the number of its down (4.3). */
+export const guiGesture = () => gesture;
+
 /** A parameter write of a node GUI (4.3), from `Ui::set_param`. */
 export interface ParamWrite {
   id: string;
@@ -480,7 +484,8 @@ export const api = {
   libraryIndex: () => invoke<IndexEntry[]>('library_index'),
   /** Replaces a copy from Git with another tag of its repository (6.2). */
   updateLibrary: (path: string, tag: string) => invoke<Library[]>('update_library', { path, tag }),
-  edit: (edit: Edit) => invoke<View>('edit', { edit }),
+  /** A parameter write of a node GUI gives its `gesture`, so the writes of one drag are one step of undo (4.3). */
+  edit: (edit: Edit, gesture?: number) => invoke<View>('edit', { edit, gesture }),
   undo: () => invoke<View>('undo'),
   redo: () => invoke<View>('redo'),
   save: () => invoke<View>('save'),
@@ -556,7 +561,10 @@ export const api = {
   /** Pauses, and asks the active run to stop (15.2). */
   stop: () => invoke<View>('stop'),
   /** Sends user input to a node GUI, or asks for its widget lines when `events` is empty (4.3). */
-  gui: (id: string, mode: number, events: string) => invoke<void>('gui', { id, mode, events }),
+  gui: (id: string, mode: number, events: string) => {
+    if (events && !/^\d+ (move|up) /.test(events)) gesture += 1;
+    return invoke<void>('gui', { id, mode, events });
+  },
   /** Gives the nodes in view. The frames draw only their GUIs (4.3 rule 3). */
   visible: (ids: string[]) => invoke<void>('visible', { ids }),
   /** The ID of the node that runs, or that ran last in the active run. Null between runs (15.2). */

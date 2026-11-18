@@ -5,9 +5,7 @@
 import { api, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
-import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, closeMenu, enterText, entry, fireButton, leftTab, rightClick, topButton, type CheckContext } from './check-fixtures';
-
-const nodeToml = (name: string) => `[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\npatina-sdk = { workspace = true }\n`;
+import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, closeMenu, enterText, entry, fireButton, leftTab, nodeToml, rightClick, topButton, type CheckContext } from './check-fixtures';
 
 /** A node with a GUI: a switch and a text that shows the state of the switch. */
 const LAMP_NODE = `use patina_sdk::node;

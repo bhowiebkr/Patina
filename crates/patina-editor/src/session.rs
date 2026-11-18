@@ -388,9 +388,13 @@ fn full_path(path: &Path) -> Result<(), String> {
     if path.is_absolute() { Ok(()) } else { Err(format!("Type the full path of the folder, not {}.", path.display())) }
 }
 
+/// Applies an edit. A parameter write of a node GUI gives its `gesture`, so one drag is one step of undo (4.3).
 #[tauri::command(async)]
-pub fn edit(editor: State<'_, Editor>, edit: Edit) -> Result<View, String> {
-    editor.change(|project, _| project.apply(&edit))
+pub fn edit(editor: State<'_, Editor>, edit: Edit, gesture: Option<u64>) -> Result<View, String> {
+    editor.change(|project, _| match gesture {
+        Some(g) => project.apply_gesture(&edit, g),
+        None => project.apply(&edit),
+    })
 }
 
 /// Checks the graph again when a code file or a graph file changed from outside the editor, and

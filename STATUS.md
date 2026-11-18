@@ -233,8 +233,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   No check ran this install.
 - `#[node(free_layout)]` makes the GUI the whole node, with its own shape and pin places
   (2026-11-18). `Ui::pin`, `Ui::place` and `Canvas::path` are new. The SDK, engine and frontend
-  unit tests read them. No self-check step shows a free node yet. The example is
-  `examples/computer/nodes/button`.
+  unit tests read them. A self-check step adds a free knob, checks its pin places and drags
+  it on its canvas. The example is `examples/computer/nodes/button`.
+- The parameter writes of one node GUI input are one undo step (2026-11-18). A canvas drag from
+  the down to the up is one input. The writes go out in order. An engine test and the free knob
+  step of the self-check read it.
 - Known limits: the self-check drop is a page event, not a drag of the operating system. A wire
   leaves a free pin only to the left or the right. A free node shows a bus pin as a dot.
 - `#[node(symbol = "<shape>")]` shows a gate or block symbol in place of the box (2026-11-18).

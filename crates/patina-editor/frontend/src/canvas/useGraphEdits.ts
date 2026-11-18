@@ -1,6 +1,6 @@
 // The edits of the open project: the graph edits, undo, redo, save, copy and paste (15.10, 15.11).
-import { useCallback, useEffect, type RefObject } from 'react';
-import { api, newId, onEngine, paramEdit, type DragLink, type Edit, type EngineEvent, type LibraryNode, type View } from '../api';
+import { useCallback, useEffect, useRef, type RefObject } from 'react';
+import { api, guiGesture, newId, onEngine, paramEdit, type DragLink, type Edit, type EngineEvent, type LibraryNode, type View } from '../api';
 import { clipboard } from './clip';
 import { saveCode, undoRedo } from '../code/codeState';
 import type { Line } from '../run/Lines';
@@ -34,11 +34,14 @@ export function useGraphEdits(p: {
 
   const edit = useCallback((e: Edit) => act(api.edit(e), onlyGeometry(e) ? undefined : markStale), [act, markStale]);
   // A node GUI writes its own parameters through the edit path, so undo removes them (4.3).
+  // The writes go out in order, so the last write of a drag stays.
+  const writes = useRef(Promise.resolve());
   useEvent(onEngine, (e: EngineEvent) => {
     if (e.serial !== serial.current || e.state !== 'gui' || e.params.length === 0 || !current.current) return;
     const graph = current.current.graph;
     const change = paramEdit(graph, e.params);
-    if (change) edit(change);
+    const gesture = guiGesture();
+    if (change) writes.current = writes.current.then(() => act(api.edit(change, gesture), markStale));
     // The inner nodes of a use are read-only (15.3), so their writes do not apply.
     else if (e.params.some((p) => !graph.node?.some((n) => n.id === p.id))) setError('A node in a subgraph use can not change its parameters. Open the subgraph and use the Inspector.');
   });
