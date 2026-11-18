@@ -63,6 +63,11 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   await api.capture('node-gui-full');
   full()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await until('the closed full size', RUN_MS, () => !full());
+  // Back in the top bar closes the full size too.
+  document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${A}"] button[aria-label="Open the full size"]`)!.click();
+  await until('the full size and the Back button', RUN_MS, () => !!full() && !!topButton('Back'));
+  topButton('Back')!.click();
+  await until('the closed full size after Back', RUN_MS, () => !full() && !topButton('Back'));
   // A new wire builds again, and the new build takes the GUI state of A from the fused base (7.2).
   const delay = 'd000000000000004';
   const moveX = () => document.querySelector<HTMLInputElement>(`${gui} .gui-transform-fields input`)?.value;

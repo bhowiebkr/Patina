@@ -2,7 +2,7 @@
 // wires, the new folders and Add crate (9.2, 15.2, 15.4).
 
 import { api, type View } from '../api';
-import { A, B, RUN_MS, badge, enterText, topButton, type At, type CheckContext } from './check-fixtures';
+import { A, B, RUN_MS, badge, enterText, entry, rightClick, topButton, type At, type CheckContext } from './check-fixtures';
 
 /** Runs the palette steps with the point `at` on the canvas, and returns the last view. */
 export async function checkPalette({ step, until, steps }: CheckContext, v: View, at: At, edited: (v: View) => void) {
@@ -22,6 +22,13 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
   await until('the palette after Shift+A', RUN_MS, () => !!search());
   search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await until('no palette after Esc', RUN_MS, () => !search());
+  // Add node... of the canvas menu opens the palette too.
+  rightClick(document.querySelector('.react-flow__pane')!, at.clientX, at.clientY);
+  await until('the Add node entry', RUN_MS, () => !!entry('Canvas', 'Add node...'));
+  entry('Canvas', 'Add node...')!.click();
+  await until('the palette after Add node', RUN_MS, () => !!search());
+  search()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await until('no palette after Esc on Add node', RUN_MS, () => !search());
   document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, ...at }));
   await until('the palette after a double-click', RUN_MS, () => !!search());
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search(), 'SHO');

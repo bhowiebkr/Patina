@@ -144,6 +144,12 @@ async function checkLook({ step, until, steps }: CheckContext, v: View): Promise
   // removes the route points. Both are edits with undo.
   const rounded = () => (document.querySelector('.wire-hit')?.getAttribute('d')?.match(/Q/g) ?? []).length;
   await until('the Route field and the corners of the automatic route', RUN_MS, () => !!field('Route') && rounded() >= 2);
+  // The Corners field draws the bends of the automatic route sharp.
+  field('Corners')!.value = 'sharp';
+  field('Corners')!.dispatchEvent(new Event('change', { bubbles: true }));
+  await until('the sharp corners', RUN_MS, () => rounded() === 0);
+  v = await step('undo the sharp corners', () => api.undo());
+  await until('the rounded corners after the undo', RUN_MS, () => rounded() >= 2);
   field('Route')!.value = 'curved';
   field('Route')!.dispatchEvent(new Event('change', { bubbles: true }));
   await until('the curved wire', RUN_MS, () => rounded() === 0 && !!document.querySelector('.wire-hit')?.getAttribute('d')?.includes('C'));
@@ -153,10 +159,14 @@ async function checkLook({ step, until, steps }: CheckContext, v: View): Promise
   if (v.graph.wire?.[0]?.style !== 'curved' || v.graph.wire[0].points?.length !== 1) throw new Error(`the route style or Reset route failed: ${JSON.stringify(v.graph.wire)}`);
   v = await step('undo the route style', () => api.undo());
   if (v.graph.wire?.[0]?.style !== undefined) throw new Error('undo did not give the graph default route');
-  // The graph default route draws each wire with no style, and the wire field names it.
-  v = await step('the graph default route', () => api.edit({ kind: 'SetGraphLook', style: 'curved' }));
-  if (v.graph.style !== 'curved') throw new Error('SetGraphLook did not set the graph default route');
-  await until('the curved wire of the graph default', RUN_MS, () => rounded() === 0 && field('Route')?.options[0]?.textContent === 'Default (Curved)');
+  // The Default route field of the graph draws each wire with no style, and the wire field names it.
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await until('the Default route field of the graph', RUN_MS, () => !!field('Default route'));
+  field('Default route')!.value = 'curved';
+  field('Default route')!.dispatchEvent(new Event('change', { bubbles: true }));
+  await until('the curved wire of the graph default', RUN_MS, () => rounded() === 0);
+  document.querySelector('.wire-hit')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  await until('the wire field that names the graph default', RUN_MS, () => field('Route')?.options[0]?.textContent === 'Default (Curved)');
   v = await step('undo the graph default route', () => api.undo());
   if (v.graph.style !== undefined) throw new Error('undo did not give the automatic route');
   // Lock bends saves the bends of the automatic route as route points, with undo.

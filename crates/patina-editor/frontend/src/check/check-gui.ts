@@ -19,6 +19,17 @@ export async function checkWidgets(until: Until, gui: string) {
   await until('the selected row of the table', RUN_MS, () => row()?.getAttribute('aria-selected') === 'true');
   document.querySelector<HTMLButtonElement>(`${gui} button[aria-label="Increase Gain"]`)!.click();
   await until('the stepped number field', RUN_MS, () => document.querySelector<HTMLInputElement>(`${gui} input.gui-field`)?.value === '2');
+  // A slider move shows its value and sends it at the pointer up. React shows the old value until the node answers.
+  const slider = () => document.querySelector<HTMLInputElement>(`${gui} input.gui-slider`)!;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(slider(), '0.75');
+  slider().dispatchEvent(new Event('input', { bubbles: true }));
+  // A synthetic pointerup reaches the pane, which releases a pointer that does not exist. The slider also commits on keyup.
+  slider().dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+  await until('the slider value that the node keeps', RUN_MS, () => slider().value === '0.75' && slider().nextElementSibling?.textContent === '0.75');
+  const mode = () => [...document.querySelectorAll<HTMLSelectElement>(`${gui} select.gui-field`)].find((s) => s.options[1]?.textContent === 'Hard')!;
+  mode().value = '1';
+  mode().dispatchEvent(new Event('change', { bubbles: true }));
+  await until('the dropdown option that the node keeps', RUN_MS, () => mode().value === '1');
   const shapeTab = () => [...document.querySelectorAll<HTMLElement>(`${gui} [role="tab"]`)].find((t) => t.textContent === 'Shape');
   shapeTab()!.click();
   await until('the selected tab', RUN_MS, () => shapeTab()?.getAttribute('aria-selected') === 'true');
@@ -180,6 +191,17 @@ async function checkDrags(until: Until, gui: string) {
   gizmo.dispatchEvent(new PointerEvent('pointerup', to));
   await tick();
   await until('the transform X that the node keeps', RUN_MS, () => Math.abs(moveX() - 48.78) < 0.01 && !gizmo.querySelector('.dragging'));
+  // The pivot buttons and Aspect lock write the transform that the node keeps. A pivot change keeps the image in place.
+  const pivot = (label: string) => document.querySelector<HTMLButtonElement>(`${gui} .gui-pivots button[aria-label="${label}"]`)!;
+  const lockBox = () => document.querySelector<HTMLInputElement>(`${gui} .gui-transform-fields input[type="checkbox"]`)!;
+  for (const p of ['Top left', 'Center']) {
+    pivot(p).click();
+    await until(`the ${p} pivot that the node keeps`, RUN_MS, () => pivot(p).getAttribute('aria-checked') === 'true' && Math.abs(moveX() - 48.78) < 0.01);
+  }
+  for (const on of [false, true]) {
+    lockBox().click();
+    await until(`the aspect lock ${on ? 'on' : 'off'} that the node keeps`, RUN_MS, () => lockBox().checked === on);
+  }
 
   // A drag of the clip by a third of its lane is 1 s of the 3 s timeline, on the snap of 0.1 s.
   const timeline = document.querySelector<HTMLElement>(`${gui} .gui-timeline`)!;
@@ -211,6 +233,17 @@ async function checkDrags(until: Until, gui: string) {
   await until('the playhead at the end after the End key', RUN_MS, () => Number(playhead.getAttribute('aria-valuenow')) === Number(playhead.getAttribute('aria-valuemax')));
   transport('Rewind').click();
   await until('the playhead at 0 after Rewind', RUN_MS, () => playhead.getAttribute('aria-valuenow') === '0');
+  // M and S of a lane write the mute and the solo that the node keeps. A muted lane is quiet.
+  const ms = (what: string) => timeline.querySelector<HTMLButtonElement>(`.tl-ms[aria-label^="${what} "]`)!;
+  const pressed = (what: string) => ms(what).getAttribute('aria-pressed') === 'true';
+  ms('Mute').click();
+  await until('the mute that the node keeps', RUN_MS, () => pressed('Mute') && !!timeline.querySelector('.tl-head.quiet'));
+  ms('Mute').click();
+  await until('the lane without mute', RUN_MS, () => !pressed('Mute') && !timeline.querySelector('.tl-head.quiet'));
+  ms('Solo').click();
+  await until('the solo that the node keeps', RUN_MS, () => pressed('Solo'));
+  ms('Solo').click();
+  await until('the lane without solo', RUN_MS, () => !pressed('Solo'));
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */

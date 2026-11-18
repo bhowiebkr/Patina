@@ -85,6 +85,27 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
   await until('all nodes in the canvas after the F key', RUN_MS, allFitted);
   steps.push('Fit node in the node menu, Fit in the top bar, and the F key for all nodes');
 
+  // A right-click in a selection keeps it. Fit selection fits the selected nodes, and Delete selection asks first.
+  await fitNode();
+  pane.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true }));
+  const all = () => count(`${NODES}.selected`) === nodes;
+  await until('all nodes selected for the selection menu', RUN_MS, all);
+  const selectionMenu = async (label: string) => {
+    rightClick(fitted.querySelector('.title') ?? fitted);
+    await until(`the ${label} entry`, RUN_MS, () => !!entry('Node', label));
+    if (!all()) throw new Error('a right-click in the selection changed the selection');
+    entry('Node', label)!.click();
+  };
+  await selectionMenu('Fit selection');
+  await until('all nodes in the canvas after Fit selection', RUN_MS, allFitted);
+  await selectionMenu('Delete selection');
+  await until('the delete question for the selection', RUN_MS, () => !!answer('Delete'));
+  answer('Delete')!.click();
+  await until('no nodes after Delete selection', RUN_MS, () => count(NODES) === 0);
+  v = await step('undo the delete of the selection', () => api.undo());
+  await until('all nodes after the undo of Delete selection', RUN_MS, () => count(NODES) === nodes);
+  steps.push('Fit selection and Delete selection in the node menu of a selection');
+
   // Copy of the node menu and Paste of the canvas menu. The self-check keeps the clip in memory.
   // The undo made a new element for the node.
   const copied = document.querySelector(`${NODES}-patina`)!;

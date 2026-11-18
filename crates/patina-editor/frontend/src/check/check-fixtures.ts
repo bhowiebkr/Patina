@@ -138,6 +138,8 @@ pub struct Number {
     tint: [u8; 3],
     points: Vec<[f32; 2]>,
     gain: f32,
+    level: f32,
+    mode: usize,
     page: usize,
     more: bool,
     trim: [f32; 2],
@@ -156,7 +158,7 @@ pub struct Number {
 
 impl Number {
     pub fn init() -> Self {
-        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, page: 0, more: false, trim: [0.0, 1.0], turns: 0, ramp: patina_sdk::ColorRamp { stops: vec![(0.0, [24, 32, 96]), (0.62, [232, 163, 61]), (1.0, [250, 240, 220])], blend: patina_sdk::Blend::Linear }, stop: 1, layers: vec![
+        Number { added: 0.0, row: None, tint: [223, 166, 75], points: vec![[0.0, 0.2], [0.5, 0.8], [1.0, 0.4]], gain: 1.5, level: 0.25, mode: 0, page: 0, more: false, trim: [0.0, 1.0], turns: 0, ramp: patina_sdk::ColorRamp { stops: vec![(0.0, [24, 32, 96]), (0.62, [232, 163, 61]), (1.0, [250, 240, 220])], blend: patina_sdk::Blend::Linear }, stop: 1, layers: vec![
             patina_sdk::Layer { name: "Edge polish".into(), color: [232, 176, 128], visible: true, amount: Some(0.35) },
             patina_sdk::Layer { name: "Verdigris".into(), color: [52, 190, 160], visible: true, amount: Some(0.62) },
             patina_sdk::Layer { name: "Copper".into(), color: [180, 100, 56], visible: true, amount: None },
@@ -182,6 +184,8 @@ impl Number {
         ui.progress("Turns", self.turns as f32 / 4.0);
         ui.color("Tint", &mut self.tint);
         ui.number_unit("Gain", &mut self.gain, 0.5, "dB");
+        ui.slider("Level", &mut self.level, 0.0..=1.0);
+        ui.dropdown("Mode", &mut self.mode, &["Soft", "Hard"]);
         ui.color_ramp("Ramp", &mut self.ramp, &mut self.stop);
         ui.layer_stack("Layers", &mut self.layers, &mut self.layer);
         ui.file_path("Path", &mut self.path, patina_sdk::PathKind::Save);

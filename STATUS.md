@@ -217,7 +217,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   **Fit node**, **Open subgraph** and **Expand subgraph**. The timeline clicks are the End key
   on the playhead and **Rewind**. The Logs panel click is **Clear**. The top bar clicks are
   **Save**, **Fit**, **Run**, **Bake**, **Undo** and **Redo**, and it types a rate in the **FPS**
-  field. It clicks **Arrange** in the canvas menu. The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+G,
+  field. It clicks **Arrange** and **Add node...** in the canvas menu. The node menu of a
+  selection clicks are **Fit selection**, **Delete selection** and **Collapse into subgraph...**.
+  It clicks **Back** of the full size GUI, **Move down** of a public pin, and **M** and **S** of a
+  timeline lane. It sets the **Corners** and **Default route** fields, the pivot and **Aspect
+  lock** of a transform, a slider and a dropdown. The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+G,
   Ctrl+Shift+G, Shift+L and F.
 - Known limits: the self-check does not click **Package**, **Float in a window** or **Open
   GitHub page**. These open a folder dialog, a window or the web browser.

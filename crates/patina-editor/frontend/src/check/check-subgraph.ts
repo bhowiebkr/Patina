@@ -84,7 +84,9 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   field.value = 'sum';
   field.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
   await until('the new name in the preview', BUILD_MS, () => document.querySelector('.pin-preview-body > :last-child > :first-child')?.textContent === 'sum');
-  for (const what of ['name', 'order', 'output']) v = await step(`undo the ${what} of the public output`, () => api.undo());
+  rows()[0].querySelector<HTMLButtonElement>('button[title="Move down"]')!.click();
+  await until('the new output last in the pin order after Move down', BUILD_MS, () => rows()[1].dataset.pin === added);
+  for (const what of ['move down', 'name', 'order', 'output']) v = await step(`undo the ${what} of the public output`, () => api.undo());
   await until('the old public pins', BUILD_MS, () => rows().length === 1 && rows()[0].dataset.pin === firstPin);
   steps.push('subgraph interface');
   // Rename pin... in the menu of a public pin asks for the name in a field (6.4).
@@ -323,4 +325,17 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   v = await step('undo the collapse of Ctrl+G', () => api.undo());
   await until('all nodes after the undo of Ctrl+G', BUILD_MS, () => count() === all);
   steps.push('collapse with Ctrl+G and expand with Ctrl+Shift+G');
+  // Collapse into subgraph in the node menu of a selection opens the same name dialog.
+  ctrl('a');
+  await until('all nodes selected for the node menu', RUN_MS, () => selected() === all);
+  const first = document.querySelector('.react-flow__node')!;
+  rightClick(first.querySelector('.title') ?? first);
+  await until('the Collapse into subgraph entry', RUN_MS, () => !!entry('Node', 'Collapse into subgraph...'));
+  entry('Node', 'Collapse into subgraph...')!.click();
+  await until('the subgraph name field of the node menu', RUN_MS, () => !!nameField());
+  enterText(nameField()!, 'menu_check');
+  await until('one use after the collapse of the node menu', BUILD_MS, () => count() === 1 && document.querySelector('.react-flow__node .title')?.textContent?.includes('menu_check') === true);
+  v = await step('undo the collapse of the node menu', () => api.undo());
+  await until('all nodes after the undo of the node menu collapse', BUILD_MS, () => count() === all);
+  steps.push('collapse a selection from the node menu');
 }
