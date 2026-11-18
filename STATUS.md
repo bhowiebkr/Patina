@@ -213,7 +213,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   a top graph and refuses a use of it, a clip test refuses a top graph, CLI parse tests of
   `--graph`), CI clippy, `npm test` (166 pass) and `npm run check`. The selfcheck (317 steps, on a
   hidden desktop) clicks **New graph**, sees the empty top graph run, opens `main` again and
-  deletes the new graph. A real `patina-cli run --graph` of a saved project did not run.
+  deletes the new graph. On a copy of `examples/hello` with an empty `bench` top graph,
+  `patina-cli run --graph bench` ran, `--graph average` (a subgraph) and a missing name failed
+  with a clear message, and `package --graph bench` wrote `graph = "bench"`. The package did not
+  run.
 - Known limits: a project always opens with `main` as the top graph that runs. A restore from the
   recovery file runs the restored open top graph, or `main` when a subgraph was open. The editor
   cannot rename a graph, or change a top graph into a subgraph.

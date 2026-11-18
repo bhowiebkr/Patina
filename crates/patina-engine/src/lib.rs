@@ -242,6 +242,9 @@ impl Project {
     pub fn open_top(path: &Path, name: &str) -> Result<Project, Error> {
         let mut project = Project::open(path)?;
         let file = graph_path(&project.root, name);
+        if !file.is_file() {
+            return Err(Error::File(file, format!("the project has no graph {name}")));
+        }
         project.open_graph(name).map_err(|e| Error::File(file.clone(), e))?;
         if project.top != name {
             return Err(Error::File(file, format!("the graph {name} is a subgraph, not a top graph")));
@@ -701,7 +704,9 @@ mod tests {
         let bench = Project::open_top(&root, "bench").unwrap();
         assert!(bench.top() == "bench" && bench.check().is_ok());
         fs::write(root.join("graphs/half.toml"), "format = 1\n").unwrap();
-        assert!(Project::open_top(&root, "half").is_err() && Project::open_top(&root, "missing").is_err());
+        assert!(Project::open_top(&root, "half").is_err());
+        let missing = Project::open_top(&root, "missing").err().unwrap().to_string();
+        assert!(missing.ends_with("missing.toml: the project has no graph missing"), "{missing}");
         // A recovery file brings back a graph with no file as a new graph (15.10).
         project.restore("fresh", GraphFile { format: 1, top: true, ..GraphFile::default() }).unwrap();
         assert_eq!((project.graph_name(), project.top()), ("fresh", "fresh"));
