@@ -2755,7 +2755,9 @@ dependencies = [
 name = "patina-capi"
 version = "0.0.0"
 dependencies = [
+ "libloading 0.8.9",
  "patina-engine",
+ "serde_json",
 ]
 
 [[package]]

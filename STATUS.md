@@ -298,10 +298,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - **Open project** on a package opens its original project. A build there writes a `build/`
   folder into the package. The **Package** button and the opening did not run in the window yet.
   It needs `patina-cli` next to the editor, as in the portable folder.
-- No automated test loads `patina_capi.dll`. The test calls the functions through the Rust
-  library of the crate. Only the manual `ctypes` check loaded the DLL, on Windows.
-  `cargo test` does not build the DLL, so a package from a checkout can carry an old DLL from
-  `target/debug`. Run `cargo build -p patina-capi` before such a package.
+- A test builds and loads the `patina_capi` library. It checks each function of
+  `patina_capi.h` and the error texts (fixed 2026-11-17). A full package run through the C API
+  is only in the Rust test of the crate and in the manual `ctypes` check on Windows.
+- A package from a checkout copies the library from `target/debug`. When no `cargo test` or
+  `cargo build` of the workspace ran after a change of the C API, this library is old. Run
+  `cargo build -p patina-capi` before such a package.
 - The Python module is not done. It needs the `pyo3` crate (a download) and a Python install.
 - The package ran only on Windows.
 - A package builds in a background thread, so the graph runs on (fixed 2026-11-17). A change
