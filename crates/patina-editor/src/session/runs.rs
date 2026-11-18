@@ -55,11 +55,12 @@ pub fn bake(editor: State<'_, Editor>) -> Result<View, String> {
 }
 
 /// Sets the frames each second of the project (9.1). A live graph runs again at the new rate, as
-/// after a parameter change.
+/// after a parameter change. Save writes the rate into `patina.toml` (15.10).
 #[tauri::command(async)]
 pub fn frame_rate(editor: State<'_, Editor>, rate: u32) -> Result<View, String> {
     editor.with(|session| {
         session.project.set_frame_rate(rate).map_err(|e| e.to_string())?;
+        session.keep_recovery(&editor.data);
         Ok(session.view(&editor.engine, Some(false), None))
     })
 }

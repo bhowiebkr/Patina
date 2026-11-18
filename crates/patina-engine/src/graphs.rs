@@ -219,9 +219,9 @@ impl Project {
         self.history.can_redo()
     }
 
-    /// True when a graph has changes that are not saved.
+    /// True when a graph or the frame rate has changes that are not saved.
     pub fn dirty(&self) -> bool {
-        self.unsaved().next().is_some()
+        self.unsaved_rate().is_some() || self.unsaved().next().is_some()
     }
 
     /// The name and the graph of each graph with changes that are not saved, the open graph first.
@@ -248,9 +248,10 @@ impl Project {
         }
     }
 
-    /// Writes each graph with unsaved changes to its file in `graphs/`. The undo history stays
-    /// (15.10).
+    /// Writes each graph with unsaved changes to its file in `graphs/`, and an unsaved frame rate
+    /// into `patina.toml`. The undo history stays (15.10).
     pub fn save(&mut self) -> Result<(), Error> {
+        self.save_rate()?;
         let unused: HashSet<String> = self.unused_new().into_iter().map(str::to_owned).collect();
         let parked = self.parked.iter_mut().map(|(name, h)| (name.as_str(), h));
         for (name, history) in std::iter::once((self.name.as_str(), &mut self.history)).chain(parked) {

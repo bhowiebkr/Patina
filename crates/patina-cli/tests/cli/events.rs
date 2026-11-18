@@ -184,7 +184,8 @@ fn triggers_start_runs_and_their_rules_hold() {
         text.push('x');
         fs::write(project.join("watched/a.txt"), &text).unwrap();
     });
-    let file = project.join("watched").join("a.txt").display().to_string();
+    // The engine makes the root absolute, which also changes each `/` to `\` on Windows.
+    let file = std::path::absolute(project.join("watched").join("a.txt")).unwrap().display().to_string();
     assert_eq!(stdout.lines().collect::<Vec<_>>(), [format!("[{file}]"), format!("[{file}]")], "{stderr}");
     fs::write(&main, hear("file_change", "every_ms = \"20\"")).unwrap();
     let (output, _, stderr) = run(&project, &[]);

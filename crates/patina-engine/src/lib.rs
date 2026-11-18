@@ -99,6 +99,8 @@ pub struct Project {
     rust: String,
     /// The frames each second of the frame domain (6.4, 9.1).
     frame_rate: u32,
+    /// The frame rate in `patina.toml`. Save writes `frame_rate` when the two are not the same.
+    saved_rate: u32,
     /// The name of the open graph: `main` or the name of a subgraph (6.1).
     name: String,
     history: edit::History,
@@ -229,7 +231,7 @@ impl Project {
         let frame_rate = check_rate(file.frame_rate.unwrap_or(clock::RATE)).map_err(|e| Error::File(root.join("patina.toml"), e))?;
         let graph = project::read(&graph_path(&root, MAIN), |g: &GraphFile| g.format)?;
         let history = edit::History::new(graph);
-        Ok(Project { root, id: file.id, rust: file.rust, frame_rate, name: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
+        Ok(Project { root, id: file.id, rust: file.rust, frame_rate, saved_rate: frame_rate, name: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
     }
 
     /// Makes a new project in a new or empty folder, with an empty main graph and no nodes (15.10).
@@ -312,14 +314,26 @@ impl Project {
         self.frame_rate
     }
 
-    /// Writes a new frame rate into `patina.toml`. The next run uses it.
+    /// Sets a new frame rate in memory. The next run uses it, and Save writes it into
+    /// `patina.toml` (15.10).
     pub fn set_frame_rate(&mut self, rate: u32) -> Result<(), Error> {
+        self.frame_rate = check_rate(rate).map_err(|e| Error::File(self.root.join("patina.toml"), e))?;
+        Ok(())
+    }
+
+    /// The frame rate when it is not the rate in `patina.toml`.
+    pub fn unsaved_rate(&self) -> Option<u32> {
+        (self.frame_rate != self.saved_rate).then_some(self.frame_rate)
+    }
+
+    /// Writes an unsaved frame rate into `patina.toml`.
+    fn save_rate(&mut self) -> Result<(), Error> {
+        let Some(rate) = self.unsaved_rate() else { return Ok(()) };
         let path = self.root.join("patina.toml");
-        check_rate(rate).map_err(|e| Error::File(path.clone(), e))?;
         let mut file = project::read(&path, |f: &project::ProjectFile| f.format)?;
         file.frame_rate = (rate != clock::RATE).then_some(rate);
         project::write(&path, &file)?;
-        self.frame_rate = rate;
+        self.saved_rate = rate;
         Ok(())
     }
 
@@ -487,10 +501,15 @@ mod tests {
         let mut project = Project::hello(&root);
         assert_eq!(project.frame_rate(), 60);
         assert!(project.set_frame_rate(0).is_err() && project.set_frame_rate(100_001).is_err());
+        // A new rate stays in memory until Save writes it (15.10).
         project.set_frame_rate(600).unwrap();
-        assert!(fs::read_to_string(root.join("patina.toml")).unwrap().contains("frame_rate = 600"));
-        assert_eq!((Project::open(&root).unwrap().frame_rate(), project.check().unwrap().frame_rate()), (600, 600));
+        assert!(project.dirty() && !fs::read_to_string(root.join("patina.toml")).unwrap().contains("frame_rate"));
+        assert_eq!((project.unsaved_rate(), project.check().unwrap().frame_rate()), (Some(600), 600));
+        project.save().unwrap();
+        assert!(!project.dirty() && fs::read_to_string(root.join("patina.toml")).unwrap().contains("frame_rate = 600"));
+        assert_eq!(Project::open(&root).unwrap().frame_rate(), 600);
         project.set_frame_rate(60).unwrap();
+        project.save().unwrap();
         assert!(!fs::read_to_string(root.join("patina.toml")).unwrap().contains("frame_rate"));
         let nodes = project.nodes().unwrap();
         let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();

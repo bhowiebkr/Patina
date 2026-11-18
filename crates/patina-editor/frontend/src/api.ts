@@ -528,7 +528,8 @@ export const api = {
    * Adds a crate of crates.io, `name` or `name@version`, or a widget or type folder of the
    * project to a code folder, for example `nodes/number` (15.4).
    */
-  addCrate: (folder: string, spec: string) => invoke<View>('add_crate', { folder, spec }),
+  /** The new text of the Cargo.toml of `folder`. No file changes (15.4). */
+  addCrate: (folder: string, spec: string) => invoke<string>('add_crate', { folder, spec }),
   /** The folders of the trusted project at `other` that Import can copy (6.2). */
   importFolders: (other: string) => invoke<string[]>('import_folders', { other }),
   importPlan: (other: string, folder: string) => invoke<ImportItem[]>('import_plan', { other, folder }),

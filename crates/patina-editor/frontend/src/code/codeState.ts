@@ -93,6 +93,17 @@ export function undoRedo(job: () => Promise<View>): Promise<View> {
   return run;
 }
 
+/**
+ * Puts the text of `job` into the buffer of `path` as an unsaved change, after the Rust side has
+ * the newest unsaved text. The Monaco undo can go back, and Save writes it (15.4).
+ */
+export async function changeCode(path: string, job: () => Promise<string>): Promise<void> {
+  await mod?.flushCode();
+  const text = await job();
+  await loadCode();
+  await mod!.putCode(path, text);
+}
+
 /** Puts the text of a recovery file into the buffers (15.10). Returns an error, or ''. */
 export async function restoreCode(code: Code): Promise<string> {
   if (Object.keys(code).length === 0) return '';

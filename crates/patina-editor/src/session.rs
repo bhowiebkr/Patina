@@ -261,7 +261,7 @@ impl Session {
     fn keep_recovery(&mut self, data: &Data) {
         if self.recovery.is_none() {
             let graphs: Vec<_> = self.project.unsaved().collect();
-            self.recovery_error = data.save_recovery(self.project.root(), self.project.graph_name(), &graphs, &self.code).err();
+            self.recovery_error = data.save_recovery(self.project.root(), self.project.graph_name(), &graphs, &self.code, self.project.unsaved_rate()).err();
         }
     }
 
@@ -511,28 +511,24 @@ pub fn asset_files(editor: State<'_, Editor>, extensions: Vec<String>) -> Result
 }
 
 /// Adds a crate of crates.io, a widget folder or a type folder to a code folder with `cargo add`
-/// (15.4). The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate.
+/// (15.4). It starts from the unsaved text of the `Cargo.toml`, and writes no file: the page puts
+/// the new text into the Code tab as an unsaved change.
 #[tauri::command(async)]
-pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Result<View, String> {
+pub fn add_crate(editor: State<'_, Editor>, folder: String, spec: String) -> Result<String, String> {
     let path = format!("{folder}/Cargo.toml");
-    let root = editor.with(|session| {
+    let (root, start) = editor.with(|session| {
         if !session.trusted {
             return Err("Trust the project before you change it.".to_owned());
         }
-        if session.code.contains_key(&path) {
-            return Err("Save or undo the changes of Cargo.toml first.".to_owned());
-        }
-        Ok(session.project.root().to_owned())
+        Ok((session.project.root().to_owned(), session.code.get(&path).cloned()))
     })?;
     // Cargo reads the index of crates.io, so the session stays unlocked while it runs.
     let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
-    let text = patina_engine::add_crate(&root, &toolchain, &folder, &spec)?;
-    editor.change(|project, _| {
-        if project.root() != root {
-            return Err("Another project opened while cargo ran.".to_owned());
-        }
-        project.apply(&Edit::SetCode { path, text })
-    })
+    let text = patina_engine::add_crate(&root, &toolchain, &folder, &spec, start.as_deref())?;
+    if editor.project_root()? != root {
+        return Err("Another project opened while cargo ran.".to_owned());
+    }
+    Ok(text)
 }
 
 /// Makes the node folder `nodes/<name>` (15.2). Undo removes the folder while it has only its start files.
@@ -593,6 +589,9 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
                 session.project.restore_graph(graph.clone());
             }
             session.project.open_graph(open)?;
+            if let Some(rate) = file.frame_rate {
+                session.project.set_frame_rate(rate).map_err(|e| e.to_string())?;
+            }
         }
         let file = session.recovery.take().ok_or("The project has no recovery file.")?;
         let code = if restore { file.code } else { BTreeMap::new() };

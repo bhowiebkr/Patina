@@ -282,10 +282,10 @@ A crate of crates.io is a dependency of one code folder, in its `Cargo.toml` (8.
 - The user edits `[dependencies]` in the `Cargo.toml` tab of the **Code** tab, or clicks **Add crate** above the code.
 - **Add crate** opens a field. The user types `name` or `name@version`, for example `rand` or `rand@0.9`, and pushes Enter. Esc cancels.
 - The name of a widget folder of the project adds that widget by its path, so a node can use it with `ui.add` (4.3). The name of a type folder adds that type by its path (5.1).
-- Patina runs `cargo add` of the project toolchain for the folder. The new `Cargo.toml` is one `SetCode` edit, so undo removes the crate. The next build downloads the crate.
+- Patina runs `cargo add` of the project toolchain for the folder. It starts from the text in the **Code** tab, also when that text has unsaved changes. The new text goes into the `Cargo.toml` tab as an unsaved change, so the undo of the code editor removes the crate. The file on the disk does not change until Ctrl+S or **Save**. The build after the save downloads the crate. (Agent decision of 2026-11-18. The owner can change it.)
 - A name has 1 to 64 letters, digits, `_` and `-`, and starts with a letter. Cargo gets the text as one argument, so it cannot be an option, a path or a second crate.
 - The field shows the problem of a bad name, of a crate that crates.io does not have, and of a crate that the node has already.
-- Patina refuses **Add crate** while the `Cargo.toml` has unsaved changes. An untrusted project has no **Add crate** button.
+- An untrusted project has no **Add crate** button.
 ### 15.5 Errors
 
 - A compile error shows in four places:
@@ -645,7 +645,8 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The path bar of an open subgraph has a **Test** button. It runs one use of the subgraph alone, with the ID `7e57000000000000`, in place of the main graph. Each public input with a `bool` type starts as `false`. Patina shows a switch at the left of each such input node, and a lamp at the right of each output node with a `bool` value. A click on a switch toggles the input and runs the subgraph again. Other inputs and outputs show their value next to the pin. **End test** or a change of graph returns to the main graph. An untrusted project has no test. This is an agent decision of 2026-11-15. The owner can change it.
 - Reason: the user of a gate subgraph, for example a full adder, must see its truth table before a use. A test needs no outer graph and no change of the files.
 - Reason: the owner often opens a project only to try things. A graph file must change only when the user saves.
-- Exceptions: a new folder, **Import**, **Add crate**, and an undo or a redo of a folder change write their files at once. Cargo builds from these files, or the user asked for the new file.
+- The **FPS** field changes the frame rate in memory. The next run uses it. The project shows the dot of unsaved changes, and Ctrl+S or **Save** writes the rate into `patina.toml`. (Agent decision of 2026-11-18. The owner can change it.)
+- Exceptions: a new folder, **Import**, **Delete**, and an undo or a redo of a folder change act on the disk at once. Cargo builds from these folders, and the user asked for the change. (Agent decision of 2026-11-18. The owner can change it.)
 - An undo or a redo of a code edit writes no file. It puts the text into the **Code** tab as an unsaved change, and Ctrl+S saves it. A redo gives back the text that the **Code** tab showed before the undo. (Agent decision, 2026-11-17. The owner can change it.)
 
 **Collapse into a subgraph**
@@ -667,7 +668,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 This is an agent decision of 2026-11-15. The owner can change it.
 
 - The file is `data/recovery/<hash>.json`. The hash is the 64-bit FNV-1a hash of the path of the project folder, as 16 hex digits. On Windows, the path has no case.
-- The file holds the format version 1, the project folder, the open graph and its name when it has unsaved changes, each other graph with unsaved changes by name, and the unsaved text of each code file by path. A restore opens each graph and gives it its changes. The open graph opens last. A file of more than 16 MiB is an error.
+- The file holds the format version 1, the project folder, the open graph and its name when it has unsaved changes, each other graph with unsaved changes by name, the unsaved text of each code file by path, and the frame rate when it is not saved. A restore opens each graph and gives it its changes. The open graph opens last. A file of more than 16 MiB is an error.
 - Patina writes the file after each graph edit, undo, redo and save. It writes the file 300 ms after the user stops typing in the **Code** tab. The first unsaved code change, and the last one that goes, write the file at once.
 - Patina writes a temporary file and then renames it, so a stop during a write does not break the old file.
 - When the project has no unsaved changes, Patina deletes the file. A close or a quit after the user saved or discarded the changes deletes it too.

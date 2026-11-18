@@ -3,6 +3,7 @@
 
 import { useCallback, useState } from 'react';
 import { api, type View } from '../api';
+import { changeCode } from '../code/codeState';
 import { ImportDialog } from './ImportDialog';
 import type { Line } from '../run/Lines';
 import type { Group, Inspect } from '../panels/ProjectPanel';
@@ -74,8 +75,8 @@ export function useProjectActions({ show, markStale, log, setInspect, setError }
     }
   }, [log, setError]);
 
-  /** Adds a crate to a code folder with `cargo add`. Undo removes it (15.4). */
-  const addCrate = useCallback(async (folder: string, spec: string) => show(await api.addCrate(folder, spec)), [show]);
+  /** Adds a crate to the Cargo.toml of a code folder as an unsaved change (15.4). */
+  const addCrate = useCallback((folder: string, spec: string) => changeCode(`${folder}/Cargo.toml`, () => api.addCrate(folder, spec)), []);
 
   const done = (close: () => void) => (v: View) => {
     close();

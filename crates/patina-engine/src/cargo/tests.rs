@@ -68,10 +68,10 @@ fn cargo_adds_a_crate_to_a_node() {
     write(&root, "nodes/num/Cargo.toml", manifest).unwrap();
     write(&root, "nodes/num/src/lib.rs", "").unwrap();
     let toolchain = Toolchain::detect().unwrap();
-    let text = add_crate(&root, &toolchain, "nodes/num", "itoa@1").unwrap();
+    let text = add_crate(&root, &toolchain, "nodes/num", "itoa@1", None).unwrap();
     assert!(text.contains("itoa = \"1"), "{text}");
     assert_eq!(std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap(), manifest);
-    let error = add_crate(&root, &toolchain, "nodes/num", "patina-no-such-crate-x").unwrap_err();
+    let error = add_crate(&root, &toolchain, "nodes/num", "patina-no-such-crate-x", None).unwrap_err();
     assert!(error.contains("patina-no-such-crate-x"), "{error}");
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -84,8 +84,13 @@ fn a_type_folder_goes_in_by_its_path() {
         write(&root, &format!("{name}/Cargo.toml"), &manifest).unwrap();
         write(&root, &format!("{name}/src/lib.rs"), "").unwrap();
     }
-    let text = add_crate(&root, &Toolchain::detect().unwrap(), "nodes/num", "digit").unwrap();
-    assert!(text.contains("path = \"../../types/digit\""), "{text}");
+    // Cargo starts from the unsaved text, and the file keeps its old text.
+    let unsaved = format!("{}# mine
+", std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap());
+    let saved = std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap();
+    let text = add_crate(&root, &Toolchain::detect().unwrap(), "nodes/num", "digit", Some(&unsaved)).unwrap();
+    assert!(text.contains("path = \"../../types/digit\"") && text.contains("# mine"), "{text}");
+    assert_eq!(std::fs::read_to_string(root.join("nodes/num/Cargo.toml")).unwrap(), saved);
     std::fs::remove_dir_all(root).unwrap();
 }
 

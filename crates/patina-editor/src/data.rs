@@ -42,6 +42,9 @@ pub struct Recovery {
     pub others: BTreeMap<String, GraphFile>,
     /// The unsaved text of the Code tab, by path.
     pub code: BTreeMap<String, String>,
+    /// The frame rate when it is not the rate in `patina.toml`.
+    #[serde(default)]
+    pub frame_rate: Option<u32>,
 }
 
 /// A recovery file to write. It borrows the state of the session.
@@ -55,6 +58,8 @@ struct RecoveryRef<'a> {
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     others: BTreeMap<&'a str, &'a GraphFile>,
     code: &'a BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frame_rate: Option<u32>,
 }
 
 pub struct Data {
@@ -279,8 +284,9 @@ impl Data {
 
     /// Writes the unsaved changes of the project in `root`, or removes its recovery file when
     /// there are none. `graphs` are the graphs with unsaved changes, and `open` is the open graph.
-    pub fn save_recovery(&self, root: &Path, open: &str, graphs: &[(&str, &GraphFile)], code: &BTreeMap<String, String>) -> Result<(), String> {
-        if graphs.is_empty() && code.is_empty() {
+    /// `frame_rate` is an unsaved frame rate.
+    pub fn save_recovery(&self, root: &Path, open: &str, graphs: &[(&str, &GraphFile)], code: &BTreeMap<String, String>, frame_rate: Option<u32>) -> Result<(), String> {
+        if graphs.is_empty() && code.is_empty() && frame_rate.is_none() {
             return self.remove_recovery(root);
         }
         let (mut graph, mut others) = (None, BTreeMap::new());
@@ -291,7 +297,7 @@ impl Data {
             }
         }
         let graph_name = graph.and(Some(open)).filter(|name| *name != "main");
-        let file = RecoveryRef { format: RECOVERY_FORMAT, root, graph, graph_name, others, code };
+        let file = RecoveryRef { format: RECOVERY_FORMAT, root, graph, graph_name, others, code, frame_rate };
         let text = serde_json::to_vec(&file).map_err(|e| e.to_string())?;
         if text.len() > RECOVERY_LIMIT {
             return Err(format!("the unsaved changes have more than {RECOVERY_LIMIT} bytes"));
@@ -468,19 +474,23 @@ mod tests {
         let code = BTreeMap::from([("nodes/a/src/lib.rs".to_owned(), "fn a() {}".to_owned())]);
         let none = data.recovery(&root).map(|r| r.is_none());
         // The open graph and each other graph with unsaved changes go into the file (15.10).
-        data.save_recovery(&root, "half", &[("main", &graph), ("half", &graph)], &code).unwrap();
+        data.save_recovery(&root, "half", &[("main", &graph), ("half", &graph)], &code, None).unwrap();
         let found = data.recovery(&root).unwrap().map(|r| (r.graph, r.graph_name, r.others.into_keys().collect::<Vec<_>>(), r.code));
+        // An unsaved frame rate alone keeps the file.
+        data.save_recovery(&root, "main", &[], &BTreeMap::new(), Some(600)).unwrap();
+        let rate = data.recovery(&root).unwrap().map(|r| r.frame_rate);
         let other = data.recovery(&copy).map(|r| r.is_none());
         let moved = fs::rename(data.recovery_path(&root), data.recovery_path(&copy));
         let wrong_root = data.recovery(&copy).map(|r| r.is_none());
-        let large = data.save_recovery(&root, "main", &[], &BTreeMap::from([(String::new(), "a".repeat(RECOVERY_LIMIT))]));
-        data.save_recovery(&root, "main", &[], &code).unwrap();
-        data.save_recovery(&root, "main", &[], &BTreeMap::new()).unwrap();
+        let large = data.save_recovery(&root, "main", &[], &BTreeMap::from([(String::new(), "a".repeat(RECOVERY_LIMIT))]), None);
+        data.save_recovery(&root, "main", &[], &code, None).unwrap();
+        data.save_recovery(&root, "main", &[], &BTreeMap::new(), None).unwrap();
         let removed = data.recovery(&root).map(|r| r.is_none());
         fs::remove_dir_all(&dir).unwrap();
         assert_eq!((none, other, wrong_root, removed), (Ok(true), Ok(true), Ok(true), Ok(true)));
         assert_eq!(found, Some((Some(graph), Some("half".to_owned()), vec!["main".to_owned()], code)));
         assert!(moved.is_ok() && large.is_err());
+        assert_eq!(rate, Some(Some(600)));
         assert_eq!(data.recovery_path(Path::new("/A/b")) == data.recovery_path(Path::new("/a/b/")), cfg!(windows));
     }
 

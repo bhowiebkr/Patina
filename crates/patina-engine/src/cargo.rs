@@ -614,15 +614,21 @@ pub fn write_workspace(root: &Path) -> Result<(), Error> {
 }
 
 /// Runs `cargo add` for a code folder, for example `nodes/number`, and returns the new text of its
-/// `Cargo.toml` (15.4). The file keeps its old text, so the caller applies the new text as one
-/// edit with undo. A widget or type folder of the project goes in by its path (6.2).
-pub fn add_crate(root: &Path, toolchain: &Toolchain, folder: &str, spec: &str) -> Result<String, String> {
+/// `Cargo.toml` (15.4). `start` is the unsaved text of the file, if it has one. The file keeps its
+/// old text, so the caller keeps the new text as an unsaved change. A widget or type folder of the
+/// project goes in by its path (6.2).
+pub fn add_crate(root: &Path, toolchain: &Toolchain, folder: &str, spec: &str, start: Option<&str>) -> Result<String, String> {
     crate::code_folder(folder)?;
     check_crate(spec)?;
     let relative = format!("{folder}/Cargo.toml");
     let manifest = root.join(&relative);
     let old = std::fs::read_to_string(&manifest).map_err(|e| format!("{relative}: {e}"))?;
     write_workspace(root).map_err(|e| e.to_string())?;
+    let start = start.unwrap_or(&old);
+    // Cargo edits the file, so it gets the unsaved text for the time of the run.
+    if start != old {
+        write(root, &relative, start).map_err(|e| e.to_string())?;
+    }
     let mut command = toolchain.command(&toolchain.cargo).map_err(|e| e.to_string())?;
     command.current_dir(root).arg("add").arg("--manifest-path").arg(&manifest);
     let local = ["widgets", "types"].map(|group| root.join(group).join(spec));
@@ -640,7 +646,7 @@ pub fn add_crate(root: &Path, toolchain: &Toolchain, folder: &str, spec: &str) -
         return Err(stderr.lines().find_map(|line| line.strip_prefix("error: ")).unwrap_or(stderr.trim()).to_owned());
     }
     let new = new?;
-    if new == old {
+    if new == start {
         return Err(format!("the Cargo.toml of {folder} has {spec} already"));
     }
     Ok(new)
