@@ -127,6 +127,20 @@ function guiFit(where: string) {
   return `fit ${where}: ${seen} widgets and ${nodes.length} nodes`;
 }
 
+/** The buttons, fields and tabs in `root` that have no accessible name, for a screen reader (15.3). */
+function unnamed(root: ParentNode) {
+  const bad: string[] = [];
+  for (const w of root.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [role=tab], [role=button], [role=slider], [role=menuitem], [role=checkbox], [role=switch]')) {
+    if (w.closest('.monaco-editor') || w.getAttribute('type') === 'hidden' || w.getBoundingClientRect().width === 0) continue;
+    const by = (w.getAttribute('aria-labelledby') ?? '').split(' ').map((i) => document.getElementById(i)?.textContent ?? '').join('');
+    const labels = 'labels' in w ? [...((w as HTMLInputElement).labels ?? [])].map((l) => l.textContent).join('') : '';
+    const field = w instanceof HTMLInputElement || w instanceof HTMLSelectElement || w instanceof HTMLTextAreaElement;
+    const name = [w.getAttribute('aria-label'), by, labels, w.title, w.getAttribute('placeholder'), field ? '' : w.textContent].find((n) => n?.trim());
+    if (!name) bad.push(`no name ${w.tagName.toLowerCase()}.${w.className} in ${w.closest('[aria-label], [data-id]')?.getAttribute('aria-label') ?? w.closest('[data-id]')?.getAttribute('data-id') ?? 'the page'}`);
+  }
+  return bad;
+}
+
 /** Throws on a button, a tab, a title or a label of the panels and the bars that cuts its text or is out of the window (15.2). */
 function chromeFit(where: string) {
   const bad: string[] = [];
@@ -149,6 +163,7 @@ function chromeFit(where: string) {
     if (r.left < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push(`out ${what}`);
     if (w.scrollWidth > w.clientWidth + 1) bad.push(`cut ${what}`);
   }
+  bad.push(...unnamed(document));
   if (bad.length) throw new Error(`the chrome of ${where} is wrong: ${bad.join(', ')}`);
   return `chrome ${where}: ${seen} items`;
 }
@@ -205,6 +220,7 @@ async function inspectNodes(where: string, ids = [...document.querySelectorAll<H
       if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
       if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
     }
+    bad.push(...unnamed(a).map((b) => `${id} ${b}`));
     placesOnCanvas();
   }
   if (bad.length) throw new Error(`the Inspector of ${where} is wrong: ${bad.join(', ')}`);
@@ -277,6 +293,7 @@ async function fullSizes(where: string, ids = [...document.querySelectorAll<HTML
       if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
       if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
     }
+    bad.push(...unnamed(f).map((b) => `${id} ${b}`));
     f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await wait(() => !full(), () => 'Esc did not close the full size');
   }

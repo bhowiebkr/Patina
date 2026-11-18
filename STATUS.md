@@ -319,6 +319,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   button on the canvas (fixed 2026-11-18). The button is now after its name. The shot opens the
   full size of each node in the main graph, and of each new kind in a subgraph. A full size must
   not scroll to the side, cut a label or show a GUI that cannot draw.
+- The shot checks that each button, field and tab of the page, of each **Inspector** and of each
+  full size has an accessible name for a screen reader (added 2026-11-18). All three examples
+  pass.
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol
