@@ -77,8 +77,9 @@ pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64,
 /// values and no times. A failed frame shows at once. Display frame `show` of the run sends the
 /// node times only at 10 Hz (15.9). Then empties `blocks`. Returns false when a frame or a block
 /// failed, and the number of frames that ran. After one tick period, the next frame is the last and
-/// the frames after it do not run, so the page shows each tick (9.1).
-pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(String, String)]), shared: &Shared, (serial, show, count): (u64, u64, u64), blocks: &mut Blocks) -> (bool, u64) {
+/// the frames after it do not run, so the page shows each tick (9.1). `changed` is a buffer for
+/// the places of the changed values, kept from frame to frame so that a frame does not allocate.
+pub(super) fn frame(out: &Out, (part, shown, aliases, changed): (&mut Frames, &Shown, &[(String, String)], &mut Vec<usize>), shared: &Shared, (serial, show, count): (u64, u64, u64), blocks: &mut Blocks) -> (bool, u64) {
     let (start, control) = (Instant::now(), &shared.control);
     let (mut quiet_logs, mut ran) = (Vec::new(), 0);
     for left in (0..count.max(1)).rev() {
@@ -96,7 +97,7 @@ pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
     let b = blocks.part();
     let mut kept = lock(&shared.values);
-    let changed = keep_all(&mut kept, aliases, outcome.values.iter().chain(b.values));
+    keep_all(&mut kept, aliases, outcome.values.iter().chain(b.values), changed);
     let mut reports = lock(&shared.reports);
     reports.clear();
     reports.extend(outcome.reports.iter().chain(b.reports).cloned());
@@ -113,7 +114,7 @@ pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(
         times: Joined(&times),
         logs: Joined(&[&quiet_logs, &outcome.logs, b.logs]),
         reports: Joined(&[&outcome.reports, b.reports]),
-        values: Badges { kept: &kept, changed: &changed },
+        values: Badges { kept: &kept, changed },
     });
     drop(kept);
     blocks.clear();
@@ -188,15 +189,15 @@ impl Serialize for Cut<'_> {
 /// Keeps the values of a run and their copies for the pins of the subgraph uses. Returns the
 /// badges of the values that are new or changed, because the page keeps the other values (15.9).
 pub(super) fn changed<'a>(shared: &Shared, aliases: &[(String, String)], values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
-    let mut kept = lock(&shared.values);
-    let changed = keep_all(&mut kept, aliases, values);
+    let (mut kept, mut changed) = (lock(&shared.values), Vec::new());
+    keep_all(&mut kept, aliases, values, &mut changed);
     badges(changed.iter().map(|&i| &kept[i]))
 }
 
 /// Keeps the values of a run and their copies for the pins of the subgraph uses (6.4), as `keep`
 /// does. `aliases` is in the order of the inner outputs (`by_inner`).
-fn keep_all<'a>(kept: &mut Vec<Value>, aliases: &[(String, String)], values: impl IntoIterator<Item = &'a Value>) -> Vec<usize> {
-    let mut changed = keep(kept, values);
+fn keep_all<'a>(kept: &mut Vec<Value>, aliases: &[(String, String)], values: impl IntoIterator<Item = &'a Value>, changed: &mut Vec<usize>) {
+    keep(kept, values, changed);
     let mut at = 0;
     for n in 0..changed.len() {
         let i = changed[n];
@@ -217,7 +218,6 @@ fn keep_all<'a>(kept: &mut Vec<Value>, aliases: &[(String, String)], values: imp
             }
         }
     }
-    changed
 }
 
 /// The aliases of the subgraph pins (6.4) in the order of their inner outputs, for `alias` and
@@ -246,11 +246,12 @@ fn pair(kept: &mut [Value], i: usize, j: usize) -> (&Value, &mut Value) {
     }
 }
 
-/// Puts the values of a run in place of the old values of the same outputs, and returns the places
-/// in `kept` of the values that are new or changed. The values of the batch domain stay. Each frame
-/// gives its values in the same order, so the search starts after the last match.
-fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) -> Vec<usize> {
-    let (mut at, mut changed) = (0, Vec::new());
+/// Puts the values of a run in place of the old values of the same outputs, and puts into `changed`
+/// the places in `kept` of the values that are new or changed. The values of the batch domain stay.
+/// Each frame gives its values in the same order, so the search starts after the last match.
+fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>, changed: &mut Vec<usize>) {
+    let mut at = 0;
+    changed.clear();
     for value in values {
         match find(kept, at, &value.from) {
             Some(i) => {
@@ -265,7 +266,6 @@ fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) 
             }
         }
     }
-    changed
 }
 
 /// The place of output `from` in `kept`. The search starts at `at`, because each frame gives its
@@ -353,6 +353,11 @@ mod tests {
 
     #[test]
     fn a_frame_replaces_only_the_values_of_its_outputs() {
+        let keep = |kept: &mut Vec<Value>, values: &[Value]| {
+            let mut changed = Vec::new();
+            super::keep(kept, values, &mut changed);
+            changed
+        };
         let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), ..Value::default() };
         let mut kept = vec![value("a.out", "1"), value("b.out", "2")];
         let changed = keep(&mut kept, &[value("b.out", "3"), value("c.out", "4")]);
@@ -379,15 +384,34 @@ mod tests {
     }
 
     #[test]
+    fn a_frame_keeps_its_changed_values_with_no_allocation() {
+        use super::super::blocks::tests::{ALLOCATIONS, COUNTING};
+        let values = |text: &str| (0..787).map(|n| Value { from: format!("n{n}.out"), text: text.to_owned(), ..Value::default() }).collect::<Vec<_>>();
+        let (a, b) = (values("a"), values("b"));
+        let (mut kept, mut changed) = (Vec::new(), Vec::new());
+        keep_all(&mut kept, &[], &a, &mut changed);
+        ALLOCATIONS.set(0);
+        COUNTING.set(true);
+        for n in 0..100 {
+            keep_all(&mut kept, &[], if n % 2 == 0 { &b } else { &a }, &mut changed);
+        }
+        COUNTING.set(false);
+        assert_eq!((ALLOCATIONS.get(), changed.len()), (0, 787), "100 frames of 787 changed values");
+    }
+
+    #[test]
     fn a_frame_copies_each_changed_value_to_the_pins_of_its_subgraph_uses() {
         let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), ..Value::default() };
         let pin = |outer: &str, inner: &str| (outer.to_owned(), inner.to_owned());
         let aliases = by_inner(&[pin("u.0000000a", "u/b.out"), pin("w.0000000a", "a.out"), pin("v.0000000a", "a.out")]);
-        let mut kept = Vec::new();
-        assert_eq!(keep_all(&mut kept, &aliases, &[value("a.out", "1"), value("c.out", "1")]).len(), 4);
-        assert_eq!(keep_all(&mut kept, &aliases, &[value("a.out", "1"), value("c.out", "2")]), [1]);
+        let (mut kept, mut changed) = (Vec::new(), Vec::new());
+        keep_all(&mut kept, &aliases, &[value("a.out", "1"), value("c.out", "1")], &mut changed);
+        assert_eq!(changed.len(), 4);
+        let buffer = changed.as_ptr();
+        keep_all(&mut kept, &aliases, &[value("a.out", "1"), value("c.out", "2")], &mut changed);
+        assert_eq!((changed.as_slice(), changed.as_ptr()), (&[1][..], buffer), "the next frame uses the buffer again");
         let text = kept[3].text.as_ptr();
-        let changed = keep_all(&mut kept, &aliases, &[value("a.out", "3"), value("c.out", "2")]);
+        keep_all(&mut kept, &aliases, &[value("a.out", "3"), value("c.out", "2")], &mut changed);
         assert_eq!(changed, [0, 2, 3]);
         let texts: Vec<_> = kept.iter().map(|v| (v.from.as_str(), v.text.as_str())).collect();
         assert_eq!(texts, [("a.out", "3"), ("c.out", "2"), ("w.0000000a", "3"), ("v.0000000a", "3")]);

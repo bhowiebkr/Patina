@@ -174,15 +174,15 @@ impl Refill for NodeTime {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
 
     use super::*;
 
     thread_local! {
-        static COUNTING: Cell<bool> = const { Cell::new(false) };
-        static ALLOCATIONS: Cell<usize> = const { Cell::new(0) };
+        pub(in crate::engine) static COUNTING: Cell<bool> = const { Cell::new(false) };
+        pub(in crate::engine) static ALLOCATIONS: Cell<usize> = const { Cell::new(0) };
     }
 
     /// Counts the allocations of a thread while its `COUNTING` is true.

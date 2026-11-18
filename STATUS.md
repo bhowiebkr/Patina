@@ -117,6 +117,8 @@ editor with the built page, on the Windows 11 computer of the owner.
     9 allocations (16.8 KB) and 2.6 ms. About 787 values change in each frame.
   - The event now borrows the lists of the frame, and the copies for the subgraph pins reuse
     their buffers. The rest of the time is the JSON of the badges in the debug build.
+  - The 9 allocations were the list of the changed values. The frames now use one list again.
+    A unit test counts 0 allocations in 100 frames of 787 changed values, before 900.
 - Tests and builds of the computer example, 2026-11-17. A game ran in the background. The old
   code ran as the control in the same run.
   - The code generation searched all steps for the readers of each output. In a debug test, the
@@ -423,10 +425,10 @@ domain free of locks. These limits are still open:
 
 - The pool rule uses the node times of the last run. Thus, after a small run, the next run
   stays on one thread also when it is heavy. The measurement ran only on Windows.
-- The frame loop of the editor allocates about 21 times for each shown frame on the computer
-  example: 12 times in the frame of the engine part, and 9 times for the list of changed values.
-  The CLI test graph gives 0, so the 12 are probably in the node code. The frames of the CLI do
-  not allocate.
+- The frame loop of the editor allocates about 12 times for each shown frame on the computer
+  example, in the frame of the engine part. The list of changed values uses its buffer again
+  (fixed 2026-11-17). The CLI test graph gives 0, so the 12 are probably in the node code. The
+  frames of the CLI do not allocate. Nobody measured the editor again on the computer example.
 - The allocation test counts only the thread of the run. In the test graph, this thread runs
   all the frame tasks, because the second task waits for the first.
 - A text that is longer than the text of the last frame grows its buffer one time.

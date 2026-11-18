@@ -344,7 +344,7 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
             }
         }
         if let (true, true, Some(loaded), Some(serial)) = (batch.step && batch.newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
-            frame(out, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases), shared, (serial, 1, 1), &mut Blocks::default());
+            frame(out, (&mut loaded.cluster.frame_part(), &shown, &loaded.aliases, &mut Vec::new()), shared, (serial, 1, 1), &mut Blocks::default());
             out.emit(&Event::Ended { serial, frames: 1 });
         }
         batch.bake &= batch.build || loaded.as_ref().is_none_or(Loaded::needs_fuse);
@@ -388,7 +388,7 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
             draw(out, &shared.control, &mut loaded.cluster.frame_part(), run.serial, &shown, true);
             if goes_on {
                 let fusable = loaded.needs_fuse();
-                let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse: &mut fuse, checked: &run.checked, fusable, frames: 0, shows: 0, rate: run.checked.frame_rate() };
+                let live = Live { out, jobs, shown: &mut shown, aliases: &loaded.aliases, views: &mut views, folder, toolchain: &mut toolchain, shared, serial: run.serial, fuse: &mut fuse, checked: &run.checked, fusable, frames: 0, shows: 0, rate: run.checked.frame_rate(), changed: Vec::new() };
                 next = run_frames(live, &mut loaded.cluster);
             }
         }
@@ -439,6 +439,8 @@ struct Live<'a> {
     shows: u64,
     /// The frames each second (9.1).
     rate: u32,
+    /// The places of the changed values of the last frame, a buffer that the frames use again.
+    changed: Vec<usize>,
 }
 
 impl Live<'_> {
@@ -487,7 +489,7 @@ impl Live<'_> {
     /// frame or a block failed.
     fn frame(&mut self, part: &mut Frames, blocks: &mut Blocks, count: u64) -> bool {
         self.shows += 1;
-        let (ok, ran) = frame(self.out, (part, self.shown, self.aliases), self.shared, (self.serial, self.shows, count), blocks);
+        let (ok, ran) = frame(self.out, (part, self.shown, self.aliases, &mut self.changed), self.shared, (self.serial, self.shows, count), blocks);
         self.frames += ran;
         ok
     }
