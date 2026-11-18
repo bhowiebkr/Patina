@@ -1,6 +1,6 @@
 use patina_gpu::{GpuImage, gpu};
 use patina_sdk::{Ui, node};
-use scope::{LABEL, TRACE, panel, screen};
+use scope::{TRACE, panel, readout, screen};
 
 /// The width of the node.
 const WIDTH: f32 = 200.0;
@@ -36,7 +36,7 @@ impl Preview {
             let mut c = ui.canvas(&format!("Preview {iw} x {ih}"), size);
             panel(&mut c, size, "PREVIEW");
             if iw > 0 && ih > 0 {
-                c.text([WIDTH - 72.0, 16.0], LABEL, &format!("{iw} x {ih}"));
+                readout(&mut c, WIDTH, &format!("{iw} x {ih}"));
             }
             screen(&mut c, [x, TOP], glass);
             if self.pixels.is_empty() {
