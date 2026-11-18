@@ -247,8 +247,20 @@ pub fn read_node(root: &Path, name: &str) -> Result<Node, String> {
         return node.clone();
     }
     let node = node::parse(&code).map_err(|e| format!("src/lib.rs: {e}"));
-    PARSED.lock().unwrap_or_else(PoisonError::into_inner).insert(dir, (code, node.clone()));
+    keep(&mut PARSED.lock().unwrap_or_else(PoisonError::into_inner), dir, (code, node.clone()), KEPT);
     node
+}
+
+/// The most node folders that the parse cache keeps. This is far more than a project has.
+const KEPT: usize = 4096;
+
+/// Puts a parse into the cache. A full cache first drops all entries, so removed folders and the
+/// folders of other projects do not stay.
+fn keep(parsed: &mut BTreeMap<PathBuf, Parsed>, dir: PathBuf, entry: Parsed, most: usize) {
+    if parsed.len() >= most && !parsed.contains_key(&dir) {
+        parsed.clear();
+    }
+    parsed.insert(dir, entry);
 }
 
 /// Reads `src/lib.rs` of the crate folder `<group>/<name>`, after the checks of its name.
@@ -288,6 +300,16 @@ name = \"n\"
         assert_eq!(inputs("pub fn n(a: f32, b: f32) -> f32 { a + b }"), Ok(2));
         assert!(inputs("pub fn n(").is_err());
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_full_parse_cache_drops_its_entries() {
+        let mut parsed = BTreeMap::new();
+        let entry = || (String::new(), Err(String::new()));
+        for dir in ["a", "b", "b", "c"] {
+            keep(&mut parsed, dir.into(), entry(), 2);
+        }
+        assert_eq!(parsed.keys().collect::<Vec<_>>(), [Path::new("c")]);
     }
 
     #[test]

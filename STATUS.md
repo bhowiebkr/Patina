@@ -211,7 +211,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 - An edit of only the layout keeps the domains and the problems of the last check. A change to a
   node or subgraph file from outside the editor shows at the next edit that runs the check.
-- The parse cache of the node folders keeps one entry for each folder that the program read.
+- The parse cache of the node folders keeps at most 4096 folders (fixed 2026-11-17). When it is
+  full, it drops all entries, and the next check parses each node folder again.
 - The edit times ran only on Windows 11. The page times are from the debug editor.
 
 ### Process isolation
