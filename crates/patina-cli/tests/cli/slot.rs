@@ -303,3 +303,101 @@ fn an_event_node_in_the_slot_waits_for_its_future() {
     cluster.set_params(opened.graph());
     assert_eq!(value(&mut cluster), "8.0");
 }
+
+/// A type of a type folder with fields of mixed sizes, so that a layout change shows in the
+/// values (7.2). The feature adds a field.
+const TALLY: &str = "#[derive(Default)]
+pub struct Tally {
+    pub small: u8,
+    pub count: u64,
+    pub mid: u16,
+    #[cfg(feature = \"wide\")]
+    pub wide: [u64; 4],
+    pub names: Vec<String>,
+}
+";
+
+/// A node with a state of the type folder.
+const COUNT: &str = "#[patina_sdk::node]
+pub struct Count {
+    tally: tally::Tally,
+}
+
+impl Count {
+    pub fn init() -> Self {
+        Count { tally: tally::Tally::default() }
+    }
+
+    pub fn process(&mut self, value: &f64) -> f64 {
+        let t = &mut self.tally;
+        t.small += 1;
+        t.mid += 2;
+        t.count += (*value * 2.0) as u64;
+        t.names.push(format!(\"run {}\", t.small));
+        let runs = usize::from(t.small);
+        assert_eq!((t.names.len(), usize::from(t.mid), t.count), (runs, 2 * runs, 13 * runs as u64), \"a bad layout\");
+        t.count as f64
+    }
+}
+";
+
+#[test]
+fn a_state_with_a_type_of_a_type_folder_moves_until_a_feature_changes() {
+    let project = copy(&hello(), "type-state");
+    let add = fs::read_to_string(project.join("nodes/add/Cargo.toml")).unwrap();
+    let tally = "[package]\nname = \"tally\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[features]\nwide = []\n";
+    let count = add.replace("\"add\"", "\"count\"") + "tally = { path = \"../../types/tally\" }\n";
+    for (folder, manifest, code) in [("types/tally", tally, TALLY), ("nodes/count", &count, COUNT)] {
+        fs::create_dir_all(project.join(folder).join("src")).unwrap();
+        fs::write(project.join(folder).join("Cargo.toml"), manifest).unwrap();
+        fs::write(project.join(folder).join("src/lib.rs"), code).unwrap();
+    }
+    let graph = project.join("graphs/main.toml");
+    let more = "
+[[node]]
+id = \"00000000000000e0\"
+folder = \"nodes/count\"
+
+[[node]]
+id = \"00000000000000e1\"
+folder = \"nodes/show\"
+
+[[wire]]
+from = \"f89c6e329e8ea336.out\"
+to = \"00000000000000e0.value\"
+
+[[wire]]
+from = \"00000000000000e0.out\"
+to = \"00000000000000e1.value\"
+";
+    fs::write(&graph, fs::read_to_string(&graph).unwrap() + more).unwrap();
+    let (toolchain, control) = (Toolchain::detect().unwrap(), Control::default());
+    let opened = Project::open(&project).unwrap();
+    let build = |mode| {
+        let mut cluster = Project::open(&project).unwrap().check().unwrap().build(&toolchain, mode).unwrap();
+        cluster.set_params(opened.graph());
+        cluster
+    };
+    let value = |cluster: &mut patina_engine::Cluster| {
+        let out = cluster.run(&control);
+        assert!(out.ok, "{:?}", out.reports);
+        out.values.into_iter().find(|v| v.from == "00000000000000e0.out").unwrap().text
+    };
+    let mut cluster = build(Mode::Edit);
+    assert_eq!([value(&mut cluster), value(&mut cluster)], ["13.0", "26.0"]);
+
+    // After an edit of show, a bake build gets the state of count with its type of the type folder.
+    let show = project.join("nodes/show");
+    fs::write(show.join("src/lib.rs"), fs::read_to_string(show.join("src/lib.rs")).unwrap() + "// An edit.\n").unwrap();
+    let mut baked = build(Mode::Bake);
+    assert_eq!(baked.adopt(&mut cluster), 1);
+    assert_eq!(value(&mut baked), "39.0");
+
+    // Show turns on a feature of the type folder. Cargo builds the type folder one time with the
+    // features of all its users, so the type of count changes and its state starts again.
+    let feature = "tally = { path = \"../../types/tally\", features = [\"wide\"] }\n";
+    fs::write(show.join("Cargo.toml"), fs::read_to_string(show.join("Cargo.toml")).unwrap() + feature).unwrap();
+    let mut wide = build(Mode::Edit);
+    assert_eq!(wide.adopt(&mut baked), 0);
+    assert_eq!(value(&mut wide), "13.0");
+}

@@ -341,9 +341,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 - The rpath on Linux and macOS ran only in CI. Nobody compared the bytes of two builds yet.
 - The state move depends on a hypothesis: rustc gives the same layout to the same type with the
-  same compiler and cfg values, also at another optimization level (7.2). The test
-  `a_feature_change_gives_a_new_state_key` checks that a feature change of a dependency resets
-  the states. No build test moves a state that holds a type of such a dependency.
+  same compiler and cfg values, also at another optimization level (7.2). A slot test moves a
+  state that holds a type of a type folder from an edit build to a bake build. A feature of the
+  type folder that another node turns on resets that state. These checks do not prove the
+  hypothesis for all types.
 - There is one cluster for each clock domain. No cluster boundary is at a large node yet.
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.
