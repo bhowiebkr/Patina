@@ -203,8 +203,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 ### Start screen
 
 - The **x** button of a recent project removes it from the list or moves its folder to the Recycle
-  Bin (2026-11-17). The self-check runs **Remove from list** and the refusal of **Delete project**
-  through the API. It does not click the button, and no check moved a project to the Recycle Bin.
+  Bin (2026-11-17). The self-check clicks **Close**, the **x** of the project and **Remove from
+  list**, and runs the refusal of **Delete project** through the API. No check moved a project to
+  the Recycle Bin.
 - A new project has no node folders (2026-11-17). The engine test and the self-check open an empty
   new project, and the self-check then writes the hello nodes into it.
 - Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
@@ -212,7 +213,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   (2026-11-18). A unit test checks the percent parse and the step math. No check ran a full
   install with the bar, because each download needs the approval of the owner.
 - A right-click **Delete** on the **Project** panel items moves a folder to the Recycle Bin
-  (2026-11-18). A unit test checks the folder names that can go. No check clicked it.
+  (2026-11-18). A unit test checks the folder names that can go. The self-check clicks **Delete**
+  on a node folder and **Cancel** in the question. No check moved a folder to the Recycle Bin.
 - The **Logs** panel shows the full compile errors, with highlight and **Fix:** lines from a list
   of common errors (2026-11-18). The **Output** panel has the same highlight. A unit test checks
   the highlight parts. The self-check reads the highlight and the **Fix:** line of a type error.

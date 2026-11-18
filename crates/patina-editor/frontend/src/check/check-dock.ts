@@ -5,7 +5,7 @@ import { api, type EngineEvent, type View } from '../api';
 import { flushLayout, savedViewport } from '../panels/Dock';
 import { layoutText, parseLayout } from '../panels/layout';
 import { FAR_ZOOM } from '../wires/gl';
-import { A, B, BUILD_MS, RUN_MS, badge, mouseWheel, scale, tab, transform, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, badge, button, mouseWheel, scale, tab, topButton, transform, type CheckContext } from './check-fixtures';
 
 /** Saves, closes and opens the project again. It returns the last view and the middle of the canvas. */
 export async function checkDock({ step, until, result, mark, events, steps }: CheckContext, v: View) {
@@ -65,11 +65,17 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   }
   steps.push('dock layout saved');
 
-  await api.closeProject();
-  const start = await api.startInfo();
-  if (start.recent[0]?.path !== v.root) throw new Error(`the recent list starts with ${start.recent[0]?.path}`);
-  // Remove takes the project off the recent list. Delete project then refuses it (15.10). The next open adds it again.
-  if ((await api.forgetProject(v.root)).recent.some((r) => r.path === v.root)) throw new Error('the removed project is in the recent list');
+  // The Close button shows the start screen. Its x button and Remove from list take the project off the recent list (15.10).
+  topButton('Close')!.click();
+  const row = () => [...document.querySelectorAll('.recent-row')].find((r) => r.querySelector('.path')?.textContent === v.root);
+  await until('the project at the top of the recent list', RUN_MS, () => document.querySelector('.recent-row') === row() && !!row());
+  row()!.querySelector<HTMLButtonElement>('.recent-remove')!.click();
+  const dialog = () => document.querySelector('.dialog[role="dialog"]')?.textContent ?? '';
+  await until('the remove dialog with three answers', RUN_MS, () => dialog().includes('Recycle Bin') && !!button('Remove from list') && !!button('Delete project') && !!button('Cancel'));
+  button('Remove from list')!.click();
+  await until('the project off the recent list', RUN_MS, () => !row() && !button('Remove from list'));
+  if ((await api.startInfo()).recent.some((r) => r.path === v.root)) throw new Error('the removed project is in the recent list');
+  // Delete project then refuses it. The next open adds it again.
   const refused = await api.deleteProject(v.root).then(() => 'no error', String);
   if (!refused.includes('not a recent project')) throw new Error(`Delete project did not refuse a project off the recent list: ${refused}`);
   steps.push('close');

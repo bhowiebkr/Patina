@@ -5,7 +5,7 @@
 import { api, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
-import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, closeMenu, enterText, entry, fireButton, leftTab, nodeToml, rightClick, topButton, type CheckContext } from './check-fixtures';
+import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, button, closeMenu, enterText, entry, fireButton, leftTab, nodeToml, rightClick, topButton, type CheckContext } from './check-fixtures';
 
 /** A node with a GUI: a switch and a text that shows the state of the switch. */
 const LAMP_NODE = `use patina_sdk::node;
@@ -164,6 +164,15 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
     throw new Error(`${e.message} (title ${inspectorTitle()}, tabs ${tabNames().join()})`);
   });
   steps.push('inspect a node folder from its menu');
+  // Delete in the same menu asks first. Cancel keeps the folder, so the check puts nothing in the Recycle Bin.
+  rightClick(item('lamp')!);
+  await until('the Delete entry of the node folder', RUN_MS, () => !!entry('nodes/lamp', 'Delete'));
+  entry('nodes/lamp', 'Delete')!.click();
+  const asked = () => document.querySelector('.dialog[role="dialog"]')?.textContent ?? '';
+  await until('the delete question of the node folder', RUN_MS, () => asked().includes('Delete nodes/lamp?') && asked().includes('Recycle Bin') && !!button('Cancel'));
+  button('Cancel')!.click();
+  await until('the node folder after Cancel', RUN_MS, () => !asked() && !!item('lamp'));
+  steps.push('cancel the Delete of a node folder from its menu');
 
   // A node GUI in a subgraph use shows and takes input, on the canvas and in the Inspector (4.3, 6.4).
   const lamp = 'f12e000000000002';
