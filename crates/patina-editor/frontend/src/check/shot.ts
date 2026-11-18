@@ -55,6 +55,9 @@ const POKES: Poke[] = [
   { from: /^DETUNE 9\.00 ct$/, path: [[44, 39], [44, 11]], to: /^DETUNE 15\.00 ct$/ },
   { from: /^Ember sequencer playing$/, path: [[380, 30]], to: /^Ember sequencer hold$/ },
   { from: /^Ember sequencer hold$/, path: [[380, 30]], to: /^Ember sequencer playing$/ },
+  { from: /^Workbench scene 0$/, path: [[210, 85]], to: /^Workbench scene 1$/ },
+  { from: /^Workbench scene 1$/, path: [[380, 85]], to: /^Workbench scene 2$/ },
+  { from: /^Workbench scene 2$/, path: [[70, 85]], to: /^Workbench scene 0$/ },
   // hello: C and 7 on the keypad give 7 x 3 = 21 on the tape, and the + key gives 7 + 3 = 10.
   { from: /^Keypad 12$/, path: [[141, 92.5]], to: /^Keypad 0$/ },
   { from: /^Keypad 0$/, path: [[27, 92.5]], to: /^Keypad 7$/, also: /^Tape 21$/ },
@@ -539,6 +542,8 @@ async function fullSizes(where: string, ids = [...document.querySelectorAll<HTML
     }
     const f = full()!;
     const b = f.getBoundingClientRect();
+    if (f.querySelector('svg.gui-canvas'))
+      await api.capture(`${where}-panel-${id}`, [b.left, b.top, b.width, b.height].map((v) => v * devicePixelRatio));
     if (f.scrollWidth > f.clientWidth + 1) bad.push(`${id} scrolls to the side`);
     if (f.querySelector('[role=alert]')) bad.push(`the GUI of ${id} cannot draw`);
     for (const w of f.querySelectorAll('.node-gui :is(svg.gui-canvas, canvas, input, select, button, textarea, .label)')) {

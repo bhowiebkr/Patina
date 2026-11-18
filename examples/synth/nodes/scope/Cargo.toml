@@ -5,5 +5,4 @@ edition = "2024"
 
 [dependencies]
 patina-sdk = { workspace = true }
-synth-dsp = { path = "../../types/synth-dsp" }
 panel = { path = "../../widgets/panel" }

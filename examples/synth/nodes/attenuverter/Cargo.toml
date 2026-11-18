@@ -1,0 +1,8 @@
+[package]
+name = "attenuverter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+patina-sdk = { workspace = true }
+synth-dsp = { path = "../../types/synth-dsp" }

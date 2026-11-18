@@ -95,8 +95,6 @@ folder = "nodes/output"
 pos = [1110.0, 730.0]
 
 [node.params]
-level = "0.65"
-rhythm = "0.65"
 audible = "true"
 
 [[node]]
@@ -176,3 +174,58 @@ name = "DRUMS"
 from = "e6be000000000026.out"
 to = "e6be000000000027.sound"
 name = "MASTER"
+
+[[node]]
+id = "e6be000000000030"
+folder = "nodes/console"
+pos = [0.0, 590.0]
+[node.params]
+scene = "0"
+level = "0.65"
+drums = "0.65"
+
+[[node]]
+id = "e6be000000000031"
+subgraph = "ambient"
+pos = [550.0, 900.0]
+
+[[node]]
+id = "e6be000000000032"
+subgraph = "impact"
+pos = [830.0, 900.0]
+
+[[wire]]
+from = "e6be000000000030.out0"
+to = "e6be000000000026.level"
+name = "LEVEL"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000030.out1"
+to = "e6be000000000026.rhythm"
+name = "DRUM LEVEL"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000030.out2"
+to = "e6be000000000026.scene"
+name = "SCENE"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000020.out"
+to = "e6be000000000032.bb000001"
+name = "NOTES"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000031.aa000001"
+to = "e6be000000000026.ambient"
+name = "ATMOSPHERE"
+style = "automatic"
+
+[[wire]]
+from = "e6be000000000032.bb000002"
+to = "e6be000000000026.impact"
+name = "IMPACT"
+style = "automatic"

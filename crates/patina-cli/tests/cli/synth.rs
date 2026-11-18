@@ -16,7 +16,7 @@ fn the_synthesizer_plays_the_same_patch_in_edit_and_bake_and_has_live_controls()
     let mut previous = Vec::new();
     for mode in [Mode::Edit, Mode::Bake] {
         let mut cluster = checked.build(&toolchain, mode).unwrap();
-        assert!(cluster.set_params(opened.graph()).ok);
+        assert!(cluster.set_params(checked.graph()).ok);
         assert!(cluster.run(&control).ok);
         // The first scope frame has no audio yet. The controls still publish their settings.
         assert!(cluster.frame(&control).ok);
@@ -60,6 +60,31 @@ fn the_synthesizer_plays_the_same_patch_in_edit_and_bake_and_has_live_controls()
             "{:?}",
             result.params
         );
+        for scene in [1_u8, 2] {
+            let mut graph = checked.graph().clone();
+            graph
+                .node
+                .iter_mut()
+                .find(|node| node.id == "e6be000000000030")
+                .unwrap()
+                .params
+                .insert("scene".into(), scene.to_string());
+            assert!(cluster.set_params(&graph).ok);
+            assert!(cluster.frame(&control).ok);
+            let mut energy = 0.0_f32;
+            for block in 0..256 {
+                assert!(cluster.block(&control).ok);
+                let sound = cluster.sound().unwrap();
+                assert!(sound.iter().all(|v| v.is_finite() && v.abs() <= 0.7));
+                if block >= 64 {
+                    energy += sound.iter().map(|v| v * v).sum::<f32>();
+                }
+                if block % 3 == 0 {
+                    assert!(cluster.frame(&control).ok);
+                }
+            }
+            assert!(energy > 1.0, "scene {scene} is silent: {energy}");
+        }
         assert!(
             cluster.split().is_some(),
             "the audio graph needs its own thread"

@@ -7,8 +7,8 @@ An example needs useful modules, controls, inspection tools, and complete workfl
 The sound workbench must help a beginner learn synthesis and let a sound designer make useful sounds.
 
 The first instrument is [Ember](../examples/synth/README.md).
-Its first patch establishes the visual style, audio path, and control behavior.
-The next work expands its reusable library and adds export.
+Its three patches share 34 node types, instrument panels, and a reusable DSP library.
+The next work adds audio export.
 
 ## Panel design
 
@@ -35,7 +35,9 @@ This avoids shrinking a complex panel until its controls become difficult to use
 | Filter response | Ember response preview | Show cutoff and resonance beside the controls |
 | Oscilloscope | Ember frame node | Display actual samples, with an honest time scale |
 | Spectrum and meters | Ember frame node | Actual spectrum, peak, and RMS with clear units |
-| Mixer | Shared numeric fields are available | Add a focused level panel when the expanded patches need it |
+| Mixer | Workbench master and drum knobs; four-input audio mixer | Use the Inspector for individual mixer levels |
+| General parameter knob | Ember Control node | Configurable range, name, and logarithmic response |
+| Patch selection | Ember Console node | Smooth scene changes and a clear active patch |
 | Automation | Patina has curve and timeline controls | Reuse these controls when a sound workflow needs automation |
 | Sample display | Patina has waveform and asset controls | Connect them to a tested import and playback path before claiming sample editing |
 
@@ -48,7 +50,7 @@ Do not duplicate existing SDK controls to change their appearance.
 The first patch includes a score, clock, twin oscillator, amplitude envelope, resonant filter, echo, drums, output, and scope.
 The sound library also needs independent building blocks that users can connect in other ways.
 
-The next library group covers these tasks:
+The implemented library covers these tasks:
 
 - Generate tones and noise.
 - Generate LFOs and independent envelopes.
@@ -56,7 +58,8 @@ The next library group covers these tasks:
 - Mix signals and control their amplitude.
 - Filter audio with external modulation.
 - Add saturation, reduced bit depth, chorus, and reverb.
-- Export rendered audio without opening a sound device.
+
+The three patches exercise these modules together. Audio export remains the next workflow.
 
 Provide example patches that use the modules together. A list of unused node names does not prove a useful workflow.
 
@@ -68,8 +71,10 @@ Test finite output, silence, note release, filter rejection, repeatability, and 
 Measure processing time and allocations after the pools warm.
 Distinguish numerical checks from listening checks.
 
-The first DSP check measured 0.016 ms mean and p95 per block on Windows.
-It counted zero warm allocations. Edit and Bake produced matching output samples.
+The core DSP check measured 0.015 ms mean and 0.016 ms p95 per block on Windows.
+The expanded 15-processor check measured 0.030 ms mean and 0.032 ms p95. Both counted zero warm allocations.
+Tests cover filter rejection, compressor gain, DC removal, reverb decay, oscillator transitions, and reduced saturation aliasing.
+Edit and Bake produced matching phrase samples. Both modes produced finite audio from all three scenes.
 Speaker playback and other operating systems were not checked by this task.
 
 ## References

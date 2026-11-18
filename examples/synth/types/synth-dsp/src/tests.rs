@@ -164,7 +164,7 @@ fn measure_the_warm_audio_path() {
 }
 
 // The test allocator measures this thread only. It is not part of the instrument library.
-mod allocations {
+pub(super) mod allocations {
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
     thread_local! {

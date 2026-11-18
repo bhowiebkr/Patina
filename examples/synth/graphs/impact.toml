@@ -1,0 +1,268 @@
+format = 1
+style = "automatic"
+
+[symbol]
+shape = "chip"
+label = "IMPACT"
+
+[[node]]
+id = "e6beb00000000001"
+folder = "nodes/control"
+pos = [0.0, 0.0]
+
+[node.params]
+value = "0.12"
+low = "0.02"
+high = "1"
+logarithmic = "true"
+label = "DECAY / s"
+
+[[node]]
+id = "e6beb00000000002"
+folder = "nodes/control"
+pos = [220.0, 0.0]
+
+[node.params]
+value = "3.5"
+low = "1"
+high = "12"
+logarithmic = "true"
+label = "DRIVE"
+
+[[node]]
+id = "e6beb00000000003"
+folder = "nodes/control"
+pos = [440.0, 0.0]
+
+[node.params]
+value = "0.18"
+low = "0"
+high = "1"
+logarithmic = "false"
+label = "ROOM / WET"
+
+[[node]]
+id = "e6beb00000000004"
+folder = "nodes/transpose"
+pos = [0.0, 300.0]
+
+[node.params]
+semitones = "0"
+
+[[node]]
+id = "e6beb00000000005"
+folder = "nodes/adsr"
+pos = [280.0, 300.0]
+
+[node.params]
+attack = "0.002"
+decay = "0.12"
+sustain = "0"
+release = "0.08"
+
+[[node]]
+id = "e6beb00000000006"
+folder = "nodes/noise"
+pos = [560.0, 300.0]
+
+[node.params]
+color = "0"
+level = "0.7"
+seed = "293"
+
+[[node]]
+id = "e6beb00000000007"
+folder = "nodes/vco"
+pos = [840.0, 300.0]
+
+[node.params]
+hz = "70"
+depth = "3.5"
+shape = "0"
+
+[[node]]
+id = "e6beb00000000008"
+folder = "nodes/constant"
+pos = [0.0, 650.0]
+
+[node.params]
+value = "0"
+
+[[node]]
+id = "e6beb00000000009"
+folder = "nodes/mixer"
+pos = [280.0, 650.0]
+
+[node.params]
+a_level = "0.65"
+b_level = "0.5"
+c_level = "0"
+d_level = "0"
+
+[[node]]
+id = "e6beb0000000000a"
+folder = "nodes/vca"
+pos = [560.0, 650.0]
+
+[node.params]
+level = "1"
+bias = "0"
+
+[[node]]
+id = "e6beb0000000000b"
+folder = "nodes/svf"
+pos = [840.0, 650.0]
+
+[node.params]
+cutoff = "900"
+resonance = "0.35"
+depth = "2"
+mode = "0"
+
+[[node]]
+id = "e6beb0000000000c"
+folder = "nodes/saturator"
+pos = [0.0, 1020.0]
+
+[node.params]
+drive = "3.5"
+mix = "0.7"
+
+[[node]]
+id = "e6beb0000000000d"
+folder = "nodes/crusher"
+pos = [280.0, 1020.0]
+
+[node.params]
+bits = "12"
+rate = "24000"
+mix = "0.12"
+
+[[node]]
+id = "e6beb0000000000e"
+folder = "nodes/dc-block"
+pos = [560.0, 1020.0]
+
+[[node]]
+id = "e6beb0000000000f"
+folder = "nodes/compressor"
+pos = [840.0, 1020.0]
+
+[node.params]
+threshold = "-16"
+ratio = "3"
+attack = "0.005"
+release = "0.15"
+makeup = "3"
+
+[[node]]
+id = "e6beb00000000010"
+folder = "nodes/reverb"
+pos = [1120.0, 1020.0]
+
+[node.params]
+decay = "0.7"
+damping = "0.6"
+mix = "0.18"
+
+[[wire]]
+from = "e6beb00000000004.out"
+to = "e6beb00000000005.notes"
+name = "NOTES"
+
+[[wire]]
+from = "e6beb00000000001.out"
+to = "e6beb00000000005.decay"
+name = "DECAY"
+
+[[wire]]
+from = "e6beb00000000005.out"
+to = "e6beb00000000007.pitch"
+name = "ENVELOPE"
+
+[[wire]]
+from = "e6beb00000000006.out"
+to = "e6beb00000000009.a"
+name = "NOISE"
+
+[[wire]]
+from = "e6beb00000000007.out"
+to = "e6beb00000000009.b"
+name = "TONE"
+
+[[wire]]
+from = "e6beb00000000008.out"
+to = "e6beb00000000009.c"
+name = "ZERO"
+
+[[wire]]
+from = "e6beb00000000008.out"
+to = "e6beb00000000009.d"
+name = "ZERO"
+
+[[wire]]
+from = "e6beb00000000009.out"
+to = "e6beb0000000000a.sound"
+name = "MIX"
+
+[[wire]]
+from = "e6beb00000000005.out"
+to = "e6beb0000000000a.cv"
+name = "ENVELOPE"
+
+[[wire]]
+from = "e6beb0000000000a.out"
+to = "e6beb0000000000b.sound"
+name = "VOICE"
+
+[[wire]]
+from = "e6beb00000000005.out"
+to = "e6beb0000000000b.cv"
+name = "ENVELOPE"
+
+[[wire]]
+from = "e6beb0000000000b.out"
+to = "e6beb0000000000c.sound"
+name = "FILTERED"
+
+[[wire]]
+from = "e6beb00000000002.out"
+to = "e6beb0000000000c.drive"
+name = "DRIVE"
+
+[[wire]]
+from = "e6beb0000000000c.out"
+to = "e6beb0000000000d.sound"
+name = "DRIVE"
+
+[[wire]]
+from = "e6beb0000000000d.out"
+to = "e6beb0000000000e.sound"
+name = "CRUSH"
+
+[[wire]]
+from = "e6beb0000000000e.out"
+to = "e6beb0000000000f.sound"
+name = "CLEAN"
+
+[[wire]]
+from = "e6beb0000000000f.out"
+to = "e6beb00000000010.sound"
+name = "DYNAMICS"
+
+[[wire]]
+from = "e6beb00000000003.out"
+to = "e6beb00000000010.mix"
+name = "ROOM"
+
+[[input]]
+key = "bb000001"
+name = "notes"
+pos = [-260, 330]
+to = ["e6beb00000000004.notes"]
+
+[[output]]
+key = "bb000002"
+name = "sound"
+pos = [1400, 1050]
+from = "e6beb00000000010.out"

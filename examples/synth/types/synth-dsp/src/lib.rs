@@ -8,7 +8,13 @@ use std::sync::{
 };
 
 mod effects;
+mod modulation;
+mod processors;
 mod rhythm;
+mod space;
+pub use modulation::{Adsr, Attenuverter, DcBlock, Lfo, Mixer, Noise, SampleHold, Slew, Vca, Vco};
+pub use processors::{Compressor, Crusher, Dynamics, Saturator, Svf};
+pub use space::{Chorus, Reverb};
 mod voice;
 pub use effects::{Echo, Filter};
 pub use rhythm::{Clock, Drums};
@@ -199,3 +205,6 @@ pub fn frequency(midi: u8) -> f32 {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod library_tests;

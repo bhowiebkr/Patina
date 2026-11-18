@@ -8,6 +8,7 @@ pub struct Oscillator {
     hz: f32,
     detune: f32,
     sub: f32,
+    shapes: [WaveShape; 2],
 }
 impl Oscillator {
     pub fn process(&mut self, notes: &Notes, settings: &Tone) -> AudioBlock {
@@ -28,8 +29,8 @@ impl Oscillator {
                 self.hz * self.detune / RATE,
                 self.hz * 0.5 / RATE,
             ];
-            let a = wave(self.phase[0], delta[0], settings.shape);
-            let b = wave(self.phase[1], delta[1], settings.shape);
+            let a = self.shapes[0].next(self.phase[0], delta[0], settings.shape);
+            let b = self.shapes[1].next(self.phase[1], delta[1], settings.shape);
             let bass = (self.phase[2] * TAU).sin();
             for (phase, d) in self.phase.iter_mut().zip(delta) {
                 *phase = (*phase + d).fract();
@@ -57,7 +58,17 @@ pub fn wave(t: f32, dt: f32, shape: u8) -> f32 {
         0 => (t * TAU).sin(),
         1 => t * 2.0 - 1.0 - blep(t, dt),
         2 => (if t < 0.5 { 1.0 } else { -1.0 }) + blep(t, dt) - blep((t + 0.5).fract(), dt),
-        _ => 1.0 - 4.0 * (t - 0.5).abs(),
+        _ => {
+            let mut sum = 0.0;
+            for harmonic in (1..=31).step_by(2) {
+                let h = harmonic as f32;
+                if h * dt >= 0.5 {
+                    break;
+                }
+                sum += (TAU * t * h).cos() / (h * h);
+            }
+            -8.0 / std::f32::consts::PI.powi(2) * sum
+        }
     }
 }
 
@@ -102,5 +113,37 @@ impl Envelope {
             }
             input[i] * self.level * 0.65
         })
+    }
+}
+
+/// A five-millisecond crossfade prevents an abrupt change when a waveform button changes.
+#[derive(Default)]
+pub(crate) struct WaveShape {
+    current: u8,
+    previous: u8,
+    blend: f32,
+    ready: bool,
+}
+impl WaveShape {
+    pub(crate) fn next(&mut self, phase: f32, step: f32, shape: u8) -> f32 {
+        let shape = shape.min(3);
+        if !self.ready {
+            self.current = shape;
+            self.previous = shape;
+            self.blend = 1.0;
+            self.ready = true;
+        }
+        if shape != self.current {
+            self.previous = self.current;
+            self.current = shape;
+            self.blend = 0.0;
+        }
+        self.blend = (self.blend + 1.0 / 240.0).min(1.0);
+        let current = wave(phase, step, self.current);
+        if self.blend == 1.0 {
+            current
+        } else {
+            wave(phase, step, self.previous) * (1.0 - self.blend) + current * self.blend
+        }
     }
 }

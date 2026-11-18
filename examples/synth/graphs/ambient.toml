@@ -1,0 +1,301 @@
+format = 1
+style = "automatic"
+
+[symbol]
+shape = "chip"
+label = "ATMOSPHERE"
+
+[[node]]
+id = "e6bea00000000001"
+folder = "nodes/control"
+pos = [0.0, 0.0]
+
+[node.params]
+value = "850"
+low = "60"
+high = "6000"
+logarithmic = "true"
+label = "CUTOFF / Hz"
+
+[[node]]
+id = "e6bea00000000002"
+folder = "nodes/control"
+pos = [220.0, 0.0]
+
+[node.params]
+value = "0.35"
+low = "0"
+high = "1"
+logarithmic = "false"
+label = "ROOM / WET"
+
+[[node]]
+id = "e6bea00000000003"
+folder = "nodes/control"
+pos = [440.0, 0.0]
+
+[node.params]
+value = "0.09"
+low = "0.01"
+high = "3"
+logarithmic = "true"
+label = "MOTION / Hz"
+
+[[node]]
+id = "e6bea00000000004"
+folder = "nodes/note"
+pos = [660.0, 0.0]
+
+[node.params]
+hz = "65.4064"
+gate = "true"
+
+[[node]]
+id = "e6bea00000000005"
+folder = "nodes/noise"
+pos = [0.0, 300.0]
+
+[node.params]
+color = "1"
+level = "0.3"
+seed = "137"
+
+[[node]]
+id = "e6bea00000000006"
+folder = "nodes/lfo"
+pos = [280.0, 300.0]
+
+[node.params]
+rate = "0.09"
+shape = "0"
+depth = "0.5"
+offset = "0"
+
+[[node]]
+id = "e6bea00000000007"
+folder = "nodes/sample-hold"
+pos = [560.0, 300.0]
+
+[[node]]
+id = "e6bea00000000008"
+folder = "nodes/slew"
+pos = [840.0, 300.0]
+
+[node.params]
+rise = "0.8"
+fall = "0.8"
+
+[[node]]
+id = "e6bea00000000009"
+folder = "nodes/constant"
+pos = [0.0, 620.0]
+
+[node.params]
+value = "0"
+
+[[node]]
+id = "e6bea0000000000a"
+folder = "nodes/vco"
+pos = [280.0, 620.0]
+
+[node.params]
+hz = "65.4064"
+depth = "0.7"
+shape = "1"
+
+[[node]]
+id = "e6bea0000000000b"
+folder = "nodes/vco"
+pos = [560.0, 620.0]
+
+[node.params]
+hz = "98"
+depth = "0.25"
+shape = "3"
+
+[[node]]
+id = "e6bea0000000000c"
+folder = "nodes/adsr"
+pos = [840.0, 620.0]
+
+[node.params]
+attack = "0.8"
+decay = "1.2"
+sustain = "0.8"
+release = "2"
+
+[[node]]
+id = "e6bea0000000000d"
+folder = "nodes/mixer"
+pos = [0.0, 960.0]
+
+[node.params]
+a_level = "0.4"
+b_level = "0.3"
+c_level = "0.04"
+d_level = "0"
+
+[[node]]
+id = "e6bea0000000000e"
+folder = "nodes/svf"
+pos = [280.0, 960.0]
+
+[node.params]
+cutoff = "850"
+resonance = "0.5"
+depth = "2"
+mode = "0"
+
+[[node]]
+id = "e6bea0000000000f"
+folder = "nodes/saturator"
+pos = [560.0, 960.0]
+
+[node.params]
+drive = "2.2"
+mix = "0.4"
+
+[[node]]
+id = "e6bea00000000010"
+folder = "nodes/chorus"
+pos = [840.0, 960.0]
+
+[node.params]
+rate = "0.18"
+depth = "0.005"
+mix = "0.6"
+
+[[node]]
+id = "e6bea00000000011"
+folder = "nodes/reverb"
+pos = [560.0, 1280.0]
+
+[node.params]
+decay = "4.2"
+damping = "0.4"
+mix = "0.35"
+
+[[node]]
+id = "e6bea00000000012"
+folder = "nodes/vca"
+pos = [840.0, 1280.0]
+
+[node.params]
+level = "1"
+bias = "0"
+
+[[node]]
+id = "e6bea00000000013"
+folder = "nodes/dc-block"
+pos = [1120.0, 1280.0]
+
+[[wire]]
+from = "e6bea00000000003.out"
+to = "e6bea00000000006.rate"
+name = "RATE"
+
+[[wire]]
+from = "e6bea00000000005.out"
+to = "e6bea00000000007.signal"
+name = "RANDOM"
+
+[[wire]]
+from = "e6bea00000000006.out"
+to = "e6bea00000000007.trigger"
+name = "LFO"
+
+[[wire]]
+from = "e6bea00000000007.out"
+to = "e6bea00000000008.signal"
+name = "HELD"
+
+[[wire]]
+from = "e6bea00000000008.out"
+to = "e6bea0000000000a.pitch"
+name = "PITCH"
+
+[[wire]]
+from = "e6bea00000000008.out"
+to = "e6bea0000000000b.pitch"
+name = "PITCH"
+
+[[wire]]
+from = "e6bea00000000004.out"
+to = "e6bea0000000000c.notes"
+name = "GATE"
+
+[[wire]]
+from = "e6bea0000000000a.out"
+to = "e6bea0000000000d.a"
+name = "ROOT"
+
+[[wire]]
+from = "e6bea0000000000b.out"
+to = "e6bea0000000000d.b"
+name = "FIFTH"
+
+[[wire]]
+from = "e6bea00000000005.out"
+to = "e6bea0000000000d.c"
+name = "AIR"
+
+[[wire]]
+from = "e6bea00000000009.out"
+to = "e6bea0000000000d.d"
+name = "ZERO"
+
+[[wire]]
+from = "e6bea0000000000d.out"
+to = "e6bea0000000000e.sound"
+name = "MIX"
+
+[[wire]]
+from = "e6bea00000000006.out"
+to = "e6bea0000000000e.cv"
+name = "LFO"
+
+[[wire]]
+from = "e6bea00000000001.out"
+to = "e6bea0000000000e.cutoff"
+name = "CUTOFF"
+
+[[wire]]
+from = "e6bea0000000000e.out"
+to = "e6bea0000000000f.sound"
+name = "FILTERED"
+
+[[wire]]
+from = "e6bea0000000000f.out"
+to = "e6bea00000000010.sound"
+name = "DRIVE"
+
+[[wire]]
+from = "e6bea00000000010.out"
+to = "e6bea00000000011.sound"
+name = "CHORUS"
+
+[[wire]]
+from = "e6bea00000000002.out"
+to = "e6bea00000000011.mix"
+name = "ROOM"
+
+[[wire]]
+from = "e6bea00000000011.out"
+to = "e6bea00000000012.sound"
+name = "SPACE"
+
+[[wire]]
+from = "e6bea0000000000c.out"
+to = "e6bea00000000012.cv"
+name = "ENVELOPE"
+
+[[wire]]
+from = "e6bea00000000012.out"
+to = "e6bea00000000013.sound"
+name = "VOICE"
+
+[[output]]
+key = "aa000001"
+name = "sound"
+pos = [1400, 1310]
+from = "e6bea00000000013.out"

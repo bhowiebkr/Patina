@@ -3,6 +3,30 @@
 version = 4
 
 [[package]]
+name = "adsr"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "attenuverter"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "chorus"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
 name = "clock"
 version = "0.1.0"
 dependencies = [
@@ -20,10 +44,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "compressor"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "console"
+version = "0.1.0"
+dependencies = [
+ "panel",
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "constant"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
 name = "contour"
 version = "0.1.0"
 dependencies = [
  "panel",
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "control"
+version = "0.1.0"
+dependencies = [
+ "panel",
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "crusher"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "dc-block"
+version = "0.1.0"
+dependencies = [
  "patina-sdk",
  "synth-dsp",
 ]
@@ -54,6 +128,38 @@ dependencies = [
 
 [[package]]
 name = "filter"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "lfo"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "mixer"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "noise"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "note"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",
@@ -94,12 +200,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "reverb"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "sample-hold"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "saturator"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
 name = "scope"
 version = "0.1.0"
 dependencies = [
  "panel",
  "patina-sdk",
- "synth-dsp",
 ]
 
 [[package]]
@@ -112,10 +241,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "slew"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
 name = "space"
 version = "0.1.0"
 dependencies = [
  "panel",
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "svf"
+version = "0.1.0"
+dependencies = [
  "patina-sdk",
  "synth-dsp",
 ]
@@ -132,6 +277,30 @@ name = "timbre"
 version = "0.1.0"
 dependencies = [
  "panel",
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "transpose"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "vca"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "vco"
+version = "0.1.0"
+dependencies = [
  "patina-sdk",
  "synth-dsp",
 ]

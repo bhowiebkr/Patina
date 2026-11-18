@@ -1,9 +1,9 @@
 use super::{Color, RATE, Space, finite};
+use crate::processors::Integrators;
 use patina_sdk::AudioBlock;
 
 pub struct Filter {
-    ic1: f32,
-    ic2: f32,
+    core: Integrators,
     phase: f32,
     cutoff: f32,
     resonance: f32,
@@ -11,8 +11,7 @@ pub struct Filter {
 impl Default for Filter {
     fn default() -> Self {
         Self {
-            ic1: 0.0,
-            ic2: 0.0,
+            core: Integrators::default(),
             phase: 0.0,
             cutoff: 1600.0,
             resonance: 0.4,
@@ -33,12 +32,7 @@ impl Filter {
             self.resonance += (resonance - self.resonance) * 0.002;
             let g = (std::f32::consts::PI * self.cutoff / RATE).tan();
             let k = 2.0 - 1.9 * self.resonance;
-            let a = 1.0 / (1.0 + g * (g + k));
-            let v1 = a * (self.ic1 + g * (input[i] - self.ic2));
-            let v2 = self.ic2 + g * v1;
-            self.ic1 = 2.0 * v1 - self.ic1;
-            self.ic2 = 2.0 * v2 - self.ic2;
-            v2
+            self.core.next(input[i], g, k)[0]
         })
     }
 }
