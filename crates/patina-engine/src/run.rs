@@ -8,7 +8,7 @@ use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter};
 
 use crate::library::{Calling, Library, Sink, clock, collect, lock};
-use crate::outcome::{Outcome, fill};
+use crate::outcome::{Outcome, Spare, fill};
 use crate::node::Domain;
 use crate::pool::{self, Work};
 
@@ -18,6 +18,7 @@ use crate::pool::{self, Work};
 pub(crate) struct Calls {
     pub(crate) sink: Sink,
     pub(crate) out: Outcome,
+    pub(crate) spare: Spare,
 }
 
 impl Calls {
@@ -26,7 +27,7 @@ impl Calls {
         let reporter = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
         let _calling = Calling::new(control);
         let ok = f(&reporter);
-        fill(&mut self.out, ok, &self.sink, names, probes);
+        fill(&mut self.out, &mut self.spare, ok, &self.sink, names, probes);
     }
 }
 
@@ -86,6 +87,8 @@ impl Run<'_> {
 /// GUIs and the reads of the views. It also runs the blocks when no other thread runs them.
 pub struct Frames<'a> {
     pub(crate) run: Run<'a>,
+    /// The calls of `ui`, apart from the frames, so that the outcome of the last frame stays.
+    pub(crate) gui: &'a mut Calls,
     pub(crate) nodes: Nodes<'a>,
     /// The audio domain, when this thread runs the blocks between the frames.
     pub(crate) audio: Option<Audio<'a>>,
@@ -125,13 +128,14 @@ impl Frames<'_> {
         let Some(n) = names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
         let (Some(library), Ok(node)) = (self.nodes.owner(n), u32::try_from(n)) else { return (None, Outcome::default()) };
         let (state, ui) = (library.state, library.ui);
-        let calls = &mut *self.run.calls;
+        let calls = &mut *self.gui;
         calls.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run of this thread is active, the
         // audio thread never calls the library of a node that is not an audio node, and `events`
         // and the reporter are valid during the call.
         calls.call(names, probes, control, |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
         let tree = calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
+        // A GUI call reports little, so the caller gets its lists.
         let mut out = std::mem::take(&mut calls.out);
         let edits = calls.sink.iter().filter(|&(_, kind, _)| kind == glue::EDIT).filter_map(|(_, _, text)| text.split_once('\t'));
         out.params = edits.map(|(key, text)| (key.to_owned(), text.to_owned())).collect();

@@ -9,7 +9,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::time::Instant;
 
-use patina_engine::{Control, Lanes, Mode, Project, Toolchain};
+use patina_engine::{Cluster, Control, Lanes, Mode, Project, Toolchain};
 
 mod nodes;
 use nodes::{HOLD, KIND, METER, MIX, SPEAKER, TICK, TONE, ZERO};
@@ -125,17 +125,30 @@ builtin = \"delay\"
     assert_eq!(stdout.lines().collect::<Vec<_>>(), ["6.5", "7.5", "9.5", "13.5"]);
 
     // After the first frames, a frame does not allocate (9.1). The two frame tasks wait for each
-    // other, so this thread runs both. The values, the lanes and the times are in each frame.
+    // other, so this thread runs both. The values, the lanes and the times are in each frame. As
+    // in the editor, three quiet frames come before each frame with values, and the GUI of tick
+    // draws after it.
     let opened = Project::open(&project).unwrap();
     let (mut cluster, control) = (opened.check().unwrap().build(&toolchain, Mode::Edit).unwrap(), Control::default());
     cluster.set_params(opened.graph());
     assert!(cluster.run(&control).ok);
-    let warm = (0..10).all(|_| cluster.frame(&control).ok);
+    let frames = |cluster: &mut Cluster, count: u32| {
+        (0..count).all(|i| {
+            control.set_quiet(i % 4 != 3);
+            COUNTING.set(true);
+            let ok = cluster.frame(&control).ok;
+            COUNTING.set(false);
+            ok && (i % 4 != 3 || cluster.ui(&control, "00000000000000f1", 0, "").0.is_some())
+        })
+    };
+    let warm = frames(&mut cluster, 12);
+    ALLOCATIONS.set(0);
     COUNTING.set(true);
     drop(std::hint::black_box(Box::new(1)));
-    let boxed = ALLOCATIONS.replace(0);
-    let ok = (0..100).all(|_| cluster.frame(&control).ok);
     COUNTING.set(false);
+    let boxed = ALLOCATIONS.replace(0);
+    let ok = frames(&mut cluster, 100);
+    control.set_quiet(false);
     let frame = cluster.frame(&control);
     assert!(warm && ok && frame.values.iter().any(|v| v.lanes.is_some()) && !frame.times.is_empty());
     assert_eq!((boxed, ALLOCATIONS.get()), (1, 0), "one box, then the allocations of 100 frames");

@@ -143,9 +143,21 @@ pub struct Outcome {
     pub params: Vec<(String, String)>,
 }
 
+/// The items that `fill` took off the ends of the lists of an outcome. The next `fill` uses them
+/// again, so a quiet frame (9.1) with no values does not free the texts of the values.
+#[derive(Default)]
+pub(crate) struct Spare {
+    reports: Vec<Report>,
+    values: Vec<Value>,
+    ids: Vec<String>,
+    times: Vec<NodeTime>,
+    logs: Vec<NodeLog>,
+}
+
 /// Splits the reports of one call into the problems of nodes and the live values. It fills the
-/// lists of `out` again and keeps their texts, so it does not allocate after the first frames.
-pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, String)], probes: &[String]) {
+/// lists of `out` again and keeps their texts in `out` and `spare`, so it does not allocate after
+/// the first frames.
+pub(crate) fn fill(out: &mut Outcome, spare: &mut Spare, ok: bool, sink: &Sink, names: &[(String, String)], probes: &[String]) {
     let (mut reports, mut values, mut skipped, mut stopped, mut times, mut logs) = (0, 0, 0, 0, 0, 0);
     let mut items = sink.iter().peekable();
     while let Some((index, kind, text)) = items.next() {
@@ -154,13 +166,13 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
             glue::SKIPPED | glue::STOPPED => {
                 let (list, used) = if kind == glue::SKIPPED { (&mut out.skipped, &mut skipped) } else { (&mut out.stopped, &mut stopped) };
                 if let Some((id, _)) = name {
-                    put(reuse(list, used), id);
+                    put(reuse(list, used, &mut spare.ids), id);
                 }
             }
             glue::VALUE => {
                 // Only a defective cluster sends an unknown index, and its value has no wire to show on.
                 let Some(from) = probes.get(index as usize) else { continue };
-                let value = reuse(&mut out.values, &mut values);
+                let value = reuse(&mut out.values, &mut values, &mut spare.values);
                 put(&mut value.from, from);
                 put(&mut value.text, text);
                 // The thumbnail, the widgets and the lanes come after the text of the same value.
@@ -180,7 +192,7 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
                 let (ns, end, thread) = (parts.next().flatten(), parts.next().flatten(), parts.next().flatten());
                 // A defective cluster can send a bad text or index. Its time has no node to show on.
                 if let (Some((id, _)), Some(ns)) = (name, ns) {
-                    let time = reuse(&mut out.times, &mut times);
+                    let time = reuse(&mut out.times, &mut times, &mut spare.times);
                     put(&mut time.id, id);
                     time.ms = ns as f64 / 1e6;
                     time.start = end.map_or(0, |end| end.saturating_sub(ns).saturating_sub(sink.begin)) as f64 / 1e6;
@@ -190,7 +202,7 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
             glue::LOG => {
                 // A defective cluster can send a bad text or index. Its line has no node to show on.
                 if let (Some((id, folder)), Some((level, text))) = (name, text.split_once(' ')) {
-                    let log = reuse(&mut out.logs, &mut logs);
+                    let log = reuse(&mut out.logs, &mut logs, &mut spare.logs);
                     put(&mut log.id, id);
                     put(&mut log.folder, folder);
                     put(&mut log.level, level);
@@ -198,7 +210,7 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
                 }
             }
             _ => {
-                let report = reuse(&mut out.reports, &mut reports);
+                let report = reuse(&mut out.reports, &mut reports, &mut spare.reports);
                 let (id, folder) = name.map_or(("", ""), |(id, folder)| (id.as_str(), folder.as_str()));
                 put(&mut report.id, id);
                 put(&mut report.folder, folder);
@@ -212,18 +224,17 @@ pub(crate) fn fill(out: &mut Outcome, ok: bool, sink: &Sink, names: &[(String, S
         }
     }
     out.ok = ok;
-    out.reports.truncate(reports);
-    out.values.truncate(values);
-    out.skipped.truncate(skipped);
-    out.stopped.truncate(stopped);
-    out.times.truncate(times);
-    out.logs.truncate(logs);
+    spare.reports.extend(out.reports.drain(reports..));
+    spare.values.extend(out.values.drain(values..));
+    spare.ids.extend(out.skipped.drain(skipped..).chain(out.stopped.drain(stopped..)));
+    spare.times.extend(out.times.drain(times..));
+    spare.logs.extend(out.logs.drain(logs..));
 }
 
-/// The next item of `list` to fill: an old item that keeps its texts, or a new item.
-fn reuse<'a, T: Default>(list: &'a mut Vec<T>, used: &mut usize) -> &'a mut T {
+/// The next item of `list` to fill: an old item that keeps its texts, a spare item, or a new item.
+fn reuse<'a, T: Default>(list: &'a mut Vec<T>, used: &mut usize, spare: &mut Vec<T>) -> &'a mut T {
     if *used == list.len() {
-        list.push(T::default());
+        list.push(spare.pop().unwrap_or_default());
     }
     *used += 1;
     &mut list[*used - 1]
@@ -251,8 +262,8 @@ mod tests {
         let n = 1000u32;
         let names: Vec<(String, String)> = (0..n).map(|i| (format!("n{i}"), "number".to_owned())).collect();
         let probes: Vec<String> = (0..n).map(|i| format!("n{i}.out")).collect();
-        let (mut sink, mut out) = (Sink::default(), Outcome::default());
-        let frame = |sink: &mut Sink, out: &mut Outcome| {
+        let (mut sink, mut out, mut spare) = (Sink::default(), Outcome::default(), Spare::default());
+        let mut frame = |sink: &mut Sink, out: &mut Outcome| {
             sink.clear();
             let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: std::ptr::null() };
             for i in 0..n {
@@ -261,7 +272,7 @@ mod tests {
                 };
                 glue::send_value(&rep, i, &(f64::from(i) * 0.1), (text, None));
             }
-            fill(out, true, sink, &names, &probes);
+            fill(out, &mut spare, true, sink, &names, &probes);
         };
         for _ in 0..3 {
             frame(&mut sink, &mut out);
@@ -300,8 +311,8 @@ mod tests {
             (0, glue::LOG, "INFO"),
             (5, glue::LOG, "INFO x"),
         ]);
-        let mut out = Outcome::default();
-        fill(&mut out, false, &run, &names, &probes);
+        let (mut out, mut spare) = (Outcome::default(), Spare::default());
+        fill(&mut out, &mut spare, false, &run, &names, &probes);
         assert!(out.skipped.is_empty() && out.stopped.is_empty());
         assert_eq!(out.logs.iter().map(ToString::to_string).collect::<Vec<_>>(), ["Node a1 (number): INFO two words"]);
         assert_eq!(out.times, [NodeTime { id: "a1".to_owned(), ms: 2.5, start: 1.5, thread: 3 }]);
@@ -323,12 +334,15 @@ mod tests {
         assert_eq!(out.reports.len(), 1);
         assert_eq!((out.reports[0].folder.as_str(), out.reports[0].kind), ("number", ReportKind::Panic));
 
-        // A second fill keeps the texts of the first fill, and a shorter list drops the rest.
+        // A second fill keeps the texts of the first fill. A shorter list keeps the rest as spare
+        // items, and a longer list uses them again.
         let text = out.values[0].text.as_ptr();
-        fill(&mut out, false, &run, &names, &probes);
+        fill(&mut out, &mut spare, false, &run, &names, &probes);
         assert_eq!(out.values[0].text.as_ptr(), text, "the text of the value keeps its buffer");
-        fill(&mut out, true, &sink(&[(0, glue::SKIPPED, ""), (0, glue::STOPPED, ""), (9, glue::STOPPED, "")]), &names, &probes);
+        fill(&mut out, &mut spare, true, &sink(&[(0, glue::SKIPPED, ""), (0, glue::STOPPED, ""), (9, glue::STOPPED, "")]), &names, &probes);
         assert!(out.ok && out.values.is_empty() && out.reports.is_empty() && out.times.is_empty() && out.logs.is_empty());
         assert_eq!((&out.skipped[..], &out.stopped[..]), (&["a1".to_owned()][..], &["a1".to_owned()][..]));
+        fill(&mut out, &mut spare, false, &run, &names, &probes);
+        assert_eq!(out.values[0].text.as_ptr(), text, "the value of a spare item keeps its buffer");
     }
 }

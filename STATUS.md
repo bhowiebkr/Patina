@@ -109,6 +109,14 @@ editor with the built page, on the Windows 11 computer of the owner.
   - In the debug editor page, a move went from about 500 ms to 31 ms, and an undo to 30 ms. An
     open of the graph takes 135 ms, because it runs the check. In release, a move needs about
     6 ms in the engine.
+- Frame loop of the editor on the computer example, 2026-11-17. A temporary allocation counter
+  measured each shown frame of a hidden `--shot`. A game ran in the background.
+  - The frame of the engine part went from 1332 to 12 allocations (65 bytes). The reports and
+    the GUI calls now reuse their buffers. The CLI test graph gives 0.
+  - The values and the event for the page went from 8320 allocations (803 KB) and 4.5 ms to
+    9 allocations (16.8 KB) and 2.6 ms. About 787 values change in each frame.
+  - The event now borrows the lists of the frame, and the copies for the subgraph pins reuse
+    their buffers. The rest of the time is the JSON of the badges in the debug build.
 
 ## Known limits
 
@@ -383,8 +391,10 @@ domain free of locks. These limits are still open:
 
 - The pool rule uses the node times of the last run. Thus, after a small run, the next run
   stays on one thread also when it is heavy. The measurement ran only on Windows.
-- The editor copies each frame into a JSON event for the page, so the frame loop of the editor
-  allocates. The frames of the engine and of the CLI do not allocate.
+- The frame loop of the editor allocates about 21 times for each shown frame on the computer
+  example: 12 times in the frame of the engine part, and 9 times for the list of changed values.
+  The CLI test graph gives 0, so the 12 are probably in the node code. The frames of the CLI do
+  not allocate.
 - The allocation test counts only the thread of the run. In the test graph, this thread runs
   all the frame tasks, because the second task waits for the first.
 - A text that is longer than the text of the last frame grows its buffer one time.
@@ -393,8 +403,6 @@ domain free of locks. These limits are still open:
 - A latest-value wire between the batch and the frame domain uses a slot with a lock (9.1).
   The batch run ends before the frames start, so the lock never waits.
 - A batch value that a frame node reads stays after the frames end, until the next batch run.
-- These shortcuts are open in the code:
-  - The editor copies each frame into a JSON event (`crates/patina-editor/src/engine.rs`).
 - The worker threads of a parallel run wake about 60 us after the run starts. The calling thread
   spins for up to 200 us at the end, so it does not wait for its own wake (fixed 2026-11-16).
   Eight separate tasks of 22 us now run 1.7 to 1.8 times faster than one task, and eight tasks
@@ -605,7 +613,6 @@ Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list t
 - `crates/patina-editor/frontend/src/wires/WireEdge.tsx:150`: The SVG fallback has no crossing gaps. Add a mask when the fallback is more than a lost context.
 - `crates/patina-editor/frontend/src/wires/wires.ts:359`: A path with more than `MAX_POINTS` - 2 bends draws only its first bends. Split the row when this matters.
 - `crates/patina-editor/frontend/src/wires/wires.ts:561`: A new lane state builds the instances of all wires again. Put the lane states in a texture for larger graphs.
-- `crates/patina-editor/src/engine/frame.rs:96`: The editor copies each frame into a JSON event, so its frame loop allocates. Send a binary frame when more FPS is needed.
 - `crates/patina-editor/src/engine.rs:518`: No event runs when the slot holds a value that is not `Sync`, an event node and a node of another domain. Give event nodes their own slot library.
 - `crates/patina-editor/src/engine.rs:614`: When a library is not parallel, the blocks run between the frames, so a slow frame makes them late. Give such a graph its own thread.
 - `crates/patina-editor/src/session/check.rs:47`: Screenshots work only on Windows. Add a path for Linux when the check runs there.

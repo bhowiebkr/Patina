@@ -4,7 +4,8 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use patina_engine::clock;
-use patina_engine::{Control, Frames, Report, Value};
+use patina_engine::{Control, Frames, Lanes, NodeLog, NodeTime, Report, Value};
+use serde::{Serialize, Serializer};
 
 use super::blocks::Blocks;
 use super::{Event, GuiInput, ParamWrite, Shared, Tree, lock};
@@ -93,33 +94,156 @@ pub(super) fn frame(out: &Out, (part, shown, aliases): (&mut Frames, &Shown, &[(
     control.set_quiet(false);
     let outcome = part.outcome();
     let run_ms = start.elapsed().as_secs_f64() * 1000.0;
-    // shortcut: the editor copies each frame and its blocks into a JSON event, so its frame loop allocates. Send a binary frame when the web view needs more FPS.
     let b = blocks.part();
-    let values = changed(shared, aliases, outcome.values.iter().chain(b.values));
-    let reports: Vec<Report> = outcome.reports.iter().chain(b.reports).cloned().collect();
-    lock(&shared.reports).clone_from(&reports);
+    let mut kept = lock(&shared.values);
+    let changed = keep_all(&mut kept, aliases, outcome.values.iter().chain(b.values));
+    let mut reports = lock(&shared.reports);
+    reports.clear();
+    reports.extend(outcome.reports.iter().chain(b.reports).cloned());
+    drop(reports);
     let ok = outcome.ok && b.ok;
-    let both = |a: &[String], b: &[String]| a.iter().chain(b).cloned().collect();
-    let (skipped, stopped) = (both(&outcome.skipped, b.skipped), both(&outcome.stopped, b.stopped));
-    let times = match show % TIMES_EVERY {
-        1 => outcome.times.iter().chain(b.times).cloned().collect(),
-        _ => Vec::new(),
-    };
-    quiet_logs.extend(outcome.logs.iter().chain(b.logs).cloned());
+    let times = if show % TIMES_EVERY == 1 { [&outcome.times[..], b.times] } else { [&[][..]; 2] };
+    out.emit(&FrameEvent {
+        serial,
+        frames: ran,
+        run_ms,
+        ok,
+        skipped: Joined(&[&outcome.skipped, b.skipped]),
+        stopped: Joined(&[&outcome.stopped, b.stopped]),
+        times: Joined(&times),
+        logs: Joined(&[&quiet_logs, &outcome.logs, b.logs]),
+        reports: Joined(&[&outcome.reports, b.reports]),
+        values: Badges { kept: &kept, changed: &changed },
+    });
+    drop(kept);
     blocks.clear();
-    out.emit(&Event::Frame { serial, frames: ran, run_ms, ok, skipped, stopped, times, logs: quiet_logs, reports, values });
     draw(out, control, part, serial, shown, false);
     (ok, ran)
+}
+
+/// The result of one frame (9.1), with the fields of `Event::Ran`, for the nodes of the frame domain
+/// and for the blocks of the audio domain since the last frame (9.3). It is the last of `frames`
+/// frames, and `run_ms` is the time of all the frames. It borrows its lists, so that the frame
+/// loop does not copy them.
+#[derive(Serialize)]
+#[serde(tag = "state", rename = "frame", rename_all = "camelCase")]
+struct FrameEvent<'a> {
+    serial: u64,
+    frames: u64,
+    run_ms: f64,
+    ok: bool,
+    skipped: Joined<'a, String>,
+    stopped: Joined<'a, String>,
+    times: Joined<'a, NodeTime>,
+    logs: Joined<'a, NodeLog>,
+    reports: Joined<'a, Report>,
+    values: Badges<'a>,
+}
+
+/// The items of some lists, as one list.
+struct Joined<'a, T>(&'a [&'a [T]]);
+
+impl<T: Serialize> Serialize for Joined<'_, T> {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_seq(self.0.iter().flat_map(|part| part.iter()))
+    }
+}
+
+/// The badges of the values at the places `changed` in `kept`, as `badges` gives them.
+struct Badges<'a> {
+    kept: &'a [Value],
+    changed: &'a [usize],
+}
+
+impl<'a> Serialize for Badges<'a> {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let badge = |v: &'a Value| Badge { from: &v.from, text: Cut(&v.text), lanes: v.lanes.as_ref(), thumb: &v.thumb };
+        s.collect_seq(self.changed.iter().map(|&i| badge(&self.kept[i])))
+    }
+}
+
+/// A value with the badge text and without the widgets, as `badges` gives it.
+#[derive(Serialize)]
+struct Badge<'a> {
+    from: &'a str,
+    text: Cut<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lanes: Option<&'a Lanes>,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    thumb: &'a str,
+}
+
+/// A text, cut for its badge as `badge` does, with no copy.
+struct Cut<'a>(&'a str);
+
+impl Serialize for Cut<'_> {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match cut(self.0) {
+            Some(end) => s.collect_str(&format_args!("{}...", &self.0[..end])),
+            None => s.serialize_str(self.0),
+        }
+    }
 }
 
 /// Keeps the values of a run and their copies for the pins of the subgraph uses. Returns the
 /// badges of the values that are new or changed, because the page keeps the other values (15.9).
 pub(super) fn changed<'a>(shared: &Shared, aliases: &[(String, String)], values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
     let mut kept = lock(&shared.values);
-    let mut changed = keep(&mut kept, values);
-    let extra = alias(changed.iter().map(|&i| &kept[i]), aliases);
-    changed.extend(keep(&mut kept, &extra));
+    let changed = keep_all(&mut kept, aliases, values);
     badges(changed.iter().map(|&i| &kept[i]))
+}
+
+/// Keeps the values of a run and their copies for the pins of the subgraph uses (6.4), as `keep`
+/// does. `aliases` is in the order of the inner outputs (`by_inner`).
+fn keep_all<'a>(kept: &mut Vec<Value>, aliases: &[(String, String)], values: impl IntoIterator<Item = &'a Value>) -> Vec<usize> {
+    let mut changed = keep(kept, values);
+    let mut at = 0;
+    for n in 0..changed.len() {
+        let i = changed[n];
+        for (outer, _) in pins(aliases, &kept[i].from) {
+            match find(kept, at, outer) {
+                Some(j) => {
+                    at = j + 1;
+                    let (value, pin) = pair(kept, i, j);
+                    if update(pin, value) {
+                        changed.push(j);
+                    }
+                }
+                None => {
+                    let pin = Value { from: outer.clone(), ..kept[i].clone() };
+                    changed.push(kept.len());
+                    kept.push(pin);
+                }
+            }
+        }
+    }
+    changed
+}
+
+/// The aliases of the subgraph pins (6.4) in the order of their inner outputs, for `alias` and
+/// `keep_all`.
+pub(super) fn by_inner(aliases: &[(String, String)]) -> Vec<(String, String)> {
+    let mut sorted = aliases.to_vec();
+    sorted.sort_by(|a, b| a.1.cmp(&b.1));
+    sorted
+}
+
+/// The aliases of inner output `inner`. `aliases` is in the order of the inner outputs.
+fn pins<'a>(aliases: &'a [(String, String)], inner: &str) -> &'a [(String, String)] {
+    let start = aliases.partition_point(|(_, i)| i.as_str() < inner);
+    let end = start + aliases[start..].partition_point(|(_, i)| i == inner);
+    &aliases[start..end]
+}
+
+/// Value `i` and value `j` of `kept`, with `j` to change. The two places are not equal.
+fn pair(kept: &mut [Value], i: usize, j: usize) -> (&Value, &mut Value) {
+    if i < j {
+        let (a, b) = kept.split_at_mut(j);
+        (&a[i], &mut b[0])
+    } else {
+        let (a, b) = kept.split_at_mut(i);
+        (&b[0], &mut a[j])
+    }
 }
 
 /// Puts the values of a run in place of the old values of the same outputs, and returns the places
@@ -128,12 +252,10 @@ pub(super) fn changed<'a>(shared: &Shared, aliases: &[(String, String)], values:
 fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) -> Vec<usize> {
     let (mut at, mut changed) = (0, Vec::new());
     for value in values {
-        let same = |v: &Value| v.from == value.from;
-        match kept[at..].iter().position(same).map(|i| i + at).or_else(|| kept[..at].iter().position(same)) {
+        match find(kept, at, &value.from) {
             Some(i) => {
                 at = i + 1;
-                if kept[i].text != value.text || kept[i].lanes != value.lanes || kept[i].thumb != value.thumb || kept[i].view != value.view {
-                    kept[i].clone_from(value);
+                if update(&mut kept[i], value) {
                     changed.push(i);
                 }
             }
@@ -146,11 +268,37 @@ fn keep<'a>(kept: &mut Vec<Value>, values: impl IntoIterator<Item = &'a Value>) 
     changed
 }
 
-/// A copy of the value of each inner output for the output pin of its subgraph use (6.4).
+/// The place of output `from` in `kept`. The search starts at `at`, because each frame gives its
+/// values in the same order.
+fn find(kept: &[Value], at: usize, from: &str) -> Option<usize> {
+    let same = |v: &Value| v.from == from;
+    kept[at..].iter().position(same).map(|i| i + at).or_else(|| kept[..at].iter().position(same))
+}
+
+/// Copies value `from` into `to` in the buffers of `to`, and keeps the output of `to`. True when
+/// the value changed.
+fn update(to: &mut Value, from: &Value) -> bool {
+    let changed = to.text != from.text || to.lanes != from.lanes || to.thumb != from.thumb || to.view != from.view;
+    if changed {
+        to.text.clone_from(&from.text);
+        match (&mut to.lanes, &from.lanes) {
+            (Some(to), Some(from)) => {
+                to.bits.clone_from(&from.bits);
+                to.label.clone_from(&from.label);
+            }
+            (to, from) => to.clone_from(from),
+        }
+        to.thumb.clone_from(&from.thumb);
+        to.view.clone_from(&from.view);
+    }
+    changed
+}
+
+/// A copy of the value of each inner output for the output pins of its subgraph uses (6.4), in the
+/// order of `keep_all`. `aliases` is in the order of the inner outputs (`by_inner`).
 pub(super) fn alias<'a>(values: impl IntoIterator<Item = &'a Value>, aliases: &[(String, String)]) -> Vec<Value> {
-    let by: std::collections::HashMap<&str, &Value> = values.into_iter().map(|v| (v.from.as_str(), v)).collect();
-    let value = |(outer, inner): &(String, String)| Some(Value { from: outer.clone(), ..(*by.get(inner.as_str())?).clone() });
-    aliases.iter().filter_map(value).collect()
+    let copies = |v: &'a Value| pins(aliases, &v.from).iter().map(move |(outer, _)| Value { from: outer.clone(), ..v.clone() });
+    values.into_iter().flat_map(copies).collect()
 }
 
 /// The values with the badge texts (15.9), and without the widgets. The **Inspector** asks for the
@@ -161,11 +309,12 @@ pub(super) fn badges<'a>(values: impl IntoIterator<Item = &'a Value>) -> Vec<Val
 
 /// Cuts a text for its badge at a character boundary.
 fn badge(text: &str) -> String {
-    if text.len() <= BADGE_LEN {
-        return text.to_owned();
-    }
-    let end = (0..=BADGE_LEN).rev().find(|&i| text.is_char_boundary(i)).unwrap_or(0);
-    format!("{}...", &text[..end])
+    cut(text).map_or_else(|| text.to_owned(), |end| format!("{}...", &text[..end]))
+}
+
+/// The end of the badge text in `text`, at a character boundary. None when all of the text fits.
+fn cut(text: &str) -> Option<usize> {
+    (text.len() > BADGE_LEN).then(|| (0..=BADGE_LEN).rev().find(|&i| text.is_char_boundary(i)).unwrap_or(0))
 }
 
 /// True for the last frame of a tick: no frames are left, or the frames used one tick period.
@@ -219,7 +368,29 @@ mod tests {
         let view = Value { view: "label\tx".to_owned(), ..thumb };
         assert_eq!(keep(&mut kept, &[view]).len(), 1);
         assert_eq!(badges(&kept)[2].view, "", "the run event has no widgets");
-        let extra = alias(&kept, &[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
+        let lanes = Some(Lanes { bits: "01".to_owned(), label: String::new() });
+        kept.push(Value { text: "\u{e9}".repeat(40), lanes, ..value("d.out", "") });
+        let all: Vec<usize> = (0..kept.len()).collect();
+        let json = serde_json::to_value(Badges { kept: &kept, changed: &all }).unwrap();
+        assert_eq!(json, serde_json::to_value(badges(&kept)).unwrap(), "a frame sends the badges of a run");
+        let aliases = by_inner(&[("u.0000000a".to_owned(), "u/b.out".to_owned()), ("v.0000000a".to_owned(), "b.out".to_owned())]);
+        let extra = alias(&kept, &aliases);
         assert_eq!((extra.len(), extra[0].from.as_str(), extra[0].text.as_str()), (1, "v.0000000a", "3"));
+    }
+
+    #[test]
+    fn a_frame_copies_each_changed_value_to_the_pins_of_its_subgraph_uses() {
+        let value = |from: &str, text: &str| Value { from: from.to_owned(), text: text.to_owned(), ..Value::default() };
+        let pin = |outer: &str, inner: &str| (outer.to_owned(), inner.to_owned());
+        let aliases = by_inner(&[pin("u.0000000a", "u/b.out"), pin("w.0000000a", "a.out"), pin("v.0000000a", "a.out")]);
+        let mut kept = Vec::new();
+        assert_eq!(keep_all(&mut kept, &aliases, &[value("a.out", "1"), value("c.out", "1")]).len(), 4);
+        assert_eq!(keep_all(&mut kept, &aliases, &[value("a.out", "1"), value("c.out", "2")]), [1]);
+        let text = kept[3].text.as_ptr();
+        let changed = keep_all(&mut kept, &aliases, &[value("a.out", "3"), value("c.out", "2")]);
+        assert_eq!(changed, [0, 2, 3]);
+        let texts: Vec<_> = kept.iter().map(|v| (v.from.as_str(), v.text.as_str())).collect();
+        assert_eq!(texts, [("a.out", "3"), ("c.out", "2"), ("w.0000000a", "3"), ("v.0000000a", "3")]);
+        assert_eq!(kept[3].text.as_ptr(), text, "a changed copy keeps its buffer");
     }
 }

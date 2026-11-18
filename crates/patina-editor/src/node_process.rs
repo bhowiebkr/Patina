@@ -94,7 +94,7 @@ impl Out {
         Out(Mutex::new((Box::new(writer), Vec::new())))
     }
 
-    pub fn emit(&self, event: &Event) {
+    pub fn emit(&self, event: &impl Serialize) {
         if let Err(e) = self.write(&FromNode::<_, ()>::Event(event)) {
             eprintln!("patina: an event of the node process does not go out: {e}");
         }

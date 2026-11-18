@@ -24,7 +24,7 @@ use crate::node_process::Out;
 use crate::views::{ViewInput, Views};
 use batch::Batch;
 use blocks::{Blocks, Part};
-use frame::{Shown, alias, badges, changed, draw, frame, gui};
+use frame::{Shown, alias, badges, by_inner, changed, draw, frame, gui};
 use fuse::{FUSE_IDLE, Fuse};
 pub(crate) use fuse::stop_fuse;
 
@@ -178,23 +178,9 @@ pub enum Event {
     Loaded { serial: u64, built_ms: Option<f64>, fused: bool, slot: Option<String>, errors: Vec<Diagnostic> },
     /// The node process ended (16.1). The build did not fail, but the node states are lost.
     Lost { serial: u64, text: String },
-    /// The result of one frame (9.1). The fields are as in `Ran`, for the nodes of the frame domain
-    /// and for the blocks of the audio domain since the last frame (9.3).
-    /// The last of `frames` frames (9.1). `run_ms` is the time of all the frames.
-    Frame {
-        serial: u64,
-        frames: u64,
-        run_ms: f64,
-        ok: bool,
-        skipped: Vec<String>,
-        stopped: Vec<String>,
-        times: Vec<NodeTime>,
-        logs: Vec<NodeLog>,
-        reports: Vec<Report>,
-        values: Vec<Value>,
-    },
     /// One event run ended (9.4). `id` is the run ID, from 1 at each start, and 0 for a report of
-    /// a trigger or of Patina. The other fields are as in `Frame`, for the nodes of the run.
+    /// a trigger or of Patina. The other fields are as in `Ran`, for the nodes of the run. The
+    /// event of a frame is `FrameEvent` in `engine/frame.rs`, because it borrows its lists.
     Fired {
         serial: u64,
         id: u64,
@@ -223,7 +209,8 @@ struct Loaded {
     /// True from the start of a full build until a full build loads, so the base can be older
     /// than the code. Then a save does not build the slot alone. A failed slot build keeps it.
     stale: bool,
-    /// The output pins of the subgraph uses, with the inner outputs that give their values (6.4).
+    /// The output pins of the subgraph uses, with the inner outputs that give their values (6.4), in
+    /// the order of the inner outputs (`by_inner`).
     aliases: Vec<(String, String)>,
 }
 
@@ -733,7 +720,7 @@ fn run_one(out: &Out, (folder, toolchain): (&Path, &mut Option<Toolchain>), load
                     cluster.adopt(&mut old.cluster);
                 }
                 let slot = build.slot.clone().filter(|_| cluster.slotted());
-                *loaded = Some(Loaded { cluster, wiring, slot, stale: false, aliases: run.checked.aliases().to_vec() });
+                *loaded = Some(Loaded { cluster, wiring, slot, stale: false, aliases: by_inner(run.checked.aliases()) });
             }
             // The last build that compiled keeps running only with the same wiring (7.2, 15.10).
             Err(Error::Compile(list)) if loaded.as_ref().is_some_and(|l| l.wiring == wiring) => errors = list,

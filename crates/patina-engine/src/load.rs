@@ -56,6 +56,8 @@ pub struct Cluster {
     calls: Calls,
     /// The reports and the outcome of the last block, apart, so that an audio thread fills them (9.3).
     block_calls: Calls,
+    /// The reports and the outcome of the last call of `ui`, apart, so that the frame outcome stays.
+    gui_calls: Calls,
     /// The mix that the audio nodes of the project play into (9.3).
     mix: &'static Mix,
     /// The mix of the last block.
@@ -121,8 +123,9 @@ impl Cluster {
             has_text: vec![false; slots.len()],
             slots,
             probes,
-            calls: Calls { sink, out: Outcome::default() },
+            calls: Calls { sink, ..Calls::default() },
             block_calls: Calls::default(),
+            gui_calls: Calls::default(),
             mix: glue::shared_in(&root.to_string_lossy(), Mix::default),
             sound: [0.0; BLOCK],
             triggers: (0..plan.steps.len())
@@ -343,7 +346,7 @@ impl Cluster {
         let blocks = has_blocks.then_some(Audio { run: blocks, mix, sound: &mut self.sound });
         let events = event_library.as_ref().map(|library| Events::new(library, pool, &self.triggers, names, probes, &self.root));
         let (here, apart) = if audio { (blocks, None) } else { (None, blocks) };
-        (Frames { run, nodes, audio: here }, apart, events)
+        (Frames { run, gui: &mut self.gui_calls, nodes, audio: here }, apart, events)
     }
 
     /// Calls the `ui` function of node `id` between two runs, as `Frames::ui` (4.3).

@@ -163,8 +163,10 @@ Measure before and after each change. Write the numbers into STATUS.md.
   stays whole. Its JSON costs 0.2 ms, and the time was in the engine. So the engine now reads
   each subgraph file one time, keeps the parse of the node folders, and skips the check after
   an edit of only the layout.
-- [ ] Remove the allocations of the editor frame loop, or record the measured cost if it is
-  small.
+- [x] Remove the allocations of the editor frame loop, or record the measured cost if it is
+  small. A shown frame of the computer example went from about 9650 to 21 allocations
+  (STATUS.md). Agent decision, 2026-11-17: the 21 stay. They are small (16.8 KB), and the
+  JSON event stays, because a binary frame is not necessary at 60 FPS.
 - [ ] Find the slowest tests of `cargo test --workspace` and of the selfcheck. Make them
   faster without less cover.
 - [ ] Measure the compile time of `patina-engine` after a change to one file. Split the crate

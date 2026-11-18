@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 use patina_sdk::glue::{Control, Reporter};
 
 use crate::library::{Calling, FireFn, Library, Sink, clock, collect, lock};
-use crate::outcome::{Outcome, Report, ReportKind, fill};
+use crate::outcome::{Outcome, Report, ReportKind, Spare, fill};
 use crate::node::Builtin;
 
 /// The most waiting and active runs of one trigger (9.4).
@@ -149,7 +149,7 @@ impl Shared<'_> {
         let ok = unsafe { (self.entry.fire)(self.entry.state, task, text.as_ptr(), text.len(), &rep) };
         drop(gate);
         let mut out = Outcome::default();
-        fill(&mut out, ok, &sink, self.names, self.probes);
+        fill(&mut out, &mut Spare::default(), ok, &sink, self.names, self.probes);
         out
     }
 }
