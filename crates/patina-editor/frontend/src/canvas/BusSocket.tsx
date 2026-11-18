@@ -30,9 +30,11 @@ interface Props {
   output: boolean;
   /** The top of the row of the socket in the node. */
   top: number;
+  /** False on a public pin, whose header already shows the name. */
+  named?: boolean;
 }
 
-export function BusSocket({ socket, output, top }: Props) {
+export function BusSocket({ socket, output, top, named = true }: Props) {
   const hover = useContext(HoverContext);
   const hot = useSyncExternalStore(hover.subscribe, () => hoveredLane(hover.get(), socket.from, socket.to));
   const { bus, names, bits } = socket;
@@ -44,7 +46,7 @@ export function BusSocket({ socket, output, top }: Props) {
   return (
     <div className={classes.join(' ')} style={style}>
       <div className="bus-socket-head" title={`${bus}: ${n} lanes`}>
-        {bus}
+        {named && bus}
         <span className="bus-range">
           [{n - 1}:0]
         </span>

@@ -553,7 +553,7 @@ export function PortView({ id, data }: NodeProps<PortNode>) {
       {!input && bit && <span className={`port-lamp${on ? ' on' : ''}`} role="img" aria-label={`${name} is ${on ? 'on' : 'off'}`} />}
       {socket && (
         <div className="patina-rows" style={{ height: socketHeight(socket.bits.length) + 2 * PAD }}>
-          {!far && <BusSocket socket={socket} output={input} top={PAD} />}
+          {!far && <BusSocket socket={socket} output={input} top={PAD} named={false} />}
         </div>
       )}
       <Handle

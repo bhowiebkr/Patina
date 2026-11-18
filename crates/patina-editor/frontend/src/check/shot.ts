@@ -152,6 +152,9 @@ function guiFit(where: string) {
           bad.push(`"${a.textContent}" covers "${b.textContent}" in ${node.getAttribute('data-id')}`);
       }
   }
+  // A public pin shows its name in its header only, not again in its bus socket (15.9).
+  for (const head of document.querySelectorAll('.port .bus-socket-head'))
+    if (!head.textContent?.startsWith('[')) bad.push(`the bus socket of ${head.closest('.react-flow__node')?.getAttribute('data-id')} repeats the name in "${head.textContent}"`);
   // The order pins are in the row of the caption of a free node, so they must not cover its icons (15.3).
   for (const icon of document.querySelectorAll('.free-caption > :not(.title)')) {
     const [r, node] = [icon.getBoundingClientRect(), icon.closest('.react-flow__node')];

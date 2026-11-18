@@ -715,6 +715,8 @@ domain free of locks. These limits are still open:
   `3.0` in hello and `false` in counter-4 of computer (fixed 2026-11-18). A badge that is not
   selected now hides when a routed wire of another output goes through it. The shot checks
   that no routed wire of another output goes through a badge.
+- The **value** output of counter-4 in computer showed its name two times, in the header and
+  in the bus socket (fixed 2026-11-18). The socket of a public pin now shows only `[7:0]`.
 - Two equal bus labels `address[7:0] / 8` on one trunk ran together with no space in computer
   (fixed 2026-11-18). A label now hides when a shown label is nearer than 4 px. The shot
   checks that no two shown labels touch.
@@ -868,6 +870,8 @@ domain free of locks. These limits are still open:
   Two pin lines of different outputs nearer than the gap can also cross at a bend, for example
   at 2756, 120 in incrementer-8 of computer. The nudge cannot move them, and a cost in the A*
   router for such lines made the other graphs worse. The shot does not report this case yet.
+  At the input splitter of incrementer-8, the wires of bits 2 to 8 turn within 4 px of the pins
+  and cross at the pin stubs, because the lanes go to targets in a different order.
 - **Arrange** splits a tall column into up to 4 columns when the layout is more than twice as
   tall as wide (fixed 2026-11-17, before a wide layer made one tall column). With estimated node
   sizes, `rom-16x7` went from 2006 x 11472 px to 2596 x 5433 px. The router of the editor found a

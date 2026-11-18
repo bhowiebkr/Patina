@@ -37,6 +37,10 @@
   font: 10px Consolas, 'Cascadia Mono', monospace;
 }
 
+.bus-range:first-child {
+  margin-left: 0;
+}
+
 /* The leads fan in from the contacts to the lanes at the node edge. An output mirrors them. */
 .bus-leads {
   position: absolute;
