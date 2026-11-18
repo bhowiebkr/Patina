@@ -2,11 +2,12 @@
 //!
 //! The tool builds the page and the release programs, collects the license notices of each crate
 //! and npm package in the build, copies the example projects to `projects/`, and writes `target/package/patina-<version>-<os>-<arch>.zip`.
-//! Then it updates the programs in `target/package/Patina`. That folder keeps its data, its
-//! toolchain and its projects, so a person can run Patina from it.
+//! Then it updates the programs and the example projects in `target/package/Patina`. That folder
+//! keeps its data, its toolchain and the changes of the person, so a person can run Patina from it.
 
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsStr;
 use std::fmt::Write;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -121,12 +122,12 @@ fn run() -> Result<()> {
         tool(Command::new("zip").arg("-qr").arg(&zip).arg("Patina").current_dir(&stage))?;
     }
     println!("{}", zip.display());
-    update(&folder, &out.join("Patina")).map_err(|e| format!("{e}. Close Patina in target/package/Patina, then run the tool again."))
+    update(&folder, &out.join("Patina"), &out.join("examples")).map_err(|e| format!("{e}. Close Patina in target/package/Patina, then run the tool again."))
 }
 
-/// Puts the new programs and licenses in the folder that a person runs. The data and the toolchain
-/// stay, and an example project is copied only when the folder does not have it (13.3).
-fn update(from: &Path, to: &Path) -> Result<()> {
+/// Puts the new programs, licenses and example projects in the folder that a person runs. The data
+/// and the toolchain stay. `last` holds the example projects of the last run (13.3).
+fn update(from: &Path, to: &Path, last: &Path) -> Result<()> {
     make_dir(to)?;
     for entry in fs::read_dir(from).map_err(|e| format!("{}: {e}", from.display()))? {
         let entry = entry.map_err(|e| format!("{}: {e}", from.display()))?;
@@ -136,10 +137,7 @@ fn update(from: &Path, to: &Path) -> Result<()> {
             make_dir(&dest)?;
             for project in fs::read_dir(&path).map_err(|e| format!("{}: {e}", path.display()))? {
                 let project = project.map_err(|e| format!("{}: {e}", path.display()))?;
-                let target = dest.join(project.file_name());
-                if !target.exists() {
-                    copy_tree(&project.path(), &target)?;
-                }
+                update_project(&project.path(), &dest, &last.join(project.file_name()))?;
             }
         } else if path.is_dir() {
             if dest.exists() {
@@ -151,6 +149,82 @@ fn update(from: &Path, to: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Replaces an example project that the person did not change since the last run. A changed project
+/// moves to `<name>-old`, so no work of the person is lost. The new project keeps the build output
+/// of the old one, so it builds faster.
+fn update_project(new: &Path, projects: &Path, last: &Path) -> Result<()> {
+    let name = new.file_name().ok_or("a project has no name")?;
+    let target = projects.join(name);
+    if target.exists() && !same_tree(new, &target)? {
+        if last.exists() && same_tree(last, &target)? {
+            clear(&target)?;
+        } else {
+            let kept = free_name(projects, name);
+            fs::rename(&target, &kept).map_err(|e| format!("{}: {e}", target.display()))?;
+            println!("The project had changes. They are in {}", kept.display());
+        }
+    }
+    copy_tree(new, &target)?;
+    if last.exists() {
+        fs::remove_dir_all(last).map_err(|e| format!("{}: {e}", last.display()))?;
+    }
+    copy_tree(new, last)
+}
+
+/// True when two projects have the same files. Build output and the root `Cargo.toml` and
+/// `Cargo.lock`, which each build writes, do not count.
+fn same_tree(a: &Path, b: &Path) -> Result<bool> {
+    let (mut x, mut y) = (BTreeMap::new(), BTreeMap::new());
+    files(a, Path::new(""), &mut x)?;
+    files(b, Path::new(""), &mut y)?;
+    Ok(x == y)
+}
+
+fn files(dir: &Path, rel: &Path, out: &mut BTreeMap<PathBuf, Vec<u8>>) -> Result<()> {
+    for entry in fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+        let entry = entry.map_err(|e| format!("{}: {e}", dir.display()))?;
+        let (path, name) = (entry.path(), entry.file_name());
+        if path.is_dir() {
+            if name != "build" && name != "target" {
+                files(&path, &rel.join(&name), out)?;
+            }
+        } else if !rel.as_os_str().is_empty() || (name != "Cargo.toml" && name != "Cargo.lock") {
+            out.insert(rel.join(&name), fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?);
+        }
+    }
+    Ok(())
+}
+
+/// Removes all of a project folder except its build output.
+fn clear(dir: &Path) -> Result<()> {
+    for entry in fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+        let path = entry.map_err(|e| format!("{}: {e}", dir.display()))?.path();
+        let removed = if path.is_dir() {
+            if path.file_name().is_some_and(|n| n == "build" || n == "target") {
+                continue;
+            }
+            fs::remove_dir_all(&path)
+        } else {
+            fs::remove_file(&path)
+        };
+        removed.map_err(|e| format!("{}: {e}", path.display()))?;
+    }
+    Ok(())
+}
+
+/// The first free folder `<name>-old`, `<name>-old-2` and so on.
+fn free_name(dir: &Path, name: &OsStr) -> PathBuf {
+    let name = name.to_string_lossy();
+    let mut n = 1;
+    loop {
+        let path = dir.join(if n == 1 { format!("{name}-old") } else { format!("{name}-old-{n}") });
+        if !path.exists() {
+            return path;
+        }
+        n += 1;
+    }
 }
 
 fn metadata(cargo: &std::ffi::OsStr, root: &Path) -> Result<Value> {
@@ -298,6 +372,38 @@ mod tests {
         for name in ["README.md", "Cargo.toml", "src", "MY-LICENSE"] {
             assert!(!is_notice(name), "{name}");
         }
+    }
+
+    #[test]
+    fn update_keeps_changed_projects() {
+        let root = std::env::temp_dir().join(format!("patina-package-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let put = |path: &str, text: &str| {
+            let path = root.join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, text).unwrap();
+        };
+        let run = |version: &str| {
+            put("new/demo/graphs/main.toml", version);
+            update_project(&root.join("new/demo"), &root.join("projects"), &root.join("last/demo")).unwrap();
+        };
+        let read = |path: &str| fs::read_to_string(root.join(path)).unwrap();
+        run("1");
+        // A build writes these files. They are not changes of the person.
+        put("projects/demo/Cargo.toml", "written by the build");
+        put("projects/demo/build/out", "cache");
+        run("2");
+        assert_eq!(read("projects/demo/graphs/main.toml"), "2");
+        assert_eq!(read("projects/demo/build/out"), "cache");
+        assert!(!root.join("projects/demo-old").exists());
+        put("projects/demo/graphs/main.toml", "edit");
+        run("3");
+        assert_eq!(read("projects/demo/graphs/main.toml"), "3");
+        assert_eq!(read("projects/demo-old/graphs/main.toml"), "edit");
+        put("projects/demo/nodes/a/Cargo.toml", "a new node");
+        run("4");
+        assert_eq!(read("projects/demo-old-2/nodes/a/Cargo.toml"), "a new node");
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

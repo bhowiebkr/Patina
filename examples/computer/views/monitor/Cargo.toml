@@ -8,8 +8,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 patina-sdk = { workspace = true }
-# A direct path, because cargo keeps the default features of a workspace dependency. The `wesl`
-# feature needs a newer Rust than the computer example uses.
+# A direct path, because cargo keeps the default features of a workspace dependency. The view
+# compiles WGSL with `Gpu::shader`, so it does not need the `wesl` linker and its compile time.
 patina-gpu = { path = "../../build/sdk/patina-gpu", default-features = false }
 frame = { path = "../../types/frame" }
 pad = { path = "../../types/pad" }

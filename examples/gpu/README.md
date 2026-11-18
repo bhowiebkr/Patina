@@ -9,7 +9,7 @@ This example is in progress. The nodes, the text and the images will change.
 
 ## Run the example
 
-The example needs Rust 1.100.0, because the `wesl` crate needs Rust 1.97.1 or later. Run
+The example needs Rust 1.100.0, as all examples do. Run
 this command from the root of the repository:
 
 ```

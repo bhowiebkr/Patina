@@ -271,7 +271,7 @@ GPU support comes from crates and from `patina-sdk`, not from the engine.
 - A shader change needs no Rust compile.
 
 A node uses the GPU with the `patina-gpu` crate. Add `patina-gpu = { workspace = true }` to
-the `Cargo.toml` of the node, and set Rust 1.97.1 or later in `patina.toml`. Keep the shaders
+the `Cargo.toml` of the node, and set Rust 1.97.1 or later in `patina.toml`. The examples use Rust 1.100.0. Keep the shaders
 in the `assets/` folder of the node, and find them with `asset!("file.wesl")`. The
 `examples/gpu` project draws a gradient with a WESL shader, shows a small copy in the GUI of
 a preview node and writes its mean brightness.

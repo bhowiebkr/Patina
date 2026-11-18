@@ -281,7 +281,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 - Each cluster links its own copy of `wgpu`. This is acceptable because the engine never
   unloads a library.
-- A project with GPU nodes needs Rust 1.97.1 or later.
+- A project with GPU nodes needs Rust 1.97.1 or later. All examples use Rust 1.100.0.
 - NVRTC comes with the CUDA Toolkit, not with the driver. A package does not carry it yet.
 - CI has no NVIDIA driver, so it checks only the error path of `patina-cuda`.
 - These shortcuts are open in the code:

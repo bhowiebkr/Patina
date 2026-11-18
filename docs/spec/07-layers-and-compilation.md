@@ -96,7 +96,8 @@ enum Edit {
 
 - Each project records a Rust version in `patina.toml` (6.4). A new project gets the version of the toolchain.
 - A toolchain of this version or a newer version builds the project, because Rust keeps the code of older stable versions working. An older toolchain gives an error that names the two versions. Agent decision of 2026-11-17. The owner can change it.
-- The reason: **Install toolchain** installs the newest stable Rust (13.2). The check before needed the same version, so each project of an older version failed, for example the example projects of Rust 1.94.0.
+- The reason: **Install toolchain** installs the newest stable Rust (13.2). The check before needed the same version, so each project of an older version failed.
+- All example projects and the SDK crates use one Rust version: the current stable Rust, 1.100.0 on 2026-11-17. Raise them together. Owner decision of 2026-11-17.
 - An import or a paste of code from a project of a newer Rust version raises the version of the project (6.2).
 - All projects share one toolchain. **Update toolchain** (13.2) brings it to the newest stable Rust. Open option, not done: a toolchain for each exact Rust version, side by side. Each one needs about 300 MB, and a newer Rust builds the code of an older stable Rust.
 - Each project is one Cargo workspace with one `Cargo.lock`. The lock file gives one resolved set of crate versions for all nodes.
