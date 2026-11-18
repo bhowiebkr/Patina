@@ -1,5 +1,5 @@
-// The Project panel (spec 15.4): the graphs, the nodes, the widgets, the views, the connections
-// and the types.
+// The Project panel (spec 15.2): the top graphs, the subgraphs, the nodes, the widgets, the views,
+// the connections and the types.
 
 import { useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { plainDoc, type View } from '../api';
@@ -39,10 +39,12 @@ interface Props {
   onPackage: () => void;
   /** Opens the Update dialog for an imported folder (6.2). */
   onUpdate: (folder: string) => void;
-  /** Opens the main graph or a subgraph (6.1). */
+  /** Opens a top graph or a subgraph (6.1). */
   onOpen: (name: string) => void;
   /** Makes an empty subgraph and opens it (6.1). It fails with the problem of the name. */
   onNewGraph: (name: string) => Promise<void>;
+  /** Makes an empty top graph and opens it, so it runs (6.1). It fails with the problem of the name. */
+  onNewTop: (name: string) => Promise<void>;
   /** Moves a folder, for example `nodes/switch` or `graphs/filter`, to the Recycle Bin (15.4). */
   onDelete: (folder: string) => void;
 }
@@ -61,8 +63,8 @@ function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpdate, onPackage, onOpen, onNewGraph, onDelete }: Props) {
-  const [naming, setNaming] = useState<Group | 'graphs' | null>(null);
+export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpdate, onPackage, onOpen, onNewGraph, onNewTop, onDelete }: Props) {
+  const [naming, setNaming] = useState<Group | 'graphs' | 'subgraphs' | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; label: string; items: Item[] } | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const menuOf = (label: string, items: Item[]) => (e: MouseEvent) => {
@@ -86,7 +88,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
   const subgraphs = view.nodes.filter((n) => n.subgraph);
   // A built-in node has no folder, so the Nodes group does not list it.
   const nodes = view.nodes.filter((n) => !n.subgraph && !n.builtin);
-  const title = (group: Group | 'graphs', text: string, one: string) => (
+  const title = (group: Group | 'graphs' | 'subgraphs', text: string, one: string) => (
     <div className="group-title" onContextMenu={menuOf(text, view.trusted ? [{ label: `New ${one.toLowerCase()}`, run: () => setNaming(group) }] : [])}>
       {text}
       {view.trusted && <NewButton label={`New ${one.toLowerCase()}`} onClick={() => setNaming(group)} />}
@@ -97,17 +99,34 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
   return (
     <aside className="panel" aria-label="Project">
       <div className="group">
-        {title('graphs', 'Graphs', 'Subgraph')}
-        {naming === 'graphs' && <NameField label="Subgraph name" onMake={onNewGraph} onClose={close} />}
-        {[{ name: 'main', error: null }, ...subgraphs].map((n) => (
+        {title('graphs', 'Graphs', 'Graph')}
+        {naming === 'graphs' && <NameField label="Graph name" onMake={onNewTop} onClose={close} />}
+        {view.graphs.map((name) => (
+          <button
+            key={name}
+            className={view.graphName === name ? 'item active' : 'item'}
+            onClick={() => onOpen(name)}
+            {...actions(name === 'main' || name === view.top ? null : `graphs/${name}`, { label: 'Open', run: () => onOpen(name) })}
+            title={name === view.top ? 'Open the graph that runs' : `Open the graph. It runs in place of ${view.top}.`}
+          >
+            {name}
+            {name === view.top && view.graphs.length > 1 && <span className="hint">runs</span>}
+          </button>
+        ))}
+      </div>
+      <div className="group">
+        {title('subgraphs', 'Subgraphs', 'Subgraph')}
+        {naming === 'subgraphs' && <NameField label="Subgraph name" onMake={onNewGraph} onClose={close} />}
+        {subgraphs.length === 0 && naming !== 'subgraphs' && <Empty />}
+        {subgraphs.map((n) => (
           <button
             key={n.name}
             className={view.graphName === n.name ? 'item active' : 'item'}
-            draggable={view.trusted && n.name !== 'main'}
+            draggable={view.trusted}
             onDragStart={(e) => startDrag(e, n.name)}
             onClick={() => onOpen(n.name)}
-            {...actions(n.name === 'main' ? null : `graphs/${n.name}`, { label: 'Open', run: () => onOpen(n.name) })}
-            title={n.name === 'main' ? 'Open the main graph' : 'Open the subgraph, or drag it to the graph to add a use'}
+            {...actions(`graphs/${n.name}`, { label: 'Open', run: () => onOpen(n.name) })}
+            title="Open the subgraph, or drag it to the graph to add a use"
           >
             {n.name}
             {n.error && <span className="hint error-text">error</span>}

@@ -2,7 +2,7 @@
 // the status bar. The start screen shows when no project is open.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { api, folderName, type LibraryNode, type StartInfo, type View } from './api';
+import { api, atTop, folderName, type LibraryNode, type StartInfo, type View } from './api';
 import { analyzerProject, closeCode, onCodeError, reloadCode, showErrors, subscribe, unsavedFiles } from './code/codeState';
 import type { Reveal } from './code/reveal';
 import { changeLayout, Dock, loadLayout, useLayoutSerial, type Panel } from './panels/Dock';
@@ -148,8 +148,8 @@ export function App() {
   }, []);
   const closeFull = useCallback(() => setFull(null), []);
   const selectNodes = useCallback((ids: string[]) => setFocus({ ids, n: 0 }), []);
-  // The times have flattened IDs (9.1), so only the nodes of the main graph have a name.
-  const names = useMemo(() => new Map(view && view.graphName === 'main' ? (view.graph.node ?? []).map((n) => [n.id, folderName(n)] as const) : []), [view]);
+  // The times have flattened IDs (9.1), so only the nodes of the top graph have a name.
+  const names = useMemo(() => new Map(view && atTop(view) ? (view.graph.node ?? []).map((n) => [n.id, folderName(n)] as const) : []), [view]);
   const sendFloat = useFloatHost(view, selected, show, selectNodes);
 
   const onSelect = useCallback((ids: string[], wires: WireData[]) => {
@@ -193,6 +193,10 @@ export function App() {
           onOpen={openGraph}
           onNewGraph={async (name) => {
             show(await api.newGraph(name));
+            await openGraph(name);
+          }}
+          onNewTop={async (name) => {
+            show(await api.newTop(name));
             await openGraph(name);
           }}
           onDelete={actions.deleteFolder}
@@ -248,11 +252,11 @@ export function App() {
             )}
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
-                <FireTrigger.Provider value={view.live && (view.graphName === 'main' || usePath) ? fire : null}>
+                <FireTrigger.Provider value={view.live && (atTop(view) || usePath) ? fire : null}>
                   <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={scopedGuis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} lockRef={lockBends} addRef={addFromLibrary} />
                 </FireTrigger.Provider>
               </PortTest.Provider>
-              {view.graphName !== 'main' && (
+              {!atTop(view) && (
                 <GraphPath view={view} path={path} testing={testing} act={act} onTest={startTest} onOpen={openGraph} onGo={goTo} />
               )}
               {fullEntry && (

@@ -1,6 +1,6 @@
 // The trail of the open graphs, and the use path of the open graph (15.9).
 import { useCallback, useMemo, useState, type RefObject } from 'react';
-import { api, scopeDomains, type View } from '../api';
+import { api, atTop, scopeDomains, type View } from '../api';
 import { crumbLabel, scopeGuis, scopeRun, trailOf, usePathOf, type Crumb } from './crumbs';
 import { TEST_USE, type RunState } from './NodeView';
 
@@ -20,20 +20,20 @@ export function useTrail(view: View | null, current: RefObject<View | null>, run
   const openGraph = useCallback(
     (name: string, use?: string) => {
       const at = current.current;
-      if (use === undefined || !at) return goTo(name, () => trailOf([], name));
+      if (use === undefined || !at) return goTo(name, () => []);
       const crumb = { graph: name, use, label: crumbLabel(at.graph.node ?? [], use) };
-      return goTo(name, (t) => [...trailOf(t, at.graphName), crumb]);
+      return goTo(name, (t) => [...trailOf(t, at.graphName, at.top), crumb]);
     },
     [goTo, current],
   );
-  const path = view ? trailOf(trail, view.graphName) : [];
+  const path = view ? trailOf(trail, view.graphName, view.top) : [];
   const testing = view?.test != null;
+  const top = view != null && atTop(view);
   // The run IDs of the open graph start with this use path (6.4). A subgraph with no use has none.
-  const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : usePathOf(path, view?.uses ?? []);
+  const usePath = top ? '' : testing ? TEST_USE : usePathOf(path, view?.uses ?? []);
   const scoped = useMemo(() => scopeRun(run, usePath), [run, usePath]);
-  const main = view?.graphName === 'main';
-  const scopedGuis = useMemo(() => scopeGuis(guis, main ? null : usePath), [guis, main, usePath]);
+  const scopedGuis = useMemo(() => scopeGuis(guis, top ? null : usePath), [guis, top, usePath]);
   // A subgraph with no use has no checked nodes, so its nodes show no domain.
-  const domains = useMemo(() => scopeDomains(view && (view.graphName === 'main' || usePath) ? view.domains : {}, usePath), [view, usePath]);
+  const domains = useMemo(() => scopeDomains(view && (top || usePath) ? view.domains : {}, usePath), [view, top, usePath]);
   return { path, testing, usePath, scoped, scopedGuis, domains, goTo, openGraph };
 }

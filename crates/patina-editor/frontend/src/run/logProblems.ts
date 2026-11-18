@@ -2,7 +2,7 @@
 // Logs panel, so the compile errors show in full.
 
 import { useEffect, useRef } from 'react';
-import { folderName, type View } from '../api';
+import { atTop, folderName, type View } from '../api';
 import { infoOf, type RunState } from '../canvas/NodeView';
 import { lostParams } from '../canvas/lostPins';
 import type { Line } from './Lines';
@@ -20,7 +20,7 @@ export function useLogProblems(view: View | null, run: RunState, log: (lines: Li
       if (!old) lines.push({ text, kind });
     };
     for (const p of view.problems) add(p, 'err');
-    const where = view.graphName === 'main' ? '' : ` in the subgraph ${view.graphName}`;
+    const where = atTop(view) ? '' : ` in the subgraph ${view.graphName}`;
     for (const entry of view.graph.node ?? []) {
       for (const key of lostParams(infoOf(entry, view.nodes), entry.params) ?? []) {
         add(`${folderName(entry)} (${entry.id})${where}: lost parameter ${key} = ${entry.params?.[key]}. The node has no input ${key}, so the run ignores it.`, 'warn');

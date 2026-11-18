@@ -14,8 +14,8 @@ export function GraphPath({ view, path, testing, act, onTest, onOpen, onGo }: {
 }) {
   return (
     <nav className="graph-path" aria-label="Graph path">
-      <button className="btn" onClick={() => onOpen('main')}>
-        main
+      <button className="btn" onClick={() => onOpen(view.top)}>
+        {view.top}
       </button>
       {path.map((c, i) =>
         i < path.length - 1 ? (
@@ -36,7 +36,7 @@ export function GraphPath({ view, path, testing, act, onTest, onOpen, onGo }: {
         aria-pressed={testing}
         disabled={!view.trusted}
         onClick={() => (testing ? act(api.test(null)) : onTest())}
-        title={testing ? 'End the test. The main graph runs again.' : 'Run this subgraph alone. Click an input switch to change it.'}
+        title={testing ? 'End the test. The top graph runs again.' : 'Run this subgraph alone. Click an input switch to change it.'}
       >
         {testing ? 'End test' : 'Test'}
       </button>

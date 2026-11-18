@@ -101,10 +101,12 @@ pub struct Project {
     frame_rate: u32,
     /// The frame rate in `patina.toml`. Save writes `frame_rate` when the two are not the same.
     saved_rate: u32,
-    /// The name of the open graph: `main` or the name of a subgraph (6.1).
+    /// The name of the open graph: a top graph or a subgraph (6.1).
     name: String,
+    /// The top graph that runs: `main` or a graph with `top = true` that the user opened (6.1).
+    top: String,
     history: edit::History,
-    /// The saved graphs that the user opened before, with their undo history. `main` is here
+    /// The graphs that the user opened before, with their undo history. The top graph is here
     /// while a subgraph is open.
     parked: HashMap<String, edit::History>,
     /// The number of code writes of edits, undo and redo.
@@ -201,6 +203,8 @@ pub fn builtins() -> Vec<NodeInfo> {
 #[derive(Clone)]
 pub struct Checked {
     root: PathBuf,
+    /// The graph that the check started from: the top graph, or the open subgraph of a test.
+    name: String,
     rust: String,
     frame_rate: u32,
     plan: plan::Plan,
@@ -231,7 +235,18 @@ impl Project {
         let frame_rate = check_rate(file.frame_rate.unwrap_or(clock::RATE)).map_err(|e| Error::File(root.join("patina.toml"), e))?;
         let graph = project::read(&graph_path(&root, MAIN), |g: &GraphFile| g.format)?;
         let history = edit::History::new(graph);
-        Ok(Project { root, id: file.id, rust: file.rust, frame_rate, saved_rate: frame_rate, name: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
+        Ok(Project { root, id: file.id, rust: file.rust, frame_rate, saved_rate: frame_rate, name: MAIN.to_owned(), top: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
+    }
+
+    /// Opens the project at `path` with the top graph `name` as the graph that runs (6.1).
+    pub fn open_top(path: &Path, name: &str) -> Result<Project, Error> {
+        let mut project = Project::open(path)?;
+        let file = graph_path(&project.root, name);
+        project.open_graph(name).map_err(|e| Error::File(file.clone(), e))?;
+        if project.top != name {
+            return Err(Error::File(file, format!("the graph {name} is a subgraph, not a top graph")));
+        }
+        Ok(project)
     }
 
     /// Makes a new project in a new or empty folder, with an empty main graph and no nodes (15.10).
@@ -371,6 +386,11 @@ impl Project {
     /// The subgraphs in `graphs/` (6.1), sorted by name, with their public pins as the pins. A
     /// subgraph in memory gives the pins of its edits.
     pub fn subgraphs(&self) -> Vec<NodeInfo> {
+        self.graphs().1
+    }
+
+    /// The top graphs (6.1), `main` first and then sorted, and the subgraphs as `subgraphs` gives them.
+    pub fn graphs(&self) -> (Vec<String>, Vec<NodeInfo>) {
         subgraph::infos(&self.root, &self.edits())
     }
 
@@ -444,17 +464,17 @@ impl Project {
 
     /// Checks the main graph and puts its nodes in run order. Each graph adds its unsaved changes.
     pub fn check(&self) -> Result<Checked, Error> {
-        let fail = |problems| Error::Graph(graph_path(&self.root, MAIN), problems);
-        let main = self.parked.get(MAIN).map_or(&self.history.graph, |h| &h.graph);
-        let (graph, aliases) = subgraph::flatten(&self.root, main, &self.edits()).map_err(fail)?;
+        let fail = |problems| Error::Graph(graph_path(&self.root, &self.top), problems);
+        let top = self.parked.get(&self.top).map_or(&self.history.graph, |h| &h.graph);
+        let (graph, aliases) = subgraph::flatten(&self.root, top, &self.edits()).map_err(fail)?;
         let plan = plan::check(&self.root, &graph).map_err(fail)?;
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: false })
+        Ok(Checked { root: self.root.clone(), name: self.top.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: false })
     }
 
     /// Checks one use of the open subgraph alone, with `params` for its public inputs (15.9). The
     /// use has the ID [`TEST`]. With the main graph open, it checks the main graph.
     pub fn check_test(&self, params: &BTreeMap<String, String>) -> Result<Checked, Error> {
-        if self.name == MAIN {
+        if self.name == self.top {
             return self.check();
         }
         let fail = |problems| Error::Graph(graph_path(&self.root, &self.name), problems);
@@ -463,12 +483,17 @@ impl Project {
         let (graph, aliases) = subgraph::flatten(&self.root, &root, &self.edits()).map_err(fail)?;
         let mut plan = plan::check(&self.root, &graph).map_err(fail)?;
         plan.probe_all(&aliases);
-        Ok(Checked { root: self.root.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: true })
+        Ok(Checked { root: self.root.clone(), name: self.name.clone(), rust: self.rust.clone(), frame_rate: self.frame_rate, plan, graph, aliases, test: true })
     }
 }
 
 /// The name of the main graph file.
 const MAIN: &str = "main";
+
+/// True for the main graph and the other top graphs (6.1).
+fn is_top(name: &str, graph: &GraphFile) -> bool {
+    name == MAIN || graph.top
+}
 
 /// The ID of the use that runs the open subgraph alone (15.9).
 pub const TEST: &str = "7e57000000000000";
@@ -652,6 +677,37 @@ mod tests {
         assert!(!project.dirty(), "nothing changed");
         fs::remove_dir_all(&root).unwrap();
         assert_eq!((unused, kept, count), (false, true, 2));
+    }
+
+    #[test]
+    fn a_top_graph_runs_in_place_of_main_and_no_use_names_it() {
+        let root = std::env::temp_dir().join(format!("patina-top-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let mut project = Project::hello(&root);
+        project.new_top("bench").unwrap();
+        assert!(project.new_top("Bench").is_err() && project.new_top("main").is_err(), "each graph name is used one time");
+        assert_eq!((project.top(), project.graph_name()), ("main", "main"), "a new graph does not open");
+        assert_eq!(project.graphs().0, ["main", "bench"]);
+        assert!(project.subgraphs().is_empty() && project.subgraph_file("bench").is_err());
+        project.open_graph("bench").unwrap();
+        assert_eq!(project.top(), "bench");
+        assert!(project.check().unwrap().graph.node.is_empty() && project.use_paths().is_empty());
+        assert!(project.dirty() && !root.join("graphs/bench.toml").exists(), "only Save writes the new graph");
+        project.save().unwrap();
+        assert!(fs::read_to_string(root.join("graphs/bench.toml")).unwrap().lines().any(|l| l == "top = true"));
+        fs::write(root.join("graphs/main.toml"), "format = 1\n[[node]]\nid = \"00000000000000a1\"\nsubgraph = \"bench\"\n").unwrap();
+        let problem = Project::open(&root).unwrap().check().err().unwrap().to_string();
+        assert!(problem.contains("the graph bench is a top graph"), "{problem}");
+        let bench = Project::open_top(&root, "bench").unwrap();
+        assert!(bench.top() == "bench" && bench.check().is_ok());
+        fs::write(root.join("graphs/half.toml"), "format = 1\n").unwrap();
+        assert!(Project::open_top(&root, "half").is_err() && Project::open_top(&root, "missing").is_err());
+        // A recovery file brings back a graph with no file as a new graph (15.10).
+        project.restore("fresh", GraphFile { format: 1, top: true, ..GraphFile::default() }).unwrap();
+        assert_eq!((project.graph_name(), project.top()), ("fresh", "fresh"));
+        project.open_graph("main").unwrap();
+        assert!(!project.drop_graph("main") && project.drop_graph("fresh") && !project.has_graph("fresh"));
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

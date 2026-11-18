@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState, type DragEvent, type MouseEvent } from 'react';
 import type { Edge, FinalConnectionState, ReactFlowInstance } from '@xyflow/react';
 import { AddNode } from './AddNode';
-import { api, newId, type DragLink, type Edit, type LibraryNode, type NodeInfo, type View } from '../api';
+import { api, atTop, newId, type DragLink, type Edit, type LibraryNode, type NodeInfo, type View } from '../api';
 import type { At, CanvasActions } from './canvasActions';
 import { infoOf, ORDER, outputType } from './NodeView';
 import { matchPin } from './palette';
@@ -60,7 +60,7 @@ export function useAddNode(p: { view: View; flow: ReactFlowInstance<GraphNode, E
     edit(end ? { kind: 'Group', edits: [add, { kind: 'ConnectPin', key, end: end.pin }] } : add);
   };
   const end = palette?.end;
-  const all = view.graphName === 'main' ? view.nodes : [...view.nodes, PUBLIC_INPUT, PUBLIC_OUTPUT];
+  const all = atTop(view) ? view.nodes : [...view.nodes, PUBLIC_INPUT, PUBLIC_OUTPUT];
   const choices = [...all, ...library].filter((n) => !end || matchPin(n, end.output, end.ty) !== undefined);
   /** The wire from the drag end to a new library node, or undefined without a drag. */
   const link = (n: LibraryNode): DragLink | undefined => end && { end: end.pin, output: end.output, key: matchPin(n, end.output, end.ty)! };

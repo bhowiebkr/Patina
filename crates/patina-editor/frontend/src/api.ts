@@ -130,8 +130,12 @@ export interface View {
   root: string;
   name: string;
   graph: GraphFile;
-  /** The name of the open graph: `main` or a subgraph (6.1). */
+  /** The name of the open graph: a top graph or a subgraph (6.1). */
   graphName: string;
+  /** The top graph that runs (6.1). It is the open graph when the open graph is not a subgraph. */
+  top: string;
+  /** The top graphs, `main` first (6.1). */
+  graphs: string[];
   nodes: NodeInfo[];
   /** The widget folders (6.2), for example `gradient-bar` for `widgets/gradient-bar`. */
   widgets: string[];
@@ -159,13 +163,16 @@ export interface View {
   test: Record<string, string> | null;
   /** The connection kinds (6.3). */
   kinds: KindInfo[];
-  /** The clock domain of each node use of the checked main graph, by flattened ID (9.1). Empty when the check fails. */
+  /** The clock domain of each node use of the checked top graph, by flattened ID (9.1). Empty when the check fails. */
   domains: Record<string, Domain>;
   /** The frames each second of the project (9.1). */
   frameRate: number;
-  /** The use path of each use of the open subgraph in the main graph, also inside other uses (6.4, 15.9). */
+  /** The use path of each use of the open subgraph in the top graph, also inside other uses (6.4, 15.9). */
   uses: string[];
 }
+
+/** True when the open graph is the top graph that runs, not a subgraph (6.1). */
+export const atTop = (v: View) => v.graphName === v.top;
 
 /** The unsaved text of the Code tab, by path. */
 export type Code = Record<string, string>;
@@ -553,13 +560,15 @@ export const api = {
   setUnsavedCode: (code: Code) => invoke<void>('set_unsaved_code', { code }),
   /** Restores or discards the changes of the recovery file (15.10). */
   recover: (restore: boolean) => invoke<{ view: View; code: Code }>('recover', { restore }),
-  /** Opens the main graph or a subgraph (6.1). The open graph must have no unsaved changes. */
+  /** Opens a top graph or a subgraph (6.1). A top graph runs in place of the last top graph. */
   openGraph: (name: string) => invoke<View>('open_graph', { name }),
   /** The file of a subgraph, with its unsaved edits, to show its nodes in place (15.3). */
   subgraphFile: (name: string) => invoke<GraphFile>('subgraph_file', { name }),
   /** Moves the nodes into the new subgraph `name`, with the use `useId` in their place (6.1). */
   collapse: (name: string, ids: string[], useId: string) => invoke<View>('collapse', { name, ids, useId }),
   newGraph: (name: string) => invoke<View>('new_graph', { name }),
+  /** Makes the empty top graph `name` in memory (6.1). */
+  newTop: (name: string) => invoke<View>('new_top_graph', { name }),
   /** Puts the nodes of each subgraph use in its place (6.1). */
   expand: (ids: string[]) => invoke<View>('expand', { ids }),
   run: () => invoke<View>('run'),

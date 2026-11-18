@@ -50,9 +50,9 @@ pub enum Job {
     /// A view build in a background thread ended. Only the engine makes it.
     #[serde(skip)]
     ViewBuilt,
-    /// Makes a package of the saved project `root` in `out` (14.1). The reply to `ask` has the
-    /// warnings.
-    Package { root: PathBuf, out: PathBuf, ask: u64 },
+    /// Makes a package of the top graph `graph` of the saved project `root` in `out` (14.1). The
+    /// reply to `ask` has the warnings.
+    Package { root: PathBuf, graph: String, out: PathBuf, ask: u64 },
     /// User input to a view (15.8). The first input builds the view.
     View(Box<ViewInput>),
     /// Drops a view, so the next input builds it again.
@@ -333,7 +333,7 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
                     }
                 }
                 Job::Rerun => batch.rerun = true,
-                Job::Package { root, out: to, ask } => make_package(out, (folder, &mut toolchain), root, to, ask),
+                Job::Package { root, graph, out: to, ask } => make_package(out, (folder, &mut toolchain), (root, graph), to, ask),
                 Job::View(input) => views.ui(out, shared, (folder, &mut toolchain), *input, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
                 Job::CloseView(name) => views.close(&name),
                 Job::ViewBuilt => views.poll(out, shared, loaded.as_mut().map(|l| l.cluster.frame_part()).as_mut()),
@@ -472,7 +472,7 @@ impl Live<'_> {
             // A view reads the live values, so the frames go on.
             Ok(Job::View(input)) => self.views.ui(self.out, self.shared, (self.folder, self.toolchain), *input, Some(part)),
             Ok(Job::CloseView(name)) => self.views.close(&name),
-            Ok(Job::Package { root, out: to, ask }) => make_package(self.out, (self.folder, self.toolchain), root, to, ask),
+            Ok(Job::Package { root, graph, out: to, ask }) => make_package(self.out, (self.folder, self.toolchain), (root, graph), to, ask),
             Ok(Job::DropView(instance, ask)) => {
                 self.views.drop_instance(self.out, &instance);
                 self.out.reply(ask, Ok(()));
@@ -669,9 +669,9 @@ pub(crate) fn find_toolchain<'a>(folder: &Path, toolchain: &'a mut Option<Toolch
 
 /// Makes a package with a bake build. The runner of the package is the `patina-cli` next to the
 /// editor (14.1).
-/// Makes the package of project `root` in folder `to`, in a background thread, so the graph runs
-/// on. The thread sends the reply to `ask`. Builds run one at a time.
-fn make_package(out: &Arc<Out>, (folder, toolchain): (&Path, &mut Option<Toolchain>), root: PathBuf, to: PathBuf, ask: u64) {
+/// Makes the package of the top graph `graph` of project `root` in folder `to`, in a background
+/// thread, so the graph runs on. The thread sends the reply to `ask`. Builds run one at a time.
+fn make_package(out: &Arc<Out>, (folder, toolchain): (&Path, &mut Option<Toolchain>), (root, graph): (PathBuf, String), to: PathBuf, ask: u64) {
     let toolchain = match find_toolchain(folder, toolchain) {
         Ok(toolchain) => toolchain.clone(),
         Err(e) => return out.reply(ask, Err::<Vec<String>, _>(e.to_string())),
@@ -685,7 +685,7 @@ fn make_package(out: &Arc<Out>, (folder, toolchain): (&Path, &mut Option<Toolcha
                 return Err(format!("Patina cannot make a package, because {} is not there.", runner.display()));
             }
             let _build = lock(&BUILDING);
-            package::make(&root, &toolchain, Mode::Bake, &runner, &to).map_err(|e| e.to_string())
+            package::make(&root, &graph, &toolchain, Mode::Bake, &runner, &to).map_err(|e| e.to_string())
         })();
         reply.reply(ask, made);
     };

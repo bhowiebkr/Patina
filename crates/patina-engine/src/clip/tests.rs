@@ -195,6 +195,7 @@ fn a_bad_clip_is_refused() {
     assert!(bad("id = \"000000000000000b\"", "id = \"000000000000000a\"").contains("repeated"));
     assert!(bad("patina-clip = 1", "patina-clip = 2").contains("version"));
     assert!(bad("graphs.half", "graphs.main").contains("main"));
+    assert!(bad("[graphs.half]\n", "[graphs.half]\ntop = true\n").contains("top graph half"));
     assert!(bad("graphs.half", "graphs.other").contains("no subgraph half"));
     assert!(bad("subgraph = \"half\"", "subgraph = \"Con\"").contains("Con"));
     // A subgraph that uses itself.

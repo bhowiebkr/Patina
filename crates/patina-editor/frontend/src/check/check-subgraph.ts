@@ -431,4 +431,20 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   crumb('main')!.click();
   await until('the main graph after the new subgraph', BUILD_MS, () => document.querySelector('.graph-path') === null && count() === all);
   steps.push('make and open an empty subgraph with New subgraph');
+  // New graph of the Graphs group makes an empty top graph. It opens and runs in place of main (6.1).
+  const graphItem = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')].find((b) => b.childNodes[0]?.textContent === name);
+  const runs = (name: string) => graphItem(name)?.querySelector('.hint')?.textContent === 'runs';
+  document.querySelector<HTMLButtonElement>('[aria-label="New graph"]')!.click();
+  await until('the name field of New graph', RUN_MS, () => !!document.querySelector('[aria-label="Graph name"]'));
+  enterText(document.querySelector<HTMLInputElement>('[aria-label="Graph name"]')!, 'bench_check');
+  await until('the empty top graph bench_check that runs', BUILD_MS, () => document.querySelector('.graph-path') === null && count() === 0 && runs('bench_check'));
+  graphItem('main')!.click();
+  await until('main runs again after bench_check', BUILD_MS, () => count() === all && runs('main') && !runs('bench_check'));
+  rightClick(graphItem('bench_check')!);
+  await until('the Delete entry of bench_check', RUN_MS, () => !!entry('graphs/bench_check', 'Delete'));
+  entry('graphs/bench_check', 'Delete')!.click();
+  await until('the delete question of bench_check', RUN_MS, () => !!button('Delete'));
+  button('Delete')!.click();
+  await until('no bench_check after Delete', RUN_MS, () => !graphItem('bench_check') && !graphItem('main')?.querySelector('.hint'));
+  steps.push('make, run and delete a top graph with New graph');
 }

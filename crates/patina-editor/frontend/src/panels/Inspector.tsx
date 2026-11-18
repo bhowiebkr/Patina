@@ -3,7 +3,7 @@
 
 import { lazy, Suspense, useContext, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { KindIcon } from '../controls/icons';
-import { api, docParts, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
+import { api, atTop, docParts, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
 import { valueStale } from '../canvas/liveValues';
@@ -300,9 +300,9 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
               {routeOptions}
             </select>
           </label>
-          {view.graphName !== 'main' && <SymbolFields view={view} onEdit={onEdit} />}
+          {!atTop(view) && <SymbolFields view={view} onEdit={onEdit} />}
         </div>
-        {view.graphName !== 'main' && <SubgraphInterface view={view} onEdit={onEdit} />}
+        {!atTop(view) && <SubgraphInterface view={view} onEdit={onEdit} />}
       </aside>
     );
   }

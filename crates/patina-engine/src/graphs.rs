@@ -15,19 +15,25 @@ impl Project {
         &self.history.graph
     }
 
-    /// The name of the open graph: `main` or the name of a subgraph.
+    /// The name of the open graph: a top graph or a subgraph.
     pub fn graph_name(&self) -> &str {
         &self.name
     }
 
-    /// Opens the main graph or a subgraph for edits (6.1). The other graphs keep their unsaved
-    /// changes and their undo history in memory. Only a save writes them (15.10).
+    /// The name of the top graph that runs (6.1).
+    pub fn top(&self) -> &str {
+        &self.top
+    }
+
+    /// Opens a top graph or a subgraph for edits (6.1). A top graph becomes the graph that runs.
+    /// The other graphs keep their unsaved changes and their undo history in memory. Only a save
+    /// writes them (15.10).
     pub fn open_graph(&mut self, name: &str) -> Result<(), String> {
         if name == self.name {
             return Ok(());
         }
         if name != MAIN {
-            project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+            project::check_name(name).map_err(|e| format!("the graph name {name:?}: {e}"))?;
         }
         let history = match self.parked.remove(name) {
             Some(history) => history,
@@ -35,6 +41,9 @@ impl Project {
         };
         let old = std::mem::replace(&mut self.history, history);
         self.parked.insert(std::mem::replace(&mut self.name, name.to_owned()), old);
+        if crate::is_top(name, &self.history.graph) {
+            self.top = name.to_owned();
+        }
         Ok(())
     }
 
@@ -45,12 +54,14 @@ impl Project {
             return Err("the main graph is not a subgraph".to_owned());
         }
         project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
-        if name == self.name {
-            return Ok(self.history.graph.clone());
-        }
-        match self.parked.get(name) {
-            Some(history) => Ok(history.graph.clone()),
-            None => project::read(&graph_path(&self.root, name), |g: &GraphFile| g.format).map_err(|e| e.to_string()),
+        let graph = match self.parked.get(name) {
+            _ if name == self.name => self.history.graph.clone(),
+            Some(history) => history.graph.clone(),
+            None => project::read(&graph_path(&self.root, name), |g: &GraphFile| g.format).map_err(|e| e.to_string())?,
+        };
+        match graph.top {
+            true => Err(format!("the graph {name} is a top graph, not a subgraph")),
+            false => Ok(graph),
         }
     }
 
@@ -92,7 +103,7 @@ impl Project {
     }
 
     fn check_new_graph(&self, name: &str) -> Result<(), String> {
-        project::check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
+        project::check_name(name).map_err(|e| format!("the graph name {name:?}: {e}"))?;
         if self.has_graph(name) {
             return Err(format!("the graph {name} exists"));
         }
@@ -139,8 +150,27 @@ impl Project {
 
     /// Replaces the open graph as one step of undo, for example with the graph of a recovery file
     /// (15.10). The graph is not saved.
-    pub fn restore_graph(&mut self, graph: GraphFile) {
+    pub fn restore(&mut self, name: &str, graph: GraphFile) -> Result<(), String> {
+        if !self.has_graph(name) {
+            self.check_new_graph(name)?;
+            self.add_graph(name, GraphFile { format: graph.format, top: graph.top, ..GraphFile::default() });
+        }
+        self.open_graph(name)?;
         self.history.replace(graph);
+        Ok(())
+    }
+
+    /// Adds the new empty top graph `name` in memory (6.1). It is unsaved, so a save writes it.
+    pub fn new_top(&mut self, name: &str) -> Result<(), String> {
+        self.check_new_graph(name)?;
+        self.add_graph(name, GraphFile { format: self.history.graph.format, top: true, ..GraphFile::default() });
+        Ok(())
+    }
+
+    /// Forgets the graph `name` in memory after the delete of its folder, or in place of a delete
+    /// for a new graph with no file (15.4). The open graph and the top graph stay.
+    pub fn drop_graph(&mut self, name: &str) -> bool {
+        name != self.top && self.parked.remove(name).is_some()
     }
 
     /// Removes the last edit. `code` has the unsaved text of each code file of the **Code** tab.
@@ -235,7 +265,7 @@ impl Project {
     /// The new subgraphs of a paste or a collapse with no file, no edits of their own and no use in
     /// the other graphs in memory, for example after an undo. They stay in memory for a redo (15.10).
     fn unused_new(&self) -> HashSet<&str> {
-        let mut unused: HashSet<&str> = self.parked.iter().filter(|(_, h)| h.is_new() && !h.has_steps()).map(|(name, _)| name.as_str()).collect();
+        let mut unused: HashSet<&str> = self.parked.iter().filter(|(_, h)| h.is_new() && !h.has_steps() && !h.graph.top).map(|(name, _)| name.as_str()).collect();
         loop {
             // A use in an unused new subgraph does not count, so repeat until nothing changes.
             let graphs = std::iter::once((self.name.as_str(), &self.history.graph)).chain(self.parked.iter().map(|(name, h)| (name.as_str(), &h.graph)));
@@ -266,8 +296,8 @@ impl Project {
     /// The use path (6.4) of each use of the open subgraph in the main graph, also inside other
     /// uses (15.9). The main graph has none.
     pub fn use_paths(&self) -> Vec<String> {
-        let Some(main) = self.parked.get(MAIN) else { return Vec::new() };
-        subgraph::use_paths(&self.root, &main.graph, &self.edits(), &self.name)
+        let Some(top) = self.parked.get(&self.top) else { return Vec::new() };
+        subgraph::use_paths(&self.root, &top.graph, &self.edits(), &self.name)
     }
 
     /// The subgraphs that the editor has in memory, with their unsaved changes. They replace their

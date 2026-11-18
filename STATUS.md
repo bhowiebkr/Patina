@@ -202,6 +202,22 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - Findings 10, 11 and 12 need a measurement or a design change first.
 - Not checked in this audit: slot mode, allocation counts, Linux, and macOS.
 
+### Top graphs, 2026-11-18
+
+- A project can have more top graphs than `main`, for example an empty workbench next to a
+  finished build. **New graph** in the **Graphs** group of the **Project** panel makes one.
+- A top graph opens and runs in place of the last top graph. Save writes `top = true` in its file.
+  A subgraph use or a clip cannot name a top graph.
+- `patina-cli run` and `patina-cli package` take `--graph <name>`. A package records its top graph.
+- Checked on 2026-11-18, on Windows only: `cargo test --workspace` (an engine test opens and runs
+  a top graph and refuses a use of it, a clip test refuses a top graph, CLI parse tests of
+  `--graph`), CI clippy, `npm test` (166 pass) and `npm run check`. The selfcheck (317 steps, on a
+  hidden desktop) clicks **New graph**, sees the empty top graph run, opens `main` again and
+  deletes the new graph. A real `patina-cli run --graph` of a saved project did not run.
+- Known limits: a project always opens with `main` as the top graph that runs. A restore from the
+  recovery file runs the restored open top graph, or `main` when a subgraph was open. The editor
+  cannot rename a graph, or change a top graph into a subgraph.
+
 ### Copy, paste and libraries
 
 - Known limits: the index has no libraries yet. A clip has 256 subgraphs at most.

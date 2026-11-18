@@ -14,8 +14,8 @@ use patina_engine::{Audio, Cluster, Control, EventRun, Events, Frames, Mode, Out
 
 mod interrupt;
 
-const USAGE: &str = "usage: patina-cli run <project folder> [--frames <count>] [--blocks <count>] [--events <count>] [--edit]
-       patina-cli package <project folder> <package folder> [--edit]";
+const USAGE: &str = "usage: patina-cli run <project folder> [--graph <name>] [--frames <count>] [--blocks <count>] [--events <count>] [--edit]
+       patina-cli package <project folder> <package folder> [--graph <name>] [--edit]";
 
 /// The number of frames, of audio blocks and of event runs to run. `None` runs until the user stops the process.
 #[derive(Debug, PartialEq, Default, Clone, Copy)]
@@ -27,8 +27,8 @@ struct Counts {
 
 #[derive(Debug, PartialEq)]
 enum Command<'a> {
-    Run { folder: &'a str, counts: Counts, mode: Mode },
-    Package { folder: &'a str, out: &'a str, mode: Mode },
+    Run { folder: &'a str, graph: &'a str, counts: Counts, mode: Mode },
+    Package { folder: &'a str, out: &'a str, graph: &'a str, mode: Mode },
 }
 
 fn main() -> ExitCode {
@@ -41,8 +41,8 @@ fn main() -> ExitCode {
     let result = match dir.filter(|dir| dir.join(package::HEADER).is_file()) {
         Some(dir) => run_package(&dir, &args),
         None => match parse(&args) {
-            Some(Command::Run { folder, counts, mode }) => run(Path::new(folder), counts, mode),
-            Some(Command::Package { folder, out, mode }) => make(Path::new(folder), Path::new(out), mode),
+            Some(Command::Run { folder, graph, counts, mode }) => run(Path::new(folder), graph, counts, mode),
+            Some(Command::Package { folder, out, graph, mode }) => make(Path::new(folder), graph, Path::new(out), mode),
             None => {
                 eprintln!("{USAGE}");
                 return ExitCode::from(2);
@@ -64,11 +64,12 @@ fn main() -> ExitCode {
 }
 
 /// Reads the arguments. `--edit` makes a fast build in edit mode, else the build is in bake mode
-/// (8.3). Only `run` takes `--frames`, `--blocks` and `--events`.
+/// (8.3). `--graph` names the top graph to run in place of `main` (6.1). Only `run` takes
+/// `--frames`, `--blocks` and `--events`.
 fn parse(args: &[String]) -> Option<Command<'_>> {
     let (command, rest) = args.split_first()?;
     let (paths, flags) = rest.split_at(rest.iter().position(|a| a.starts_with("--")).unwrap_or(rest.len()));
-    let (mut counts, mut mode) = (Counts::default(), Mode::Bake);
+    let (mut counts, mut mode, mut graph) = (Counts::default(), Mode::Bake, None);
     let mut flags = flags.iter();
     while let Some(flag) = flags.next() {
         match flag.as_str() {
@@ -76,12 +77,14 @@ fn parse(args: &[String]) -> Option<Command<'_>> {
             "--blocks" if counts.blocks.is_none() && command == "run" => counts.blocks = Some(flags.next()?.parse().ok()?),
             "--events" if counts.events.is_none() && command == "run" => counts.events = Some(flags.next()?.parse().ok()?),
             "--edit" if mode == Mode::Bake => mode = Mode::Edit,
+            "--graph" if graph.is_none() => graph = Some(flags.next()?.as_str()),
             _ => return None,
         }
     }
+    let graph = graph.unwrap_or("main");
     match (command.as_str(), paths) {
-        ("run", [folder]) => Some(Command::Run { folder, counts, mode }),
-        ("package", [folder, out]) => Some(Command::Package { folder, out, mode }),
+        ("run", [folder]) => Some(Command::Run { folder, graph, counts, mode }),
+        ("package", [folder, out]) => Some(Command::Package { folder, out, graph, mode }),
         _ => None,
     }
 }
@@ -111,9 +114,9 @@ fn toolchain_folder(exe_dir: &Path, local_data: Option<PathBuf>) -> PathBuf {
     local_data.map_or(next, |base| base.join(name).join("toolchain"))
 }
 
-/// Builds the main graph and runs it. Returns false when a node failed.
-fn run(folder: &Path, counts: Counts, mode: Mode) -> Result<bool, String> {
-    let checked = Project::open(folder).and_then(|p| p.check()).map_err(|e| e.to_string())?;
+/// Builds the top graph `graph` and runs it. Returns false when a node failed.
+fn run(folder: &Path, graph: &str, counts: Counts, mode: Mode) -> Result<bool, String> {
+    let checked = Project::open_top(folder, graph).and_then(|p| p.check()).map_err(|e| e.to_string())?;
     let toolchain = toolchain()?;
     eprintln!("Building with Rust {}...", toolchain.release);
     let start = Instant::now();
@@ -122,12 +125,12 @@ fn run(folder: &Path, counts: Counts, mode: Mode) -> Result<bool, String> {
     Ok(drive(&mut cluster, checked.graph(), counts, checked.frame_rate()))
 }
 
-/// Builds the project and writes a package to the folder `out` (14).
-fn make(folder: &Path, out: &Path, mode: Mode) -> Result<bool, String> {
+/// Builds the top graph `graph` and writes a package to the folder `out` (14).
+fn make(folder: &Path, graph: &str, out: &Path, mode: Mode) -> Result<bool, String> {
     let toolchain = toolchain()?;
     let runner = std::env::current_exe().map_err(|e| e.to_string())?;
     eprintln!("Building with Rust {}...", toolchain.release);
-    let warnings = package::make(folder, &toolchain, mode, &runner, out).map_err(|e| e.to_string())?;
+    let warnings = package::make(folder, graph, &toolchain, mode, &runner, out).map_err(|e| e.to_string())?;
     for warning in warnings {
         eprintln!("warning: {warning}");
     }
@@ -357,7 +360,7 @@ mod tests {
     fn the_flags_come_in_any_order_one_time_each() {
         let args = |text: &str| text.split(' ').map(str::to_owned).collect::<Vec<_>>();
         let run = |text: &str| match parse(&args(text)) {
-            Some(Command::Run { folder, counts, mode }) => Some((folder.to_owned(), counts.frames, counts.blocks, counts.events, mode)),
+            Some(Command::Run { folder, graph: "main", counts, mode }) => Some((folder.to_owned(), counts.frames, counts.blocks, counts.events, mode)),
             _ => None,
         };
         assert_eq!(run("run p"), Some(("p".to_owned(), None, None, None, Mode::Bake)));
@@ -369,8 +372,10 @@ mod tests {
             assert_eq!(run(bad), None, "{bad}");
         }
         let package = args("package p out --edit");
-        assert_eq!(parse(&package), Some(Command::Package { folder: "p", out: "out", mode: Mode::Edit }));
-        for bad in ["package p", "package p out --frames 3", "package p out --events 3", "package p --edit out"] {
+        assert_eq!(parse(&package), Some(Command::Package { folder: "p", out: "out", graph: "main", mode: Mode::Edit }));
+        assert_eq!(parse(&args("run p --graph bench")), Some(Command::Run { folder: "p", graph: "bench", counts: Counts::default(), mode: Mode::Bake }));
+        assert_eq!(parse(&args("package p out --graph bench")), Some(Command::Package { folder: "p", out: "out", graph: "bench", mode: Mode::Bake }));
+        for bad in ["package p", "package p out --frames 3", "package p out --events 3", "package p --edit out", "run p --graph", "run p --graph a --graph b"] {
             assert_eq!(parse(&args(bad)), None, "{bad}");
         }
     }

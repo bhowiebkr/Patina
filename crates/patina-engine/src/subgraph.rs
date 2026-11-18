@@ -105,6 +105,10 @@ fn expand(files: &mut Files, graph: &GraphFile, stack: &mut Vec<String>, problem
             continue;
         }
         let file = match files.graph(name) {
+            Ok(file) if crate::is_top(name, &file) => {
+                fail(format!("the graph {name} is a top graph, not a subgraph"));
+                continue;
+            }
             Ok(file) => file,
             Err(e) => {
                 fail(e);
@@ -211,8 +215,9 @@ fn rewire(graph: &GraphFile, uses: &HashMap<&str, Use>, flat: &mut GraphFile, ne
 }
 
 /// The subgraph files of `graphs/`, without the main graph, for the node list of the editor.
-/// A subgraph of `edits` gives its pins from its edits, which are not saved yet.
-pub(crate) fn infos(root: &Path, edits: Edits) -> Vec<NodeInfo> {
+/// A subgraph of `edits` gives its pins from its edits, which are not saved yet. The first list
+/// has the names of the top graphs (6.1), `main` first.
+pub(crate) fn infos(root: &Path, edits: Edits) -> (Vec<String>, Vec<NodeInfo>) {
     // A new subgraph of a paste or a collapse has no file before a save (15.10, 15.11).
     let mut names: BTreeSet<String> = edits.iter().map(|(name, _)| (*name).to_owned()).collect();
     for entry in fs::read_dir(root.join("graphs")).into_iter().flatten().flatten() {
@@ -220,9 +225,13 @@ pub(crate) fn infos(root: &Path, edits: Edits) -> Vec<NodeInfo> {
         let toml = path.extension().is_some_and(|e| e == "toml");
         names.extend(path.file_stem().and_then(|s| s.to_str()).filter(|n| toml && *n != "main").map(str::to_owned));
     }
-    let mut infos = Vec::new();
+    let (mut tops, mut infos) = (vec![crate::MAIN.to_owned()], Vec::new());
     let files = &mut Files::new(root, edits);
     for name in &names {
+        if files.graph(name).is_ok_and(|g| g.top) {
+            tops.push(name.clone());
+            continue;
+        }
         let mut info = NodeInfo { name: name.clone(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, free: false, color: None, symbol: None, subgraph: true, kind: "subgraph", doc: None };
         match files.graph(name) {
             Ok(graph) => {
@@ -245,7 +254,7 @@ pub(crate) fn infos(root: &Path, edits: Edits) -> Vec<NodeInfo> {
         }
         infos.push(info);
     }
-    infos
+    (tops, infos)
 }
 
 /// The use path (6.4) of each use of the subgraph `name` in `graph`, also inside other uses (15.9).
@@ -461,7 +470,7 @@ to = \"f1.0000000e\"
         let problems = flatten(&root, &bad, &[]).unwrap_err();
         std::fs::remove_file(root.join("graphs/dotted.toml")).unwrap();
         // The node list shows each subgraph with its public pins. The add folder is missing here.
-        let infos = infos(&root, &[]);
+        let infos = infos(&root, &[]).1;
         std::fs::remove_dir_all(&root).unwrap();
         let names: Vec<&str> = infos.iter().map(|i| i.name.as_str()).collect();
         assert_eq!(names, ["cycle", "half", "open"]);
@@ -522,8 +531,8 @@ to = [\"00000000000000a2.a\"]
         // The open subgraph gives its pins from its edits, not from its file.
         let mut open = graph(&std::fs::read_to_string(root.join("graphs/both.toml")).unwrap());
         open.input.pop();
-        let edited = infos(&root, &[("both", &open)]);
-        let infos = infos(&root, &[]);
+        let edited = infos(&root, &[("both", &open)]).1;
+        let infos = infos(&root, &[]).1;
         std::fs::remove_dir_all(&root).unwrap();
         let pins: Vec<(&str, &str)> = edited[0].inputs.iter().map(|p| (p.key.as_str(), p.ty.as_str())).collect();
         assert_eq!(pins, [("0000000a", "bool")]);

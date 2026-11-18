@@ -44,6 +44,9 @@ pub struct Import {
 #[serde(deny_unknown_fields)]
 pub struct GraphFile {
     pub format: u32,
+    /// True for a top graph that runs, as `main` is (6.1). A subgraph use can not name it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub top: bool,
     /// The path style of the wires with no style of their own (15.9). `None` is the automatic route.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<Style>,

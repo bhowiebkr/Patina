@@ -49,6 +49,15 @@ The UI cannot show an unknown type by itself.
 - Each node has a stable random ID. The ID does not change when the node moves to another subgraph or file.
 - A subgraph is a group of nodes that shows as one node. The user can collapse and expand it, and reuse it in other graphs.
 - A subgraph is a candidate for one cluster (see 8.2).
+- A project has one or more top graphs. `main` is the first top graph. Each top graph is a
+  workbench: an empty canvas or a different build that uses the same folders and subgraphs.
+- Only a top graph runs, and only one at a time. When the user opens a top graph, it runs in
+  place of the last top graph. When a subgraph is open, the last top graph runs on.
+- A subgraph use cannot name a top graph, and a clip cannot bring one (15.11).
+- A project opens with `main` as the top graph that runs. `patina-cli run --graph <name>` runs
+  another top graph (9.1). A package runs the top graph that it was made from (14.1).
+- (Agent decision of 2026-11-18, for the owner request of several graphs in one example. The
+  owner can change it.)
 
 ### 6.2 Project folders
 
@@ -224,11 +233,13 @@ copy = "sha256:<64 hex characters>"   # the copy in this project after the impor
 **Graph files**
 
 - Each graph and each subgraph is one file in `graphs/`. The file name is the graph name. `graphs/main.toml` is the main graph.
+- A graph file with `top = true` is a top graph (6.1). Patina writes `top` only when it is true. `main` is a top graph without it.
 - A subgraph file can have public pins. Each use of the subgraph is a node with these pins (6.1).
 - The type of a public pin is the value type of the inner pin that it ends at, without `&` or `&mut`. A pin that ends at a generic pin keeps the type parameter, and the use is generic in it (4.5). (Agent decision, 2026-11-16. The owner can change it.)
 
 ```toml
 format = 1
+top = true                       # only in a top graph other than main (6.1)
 style = "curved"                 # the path of the wires with no style; only to override automatic (15.9)
 
 [symbol]                         # only in a subgraph file: the symbol of each use (4.3)

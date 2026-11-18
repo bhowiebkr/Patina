@@ -94,6 +94,7 @@ impl Project {
         let copied = |ends: &[String]| !ends.is_empty() && ends.iter().all(|to| wire.iter().any(|w| &w.to == to));
         let nodes = GraphFile {
             format: FORMAT,
+            top: false,
             style: graph.style,
             symbol: None,
             node,
@@ -367,8 +368,8 @@ fn parse(text: &str) -> Result<Clip, String> {
     }
     for name in clip.graphs.keys() {
         check_name(name).map_err(|e| format!("the subgraph name {name:?}: {e}"))?;
-        if name.eq_ignore_ascii_case(MAIN) {
-            return Err("the main graph is not a subgraph".to_owned());
+        if name.eq_ignore_ascii_case(MAIN) || clip.graphs[name].top {
+            return Err(format!("the top graph {name} is not a subgraph"));
         }
     }
     for graph in std::iter::once(&clip.nodes).chain(clip.graphs.values()) {

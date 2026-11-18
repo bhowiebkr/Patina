@@ -23,9 +23,10 @@ test('the path ends at the open graph, or starts again with no use', () => {
     { graph: 'alu', use: 'u1', label: 'alu' },
     { graph: 'adder', use: 'u2', label: 'adder 2' },
   ];
-  assert.deepEqual(trailOf(trail, 'adder'), trail);
-  assert.deepEqual(trailOf(trail, 'main'), []);
-  const loose = trailOf(trail, 'bank');
+  assert.deepEqual(trailOf(trail, 'adder', 'main'), trail);
+  assert.deepEqual(trailOf(trail, 'main', 'main'), []);
+  assert.deepEqual(trailOf(trail, 'bench', 'bench'), [], 'another top graph has no path');
+  const loose = trailOf(trail, 'bank', 'main');
   assert.deepEqual(loose, [{ graph: 'bank', use: '', label: 'bank' }]);
   assert.equal(usePathOf(trail, ['u7']), 'u1/u2');
   assert.equal(usePathOf([...loose, { graph: 'cell', use: 'u3', label: 'cell' }], []), '');

@@ -1,4 +1,4 @@
-// The path bar of an open subgraph (spec 15.9): one crumb for each use from the main graph.
+// The path bar of an open subgraph (spec 15.9): one crumb for each use from the top graph.
 
 import { folderName, type NodeEntry } from '../api.ts';
 import type { RunState } from './NodeView.tsx';
@@ -14,9 +14,10 @@ export function crumbLabel(nodes: NodeEntry[], use: string): string {
   return same.length > 1 ? `${folderName(entry)} ${same.indexOf(entry) + 1}` : folderName(entry);
 }
 
-/** The path to the open graph. A graph that the path does not end at starts a path with no use. */
-export function trailOf(trail: Crumb[], graph: string): Crumb[] {
-  if (graph === 'main') return [];
+/** The path from the top graph `top` to the open graph. A graph that the path does not end at
+ * starts a path with no use. */
+export function trailOf(trail: Crumb[], graph: string, top: string): Crumb[] {
+  if (graph === top) return [];
   return trail.at(-1)?.graph === graph ? trail : [{ graph, use: '', label: graph }];
 }
 

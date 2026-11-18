@@ -77,8 +77,12 @@ pub struct View {
     root: PathBuf,
     name: String,
     graph: GraphFile,
-    /// The name of the open graph: `main` or a subgraph (6.1).
+    /// The name of the open graph: a top graph or a subgraph (6.1).
     graph_name: String,
+    /// The top graph that runs (6.1).
+    top: String,
+    /// The top graphs, `main` first (6.1).
+    graphs: Vec<String>,
     nodes: Vec<NodeInfo>,
     /// The connection kinds (6.3).
     kinds: Vec<KindInfo>,
@@ -305,7 +309,8 @@ impl Session {
             Err(e) => (Vec::new(), [e.to_string()].into_iter().chain(problems).collect()),
         };
         nodes.extend(patina_engine::builtins());
-        nodes.extend(project.subgraphs());
+        let (graphs, subgraphs) = project.graphs();
+        nodes.extend(subgraphs);
         problems.extend(self.recovery_error.iter().map(|e| format!("recovery file: {e}")));
         View {
             serial: self.serial,
@@ -314,6 +319,8 @@ impl Session {
             name: folder_name(project.root()),
             graph: project.graph().clone(),
             graph_name: project.graph_name().to_owned(),
+            top: project.top().to_owned(),
+            graphs,
             nodes,
             kinds: project.kinds(),
             widgets: project.widgets(),
@@ -426,11 +433,17 @@ pub fn delete_folder(editor: State<'_, Editor>, folder: String) -> Result<View, 
             return Err("Trust the project before you delete a folder.".to_owned());
         }
         let path = session.project.root().join(deletable_folder(&folder)?);
-        if !path.exists() {
-            return Err(format!("The project has no {folder}."));
+        let graph = folder.strip_prefix("graphs/");
+        if graph.is_some_and(|name| name == session.project.graph_name() || name == session.project.top()) {
+            return Err(format!("Open another top graph before you delete {folder}."));
         }
-        if folder.strip_prefix("graphs/") == Some(session.project.graph_name()) {
-            return Err(format!("Open another graph before you delete {folder}."));
+        if !path.exists() {
+            // A new graph has no file before a save, so it goes from memory (15.10).
+            if graph.is_some_and(|name| session.project.drop_graph(name)) {
+                session.keep_recovery(&editor.data);
+                return Ok(session.view(&editor.engine, None, None));
+            }
+            return Err(format!("The project has no {folder}."));
         }
         let inside = format!("{folder}/");
         if session.code.keys().any(|file| file.starts_with(&inside)) {
@@ -439,6 +452,10 @@ pub fn delete_folder(editor: State<'_, Editor>, folder: String) -> Result<View, 
         // rust-analyzer watches each folder, so Windows cannot move one while it runs. The Code tab starts it again.
         editor.analyzer.stop();
         start::recycle(&path)?;
+        if let Some(name) = graph {
+            session.project.drop_graph(name);
+            session.keep_recovery(&editor.data);
+        }
         session.project.outside_change();
         if let Some(name) = folder.strip_prefix("views/") {
             editor.engine.send(Job::CloseView(name.to_owned()));
@@ -581,13 +598,15 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
             return Err("Trust the project before you restore its changes.".to_owned());
         }
         let file = session.recovery.as_ref().ok_or("The project has no recovery file.")?;
+        let top = session.project.top().to_owned();
         if restore {
             // Each graph opens and gets its changes as one step of undo. The open graph comes last.
             let open = file.graph_name.as_deref().filter(|_| file.graph.is_some()).unwrap_or("main");
             for (name, graph) in file.others.iter().map(|(name, g)| (name.as_str(), g)).chain(file.graph.as_ref().map(|g| (open, g))) {
-                session.project.open_graph(name)?;
-                session.project.restore_graph(graph.clone());
+                session.project.restore(name, graph.clone())?;
             }
+            // A restored top graph moves the top, so main opens first and a subgraph keeps main.
+            session.project.open_graph("main")?;
             session.project.open_graph(open)?;
             if let Some(rate) = file.frame_rate {
                 session.project.set_frame_rate(rate).map_err(|e| e.to_string())?;
@@ -597,18 +616,30 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
         let code = if restore { file.code } else { BTreeMap::new() };
         session.code = code.clone();
         session.keep_recovery(&editor.data);
-        Ok(Recovered { view: session.view(&editor.engine, None, None), code })
+        let moved = session.project.top() != top;
+        let view = session.view(&editor.engine, moved.then_some(true), None);
+        if moved {
+            session.load(&editor.engine);
+        }
+        Ok(Recovered { view, code })
     })
 }
 
-/// Opens the main graph or a subgraph in the graph view (6.1).
+/// Opens a top graph or a subgraph in the graph view (6.1). A top graph runs in place of the last
+/// top graph.
 #[tauri::command(async)]
 pub fn open_graph(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.with(|session| {
+        let top = session.project.top().to_owned();
         session.project.open_graph(&name)?;
-        // The test of a subgraph ends, so the main graph runs again (15.9).
-        let build = session.test.take().map(|_| true);
-        Ok(session.view(&editor.engine, build, None))
+        let moved = session.project.top() != top;
+        // The test of a subgraph ends, so the top graph runs again (15.9).
+        let tested = session.test.take().is_some();
+        let view = session.view(&editor.engine, (tested || moved).then_some(true), None);
+        if moved {
+            session.load(&editor.engine);
+        }
+        Ok(view)
     })
 }
 
@@ -628,6 +659,12 @@ pub fn collapse(editor: State<'_, Editor>, name: String, ids: Vec<String>, use_i
 #[tauri::command(async)]
 pub fn new_graph(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.change(|project, _| project.new_graph(&name))
+}
+
+/// Makes the new empty top graph `name` in memory (6.1). Only a save writes its file.
+#[tauri::command(async)]
+pub fn new_top_graph(editor: State<'_, Editor>, name: String) -> Result<View, String> {
+    editor.change(|project, _| project.new_top(&name))
 }
 
 /// Puts the nodes of the selected subgraph uses in their place (6.1).

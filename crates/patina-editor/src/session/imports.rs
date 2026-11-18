@@ -64,7 +64,8 @@ pub struct Packaged {
     warnings: Vec<String>,
 }
 
-/// Makes a package of the saved project in `<parent>/<project name>` (14.1). The page saves first.
+/// Makes a package of the top graph of the saved project in `<parent>/<project name>` (14.1). The
+/// page saves first.
 #[tauri::command(async)]
 pub fn make_package(editor: State<'_, Editor>, parent: PathBuf) -> Result<Packaged, String> {
     let root = editor.trusted_root("make a package")?;
@@ -73,7 +74,8 @@ pub fn make_package(editor: State<'_, Editor>, parent: PathBuf) -> Result<Packag
         return Err("Save the changes before you make a package.".to_owned());
     }
     let out = parent.join(folder_name(&root));
-    let warnings = editor.engine.ask(true, |ask| ToNode::Job(Job::Package { root, out: out.clone(), ask }))?;
+    let graph = editor.with(|session| Ok(session.project.top().to_owned()))?;
+    let warnings = editor.engine.ask(true, |ask| ToNode::Job(Job::Package { root, graph, out: out.clone(), ask }))?;
     Ok(Packaged { out, warnings })
 }
 

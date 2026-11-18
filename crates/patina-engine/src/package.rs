@@ -33,17 +33,20 @@ struct Header {
     rust: String,
     /// The SHA-256 of the generated code of the clusters. The runner checks the source with it.
     wiring: String,
+    /// The top graph that the package runs, when it is not `main` (6.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    graph: Option<String>,
 }
 
 /// Builds the project at `root` in `mode` and writes a package to the new folder `out`. `runner`
 /// is the program that runs the package, and its copy gets the name of `out`. Gives the warnings.
-pub fn make(root: &Path, toolchain: &Toolchain, mode: Mode, runner: &Path, out: &Path) -> Result<Vec<String>, Error> {
+pub fn make(root: &Path, graph: &str, toolchain: &Toolchain, mode: Mode, runner: &Path, out: &Path) -> Result<Vec<String>, Error> {
     if fs::read_dir(out).is_ok_and(|mut entries| entries.next().is_some()) {
         return Err(Error::File(out.to_owned(), "the folder is not empty".to_owned()));
     }
     let name = out.file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty() && n != "..");
     let name = name.ok_or_else(|| Error::File(out.to_owned(), "the package folder has no name".to_owned()))?;
-    let checked = Project::open(root)?.check()?;
+    let checked = Project::open_top(root, graph)?.check()?;
     checked.check_rust(toolchain)?;
     let built = cargo::build(&checked.root, toolchain, &checked.plan, mode, &|| {}, &std::sync::atomic::AtomicBool::new(false))?;
     // The package goes to a temporary folder first, so a failure leaves no part of a package.
@@ -92,7 +95,7 @@ fn write(dir: &Path, checked: &Checked, toolchain: &Toolchain, libraries: &[(nod
         from => warnings.push(format!("{} is not there, so the package has no C library", from.display())),
     }
     fs::write(dir.join(C_HEADER.0), C_HEADER.1).map_err(|e| Error::Io(dir.join(C_HEADER.0), e))?;
-    let header = Header { format: 1, patina: env!("CARGO_PKG_VERSION").to_owned(), rust: toolchain.release.clone(), wiring: wiring(checked) };
+    let header = Header { format: 1, patina: env!("CARGO_PKG_VERSION").to_owned(), rust: toolchain.release.clone(), wiring: wiring(checked), graph: (checked.name != "main").then(|| checked.name.clone()) };
     let text = toml::to_string(&header).map_err(|e| Error::Build(e.to_string()))?;
     fs::write(dir.join(HEADER), text).map_err(|e| Error::Io(dir.join(HEADER), e))?;
     warnings.extend(notices(&checked.root, toolchain, runner, &dir.join("licenses"))?);
@@ -107,7 +110,7 @@ pub fn open(dir: &Path) -> Result<(Checked, Cluster), Error> {
     if header.patina != version {
         return Err(Error::Load(format!("Patina {} made the package, but this runner is Patina {version}", header.patina)));
     }
-    let checked = Project::open(&dir.join("project"))?.check()?;
+    let checked = Project::open_top(&dir.join("project"), header.graph.as_deref().unwrap_or("main"))?.check()?;
     if wiring(&checked) != header.wiring {
         return Err(Error::Load("the project source of the package does not agree with its clusters".to_owned()));
     }

@@ -112,6 +112,12 @@ import is a copy. **Update** in the **Project** panel shows the changes in the o
 and copies them when you confirm. To delete a folder or a subgraph, right-click it in the
 **Project** panel and click **Delete**. The folder goes to the Recycle Bin.
 
+A project can have more than one top graph, for example an empty workbench next to a finished
+build. To make one, click **New graph** in the **Graphs** group of the **Project** panel and type
+a name. The new graph uses the same nodes and subgraphs. Only one top graph runs: the last top
+graph that you opened. The hint **runs** shows it. To run another top graph from the command
+line, add `--graph <name>` to `patina-cli run` or `patina-cli package`.
+
 To reuse nodes and subgraphs:
 
 - Select nodes and push Ctrl+C, or use **Copy** in the right-click menu. Push Ctrl+V in the same

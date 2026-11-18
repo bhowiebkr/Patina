@@ -24,6 +24,7 @@ pub struct Compiled {
 #[derive(Serialize, Deserialize)]
 pub struct Parts {
     root: PathBuf,
+    name: String,
     rust: String,
     frame_rate: u32,
     graph: project::GraphFile,
@@ -34,18 +35,18 @@ pub struct Parts {
 impl Parts {
     /// Plans the graph again, with the node folders as they are now.
     pub fn check(self) -> Result<Checked, Error> {
-        let mut plan = plan::check(&self.root, &self.graph).map_err(|problems| Error::Graph(crate::graph_path(&self.root, crate::MAIN), problems))?;
+        let mut plan = plan::check(&self.root, &self.graph).map_err(|problems| Error::Graph(crate::graph_path(&self.root, &self.name), problems))?;
         if self.test {
             plan.probe_all(&self.aliases);
         }
-        Ok(Checked { root: self.root, rust: self.rust, frame_rate: self.frame_rate, plan, graph: self.graph, aliases: self.aliases, test: self.test })
+        Ok(Checked { root: self.root, name: self.name, rust: self.rust, frame_rate: self.frame_rate, plan, graph: self.graph, aliases: self.aliases, test: self.test })
     }
 }
 
 impl Checked {
     /// The data of the checked graph, to send to the node process (16.1).
     pub fn into_parts(self) -> Parts {
-        Parts { root: self.root, rust: self.rust, frame_rate: self.frame_rate, graph: self.graph, aliases: self.aliases, test: self.test }
+        Parts { root: self.root, name: self.name, rust: self.rust, frame_rate: self.frame_rate, graph: self.graph, aliases: self.aliases, test: self.test }
     }
 
     /// The frames each second of the frame domain (6.4, 9.1).
