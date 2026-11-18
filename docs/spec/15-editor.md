@@ -238,6 +238,7 @@ Node bodies fit their contents; their widths and heights need not match. A node 
 - The node in the slot shows a slot icon (7.3).
 - Each state also has an icon. Color alone never carries a meaning.
 - A text has a contrast of at least 4.5:1 with its background, and a large text at least 3:1, as WCAG 2 asks. A disabled control, a dim node and a text over an image are exceptions. The shot checks each text of the page, of each menu and of each view. (Agent decision of 2026-11-18. The owner can change it.)
+- Each button, field and tab shows a visible mark when it gets the keyboard focus, as WCAG 2.4.7 asks. A style that removes the outline of the browser must give another mark. The shot checks the style rules of each control of the page. (Agent decision of 2026-11-18. The owner can change it.)
 - Node icons show the node kind: function, stateful, generic, async, trigger, or subgraph. Patina uses its own icons.
 - A small icon on each node shows its clock domain.
 - Cross-domain wires use a dashed line.

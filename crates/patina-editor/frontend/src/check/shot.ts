@@ -7,6 +7,7 @@ import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
 import { BUILD_MS, button, closeMenu, enterText, entry, mouseWheel, rightClick } from './check-fixtures';
 import { lowContrast } from './contrast';
+import { noFocusLook } from './focus';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -174,6 +175,14 @@ function contrastOk(where: string) {
   const { bad, seen } = lowContrast(document);
   if (bad.length) throw new Error(`the contrast of ${where} is too low: ${bad.join(', ')}`);
   return `contrast ${where}: ${seen} texts`;
+}
+
+/** Throws on a button, a field or a tab of the page that a keyboard focus does not mark (WCAG 2.4.7). */
+function focusOk(where: string) {
+  const { bad, seen } = noFocusLook(document);
+  const name = (w: Element) => `${w.tagName.toLowerCase()}.${w.className} "${(w.getAttribute('aria-label') ?? w.textContent ?? '').slice(0, 24)}" in ${w.closest('[data-id]')?.getAttribute('data-id') ?? w.closest('[aria-label]')?.getAttribute('aria-label') ?? 'the page'}`;
+  if (bad.length) throw new Error(`no focus look in ${where}: ${bad.map(name).join(', ')}`);
+  return `focus ${where}: ${seen} controls`;
 }
 
 /** Opens the menus of the canvas at its right bottom corner, a node, a wire, the Views button, a dock tab and a Project item, and throws on a menu out of the window or an item that cuts its text (15.2). */
@@ -489,7 +498,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       if (placesOnCanvas()) steps.push('placed widgets on their canvas');
       steps.push(guiFit('main'));
       steps.push(wiresClear('main'));
-      steps.push(chromeFit('main'), contrastOk('main'));
+      steps.push(chromeFit('main'), contrastOk('main'), focusOk('main'));
       steps.push(await menusFit('main'));
       // A laptop of 1920 x 1080 pixels at 150% gives a window of 1280 x 720 (15.2).
       await api.checkResize(1280, 720);
@@ -503,7 +512,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     steps.push(await inspectNodes('main'));
     const inspected = await inspectThumb();
     if (inspected) {
-      steps.push(`inspect ${inspected}`, contrastOk('main-inspect'));
+      steps.push(`inspect ${inspected}`, contrastOk('main-inspect'), focusOk('main-inspect'));
       if (badgeOnTop()) steps.push('the selected badge is above the nodes');
       await api.capture('main-inspect');
       steps.push('main-inspect');
@@ -528,7 +537,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         steps.push(n.subgraph, openFit(n.subgraph));
         steps.push(guiFit(n.subgraph));
         steps.push(wiresClear(n.subgraph));
-        steps.push(chromeFit(n.subgraph), contrastOk(n.subgraph));
+        steps.push(chromeFit(n.subgraph), contrastOk(n.subgraph), focusOk(n.subgraph));
         steps.push(await menusFit(n.subgraph));
         const fresh = (inner.graph.node ?? []).filter((m) => !kinds.has(m.folder ?? m.subgraph ?? m.builtin) && kinds.add(m.folder ?? m.subgraph ?? m.builtin));
         if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)), (await fullSizes(n.subgraph, fresh.map((m) => m.id))).text);

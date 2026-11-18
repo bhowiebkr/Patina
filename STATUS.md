@@ -330,6 +330,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   or 3:1 for a large text (added 2026-11-18). It found the **None** item of the **Project**
   panel at 3.4:1 (fixed 2026-11-18). The **None** item, the **No match** text of the palette and
   the line numbers of the logs now use the subtle gray. A frontend test checks the ratio math.
+- The shot checks that each button, field, tab and node of the page shows a mark at the
+  keyboard focus (added 2026-11-18). A hidden window never gets the focus, so the check reads the
+  focus rules of the style sheets, not the pixels. It found that a node showed no mark, because
+  React Flow removes its outline (fixed 2026-11-18). The node box now shows the accent outline.
+  A frontend test reads the selector parts.
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol

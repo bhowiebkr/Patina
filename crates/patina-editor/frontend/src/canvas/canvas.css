@@ -31,6 +31,12 @@
   pointer-events: auto;
 }
 
+/* React Flow removes the outline of a focused node, so the box shows the keyboard focus (WCAG 2.4.7). */
+:is(.react-flow__node-patina, .react-flow__node-port):focus-visible > .patina-node {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* A subgraph use that shows its inner nodes is a neutral frame: the wires under it stay visible (15.3). */
 .patina-node.frame {
   background: rgba(255, 255, 255, 0.03);
