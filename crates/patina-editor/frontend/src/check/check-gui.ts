@@ -101,7 +101,7 @@ const centre = (e: Element) => {
   return [r.left + r.width / 2, r.top + r.height / 2];
 };
 
-/** Drags a curve point, a trim handle, a ramp stop, a layer and a canvas with pointer events (4.3). Each widget drag sends one change at its end. */
+/** Drags a curve point, a trim handle, a ramp stop, a layer, a canvas, a gizmo and a clip with pointer events (4.3). Each widget drag sends one change at its end. */
 async function checkDrags(until: Until, gui: string) {
   const points = () => document.querySelectorAll<SVGCircleElement>(`${gui} .gui-curve circle`);
   const curve = document.querySelector(`${gui} svg.gui-curve`)!;
@@ -180,6 +180,19 @@ async function checkDrags(until: Until, gui: string) {
   gizmo.dispatchEvent(new PointerEvent('pointerup', to));
   await tick();
   await until('the transform X that the node keeps', RUN_MS, () => Math.abs(moveX() - 48.78) < 0.01 && !gizmo.querySelector('.dragging'));
+
+  // A drag of the clip by a third of its lane is 1 s of the 3 s timeline, on the snap of 0.1 s.
+  const timeline = document.querySelector<HTMLElement>(`${gui} .gui-timeline`)!;
+  const clipLabel = () => timeline.querySelector('.tl-clip')?.getAttribute('aria-label');
+  const lane = timeline.querySelector<HTMLElement>('.tl-track .tl-area')!.getBoundingClientRect();
+  const [cx, cy] = centre(timeline.querySelector('.tl-clip')!);
+  timeline.querySelector('.tl-clip')!.dispatchEvent(new PointerEvent('pointerdown', mouse([cx, cy])));
+  await tick();
+  timeline.dispatchEvent(new PointerEvent('pointermove', mouse([cx + lane.width / 3, cy])));
+  await until('the clip start during a drag', RUN_MS, () => clipLabel() === 'Hit: start 1 s, length 1 s');
+  timeline.dispatchEvent(new PointerEvent('pointerup', mouse([cx + lane.width / 3, cy])));
+  await tick();
+  await until('the clip start that the node keeps', RUN_MS, () => clipLabel() === 'Hit: start 1 s, length 1 s' && !!timeline.querySelector('.tl-clip.selected'));
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */

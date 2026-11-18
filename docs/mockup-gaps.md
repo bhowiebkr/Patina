@@ -47,8 +47,8 @@ The editor has these mockup features. They are not gaps.
 - The **Subgraph interface** in the **Inspector**: the public pins in pin order, with their
   names, types and a preview of the use (mockup 11).
 - The SDK `Ui` widgets: label, button, icon button, toggle, slider, number field with a unit and step
-  buttons, text field, file path with **Browse**, dropdown, tabs, collapsible section, color, color ramp, layer stack, 2D transform gizmo, asset picker, plot with axes, scatter plot, waveform with trim handles, table, curve with histogram,
-  progress bar, image, 2D canvas and GPU viewport (mockups 4, 6, 7 and 9).
+  buttons, text field, file path with **Browse**, dropdown, tabs, collapsible section, color, color ramp, layer stack, 2D transform gizmo, timeline, asset picker, plot with axes, scatter plot, waveform with trim handles, table, curve with histogram,
+  progress bar, image, 2D canvas and GPU viewport (mockups 4, 5, 6, 7 and 9).
 
 ## Editor gaps
 
@@ -56,16 +56,9 @@ None.
 
 ## Shared widget gaps
 
-The guide asks for one shared widget for each recurring control. The SDK `Ui` does not have
-these widgets yet. A node can draw some of them on a 2D canvas, but then each project makes
-its own version.
-
-| Widget | Mockups | Note |
-|---|---|---|
-| A timeline with a ruler, clip lanes and automation lanes | 5 | A custom view. |
+None.
 
 ## Next steps
 
-Each gap needs a spec decision before the build. The editor gaps change the editor only. The
-widget gaps change the SDK `Ui`, the frontend and the widget tree of spec 4.3. Do the editor
-gaps first, because each graph uses them.
+No gap is open. When a new mockup comes, compare it with the program and add each gap here. Each
+gap needs a spec decision before the build.

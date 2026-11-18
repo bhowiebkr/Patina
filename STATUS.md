@@ -376,11 +376,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
   value widget, selects a table row, steps a number field, selects a tab, opens a section, moves a trim
-  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, picks a project file in the asset picker, clicks the canvas, shows the large size in the **Inspector**, and opens the full size and closes it with Esc. It drags a curve point, a trim handle, a ramp stop, a layer, a canvas and the box of a 2D transform gizmo with page pointer events, not with the real mouse.
+  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, picks a project file in the asset picker, clicks the canvas, shows the large size in the **Inspector**, and opens the full size and closes it with Esc. It drags a curve point, a trim handle, a ramp stop, a layer, a canvas, the box of a 2D transform gizmo and a timeline clip with page pointer events, not with the real mouse.
   Chromium ignores the pointer capture of these events, so the drags do not check the capture. A
   layer drag down could lose its capture, because React moves the row of the handle. The list
   now holds the capture (fixed 2026-11-17 from the source, not tried with a real mouse). No
   check picks a color or clicks **Browse** in the editor. The dialog of the platform needs a person.
+- The timeline widget (4.3, mockup 5) has a transport, a ruler with the loop and the playhead,
+  clip lanes and automation lanes. The SDK tests check the widget line, the edits, `advance` and
+  `Automation::value`. The frontend tests check the parse and the limits of each drag. The
+  selfcheck drags a clip. No person tried it with a real mouse. A lane reorder is not in this version.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. The editor selfcheck opens the full size,

@@ -8,10 +8,12 @@ mod code;
 mod layers;
 mod path;
 mod ramp;
+mod timeline;
 mod transform;
 pub use layers::Layer;
 pub use path::PathKind;
 pub use ramp::{Blend, ColorRamp};
+pub use timeline::{Automation, Clip, Lane, LaneKind, Timeline};
 pub use transform::Transform2d;
 
 /// The most values of a plot line. A longer line sends the lowest and the highest value of parts.
@@ -446,11 +448,7 @@ impl Ui {
             let _ = write!(self.tree, "{}", at.clamp(0.0, 1.0));
         }
         self.tree.push('\t');
-        let columns = parts(samples, samples.len().min(WAVE_COLUMNS));
-        push_numbers(
-            &mut self.tree,
-            columns.flat_map(|part| [part.iter().copied().fold(f32::INFINITY, f32::min), part.iter().copied().fold(f32::NEG_INFINITY, f32::max)]),
-        );
+        push_columns(&mut self.tree, samples, samples.len().min(WAVE_COLUMNS));
     }
 
     /// Shows a table with the headings `columns` and the `cells`, row by row. `selected` is the
@@ -578,6 +576,12 @@ fn push_numbers(tree: &mut String, values: impl Iterator<Item = f32>) {
         }
         let _ = write!(tree, "{v}");
     }
+}
+
+/// Writes the lowest and the highest sample of `n` parts of `samples`, for a waveform.
+fn push_columns(tree: &mut String, samples: &[f32], n: usize) {
+    let columns = parts(samples, n);
+    push_numbers(tree, columns.flat_map(|part| [part.iter().copied().fold(f32::INFINITY, f32::min), part.iter().copied().fold(f32::NEG_INFINITY, f32::max)]));
 }
 
 /// Divides `values` into `n` parts of almost the same length. No part is empty when `n` is at

@@ -163,6 +163,16 @@ visible during visual review; they can be refined alongside the working GUI.
 9. Correct the generated artifacts called out in the matching reference section.
 10. Report what was implemented and tested separately from what is still illustrative.
 
+### Outside references
+
+The owner named these programs as good references (2026-11-17). Take ideas for the layout and the
+behavior from them. Keep the Patina palette, sizes and shared controls.
+
+- **VST plugins:** the look of node GUIs, for example knobs, meters, waveforms, envelopes and
+  spectrum views.
+- **Bespoke Synth:** the animated connections of an audio graph. An audio wire shows the signal
+  that goes through it, and a note wire flashes when a note goes through it.
+
 ### Reference assets and limits
 
 The eight original mockups remain unchanged. Nine added images cover computer

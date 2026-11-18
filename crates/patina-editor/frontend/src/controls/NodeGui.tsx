@@ -7,6 +7,7 @@ import { eventLine, nest, parseTree, type Block, type Shape, type Widget } from 
 import { guiIcon } from './icons';
 import { LayerStack } from './LayerStack';
 import { ColorRamp } from './Ramp';
+import { Timeline } from './Timeline';
 import { TransformGizmo } from './Transform';
 import { ColorPicker, Curve, Picture, Plot, Progress, Table, Waveform } from './ValueWidgets';
 import { useKeys, ViewportView } from './Viewport';
@@ -311,6 +312,8 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
             return <Picture key={w.index} w={w} />;
           case 'transform':
             return <TransformGizmo key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'timeline':
+            return <Timeline key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
         }
       })}
     </div>

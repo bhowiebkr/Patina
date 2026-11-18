@@ -285,3 +285,82 @@ fn a_bad_transform_event_changes_nothing() {
         assert_eq!(t, start, "{event}");
     }
 }
+
+fn timeline() -> Timeline {
+    let clip = Clip { name: "impact\t03".into(), color: [0x40, 0x80, 0xc0], start: 0.0, length: 1.0, offset: 0.5, source: 2.0, samples: vec![0.0, 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0] };
+    let cutoff = Automation { range: [500.0, 5000.0], unit: "Hz".into(), points: vec![[0.1, 500.0], [1.0, 2000.0]] };
+    let lanes = vec![
+        Lane { name: "Impact".into(), mute: false, solo: false, kind: LaneKind::Clips(vec![clip]) },
+        Lane { name: "Cutoff".into(), mute: false, solo: false, kind: LaneKind::Automation(cutoff) },
+    ];
+    Timeline { length: 3.0, playhead: 1.25, looping: true, loop_range: [0.0, 2.4], lanes, ..Timeline::default() }
+}
+
+fn timeline_edit(t: &mut Timeline, event: &str) -> bool {
+    Ui::new(0, &format!("0 {event}")).timeline("", t).changed()
+}
+
+#[test]
+fn a_timeline_writes_its_lanes_and_takes_edits() {
+    let mut t = timeline();
+    let mut ui = Ui::new(0, "");
+    assert!(!ui.timeline("Time", &mut t).changed());
+    // The clip shows the samples between its trims: 0.5 s to 1.5 s of a source of 2 s.
+    let clip = "0 1 0.5 2 #4080c0 4 -1 -1 2 2 -2 -2 3 3 impact 03";
+    assert_eq!(ui.tree(), format!("timeline\tTime\t3 1.25 0 1 0 2.4 0.1\t\tclips 0 0 1 Impact\t{clip}\tauto 0 0 500 5000 Cutoff\tHz\t0.1 500 1 2000"));
+    let clip = |t: &Timeline| match &t.lanes[0].kind {
+        LaneKind::Clips(clips) => (clips[0].start, clips[0].length, clips[0].offset),
+        LaneKind::Automation(_) => unreachable!(),
+    };
+    let points = |t: &Timeline| match &t.lanes[1].kind {
+        LaneKind::Automation(a) => a.points.clone(),
+        LaneKind::Clips(_) => unreachable!(),
+    };
+    assert!(timeline_edit(&mut t, "clip 0 0 2.5 1 0.25"));
+    assert_eq!((clip(&t), t.selected), ((2.0, 1.0, 0.25), Some([0, 0])));
+    // A trim cannot go past the end of the source.
+    assert!(timeline_edit(&mut t, "clip 0 0 0 5 1.5"));
+    assert_eq!(clip(&t), (0.0, 0.5, 1.5));
+    assert!(timeline_edit(&mut t, "add 1 0.5 9000"));
+    assert_eq!((points(&t), t.selected), (vec![[0.1, 500.0], [0.5, 5000.0], [1.0, 2000.0]], Some([1, 1])));
+    // A point stays between its neighbors and in the value range.
+    assert!(timeline_edit(&mut t, "point 1 1 2 100"));
+    assert!(timeline_edit(&mut t, "remove 1 0"));
+    assert_eq!((points(&t), t.selected), (vec![[1.0, 500.0], [1.0, 2000.0]], None));
+    for event in ["play 1", "loop 0", "range 2 0.5", "snap 0.25", "mute 1 1", "solo 0 1", "select 1 1", "seek 9"] {
+        assert!(timeline_edit(&mut t, event), "{event}");
+    }
+    assert_eq!((t.playing, t.looping, t.loop_range, t.snap, t.playhead, t.selected), (true, false, [0.5, 2.0], 0.25, 3.0, Some([1, 1])));
+    assert!(t.lanes[1].mute && t.lanes[0].solo);
+}
+
+#[test]
+fn a_bad_timeline_event_changes_nothing() {
+    let bad = [
+        "clip 1 0 0 1 0", "clip 0 1 0 1 0", "clip 0 0.5 0 1 0", "point 0 0 1 1", "add 0 1 1", "remove 1 5", "select 0 1", "select 2 0", "select -1 0",
+        "range 1 1", "seek NaN", "mute 9 1", "play", "play 1 2", "jump 1", "play 0", "seek 1.25",
+    ];
+    for event in bad {
+        let mut t = timeline();
+        assert!(!timeline_edit(&mut t, event), "{event}");
+        assert_eq!(t, timeline(), "{event}");
+    }
+}
+
+#[test]
+fn a_timeline_plays_loops_and_stops_at_the_end() {
+    let mut t = Timeline { playing: true, looping: true, loop_range: [0.5, 1.5], playhead: 1.25, ..Timeline::default() };
+    t.advance(0.5);
+    assert_eq!(t.playhead, 0.75);
+    t.looping = false;
+    t.advance(10.0);
+    assert_eq!((t.playhead, t.playing), (4.0, false));
+    t.advance(1.0);
+    assert_eq!(t.playhead, 4.0);
+    let a = Automation { range: [0.0, 10.0], unit: String::new(), points: vec![[1.0, 2.0], [3.0, 6.0]] };
+    assert_eq!([0.0, 1.0, 2.0, 3.0, 9.0].map(|time| a.value(time)), [2.0, 2.0, 4.0, 6.0, 6.0]);
+    assert_eq!(Automation { points: Vec::new(), ..a }.value(1.0), 0.0);
+    let lane = |mute, solo| Lane { name: String::new(), mute, solo, kind: LaneKind::Clips(Vec::new()) };
+    t.lanes = vec![lane(false, false), lane(false, true), lane(true, true)];
+    assert_eq!([0, 1, 2, 3].map(|i| t.audible(i)), [false, true, false, false]);
+}

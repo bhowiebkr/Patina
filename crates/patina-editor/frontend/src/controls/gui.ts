@@ -1,5 +1,7 @@
 // The widget lines of a node GUI (spec 4.3), as `patina_sdk::Ui::tree` writes them.
 
+import { parseTimeline, type TimelineData } from './timelineData.ts';
+
 /** A widget of a node GUI. `index` is its order in the `ui` call, which events name. */
 export type Widget =
   | { kind: 'label'; index: number; text: string }
@@ -30,7 +32,8 @@ export type Widget =
   | { kind: 'layers'; index: number; text: string; selected: number; layers: Layer[] }
   | ({ kind: 'image'; index: number; text: string } & Picture)
   /** A 2D transform on a frame of `frame` pixels, with an image of the frame behind it or none. */
-  | { kind: 'transform'; index: number; text: string; frame: [number, number]; t: Transform; image: Picture | null };
+  | { kind: 'transform'; index: number; text: string; frame: [number, number]; t: Transform; image: Picture | null }
+  | { kind: 'timeline'; index: number; text: string; t: TimelineData };
 
 /** The size and the base64 RGBA pixels of an image. */
 export interface Picture {
@@ -180,6 +183,10 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
   if (kind === 'image') {
     const image = pixels(rest);
     return image && { kind, index, text, ...image };
+  }
+  if (kind === 'timeline') {
+    const t = parseTimeline(rest);
+    return t && { kind, index, text, t };
   }
   if (kind === 'transform') {
     const [fw, fh] = numbers(rest[0], 2);

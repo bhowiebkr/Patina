@@ -45,6 +45,7 @@ const GUI_ICONS: Record<string, string> = {
   play: 'M4.5 2.5v11l9-5.5z',
   pause: 'M5 3v10M11 3v10',
   stop: 'M3.5 3.5h9v9h-9z',
+  rewind: 'M3.5 3v10M12.5 3 5.5 8l7 5z',
   record: 'M8 3a5 5 0 1 1 0 10A5 5 0 1 1 8 3z',
   add: 'M8 3v10M3 8h10',
   remove: 'M3 8h10',
