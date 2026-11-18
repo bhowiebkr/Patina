@@ -519,13 +519,15 @@ fn is_gate(plan: &Plan, n: usize) -> bool {
 
 /// Writes the gates of `net`, which are in a row in one task, in one block (9.2). The block has
 /// one **Stop** check, one catch and one clock read. The values are numbers, so a gate copies its
-/// inputs, and the probes of the net come after the block (15.9). After a panic, the block runs
-/// again from the next gate, so each gate gets the result of its own catch (4.7, 15.3).
+/// inputs, and the probes of the net come after the block (15.9). The fast copy of the block runs
+/// first. After a panic, the slow copy runs again from the next gate, so each gate gets the result
+/// of its own catch (4.7, 15.3).
 fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
     let nodes: Vec<String> = net.iter().map(usize::to_string).collect();
     let _ = writeln!(s, "            if let ::std::option::Option::Some(net) = ::patina_sdk::glue::Net::new(rep, &[{}]) {{", nodes.join(", "));
     s.push_str("                ok &= net.run(&mut |at, gate| {
 ");
+    fast(s, plan, net);
     for (i, &n) in net.iter().enumerate() {
         let step = &plan.steps[n];
         let (name, node) = &plan.nodes[step.node];
@@ -571,6 +573,53 @@ fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
     }
     s.push_str("            }
 ");
+}
+
+/// Writes the fast copy of `net` (9.2). When each wire from outside the net has a value, no gate
+/// can get an input with no value, so the gates pass plain values with no `Option` check. They
+/// also store each output, so after a panic the slow copy continues from the next gate.
+fn fast(s: &mut String, plan: &Plan, net: &[usize]) {
+    let (mut outside, mut gates) = (Vec::new(), String::new());
+    for &n in net {
+        let step = &plan.steps[n];
+        let (name, node) = &plan.nodes[step.node];
+        let mut args = Vec::with_capacity(node.inputs.len());
+        for (input, source) in node.inputs.iter().zip(&step.inputs) {
+            let value = match *source {
+                Source::Slot(p) => format!("*p{p}.read()"),
+                // A gate has one output, and the gates of a task are in the order of their wires.
+                Source::Wire { step: from, .. } if net.contains(&from) => format!("v{from}"),
+                Source::Wire { step: from, output } => {
+                    let i = outside.iter().position(|&w| w == (from, output)).unwrap_or(outside.len());
+                    if i == outside.len() {
+                        outside.push((from, output));
+                    }
+                    format!("e{i}")
+                }
+            };
+            args.push(if input.pass == Pass::Ref { format!("&{value}") } else { value });
+        }
+        let call = format!("::{}::{}({})", name.replace('-', "_"), node.func, args.join(", "));
+        let _ = if step.consumers[0] > 0 {
+            writeln!(gates, "                        gate.enter({n}); let v{n} = {call}; {} = ::std::option::Option::Some(v{n});", held(plan, n, 0)[2])
+        } else {
+            writeln!(gates, "                        gate.enter({n}); let _ = {call};")
+        };
+    }
+    if outside.is_empty() {
+        let _ = writeln!(s, "                    if at == 0 {{\n{gates}                        return;\n                    }}");
+        return;
+    }
+    // The values are copied first, so a read lock does not stay for the gates.
+    let (mut pats, mut reads) = (String::new(), String::new());
+    for (i, &(from, output)) in outside.iter().enumerate() {
+        let _ = write!(pats, "::std::option::Option::Some(e{i}), ");
+        let _ = write!(reads, "{}.as_ref().copied(), ", held(plan, from, output)[0]);
+    }
+    let _ = writeln!(
+        s,
+        "                    if at == 0 {{\n                        let wires = ({reads});\n                        if let ({pats}) = wires {{\n{gates}                        return;\n                        }}\n                    }}"
+    );
 }
 
 /// Stores the event of trigger step `n` (9.4): the text of a trigger, or the count of a schedule.

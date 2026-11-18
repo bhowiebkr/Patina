@@ -54,7 +54,9 @@ All numbers are from the owner's Windows computer, on 2026-11-17, with a release
 | The same frame, with the node record of a net as a closure argument | about 10.2 us (median of 5000, three runs) |
 | The same frame, also with no clock read for the other nodes in a quiet run | about 8.4 us (median of 5000, three runs) |
 | The 10.2 us frame, with no `Option` checks (a test, not a change) | about 8.9 us (median of 5000) |
-| Generated Rust of the frame cluster | 2.26 MB before item 3, 2.02 MB after item 3 |
+| The 8.4 us frame, then with the fast copy of each net, in one run, under load, output into a pipe | 14.1 to 15.2 us, then 12.2 to 12.4 us (medians of 5000, three rounds each) |
+| Generated Rust of the frame cluster | 2.26 MB before item 3, 2.02 MB after item 3, 2.38 MB with the fast copy (2.14 MB before it) |
+| Build of the frame cluster crate alone, before and with the fast copy, under load | bake 12.7 to 12.9 s and 14.2 to 14.3 s, edit with no change to the source 0.85 s and 0.91 to 0.95 s (two rounds) |
 | Nodes and tasks in that frame | 1577 NAND gates and 63 other nodes, in 1330 tasks (13 after item 2) |
 | Time for each node | about 107 ns (about 32 ns after item 2) |
 | Benchmark, one net of 1577 gates, the Patina steps above | 71 ns for each gate |
@@ -102,8 +104,11 @@ The items are in order of the gain for each change.
    Then the closure of a net got the node record as an argument (`glue::Gate`). Before, each gate
    stored its node index through a pointer that the closure read from the net, so the compiler
    read each wire from memory again after each gate. Now the wires stay in registers, and the
-   frame went from about 13.5 us to about 10.2 us. A wire is still an `Option`. Its checks cost
-   about 1.3 us. Their removal needs a second copy of each net, so it waits.
+   frame went from about 13.5 us to about 10.2 us.
+   Then each net got a second, fast copy. When each wire from outside the net has a value, the
+   gates of the fast copy pass plain values with no `Option` check. After a panic, the slow copy
+   with the checks continues from the next gate, so the results stay the same. In one run on a
+   computer under load, the frame went from about 14.6 us to about 12.3 us.
    The example nodes `readout`, `display` and `lcd` write a line to the standard output only
    when their value changes. The CLI test reads these lines. Before, they wrote a line in each
    frame, and this output cost more than all the gates together.

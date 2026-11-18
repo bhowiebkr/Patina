@@ -302,15 +302,36 @@ fn failed_nodes_are_reported_and_stop_the_nodes_after_them() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/projects/fail"), "fail");
     let (output, stdout, stderr) = run(&project, &[]);
     assert_eq!(output.status.code(), Some(1), "{stderr}");
-    assert_eq!(stdout, "", "a node after a failed node must not run");
+    assert_eq!(stdout, "-2\n2\n", "a node after a failed node must not run");
     assert!(stderr.contains("Node fea12c51067a34d8 (fail): error: \"cannot use 1.5\""), "{stderr}");
     assert!(stderr.contains("Node dc1095edd35b9589 (boom): panic: the boom node panicked ("), "{stderr}");
     assert!(stderr.contains("lib.rs:3:5)") && !stderr.contains("panicked at"), "one message for each panic: {stderr}");
     assert!(stderr.contains("Node df93472b07eaca16: skipped: an input has no value"), "{stderr}");
     assert!(stderr.contains("Node 7363866a8cd1c455: skipped"), "{stderr}");
+    // In a net of gates (9.2), a panic in the fast copy stops only the nodes after it.
+    let panic = "Node a000000000000004 (div): panic: attempt to divide by zero";
+    assert!(stderr.contains(panic), "{stderr}");
+    for id in ["a000000000000006", "a000000000000009"] {
+        assert!(stderr.contains(&format!("Node {id}: skipped")), "{stderr}");
+    }
+    assert!(!stderr.contains("Node a000000000000008"), "{stderr}");
+
+    // With a wire from the fail node, the net has an input with no value and runs its slow copy.
+    let graph = project.join("graphs/main.toml");
+    let old = fs::read_to_string(&graph).unwrap().replace("\r\n", "\n");
+    let wire = "from = \"a000000000000007.out\"\nto = \"a000000000000008.x\"";
+    let text = old.replace(wire, "from = \"fea12c51067a34d8.out\"\nto = \"a000000000000008.x\"");
+    assert_ne!(text, old);
+    fs::write(&graph, text).unwrap();
+    let (output, stdout, stderr) = run(&project, &[]);
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout, "-2\n", "{stderr}");
+    assert!(stderr.contains(panic), "{stderr}");
+    for id in ["a000000000000006", "a000000000000008", "a000000000000009", "a00000000000000b"] {
+        assert!(stderr.contains(&format!("Node {id}: skipped")), "{stderr}");
+    }
 
     // A parameter change builds nothing again, and a bad parameter text is reported.
-    let graph = project.join("graphs/main.toml");
     let text = fs::read_to_string(&graph).unwrap().replace("value = \"1.5\"", "value = \"abc\"");
     fs::write(graph, text).unwrap();
     let (output, stdout, stderr) = run(&project, &[]);

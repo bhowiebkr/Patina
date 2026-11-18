@@ -29,3 +29,97 @@ to = "df93472b07eaca16.value"
 [[wire]]
 from = "dc1095edd35b9589.out"
 to = "7363866a8cd1c455.value"
+
+# A net of gates (9.2) with a gate that panics. The test then wires the fail node into the net.
+[[node]]
+id = "a000000000000001"
+folder = "nodes/num"
+
+[node.params]
+value = "6"
+
+[[node]]
+id = "a000000000000002"
+folder = "nodes/num"
+
+[node.params]
+value = "0"
+
+[[node]]
+id = "a000000000000003"
+folder = "nodes/num"
+
+[node.params]
+value = "3"
+
+[[node]]
+id = "a000000000000004"
+folder = "nodes/div"
+
+[[node]]
+id = "a000000000000005"
+folder = "nodes/div"
+
+[[node]]
+id = "a000000000000006"
+folder = "nodes/neg"
+
+[[node]]
+id = "a000000000000007"
+folder = "nodes/neg"
+
+[[node]]
+id = "a000000000000008"
+folder = "nodes/neg"
+
+[[node]]
+id = "a000000000000009"
+folder = "nodes/show"
+
+[[node]]
+id = "a00000000000000a"
+folder = "nodes/show"
+
+[[node]]
+id = "a00000000000000b"
+folder = "nodes/show"
+
+[[wire]]
+from = "a000000000000001.out"
+to = "a000000000000004.a"
+
+[[wire]]
+from = "a000000000000002.out"
+to = "a000000000000004.b"
+
+[[wire]]
+from = "a000000000000001.out"
+to = "a000000000000005.a"
+
+[[wire]]
+from = "a000000000000003.out"
+to = "a000000000000005.b"
+
+[[wire]]
+from = "a000000000000004.out"
+to = "a000000000000006.x"
+
+[[wire]]
+from = "a000000000000005.out"
+to = "a000000000000007.x"
+
+[[wire]]
+from = "a000000000000007.out"
+to = "a000000000000008.x"
+
+[[wire]]
+from = "a000000000000006.out"
+to = "a000000000000009.value"
+
+[[wire]]
+from = "a000000000000007.out"
+to = "a00000000000000a.value"
+
+[[wire]]
+from = "a000000000000008.out"
+to = "a00000000000000b.value"

@@ -21,7 +21,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 - Rust version of a project: The `rust` of `patina.toml` is the oldest Rust version that builds the project. **Update toolchain** raises the toolchain.
 - Copy, paste and libraries: **Copy**, **Cut** and **Paste** of nodes work. **Settings** > **Libraries** and **Add from Git** give nodes from other projects.
-- Gate speed: Light nodes share one task, nets share one check, and the frame rate goes up to 100000 FPS.
+- Gate speed: Light nodes share one task, nets share one check and skip the `Option` checks when their inputs have values, and the frame rate goes up to 100000 FPS.
 - Touchpad pan: A two-finger touchpad scroll pans the graph. The mouse wheel and a pinch zoom.
 - Arrange with node sizes and bus widths: **Arrange** uses node sizes and wire widths. The 25 graphs of `examples/computer` have 0 node overlaps.
 - No save without Save: Only Ctrl+S or **Save** writes graph files. The recovery file keeps the unsaved graphs.
@@ -157,9 +157,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### Gate speed
 
-- Known limits: a wire in a net is still an `Option`, and its checks cost about 1.3 us of the
-  frame. A gate net does not run in parallel. A light node that does much work runs in parallel
-  only with `#[node(heavy)]`.
+- Known limits: a gate net does not run in parallel. A light node that does much work runs in
+  parallel only with `#[node(heavy)]`. The fast copy of each net makes the generated Rust and
+  the bake build of the cluster about 11% larger and longer.
 
 ### Touchpad pan
 
