@@ -112,6 +112,51 @@
   width: auto;
 }
 
+.status-error {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The highlight of the Logs and Output lines (15.8). The colors are the colors of the Code tab. */
+.lines .hl-sev-err,
+.lines .hl-mark {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.lines .hl-sev-warn {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.lines .hl-sev-note,
+.lines .hl-fix {
+  color: var(--ready);
+  font-weight: 600;
+}
+
+.lines .hl-path {
+  color: var(--accent);
+}
+
+.lines .hl-gutter,
+.lines .hl-id {
+  color: var(--disabled);
+}
+
+.lines .hl-code {
+  color: #9cdcfe;
+}
+
+.lines .hl-str {
+  color: #ce9178;
+}
+
+.lines .hl-num {
+  color: #b5cea8;
+}
+
 .code-error:hover,
 .line-link:hover,
 .status-link:hover {

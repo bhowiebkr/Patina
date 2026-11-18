@@ -15,7 +15,11 @@ export function useVersion() {
   return version;
 }
 
-/** The About dialog: the banner artwork, the name, the version and the license. Patina reads
+/** The URL of the Patina source, releases and issues. */
+const REPO = 'https://github.com/bhowiebkr/Patina';
+
+/** The About dialog: the banner artwork, the name, what Patina is, where to find it, the version
+ * and the license. Patina reads
  * the newest release from GitHub only when the person clicks **Check for updates**. */
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const version = useVersion();
@@ -40,12 +44,22 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         <div className="about-art">
           <h2 id="about-title">Patina</h2>
         </div>
+        <p className="about-text">
+          Patina is a visual node graph editor and engine. Each node is a small Rust crate. Wire the nodes together, edit their code in
+          the editor and run the graph live.
+        </p>
+        <p className="about-text">
+          The source, the releases, the documentation and the issues are on GitHub: <span className="about-link">{REPO}</span>
+        </p>
         <div className="label">{version && `Version ${version}`}</div>
         <div className="label">MIT or Apache-2.0</div>
         <div className="label update" aria-live="polite">
           {update}
         </div>
         <div className="actions">
+          <button className="btn" onClick={() => api.openRepo().catch((e) => setUpdate(String(e)))}>
+            Open GitHub page
+          </button>
           <button className="btn" disabled={update === 'Checking for updates...'} onClick={check}>
             Check for updates
           </button>

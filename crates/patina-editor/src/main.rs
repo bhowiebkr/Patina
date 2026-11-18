@@ -267,6 +267,7 @@ fn main() {
             session::redo,
             session::save,
             session::refresh,
+            session::delete_folder,
             session::folder_files,
             session::new_node,
             session::new_widget,
@@ -320,6 +321,7 @@ fn main() {
             analyzer::analyzer_stop,
             dialog::pick_folder,
             dialog::pick_path,
+            dialog::open_repo,
             session::asset_files,
         ])
         .on_window_event(window_event)

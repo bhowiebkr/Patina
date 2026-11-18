@@ -109,7 +109,8 @@ two pins connect only when they have the same type.
 Each node has its own folder, with its code, its GUI and its tests. Views, custom widgets and
 data types have their own folders too. Another project can import a folder and reuse it. The
 import is a copy. **Update** in the **Project** panel shows the changes in the original folder
-and copies them when you confirm.
+and copies them when you confirm. To delete a folder or a subgraph, right-click it in the
+**Project** panel and click **Delete**. The folder goes to the Recycle Bin.
 
 To reuse nodes and subgraphs:
 
@@ -627,7 +628,7 @@ Click **Settings** on the start screen to see the Rust toolchain, the data folde
 trusted projects. When the toolchain folder is empty, Patina uses the Rust of your system. Click **Remove** to take a project off the trusted list. Patina then asks
 again before it builds the project.
 
-Click **About** on the start screen, or **Help** and then **About Patina**, to see the version.
+Click **About** on the start screen, or **Help** and then **About Patina**, to see the version, the license and the GitHub page of Patina.
 Click **Check for updates** to compare it with the newest release on GitHub. Patina does not
 connect to the network before you click this button.
 

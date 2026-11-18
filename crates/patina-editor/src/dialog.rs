@@ -49,10 +49,28 @@ pub fn offer_webview() {
     let text = "Patina needs the Microsoft Edge WebView2 Runtime, and it is not installed.\n\n\
         Open the download page of Microsoft? The Runtime installs for the current user. Then start Patina again.";
     if message(text, MessageButtons::YesNo) == MessageDialogResult::Yes {
-        let windows = std::env::var_os("SystemRoot").map_or(PathBuf::from(r"C:\Windows"), PathBuf::from);
-        let url = "https://developer.microsoft.com/microsoft-edge/webview2/";
-        let _ = std::process::Command::new(windows.join("explorer.exe")).arg(url).spawn();
+        let _ = open_url("https://developer.microsoft.com/microsoft-edge/webview2/");
     }
+}
+
+/// The page of Patina on GitHub, with the source, the releases and the issues (15.3).
+const REPO: &str = "https://github.com/bhowiebkr/Patina";
+
+/// Opens the page of Patina on GitHub in the browser of the system (15.3).
+#[tauri::command]
+pub fn open_repo() -> Result<(), String> {
+    open_url(REPO).map(drop).map_err(|e| format!("Cannot open {REPO}: {e}"))
+}
+
+/// Opens a web page in the browser of the system.
+fn open_url(url: &str) -> std::io::Result<std::process::Child> {
+    #[cfg(windows)]
+    let program = std::env::var_os("SystemRoot").map_or(PathBuf::from(r"C:\Windows"), PathBuf::from).join("explorer.exe");
+    #[cfg(target_os = "macos")]
+    let program = PathBuf::from("open");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let program = PathBuf::from("xdg-open");
+    std::process::Command::new(program).arg(url).spawn()
 }
 
 fn message(text: &str, buttons: MessageButtons) -> MessageDialogResult {

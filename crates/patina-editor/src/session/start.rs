@@ -154,12 +154,12 @@ fn deletable(recent: &[PathBuf], path: &Path) -> Result<(), String> {
 }
 
 #[cfg(windows)]
-use crate::recycle::recycle;
+pub(super) use crate::recycle::recycle;
 
 // shortcut: no trash on Linux and macOS, add the freedesktop trash when a user asks.
 #[cfg(not(windows))]
-fn recycle(_: &Path) -> Result<(), String> {
-    Err("Patina can delete a project only on Windows. Delete the folder in the file manager.".to_owned())
+pub(super) fn recycle(_: &Path) -> Result<(), String> {
+    Err("Patina can move a folder to the trash only on Windows. Delete the folder in the file manager.".to_owned())
 }
 
 #[tauri::command(async)]

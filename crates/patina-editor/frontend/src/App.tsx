@@ -5,13 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { api, folderName, type StartInfo, type View } from './api';
 import { analyzerProject, closeCode, onCodeError, reloadCode, showErrors, subscribe, unsavedFiles } from './code/codeState';
 import type { Reveal } from './code/reveal';
-import { Dock, loadLayout, useLayoutSerial, type Panel } from './panels/Dock';
+import { changeLayout, Dock, loadLayout, useLayoutSerial, type Panel } from './panels/Dock';
 import { useFloatHost } from './panels/Floats';
 import { GraphPath } from './canvas/GraphPath';
 import { GraphView } from './canvas/GraphView';
 import { Inspector, type InspectorTab } from './panels/Inspector';
 import { useEditKeys } from './canvas/keys';
-import type { PanelId, ViewSlot } from './panels/layout';
+import { openPanel, type PanelId, type ViewSlot } from './panels/layout';
 import { Lines } from './run/Lines';
 import { ExpandGui, FullGui } from './controls/NodeGui';
 import { LayersPanel } from './panels/LayersPanel';
@@ -21,6 +21,7 @@ import { useProjectActions } from './dialogs/ProjectActions';
 import { useProjectClose } from './dialogs/useProjectClose';
 import { StatusBar, useRun } from './run/RunStatus';
 import { DebugPanel } from './panels/DebugPanel';
+import { useLogProblems } from './run/logProblems';
 import { FireTrigger, OpenUse, PortTest } from './canvas/NodeView';
 import { TopBar } from './TopBar';
 import { useGraphEdits } from './canvas/useGraphEdits';
@@ -35,7 +36,7 @@ export function App() {
   const [start, setStart] = useState<StartInfo | null>(null);
   const [settings, setSettings] = useState(false);
   const [view, setView] = useState<View | null>(null);
-  const [error, setError] = useState('');
+  const [error, setErrorText] = useState('');
   const [inspect, setInspect] = useState<Inspect>(null);
   const [tab, setTab] = useState<InspectorTab>('parameters');
   const [reveal, setReveal] = useState<Reveal | null>(null);
@@ -50,8 +51,18 @@ export function App() {
   const unsaved = useSyncExternalStore(subscribe, unsavedFiles);
   const layoutSerial = useLayoutSerial();
   const { run, guis, output, setOutput, logs, setLogs, busy, stuck, log, reset, markStale, watchStop } = useRun(serial);
+  // The status bar shows the first line of an error. Logs keep the full text (15.8).
+  const setError = useCallback(
+    (text: string) => {
+      setErrorText(text);
+      if (text) log(text.split(/\r?\n/).map((t) => ({ text: t, kind: 'err' as const })));
+    },
+    [log],
+  );
+  const openLogs = useCallback(() => changeLayout((l) => openPanel(l, 'logs')), []);
+  useLogProblems(view, run, log, openLogs);
 
-  useEffect(() => onCodeError(setError), []);
+  useEffect(() => onCodeError(setError), [setError]);
 
   const show = useCallback(
     (v: View) => {
@@ -73,12 +84,12 @@ export function App() {
       setView(v);
       setError('');
     },
-    [reset],
+    [reset, setError],
   );
 
   const { act, edit, undo, redo, saveAll, startTest, switchInput, collapse, expandUses, copyNodes, paste } = useGraphEdits({ serial, current, show, markStale, log, setError, setFocus });
   const { path, testing, usePath, scoped, domains, goTo, openGraph } = useTrail(view, current, run, act);
-  const fire = useCallback((id: string) => api.fire(usePath ? `${usePath}/${id}` : id, '').catch((e) => setError(String(e))), [usePath]);
+  const fire = useCallback((id: string) => api.fire(usePath ? `${usePath}/${id}` : id, '').catch((e) => setError(String(e))), [usePath, setError]);
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
   const pick = useCallback((at: Reveal) => {
@@ -92,7 +103,7 @@ export function App() {
 
   const actions = useProjectActions({ show, markStale, log, setInspect, setError });
 
-  const refreshStart = useCallback(() => api.startInfo().then(setStart).catch((e) => setError(String(e))), []);
+  const refreshStart = useCallback(() => api.startInfo().then(setStart).catch((e) => setError(String(e))), [setError]);
   const closeSettings = useCallback(() => setSettings(false), []);
 
   useEffect(() => {
@@ -170,6 +181,7 @@ export function App() {
           onUpdate={actions.pickUpdate}
           onPackage={actions.makePackage}
           onOpen={openGraph}
+          onDelete={actions.deleteFolder}
         />
       ),
     },
@@ -240,7 +252,7 @@ export function App() {
       ) : (
         <div className="middle" />
       )}
-      <StatusBar view={view} run={run} stuck={stuck} error={error} onPick={pick} />
+      <StatusBar view={view} run={run} stuck={stuck} error={error} onPick={pick} onLogs={openLogs} />
       {actions.dialogs}
       {closing.dialogs}
     </div>

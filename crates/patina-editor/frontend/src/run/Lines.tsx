@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 import type { Reveal } from '../code/reveal';
+import { highlight, type Part } from './highlight';
+import { hintOf } from './hints';
 
 export interface Line {
   text: string;
@@ -18,6 +20,26 @@ export function addLines(list: Line[], more: Line[]): Line[] {
   return all.length > MAX_LINES ? all.slice(all.length - MAX_LINES) : all;
 }
 
+/** Adds a "Fix:" line after each error or warning line that the list of common errors knows, one time for each fix. */
+export function withHints(lines: Line[]): Line[] {
+  const given = new Set<string>();
+  return lines.flatMap((line) => {
+    const hint = line.kind === 'err' || line.kind === 'warn' || line.kind === 'out' ? hintOf(line.text) : null;
+    if (!hint || given.has(hint)) return [line];
+    given.add(hint);
+    return [line, { text: `Fix: ${hint}`, kind: 'info' as const }];
+  });
+}
+
+// Each line is highlighted one time.
+const parts = new WeakMap<Line, Part[]>();
+
+function Text({ line }: { line: Line }) {
+  let p = parts.get(line);
+  if (!p) parts.set(line, (p = highlight(line.text)));
+  return p.map(([text, kind], i) => (kind ? <span key={i} className={`hl-${kind}`}>{text}</span> : text));
+}
+
 export function Lines({ lines, label, onPick }: { lines: Line[]; label: string; onPick: (at: Reveal) => void }) {
   const box = useRef<HTMLPreElement>(null);
   useEffect(() => {
@@ -28,11 +50,11 @@ export function Lines({ lines, label, onPick }: { lines: Line[]; label: string; 
       {lines.map((line, i) =>
         line.at ? (
           <button key={i} className={`line-link ${line.kind}`} onClick={() => onPick({ ...line.at!, n: Date.now() })}>
-            {line.text}
+            <Text line={line} />
           </button>
         ) : (
           <div key={i} className={line.kind}>
-            {line.text}
+            <Text line={line} />
           </div>
         ),
       )}

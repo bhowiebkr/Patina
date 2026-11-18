@@ -70,12 +70,8 @@ impl<'a> Read<'a> {
             }
         };
         let folder = entry.folder.as_deref().or(entry.builtin.as_deref()).unwrap_or_default();
+        // A parameter with no input is a lost parameter: the run ignores it and the editor shows it.
         let node = &self.nodes[node_index].1;
-        for key in entry.params.keys() {
-            if !node.inputs.iter().any(|i| &i.key == key) {
-                problems.push(fail(&format!("{folder} has no input `{key}` for the parameter")));
-            }
-        }
         let chosen = entry.domain.as_deref().map(Domain::parse).transpose().unwrap_or_else(|text| {
             problems.push(fail(&text));
             None

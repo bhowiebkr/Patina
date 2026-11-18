@@ -1,8 +1,8 @@
 // The settings screen (spec 15.10): the toolchain, the folders, the libraries and the trusted projects.
 
 import { useEffect, useState } from 'react';
-import { api, onToolchain, type InstallProgress, type Settings } from '../api';
-import { useEvent } from '../useEvent';
+import { api, type Settings } from '../api';
+import { InstallProgressBar, useToolchainInstall } from './ToolchainInstall';
 import { StartBackdrop } from './StartBackdrop';
 import { LibrarySettings } from './LibrarySettings';
 
@@ -10,15 +10,11 @@ import { LibrarySettings } from './LibrarySettings';
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState('');
-  const [install, setInstall] = useState<InstallProgress | null>(null);
   const read = () => api.settings().then(setSettings, (e) => setError(String(e)));
+  const { install, start } = useToolchainInstall(read, setError);
   useEffect(() => {
     read();
   }, []);
-  useEvent(onToolchain, (progress: InstallProgress) => {
-    setInstall(progress);
-    if (progress.done && !progress.error) read();
-  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onBack();
     addEventListener('keydown', onKey);
@@ -31,14 +27,6 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       (trusted) => setSettings((s) => s && { ...s, trusted }),
       (e) => setError(String(e)),
     );
-  };
-  const start = (call: () => Promise<void>) => () => {
-    setError('');
-    setInstall({ step: 'Start', done: false, error: null });
-    call().catch((e) => {
-      setInstall(null);
-      setError(String(e));
-    });
   };
   const s = settings;
   const installing = install ? !install.done : !!s?.installing;
@@ -76,7 +64,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           {s && !s.ownToolchain && (
             <div className="settings-row">
               <span className="label">
-                {installing ? (install?.step ?? 'Patina installs the toolchain') : 'Patina downloads Rust and Zig, about 265 MB, into the toolchain folder.'}
+                {installing ? 'Patina installs the toolchain' : 'Patina downloads Rust and Zig, about 265 MB, into the toolchain folder.'}
               </span>
               <button className="btn" disabled={installing} onClick={start(api.installToolchain)}>
                 {install?.error ? 'Retry' : 'Install toolchain'}
@@ -86,18 +74,14 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           {s?.ownToolchain && (
             <div className="settings-row">
               <span className="label">
-                {installing ? (install?.step ?? 'Patina updates the toolchain') : 'Patina downloads the newest stable Rust into the toolchain folder. Zig and the crate cache stay.'}
+                {installing ? 'Patina updates the toolchain' : 'Patina downloads the newest stable Rust into the toolchain folder. Zig and the crate cache stay.'}
               </span>
               <button className="btn" disabled={installing} onClick={start(api.updateToolchain)}>
                 {install?.error ? 'Retry' : 'Update toolchain'}
               </button>
             </div>
           )}
-          {install?.error && (
-            <div className="error-text">
-              {install.step} failed: {install.error}
-            </div>
-          )}
+          <InstallProgressBar install={install} />
           {s?.toolchainProblem && <div className="error-text">{s.toolchainProblem}</div>}
         </section>
         <section className="start-box" aria-label="Folders">

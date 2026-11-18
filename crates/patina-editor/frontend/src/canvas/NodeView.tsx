@@ -104,6 +104,8 @@ export interface NodeData extends Record<string, unknown> {
   wired: string[];
   /** The wire ends that the node has no pin for. Each gets a row, so its wire shows (15.9). */
   lost?: Lost;
+  /** The parameters that the node has no input for. Each shows with a delete button (15.8). */
+  lostParams?: string[];
   state: NodeState;
   message: string;
   editable: boolean;
@@ -264,7 +266,7 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, lost, state, message, editable, time, gui, slot, sockets, domain, open, inner, thumb } = data;
+  const { entry, info, wired, lost, lostParams, state, message, editable, time, gui, slot, sockets, domain, open, inner, thumb } = data;
   const inputs = lost ? [...(info?.inputs ?? []), ...lost.inputs.map(lostPin)] : (info?.inputs ?? []);
   const outputs = lost ? [...(info?.outputs ?? []), ...lost.outputs.map(lostPin)] : (info?.outputs ?? []);
   const lostIn = (pin: Pin | undefined) => !!pin && !!lost?.inputs.includes(pin.key);
@@ -320,6 +322,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
           <StateIcon state={state} />
         </div>
         <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />
+        {lostParams && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
         {message && <div className="patina-node-message">{message}</div>}
         {inputs.map((pin, i) => handle(pin, i, false))}
         {outputs.map((pin, i) => handle(pin, i, true))}
@@ -392,6 +395,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
             }),
           )}
       </div>
+      {lostParams && !inner && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
       {open && <div style={{ height: Math.max(0, (size % 65536) + FRAME_BOTTOM - tops[rows] - PAD) }} />}
       {thumb && <Thumbnail thumb={thumb.text} stale={thumb.stale} label={thumb.label} />}
       {gui !== undefined && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
@@ -456,6 +460,23 @@ function FramePin({ id, output, top, socket }: { id: string; output: boolean; to
 
 /** A row of a wire end that the node has no pin for, for example a removed public pin (6.4). */
 const lostPin = (key: string): Pin => ({ key, ty: '' });
+
+/** The lost parameters of a node: values in the graph file for inputs that the code removed (15.8). Delete is an edit that undo restores. */
+function LostParams({ id, keys, params, editable }: { id: string; keys: string[]; params: Readonly<Record<string, string>> | undefined; editable: boolean }) {
+  const edit = useContext(NodeEdit);
+  return (
+    <div className="lost-params nodrag">
+      {keys.map((key) => (
+        <div key={key} className="lost-param" title={`The node has no input ${key} for this parameter. The run ignores it. Delete it, or give the node the input again.`}>
+          <span className="lost-pin">{key} = {params?.[key]}</span>
+          <button className="icon-btn" aria-label={`Delete the lost parameter ${key}`} title="Delete the lost parameter" disabled={!editable} onClick={() => edit({ kind: 'SetParam', id, key, text: null })}>
+            <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
 const lostTitle = (key: string) => `The node has no pin ${key}. Delete the wire, or give the node this pin again.`;
 
 function PinLabel({ pin, lost = false }: { pin: Pin | undefined; lost?: boolean }) {

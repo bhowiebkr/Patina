@@ -442,6 +442,8 @@ export const api = {
   analyzerStop: () => invoke<void>('analyzer_stop'),
   /** Reads the newest release from GitHub (15.3). Null means that Patina has no release yet. */
   checkUpdate: () => invoke<Release | null>('check_update'),
+  /** Opens the page of Patina on GitHub in the browser of the system (15.3). */
+  openRepo: () => invoke<void>('open_repo'),
   /** Takes a folder off the list of trusted projects (11), and returns the new list. */
   untrustProject: (path: string) => invoke<string[]>('untrust_project', { path }),
   forgetProject: (path: string) => invoke<StartInfo>('forget_project', { path }),
@@ -469,6 +471,8 @@ export const api = {
   save: () => invoke<View>('save'),
   /** Checks again after a change of a code or graph file from outside the editor, or gives null (15.10). */
   refresh: () => invoke<View | null>('refresh'),
+  /** Moves a folder of the Project panel, for example `nodes/switch` or `graphs/filter`, to the Recycle Bin (15.4). */
+  deleteFolder: (folder: string) => invoke<View>('delete_folder', { folder }),
   /** The files of a code folder, for example `nodes/number`. */
   folderFiles: (folder: string) => invoke<string[]>('folder_files', { folder }),
   /** Makes the node folder `nodes/<name>` (15.2). */
@@ -570,6 +574,8 @@ export interface Release {
 /** A step of the toolchain install (13.2). The last event has `done`, and `error` when it failed. */
 export interface InstallProgress {
   step: string;
+  /** The part of all the work that is done, from 0 to 1. */
+  fraction: number;
   done: boolean;
   error: string | null;
 }

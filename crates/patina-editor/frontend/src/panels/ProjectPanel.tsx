@@ -1,10 +1,12 @@
 // The Project panel (spec 15.4): the graphs, the nodes, the widgets, the views, the connections
 // and the types.
 
-import { useState, type DragEvent } from 'react';
+import { useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { View } from '../api';
 import { NODE_MIME } from '../canvas/useAddNode';
 import { NameField } from '../controls/NameField';
+import { Confirm } from '../dialogs/Confirm';
+import { Menu } from './Dock';
 
 /** `type` is a node folder. `folder` is a widget, view, connection or type folder, for example `types/segments`. */
 export type Inspect =
@@ -37,6 +39,8 @@ interface Props {
   onUpdate: (folder: string) => void;
   /** Opens the main graph or a subgraph (6.1). */
   onOpen: (name: string) => void;
+  /** Moves a folder, for example `nodes/switch` or `graphs/filter`, to the Recycle Bin (15.4). */
+  onDelete: (folder: string) => void;
 }
 
 function Empty() {
@@ -53,8 +57,21 @@ function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpdate, onPackage, onOpen }: Props) {
+export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpdate, onPackage, onOpen, onDelete }: Props) {
   const [naming, setNaming] = useState<Group | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; folder: string } | null>(null);
+  const [asking, setAsking] = useState<string | null>(null);
+  // A right-click or the Delete key on an item asks to delete its folder (15.4).
+  const deleting = (folder: string) =>
+    view.trusted
+      ? {
+          onContextMenu: (e: MouseEvent) => {
+            e.preventDefault();
+            setMenu({ x: e.clientX, y: e.clientY, folder });
+          },
+          onKeyDown: (e: KeyboardEvent) => e.key === 'Delete' && setAsking(folder),
+        }
+      : {};
   const close = () => setNaming(null);
   const startDrag = (e: DragEvent, name: string) => {
     e.dataTransfer.setData(NODE_MIME, name);
@@ -81,6 +98,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             draggable={view.trusted && n.name !== 'main'}
             onDragStart={(e) => startDrag(e, n.name)}
             onClick={() => onOpen(n.name)}
+            {...(n.name === 'main' ? {} : deleting(`graphs/${n.name}`))}
             title={n.name === 'main' ? 'Open the main graph' : 'Open the subgraph, or drag it to the graph to add a use'}
           >
             {n.name}
@@ -99,6 +117,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             draggable={view.trusted}
             onDragStart={(e) => startDrag(e, n.name)}
             onClick={() => onInspect({ kind: 'type', name: n.name })}
+            {...deleting(`nodes/${n.name}`)}
             title={[n.doc, view.trusted && 'Drag to the graph to add the node'].filter(Boolean).join('\n\n') || undefined}
           >
             <span className="swatch" style={{ background: n.color ?? undefined }} aria-hidden="true" />
@@ -119,6 +138,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
                 key={name}
                 className={inspect?.kind === 'folder' && inspect.folder === folder ? 'item active' : 'item'}
                 onClick={() => onInspect({ kind: 'folder', folder })}
+                {...deleting(folder)}
               >
                 {name}
               </button>
@@ -142,6 +162,24 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             Package
           </button>
         </div>
+      )}
+      {menu && <Menu x={menu.x} y={menu.y} label={menu.folder} items={[{ label: 'Delete', keys: 'Del', run: () => setAsking(menu.folder) }]} onClose={() => setMenu(null)} />}
+      {asking && (
+        <Confirm
+          title={`Delete ${asking}?`}
+          label={`Delete moves ${asking} to the Recycle Bin. Undo cannot get it back, but the Recycle Bin can. The nodes and the uses that need it show an error until you delete them.`}
+          answers={[
+            [
+              'Delete',
+              () => {
+                onDelete(asking);
+                setAsking(null);
+              },
+            ],
+            ['Cancel', () => setAsking(null)],
+          ]}
+          onCancel={() => setAsking(null)}
+        />
       )}
     </aside>
   );

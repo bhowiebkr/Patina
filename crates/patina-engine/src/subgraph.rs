@@ -142,10 +142,8 @@ fn expand(files: &mut Files, graph: &GraphFile, stack: &mut Vec<String>, problem
         flat.order.extend(inner.order.into_iter().map(|o| Order { before: prefix(&o.before), after: prefix(&o.after) }));
         // A parameter of the use goes to each inner input of its public input pin.
         for (key, text) in &entry.params {
-            let Some(targets) = one.inputs.get(key) else {
-                fail(format!("the subgraph {name} has no input `{key}` for the parameter"));
-                continue;
-            };
+            // A parameter with no public input is a lost parameter, which the run ignores.
+            let Some(targets) = one.inputs.get(key) else { continue };
             for target in targets {
                 let (node, input) = target.split_once('.').unwrap_or((target, ""));
                 if let Some(node) = flat.node[first..].iter_mut().find(|n| n.id == node) {

@@ -16,6 +16,7 @@ import 'monaco-editor/editor/contrib/wordHighlighter/browser/wordHighlighter';
 import 'monaco-editor/editor/contrib/wordOperations/browser/wordOperations';
 import 'monaco-editor/features/find/register';
 import 'monaco-editor/languages/definitions/rust/register';
+import './toml';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { api, errorText, type Code, type Diagnostic, type View } from '../api';
 import { attachCode } from './codeState';

@@ -1,11 +1,12 @@
 // The start screen (spec 15.10): a new project, an open project and the recent projects.
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { AboutDialog, useVersion } from './About';
-import { api, type StartInfo, type View } from '../api';
+import { api, type Settings, type StartInfo, type View } from '../api';
 import { Icon } from '../panels/Dock';
 import { Confirm } from './Confirm';
 import { StartBackdrop } from './StartBackdrop';
+import { InstallProgressBar, useToolchainInstall } from './ToolchainInstall';
 
 type Recent = StartInfo['recent'][number];
 
@@ -26,6 +27,14 @@ export function StartScreen({ start, onOpen, onStart, onSettings }: Props) {
   const [about, setAbout] = useState(false);
   const [remove, setRemove] = useState<Recent | null>(null);
   const version = useVersion();
+  // The first start: Patina has no toolchain of its own, so a card offers the install (13.2).
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const read = () => api.settings().then(setSettings, () => {});
+  const { install, start: startInstall } = useToolchainInstall(read, setError);
+  useEffect(() => {
+    read();
+  }, []);
+  const installing = install ? !install.done : !!settings?.installing;
 
   const act = (job: Promise<View>) => {
     setBusy(true);
@@ -69,6 +78,27 @@ export function StartScreen({ start, onOpen, onStart, onSettings }: Props) {
             </button>
           </div>
         </div>
+        {settings && !settings.ownToolchain && (
+          <section className="start-box first-start" aria-label="Toolchain">
+            <h2>Install the toolchain</h2>
+            <div className="label">
+              Patina builds each node with Rust. <b>Install toolchain</b> downloads Rust and Zig, about 265 MB, into the folder of Patina. It needs no admin rights.
+              {settings.rust && ` Until then, Patina uses the Rust of the system (${settings.rust}).`}
+            </div>
+            <div className="label">
+              Later, <b>Settings</b> at the top right has the toolchain, the update and the folders.
+            </div>
+            <div className="first-start-actions">
+              <button className="btn primary" disabled={installing} onClick={startInstall(api.installToolchain)}>
+                {install?.error ? 'Retry' : 'Install toolchain'}
+              </button>
+              <button className="btn" onClick={onSettings}>
+                Settings
+              </button>
+            </div>
+            <InstallProgressBar install={install} />
+          </section>
+        )}
         <form className="start-box" onSubmit={create}>
           <h2>New project</h2>
           <div className="start-row">

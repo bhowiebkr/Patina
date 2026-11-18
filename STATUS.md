@@ -204,6 +204,18 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - A new project has no node folders (2026-11-17). The engine test and the self-check open an empty
   new project, and the self-check then writes the hello nodes into it.
 - Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
+- The first start shows an **Install the toolchain** card, and the install shows a progress bar
+  (2026-11-18). A unit test checks the percent parse and the step math. No check ran a full
+  install with the bar, because each download needs the approval of the owner.
+- A right-click **Delete** on the **Project** panel items moves a folder to the Recycle Bin
+  (2026-11-18). A unit test checks the folder names that can go. No check clicked it.
+- The **Logs** panel shows the full compile errors, with highlight and **Fix:** lines from a list
+  of common errors (2026-11-18). The **Output** panel has the same highlight. A unit test checks
+  the highlight parts. The **Debug** panel is a timeline with no text, so it has no highlight.
+- A lost parameter does not block a load, a paste or a run (2026-11-18). The node shows it with
+  an **x** that deletes it. An engine test checks that it is no problem.
+- The **Code** tab highlights TOML, and the **About** dialog has the GitHub page (2026-11-18).
+- Known limits: **Delete** in the **Project** panel shows an error on Linux and macOS.
 
 ### Canvas editing
 

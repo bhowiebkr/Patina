@@ -9,12 +9,14 @@ import { valueStale } from '../canvas/liveValues';
 /** An engine event that changes the run state or the Logs. */
 export type RunEvent = Exclude<EngineEvent, { state: 'gui' | 'started' }>;
 
-/** One Logs line for each compile error. A click on a line with a place shows the code. */
+/** The Logs lines of each compile error: a line with its place, which a click shows, and the text of the compiler. */
 function errorLines(errors: Diagnostic[]): Line[] {
-  return errors.map((e): Line => {
+  return errors.flatMap((e): Line[] => {
     const at = revealOf(e, 0);
-    if (!at) return { text: e.rendered.trimEnd(), kind: 'err' };
-    return { text: `${e.file}:${e.start[0]}:${e.start[1]}: ${errorText(e)}`, kind: 'err', at };
+    const body = e.rendered.trimEnd();
+    if (!at) return [{ text: body, kind: 'err' }];
+    const head: Line = { text: `${e.file}:${e.start[0]}:${e.start[1]}: ${errorText(e)}`, kind: 'err', at };
+    return body ? [head, { text: body, kind: 'out' }] : [head];
   });
 }
 

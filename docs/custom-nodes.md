@@ -256,3 +256,10 @@ impl Button {
 - Run the graph with `patina-cli` (see the README). A node GUI does not change a headless run.
 - Put tests in the node crate, as in any Rust crate.
 - An error in the code shows on the node in the editor, with the line of the error.
+- A failed build opens the **Logs** panel with the full compiler text. A **Fix:** line under a
+  common error tells you what to change. The rules are in
+  `crates/patina-editor/frontend/src/run/hints.ts`. Add a rule for an error that you often meet.
+- When you remove or rename an input, its saved value becomes a lost parameter. The node shows it
+  struck through. Click its **x** to delete it. Undo restores it.
+- To delete a node folder, right-click it in the **Project** panel and click **Delete**. The
+  folder goes to the Recycle Bin.

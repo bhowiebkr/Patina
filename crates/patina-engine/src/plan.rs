@@ -383,7 +383,10 @@ mod tests {
                          [[node]]\nid = \"000000000000000b\"\nfolder = \"nodes/show\"\n";
             toml::from_str(&format!("{nodes}{wires}")).unwrap()
         };
-        let good = check(&root, &graph("[[wire]]\nfrom = \"000000000000000a.out\"\nto = \"000000000000000b.v\"\n"));
+        let mut good = graph("[[wire]]\nfrom = \"000000000000000a.out\"\nto = \"000000000000000b.v\"\n");
+        // A lost parameter (an input that the code removed) is no problem (15.8).
+        good.node[0].params.insert("gone".to_owned(), "1.0".to_owned());
+        let good = check(&root, &good);
         let bad = check(
             &root,
             &graph(

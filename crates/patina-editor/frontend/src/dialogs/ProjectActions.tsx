@@ -30,6 +30,19 @@ export function useProjectActions({ show, markStale, log, setInspect, setError }
     [show, setInspect],
   );
 
+  /** Moves a folder of the Project panel to the Recycle Bin (15.4). */
+  const deleteFolder = useCallback(
+    (folder: string) =>
+      void api.deleteFolder(folder).then(
+        (v) => {
+          show(v);
+          setInspect(null);
+        },
+        (e) => setError(String(e)),
+      ),
+    [show, setInspect, setError],
+  );
+
   const pickImport = useCallback(
     () =>
       api
@@ -78,6 +91,7 @@ export function useProjectActions({ show, markStale, log, setInspect, setError }
 
   return {
     newFolder,
+    deleteFolder,
     pickImport,
     pickUpdate,
     makePackage,

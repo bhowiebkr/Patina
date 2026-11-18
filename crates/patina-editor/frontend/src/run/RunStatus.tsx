@@ -4,7 +4,7 @@
 import { useCallback, useRef, useState, type RefObject } from 'react';
 import { api, firstSentence, millis, onEngine, onOutput, outputLines, seconds, type EngineEvent, type OutputText, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
-import { addLines, type Line } from './Lines';
+import { addLines, withHints, type Line } from './Lines';
 import { NO_RUN, type RunState } from '../canvas/NodeView';
 import { eventLines, nextRun, nodeLines, plural } from './runEvents';
 import { useEvent } from '../useEvent';
@@ -21,7 +21,7 @@ export function useRun(serial: RefObject<number>) {
   const [stuck, setStuck] = useState('');
   const stopTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
-  const log = useCallback((more: Line[]) => setLogs((l) => addLines(l, more)), []);
+  const log = useCallback((more: Line[]) => setLogs((l) => addLines(l, withHints(more))), []);
 
   const endStop = useCallback(() => {
     clearInterval(stopTimer.current);
@@ -107,12 +107,20 @@ function runText(run: RunState): string {
   return parts.join(' - ');
 }
 
-export function StatusBar({ view, run, stuck, error, onPick }: { view: View; run: RunState; stuck: string; error: string; onPick: (at: Reveal) => void }) {
+export function StatusBar({ view, run, stuck, error, onPick, onLogs }: { view: View; run: RunState; stuck: string; error: string; onPick: (at: Reveal) => void; onLogs: () => void }) {
   const text = runText(run);
   const firstError = () => run.errors.map((e) => revealOf(e, Date.now())).find((at) => at !== null);
+  // The status bar has one line. A click opens Logs, which have the full text (15.8).
+  const first = error.split(/\r?\n/)[0];
   return (
     <footer className="statusbar">
-      <span title={view.problems.join('\n')}>{view.problems.length === 0 ? 'Ready' : `${view.problems.length} problems`}</span>
+      {view.problems.length === 0 ? (
+        <span>Ready</span>
+      ) : (
+        <button className="status-link error-text" title={`${view.problems.join('\n')}\n\nClick to open Logs.`} onClick={onLogs}>
+          {plural(view.problems.length, 'problem')}
+        </button>
+      )}
       {text && <span>{text}</span>}
       {(run.phase === 'ran' || run.phase === 'loaded') && <span>{run.slot !== null ? `Slot: ${run.slot}` : run.fused ? 'Fused' : 'Edit build'}</span>}
       {stuck && <span className="error-text">{stuck}</span>}
@@ -128,7 +136,11 @@ export function StatusBar({ view, run, stuck, error, onPick }: { view: View; run
         </button>
       )}
       <span className="spacer" />
-      {error && <span className="error-text">{error}</span>}
+      {error && (
+        <button className="status-link error-text status-error" title={`${error}\n\nClick to open Logs.`} onClick={onLogs}>
+          {first}
+        </button>
+      )}
     </footer>
   );
 }

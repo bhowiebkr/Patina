@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { lostPins, wireEnds } from './lostPins.ts';
+import { lostParams, lostPins, wireEnds } from './lostPins.ts';
 
 test('a wire end at a pin key that the node does not have is a lost pin', () => {
   const ends = wireEnds({
@@ -22,4 +22,11 @@ test('a wire end at a pin key that the node does not have is a lost pin', () => 
   assert.equal(lostPins({ inputs: [], outputs: [{ key: 'out' }] }, ends.get('a')), undefined);
   assert.equal(lostPins(pins, undefined), undefined, 'a node with no wires loses nothing');
   assert.deepEqual(lostPins(null, ends.get('a')), { inputs: [], outputs: ['out'] }, 'a missing folder loses all ends');
+});
+
+test('a parameter with no input is a lost parameter', () => {
+  const pins = { inputs: [{ key: 'on' }], outputs: [] };
+  assert.deepEqual(lostParams(pins, { on: 'true', old: '3' }), ['old']);
+  assert.equal(lostParams(pins, { on: 'true' }), undefined);
+  assert.equal(lostParams(null, { old: '3' }), undefined, 'a missing folder can come back, so it loses no parameter');
 });

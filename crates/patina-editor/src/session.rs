@@ -412,6 +412,51 @@ pub fn refresh(editor: State<'_, Editor>) -> Result<Option<View>, String> {
     })
 }
 
+/// Moves a code folder or a subgraph of the Project panel to the Recycle Bin (15.4). The nodes
+/// and the uses of the graphs stay, and show the error of a missing folder until the user deletes
+/// them. Only the Recycle Bin gets the folder back.
+#[tauri::command(async)]
+pub fn delete_folder(editor: State<'_, Editor>, folder: String) -> Result<View, String> {
+    editor.with(|session| {
+        if !session.trusted {
+            return Err("Trust the project before you delete a folder.".to_owned());
+        }
+        let path = session.project.root().join(deletable_folder(&folder)?);
+        if !path.exists() {
+            return Err(format!("The project has no {folder}."));
+        }
+        if folder.strip_prefix("graphs/") == Some(session.project.graph_name()) {
+            return Err(format!("Open another graph before you delete {folder}."));
+        }
+        let inside = format!("{folder}/");
+        if session.code.keys().any(|file| file.starts_with(&inside)) {
+            return Err(format!("The Code tab has unsaved changes in {folder}. Save or undo them first."));
+        }
+        start::recycle(&path)?;
+        session.project.outside_change();
+        if let Some(name) = folder.strip_prefix("views/") {
+            editor.engine.send(Job::CloseView(name.to_owned()));
+        }
+        let build = session.live.then_some(true);
+        Ok(session.view(&editor.engine, build, None))
+    })
+}
+
+/// The path of a folder that the Project panel can delete, so the page cannot delete another file.
+fn deletable_folder(folder: &str) -> Result<String, String> {
+    let not = || format!("{folder} is not a folder of the Project panel.");
+    let (group, name) = folder.split_once('/').ok_or_else(not)?;
+    if name.is_empty() || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') {
+        return Err(not());
+    }
+    match group {
+        "graphs" if name == "main" => Err("The main graph cannot go.".to_owned()),
+        "graphs" => Ok(format!("graphs/{name}.toml")),
+        "nodes" | "widgets" | "views" | "connections" | "types" => Ok(folder.to_owned()),
+        _ => Err(not()),
+    }
+}
+
 /// The views of the files that changed, came or went, and true when another file did.
 fn outside_changes(old: &Stamps, new: &Stamps) -> (BTreeSet<String>, bool) {
     let came = new.iter().filter(|&(path, stamp)| old.get(path) != Some(stamp)).map(|(path, _)| path);
@@ -621,6 +666,16 @@ mod tests {
         assert_eq!(slot_folder("widgets/bar/src/lib.rs"), None);
         assert_eq!(view_folder("views/map/src/lib.rs").as_deref(), Some("map"));
         assert_eq!(view_folder("nodes/map/src/lib.rs"), None);
+    }
+
+    #[test]
+    fn only_a_folder_of_the_project_panel_can_go() {
+        assert_eq!(deletable_folder("nodes/switch").as_deref(), Ok("nodes/switch"));
+        assert_eq!(deletable_folder("types/seg-2").as_deref(), Ok("types/seg-2"));
+        assert_eq!(deletable_folder("graphs/filter").as_deref(), Ok("graphs/filter.toml"));
+        for bad in ["graphs/main", "nodes/..", "nodes/a/b", "nodes/", "src/lib", "nodes", "target/debug", "nodes/a\\b"] {
+            assert!(deletable_folder(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]

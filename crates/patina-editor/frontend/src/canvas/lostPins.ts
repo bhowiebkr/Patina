@@ -45,3 +45,9 @@ export function lostPins(pins: Pins | null, ends: ReadonlySet<string> | undefine
   }
   return lost.inputs.length + lost.outputs.length > 0 ? lost : undefined;
 }
+
+/** The parameter keys of a node use that its node has no input for: lost parameters (15.8). A node with no info loses none, because its folder can come back. */
+export function lostParams(pins: Pins | null, params: Readonly<Record<string, string>> | undefined): string[] | undefined {
+  const keys = pins && params ? Object.keys(params).filter((key) => !pins.inputs.some((p) => p.key === key)) : [];
+  return keys.length > 0 ? keys : undefined;
+}

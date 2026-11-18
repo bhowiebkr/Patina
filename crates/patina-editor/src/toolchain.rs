@@ -19,6 +19,8 @@ pub fn installing() -> bool {
 #[serde(rename_all = "camelCase")]
 struct Progress {
     step: String,
+    /// The part of all the work that is done, from 0 to 1.
+    fraction: f32,
     done: bool,
     error: Option<String>,
 }
@@ -41,18 +43,22 @@ pub fn update_toolchain(app: AppHandle, editor: State<'_, Editor>) -> Result<(),
     start(app, move |step| patina_engine::install::update(&folder, step).map_err(|e| e.to_string()))
 }
 
-fn start(app: AppHandle, work: impl FnOnce(&mut dyn FnMut(&str)) -> Result<String, String> + Send + 'static) -> Result<(), String> {
+fn start(app: AppHandle, work: impl FnOnce(&mut dyn FnMut(&str, f32)) -> Result<String, String> + Send + 'static) -> Result<(), String> {
     if INSTALLING.swap(true, Ordering::SeqCst) {
         return Err("The toolchain install runs.".to_owned());
     }
     std::thread::spawn(move || {
-        let mut last = String::new();
-        let result = work(&mut |name: &str| {
-            last = name.to_owned();
-            let _ = app.emit("toolchain", Progress { step: last.clone(), done: false, error: None });
+        let (mut last, mut shown) = (String::new(), 0.0);
+        let result = work(&mut |name: &str, fraction: f32| {
+            // curl gives many updates each second. The page gets a step and each 0.1 % only.
+            if name == last && (fraction - shown).abs() < 0.001 {
+                return;
+            }
+            (last, shown) = (name.to_owned(), fraction);
+            let _ = app.emit("toolchain", Progress { step: last.clone(), fraction, done: false, error: None });
         });
         INSTALLING.store(false, Ordering::SeqCst);
-        let _ = app.emit("toolchain", Progress { step: last, done: true, error: result.err() });
+        let _ = app.emit("toolchain", Progress { step: last, fraction: 1.0, done: true, error: result.err() });
     });
     Ok(())
 }

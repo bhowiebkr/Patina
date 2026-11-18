@@ -370,6 +370,28 @@
   text-decoration: line-through;
 }
 
+/* Lost parameters (15.8): a crossed-out "key = value" and a delete button for each. */
+.lost-params {
+  padding: 0 8px 6px 12px;
+  font-size: 12px;
+}
+
+.lost-param {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+}
+
+.lost-param .lost-pin {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--error);
+  text-decoration: line-through;
+}
+
 .react-flow__node-patina .react-flow__handle.lost-pin {
   background: var(--error);
 }

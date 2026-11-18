@@ -10,7 +10,7 @@ import type { WireData } from '../wires/WireLayer';
 import { pathOf } from '../wires/wires';
 import { same } from './same';
 import { valueStale } from './liveValues';
-import { lostPins, wireEnds } from './lostPins';
+import { lostParams, lostPins, wireEnds } from './lostPins';
 
 const NO_POINTS: readonly Point[] = [];
 
@@ -148,7 +148,8 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
     const domain = domains.get(entry.id);
     const lost = lostPins(info, ends.get(entry.id));
-    const data = { entry, info, wired, lost, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run) };
+    const lostKeys = lostParams(info, entry.params);
+    const data = { entry, info, wired, lost, lostParams: lostKeys, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run) };
     const before = old.get(entry.id);
     return before?.type === 'patina' ? kept(before, position, data, held) : { id: entry.id, type: 'patina' as const, position, data };
   });

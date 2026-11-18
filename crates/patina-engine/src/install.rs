@@ -5,7 +5,8 @@
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use serde_json::Value;
@@ -30,16 +31,17 @@ const WRAPPERS: [&str; 3] = ["zig-cc.exe", "zig-ar.exe", "zig-dlltool.exe"];
 /// Installs the toolchain into `folder` and returns its Rust version. The steps work in the
 /// folder `<folder>-install`, and the last step renames it, so Patina never uses a part install.
 /// A retry continues with the files of the last try. `wrapper` is the program that becomes the
-/// Zig wrappers (see [`run_wrapper`]). `step` gets the name of each step.
-pub fn install(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
-    steps(folder, wrapper, step).map_err(install_error)
+/// Zig wrappers (see [`run_wrapper`]). `report` gets the name of each step and the part of all
+/// the work that is done, from 0 to 1.
+pub fn install(folder: &Path, wrapper: &Path, report: &mut dyn FnMut(&str, f32)) -> Result<String, Error> {
+    steps(folder, wrapper, report).map_err(install_error)
 }
 
 /// Updates the Rust of the toolchain in `folder` to the newest stable release and returns its
 /// version (13.2). Rustup replaces the toolchain in one transaction, so a failed update keeps the
 /// old Rust. Zig and the crate cache stay. A retry keeps the downloads with a correct hash.
-pub fn update(folder: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
-    update_steps(folder, step).map_err(install_error)
+pub fn update(folder: &Path, report: &mut dyn FnMut(&str, f32)) -> Result<String, Error> {
+    update_steps(folder, report).map_err(install_error)
 }
 
 fn install_error(e: Error) -> Error {
@@ -49,7 +51,7 @@ fn install_error(e: Error) -> Error {
     }
 }
 
-fn update_steps(folder: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
+fn update_steps(folder: &Path, report: &mut dyn FnMut(&str, f32)) -> Result<String, Error> {
     if !cfg!(windows) {
         return Err(Error::Build("Update toolchain works only on Windows in this version".into()));
     }
@@ -58,14 +60,15 @@ fn update_steps(folder: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Err
     }
     let downloads = beside(folder, "-update");
     make_dir(&downloads)?;
+    let step = &mut Steps::new(PACKAGES.len() + 3, report);
     let server = mirror(folder, &downloads, step)?;
-    step("Update Rust");
+    step.next("Update Rust");
     let bin = folder.join("cargo").join("bin");
     let rustup = bin.join("rustup.exe");
     run_text(tool(folder, &rustup)?.env("RUSTUP_DIST_SERVER", &server).args(["update", "stable", "--no-self-update"]))?;
     // A toolchain of an older Patina has no source of std.
     run_text(tool(folder, &rustup)?.env("RUSTUP_DIST_SERVER", &server).args(["component", "add", "rust-src"]))?;
-    step("Check the toolchain");
+    step.next("Check the toolchain");
     let toolchain = Toolchain::find(folder)?;
     check_analyzer(folder, &toolchain)?;
     let release = toolchain.release;
@@ -80,7 +83,7 @@ fn beside(folder: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(name)
 }
 
-fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
+fn steps(folder: &Path, wrapper: &Path, report: &mut dyn FnMut(&str, f32)) -> Result<String, Error> {
     if !cfg!(windows) {
         return Err(Error::Build("Install toolchain works only on Windows in this version".into()));
     }
@@ -91,25 +94,28 @@ fn steps(folder: &Path, wrapper: &Path, step: &mut dyn FnMut(&str)) -> Result<St
     let work = beside(folder, "-install");
     let downloads = work.join("downloads");
     make_dir(&downloads)?;
-    if !Toolchain::installed(&work) {
+    let zig = work.join("zig");
+    let (has_rust, has_zig) = (Toolchain::installed(&work), zig.join("zig.exe").is_file());
+    let total = if has_rust { 0 } else { PACKAGES.len() + 3 } + if has_zig { 0 } else { 3 } + 3;
+    let step = &mut Steps::new(total, report);
+    if !has_rust {
         rust(&work, &downloads, step)?;
     }
-    let zig = work.join("zig");
-    if !zig.join("zig.exe").is_file() {
+    if !has_zig {
         unpack_zig(&work, &downloads, step)?;
     }
-    step("Copy the Zig wrappers");
+    step.next("Copy the Zig wrappers");
     for name in WRAPPERS {
         fs::copy(wrapper, zig.join(name)).map_err(|e| Error::Io(zig.join(name), e))?;
     }
-    step("Check the toolchain");
+    step.next("Check the toolchain");
     let toolchain = Toolchain::find(&work)?;
     check_analyzer(&work, &toolchain)?;
     let release = toolchain.release;
     let source = downloads.join("check.c");
     fs::write(&source, "int patina_check(void) { return 1; }\n").map_err(|e| Error::Io(source.clone(), e))?;
     run_text(tool(&work, &zig.join("zig-cc.exe"))?.arg("-c").arg(&source).arg("-o").arg(downloads.join("check.o")))?;
-    step("Move the toolchain into place");
+    step.next("Move the toolchain into place");
     fs::remove_dir_all(&downloads).map_err(|e| Error::Io(downloads.clone(), e))?;
     if folder.is_dir() {
         // Only an empty folder goes. A folder with files gives an error, and the user decides.
@@ -199,12 +205,12 @@ fn cc_args(args: Vec<OsString>) -> Vec<OsString> {
 
 /// Installs Rust with rustup: the minimal profile of the stable channel, rust-analyzer and the
 /// source of `std`, for the gnu host.
-fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(), Error> {
-    step("Download rustup-init");
+fn rust(work: &Path, downloads: &Path, step: &mut Steps) -> Result<(), Error> {
+    step.next("Download rustup-init");
     let init = downloads.join("rustup-init.exe");
-    download_checked(work, &format!("{DIST}/rustup/dist/{HOST}/rustup-init.exe"), &init)?;
+    download_checked(work, &format!("{DIST}/rustup/dist/{HOST}/rustup-init.exe"), &init, &mut |f| step.part(f))?;
     let server = mirror(work, downloads, step)?;
-    step("Install Rust");
+    step.next("Install Rust");
     run_text(tool(work, &init)?.env("RUSTUP_DIST_SERVER", &server).args([
         "-y",
         "--no-modify-path",
@@ -222,20 +228,20 @@ fn rust(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(),
 
 /// Downloads the newest stable channel manifest and its packages of [`PACKAGES`] into a copy of
 /// the server in `downloads`, and returns the `file:` URL of the copy for rustup.
-fn mirror(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<String, Error> {
-    step("Download the Rust channel manifest");
+fn mirror(work: &Path, downloads: &Path, step: &mut Steps) -> Result<String, Error> {
+    step.next("Download the Rust channel manifest");
     let mirror = downloads.join("mirror");
     let manifest = mirror.join("dist").join("channel-rust-stable.toml");
     make_dir(&mirror.join("dist"))?;
-    download_checked(work, &format!("{DIST}/dist/channel-rust-stable.toml"), &manifest)?;
+    download_checked(work, &format!("{DIST}/dist/channel-rust-stable.toml"), &manifest, &mut |f| step.part(f))?;
     let text = fs::read_to_string(&manifest).map_err(|e| Error::Io(manifest.clone(), e))?;
     for (name, url, hash) in packages(&text, HOST)? {
-        step(&format!("Download {name}"));
+        step.next(&format!("Download {name}"));
         let path = url.strip_prefix(DIST).ok_or_else(|| Error::Build(format!("{url} is not on {DIST}")))?;
         let file = mirror.join(path.trim_start_matches('/'));
         make_dir(file.parent().unwrap_or(&mirror))?;
         if verify(&file, &hash).is_err() {
-            download(work, &url, &file)?;
+            download(work, &url, &file, &mut |f| step.part(f))?;
             verify(&file, &hash)?;
         }
     }
@@ -268,20 +274,20 @@ fn packages(manifest: &str, target: &str) -> Result<Vec<(&'static str, String, S
 }
 
 /// Installs the newest Zig release of the index of ziglang.org.
-fn unpack_zig(work: &Path, downloads: &Path, step: &mut dyn FnMut(&str)) -> Result<(), Error> {
-    step("Download the Zig index");
+fn unpack_zig(work: &Path, downloads: &Path, step: &mut Steps) -> Result<(), Error> {
+    step.next("Download the Zig index");
     let index_file = downloads.join("zig-index.json");
-    download(work, "https://ziglang.org/download/index.json", &index_file)?;
+    download(work, "https://ziglang.org/download/index.json", &index_file, &mut |f| step.part(f))?;
     let bytes = fs::read(&index_file).map_err(|e| Error::Io(index_file.clone(), e))?;
     let index: Value = serde_json::from_slice(&bytes).map_err(|e| Error::Build(format!("the Zig index: {e}")))?;
     let (version, url, sha) = zig_file(&index)?;
-    step(&format!("Download Zig {version}"));
+    step.next(&format!("Download Zig {version}"));
     let zip = downloads.join("zig.zip");
     if verify(&zip, &sha).is_err() {
-        download(work, &url, &zip)?;
+        download(work, &url, &zip, &mut |f| step.part(f))?;
         verify(&zip, &sha)?;
     }
-    step(&format!("Unpack Zig {version}"));
+    step.next(&format!("Unpack Zig {version}"));
     let unpack = downloads.join("zig");
     if unpack.exists() {
         fs::remove_dir_all(&unpack).map_err(|e| Error::Io(unpack.clone(), e))?;
@@ -331,27 +337,99 @@ pub(crate) fn system32() -> PathBuf {
     Path::new(&root).join("System32")
 }
 
-/// Downloads a file over HTTPS only. A stalled connection fails after 60 s below 1 KB/s, so
-/// the retry of curl starts.
-fn download(work: &Path, url: &str, file: &Path) -> Result<(), Error> {
-    run_text(
-        tool(work, &system32().join("curl.exe"))?
-            .args(["--fail", "--silent", "--show-error", "--location", "--retry", "3"])
-            .args(["--proto", "=https", "--proto-redir", "=https"])
-            .args(["--connect-timeout", "30", "--speed-limit", "1024", "--speed-time", "60", "--output"])
-            .arg(file)
-            .arg(url),
-    )?;
+/// Downloads a file over HTTPS only, and gives the part that is done to `part`. A stalled
+/// connection fails after 60 s below 1 KB/s, so the retry of curl starts.
+fn download(work: &Path, url: &str, file: &Path, part: &mut dyn FnMut(f32)) -> Result<(), Error> {
+    let mut child = tool(work, &system32().join("curl.exe"))?
+        .args(["--fail", "--progress-bar", "--show-error", "--location", "--retry", "3"])
+        .args(["--proto", "=https", "--proto-redir", "=https"])
+        .args(["--connect-timeout", "30", "--speed-limit", "1024", "--speed-time", "60", "--output"])
+        .arg(file)
+        .arg(url)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| Error::Build(format!("cannot start curl.exe: {e}")))?;
+    // The progress bar of curl writes each update after a carriage return. The other lines are errors.
+    let mut errors = String::new();
+    let mut end_line = |line: &[u8]| {
+        let text = String::from_utf8_lossy(line);
+        match percent(&text) {
+            Some(p) => part(p),
+            None if !text.trim().chars().all(|c| "#=Oo- ".contains(c)) => {
+                errors.push_str(text.trim());
+                errors.push('\n');
+            }
+            None => {}
+        }
+    };
+    if let Some(mut stderr) = child.stderr.take() {
+        let (mut line, mut buffer) = (Vec::new(), [0u8; 512]);
+        loop {
+            let n = stderr.read(&mut buffer).map_err(|e| Error::Build(format!("curl.exe: {e}")))?;
+            if n == 0 {
+                break;
+            }
+            for &byte in &buffer[..n] {
+                if byte == b'\r' || byte == b'\n' {
+                    end_line(&line);
+                    line.clear();
+                } else {
+                    line.push(byte);
+                }
+            }
+        }
+        end_line(&line);
+    }
+    let status = child.wait().map_err(|e| Error::Build(format!("curl.exe: {e}")))?;
+    if !status.success() {
+        return Err(Error::Build(format!("curl.exe failed for {url}: {}", errors.trim())));
+    }
     Ok(())
 }
 
+/// The part that is done in a line of the progress bar of curl, for example `###   12.3%`.
+fn percent(line: &str) -> Option<f32> {
+    let number = line.trim_end().strip_suffix('%')?.rsplit([' ', '#']).next()?;
+    number.parse::<f32>().ok().map(|p| (p / 100.0).clamp(0.0, 1.0))
+}
+
+/// The steps of an install or an update. Each report has the name of the step and the part of
+/// all the work that is done, from 0 to 1.
+struct Steps<'a> {
+    name: String,
+    done: usize,
+    total: usize,
+    report: &'a mut dyn FnMut(&str, f32),
+}
+
+impl<'a> Steps<'a> {
+    fn new(total: usize, report: &'a mut dyn FnMut(&str, f32)) -> Self {
+        Self { name: String::new(), done: 0, total, report }
+    }
+
+    fn next(&mut self, name: &str) {
+        if !self.name.is_empty() {
+            self.done += 1;
+        }
+        self.name = name.to_owned();
+        self.part(0.0);
+    }
+
+    /// The progress inside the step, from 0 to 1.
+    fn part(&mut self, fraction: f32) {
+        let all = (self.done as f32 + fraction) / self.total.max(1) as f32;
+        (self.report)(&self.name, all.min(1.0));
+    }
+}
+
 /// Downloads a file and its `.sha256` file, and checks the file.
-fn download_checked(work: &Path, url: &str, file: &Path) -> Result<(), Error> {
+fn download_checked(work: &Path, url: &str, file: &Path, part: &mut dyn FnMut(f32)) -> Result<(), Error> {
     let mut sums = file.as_os_str().to_owned();
     sums.push(".sha256");
     let sums = PathBuf::from(sums);
-    download(work, url, file)?;
-    download(work, &format!("{url}.sha256"), &sums)?;
+    download(work, url, file, part)?;
+    download(work, &format!("{url}.sha256"), &sums, &mut |_| {})?;
     let text = fs::read_to_string(&sums).map_err(|e| Error::Io(sums.clone(), e))?;
     verify(file, text.split_whitespace().next().unwrap_or_default())
 }
@@ -411,10 +489,25 @@ mod tests {
     #[test]
     fn an_update_needs_an_installed_toolchain() {
         let folder = std::env::temp_dir().join(format!("patina-update-{}", std::process::id()));
-        let error = update(&folder, &mut |_| panic!("no step")).unwrap_err().to_string();
+        let error = update(&folder, &mut |_, _| panic!("no step")).unwrap_err().to_string();
         assert!(error.contains(if cfg!(windows) { "Install the toolchain first" } else { "only on Windows" }), "{error}");
         assert!(!beside(&folder, "-update").exists());
         assert_eq!(beside(Path::new("a/toolchain"), "-update"), Path::new("a/toolchain-update"));
+    }
+
+    #[test]
+    fn steps_report_the_part_of_all_the_work() {
+        let mut seen = Vec::new();
+        let mut report = |name: &str, all: f32| seen.push((name.to_owned(), all));
+        let mut steps = Steps::new(4, &mut report);
+        steps.next("a");
+        steps.part(0.5);
+        steps.next("b");
+        assert_eq!(seen, [("a".to_owned(), 0.0), ("a".to_owned(), 0.125), ("b".to_owned(), 0.25)]);
+        assert_eq!(percent("######                   12.5%"), Some(0.125));
+        assert_eq!(percent("100.0%"), Some(1.0));
+        assert_eq!(percent("#=#=#"), None);
+        assert_eq!(percent("curl: (22) The requested URL returned error: 404"), None);
     }
 
     #[test]
