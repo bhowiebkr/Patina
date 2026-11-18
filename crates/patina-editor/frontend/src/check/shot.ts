@@ -6,6 +6,7 @@ import { api, onEngine, type EngineEvent, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
 import { BUILD_MS, button, closeMenu, enterText, entry, mouseWheel, rightClick } from './check-fixtures';
+import { lowContrast } from './contrast';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -168,6 +169,13 @@ function chromeFit(where: string) {
   return `chrome ${where}: ${seen} items`;
 }
 
+/** Throws on a text of the page with too little contrast (15.3). */
+function contrastOk(where: string) {
+  const { bad, seen } = lowContrast(document);
+  if (bad.length) throw new Error(`the contrast of ${where} is too low: ${bad.join(', ')}`);
+  return `contrast ${where}: ${seen} texts`;
+}
+
 /** Opens the menus of the canvas at its right bottom corner, a node, a wire, the Views button, a dock tab and a Project item, and throws on a menu out of the window or an item that cuts its text (15.2). */
 async function menusFit(where: string) {
   const bad: string[] = [];
@@ -182,7 +190,7 @@ async function menusFit(where: string) {
     if (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push(`out ${label}`);
     for (const b of m.querySelectorAll('button'))
       if (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) bad.push(`cut ${label} "${b.textContent}"`);
-    bad.push(...unnamed(m).map((b) => `${label} ${b}`));
+    bad.push(...unnamed(m).map((b) => `${label} ${b}`), ...lowContrast(m).bad.map((b) => `${label} ${b}`));
     closeMenu();
     await wait(() => !document.querySelector('.menu'), () => `the menu ${label} does not close`);
   };
@@ -233,8 +241,23 @@ function wiresClear(where: string) {
     for (const n of through) bad.push(`${id} through ${n}`);
   }
   for (const c of document.querySelectorAll('.route-conflict')) bad.push(`a conflict mark at ${c.getAttribute('style')}`);
+  // A badge keeps room for a value of 6 characters (15.3).
+  for (const b of document.querySelectorAll<HTMLElement>('.wire-value'))
+    if ((b.textContent ?? '').length <= 6 && b.scrollWidth > b.clientWidth + 1) bad.push(`the badge "${b.textContent}" cuts its text`);
   if (bad.length) throw new Error(`the wires of ${where} are wrong: ${bad.join(', ')}`);
   return `wires ${where}: ${seen} wires clear of the bodies`;
+}
+
+/** Throws on a node out of the canvas, after the graph opens with no saved pan and zoom (15.2). */
+function openFit(where: string) {
+  const c = document.querySelector('.react-flow')!.getBoundingClientRect();
+  const nodes = [...document.querySelectorAll<HTMLElement>('.react-flow__node')];
+  const bad = nodes.filter((n) => {
+    const r = n.getBoundingClientRect();
+    return r.left < c.left - 1 || r.top < c.top - 1 || r.right > c.right + 1 || r.bottom > c.bottom + 1;
+  });
+  if (bad.length) throw new Error(`the graph ${where} does not fit at open: ${bad.map((n) => n.dataset.id).join(', ')}`);
+  return `open fit ${where}: ${nodes.length} nodes`;
 }
 
 /** Selects each node, and throws on an Inspector that scrolls to the side, a widget out of it, a label that cuts its text, a GUI that cannot draw or a node with an error (15.7). */
@@ -392,6 +415,7 @@ async function openView(name: string) {
     if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
     if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
   }
+  bad.push(...lowContrast(a).bad);
   if (bad.length) throw new Error(`the view ${name} is wrong: ${bad.join(', ')}`);
   return [`view-${name}`, `view ${name}: ${text()}`, chromeFit(`view ${name}`)];
 }
@@ -436,7 +460,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     }
     await sleep(500);
     await api.capture('main');
-    steps.push('main');
+    steps.push('main', openFit('main'));
     // The node GUIs and the bus contacts hide at a far zoom (15.1), so a second screenshot zooms in.
     const zoom = async (node: Element | null | undefined, name: string) => {
       const box = node?.getBoundingClientRect();
@@ -465,7 +489,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       if (placesOnCanvas()) steps.push('placed widgets on their canvas');
       steps.push(guiFit('main'));
       steps.push(wiresClear('main'));
-      steps.push(chromeFit('main'));
+      steps.push(chromeFit('main'), contrastOk('main'));
       steps.push(await menusFit('main'));
       // A laptop of 1920 x 1080 pixels at 150% gives a window of 1280 x 720 (15.2).
       await api.checkResize(1280, 720);
@@ -479,7 +503,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     steps.push(await inspectNodes('main'));
     const inspected = await inspectThumb();
     if (inspected) {
-      steps.push(`inspect ${inspected}`);
+      steps.push(`inspect ${inspected}`, contrastOk('main-inspect'));
       if (badgeOnTop()) steps.push('the selected badge is above the nodes');
       await api.capture('main-inspect');
       steps.push('main-inspect');
@@ -501,10 +525,10 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         await wait(() => !document.querySelector('.center-view'), () => `a view covers the graph ${n.subgraph}`);
         await sleep(500);
         await api.capture(n.subgraph);
-        steps.push(n.subgraph);
+        steps.push(n.subgraph, openFit(n.subgraph));
         steps.push(guiFit(n.subgraph));
         steps.push(wiresClear(n.subgraph));
-        steps.push(chromeFit(n.subgraph));
+        steps.push(chromeFit(n.subgraph), contrastOk(n.subgraph));
         steps.push(await menusFit(n.subgraph));
         const fresh = (inner.graph.node ?? []).filter((m) => !kinds.has(m.folder ?? m.subgraph ?? m.builtin) && kinds.add(m.folder ?? m.subgraph ?? m.builtin));
         if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)), (await fullSizes(n.subgraph, fresh.map((m) => m.id))).text);

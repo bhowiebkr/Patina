@@ -326,6 +326,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The shot opens the menus of the pane, a node, a wire, **Views**, a view tab and the
   **Project** panel (added 2026-11-18). Each menu must be in the window, must not cut a text and
   must name each button. It does this in the main graph, at 1280 x 720 and in each subgraph.
+- The shot checks the contrast of each text of the page, of each menu and of each view: 4.5:1,
+  or 3:1 for a large text (added 2026-11-18). It found the **None** item of the **Project**
+  panel at 3.4:1 (fixed 2026-11-18). The **None** item, the **No match** text of the palette and
+  the line numbers of the logs now use the subtle gray. A frontend test checks the ratio math.
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol
@@ -677,9 +681,11 @@ domain free of locks. These limits are still open:
   each subgraph.
 - At open, the graph fit before the node GUIs had their size, so the shot cut the bottom keypad
   of hello (fixed 2026-11-18). The graph now fits again when a node changes size, until the user
-  clicks, types, pans or zooms in the canvas.
+  clicks, types, pans or zooms in the canvas. The shot checks that each node is in the canvas
+  when the main graph and each subgraph open.
 - A wire badge cut short values to `12...` or `0...` (fixed 2026-11-18). A badge now keeps at
-  least 50 px, so a value of 6 characters shows whole.
+  least 50 px, so a value of 6 characters shows whole. The shot checks that no badge of 6 or
+  fewer characters cuts its text.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
   A pool unit test sees a task on a worker give its pool index above 0. A CLI test and the

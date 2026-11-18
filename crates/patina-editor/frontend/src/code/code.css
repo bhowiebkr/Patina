@@ -142,7 +142,7 @@
 
 .lines .hl-gutter,
 .lines .hl-id {
-  color: var(--disabled);
+  color: var(--subtle);
 }
 
 .lines .hl-code {

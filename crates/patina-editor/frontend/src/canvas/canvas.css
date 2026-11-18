@@ -712,7 +712,7 @@
 }
 
 .palette .empty {
-  color: var(--disabled);
+  color: var(--subtle);
 }
 
 /* A circuit symbol (4.3) draws its own body and keeps it at a far zoom, with no text. */

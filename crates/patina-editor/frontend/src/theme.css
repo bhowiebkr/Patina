@@ -419,8 +419,9 @@ select {
   font-size: 12px;
 }
 
+/* An empty list is text, not a disabled control, so it keeps a contrast of 4.5:1. */
 .item.empty {
-  color: var(--disabled);
+  color: var(--subtle);
   cursor: default;
 }
 
