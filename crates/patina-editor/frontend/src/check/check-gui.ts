@@ -88,6 +88,84 @@ export async function checkWidgets(until: Until, gui: string) {
   if (pad()?.getAttribute('role') !== 'application' || document.activeElement !== pad()) throw new Error('the key canvas did not take the focus');
   for (const type of ['keydown', 'keyup']) pad()!.dispatchEvent(new KeyboardEvent(type, { key: 'k', code: 'KeyK', bubbles: true }));
   await until('the canvas dot after the key K', RUN_MS, () => Math.abs(dotX() - 130) < 1);
+  await checkDrags(until, gui);
+}
+
+/** A pointer event of the mouse at the client point `p`. */
+const mouse = ([clientX, clientY]: number[]) => ({ bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX, clientY });
+/** Lets React apply the state of the last event. */
+const tick = () => new Promise<void>((r) => setTimeout(r));
+const near = (text: string | null | undefined, v: number) => Math.abs(Number(text) - v) < 0.011;
+const centre = (e: Element) => {
+  const r = e.getBoundingClientRect();
+  return [r.left + r.width / 2, r.top + r.height / 2];
+};
+
+/** Drags a curve point, a trim handle, a ramp stop, a layer and a canvas with pointer events (4.3). Each widget drag sends one change at its end. */
+async function checkDrags(until: Until, gui: string) {
+  const points = () => document.querySelectorAll<SVGCircleElement>(`${gui} .gui-curve circle`);
+  const curve = document.querySelector(`${gui} svg.gui-curve`)!;
+  // The points start at (0, 0.2), (0.5, 0.8) and (1, 0.4).
+  const [[x0, y0], [, y8], [x1]] = [...points()].map(centre);
+  const curveAt = (x: number, y: number) => mouse([x0 + x * (x1 - x0), y0 + ((y - 0.2) / 0.6) * (y8 - y0)]);
+  const point = () => points()[1].getAttribute('aria-label')?.match(/x (\S+), y (\S+)$/);
+  points()[1].dispatchEvent(new PointerEvent('pointerdown', curveAt(0.5, 0.8)));
+  await until('the curve point that a pointer down selects', RUN_MS, () => points()[1].classList.contains('selected'));
+  curve.dispatchEvent(new PointerEvent('pointermove', curveAt(0.6, 0.5)));
+  await until('the curve point during a drag', RUN_MS, () => near(point()?.[1], 0.6) && near(point()?.[2], 0.5));
+  curve.dispatchEvent(new PointerEvent('pointerup', curveAt(0.6, 0.5)));
+  await tick();
+  await until('the dragged curve point', RUN_MS, () => near(point()?.[1], 0.6) && near(point()?.[2], 0.5));
+
+  const area = document.querySelector<HTMLElement>(`${gui} .trim-area`)!;
+  const box = area.getBoundingClientRect();
+  const trimAt = (x: number) => mouse([box.left + x * box.width, box.top + box.height / 2]);
+  const trimEnd = () => document.querySelector(`${gui} [aria-label="Waveform trim end"]`)?.getAttribute('aria-valuenow');
+  area.dispatchEvent(new PointerEvent('pointerdown', trimAt(0.98)));
+  await until('the trim end at the pointer down', RUN_MS, () => near(trimEnd(), 0.98));
+  area.dispatchEvent(new PointerEvent('pointermove', trimAt(0.75)));
+  await until('the trim end during a drag', RUN_MS, () => near(trimEnd(), 0.75));
+  area.dispatchEvent(new PointerEvent('pointerup', trimAt(0.75)));
+  await tick();
+  await until('the dragged trim end', RUN_MS, () => near(trimEnd(), 0.75));
+
+  const ramp = document.querySelector<HTMLElement>(`${gui} .gui-ramp`)!;
+  const bar = ramp.getBoundingClientRect();
+  const rampAt = (x: number) => mouse([bar.left + x * bar.width, bar.top + 5]);
+  const stop = () => document.querySelectorAll(`${gui} .ramp-stop`)[1]?.getAttribute('aria-valuenow');
+  document.querySelectorAll(`${gui} .ramp-stop`)[1].dispatchEvent(new PointerEvent('pointerdown', rampAt(0.62)));
+  await tick();
+  ramp.dispatchEvent(new PointerEvent('pointermove', rampAt(0.4)));
+  await until('the ramp stop during a drag', RUN_MS, () => near(stop(), 0.4));
+  ramp.dispatchEvent(new PointerEvent('pointerup', rampAt(0.4)));
+  await tick();
+  await until('the dragged ramp stop', RUN_MS, () => near(stop(), 0.4));
+
+  // The rows are Verdigris, Edge polish and Copper. The drag takes Verdigris to the bottom, past two rows.
+  const layers = () => document.querySelectorAll<HTMLElement>(`${gui} .gui-layer`);
+  const rows = [...layers()].map(centre);
+  const grip = layers()[0].querySelector<HTMLButtonElement>('.layer-handle')!;
+  grip.dispatchEvent(new PointerEvent('pointerdown', mouse(rows[0])));
+  await until('the layer that a drag holds', RUN_MS, () => layers()[0].classList.contains('dragged'));
+  for (const i of [1, 2]) {
+    grip.dispatchEvent(new PointerEvent('pointermove', mouse(rows[i])));
+    await until(`the dragged layer in row ${i + 1}`, RUN_MS, () => layers()[i].classList.contains('dragged'));
+  }
+  grip.dispatchEvent(new PointerEvent('pointerup', mouse(rows[2])));
+  await tick();
+  await until('the layer that a drag moves to the bottom', RUN_MS, () => !!layers()[2].textContent?.includes('Verdigris') && !layers()[2].classList.contains('dragged'));
+
+  // The canvas sends the moves of a drag before the up, and the node draws its dot at each move.
+  const pad = document.querySelector<SVGSVGElement>(`${gui} svg.gui-canvas`)!;
+  const dotX = () => Number(pad.querySelector('circle')?.getAttribute('cx'));
+  const padBox = pad.getBoundingClientRect();
+  const padAt = (x: number) => mouse([padBox.left + x * padBox.width, padBox.top + padBox.height / 2]);
+  pad.dispatchEvent(new PointerEvent('pointerdown', padAt(0.25)));
+  await until('the canvas dot at the pointer down', RUN_MS, () => Math.abs(dotX() - 40) < 1);
+  pad.dispatchEvent(new PointerEvent('pointermove', padAt(0.5)));
+  await until('the canvas dot during a drag', RUN_MS, () => Math.abs(dotX() - 80) < 1);
+  pad.dispatchEvent(new PointerEvent('pointerup', padAt(0.5)));
+  await tick();
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */

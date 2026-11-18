@@ -18,13 +18,14 @@ export function LayerStack({ w, send, disabled }: Input<'layers'>) {
     const focused = document.activeElement;
     if (focused?.hasAttribute('data-layer') && list.current?.contains(focused)) list.current.querySelector<HTMLElement>(`[data-layer="${w.selected}"]`)?.focus();
   }, [w.selected]);
+  // The list holds the capture: React moves the row of the drag, and a move of the handle releases its capture.
   const down = (e: PointerEvent<HTMLButtonElement>, i: number) => {
     if (e.button !== 0) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    list.current!.setPointerCapture(e.pointerId);
     setDrag({ from: i, to: i });
   };
-  const move = (e: PointerEvent<HTMLButtonElement>) => {
-    if (!drag || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
+  const move = (e: PointerEvent<HTMLDivElement>) => {
+    if (!drag) return;
     const r = list.current!.getBoundingClientRect();
     const to = Math.min(Math.max(Math.floor(((e.clientY - r.top) / r.height) * n), 0), n - 1);
     if (to !== drag.to) setDrag({ from: drag.from, to });
@@ -44,7 +45,16 @@ export function LayerStack({ w, send, disabled }: Input<'layers'>) {
   };
   return (
     <Titled text={w.text}>
-      <div ref={list} className="gui-layers" role="list" aria-label={w.text || 'Layers'}>
+      <div
+        ref={list}
+        className="gui-layers"
+        role="list"
+        aria-label={w.text || 'Layers'}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={() => setDrag(null)}
+        onLostPointerCapture={() => setDrag(null)}
+      >
         {order.map((i) => {
           const l = w.layers[i];
           const name = l.name || `Layer ${i + 1}`;
@@ -58,9 +68,6 @@ export function LayerStack({ w, send, disabled }: Input<'layers'>) {
                 title="Drag, or press the up and down arrows"
                 disabled={disabled}
                 onPointerDown={(e) => down(e, i)}
-                onPointerMove={move}
-                onPointerUp={up}
-                onPointerCancel={() => setDrag(null)}
                 onKeyDown={(e) => key(e, i)}
                 onFocus={() => i !== w.selected && send(`select ${i}`)}
               >

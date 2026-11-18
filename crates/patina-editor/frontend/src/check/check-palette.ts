@@ -47,8 +47,8 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
     document.querySelector('.react-flow__pane')!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...at }));
     await until(`the palette after ${what}`, RUN_MS, () => !!search());
   };
-  const fedFromPin = async (what: string) => {
-    await until(`the ${what} node from the pin`, RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === 'number');
+  const fedFromPin = async (what: string, title = 'number') => {
+    await until(`the ${what} node from the pin`, RUN_MS, () => !search() && newNode()?.querySelector('.title')?.textContent === title);
     const fed = newNode()!.getAttribute('data-id');
     v = await step(`undo the ${what} node and its wire`, () => api.undo());
     if (v.graph.node?.length !== 2 || v.graph.wire?.[0]?.from !== `${A}.out`) throw new Error(`one undo did not remove the node and its wire: ${JSON.stringify(v.graph.wire)}`);
@@ -72,7 +72,13 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
   await until('the library node in the palette of the drag', RUN_MS, () => !!libOption());
   libOption()!.click();
   await fedFromPin('library');
-  steps.push('add a node and a library node from a pin');
+  // The built-in delay from the palette of a drag gets its type from the pin that it feeds (4.5).
+  await dragFromPin('a third drag from a pin');
+  const delayOption = () => [...document.querySelectorAll<HTMLElement>('.palette [role=option]')].find((o) => o.textContent === 'delaybuilt-in');
+  await until('the built-in delay in the palette of the drag', RUN_MS, () => !!delayOption());
+  delayOption()!.click();
+  await fedFromPin('delay', 'delay');
+  steps.push('add a node, a library node and the built-in delay from a pin');
 
   // Order wires (9.2): a drag from the order socket of A to the order socket of B connects them,
   // and Delete on the selected order wire removes it. Both are edits with undo.

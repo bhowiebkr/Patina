@@ -373,9 +373,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   the **Inspector**. It draws them again after each run and each frame. A change in a live
   graph runs the graph again (4.3). The editor selfcheck clicks a button of a node GUI, sees each
   value widget, selects a table row, steps a number field, selects a tab, opens a section, moves a trim
-  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, picks a project file in the asset picker, clicks the canvas, shows the large size in the **Inspector**, and opens the full size and closes it with Esc. No check
-  drags a curve point, a trim handle, a ramp stop or a layer, picks a color, or clicks
-  **Browse** in the editor. The dialog of the platform needs a person.
+  handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, picks a project file in the asset picker, clicks the canvas, shows the large size in the **Inspector**, and opens the full size and closes it with Esc. It drags a curve point, a trim handle, a ramp stop, a layer and a canvas with page pointer events, not with the real mouse.
+  Chromium ignores the pointer capture of these events, so the drags do not check the capture. A
+  layer drag down could lose its capture, because React moves the row of the handle. The list
+  now holds the capture (fixed 2026-11-17 from the source, not tried with a real mouse). No
+  check picks a color or clicks **Browse** in the editor. The dialog of the platform needs a person.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. The editor selfcheck opens the full size,
@@ -394,8 +396,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   build a node that shows it.
 - A node GUI can have a canvas with lines, rectangles, circles and text. The canvas sends the
   pointer down, the moves of a drag (one for each frame at most) and the up. A custom widget
-  implements the `Widget` trait. The editor selfcheck clicks a canvas, and the node draws a dot
-  at the point. No check drags on a canvas in the editor.
+  implements the `Widget` trait. The editor selfcheck clicks a canvas and drags on it, and the
+  node draws a dot at each point.
 - These shortcuts are open in the code:
   - The **Add node** palette compares the type text with no module paths, so two types of one
     name in two modules match (`crates/patina-editor/frontend/src/canvas/palette.ts`). rustc checks the
@@ -411,7 +413,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   2026-11-16). The editor selfcheck adds a delay with no wires, sees the unresolved state, and
   sees the state go when a wire gives the type. A generic pin shows the name of its type
   parameter in its tooltip. The Add node palette joins a wire to a generic pin of any type. Its list has the built-in delay node, after
-  the nodes of the project. The editor selfcheck sees the delay in the list, but does not add it.
+  the nodes of the project. The editor selfcheck adds the delay from the list of a pin drag.
 - The frames draw only the node GUIs in the view of the graph (fixed 2026-11-16, 4.3 rule 3).
   The page sends the nodes in view. The test `the_frames_draw_only_the_node_guis_in_view` checks
   the choice of the engine. No check measured the time on a large graph.

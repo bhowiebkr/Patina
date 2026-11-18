@@ -30,7 +30,7 @@ export function ColorRamp({ w, send, disabled }: Input<'ramp'>) {
     setDrag({ i, at: w.stops[i][0] });
   };
   const move = (e: PointerEvent<HTMLDivElement>) => {
-    if (drag && e.currentTarget.hasPointerCapture(e.pointerId)) setDrag({ i: drag.i, at: at(e) });
+    if (drag) setDrag({ i: drag.i, at: at(e) });
   };
   const up = () => {
     if (drag && drag.at !== w.stops[drag.i][0]) send(`move ${drag.i} ${drag.at}`);
@@ -58,6 +58,7 @@ export function ColorRamp({ w, send, disabled }: Input<'ramp'>) {
         onPointerMove={disabled ? undefined : move}
         onPointerUp={disabled ? undefined : up}
         onPointerCancel={() => setDrag(null)}
+        onLostPointerCapture={() => setDrag(null)}
       >
         <div className="ramp-bar" style={{ background: rampGradient(stops, w.blend) }} />
         {stops.map(([v, color], i) => (

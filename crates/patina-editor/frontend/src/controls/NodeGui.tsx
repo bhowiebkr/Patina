@@ -70,6 +70,7 @@ function ShapeView({ s }: { s: Shape }) {
  * key canvas also takes the focus on a click and sends the keys, as a viewport does. */
 function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas' }>; send: (value: string) => void; disabled: boolean }) {
   const pending = useRef<string | null>(null);
+  const held = useRef(false);
   const keys = useKeys(send);
   const live = w.keys && !disabled;
   // The point in canvas pixels. A zoom of the graph scales the element, so divide by its size.
@@ -84,16 +85,18 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
   };
   const down = (e: PointerEvent<SVGSVGElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
+    held.current = true;
     if (live) e.currentTarget.focus();
     send(`down ${at(e)}`);
   };
   const move = (e: PointerEvent<SVGSVGElement>) => {
-    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    if (!held.current) return;
     if (pending.current === null) requestAnimationFrame(flush);
     pending.current = at(e);
   };
   const up = (e: PointerEvent<SVGSVGElement>) => {
-    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    if (!held.current) return;
+    held.current = false;
     flush();
     send(`up ${at(e)}`);
   };
@@ -117,6 +120,8 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
         onPointerDown={disabled ? undefined : down}
         onPointerMove={disabled ? undefined : move}
         onPointerUp={disabled ? undefined : up}
+        onPointerCancel={() => (held.current = false)}
+        onLostPointerCapture={() => (held.current = false)}
       >
         {w.shapes.map((s, i) => (
           <ShapeView key={i} s={s} />

@@ -136,7 +136,7 @@ export function Waveform({ w, send, disabled }: Input<'waveform'>) {
     setDrag({ i: a < b || (a === b && x < w.trim[0]) ? 0 : 1, at: x });
   };
   const move = (e: PointerEvent<HTMLDivElement>) => {
-    if (drag && e.currentTarget.hasPointerCapture(e.pointerId)) setDrag({ i: drag.i, at: at(e) });
+    if (drag) setDrag({ i: drag.i, at: at(e) });
   };
   const up = () => {
     if (trim && w.trim && (trim[0] !== w.trim[0] || trim[1] !== w.trim[1])) send(trim.join(' '));
@@ -169,7 +169,7 @@ export function Waveform({ w, send, disabled }: Input<'waveform'>) {
   return (
     <Titled text={w.text}>
       <div className="gui-chart gui-trim">
-        <div ref={area} className="trim-area" onPointerDown={disabled ? undefined : down} onPointerMove={disabled ? undefined : move} onPointerUp={disabled ? undefined : up} onPointerCancel={() => setDrag(null)}>
+        <div ref={area} className="trim-area" onPointerDown={disabled ? undefined : down} onPointerMove={disabled ? undefined : move} onPointerUp={disabled ? undefined : up} onPointerCancel={() => setDrag(null)} onLostPointerCapture={() => setDrag(null)}>
           {wave}
           <div className="trim-out" style={{ left: 0, width: `${trim[0] * 100}%` }} />
           <div className="trim-out" style={{ left: `${trim[1] * 100}%`, right: 0 }} />
@@ -268,7 +268,7 @@ export function Curve({ w, send, disabled }: Input<'curve'>) {
     }
   };
   const move = (e: PointerEvent<SVGSVGElement>) => {
-    if (drag && e.currentTarget.hasPointerCapture(e.pointerId)) setDrag({ i: drag.i, at: at(e) });
+    if (drag) setDrag({ i: drag.i, at: at(e) });
   };
   const up = () => {
     if (drag && (drag.at[0] !== w.points[drag.i][0] || drag.at[1] !== w.points[drag.i][1])) send(`move ${drag.i} ${drag.at.join(' ')}`);
@@ -302,6 +302,7 @@ export function Curve({ w, send, disabled }: Input<'curve'>) {
         onPointerMove={disabled ? undefined : move}
         onPointerUp={disabled ? undefined : up}
         onPointerCancel={() => setDrag(null)}
+        onLostPointerCapture={() => setDrag(null)}
       >
         {bins > 0 && <path className="histogram" d={bars} />}
         <path className="grid" d={`M${CW / 2} 0V${CH}M0 ${CH / 2}H${CW}`} />
