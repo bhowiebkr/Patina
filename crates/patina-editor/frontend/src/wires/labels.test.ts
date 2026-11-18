@@ -59,3 +59,14 @@ test('a badge on a pin or a node body hides, and a selected badge shows', () => 
   labels.compute();
   assert.deepEqual(['pin', 'clear', 'body', 'selected'].map(labels.badgeHidden), [true, false, true, false]);
 });
+
+test('a badge on a junction dot hides', () => {
+  const labels = new Labels();
+  labels.setDots([[100, 10]]);
+  // The dot has a radius of 4 px, so a badge 3 px from it covers its edge.
+  labels.set('dot', null, box(57, 4), 2);
+  labels.set('clear', null, box(50, 40), 2);
+  labels.set('selected', null, box(80, 4), -1);
+  labels.compute();
+  assert.deepEqual(['dot', 'clear', 'selected'].map(labels.badgeHidden), [true, false, false]);
+});

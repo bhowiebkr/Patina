@@ -1,5 +1,6 @@
 // The labels above the wires, which hide when something covers them (spec 15.9).
 
+import type { Point } from '../api';
 import type { Rect } from './route';
 
 interface Entry {
@@ -15,6 +16,8 @@ interface Entry {
 const overlap = (a: Rect, b: Rect, m = 0) => a.l < b.r + m && b.l - m < a.r && a.t < b.b + m && b.t - m < a.b;
 /** The pins stick out 6 px from a node body, with their shadow. */
 const PIN = 6;
+/** The radius of a junction dot of canvas.css. */
+const JOINT = 4;
 
 /**
  * The wire labels that hide. A label hides when a value badge, a node body or a label of a lower
@@ -23,6 +26,7 @@ const PIN = 6;
 export class Labels {
   private entries = new Map<string, Entry>();
   private rects: readonly Rect[] = [];
+  private dots: readonly Point[] = [];
   private order: Entry[] = [];
   private listeners = new Set<() => void>();
   private queued = false;
@@ -41,6 +45,13 @@ export class Labels {
 
   setObstacles(rects: readonly Rect[]) {
     this.rects = rects;
+    this.queue();
+  }
+
+  /** The junction dots of the routed wires, the same array until they change (15.9). */
+  setDots(dots: readonly Point[]) {
+    if (dots === this.dots) return;
+    this.dots = dots;
     this.queue();
   }
 
@@ -64,7 +75,7 @@ export class Labels {
 
   /**
    * Shows the badges, then the labels, in the order of their rank. A badge hides when it covers a node
-   * body or a pin, or when a shown badge covers it. A label hides when a shown box covers it.
+   * body, a pin or a junction dot, or when a shown badge covers it. A label hides when a shown box covers it.
    */
   compute() {
     const order = this.order;
@@ -78,7 +89,7 @@ export class Labels {
       let hide = false;
       const badge = e.badge;
       if (badge && e.rank >= 0) {
-        hide = this.rects.some((r) => overlap(badge, r, PIN));
+        hide = this.rects.some((r) => overlap(badge, r, PIN)) || this.dots.some(([x, y]) => overlap(badge, { l: x, t: y, r: x, b: y }, JOINT));
         for (let j = 0; j < i && !hide; j++) hide = shown(order[j]) && overlap(badge, order[j].badge!);
       }
       if (e.badgeHidden !== hide) [e.badgeHidden, changed] = [hide, true];

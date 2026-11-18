@@ -298,10 +298,13 @@ function wiresClear(where: string) {
     if (/ \/ \d+$|^\/ \d+$/.test(l.textContent ?? '') && l.scrollWidth > l.clientWidth + 1) bad.push(`the bus label "${l.textContent}" cuts its text`);
   // A badge that is not selected is under the nodes, so a pin or a node body must not cover it (15.9).
   const solid = [...document.querySelectorAll('.patina-node:not(.frame), .react-flow__handle:not(.frame-pin)')].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0);
+  const joints = [...document.querySelectorAll('.wire-joint')].map((j) => j.getBoundingClientRect());
   for (const b of document.querySelectorAll('.wire-value:not(.selected)')) {
     const r = b.getBoundingClientRect();
     const on = (s: DOMRect) => Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.5 && Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.5;
     if (solid.some(on)) bad.push(`a pin or a node covers the badge "${b.textContent}"`);
+    // A badge on a junction dot hides where the wires part.
+    if (joints.some(on)) bad.push(`the badge "${b.textContent}" covers a junction dot`);
   }
   if (bad.length) throw new Error(`the wires of ${where} are wrong: ${bad.join(', ')}`);
   return `wires ${where}: ${seen} wires clear of the bodies`;

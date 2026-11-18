@@ -72,6 +72,7 @@ export class Router {
   private conflicts = new Set<string>();
   private marks = new Map<string, Point>();
   private joints = new Map<string, readonly Point[]>();
+  private allJoints: readonly Point[] = [];
   private cuts = new Map<string, readonly Gap[]>();
   private listeners = new Set<() => void>();
   private queued = false;
@@ -105,6 +106,9 @@ export class Router {
 
   /** The junction marks of the output of a wire, on the first routed wire of the output only (15.9). */
   junctions = (id: string): readonly Point[] | undefined => this.joints.get(id);
+
+  /** The junction marks of all outputs, the same array until one moves (15.9). */
+  allJunctions = (): readonly Point[] => this.allJoints;
 
   /** The gaps of a wire where it goes under a wire of another output (15.9). */
   gaps = (id: string): readonly Gap[] | undefined => this.cuts.get(id);
@@ -167,6 +171,7 @@ export class Router {
       else byNet.set(net, [i]);
     });
     const joints = new Map<string, readonly Point[]>();
+    let jointsMoved = false;
     for (const list of byNet.values()) {
       const at = junctions(list.map((i) => paths[i]));
       if (!at.length) continue;
@@ -174,9 +179,11 @@ export class Router {
       const was = this.joints.get(id);
       const same = was !== undefined && samePoints(was, at);
       joints.set(id, same ? was : at);
-      changed ||= !same;
+      jointsMoved ||= !same;
     }
-    changed ||= joints.size !== this.joints.size;
+    jointsMoved ||= joints.size !== this.joints.size;
+    if (jointsMoved) this.allJoints = [...joints.values()].flat();
+    changed ||= jointsMoved;
     const ws = ids.map((id) => this.wires.get(id)!);
     const cuts = new Map<string, readonly Gap[]>();
     for (const [i, at] of crossingGaps(paths, ws.map((w) => w.net), ws.map((w) => w.width))) {

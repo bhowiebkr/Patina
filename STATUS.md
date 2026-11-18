@@ -727,6 +727,9 @@ domain free of locks. These limits are still open:
 - A bus label cut its text, for example `value[7...` in **ram-4x4** of computer (fixed
   2026-11-18). With too little room, a bus label now shows `name / n`, else `/ n`. The shot
   checks that no bus label cuts its text.
+- A value badge covered a junction dot, for example at the **JOIN** of **register-8** in computer
+  (fixed 2026-11-18). A badge that is not selected now hides on a junction dot. The shot checks
+  that no badge covers a junction dot.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
   A pool unit test sees a task on a worker give its pool index above 0. A CLI test and the
