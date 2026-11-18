@@ -267,6 +267,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   and 7.5 on the tapes.
 - Known limits: a click on a key gives a new run, so the tape prints each edit, also an edit
   that the user undoes. Nobody clicked the keys by hand.
+- A hidden `--shot` run taps the node GUIs of the examples (2026-11-18): **C** and **7** on a
+  keypad and the **+** key of the operation in hello, a drag of the knob and of the fader and a
+  tap on **INV** in gpu, and a switch in computer. It waits for the new canvas labels.
 - The gpu example has a second row of lab nodes (2026-11-18): a **knob**, GPU color **bars**
   with a WGSL `override` level, a GPU **mix** with a fader, a second monitor and a **waveform**
   monitor. **gradient** has an **INV** switch, and **brightness** shows a histogram. The unit

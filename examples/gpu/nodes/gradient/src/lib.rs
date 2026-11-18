@@ -66,7 +66,7 @@ impl Gradient {
     pub fn ui(&mut self, ui: &mut Ui) {
         let [w, h] = self.size;
         let flip = {
-            let mut c = ui.canvas(&format!("Gradient {w} x {h}"), SIZE);
+            let mut c = ui.canvas(&format!("Gradient {w} x {h}{}", if self.invert { " INV" } else { "" }), SIZE);
             panel(&mut c, SIZE, "GRADIENT");
             if w > 0 && h > 0 {
                 readout(&mut c, SIZE[0], &format!("{w} x {h}"));
