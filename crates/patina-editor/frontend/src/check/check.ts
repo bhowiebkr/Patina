@@ -102,11 +102,12 @@ export async function runCheck(dir: string, show: (v: View) => void, edited: (v:
     v = await checkViewer(c, await checkSymbol(c, await checkWidget(c, await checkFree(c, v))));
     v = await checkThreads(c, await checkBus(c, v));
     await checkSubgraph(c, v, lib);
-    await checkPackage(c, dir);
 
     await new Promise((r) => setTimeout(r, 300));
     await api.capture('check');
     steps.push('screenshot');
+    // The package step opens another project, so it comes after the screenshot of the check project.
+    await checkPackage(c, dir);
     await api.checkDone({ ok: true, steps, startMs: startMs() });
   } catch (e) {
     await api.checkDone({ ok: false, steps, error: String(e), output: output.slice(-20) });

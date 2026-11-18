@@ -229,9 +229,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+G, Ctrl+Shift+G, Shift+L and F.
 - The self-check saves and clicks **Package** with a folder in place of the folder dialog. It
   waits for the log line of the package (2026-11-18). The local check copies `patina-cli` next
-  to the editor, so the full package build runs.
-- Known limits: the self-check does not click **Float in a window** or **Open GitHub page**.
-  These open a window or the web browser. It does not open the package.
+  to the editor, so the full package build runs. Then it clicks **Close** and opens the package
+  with **Open project**, and sees the original project with the trust banner (2026-11-18).
+- The self-check clicks **Float in a window** in the tab menu of a second instance. The float
+  window stays hidden, and the check docks the view again (2026-11-18).
+- Known limits: the self-check does not click **Open GitHub page**, because it opens the web
+  browser.
 - The self-check opens the **Import** dialog and clicks **Cancel**. Then it imports `nodes/number`
   of the library with **Rename**, clicks the copy in the **Imports** list, and sees that
   **Update** is off. Then it deletes the copy from outside the editor (2026-11-18).
@@ -418,8 +421,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The notices of the crates of the runner are only in the portable zip. A runner from a
   checkout gives a warning.
 - **Open project** on a package opens its original project. A build there writes a `build/`
-  folder into the package. The self-check clicks **Package** (2026-11-18). The opening of a
-  package did not run in the window yet. **Package** needs `patina-cli` next to the editor, as
+  folder into the package. The self-check clicks **Package** and opens the package with
+  **Open project** (2026-11-18). **Package** needs `patina-cli` next to the editor, as
   in the portable folder.
 - A test builds and loads the `patina_capi` library. It checks each function of
   `patina_capi.h` and the error texts (fixed 2026-11-17). A full package run through the C API

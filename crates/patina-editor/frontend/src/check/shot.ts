@@ -5,7 +5,7 @@
 import { api, onEngine, type EngineEvent, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
-import { mouseWheel } from './check-fixtures';
+import { button, mouseWheel } from './check-fixtures';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -122,6 +122,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     if (failed) throw new Error(`a run after a node GUI input failed: ${JSON.stringify(failed)}`);
     steps.push(...poked);
     if (poked.length) {
+      // The zoom step leaves the view on one node, so Fit shows the inputs on all nodes.
+      button('Fit')?.click();
       await sleep(500);
       await api.capture('main-poke');
       steps.push('main-poke');

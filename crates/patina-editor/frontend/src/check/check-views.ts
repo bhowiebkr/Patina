@@ -4,7 +4,7 @@
 import { emit, listen } from '@tauri-apps/api/event';
 import { api, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
-import { floatPanel, showGraph } from '../panels/layout';
+import { showGraph } from '../panels/layout';
 import { checkGuard, checkGuiZoom, checkWidgets } from './check-gui';
 import { A, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, button, mouseWheel, scale, statusText, tab, topButton, undoCode, type At, type CheckContext } from './check-fixtures';
 
@@ -171,11 +171,15 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   await until('the widgets of the second instance', BUILD_MS, () => viewText().startsWith('value '));
   steps.push('a second instance of a view');
 
-  // A float window (15.8): the second instance opens in its own window, and Dock brings it back.
+  // A float window (15.8): Float in a window of the tab menu opens the second instance in its own
+  // window, and Dock brings it back. The window of the self-check stays hidden.
   let ready = false;
   const stopReady = await listen<string>('float-ready', (e) => (ready ||= e.payload === 'view2'));
+  const floatItem = () => [...document.querySelectorAll<HTMLButtonElement>('.menu button')].find((b) => b.textContent === 'Float in a window');
   try {
-    changeLayout((l) => floatPanel(l, 'view2'));
+    second()!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    await until('Float in a window in the tab menu', RUN_MS, () => !!floatItem());
+    floatItem()!.click();
     await until('the tab of the float view to go', RUN_MS, () => !second());
     await until('the float window', BUILD_MS, () => ready);
   } finally {
