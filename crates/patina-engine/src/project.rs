@@ -47,6 +47,9 @@ pub struct GraphFile {
     /// The path style of the wires with no style of their own (15.9). `None` is the automatic route.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<Style>,
+    /// The symbol of each use of this subgraph (4.3). `None` shows the box.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<Symbol>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node: Vec<NodeEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -117,6 +120,42 @@ impl Style {
     /// to a graph with the default `to`, for example at a paste or an expand.
     pub fn moved(style: Option<Style>, from: Option<Style>, to: Option<Style>) -> Option<Style> {
         if style.is_some() || from == to { style } else { Some(from.unwrap_or(Style::Automatic)) }
+    }
+}
+
+/// A circuit symbol in place of the box of a node (4.3).
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Symbol {
+    pub shape: Shape,
+    /// The text on a chip or a block. `None` shows the name in upper case.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+/// The shape of a symbol (4.3): the logic gates, the blocks and the chip.
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Shape {
+    And,
+    Nand,
+    Or,
+    Nor,
+    Xor,
+    Xnor,
+    Not,
+    Buffer,
+    Mux,
+    Alu,
+    Adder,
+    Chip,
+    Bus,
+}
+
+impl Shape {
+    pub fn parse(text: &str) -> Option<Shape> {
+        use serde::de::IntoDeserializer;
+        Shape::deserialize(IntoDeserializer::<serde::de::value::Error>::into_deserializer(text)).ok()
     }
 }
 
@@ -344,5 +383,16 @@ name = \"n\"
         assert_eq!(Style::moved(Some(Style::Polyline), None, curved), Some(Style::Polyline));
         let graph: GraphFile = toml::from_str("format = 1\nstyle = \"orthogonal\"\n").unwrap();
         assert_eq!(graph.style, Some(Style::Orthogonal));
+    }
+
+    #[test]
+    fn symbol_reads_and_writes() {
+        let text = "format = 1\n\n[symbol]\nshape = \"chip\"\nlabel = \"CPU\"\n";
+        let graph: GraphFile = toml::from_str(text).unwrap();
+        assert_eq!(graph.symbol, Some(Symbol { shape: Shape::Chip, label: Some("CPU".to_owned()) }));
+        assert_eq!(toml::to_string(&graph).unwrap(), text);
+        assert!(toml::from_str::<GraphFile>("format = 1\n[symbol]\nshape = \"star\"\n").is_err());
+        assert!(toml::from_str::<GraphFile>("format = 1\n[symbol]\nshape = \"or\"\ncolor = 1\n").is_err());
+        assert_eq!((Shape::parse("xnor"), Shape::parse("Chip")), (Some(Shape::Xnor), None));
     }
 }

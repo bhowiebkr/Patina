@@ -21,6 +21,7 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 name = "analyzer"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -155,6 +156,7 @@ checksum = "87a0cf66fd1eb2fb7b822cb78370d82303750809bc6ba855f3f58e517d3238db"
 name = "button"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -201,6 +203,7 @@ checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 name = "clock"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -310,6 +313,7 @@ dependencies = [
 name = "display"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
  "segments",
 ]
@@ -386,6 +390,7 @@ name = "gpu"
 version = "0.1.0"
 dependencies = [
  "frame",
+ "parts",
  "patina-sdk",
 ]
 
@@ -472,6 +477,7 @@ name = "joystick"
 version = "0.1.0"
 dependencies = [
  "pad",
+ "parts",
  "patina-sdk",
 ]
 
@@ -490,6 +496,7 @@ dependencies = [
 name = "keyboard"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -506,6 +513,7 @@ dependencies = [
 name = "lcd"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -859,6 +867,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "parts"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
 name = "patina-gpu"
 version = "0.0.0"
 dependencies = [
@@ -940,6 +955,7 @@ dependencies = [
 name = "ram"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -947,6 +963,7 @@ dependencies = [
 name = "random"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -978,6 +995,7 @@ dependencies = [
 name = "readout"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -1045,6 +1063,7 @@ name = "screen"
 version = "0.1.0"
 dependencies = [
  "frame",
+ "parts",
  "patina-sdk",
 ]
 
@@ -1146,6 +1165,7 @@ name = "sprites"
 version = "0.1.0"
 dependencies = [
  "frame",
+ "parts",
  "patina-sdk",
 ]
 
@@ -1159,6 +1179,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "switch"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 
@@ -1188,6 +1209,7 @@ dependencies = [
 name = "terminal"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 

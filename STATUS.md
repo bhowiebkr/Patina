@@ -19,6 +19,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.
 - Subgraph tools: **New subgraph** in the **Graphs** group makes an empty subgraph. Two or more selected nodes show **Collapse into subgraph...** in the **Inspector**.
 - Editor menus: The **Project** panel has right-click menus, and the WebView menu does not show. A build keeps the node GUIs, and only the slot node shows **Compiling**.
 - Rust version of a project: The `rust` of `patina.toml` is the oldest Rust version that builds the project. **Update toolchain** raises the toolchain.
@@ -235,6 +236,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   `examples/computer/nodes/button`.
 - Known limits: the self-check drop is a page event, not a drag of the operating system. A wire
   leaves a free pin only to the left or the right. A free node shows a bus pin as a dot.
+- `#[node(symbol = "<shape>")]` shows a gate or block symbol in place of the box (2026-11-18).
+  A subgraph sets **Shape** and **Label** in the **Look** section, with undo. The engine, CLI
+  and frontend tests read it. The self-check gives a subgraph the chip shape and undoes it.
+- Each example has a style crate (2026-11-18): `widgets/parts` (a circuit board) in computer,
+  `widgets/calc` (a pocket calculator) in hello and `widgets/scope` (a lab instrument) in gpu.
+  A placed image or field fills the width to the same right margin. A free node shows no canvas
+  label row, so its pins and placed widgets line up with the drawing. The tests of each crate pass.
+- Known limits: the style crates are copies of one pattern, not a shared library. A symbol
+  node has no GUI widgets. Only the hidden shots checked the look of the examples.
 
 ### Canvas speed
 

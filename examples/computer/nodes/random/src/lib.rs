@@ -1,9 +1,13 @@
+use parts::{PIN_STEP, SILK, board, digits, glass, pin_names};
 use patina_sdk::{Ui, node};
+
+/// The inputs on the left edge, in order.
+const PINS: [&str; 4] = ["bus", "port", "rd", "address"];
 
 /// A random number chip on an IO port of the CPU. When `port` is `address`, it gives a random byte,
 /// and each LD (`rd` on) gives a new byte. At the other ports, the byte on `bus` goes through, so
 /// the device before it on the **io** wire of the CPU still gives its values.
-#[node(color = "#59366f")]
+#[node(color = "#59366f", free_layout)]
 pub struct Random {
     state: u32,
     last: u8,
@@ -37,7 +41,18 @@ impl Random {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        ui.label(&format!("Last read: {}", self.last));
+        let size = [136.0, 80.0];
+        let mut c = ui.canvas(&format!("Last read {}", self.last), size);
+        board(&mut c, size);
+        pin_names(&mut c, 16.0, &["bus", "port", "rd", "adr"]);
+        c.text([72.0, 19.0], SILK, "RND");
+        glass(&mut c, [72.0, 26.0], [56.0, 44.0]);
+        digits(&mut c, [81.0, 34.0], 28.0, 2, &format!("{:02X}", self.last));
+        drop(c);
+        for (i, key) in PINS.iter().enumerate() {
+            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
+        }
+        ui.pin("out", [size[0], 48.0]);
     }
 }
 

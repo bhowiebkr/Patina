@@ -1,19 +1,20 @@
+use parts::{DARK, LIT, SILK, board, glass};
 use patina_sdk::{Ui, node};
 
 const N: usize = 96;
 const STEP: f32 = 3.0;
+/// The x of the oldest sample, and the y of the top of channel 0.
 const LEFT: f32 = 52.0;
+const TOP: f32 = 8.0;
 const ROW: f32 = 20.0;
-const HIGH: [u8; 3] = [223, 166, 75];
-const FILL: [u8; 3] = [74, 58, 34];
+const SIZE: [f32; 2] = [LEFT + STEP * N as f32 + 12.0, TOP + ROW * 8.0 + 8.0];
 const LOW: [u8; 3] = [115, 115, 110];
 const GRID: [u8; 3] = [48, 48, 48];
-const TEXT: [u8; 3] = [178, 178, 173];
 const DEFAULT: [&str; 8] = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"];
 
 /// A logic analyzer: draws the last 96 frames of 8 signals as waveforms, the newest at the
 /// right. `names` labels the channels, separated by commas.
-#[node(color = "#59366f")]
+#[node(color = "#59366f", free_layout)]
 pub struct Analyzer {
     samples: [u8; N],
     next: usize,
@@ -38,34 +39,41 @@ impl Analyzer {
     pub fn ui(&mut self, ui: &mut Ui) {
         let now = self.samples[(self.next + N - 1) % N];
         let text: String = (0..8).map(|ch| if now >> ch & 1 == 1 { '1' } else { '0' }).collect();
-        let mut canvas = ui.canvas(&format!("d0 to d7: {text}"), [LEFT + STEP * N as f32 + 4.0, ROW * 8.0]);
-        for k in (0..=N).step_by(16) {
-            let x = LEFT + STEP * k as f32;
-            canvas.line([x, 0.0], [x, ROW * 8.0], GRID);
-        }
-        let mut names = self.names.split(',').map(str::trim);
-        for (ch, default) in DEFAULT.iter().enumerate() {
-            let (hi, lo) = (ROW * ch as f32 + 4.0, ROW * ch as f32 + 16.0);
-            canvas.text([4.0, lo - 1.0], TEXT, names.next().filter(|n| !n.is_empty()).unwrap_or(default));
-            // The oldest sample is at `next`. Each run of one level draws as one segment.
-            let bit = |k: usize| self.samples[(self.next + k) % N] >> ch & 1 == 1;
-            let mut start = 0;
-            for k in 1..=N {
-                if k < N && bit(k) == bit(start) {
-                    continue;
-                }
-                let (x0, x1) = (LEFT + STEP * start as f32, LEFT + STEP * k as f32);
-                if bit(start) {
-                    canvas.rect([x0, hi], [x1 - x0, lo - hi], FILL, true);
-                    canvas.line([x0, hi], [x1, hi], HIGH);
-                } else {
-                    canvas.line([x0, lo], [x1, lo], LOW);
-                }
-                if k < N {
-                    canvas.line([x1, hi], [x1, lo], HIGH);
-                }
-                start = k;
+        {
+            let mut canvas = ui.canvas(&format!("d0 to d7: {text}"), SIZE);
+            board(&mut canvas, SIZE);
+            glass(&mut canvas, [LEFT - 4.0, TOP - 2.0], [STEP * N as f32 + 8.0, ROW * 8.0 + 4.0]);
+            for k in (0..=N).step_by(16) {
+                let x = LEFT + STEP * k as f32;
+                canvas.line([x, TOP], [x, TOP + ROW * 8.0], GRID);
             }
+            let mut names = self.names.split(',').map(str::trim);
+            for (ch, default) in DEFAULT.iter().enumerate() {
+                let (hi, lo) = (TOP + ROW * ch as f32 + 4.0, TOP + ROW * ch as f32 + 16.0);
+                canvas.text([7.0, lo - 1.0], SILK, names.next().filter(|n| !n.is_empty()).unwrap_or(default));
+                // The oldest sample is at `next`. Each run of one level draws as one segment.
+                let bit = |k: usize| self.samples[(self.next + k) % N] >> ch & 1 == 1;
+                let mut start = 0;
+                for k in 1..=N {
+                    if k < N && bit(k) == bit(start) {
+                        continue;
+                    }
+                    let (x0, x1) = (LEFT + STEP * start as f32, LEFT + STEP * k as f32);
+                    if bit(start) {
+                        canvas.rect([x0, hi], [x1 - x0, lo - hi], DARK, true);
+                        canvas.line([x0, hi], [x1, hi], LIT);
+                    } else {
+                        canvas.line([x0, lo], [x1, lo], LOW);
+                    }
+                    if k < N {
+                        canvas.line([x1, hi], [x1, lo], LIT);
+                    }
+                    start = k;
+                }
+            }
+        }
+        for (ch, key) in DEFAULT.iter().enumerate() {
+            ui.pin(key, [0.0, TOP + ROW * ch as f32 + 10.0]);
         }
     }
 }

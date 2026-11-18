@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "HEX 7SEG"
+
 [[node]]
 id = "1155dbbcf82bf9cd"
 subgraph = "decoder-4"

@@ -116,7 +116,8 @@ to = \"00000000000000a3.value\"
     fused.set_params(opened.graph());
     assert!(cluster.slotted() && !fused.slotted() && fused.mode() == Mode::Bake);
     assert!(!fused.sources_changed());
-    assert_eq!(fused.adopt(&mut cluster), 1);
+    // Acc, the 2 number nodes and the 3 show nodes move their states.
+    assert_eq!(fused.adopt(&mut cluster), 6);
     assert_eq!(value(&mut fused, "out"), "260.0");
     assert!(gui(&mut fused).ends_with("slider\tSum\t260\t0\t1000"), "{}", gui(&mut fused));
     // An input that loses its text gets its default value, and the state of the node stays (4.8).
@@ -390,7 +391,8 @@ to = \"00000000000000e1.value\"
     let show = project.join("nodes/show");
     fs::write(show.join("src/lib.rs"), fs::read_to_string(show.join("src/lib.rs")).unwrap() + "// An edit.\n").unwrap();
     let mut baked = build(Mode::Bake);
-    assert_eq!(baked.adopt(&mut cluster), 1);
+    // Count and the 2 number nodes move. The state of show starts again after its edit.
+    assert_eq!(baked.adopt(&mut cluster), 3);
     assert_eq!(value(&mut baked), "39.0");
 
     // Show turns on a feature of the type folder. Cargo builds the type folder one time with the

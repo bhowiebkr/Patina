@@ -1,22 +1,9 @@
+use parts::{board, digit, glass};
 use patina_sdk::{Ui, node};
 use segments::Segments;
 
-const ON: [u8; 3] = [223, 166, 75];
-const OFF: [u8; 3] = [60, 60, 57];
-
-/// The place and size of segments a to g of a digit, in the canvas.
-const SEGMENTS: [([f32; 2], [f32; 2]); 7] = [
-    ([16.0, 8.0], [28.0, 6.0]),
-    ([44.0, 14.0], [6.0, 28.0]),
-    ([44.0, 48.0], [6.0, 28.0]),
-    ([16.0, 76.0], [28.0, 6.0]),
-    ([10.0, 48.0], [6.0, 28.0]),
-    ([10.0, 14.0], [6.0, 28.0]),
-    ([16.0, 42.0], [28.0, 6.0]),
-];
-
 /// Shows the segments a to g of a bus as a 7-segment digit. A change writes them to the standard output.
-#[node(color = "#59366f")]
+#[node(color = "#59366f", free_layout)]
 pub struct Display {
     on: [bool; 7],
 }
@@ -35,10 +22,14 @@ impl Display {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        let mut canvas = ui.canvas(&format!("Segments {}", self.text()), [60.0, 90.0]);
-        for (&(at, size), &on) in SEGMENTS.iter().zip(&self.on) {
-            canvas.rect(at, size, if on { ON } else { OFF }, true);
-        }
+        let size = [64.0, 96.0];
+        let mut c = ui.canvas(&format!("Segments {}", self.text()), size);
+        board(&mut c, size);
+        glass(&mut c, [6.0, 6.0], [52.0, 84.0]);
+        let bits = self.on.iter().rev().fold(0, |bits, &on| bits << 1 | u8::from(on));
+        digit(&mut c, [12.0, 18.0], 60.0, bits);
+        drop(c);
+        ui.pin("seg", [0.0, 48.0]);
     }
 
     fn text(&self) -> String {

@@ -71,6 +71,7 @@ impl Project {
         let nodes = GraphFile {
             format: FORMAT,
             style: graph.style,
+            symbol: None,
             node,
             order: graph.order.iter().filter(|o| ids.contains(&o.before) && ids.contains(&o.after)).cloned().collect(),
             collar: graph.collar.iter().filter(|c| copied(&c.wires)).cloned().collect(),

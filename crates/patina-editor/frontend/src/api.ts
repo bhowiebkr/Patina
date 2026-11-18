@@ -60,11 +60,23 @@ export interface GraphFile {
   format: number;
   /** The path of the wires with no style. No value is the automatic route (spec 15.9). */
   style?: Style;
+  /** The symbol of each use of this subgraph (4.3). No value shows the box. */
+  symbol?: Symbol;
   node?: NodeEntry[];
   wire?: Wire[];
   order?: Order[];
   input?: PublicInput[];
   output?: PublicOutput[];
+}
+
+/** The shape of a circuit symbol (4.3). */
+export type Shape = 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not' | 'buffer' | 'mux' | 'alu' | 'adder' | 'chip' | 'bus';
+export const SHAPES: readonly Shape[] = ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not', 'buffer', 'mux', 'alu', 'adder', 'chip', 'bus'];
+
+/** A circuit symbol in place of the box of a node (4.3). No label shows the name in upper case. */
+export interface Symbol {
+  shape: Shape;
+  label?: string | null;
 }
 
 /** An input or an output of a node, with its Rust type (spec 4.1). */
@@ -107,6 +119,8 @@ export interface NodeInfo {
   doc: string | null;
   /** True when the node GUI is the whole node: no header, its own shape and pin places (4.3). */
   free: boolean;
+  /** The circuit symbol in place of the box (4.3), or null. */
+  symbol: Symbol | null;
 }
 
 export interface View {
@@ -372,6 +386,7 @@ export type Edit =
   | { kind: 'SetRoute'; to: string; points: Point[] }
   | { kind: 'SetLook'; to: string; style?: Style; corners?: Corners }
   | { kind: 'SetGraphLook'; style?: Style }
+  | { kind: 'SetSymbol'; symbol: Symbol | null }
   | { kind: 'NameWire'; to: string; name: string | null }
   | { kind: 'SetParam'; id: string; key: string; text: string | null }
   | { kind: 'SetCode'; path: string; text: string }

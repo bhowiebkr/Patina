@@ -162,11 +162,12 @@ builtin = \"delay\"
     let (tree, out) = cluster.ui(&Control::default(), "00000000000000f1", 0, "2 7");
     assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t7\t0\t10"));
     assert!(cluster.ui(&Control::default(), "00000000000000f3", 0, "").0.is_none());
-    assert_eq!(cluster.guis(), [("00000000000000f1".to_owned(), true)]);
+    // Tick has a GUI, and so have the 4 number nodes and the 2 show nodes of hello.
+    assert!(cluster.guis().contains(&("00000000000000f1".to_owned(), true)) && cluster.guis().len() == 7, "{:?}", cluster.guis());
 
     // After an edit of mix, the new cluster gets the state of tick (7.2). An edit of tick changes
-    // its state key, so its count starts again.
-    for (name, code, moved, count) in [("mix", MIX, 1, "7"), ("tick", TICK, 0, "0")] {
+    // its state key, so its count starts again. The number and show nodes keep their 6 states.
+    for (name, code, moved, count) in [("mix", MIX, 7, "7"), ("tick", TICK, 6, "0")] {
         fs::write(project.join("nodes").join(name).join("src/lib.rs"), format!("{code}// An edit.\n")).unwrap();
         let mut new = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Edit).unwrap();
         assert_eq!(new.adopt(&mut cluster), moved, "{name}");
@@ -426,9 +427,9 @@ to = \"00000000000000b4.base\"
     let code = project.join("nodes/number/src/lib.rs");
     // A checkout with CRLF line ends must still match the patterns below.
     let number = fs::read_to_string(&code).unwrap().replace("\r\n", "\n");
-    let first = number.replace("-> f64 {\n    value", "-> f32 {\n    value as f32");
-    let second = number.replace("-> f64 {\n    value", "-> i32 {\n    (value * 3.0) as i32");
-    assert!(first != number && second != number);
+    assert!(number.contains("-> f64 {") && number.contains("\n        value\n"), "{number}");
+    let first = number.replace("-> f64 {", "-> f32 {").replace("\n        value\n", "\n        value as f32\n");
+    let second = number.replace("-> f64 {", "-> i32 {").replace("\n        value\n", "\n        (value * 3.0) as i32\n");
 
     // The first change gives f32. The second change, to i32, comes while the first build runs.
     // The first build can fail, because its plan has the old type.
@@ -526,7 +527,7 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     let image = outcome.values.iter().find(|v| v.from == "1a2b3c4d5e6f7081.out").unwrap();
     assert!(image.thumb.starts_with("64 16 ") && image.thumb.len() == 6 + (64 * 16 * 4_usize).div_ceil(3) * 4, "{}", image.thumb.len());
     let tree = cluster.ui(&Control::default(), "4d5e6f708192a3b4", 0, "").0.unwrap();
-    assert!(tree.starts_with("image	Preview	64	16	"), "{tree}");
+    assert!(tree.starts_with("canvas\tPreview 64 x 16\t200\t") && tree.contains("\nplace\t\t18 28\nimage\t\t64\t16\t"), "{tree}");
 
     // The scene view shows a viewport. Without a window, it reads the wheel and draws nothing (15.8).
     let library = opened.build_view(&Toolchain::detect().unwrap(), "scene").unwrap();

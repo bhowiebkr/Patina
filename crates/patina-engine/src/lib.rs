@@ -149,6 +149,8 @@ pub struct NodeInfo {
     pub free: bool,
     /// The header color of `#[node(color = "#rrggbb")]` (15.3).
     pub color: Option<String>,
+    /// The circuit symbol in place of the box (4.3).
+    pub symbol: Option<project::Symbol>,
     /// True for a subgraph in `graphs/` (6.1). Its name is the file name.
     pub subgraph: bool,
     /// The kind for the node icon (15.3): `function`, `stateful`, `generic`, `async`, `trigger` or `subgraph`.
@@ -182,7 +184,7 @@ impl NodeInfo {
         } else {
             "function"
         };
-        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, free: node.free, color: node.color, subgraph: false, kind, doc: node.doc }
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, free: node.free, color: node.color, symbol: node.symbol.map(|shape| project::Symbol { shape, label: None }), subgraph: false, kind, doc: node.doc }
     }
 }
 
@@ -208,11 +210,13 @@ pub struct Checked {
 
 /// The node folders of the hello example, for the tests.
 #[cfg(test)]
-const HELLO_NODES: [(&str, &str); 4] = [
+const HELLO_NODES: [(&str, &str); 6] = [
     ("nodes/number/Cargo.toml", include_str!("../../../examples/hello/nodes/number/Cargo.toml")),
     ("nodes/number/src/lib.rs", include_str!("../../../examples/hello/nodes/number/src/lib.rs")),
     ("nodes/show/Cargo.toml", include_str!("../../../examples/hello/nodes/show/Cargo.toml")),
     ("nodes/show/src/lib.rs", include_str!("../../../examples/hello/nodes/show/src/lib.rs")),
+    ("widgets/calc/Cargo.toml", include_str!("../../../examples/hello/widgets/calc/Cargo.toml")),
+    ("widgets/calc/src/lib.rs", include_str!("../../../examples/hello/widgets/calc/src/lib.rs")),
 ];
 
 impl Project {
@@ -336,7 +340,7 @@ impl Project {
             }
             nodes.push(match project::read_node(&self.root, &name) {
                 Ok(node) => NodeInfo::new(name, node, false),
-                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, free: false, color: None, subgraph: false, kind: "function", doc: None },
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, free: false, color: None, symbol: None, subgraph: false, kind: "function", doc: None },
             });
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
@@ -497,7 +501,7 @@ mod tests {
         assert_eq!(project.folder_files("nodes/show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);
         fs::create_dir_all(root.join("build")).unwrap();
         fs::write(root.join("build/x.toml"), "").unwrap();
-        assert_eq!(project.asset_files(&["TOML".to_owned()]).unwrap(), ["graphs/main.toml", "nodes/number/Cargo.toml", "nodes/show/Cargo.toml", "patina.toml"]);
+        assert_eq!(project.asset_files(&["TOML".to_owned()]).unwrap(), ["graphs/main.toml", "nodes/number/Cargo.toml", "nodes/show/Cargo.toml", "patina.toml", "widgets/calc/Cargo.toml"]);
         assert!(project.read_code("nodes/show/src/lib.rs").unwrap().contains("println!"));
         for bad in ["patina.toml", "nodes/show", "nodes/show/../../patina.toml", "nodes/show/src\\..\\x", "nodes/show/c:x"] {
             assert!(project.read_code(bad).is_err(), "{bad}");
@@ -514,7 +518,7 @@ mod tests {
         }
         project.new_widget("gradient-bar").unwrap();
         assert!(project.new_widget("Number").is_err(), "a widget and a node have other names");
-        assert_eq!(project.widgets(), ["gradient-bar"]);
+        assert_eq!(project.widgets(), ["calc", "gradient-bar"]);
         let code = project.read_code("widgets/gradient-bar/src/lib.rs").unwrap();
         assert!(code.contains("pub struct GradientBar {"), "{code}");
         project.new_type("seg-digit").unwrap();
@@ -555,7 +559,8 @@ mod tests {
         // The editor shows the kind and the clock domain of each node (15.3).
         let checked = checked.unwrap();
         assert_eq!(checked.domains().collect::<Vec<_>>(), [("000000000000000a", "batch")]);
-        assert_eq!((nodes[0].kind, made.kind), ("function", "function"));
+        // The number node of hello keeps its value for its GUI, so it is a stateful node.
+        assert_eq!((nodes[0].kind, made.kind), ("stateful", "function"));
         let kinds: Vec<_> = builtins().into_iter().map(|b| (b.name, b.kind)).collect();
         assert_eq!(kinds[0], ("delay".to_owned(), "stateful"));
         assert!(kinds[1..].iter().all(|k| k.1 == "trigger"), "{kinds:?}");

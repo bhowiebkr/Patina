@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "mux"
+label = "MUX 8"
+
 [[node]]
 id = "6108fac9645ec022"
 subgraph = "mux-4"

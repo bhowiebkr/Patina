@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 patina-sdk = { workspace = true }
+calc = { path = "../../widgets/calc" }

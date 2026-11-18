@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 patina-sdk = { workspace = true }
 segments = { path = "../../types/segments" }
+parts = { path = "../../widgets/parts" }

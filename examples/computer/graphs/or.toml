@@ -1,5 +1,8 @@
 format = 1
 
+[symbol]
+shape = "or"
+
 [[node]]
 id = "0062c04df4060375"
 subgraph = "not"

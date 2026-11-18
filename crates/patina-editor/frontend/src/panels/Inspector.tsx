@@ -11,7 +11,7 @@ import { ExpandButton, GuiScope, GuiWidgets, NodeGui } from '../controls/NodeGui
 import { engineId } from '../canvas/crumbs';
 import { NameField } from '../controls/NameField';
 import type { Inspect } from './ProjectPanel';
-import { SubgraphInterface } from './SubgraphInterface';
+import { SubgraphInterface, SymbolFields } from './SubgraphInterface';
 import { Thumbnail } from '../controls/ValueWidgets';
 import { pathOf } from '../wires/wires';
 
@@ -288,6 +288,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
               {routeOptions}
             </select>
           </label>
+          {view.graphName !== 'main' && <SymbolFields view={view} onEdit={onEdit} />}
         </div>
         {view.graphName !== 'main' && <SubgraphInterface view={view} onEdit={onEdit} />}
       </aside>

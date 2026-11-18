@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "adder"
+label = "+1"
+
 [[node]]
 id = "eb68af6c2ae09fc4"
 folder = "nodes/split"

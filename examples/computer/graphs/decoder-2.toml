@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "DEC 2:4"
+
 [[node]]
 id = "20ade2465181b273"
 subgraph = "not"

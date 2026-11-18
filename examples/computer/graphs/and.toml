@@ -1,5 +1,8 @@
 format = 1
 
+[symbol]
+shape = "and"
+
 [[node]]
 id = "e4e91cd182aae246"
 folder = "nodes/nand"

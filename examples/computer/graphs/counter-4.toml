@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "CTR 4"
+
 [[node]]
 id = "2b8e27d7337ff02e"
 folder = "nodes/switch"

@@ -112,6 +112,7 @@ Put the arguments of `#[node]` in one list, for example
 | `heavy` | A light node with much work gets a task of its own (spec 4.1). |
 | `full_gui` | The node can open its GUI in the whole graph area. It needs `ui`. |
 | `free_layout` | The GUI is the whole node, with its own shape and pin places. It needs `ui`. |
+| `symbol = "<shape>"` | The node shows a circuit symbol in place of the box, for example `"nand"` or `"chip"`. See [A symbol](#a-symbol). |
 
 ## The GUI
 
@@ -202,7 +203,11 @@ node.
 - A wire leaves an output to the right and goes into an input from the left. Put outputs on the
   right side of the shape and inputs on the left side.
 - `ui.place([x, y])` puts the next widget at a point, on top of the other widgets. For example,
-  put a slider on a drawn panel.
+  put a slider on a drawn panel. To let the user edit a parameter there, put a `number` field,
+  then call `ui.set_param` when it changes, as the number node of the hello example does.
+- A placed image or field fills the width from `x` to the same margin at the right edge. The
+  height of an image follows its aspect ratio. Draw a frame around it, as the preview node of
+  the gpu example does. A field is a `number`, `text`, `path` or `dropdown` widget.
 - The node width is the largest canvas width. The name of the node shows above the shape. The
   user drags the node by its name.
 
@@ -247,10 +252,50 @@ impl Button {
 }
 ```
 
+## A symbol
+
+`symbol` shows a circuit symbol in place of the box. The pins go on the edges of the symbol, so
+the node needs no `ui` function.
+
+```rust
+#[node(symbol = "nand")]
+pub fn nand(a: &bool, b: &bool) -> bool {
+    !(*a && *b)
+}
+```
+
+- The gates: `and`, `nand`, `or`, `nor`, `xor`, `xnor`, `not` and `buffer`.
+- The blocks: `mux`, `alu`, `adder`, `chip` and `bus`.
+- A subgraph gets a symbol too. Select a use of it, then set **Shape** and **Label** in the
+  **Look** section of the **Inspector**.
+- On a `mux` and an `alu`, an input with the name `sel`, `s`, `op`, or `s` or `f` and one digit
+  goes to the bottom edge.
+
+The full rules are in spec 4.3.
+
+## A style crate
+
+Give all node GUIs of a project one style. Put the colors and the draw functions in a crate in
+the `widgets/` folder of the project. Then each node uses it.
+
+1. Make the crate, for example `widgets/parts/Cargo.toml` with `patina-sdk = { workspace = true }`.
+2. Write the parts in `widgets/parts/src/lib.rs`, for example `board`, `chip` and `led`.
+3. In each node, add `parts = { path = "../../widgets/parts" }` to `Cargo.toml`.
+4. Call the parts in `ui`, for example `parts::board(&mut canvas, SIZE)`.
+
+The examples each have their own style:
+
+| Example | Crate | Look |
+|---|---|---|
+| computer | `widgets/parts` | A circuit board with chips, amber LEDs, 7-segment digits and pin names. |
+| hello | `widgets/calc` | A pocket calculator with a gray-green LCD and slanted digits. |
+| gpu | `widgets/scope` | The panel of a lab instrument with rack screws and a phosphor screen. |
+
 ## The look
 
-- Use the colors of the [GUI visual guide](gui-visual-guide.md). The text color is
-  `[238, 238, 235]`, a dim part is `[102, 102, 97]` and a lit part is `[223, 166, 75]`.
+- Use the colors of the [GUI visual guide](gui-visual-guide.md) for a node with a box. The text
+  color is `[238, 238, 235]`, a dim part is `[102, 102, 97]` and a lit part is `[223, 166, 75]`.
+- A free layout node can have the colors of the style crate of the project.
 - Give each node of a group the same header color, for example `#655219` for inputs.
 - Keep a compact GUI small. Put large controls in the **Inspector** (`Mode::Large`) or in the
   full size.

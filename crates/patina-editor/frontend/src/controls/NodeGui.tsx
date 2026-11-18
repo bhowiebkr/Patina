@@ -75,6 +75,8 @@ function ShapeView({ s }: { s: Shape }) {
 const HOLD_MS = 250;
 /** A pointer that moves this far in screen pixels during the wait starts a drag of the node. */
 const DRAG_PX = 4;
+/** A placed widget of these kinds fills the width from its x to the same margin at the right edge (4.3). */
+const FILLS = new Set(['image', 'number', 'text', 'path', 'dropdown']);
 
 /** A canvas sends a pointer down, the moves of a drag (one for each frame at most) and the up. A
  * key canvas also takes the focus on a click and sends the keys, as a viewport does. On a graph
@@ -363,7 +365,7 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
       }).map((node, i) => {
         const at = places?.get(blocks[i].index);
         return at ? (
-          <div key={blocks[i].index} className="gui-place" style={{ left: at[0], top: at[1] }}>
+          <div key={blocks[i].index} className="gui-place" style={{ left: at[0], top: at[1], right: FILLS.has(blocks[i].kind) ? at[0] : undefined }}>
             {node}
           </div>
         ) : (

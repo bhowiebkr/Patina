@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "REG 4"
+
 [[node]]
 id = "f6123f740f86e213"
 builtin = "delay"

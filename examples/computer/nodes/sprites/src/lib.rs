@@ -1,5 +1,11 @@
 use frame::{Frame, SIZE};
+use parts::{PIN_STEP, SILK, board, chip, pin_names};
 use patina_sdk::{Ui, node};
+
+/// The size of the board.
+const BOARD: [f32; 2] = [212.0, 96.0];
+/// The inputs on the left edge, in order.
+const PINS: [&str; 5] = ["frame", "data", "port", "wr", "address"];
 
 /// The number of sprites.
 const COUNT: usize = 8;
@@ -27,7 +33,7 @@ struct Sprite {
 /// A new sprite has one pixel at its top left corner, so a program moves a dot with two writes:
 /// X and Y. Sprite 0 is on top. The sprites do not change the frame of the gpu, so a read of a
 /// pixel at the gpu does not see them.
-#[node(color = "#59366f")]
+#[node(color = "#59366f", free_layout)]
 pub struct Sprites {
     sprites: [Sprite; COUNT],
     selected: usize,
@@ -72,7 +78,18 @@ impl Sprites {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let shown = self.sprites.iter().filter(|s| s.color != 0).count();
-        ui.label(&format!("Sprite {}  {shown} of {COUNT} shown", self.selected));
+        {
+            let mut c = ui.canvas(&format!("Sprite {}, {shown} of {COUNT} shown", self.selected), BOARD);
+            board(&mut c, BOARD);
+            pin_names(&mut c, 16.0, &["frame", "data", "port", "wr", "adr"]);
+            chip(&mut c, [48.0, 14.0], [120.0, 68.0], "SPRITES");
+            c.text([64.0, 58.0], SILK, &format!("#{}  {shown}/{COUNT} on", self.selected));
+            c.text([176.0, 52.0], SILK, "frame");
+        }
+        for (i, key) in PINS.iter().enumerate() {
+            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
+        }
+        ui.pin("out", [BOARD[0], 48.0]);
     }
 }
 

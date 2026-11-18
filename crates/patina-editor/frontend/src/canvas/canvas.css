@@ -176,6 +176,11 @@
   box-shadow: none;
 }
 
+/* The label of a canvas stays its accessible name, so the drawing starts at the pin and place origin (4.3). */
+.patina-node.free .gui-canvas-row > .label {
+  display: none;
+}
+
 .patina-node.free.far {
   background: var(--node);
 }
@@ -698,4 +703,25 @@
 
 .palette .empty {
   color: var(--disabled);
+}
+
+/* A circuit symbol (4.3) draws its own body and keeps it at a far zoom, with no text. */
+.patina-node.symbol > svg {
+  display: block;
+  overflow: visible;
+}
+
+.patina-node.symbol.far {
+  background: none;
+}
+
+.symbol-pin {
+  font: 10px Consolas, ui-monospace, monospace;
+  fill: var(--muted);
+}
+
+.symbol-label {
+  font: 700 11px Consolas, ui-monospace, monospace;
+  letter-spacing: 0.5px;
+  fill: var(--text);
 }

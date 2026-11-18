@@ -198,16 +198,44 @@ pub struct Button { held: bool }
 
 - A node with `free_layout` must have a `ui` function, else the node shows an error.
 - The compact GUI is the whole node. The node has no header, no pin rows, no box and no padding. A canvas has no background and no border.
+- A canvas shows no label row. Its label is the accessible name. Thus a drawing starts at the origin of the pin and widget places. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The node width is the largest canvas width, up to 480 px. A node with no canvas is 200 px wide.
 - `ui.pin(key, [x, y])` puts a pin at a point, in pixels from the top left corner of the node body. A pin with no place goes to the left edge (inputs) or the right edge (outputs), in equal steps over the canvas height.
 - A wire still leaves an output to the right and goes into an input from the left.
 - `ui.place([x, y])` puts the next widget at a point, on top of the other widgets. A widget in a section keeps its place in the section.
+- A placed image or field fills the width from `x` to the same margin at the right edge. The height of an image follows its aspect ratio. Thus an image fits in a drawn frame, for example the glass of a monitor. A field is a `number`, `text`, `path` or `dropdown` widget. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - `canvas.path(data, color, fill)` draws SVG path data, for example `M 0 0 L 40 0 L 20 30 Z`. The editor skips a path with other letters than the path commands.
 - The name and the state icon of the node show above the shape. The selection is an outline. An error message shows below the shape.
 - The name, the state icon and the order pins show only when the pointer is on the node, or when the node is selected, has the focus or has an error. The order pins also show during a wire drag. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The user drags the node by its name or by a drag on a canvas (see the canvas text above).
 - Until the node draws its first GUI, it shows the normal layout.
 - (Agent decision of 2026-11-18. The owner can change it.)
+
+**Symbols**
+
+A node or a subgraph can show a circuit symbol in place of the box, for example a NAND gate or a CPU chip. Thus a logic circuit looks like a schematic. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+
+```rust
+#[node(symbol = "nand")]
+pub fn nand(a: &bool, b: &bool) -> bool { !(*a && *b) }
+```
+
+- A subgraph sets the symbol of each use in the `[symbol]` table of its file (6.4). The **Shape** list and the **Label** field in the **Look** section of the **Inspector** edit it, with undo.
+- The shapes:
+  - `and`, `nand`, `or`, `nor`, `xor`, `xnor`, `not` and `buffer`: the logic gates, with the distinctive shapes of IEEE 91.
+  - `mux`: a trapezoid. `alu`: a chevron with a notch. `adder`: a block with a sigma sign.
+  - `chip`: a DIP package with a notch, a pin 1 mark, metal legs and the pin names.
+  - `bus`: a bus bar, for the nodes that split a bus into lines or join lines into a bus.
+- Another shape is an error on the node. A subgraph file with another shape does not open.
+- A chip, a block and a bus bar show a label: the `label` text, or the node name in upper case. A gate shows no label.
+- The inputs are on the left edge and the outputs are on the right edge, in their order. A gate with one input has it at the middle.
+- On a `mux` and an `alu`, a control input goes to the bottom edge. A control input has the key or the name `sel`, `s`, `op`, or `s` or `f` and one digit. A wire still goes into an input from the left.
+- On a `chip`, a pin with the name `clk` or `clock` has the clock triangle.
+- Each pin has a short lead line. The lead is lit when the live value of the pin is `true`, so the user sees the logic levels on the schematic. The wire badge still shows the value as text (15.3).
+- The name and the state icon show above the symbol, with the rules of the free layout. The selection is an outline. An error message shows below the symbol.
+- A node with a symbol shows no compact GUI and no parameter rows on the canvas. The **Inspector** shows them.
+- An open subgraph use shows its frame, as a use with no symbol does.
+- The symbols use the colors of the node GUIs (15.3), so all node kinds have one style.
 
 A node can set the color of its header (15.3):
 

@@ -1,17 +1,22 @@
+use parts::{BODY, LIT, PIN_STEP, SILK, board, glass, pin_names, round_rect};
 use patina_sdk::{Ui, node};
 
 const COLS: usize = 20;
 const ROWS: usize = 6;
-const BACK: [u8; 3] = [24, 24, 23];
-const TEXT: [u8; 3] = [223, 166, 75];
 const CELL: [f32; 2] = [8.0, 16.0];
+/// The size of the board.
+const SIZE: [f32; 2] = [228.0, 140.0];
+/// The top left corner of the glass, and the margin of the text on the glass.
+const SCREEN: [f32; 2] = [44.0, 10.0];
 const MARGIN: f32 = 6.0;
+/// The inputs on the left edge, in order.
+const PINS: [&str; 4] = ["data", "port", "wr", "address"];
 
 /// A text screen of 6 lines of 20 characters on an IO port of the CPU. When `wr` is on and `port`
 /// is `address`, it writes the ASCII character `data` at the cursor. Enter (13) or line feed (10)
 /// starts a new line, and backspace (8) removes the last character. After the last line, the lines
 /// move up. After each write, it writes the lines to the standard output.
-#[node(color = "#59366f")]
+#[node(color = "#59366f", free_layout)]
 pub struct Terminal {
     cells: [u8; COLS * ROWS],
     cursor: usize,
@@ -31,18 +36,27 @@ impl Terminal {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        let size = [2.0 * MARGIN + COLS as f32 * CELL[0], 2.0 * MARGIN + ROWS as f32 * CELL[1]];
-        let mut canvas = ui.canvas("Terminal", size);
-        canvas.rect([0.0, 0.0], size, BACK, true);
-        // One text for each character keeps the columns straight in any font.
-        let mut one = [0u8; 1];
-        for (i, &byte) in self.cells.iter().enumerate().filter(|&(_, &b)| b != b' ') {
-            let at = [MARGIN + (i % COLS) as f32 * CELL[0], MARGIN + (i / COLS + 1) as f32 * CELL[1] - 4.0];
-            one[0] = byte;
-            canvas.text(at, TEXT, std::str::from_utf8(&one).unwrap_or("?"));
+        {
+            let mut c = ui.canvas("Terminal", SIZE);
+            board(&mut c, SIZE);
+            pin_names(&mut c, 16.0, &["data", "port", "wr", "adr"]);
+            let size = [2.0 * MARGIN + COLS as f32 * CELL[0], 2.0 * MARGIN + ROWS as f32 * CELL[1]];
+            round_rect(&mut c, [SCREEN[0] - 4.0, SCREEN[1] - 4.0], [size[0] + 8.0, size[1] + 8.0], 5.0, BODY);
+            glass(&mut c, SCREEN, size);
+            let cell = |i: usize, dy: f32| [SCREEN[0] + MARGIN + (i % COLS) as f32 * CELL[0], SCREEN[1] + MARGIN + (i / COLS + 1) as f32 * CELL[1] - dy];
+            // One text for each character keeps the columns straight in any font.
+            let mut one = [0u8; 1];
+            for (i, &byte) in self.cells.iter().enumerate().filter(|&(_, &b)| b != b' ') {
+                one[0] = byte;
+                c.text(cell(i, 4.0), LIT, std::str::from_utf8(&one).unwrap_or("?"));
+            }
+            c.rect(cell(self.cursor, 3.0), [CELL[0] - 1.0, 2.0], LIT, true);
+            c.text([SCREEN[0], 134.0], SILK, "TTY 20 x 6");
+            c.text([144.0, 134.0], SILK, &format!("row {} col {}", self.cursor / COLS, self.cursor % COLS));
         }
-        let cursor = [MARGIN + (self.cursor % COLS) as f32 * CELL[0], MARGIN + (self.cursor / COLS + 1) as f32 * CELL[1] - 3.0];
-        canvas.rect(cursor, [CELL[0] - 1.0, 2.0], TEXT, true);
+        for (i, key) in PINS.iter().enumerate() {
+            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
+        }
     }
 
     fn put(&mut self, byte: u8) {

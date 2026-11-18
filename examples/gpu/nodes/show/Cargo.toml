@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 patina-sdk = { workspace = true }
+scope = { path = "../../widgets/scope" }

@@ -13,7 +13,7 @@ export function nodeSource(n: NodeInfo): string {
 }
 
 /** The entries of the Add node palette that add a public pin to an open subgraph (6.4). */
-const PIN_ENTRY = { inputs: [], outputs: [], error: null, builtin: false, generics: ['?'], full: false, color: null, subgraph: false, kind: 'generic' as const, doc: null, free: false };
+const PIN_ENTRY = { inputs: [], outputs: [], error: null, builtin: false, generics: ['?'], full: false, color: null, subgraph: false, kind: 'generic' as const, doc: null, free: false, symbol: null };
 export const PUBLIC_INPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public input', outputs: [{ key: 'pin', ty: '?' }] };
 export const PUBLIC_OUTPUT: NodeInfo = { ...PIN_ENTRY, name: 'Public output', inputs: [{ key: 'pin', ty: '?' }] };
 

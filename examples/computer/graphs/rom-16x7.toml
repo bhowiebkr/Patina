@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "ROM 16x7"
+
 [[node]]
 id = "57b4e28f99209b3a"
 folder = "nodes/switch"

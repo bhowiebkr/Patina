@@ -223,9 +223,10 @@ pub(crate) fn infos(root: &Path, edits: Edits) -> Vec<NodeInfo> {
     let mut infos = Vec::new();
     let files = &mut Files::new(root, edits);
     for name in &names {
-        let mut info = NodeInfo { name: name.clone(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, free: false, color: None, subgraph: true, kind: "subgraph", doc: None };
+        let mut info = NodeInfo { name: name.clone(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, free: false, color: None, symbol: None, subgraph: true, kind: "subgraph", doc: None };
         match files.graph(name) {
             Ok(graph) => {
+                info.symbol.clone_from(&graph.symbol);
                 let stack = &mut vec![name.clone()];
                 let mut generics = Vec::new();
                 // A pin that ends at a generic pin is generic too, so the palette offers each type (4.5).

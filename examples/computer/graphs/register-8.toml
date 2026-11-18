@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "REG 8"
+
 [[node]]
 id = "df8a1ce010e39ba7"
 subgraph = "register-4"

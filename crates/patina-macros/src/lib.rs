@@ -6,13 +6,13 @@ use proc_macro::{Delimiter, TokenStream, TokenTree};
 /// Marks the function of a node, or the state struct of a stateful node (spec 4.2). A function
 /// gets `#[inline]`, so small nodes inline into each other inside one cluster (8.3).
 /// `#[node(domain = frame)]` sets the clock domain (9.1), `#[node(full_gui)]` gives the GUI a
-/// full size, `#[node(free_layout)]` makes the GUI the whole node (4.3), `#[node(heavy)]` keeps the node in a task of its own (9.2), and
+/// full size, `#[node(free_layout)]` makes the GUI the whole node, `#[node(symbol = "nand")]` shows a circuit symbol (4.3), `#[node(heavy)]` keeps the node in a task of its own (9.2), and
 /// `#[node(color = "#175c59")]` sets the header color (15.3). The engine reads these arguments.
 #[proc_macro_attribute]
 pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args: Vec<String> = attr.into_iter().map(|t| t.to_string()).collect();
     if !node_args(&args) {
-        return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`, `full_gui`, `free_layout`, `heavy` and `color = \"#rrggbb\"`");
+        return error("#[node] takes only `domain = batch`, `frame`, `audio` or `event`, `full_gui`, `free_layout`, `symbol = \"<shape>\"`, `heavy` and `color = \"#rrggbb\"`");
     }
     match keyword(&item).as_deref() {
         Some("fn") => {}
@@ -24,17 +24,21 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     out
 }
 
-/// True when the tokens of `#[node(...)]` are a list of `domain = <name>`, `full_gui`, `free_layout`, `heavy` and `color = "#rrggbb"`.
+/// True when the tokens of `#[node(...)]` are a list of `domain = <name>`, `full_gui`, `free_layout`, `symbol = "<shape>"`, `heavy` and `color = "#rrggbb"`.
 fn node_args(args: &[String]) -> bool {
     let domains = ["batch", "frame", "audio", "event"];
     args.is_empty()
         || args.split(|a| a == ",").all(|arg| match arg {
             [flag] => ["full_gui", "free_layout", "heavy"].contains(&flag.as_str()),
             [key, eq, name] if key == "domain" => eq == "=" && domains.contains(&name.as_str()),
+            [key, eq, lit] if key == "symbol" => eq == "=" && SHAPES.iter().any(|s| lit.strip_prefix('"').and_then(|l| l.strip_suffix('"')) == Some(s)),
             [key, eq, lit] => key == "color" && eq == "=" && is_color(lit),
             _ => false,
         })
 }
+
+/// The shapes of `symbol = "<shape>"`. The engine has the same list (spec 4.3).
+const SHAPES: [&str; 13] = ["and", "nand", "or", "nor", "xor", "xnor", "not", "buffer", "mux", "alu", "adder", "chip", "bus"];
 
 /// True for a string literal of the form `"#rrggbb"`.
 fn is_color(lit: &str) -> bool {
@@ -131,6 +135,7 @@ mod tests {
         assert!(args("") && args("full_gui") && args("domain = frame , full_gui") && args("heavy , full_gui") && args("free_layout"));
         assert!(!args("domain = gpu") && !args("full") && !args("heavy = 1") && !args("full_gui ,") && !args("domain frame"));
         assert!(args(r##"full_gui , color = "#175C59""##) && !args(r##"color = "175c59""##) && !args(r##"color = "#17c5g9""##));
+        assert!(args(r#"symbol = "nand""#) && args(r#"symbol = "chip" , heavy"#) && !args(r#"symbol = "star""#) && !args("symbol = nand"));
     }
 
     #[test]

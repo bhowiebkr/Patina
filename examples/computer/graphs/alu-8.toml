@@ -1,5 +1,8 @@
 format = 1
 
+[symbol]
+shape = "alu"
+
 [[node]]
 id = "5d7a1208900fce69"
 folder = "nodes/split"

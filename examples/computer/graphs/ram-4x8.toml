@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "RAM 4x8"
+
 [[node]]
 id = "24e5b22567ba0121"
 subgraph = "ram-4x4"

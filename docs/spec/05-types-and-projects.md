@@ -229,6 +229,10 @@ copy = "sha256:<64 hex characters>"   # the copy in this project after the impor
 format = 1
 style = "curved"                 # the path of the wires with no style; only to override automatic (15.9)
 
+[symbol]                         # only in a subgraph file: the symbol of each use (4.3)
+shape = "chip"                   # and, nand, or, nor, xor, xnor, not, buffer, mux, alu, adder, chip or bus
+label = "CPU"                    # optional: the text on a chip, a block or a bus bar; 32 bytes at most
+
 [[node]]
 id = "5c0e9b2a7f13d846"         # the stable random ID of this use (6.1)
 folder = "nodes/curve-editor"   # or subgraph = "full-adder" for a use of graphs/full-adder.toml,
@@ -281,6 +285,7 @@ from = "e1d4c2b7a9f03856.out"
 - A public pin of a subgraph has a key of 8 random hexadecimal characters. The key does not change when the pin gets a new name or a new order, so the connections of each use stay. The order of the `[[input]]` and `[[output]]` tables is the order of the pins. The edit `OrderPin` moves a pin to a new place in its list (7.4).
 - A parameter value and a settings value are the text form that their type gives (4.8). The engine stores the text and does not read it, so it stays free of types (2).
 - A wire has 12 route points at most. A route edit with more points fails with a message. The editor draws each wire in one row of 64 points on the GPU, and 12 rounded corners fit in this row. A path with more corners, for example an orthogonal path, gets fewer points for each corner. (Agent decision, 2026-11-15. The owner can change it.)
+- The `[symbol]` table changes only the look, so the build does not read it. (Agent decision of 2026-11-18. The owner can change it.)
 - A wire name has 32 bytes at most. It changes only the look, so the build does not read it. (Agent decision, 2026-11-16. The owner can change it.)
 - The route points, collars and cables are in the graph file, so the project owns them. The dock layout, the camera of the graph and the selection are not in the graph file. Each user keeps them (15.2).
 - A wire to a pin that no longer exists stays in the file. The node shows an error until the user removes the wire or the pin comes back (15.5). Patina never deletes a wire without a user action.

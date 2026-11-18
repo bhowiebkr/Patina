@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "LCD WR"
+
 [[node]]
 id = "b7176b9e7d4a3371"
 builtin = "delay"

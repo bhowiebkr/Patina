@@ -13,6 +13,7 @@ import { FRAME_BOTTOM, FRAME_RIGHT } from './frames';
 import { freeLayout, nodeWidth } from '../controls/gui';
 import { DomainIcon, KindIcon } from '../controls/icons';
 import type { Lost } from './lostPins';
+import { SymbolBody, symbolLayout } from './SymbolView';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -115,6 +116,8 @@ export interface NodeData extends Record<string, unknown> {
   inner?: boolean;
   /** The thumbnail of the first output that has one (5.3), with the name of the output. */
   thumb?: { text: string; stale: boolean; label: string };
+  /** The logic level of each bool pin of a node with a symbol (4.3), by "i:<key>" and "o:<key>". */
+  levels?: Readonly<Record<string, boolean>>;
 }
 
 export type PatinaNode = Node<NodeData, 'patina'>;
@@ -294,6 +297,34 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   if (selected) classes.push('selected');
   if (far) classes.push('far');
   if (info?.color) classes.push('colored');
+  const use = entry.subgraph !== undefined && !inner;
+  if (info?.symbol && !open) {
+    // A circuit symbol (4.3): the shape is the whole node, with the caption of a free layout above it.
+    const layout = symbolLayout(info.symbol, folderName(entry), inputs, outputs);
+    const handle = (pin: Pin, output: boolean) => {
+      const key = `${output ? 'o' : 'i'}:${pin.key}`;
+      const [x, y] = layout.leads.find((l) => l.key === key)?.end ?? [0, 0];
+      return <PinHandle key={key} pin={pin} generics={info.generics} output={output} editable={editable} lost={output ? lostOut(pin) : lostIn(pin)} top={y} left={GUTTER + x} socket={undefined} />;
+    };
+    return (
+      <div className={[...classes, 'free', 'symbol'].join(' ')} style={{ width: layout.width }}>
+        <div className="free-caption" title={info.doc ?? undefined}>
+          <span className="title">{folderName(entry)}</span>
+          {use && <OpenButton graph={entry.subgraph!} use={entry.id} />}
+          {use && toggle && <FrameButton open={false} onClick={() => toggle(entry.id)} />}
+          {domain && <DomainIcon domain={domain} />}
+          <StateIcon state={state} />
+        </div>
+        <SymbolBody layout={layout} levels={data.levels} far={far} />
+        {lostParams && !inner && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
+        {message && <div className="patina-node-message">{message}</div>}
+        {inputs.map((pin) => handle(pin, false))}
+        {outputs.map((pin) => handle(pin, true))}
+        <Handle id={ORDER} type="target" position={Position.Left} isConnectable={editable} className="order-pin" style={{ top: -CAPTION / 2 }} title="Order wire from a node that runs before this node" />
+        <Handle id={ORDER} type="source" position={Position.Right} isConnectable={editable} className="order-pin" style={{ top: -CAPTION / 2 }} title="Drag to a node that must run after this node" />
+      </div>
+    );
+  }
   if (info?.free && gui !== undefined && !open) {
     // A free layout (4.3): the GUI is the whole node, with a caption above it and the pins at their places.
     const layout = freeLayout(gui);
@@ -326,7 +357,6 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     );
   }
   const style = { width: gui === undefined ? undefined : nodeWidth(gui), minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
-  const use = entry.subgraph !== undefined && !inner;
   return (
     <div className={classes.join(' ')} style={style}>
       <div className="patina-node-header" title={info?.doc ?? undefined}>

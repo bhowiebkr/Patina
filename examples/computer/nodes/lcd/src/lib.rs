@@ -1,11 +1,15 @@
+use parts::{BODY, GLASS, LIT, METAL, PIN_STEP, SILK, UNLIT, board, glass, pin_names, round_rect};
 use patina_sdk::{Ui, node};
 
 const COLS: usize = 16;
-const BACK: [u8; 3] = [24, 19, 10];
-const CELL: [u8; 3] = [40, 32, 18];
-const DOT: [u8; 3] = [223, 166, 75];
 const PITCH: f32 = 2.5;
-const MARGIN: f32 = 6.0;
+/// The size of the board. It is for all 16 x 2 cells, so the node keeps its size (4.3).
+const SIZE: [f32; 2] = [316.0, 176.0];
+/// The top left corner of the first cell.
+const FIRST: [f32; 2] = [51.0, 66.0];
+/// The inputs on the left edge, in order, and their names on the board.
+const PINS: [&str; 10] = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "write", "clear"];
+const NAMES: [&str; 10] = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "wr", "clr"];
 
 /// The rows of a 5 x 7 character, top first. Bit 4 is the left column.
 const FONT: &[(char, [u8; 7])] = &[
@@ -65,7 +69,7 @@ const UNKNOWN: [u8; 7] = [0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F];
 /// ASCII character of bits d0 to d7 at the cursor, with d0 as the low bit. After the last cell, the
 /// lines move up one line. `clear` empties the display first. A change writes the two lines to the
 /// standard output.
-#[node(color = "#59366f")]
+#[node(color = "#59366f", free_layout)]
 pub struct Lcd {
     cells: [u8; 2 * COLS],
     cursor: usize,
@@ -92,19 +96,34 @@ impl Lcd {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        // The size is for all 16 x 2 cells, so the node keeps its size when the text changes (4.3).
-        let size = [2.0 * MARGIN + COLS as f32 * 6.0 * PITCH, 2.0 * MARGIN + 2.0 * 9.0 * PITCH];
-        let mut canvas = ui.canvas("LCD", size);
-        canvas.rect([0.0, 0.0], size, BACK, true);
-        for (i, &byte) in self.cells.iter().enumerate() {
-            let x = MARGIN + (i % COLS) as f32 * 6.0 * PITCH;
-            let y = MARGIN + (i / COLS) as f32 * 9.0 * PITCH;
-            canvas.rect([x, y], [5.0 * PITCH, 8.0 * PITCH], CELL, true);
-            for (r, bits) in glyph(byte).iter().enumerate() {
-                for c in (0..5).filter(|c| bits & (0x10 >> c) != 0) {
-                    canvas.rect([x + c as f32 * PITCH, y + r as f32 * PITCH], [PITCH - 0.4, PITCH - 0.4], DOT, true);
+        {
+            let mut c = ui.canvas(&format!("LCD {} / {}", self.line(0).trim_end(), self.line(1).trim_end()), SIZE);
+            board(&mut c, SIZE);
+            pin_names(&mut c, 16.0, &NAMES);
+            // A bracket marks the 8 data pins.
+            c.line([27.0, 10.0], [27.0, 134.0], SILK);
+            // The module: a body with 4 mounting holes, and the glass with a 5 x 7 dot matrix.
+            round_rect(&mut c, [34.0, 10.0], [274.0, 156.0], 4.0, BODY);
+            for hole in [[43.0, 19.0], [299.0, 19.0], [43.0, 157.0], [299.0, 157.0]] {
+                c.circle(hole, 4.0, METAL, true);
+                c.circle(hole, 2.5, GLASS, true);
+            }
+            c.text([56.0, 42.0], SILK, "LCD 16 x 2");
+            glass(&mut c, [44.0, 56.0], [254.0, 64.0]);
+            for (i, &byte) in self.cells.iter().enumerate() {
+                let x = FIRST[0] + (i % COLS) as f32 * 6.0 * PITCH;
+                let y = FIRST[1] + (i / COLS) as f32 * 9.0 * PITCH;
+                c.rect([x, y], [5.0 * PITCH, 8.0 * PITCH], UNLIT, true);
+                for (r, bits) in glyph(byte).iter().enumerate() {
+                    for col in (0..5).filter(|col| bits & (0x10 >> col) != 0) {
+                        c.rect([x + col as f32 * PITCH, y + r as f32 * PITCH], [PITCH - 0.4, PITCH - 0.4], LIT, true);
+                    }
                 }
             }
+            c.text([56.0, 142.0], SILK, &format!("cursor {}:{}", self.cursor / COLS, self.cursor % COLS));
+        }
+        for (i, key) in PINS.iter().enumerate() {
+            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
         }
     }
 

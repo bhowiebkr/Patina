@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "adder"
+label = "ADD 8"
+
 [[node]]
 id = "fb5967f7f626ecb6"
 folder = "nodes/switch"

@@ -8,6 +8,8 @@ use syn::{
     Type, Visibility,
 };
 
+use crate::project::Shape;
+
 mod kind;
 mod outline;
 
@@ -107,6 +109,8 @@ pub struct Node {
     pub heavy: bool,
     /// `#[node(color = "#rrggbb")]`: the header color (15.3).
     pub color: Option<String>,
+    /// `#[node(symbol = "nand")]`: the circuit symbol in place of the box (4.3).
+    pub symbol: Option<Shape>,
     /// The doc comment of the node item: the description of the node (15.3).
     pub doc: Option<String>,
 }
@@ -162,7 +166,7 @@ fn parse_node(source: &str) -> Result<Node, String> {
         }
     }
     let (attr, item, doc) = found.ok_or("the crate has no #[node] function or struct")?;
-    let Args { domain, full, heavy, color, free } = read_attr(attr)?;
+    let Args { domain, full, heavy, color, free, symbol } = read_attr(attr)?;
     let (sig, state, generics, ui) = match item {
         Item::Fn(func) if matches!(func.vis, Visibility::Public(_)) => (&func.sig, None, type_params(&func.sig.generics)?, false),
         Item::Fn(func) => return Err(format!("make the node function `{}` pub", func.sig.ident)),
@@ -229,7 +233,7 @@ fn parse_node(source: &str) -> Result<Node, String> {
         let flag = if full { "full_gui" } else { "free_layout" };
         return Err(format!("a node with `{flag}` needs `pub fn ui(&mut self, ui: &mut Ui)` (spec 4.3)"));
     }
-    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, is_async, ui, full, free, heavy, color, doc })
+    Ok(Node { func: sig.ident.to_string(), state, generics, inputs, output, fallible, output_types, domain, is_async, ui, full, free, heavy, color, symbol, doc })
 }
 
 /// The most arguments of a node call: the cluster calls nodes through tuples (generate.rs).
@@ -291,7 +295,7 @@ impl Builtin {
         };
         let generics = if self == Builtin::Delay { vec!["T".to_owned()] } else { Vec::new() };
         let output_types = vec![out.to_owned()];
-        Node { func: self.name().to_owned(), state: None, generics, inputs, output: Output::One, fallible: false, output_types, domain, is_async: false, ui: false, full: false, free: false, heavy: false, color: None, doc: None }
+        Node { func: self.name().to_owned(), state: None, generics, inputs, output: Output::One, fallible: false, output_types, domain, is_async: false, ui: false, full: false, free: false, heavy: false, color: None, symbol: None, doc: None }
     }
 }
 
@@ -369,9 +373,10 @@ struct Args {
     heavy: bool,
     color: Option<String>,
     free: bool,
+    symbol: Option<Shape>,
 }
 
-/// Reads `domain = <name>` (9.1), `full_gui` and `free_layout` (4.3), `heavy` (9.2) and `color = "#rrggbb"` (15.3) of `#[node(...)]`.
+/// Reads `domain = <name>` (9.1), `full_gui`, `free_layout` and `symbol = "<shape>"` (4.3), `heavy` (9.2) and `color = "#rrggbb"` (15.3) of `#[node(...)]`.
 fn read_attr(attr: &Attribute) -> Result<Args, String> {
     let mut args = Args::default();
     if matches!(attr.meta, Meta::Path(_)) {
@@ -392,8 +397,13 @@ fn read_attr(attr: &Attribute) -> Result<Args, String> {
             args.color = Some(text.to_ascii_lowercase());
             return Ok(());
         }
+        if meta.path.is_ident("symbol") {
+            let text = meta.value()?.parse::<LitStr>()?.value();
+            args.symbol = Some(Shape::parse(&text).ok_or_else(|| meta.error(format!("`{text}` is not a node symbol (spec 4.3)")))?);
+            return Ok(());
+        }
         if !meta.path.is_ident("domain") {
-            return Err(meta.error("#[node] takes only `domain = <name>`, `full_gui`, `free_layout`, `heavy` and `color = \"#rrggbb\"`"));
+            return Err(meta.error("#[node] takes only `domain = <name>`, `full_gui`, `free_layout`, `symbol = \"<shape>\"`, `heavy` and `color = \"#rrggbb\"`"));
         }
         let name: Ident = meta.value()?.parse()?;
         args.domain = Some(Domain::parse(&name.to_string()).map_err(|e| meta.error(e))?);
@@ -549,6 +559,9 @@ mod tests {
         assert_eq!((documented.doc.as_deref(), parse(&colored).unwrap().doc), (Some("Counts.\n\nUp."), None));
         assert!(parse(&colored.replace("#175C59", "175c59")).is_err());
         assert!(parse(&colored.replace("#175C59", "#17c5g9")).is_err());
+        let gate = parse(&counter.replace("domain = frame", "symbol = \"nand\"")).unwrap();
+        assert_eq!((gate.symbol, node.symbol), (Some(Shape::Nand), None));
+        assert!(parse(&counter.replace("domain = frame", "symbol = \"star\"")).is_err());
         assert!(parse(&counter.replace("#[node(domain = frame)]", "#[node(full_gui)]")).is_err());
         let hold = "#[node] pub struct Hold<T, U> { v: Option<(T, U)> }\n\
                     impl<T: Clone, U> Hold<T, U> { pub fn init() -> Hold<T, U> { todo!() } }\n\

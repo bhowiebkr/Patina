@@ -1,5 +1,8 @@
 format = 1
 
+[symbol]
+shape = "xor"
+
 [[node]]
 id = "364c4665b22b073f"
 folder = "nodes/nand"

@@ -211,6 +211,31 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   if (inspectorTabs().map((t) => t.textContent).join() !== 'Parameters') throw new Error(`a subgraph use has the tabs ${inspectorTabs().map((t) => t.textContent).join()}`);
   steps.push('a subgraph use has no Code tab');
 
+  // The Shape list of the Look section gives each use of the subgraph a symbol, with undo (4.3, 6.4).
+  const shape = () => document.querySelector<HTMLSelectElement>(`${inspector} select:has(option[value="chip"])`);
+  const chip = () => useNode()?.querySelector('.patina-node.symbol') ?? null;
+  const openUse = async (what: string) => {
+    useNode()!.querySelector<HTMLButtonElement>('.open-subgraph')!.click();
+    await until(what, BUILD_MS, () => document.querySelector('.graph-path [aria-current="page"]')?.textContent === '/ fire_check');
+  };
+  const toMain = async (what: string) => {
+    [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
+    await until(what, BUILD_MS, () => document.querySelector('.graph-path') === null && !!useNode());
+  };
+  await openUse('the subgraph for its Shape');
+  await until('the Shape list of the subgraph', RUN_MS, () => !!shape());
+  shape()!.value = 'chip';
+  shape()!.dispatchEvent(new Event('change', { bubbles: true }));
+  await until('the chip preview of the public node', RUN_MS, () => shape()?.value === 'chip' && !!document.querySelector(`${inspector} .symbol-preview`));
+  await toMain('the main graph with the chip');
+  await until('the use as a chip', BUILD_MS, () => !!chip());
+  await openUse('the subgraph for the undo of its Shape');
+  v = await step('undo the Shape of the subgraph', () => api.undo());
+  if (v.graph.symbol) throw new Error(`the undo kept the symbol ${JSON.stringify(v.graph.symbol)}`);
+  await toMain('the main graph after the undo of the Shape');
+  await until('the use as a box again', BUILD_MS, () => !chip());
+  steps.push('give the uses of a subgraph a symbol from the Shape list');
+
   // Select all and Collapse into subgraph of the Inspector put the nodes into a new subgraph, with undo (6.1).
   const count = () => document.querySelectorAll('.react-flow__node').length;
   const all = count();

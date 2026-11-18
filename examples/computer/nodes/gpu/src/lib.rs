@@ -1,5 +1,11 @@
 use frame::{Frame, SIZE};
+use parts::{PIN_STEP, SILK, board, chip, pin_names};
 use patina_sdk::{Ui, node};
+
+/// The size of the board.
+const BOARD: [f32; 2] = [212.0, 96.0];
+/// The inputs on the left edge, in order.
+const PINS: [&str; 5] = ["bus", "data", "port", "wr", "address"];
 
 /// A small video chip on the IO ports of the CPU. It keeps a frame of 32 x 32 pixels with 16 colors
 /// and gives it to the screen. When `wr` is on, the CPU writes `data` to the register at `port`:
@@ -13,7 +19,7 @@ use patina_sdk::{Ui, node};
 /// LD at `address + 2` gives the color of the pixel at X and Y, and X does not move. A game can
 /// read the pixel in front of a player before it moves. At the other ports, the byte on `bus`
 /// goes through.
-#[node(color = "#59366f")]
+#[node(color = "#59366f", free_layout)]
 pub struct Gpu {
     frame: Frame,
     x: usize,
@@ -50,7 +56,20 @@ impl Gpu {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        ui.label(&format!("X {}  Y {}", self.x, self.y));
+        {
+            let mut c = ui.canvas(&format!("GPU X {} Y {}", self.x, self.y), BOARD);
+            board(&mut c, BOARD);
+            pin_names(&mut c, 16.0, &["bus", "data", "port", "wr", "adr"]);
+            chip(&mut c, [48.0, 14.0], [120.0, 68.0], "GPU");
+            c.text([64.0, 58.0], SILK, &format!("X {}  Y {}", self.x, self.y));
+            c.text([176.0, 36.0], SILK, "frame");
+            c.text([186.0, 68.0], SILK, "bus");
+        }
+        for (i, key) in PINS.iter().enumerate() {
+            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
+        }
+        ui.pin("out0", [BOARD[0], 32.0]);
+        ui.pin("out1", [BOARD[0], 64.0]);
     }
 }
 

@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "adder"
+label = "HA"
+
 [[node]]
 id = "8cc7c34fb0e0708a"
 subgraph = "xor"

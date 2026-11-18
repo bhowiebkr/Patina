@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "chip"
+label = "= 0"
+
 [[node]]
 id = "f3223dd5bed2e430"
 folder = "nodes/split"

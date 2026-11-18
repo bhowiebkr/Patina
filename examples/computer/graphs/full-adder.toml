@@ -1,5 +1,9 @@
 format = 1
 
+[symbol]
+shape = "adder"
+label = "FA"
+
 [[node]]
 id = "91e3afa186d5bae3"
 subgraph = "half-adder"

@@ -2,7 +2,8 @@
 // (6.4), and a preview of the node that each use shows.
 
 import type { FocusEvent, KeyboardEvent } from 'react';
-import { newId, type Edit, type Point, type PublicInput, type PublicOutput, type View } from '../api';
+import { newId, SHAPES, type Edit, type Point, type PublicInput, type PublicOutput, type Shape, type View } from '../api';
+import { SymbolBody, symbolLayout } from '../canvas/SymbolView';
 
 type Pin = PublicInput | PublicOutput;
 
@@ -11,6 +12,64 @@ const Arrow = ({ d }: { d: string }) => (
     <path d={d} />
   </svg>
 );
+
+const SHAPE_NAMES: Record<Shape, string> = {
+  and: 'AND gate',
+  nand: 'NAND gate',
+  or: 'OR gate',
+  nor: 'NOR gate',
+  xor: 'XOR gate',
+  xnor: 'XNOR gate',
+  not: 'NOT gate',
+  buffer: 'Buffer',
+  mux: 'Multiplexer',
+  alu: 'ALU',
+  adder: 'Adder',
+  chip: 'Chip',
+  bus: 'Bus bar',
+};
+
+/** The **Shape** and the **Label** of each use of the open subgraph, in the **Look** section (4.3). */
+export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit) => void }) {
+  const symbol = view.graph.symbol;
+  const commit = (e: FocusEvent<HTMLInputElement>) => {
+    const label = e.currentTarget.value.trim();
+    if (symbol && label !== (symbol.label ?? '')) onEdit({ kind: 'SetSymbol', symbol: { shape: symbol.shape, label: label || null } });
+  };
+  const keys = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') e.currentTarget.value = symbol?.label ?? '';
+    if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+  };
+  return (
+    <>
+      <label className="param">
+        <span className="label">Shape</span>
+        <select
+          className="field"
+          value={symbol?.shape ?? 'box'}
+          disabled={!view.trusted}
+          onChange={(e) => {
+            const shape = e.currentTarget.value;
+            onEdit({ kind: 'SetSymbol', symbol: shape === 'box' ? null : { shape: shape as Shape, label: symbol?.label ?? null } });
+          }}
+        >
+          <option value="box">Box</option>
+          {SHAPES.map((s) => (
+            <option key={s} value={s}>
+              {SHAPE_NAMES[s]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {symbol && (
+        <label className="param">
+          <span className="label">Label</span>
+          <input key={symbol.label ?? ''} className="field" defaultValue={symbol.label ?? ''} placeholder={view.graphName.toUpperCase()} maxLength={32} disabled={!view.trusted} onBlur={commit} onKeyDown={keys} />
+        </label>
+      )}
+    </>
+  );
+}
 
 export function SubgraphInterface({ view, onEdit }: { view: View; onEdit: (edit: Edit) => void }) {
   const info = view.nodes.find((n) => n.subgraph && n.name === view.graphName);
@@ -68,13 +127,19 @@ export function SubgraphInterface({ view, onEdit }: { view: View; onEdit: (edit:
       {list(false, outputs)}
       <div className="section">
         <h3>Public node preview</h3>
-        <div className="pin-preview" aria-label="Public node preview">
-          <div className="pin-preview-title">{view.graphName}</div>
-          <div className="pin-preview-body">
-            <div>{inputs.map((p) => <div key={p.key}>{p.name}</div>)}</div>
-            <div>{outputs.map((p) => <div key={p.key}>{p.name}</div>)}</div>
+        {view.graph.symbol && info ? (
+          <div className="symbol-preview" aria-label="Public node preview">
+            <SymbolBody layout={symbolLayout(view.graph.symbol, view.graphName, info.inputs, info.outputs)} far={false} />
           </div>
-        </div>
+        ) : (
+          <div className="pin-preview" aria-label="Public node preview">
+            <div className="pin-preview-title">{view.graphName}</div>
+            <div className="pin-preview-body">
+              <div>{inputs.map((p) => <div key={p.key}>{p.name}</div>)}</div>
+              <div>{outputs.map((p) => <div key={p.key}>{p.name}</div>)}</div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

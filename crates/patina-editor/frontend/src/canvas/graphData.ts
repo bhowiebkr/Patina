@@ -1,7 +1,7 @@
 // The nodes and the edges of the graph canvas, made from the view of the engine (spec 15.2, 15.3).
 
 import type { Edge, XYPosition } from '@xyflow/react';
-import type { Domain, KindInfo, NodeInfo, Pin, Point, View } from '../api';
+import type { Domain, KindInfo, NodeEntry, NodeInfo, Pin, Point, View } from '../api';
 import { kindOf, socketOf, type Socket } from './bus';
 import { GUTTER, ORDER, infoOf, nodeState, outputType, type NodeData, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { place, type Frame, type Room } from './frames';
@@ -70,6 +70,19 @@ function thumbOf(id: string, info: NodeInfo | null, run: RunState): NodeData['th
   return undefined;
 }
 
+/** The logic level of each bool pin of a node with a symbol (4.3). An unwired input has the level of its parameter. */
+function levelsOf(entry: NodeEntry, info: NodeInfo | null, run: RunState, sources: ReadonlyMap<string, string>): NodeData['levels'] {
+  if (!info?.symbol) return undefined;
+  const out: Record<string, boolean> = {};
+  const level = (key: string, from: string | undefined, param?: string) => {
+    const text = from === undefined ? param : valueStale(run, from) ? undefined : run.values.get(from)?.text;
+    if (text === 'true' || text === 'false') out[key] = text === 'true';
+  };
+  for (const p of info.outputs) level(`o:${p.key}`, `${entry.id}.${p.key}`);
+  for (const p of info.inputs) level(`i:${p.key}`, sources.get(`${entry.id}.${p.key}`), entry.params?.[p.key]);
+  return out;
+}
+
 /** The key of the public pin "in:<key>" or "out:<key>", or null for a node. */
 export function portKey(id: string): string | null {
   return /^(in|out):/.test(id) ? id.slice(id.indexOf(':') + 1) : null;
@@ -120,7 +133,7 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
       const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
       const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
       const keys = wired.filter(([id]) => id === entry.id).map(([, key]) => key);
-      const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run) };
+      const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
       const position = { x, y };
       const before = old.get(entry.id);
       return before?.type === 'patina' ? kept(before, position, data, NONE) : { id: entry.id, type: 'patina', parentId: f.use, position, data, ...lock };
@@ -149,7 +162,7 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const domain = domains.get(entry.id);
     const lost = lostPins(info, ends.get(entry.id));
     const lostKeys = lostParams(info, entry.params);
-    const data = { entry, info, wired, lost, lostParams: lostKeys, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run) };
+    const data = { entry, info, wired, lost, lostParams: lostKeys, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
     const before = old.get(entry.id);
     return before?.type === 'patina' ? kept(before, position, data, held) : { id: entry.id, type: 'patina' as const, position, data };
   });

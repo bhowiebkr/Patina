@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
-use crate::project::{Corners, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Style, Wire, is_id, is_key};
+use crate::project::{Corners, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Style, Symbol, Wire, is_id, is_key};
 
 /// The number of edits that undo keeps. The oldest edit goes first.
 const UNDO_LIMIT: usize = 1000;
@@ -40,6 +40,8 @@ pub enum Edit {
     /// Sets the path style of the wires with no style of their own (15.9). `None` or `Automatic`
     /// gives the automatic route.
     SetGraphLook { style: Option<Style> },
+    /// Sets the symbol of each use of the open subgraph (4.3). `None` shows the box.
+    SetSymbol { symbol: Option<Symbol> },
     /// Sets the bus name of the wire to the input `to` (15.9). `None` or a blank name gives the
     /// default name.
     NameWire { to: String, name: Option<String> },
@@ -255,6 +257,7 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         Edit::SetGraphLook { style } => {
             graph.style = style.filter(|s| *s != Style::Automatic);
         }
+        Edit::SetSymbol { symbol } => graph.symbol = symbol_of(symbol)?,
         Edit::NameWire { to, name } => {
             let name = name.as_deref().map(str::trim).filter(|n| !n.is_empty());
             if name.is_some_and(|n| n.len() > 32 || n.chars().any(char::is_control)) {
@@ -300,6 +303,18 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         Edit::DisconnectPin { key, end } => disconnect_pin(graph, key, end)?,
     }
     Ok(())
+}
+
+/// Checks a symbol for `Edit::SetSymbol`. A blank label shows the graph name (4.3).
+fn symbol_of(symbol: &Option<Symbol>) -> Result<Option<Symbol>, String> {
+    let mut symbol = symbol.clone();
+    if let Some(s) = &mut symbol {
+        s.label = s.label.as_deref().map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned);
+        if s.label.as_deref().is_some_and(|l| l.len() > 32 || l.chars().any(char::is_control)) {
+            return Err("a symbol label has 32 bytes at most and no control characters".to_owned());
+        }
+    }
+    Ok(symbol)
 }
 
 /// Adds a node, a built-in node or a use of a subgraph.
@@ -498,6 +513,7 @@ fn finite(pos: &[f64; 2]) -> Result<[f64; 2], String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project::Shape;
 
     const A: &str = "000000000000000a";
     const B: &str = "000000000000000b";
@@ -672,6 +688,19 @@ corners = \"sharp\""), "{text}");
         assert_eq!(history.graph.style, Some(Style::Curved));
         assert!(history.undo(no_code).unwrap());
         assert_eq!(history.graph.style, None, "undo gives the automatic route again");
+
+        history.apply(&serde_json::from_str(r#"{"kind":"SetSymbol","symbol":{"shape":"chip","label":" CPU "}}"#).unwrap()).unwrap();
+        assert_eq!(history.graph.symbol.as_ref().and_then(|s| s.label.as_deref()), Some("CPU"));
+        let or = |label: &str| Edit::SetSymbol { symbol: Some(Symbol { shape: Shape::Or, label: Some(label.to_owned()) }) };
+        history.apply(&or(" ")).unwrap();
+        assert_eq!(history.graph.symbol, Some(Symbol { shape: Shape::Or, label: None }), "a blank label shows the name");
+        assert!(history.apply(&or(&"x".repeat(33))).is_err());
+        assert!(history.undo(no_code).unwrap());
+        assert_eq!(history.graph.symbol.as_ref().map(|s| s.shape), Some(Shape::Chip));
+        history.apply(&Edit::SetSymbol { symbol: None }).unwrap();
+        assert!(!toml::to_string(&history.graph).unwrap().contains("symbol"));
+        assert!(history.undo(no_code).unwrap() && history.undo(no_code).unwrap());
+        assert_eq!(history.graph.symbol, None);
 
         let name = |name: Option<&str>| Edit::NameWire { to: "000000000000000b.value".to_owned(), name: name.map(str::to_owned) };
         history.apply(&name(Some(" addr "))).unwrap();

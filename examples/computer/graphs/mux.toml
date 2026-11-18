@@ -1,5 +1,8 @@
 format = 1
 
+[symbol]
+shape = "mux"
+
 [[node]]
 id = "d5094f57d323d619"
 folder = "nodes/nand"
