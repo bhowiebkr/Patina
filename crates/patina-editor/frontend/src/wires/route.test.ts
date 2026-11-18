@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Point } from '../api.ts';
-import { crossingGaps, junctions } from './marks.ts';
+import { crossings, junctions } from './marks.ts';
 import { GAP, MARGIN, type Rect, type WireIn } from './route.ts';
 import { route, Router } from './router.ts';
 
@@ -140,10 +140,23 @@ test('the router gives the junction marks of an output on one wire', async () =>
 test('a wire that crosses a wire of another output gets a gap, away from the bends', () => {
   const across: Point[] = [[0, 50], [200, 50]];
   const down: Point[] = [[100, 0], [100, 100]];
-  assert.deepEqual([...crossingGaps([across, down], ['a', 'b'], [2, 2])], [[1, [[100, 50, 4]]]], 'of two wires of one width, the vertical wire goes under');
-  assert.deepEqual([...crossingGaps([across, down], ['a', 'b'], [8, 2])], [[1, [[100, 50, 7]]]], 'the narrower wire goes under');
-  assert.deepEqual([...crossingGaps([across, down], ['a', 'b'], [2, 8])], [[0, [[100, 50, 7]]]]);
-  assert.equal(crossingGaps([across, down], ['a', 'a'], [2, 2]).size, 0, 'the wires of one output join, and do not cross');
-  assert.equal(crossingGaps([[[0, 50], [105, 50]], down], ['a', 'b'], [2, 2]).size, 0, 'a crossing near a bend of the upper wire has no gap');
-  assert.equal(crossingGaps([[[0, 50], [100, 50]], down], ['a', 'b'], [2, 2]).size, 0, 'a wire that ends on the other wire does not cross it');
+  const gaps = (paths: Point[][], nets: string[], widths: number[]) => crossings(paths, nets, widths).gaps;
+  assert.deepEqual([...gaps([across, down], ['a', 'b'], [2, 2])], [[1, [[100, 50, 4]]]], 'of two wires of one width, the vertical wire goes under');
+  assert.deepEqual([...gaps([across, down], ['a', 'b'], [8, 2])], [[1, [[100, 50, 7]]]], 'the narrower wire goes under');
+  assert.deepEqual([...gaps([across, down], ['a', 'b'], [2, 8])], [[0, [[100, 50, 7]]]]);
+  assert.equal(gaps([across, down], ['a', 'a'], [2, 2]).size, 0, 'the wires of one output join, and do not cross');
+  assert.equal(gaps([[[0, 50], [105, 50]], down], ['a', 'b'], [2, 2]).size, 0, 'a crossing near a pin of the upper wire has no gap');
+  assert.equal(gaps([[[0, 50], [100, 50]], down], ['a', 'b'], [2, 2]).size, 0, 'a wire that ends on the other wire does not cross it');
+});
+
+test('a corner near a crossing gets a smaller radius, so the crossing gets its gap', () => {
+  const down: Point[] = [[100, 0], [100, 100]];
+  const near = crossings([[[0, 50], [110, 50], [110, 0]], down], ['a', 'b'], [2, 2]);
+  assert.deepEqual([...near.radii], [[0, [5]]], 'the gap of 4 px and 1 px more stay out of the corner');
+  assert.deepEqual([...near.gaps], [[1, [[100, 50, 4]]]]);
+  const far = crossings([[[0, 50], [130, 50], [130, 0]], down], ['a', 'b'], [2, 2]);
+  assert.equal(far.radii.size, 0, 'a corner far from the crossing keeps its radius');
+  // Two wires of one output share the bend at (110, 50); a wire of another output crosses only the leg that goes up.
+  const shared = crossings([[[0, 50], [110, 50], [110, 0]], [[0, 50], [110, 50], [110, 100]], [[100, 45], [200, 45]]], ['a', 'a', 'c'], [2, 2, 2]);
+  assert.deepEqual([...shared.radii], [[0, [0]], [1, [0]]], 'the wires of one output get one corner at a shared bend');
 });

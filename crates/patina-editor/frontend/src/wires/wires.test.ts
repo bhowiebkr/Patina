@@ -72,6 +72,11 @@ test('a wide ribbon gets a larger corner, and sharp corners stay sharp', () => {
   assert.equal(shape(0, 0, 100, 0, [[50, 0], [50, 80]], undefined, 'sharp', 40).radius, 0);
 });
 
+test('a bend near a crossing draws the smaller radius of the router', () => {
+  const d = wirePath(0, 0, 100, 40, shape(0, 0, 100, 40, [[50, 0], [50, 40]], 'polyline', undefined, 2, [5, Infinity]));
+  assert.equal(d, 'M0 0L45 0Q50 0 50 5L50 28Q50 40 62 40L100 40', 'the first corner gets 5 px, the second keeps 12 px');
+});
+
 test('a short segment makes a smaller corner', () => {
   for (const [x, y] of route([50, 0], [50, 4]).slice(0, -1)) assert.ok(x >= 0 && x <= 52 + 1e-5 && y >= -1e-5 && y <= 4 + 1e-5, `${x}, ${y}`);
 });

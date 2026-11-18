@@ -709,6 +709,23 @@ domain free of locks. These limits are still open:
 - A badge of 50 px on a short wire went under the pin of the node, for example `GpuIm...` from
   **bars** to **mix** in gpu (fixed 2026-11-18). A badge that is not selected now hides within
   6 px of a node body. The shot checks that no pin or node covers a badge.
+- A badge covered the crossing of two wires, so a crossing looked like a junction, for example
+  `3.0` in hello and `false` in counter-4 of computer (fixed 2026-11-18). A badge that is not
+  selected now hides when a routed wire of another output goes through it. The shot checks
+  that no routed wire of another output goes through a badge.
+- Two equal bus labels `address[7:0] / 8` on one trunk ran together with no space in computer
+  (fixed 2026-11-18). A label now hides when a shown label is nearer than 4 px. The shot
+  checks that no two shown labels touch.
+- The **File** select of the program node in computer cut `programs/fibonacci.asm` with no
+  "..." (fixed 2026-11-18). A field now cuts its text with "...", and a select of a node GUI
+  shows its full option in the tooltip. Only an eye check of the shot checks this.
+- Three buses shared a gap of 30 px between two register nodes in **register-4** of computer,
+  so an input bus ran on the pin line of an output bus (fixed 2026-11-18). The register nodes
+  now have the pitch of the mux nodes.
+- In **mux-8** of computer, an output row of a mux node was 2 px from a pin row of the **JOIN**,
+  so a crossing went into a corner (fixed 2026-11-18). The **JOIN** moved 8 px down, so each row
+  pair is half a pitch apart. The shot check of such pin rows now reads the row of the straight
+  wire.
 - The Inspector showed the random keys of the public pins of a subgraph, for example `dcc47589`
   for **sel** of a **mux** use (fixed 2026-11-18). The parameter rows and the wire **From** and
   **To** rows now show the pin names. The shot checks that no parameter row and no wire row of
@@ -733,6 +750,23 @@ domain free of locks. These limits are still open:
 - A value badge covered a junction dot, for example at the **JOIN** of **register-8** in computer
   (fixed 2026-11-18). A badge that is not selected now hides on a junction dot. The shot checks
   that no badge covers a junction dot.
+- A badge sometimes covered the ring of a junction in **mux-4** of computer (fixed 2026-11-18).
+  A wire with a live value has lanes, so its junction is a ring larger than a dot. The badge
+  rule used the size of a dot. Each junction now gives the rule its drawn radius.
+- Two wires of different outputs crossed inside their rounded corners, so the crossing had no gap
+  and looked like a junction, for example at the inputs of **MIX** in gpu (fixed 2026-11-18). A
+  corner near a crossing now gets a smaller radius. The shot checks that no two automatic wires of
+  different outputs cross at a bend or overlap.
+- Many wires of different outputs went on one line in a full channel, for example at the inputs
+  of **register-4** in computer (fixed 2026-11-18). Only segments that overlap along the line now
+  keep a space from each other, and a narrow channel gets smaller spaces. A wire that turns before
+  the pin line of another output now goes before it. When only one order of two segments fits,
+  they take that order. On the main graph of computer, the wires on one line went from 320 to 0.
+  Five frontend unit tests check the nudge.
+- Two decoder outputs of **hex-7seg** in computer ran on one pin line for 50 px (fixed
+  2026-11-18). The nudge moved a segment before another and passed a third segment, which then
+  shared its pin line. Each move now counts all the segments that it passes, and a segment can
+  also move later in the order.
 - Another wire went through a type label, for example **f64** at the **A x B** node of hello (fixed
   2026-11-18). A label now hides where another wire with the automatic route goes through it. The
   shot checks that no wire goes through a label. A wire with its own route or a curve does not
@@ -827,6 +861,11 @@ domain free of locks. These limits are still open:
   default style has no segment bars (15.9). The **Default route** of the **Inspector** sets the
   graph default style (fixed 2026-11-17).
   **Bus** and the crossing bridges are not made. A wire with a fixed style can go under a node.
+- The segment at a pin stays on the line of the pin. Two buses at pins nearer than their width
+  overlap there, for example two buses of 40 px at pins 16 px apart in the main graph of computer.
+  Two pin lines of different outputs nearer than the gap can also cross at a bend, for example
+  at 2756, 120 in incrementer-8 of computer. The nudge cannot move them, and a cost in the A*
+  router for such lines made the other graphs worse. The shot does not report this case yet.
 - **Arrange** splits a tall column into up to 4 columns when the layout is more than twice as
   tall as wide (fixed 2026-11-17, before a wide layer made one tall column). With estimated node
   sizes, `rom-16x7` went from 2006 x 11472 px to 2596 x 5433 px. The router of the editor found a

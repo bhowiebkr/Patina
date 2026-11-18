@@ -17,6 +17,12 @@ export function onSegment([x, y]: Point, [x0, y0]: Point, [x1, y1]: Point): bool
   return t > 0 && t < 1 && Math.abs((x - x0) * dy - (y - y0) * dx) < 0.5 * Math.hypot(dx, dy);
 }
 
+/** The width and the height of the junction dot of a wire of `width`, a ring on a bus (canvas.css). */
+export const jointSize = (width: number) => (width > 2 ? width + 6 : 8);
+
+/** A junction dot: its center and its radius (15.9). */
+export type Dot = readonly [x: number, y: number, r: number];
+
 /**
  * The points where the paths of one output part (15.9): a point on 2 or more paths, with segments in
  * 3 or more directions. A path that goes out to a route point and back is not a junction.
@@ -44,40 +50,74 @@ export function junctions(paths: readonly (readonly Point[])[]): Point[] {
   return out;
 }
 
-/** An axis-aligned segment: the fixed coordinate, the low and the high end, and the index of its path. */
-type Run = readonly [at: number, lo: number, hi: number, path: number];
+/** An axis-aligned segment: the fixed coordinate, the low and the high end, its path, and the point index at each end. */
+type Run = readonly [at: number, lo: number, hi: number, path: number, kLo: number, kHi: number];
+
+/** The marks where the paths of two outputs cross, by path index. */
+export interface Crossings {
+  /** The gaps of the wires that go under. */
+  gaps: Map<number, Gap[]>;
+  /** The largest corner radius at each bend, for a path with a bend near a crossing. */
+  radii: Map<number, number[]>;
+}
 
 /**
- * The gaps where the paths of two outputs cross (15.9), by path index. The narrower wire goes under
- * and gets the gap. Of two wires of one width, the vertical wire goes under. The order comes from
- * the routes only, so a pan, a zoom or a selection does not change it.
+ * The crossings of the paths of two outputs (15.9). The narrower wire goes under and gets the gap.
+ * Of two wires of one width, the vertical wire goes under. A corner near a crossing gets a smaller
+ * radius, so both wires are straight over the gap. The order comes from the routes only, so a pan,
+ * a zoom or a selection does not change it.
  */
-export function crossingGaps(paths: readonly (readonly Point[])[], nets: readonly string[], widths: readonly number[]): Map<number, Gap[]> {
+export function crossings(paths: readonly (readonly Point[])[], nets: readonly string[], widths: readonly number[]): Crossings {
   const across: Run[] = [];
   const down: Run[] = [];
   paths.forEach((p, i) =>
     p.slice(1).forEach(([x1, y1], k) => {
       const [x0, y0] = p[k];
-      if (Math.abs(y1 - y0) < 0.5 && Math.abs(x1 - x0) >= 1) across.push([y0, Math.min(x0, x1), Math.max(x0, x1), i]);
-      else if (Math.abs(x1 - x0) < 0.5 && Math.abs(y1 - y0) >= 1) down.push([x0, Math.min(y0, y1), Math.max(y0, y1), i]);
+      if (Math.abs(y1 - y0) < 0.5 && Math.abs(x1 - x0) >= 1) across.push([y0, Math.min(x0, x1), Math.max(x0, x1), i, x0 < x1 ? k : k + 1, x0 < x1 ? k + 1 : k]);
+      else if (Math.abs(x1 - x0) < 0.5 && Math.abs(y1 - y0) >= 1) down.push([x0, Math.min(y0, y1), Math.max(y0, y1), i, y0 < y1 ? k : k + 1, y0 < y1 ? k + 1 : k]);
     }),
   );
-  const out = new Map<number, Gap[]>();
-  const add = (i: number, x: number, y: number, half: number) => {
-    const list = out.get(i) ?? [];
-    if (!list.some(([gx, gy]) => Math.abs(gx - x) < 0.5 && Math.abs(gy - y) < 0.5)) list.push([x, y, half]);
-    out.set(i, list);
-  };
-  for (const [y, x0, x1, i] of across) {
-    for (const [x, y0, y1, j] of down) {
-      if (nets[i] === nets[j] || x <= x0 || x >= x1 || y <= y0 || y >= y1) continue;
-      const under = widths[j] <= widths[i] ? j : i;
-      // The upper wire must be straight at the crossing, away from its rounded corners. The lower
-      // wire gets the gap only where its drawn path is straight (cutGap in wires.ts).
-      const r = cornerRadius(widths[under === j ? i : j]);
-      if (under === j ? x - x0 < r || x1 - x < r : y - y0 < r || y1 - y < r) continue;
-      add(under, x, y, widths[under === j ? i : j] / 2 + CLEAR);
+  const hits: [x: number, y: number, a: Run, d: Run][] = [];
+  for (const a of across) {
+    for (const d of down) {
+      const [[y, x0, x1, i], [x, y0, y1, j]] = [a, d];
+      if (nets[i] !== nets[j] && x > x0 && x < x1 && y > y0 && y < y1) hits.push([x, y, a, d]);
     }
   }
-  return out;
+  const radii = new Map<number, number[]>();
+  const limit = (i: number, k: number, r: number) => {
+    const p = paths[i];
+    if (k <= 0 || k >= p.length - 1 || r >= cornerRadius(widths[i])) return;
+    let list = radii.get(i);
+    if (!list) radii.set(i, (list = new Array<number>(p.length - 2).fill(Infinity)));
+    list[k - 1] = Math.min(list[k - 1], Math.max(0, r));
+  };
+  for (const [x, y, a, d] of hits) {
+    // The gap of the lower wire, and 1 px more, stays out of the rounded corners of both wires.
+    const room = Math.max(widths[a[3]], widths[d[3]]) / 2 + CLEAR + 1;
+    limit(a[3], a[4], x - a[1] - room);
+    limit(a[3], a[5], a[2] - x - room);
+    limit(d[3], d[4], y - d[1] - room);
+    limit(d[3], d[5], d[2] - y - room);
+  }
+  // The wires of one output that share a bend get one corner, so a trunk does not show two arcs.
+  const shared = new Map<string, number>();
+  const key = (i: number, v: Point) => `${nets[i]} ${v[0]} ${v[1]}`;
+  for (const [i, list] of radii) {
+    list.forEach((r, k) => shared.set(key(i, paths[i][k + 1]), Math.min(shared.get(key(i, paths[i][k + 1])) ?? Infinity, r)));
+  }
+  if (shared.size) paths.forEach((p, i) => p.forEach((v, k) => limit(i, k, shared.get(key(i, v)) ?? Infinity)));
+  const radius = (i: number, k: number) => Math.min(cornerRadius(widths[i]), radii.get(i)?.[k - 1] ?? Infinity);
+  const gaps = new Map<number, Gap[]>();
+  for (const [x, y, a, d] of hits) {
+    const [i, j] = [a[3], d[3]];
+    const under = widths[j] <= widths[i] ? j : i;
+    // The upper wire must be straight at the crossing, away from its rounded corners and its pins. The
+    // lower wire gets the gap only where its drawn path is straight (cutGap in wires.ts).
+    if (under === j ? x - a[1] < radius(i, a[4]) || a[2] - x < radius(i, a[5]) : y - d[1] < radius(j, d[4]) || d[2] - y < radius(j, d[5])) continue;
+    const list = gaps.get(under) ?? [];
+    if (!list.some(([gx, gy]) => Math.abs(gx - x) < 0.5 && Math.abs(gy - y) < 0.5)) list.push([x, y, widths[under === j ? i : j] / 2 + CLEAR]);
+    gaps.set(under, list);
+  }
+  return { gaps, radii };
 }

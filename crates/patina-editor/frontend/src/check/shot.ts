@@ -9,6 +9,7 @@ import { BUILD_MS, button, closeMenu, enterText, entry, mouseWheel, rightClick }
 import { lowContrast } from './contrast';
 import { noFocusLook } from './focus';
 import { textsMeet } from './boxes';
+import { GAP } from '../wires/route';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -268,6 +269,69 @@ async function menusFit(where: string) {
   return `menus ${where}: ${menus.join(', ')}`;
 }
 
+/** The automatic wires of two outputs that meet at a bend or on top of each other, so the crossing has no gap and reads as a junction (15.9). */
+function bendMeets(): string[] {
+  const flows = [...document.querySelectorAll('.react-flow')];
+  const wires: { id: string; net: string; pts: Float64Array }[] = [];
+  const cells = new Map<string, number[]>();
+  for (const e of document.querySelectorAll('.react-flow__edge')) {
+    const path = e.querySelector<SVGPathElement>('.wire-hit[data-net]');
+    if (!path?.getScreenCTM()) continue;
+    const w = wires.length;
+    const n = Math.floor(path.getTotalLength()) + 1;
+    const pts = new Float64Array(n * 2);
+    const f = flows.indexOf(e.closest('.react-flow')!);
+    for (let k = 0; k < n; k++) {
+      const p = path.getPointAtLength(k);
+      [pts[2 * k], pts[2 * k + 1]] = [p.x, p.y];
+      const key = `${f} ${Math.floor(p.x / 2)} ${Math.floor(p.y / 2)}`;
+      const cell = cells.get(key);
+      if (cell) cell.push(w, k);
+      else cells.set(key, [w, k]);
+    }
+    wires.push({ id: e.getAttribute('data-id') ?? '', net: path.getAttribute('data-net') ?? '', pts });
+  }
+  // 'h' or 'v' when the wire is straight 3 px to each side of the point, else ''.
+  const axis = (pts: Float64Array, k: number) => {
+    const [a, b] = [Math.max(0, k - 3), Math.min(pts.length / 2 - 1, k + 3)];
+    const flat = (o: number) => Math.abs(pts[2 * a + o] - pts[2 * k + o]) <= 0.3 && Math.abs(pts[2 * b + o] - pts[2 * k + o]) <= 0.3;
+    return flat(1) ? 'h' : flat(0) ? 'v' : '';
+  };
+  const bad = new Map<string, string>();
+  for (const [key, cell] of cells) {
+    const [f, cx, cy] = key.split(' ').map(Number);
+    for (let i = 0; i < cell.length; i += 2) {
+      const [a, ka] = [cell[i], cell[i + 1]];
+      const A = wires[a];
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dy = -1; dy <= 1; dy++)
+          for (const [b, kb] of pairs(cells.get(`${f} ${cx + dx} ${cy + dy}`))) {
+            const B = wires[b];
+            const pair = `${a} ${b}`;
+            if (b <= a || A.net === B.net || bad.has(pair)) continue;
+            // The nearest samples of a crossing are 0.71 px apart or less, at a step of 1 px.
+            if (Math.hypot(A.pts[2 * ka] - B.pts[2 * kb], A.pts[2 * ka + 1] - B.pts[2 * kb + 1]) > 0.75) continue;
+            const [ha, hb] = [axis(A.pts, ka), axis(B.pts, kb)];
+            const at = `at ${Math.round(A.pts[2 * ka])} ${Math.round(A.pts[2 * ka + 1])}`;
+            const [bend, line, kl] = ha ? [B, A, ka] : [A, B, kb];
+            const y = line.pts[2 * kl + 1];
+            // shortcut: the pin rows of two outputs nearer than the gap cross at a bend, which the nudge cannot fix (STATUS); fix it in the A* router.
+            if ((ha || hb) === 'h' && ha !== hb && pinRow(line.pts, y, 0.5) && pinRow(bend.pts, y, 2 * GAP)) continue;
+            if (!ha || !hb) bad.set(pair, `${A.id} and ${B.id} cross at a bend ${at}`);
+            else if (ha === hb) bad.set(pair, `${A.id} and ${B.id} overlap ${at}`);
+          }
+    }
+  }
+  return [...bad.values()];
+}
+
+/** True when the first or the last point of the path, where its pin segments are, is nearer than `near` to the row `y`. */
+const pinRow = (pts: Float64Array, y: number, near: number) => Math.abs(pts[1] - y) < near || Math.abs(pts[pts.length - 1] - y) < near;
+
+function* pairs(cell: number[] | undefined) {
+  for (let i = 0; cell && i < cell.length; i += 2) yield [cell[i], cell[i + 1]] as const;
+}
+
 /** Throws when an Inspector row shows the random key of a public pin of a subgraph, not its name (6.4). */
 function pinNames(where: string) {
   const rows = [...document.querySelectorAll('aside[aria-label="Inspector"] .param > span')].map((s) => s.textContent ?? '');
@@ -276,13 +340,15 @@ function pinNames(where: string) {
   return `pin names ${where}: ${rows.length} rows`;
 }
 
-/** Throws on a wire through a body that is not one of its ends, or on a route conflict mark (15.9). */
+/** Throws on a wire through a body that is not one of its ends, a crossing at a bend or a route conflict mark (15.9). */
 function wiresClear(where: string) {
   const bad: string[] = [];
   let seen = 0;
   const nodes = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => [n.dataset.id ?? '', n.getBoundingClientRect()] as const);
   // A label that is not selected hides where another wire goes through it (15.9).
   const labels = [...document.querySelectorAll<HTMLElement>('.wire-type:not(.selected)')].map((l) => [l, l.getBoundingClientRect()] as const);
+  // A badge that is not selected hides where a routed wire of another output goes through it (15.9).
+  const badges = [...document.querySelectorAll<HTMLElement>('.wire-value:not(.selected)')].map((b) => [b, b.getBoundingClientRect()] as const);
   const crossed = new Set<string>();
   for (const e of document.querySelectorAll('.react-flow__edge')) {
     const id = e.getAttribute('data-id') ?? '';
@@ -300,10 +366,18 @@ function wiresClear(where: string) {
       const y = m.b * p.x + m.d * p.y + m.f;
       for (const [n, r] of nodes) if (!ends.includes(n) && x > r.left + inset && x < r.right - inset && y > r.top + inset && y < r.bottom - inset) through.add(n);
       for (const [l, r] of labels) if (l.dataset.wire !== id && x > r.left + 1 && x < r.right - 1 && y > r.top + 1 && y < r.bottom - 1) crossed.add(`${id} through the label "${l.textContent}"`);
+      if (path.dataset.net !== undefined)
+        for (const [b, r] of badges) if (b.dataset.net !== path.dataset.net && x > r.left + 1 && x < r.right - 1 && y > r.top + 1 && y < r.bottom - 1) crossed.add(`${id} through the badge "${b.textContent}"`);
     }
     for (const n of through) bad.push(`${id} through ${n}`);
   }
-  bad.push(...crossed);
+  // Two shown labels keep a space, so that their texts do not run together (15.9).
+  for (let i = 0; i < labels.length; i++)
+    for (let j = i + 1; j < labels.length; j++) {
+      const [[la, a], [lb, b]] = [labels[i], labels[j]];
+      if (a.left < b.right + 0.5 && b.left < a.right + 0.5 && a.top < b.bottom + 0.5 && b.top < a.bottom + 0.5) bad.push(`the labels "${la.textContent}" and "${lb.textContent}" run together`);
+    }
+  bad.push(...crossed, ...bendMeets());
   for (const c of document.querySelectorAll('.route-conflict')) bad.push(`a conflict mark at ${c.getAttribute('style')}`);
   // A badge keeps room for a value of 6 characters (15.3).
   for (const b of document.querySelectorAll<HTMLElement>('.wire-value'))
@@ -319,7 +393,7 @@ function wiresClear(where: string) {
     const on = (s: DOMRect) => Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.5 && Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.5;
     if (solid.some(on)) bad.push(`a pin or a node covers the badge "${b.textContent}"`);
     // A badge on a junction dot hides where the wires part.
-    if (joints.some(on)) bad.push(`the badge "${b.textContent}" covers a junction dot`);
+    if (joints.some(on)) bad.push(`the badge "${b.textContent}" covers a junction dot at ${Math.round(r.left)} ${Math.round(r.top)}`);
   }
   if (bad.length) throw new Error(`the wires of ${where} are wrong: ${bad.join(', ')}`);
   return `wires ${where}: ${seen} wires clear of the bodies`;

@@ -327,7 +327,7 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
             return (
               <label key={w.index} className="gui-row">
                 <span className="label">{w.text}</span>
-                <select className="field gui-field" value={w.selected} disabled={disabled} onChange={(e) => send(w.index)(Number(e.currentTarget.value))}>
+                <select className="field gui-field" value={w.selected} title={w.options[w.selected]} disabled={disabled} onChange={(e) => send(w.index)(Number(e.currentTarget.value))}>
                   {w.options.map((o, i) => (
                     <option key={i} value={i}>
                       {o}

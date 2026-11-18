@@ -62,13 +62,14 @@ test('a badge on a pin or a node body hides, and a selected badge shows', () => 
 
 test('a badge on a junction dot hides', () => {
   const labels = new Labels();
-  labels.setDots([[100, 10]]);
-  // The dot has a radius of 4 px, so a badge 3 px from it covers its edge.
+  labels.setDots([[100, 10, 4], [100, 100, 5.5]]);
+  // The dot has a radius of 4 px, so a badge 3 px from it covers its edge. The ring of a bus is larger.
   labels.set('dot', null, box(57, 4), 2);
   labels.set('clear', null, box(50, 40), 2);
   labels.set('selected', null, box(80, 4), -1);
+  labels.set('ring', null, box(105, 94), 2);
   labels.compute();
-  assert.deepEqual(['dot', 'clear', 'selected'].map(labels.badgeHidden), [true, false, false]);
+  assert.deepEqual(['dot', 'clear', 'selected', 'ring'].map(labels.badgeHidden), [true, false, false, true]);
 });
 
 test('a type label hides with its badge, and a wire name stays', () => {
@@ -85,12 +86,41 @@ test('a type label hides with its badge, and a wire name stays', () => {
 
 test('a label hides where another wire goes through it, but not on its own wire', () => {
   const labels = new Labels();
-  const line = (points: [number, number][]) => ({ points, width: 2 });
+  const line = (points: [number, number][]) => ({ points, width: 2, net: '' });
   // The wire a goes through the label of b at y 10, and its own label at x 120.
-  labels.setLines(new Map([['a', line([[0, 10], [140, 10]])], ['b', line([[0, 40], [140, 40]])]]));
+  labels.setLines(new Map([['a', line([[0, 10], [140, 10]])], ['b', { ...line([[0, 40], [140, 40]]), net: 'b' }]]));
   labels.set('a', box(100, 0), null, 2);
   labels.set('b', box(20, 0), null, 2);
   labels.set('c', box(20, 60), null, 2);
   labels.compute();
   assert.deepEqual(['a', 'b', 'c'].map(labels.hidden), [false, true, false]);
+});
+
+test('a badge hides where a wire of another output goes through it, but not a wire of its own output', () => {
+  const labels = new Labels();
+  const line = (net: string, points: [number, number][]) => ({ points, width: 2, net });
+  // The badges are 18 px high on their wires at y 0. The wire c crosses the badge of a; the line at y 10 only touches the badge of d.
+  labels.setLines(new Map([
+    ['a', line('n', [[0, 0], [200, 0]])],
+    ['b', line('n', [[50, 0], [50, 100]])],
+    ['c', line('m', [[30, -50], [30, 50]])],
+    ['d', line('k', [[300, 0], [500, 0]])],
+    ['e', line('j', [[300, 10], [500, 10]])],
+  ]));
+  labels.set('a', null, box(20, -9, 40, 18), 2);
+  labels.set('b', null, box(40, 50, 40, 18), 2);
+  labels.set('d', null, box(380, -9, 40, 18), 2);
+  labels.compute();
+  assert.deepEqual(['a', 'b', 'd'].map(labels.badgeHidden), [true, false, false]);
+});
+
+test('a label hides when a shown label is too near, so the two texts do not run together', () => {
+  const labels = new Labels();
+  // The labels at 0 and 42 have 2 px between them; the label at 150 has 10 px from the label at 100.
+  labels.set('a', box(0, 0), null, 0);
+  labels.set('b', box(42, 0), null, 0);
+  labels.set('c', box(100, 0), null, 0);
+  labels.set('d', box(150, 0), null, 0);
+  labels.compute();
+  assert.deepEqual(['a', 'b', 'c', 'd'].map(labels.hidden), [false, true, false, false]);
 });

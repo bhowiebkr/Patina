@@ -30,6 +30,8 @@ const NO_ROUTE: readonly Point[] = [];
 export interface Shape {
   bends: readonly Point[];
   radius: number;
+  /** The largest radius at each bend, where a crossing is near (marks.ts). */
+  radii?: readonly number[];
 }
 /** The radius of a smooth curve through the bends. */
 export const SMOOTH = -1;
@@ -43,11 +45,15 @@ export const cornerRadius = (width: number) => Math.max(CORNER_RADIUS, width / 2
  * with no points is curved, and a wire with points is a polyline. A wide ribbon gets a larger
  * corner, so its inner lane does not fold.
  */
-export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Path, corners?: Corners, width = 0): Shape {
+export function shape(sx: number, sy: number, tx: number, ty: number, route: readonly Point[], style?: Path, corners?: Corners, width = 0, radii?: readonly number[]): Shape {
   if (style === 'curved' || (style === undefined && route.length === 0)) return { bends: route, radius: SMOOTH };
   const radius = corners === 'sharp' ? 0 : cornerRadius(width);
-  return { bends: style === 'orthogonal' ? orthogonal(sx, sy, tx, ty, route) : route, radius };
+  if (style === 'orthogonal') return { bends: orthogonal(sx, sy, tx, ty, route), radius };
+  return radii ? { bends: route, radius, radii } : { bends: route, radius };
 }
+
+/** The corner radius at bend k (1 is the first bend). */
+const radiusAt = ({ radius, radii }: Shape, k: number) => (radii && k <= radii.length ? Math.min(radius, radii[k - 1]) : radius);
 
 /**
  * The bends of an orthogonal path: horizontal at the pins, with an elbow before each route point
@@ -254,13 +260,13 @@ export function wirePath(sx: number, sy: number, tx: number, ty: number, shape: 
     return d;
   }
   for (let k = 1; k <= bends.length; k++) {
-    if (sbend(sx, sy, tx, ty, bends, k, radius)) {
+    if (sbend(sx, sy, tx, ty, bends, k, Math.min(radiusAt(shape, k), radiusAt(shape, k + 1)))) {
       d += `L${jog[0]} ${jog[1]}Q${jog[2]} ${jog[3]} ${jog[4]} ${jog[5]}Q${jog[6]} ${jog[7]} ${jog[8]} ${jog[9]}`;
       k++;
       continue;
     }
     const [vx, vy] = bends[k - 1];
-    d += corner(sx, sy, tx, ty, bends, k, radius) ? `L${cut[0]} ${cut[1]}Q${vx} ${vy} ${cut[2]} ${cut[3]}` : `L${vx} ${vy}`;
+    d += corner(sx, sy, tx, ty, bends, k, radiusAt(shape, k)) ? `L${cut[0]} ${cut[1]}Q${vx} ${vy} ${cut[2]} ${cut[3]}` : `L${vx} ${vy}`;
   }
   return `${d}L${tx} ${ty}`;
 }
@@ -382,14 +388,14 @@ export function wirePoints(sx: number, sy: number, tx: number, ty: number, shape
   }
   const steps = Math.min(CORNER_POINTS, Math.floor((MAX_POINTS - 2) / Math.max(1, last)));
   for (let k = 1; k <= last; k++) {
-    if (steps >= 2 && k < last && sbend(sx, sy, tx, ty, bends, k, radius)) {
+    if (steps >= 2 && k < last && sbend(sx, sy, tx, ty, bends, k, Math.min(radiusAt(shape, k), radiusAt(shape, k + 1)))) {
       n = quad(out, at, n, steps, 0, jog[0], jog[1], jog[2], jog[3], jog[4], jog[5]);
       n = quad(out, at, n, steps, 1, jog[4], jog[5], jog[6], jog[7], jog[8], jog[9]);
       k++;
       continue;
     }
     const [vx, vy] = bends[k - 1];
-    if (steps < 2 || !corner(sx, sy, tx, ty, bends, k, radius)) {
+    if (steps < 2 || !corner(sx, sy, tx, ty, bends, k, radiusAt(shape, k))) {
       n = put(out, at, n, vx, vy);
       continue;
     }

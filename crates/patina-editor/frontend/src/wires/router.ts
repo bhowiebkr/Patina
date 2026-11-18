@@ -1,7 +1,7 @@
 // The routes of the wires of one graph view (spec 15.9): the full paths, the conflicts and the marks.
 
 import type { Point } from '../api';
-import { crossingGaps, junctions, type Gap } from './marks.ts';
+import { crossings, jointSize, junctions, type Dot, type Gap } from './marks.ts';
 import { nudge } from './nudge.ts';
 import { MARGIN, routeNets, type Leg, type Rect, type WireIn } from './route.ts';
 
@@ -61,6 +61,7 @@ export function conflictAt(path: readonly Point[], rects: readonly Rect[]): Poin
 export interface Line {
   points: readonly Point[];
   width: number;
+  net: string;
 }
 
 const samePoints = (a: readonly Point[], b: readonly Point[]) => a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1]);
@@ -78,9 +79,10 @@ export class Router {
   private conflicts = new Set<string>();
   private marks = new Map<string, Point>();
   private joints = new Map<string, readonly Point[]>();
-  private allJoints: readonly Point[] = [];
+  private allJoints: readonly Dot[] = [];
   private lines: ReadonlyMap<string, Line> = new Map();
   private cuts = new Map<string, readonly Gap[]>();
+  private corners = new Map<string, readonly number[]>();
   private listeners = new Set<() => void>();
   private queued = false;
   private moved = false;
@@ -115,13 +117,16 @@ export class Router {
   junctions = (id: string): readonly Point[] | undefined => this.joints.get(id);
 
   /** The junction marks of all outputs, the same array until one moves (15.9). */
-  allJunctions = (): readonly Point[] => this.allJoints;
+  allJunctions = (): readonly Dot[] => this.allJoints;
 
   /** The full paths of all routed wires, the same map until one moves (15.9). */
   allLines = (): ReadonlyMap<string, Line> => this.lines;
 
   /** The gaps of a wire where it goes under a wire of another output (15.9). */
   gaps = (id: string): readonly Gap[] | undefined => this.cuts.get(id);
+
+  /** The largest corner radius at each bend of a wire with a bend near a crossing (15.9), or undefined. */
+  radii = (id: string): readonly number[] | undefined => this.corners.get(id);
 
   subscribe = (f: () => void) => {
     this.listeners.add(f);
@@ -161,7 +166,7 @@ export class Router {
       const was = this.lines.get(id);
       return was === undefined || was.width !== this.wires.get(id)!.width || !samePoints(was.points, paths[i]);
     });
-    if (linesMoved) this.lines = new Map(ids.map((id, i) => [id, { points: paths[i], width: this.wires.get(id)!.width }]));
+    if (linesMoved) this.lines = new Map(ids.map((id, i) => [id, { points: paths[i], width: this.wires.get(id)!.width, net: this.wires.get(id)!.net }]));
     const out = new Map<string, readonly Point[]>();
     const marks = new Map<string, Point>();
     let changed = linesMoved || ids.length !== this.out.size || this.conflicts.size !== this.marks.size;
@@ -197,21 +202,34 @@ export class Router {
       jointsMoved ||= !same;
     }
     jointsMoved ||= joints.size !== this.joints.size;
-    if (jointsMoved) this.allJoints = [...joints.values()].flat();
+    if (jointsMoved)
+      this.allJoints = [...joints].flatMap(([id, at]) => {
+        const r = jointSize(this.wires.get(id)!.width) / 2;
+        return at.map(([x, y]) => [x, y, r] as const);
+      });
     changed ||= jointsMoved;
     const ws = ids.map((id) => this.wires.get(id)!);
     const cuts = new Map<string, readonly Gap[]>();
-    for (const [i, at] of crossingGaps(paths, ws.map((w) => w.net), ws.map((w) => w.width))) {
+    const { gaps, radii } = crossings(paths, ws.map((w) => w.net), ws.map((w) => w.width));
+    for (const [i, at] of gaps) {
       const was = this.cuts.get(ids[i]);
       const same = was !== undefined && was.length === at.length && was.every((g, k) => g.every((v, n) => v === at[k][n]));
       cuts.set(ids[i], same ? was : at);
       changed ||= !same;
     }
-    changed ||= cuts.size !== this.cuts.size;
+    const corners = new Map<string, readonly number[]>();
+    for (const [i, at] of radii) {
+      const was = this.corners.get(ids[i]);
+      const same = was !== undefined && was.length === at.length && was.every((r, k) => r === at[k]);
+      corners.set(ids[i], same ? was : at);
+      changed ||= !same;
+    }
+    changed ||= cuts.size !== this.cuts.size || corners.size !== this.corners.size;
     this.out = out;
     this.marks = marks;
     this.joints = joints;
     this.cuts = cuts;
+    this.corners = corners;
     if (changed) for (const f of this.listeners) f();
   }
 }

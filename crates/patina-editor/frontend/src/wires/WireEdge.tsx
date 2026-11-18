@@ -10,6 +10,7 @@ import { dragRoute } from '../canvas/frames';
 import type { NodeData } from '../canvas/NodeView';
 import { HoverContext, PITCH, busLabel, busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
 import { FAR_ZOOM } from './gl';
+import { jointSize } from './marks';
 import { RouteHandles, SegmentHandles } from './RouteHandles';
 import type { WireIn } from './route';
 import type { Router } from './router';
@@ -78,12 +79,12 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
   const auto = style === undefined;
   const width = wireWidth(bits);
   const wire = auto ? { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, via: route, net, width } : null;
-  const { routed, conflict, joints, gaps } = useAutoRoute(router, id, wire);
+  const { routed, conflict, joints, gaps, radii } = useAutoRoute(router, id, wire);
   // The style of the drawn path. An automatic wire is orthogonal until the router gives its bends.
   const drawn = auto ? (routed ? 'polyline' : 'orthogonal') : style;
   const path = useMemo(
-    () => shape(sourceX, sourceY, targetX, targetY, (auto && routed) || route, drawn, corners, width),
-    [auto, sourceX, sourceY, targetX, targetY, routed, route, drawn, corners, width],
+    () => shape(sourceX, sourceY, targetX, targetY, (auto && routed) || route, drawn, corners, width, routed && radii),
+    [auto, sourceX, sourceY, targetX, targetY, routed, route, drawn, corners, width, radii],
   );
   useLayoutEffect(
     () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross, gaps, taper),
@@ -165,7 +166,7 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
       {/* shortcut: the SVG fallback has no crossing gaps (15.9); add a mask when the fallback is more than a lost context. */}
       <path className={cross ? 'wire-line cross' : 'wire-line'} d={d} />
       {wave && <path className={old ? 'wire-wave stale' : 'wire-wave'} d={wave} />}
-      <path ref={hitRef} className="wire-hit" d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
+      <path ref={hitRef} className="wire-hit" data-net={auto && routed ? net : undefined} d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
       {layer && createPortal(
         <>
           {tip && (
@@ -201,12 +202,13 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
               key={`${x} ${y}`}
               className={width > 2 ? 'wire-joint bus' : 'wire-joint'}
               aria-hidden
-              style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`, ...(width > 2 && { width: width + 6, height: width + 6 }) }}
+              style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`, ...(width > 2 && { width: jointSize(width), height: jointSize(width) }) }}
             />
           ))}
           {badge !== undefined && !badgeCovered && (
             <div
               className={`wire-value${old ? ' stale' : ''}${selected ? ' selected' : ''}`}
+              data-net={net}
               style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, -50%)`, maxWidth: badgeRoom }}
             >
               {badge}
@@ -227,7 +229,7 @@ const NO_WIRE: WireIn = { sx: 0, sy: 0, tx: 0, ty: 0, via: [], net: '', width: 0
 
 /**
  * Gives a wire with the graph default look to the router (15.9). A wire with its own look is null.
- * It returns the bends, the conflict mark, the joints and the crossing gaps of the wire.
+ * It returns the bends, the conflict mark, the joints, the crossing gaps and the corner radii of the wire.
  */
 function useAutoRoute(router: Router, id: string, wire: WireIn | null) {
   const auto = wire !== null;
@@ -241,5 +243,6 @@ function useAutoRoute(router: Router, id: string, wire: WireIn | null) {
   const conflict = useSyncExternalStore(router.subscribe, () => (auto ? router.conflict(id) : undefined));
   const joints = useSyncExternalStore(router.subscribe, () => (auto ? router.junctions(id) : undefined));
   const gaps = useSyncExternalStore(router.subscribe, () => (auto ? router.gaps(id) : undefined));
-  return { routed, conflict, joints, gaps };
+  const radii = useSyncExternalStore(router.subscribe, () => (auto ? router.radii(id) : undefined));
+  return { routed, conflict, joints, gaps, radii };
 }
