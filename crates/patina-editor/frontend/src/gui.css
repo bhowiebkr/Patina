@@ -63,6 +63,7 @@
 }
 
 html.native-viewport,
+html.native-viewport #root,
 html.native-viewport :has(.gui-viewport),
 html.native-viewport .gui-viewport {
   background: transparent;

@@ -2785,6 +2785,7 @@ dependencies = [
  "dirs",
  "patina-engine",
  "patina-sdk",
+ "png",
  "rfd",
  "serde",
  "serde_json",
@@ -2792,6 +2793,7 @@ dependencies = [
  "tauri-build",
  "toml 1.2.1+spec-1.1.0",
  "webview2-com",
+ "windows",
 ]
 
 [[package]]

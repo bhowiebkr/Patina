@@ -400,7 +400,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   also in a parallel run (fixed 2026-11-17). A unit test checks the parallel rule. The crashes of
   the self-check run on one thread.
   A thread that a node starts is not in a run. A Rust abort skips the handler.
-- Nobody looked at a viewport of the node process on screen. The probe ran on a hidden desktop.
+- The shot captures the viewport of the node process in the composed window (fixed 2026-11-18).
+  It ran on a hidden desktop. Nobody looked at it on the screen of the owner.
 - A closed project ends its node process and rust-analyzer with their child processes, so no
   file of the project stays open (fixed 2026-11-17). The lock of a project folder that the owner
   saw did not reproduce here, so its cause is not proven.
@@ -463,8 +464,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   that only the parents of the viewport are under 49 points of it, and captures
   `view-<name>.png`. The shot has a limit of 360 s. Computer took 163 s, and one run under load
   took more than 180 s. All three examples pass.
-- Nobody looked at a viewport in the editor yet. The self-check keeps its window hidden, so it
-  cannot show the surface. The colors, the resize and the scroll clip need a check on screen.
+- No viewport showed in the editor (fixed 2026-11-18). The `#root` background of the page was
+  opaque and covered the surface since the first editor. The shot now checks that no parent of
+  the viewport has a background. It captures the composed window with PrintWindow and checks
+  that the view drew 90 % or more of its viewport. The scene of gpu and the monitor of computer
+  pass. The resize and the scroll clip need a check on screen.
 - A viewport draws in the `ui` call on the engine thread, so a slow run delays its frames.
 - On 2026-11-15, the in-process run of `the_gpu_example_draws_a_gradient_with_a_wesl_shader`
   failed one time in a parallel test run. Four more parallel runs passed. A second failure gave

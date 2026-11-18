@@ -57,20 +57,28 @@ pub fn check_resize(window: WebviewWindow, editor: State<'_, Editor>, width: f64
     window.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())
 }
 
-/// Writes a screenshot of the page to `<check folder>/<name>.png`, only in the self-check.
+/// Writes a screenshot of the page to `<check folder>/<name>.png`, only in the self-check. With
+/// `area` (physical pixels), the image is of the composed window, so it shows a viewport (15.8),
+/// and the result is the part of the area that the view drew.
 #[tauri::command(async)]
-pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String) -> Result<(), String> {
+pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String, area: Option<[f64; 4]>) -> Result<Option<f64>, String> {
     let Some(dir) = &editor.check else { return Err("capture runs only in the self-check".to_owned()) };
     if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err(format!("bad screenshot name {name}"));
     }
     #[cfg(windows)]
     {
-        let png = crate::shot::capture(&window)?;
+        let (png, colors) = match area {
+            Some(area) => crate::shot::print_window(&window, area).map(|(png, n)| (png, Some(n)))?,
+            None => (crate::shot::capture(&window)?, None),
+        };
         std::fs::write(dir.join(format!("{name}.png")), png).map_err(|e| e.to_string())?;
+        Ok(colors)
     }
     // shortcut: screenshots work on Windows only; add a path for Linux when the check runs there.
     #[cfg(not(windows))]
-    let _ = (window, dir);
-    Ok(())
+    {
+        let _ = (window, dir, area);
+        Ok(None)
+    }
 }

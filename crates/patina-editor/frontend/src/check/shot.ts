@@ -457,10 +457,18 @@ async function openView(name: string) {
         const under = document.elementsFromPoint(r.left + (r.width * i) / 8, r.top + (r.height * j) / 8).find((e) => !e.contains(area));
         if (under) throw new Error(`a ${under.tagName} ${under.getAttribute('class')} covers the viewport of the view ${name} at ${i}/8, ${j}/8`);
       }
+    for (let e: Element | null = area; e; e = e.parentElement) {
+      const bg = getComputedStyle(e);
+      if (bg.backgroundImage !== 'none' || !/^(transparent|rgba\(.*, 0\))$/.test(bg.backgroundColor))
+        throw new Error(`the ${e.tagName} ${e.id || e.getAttribute('class')} has a background over the viewport of the view ${name}`);
+    }
   }
   if (known) await wait(() => known.shows.test(text()), () => `the view ${name} shows: ${text()}`);
   await sleep(500);
-  await api.capture(`view-${name}`);
+  const r = area?.getBoundingClientRect();
+  const drawn = await api.capture(`view-${name}`, r && [r.left, r.top, r.width, r.height].map((v) => v * devicePixelRatio));
+  // The composed window shows the surface of the view through the page (15.8).
+  if (r && drawn !== null && drawn < 0.9) throw new Error(`the view ${name} drew ${Math.round(drawn * 100)} % of its viewport in the window`);
   const a = panel()!;
   const b = a.getBoundingClientRect();
   const bad: string[] = [];
