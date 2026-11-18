@@ -1,7 +1,7 @@
 // The Inspector (spec 15.5): the parameters, the code and the logs of the selected node, in a
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
-import { lazy, Suspense, useContext, useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useContext, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { KindIcon } from '../controls/icons';
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
@@ -118,12 +118,15 @@ interface WireProps {
 /** A selected wire: its ends, its look and the full text and widgets of its live value (15.7, 15.9). */
 function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
   const [full, setFull] = useState<{ from: string; value: Value | null } | null>(null);
+  const asks = useRef({ sent: 0, shown: 0 });
   useEffect(() => {
-    let current = true;
-    api.value(from).then((value) => current && setFull({ from, value }), reportError);
-    return () => {
-      current = false;
-    };
+    // A live run can change the values before the answer comes, so each answer that is newer than the shown one stays.
+    const n = ++asks.current.sent;
+    api.value(from).then((value) => {
+      if (n < asks.current.shown) return;
+      asks.current.shown = n;
+      setFull({ from, value });
+    }, reportError);
   }, [from, run.values]);
   const end = (key: string) => {
     const dot = key.indexOf('.');

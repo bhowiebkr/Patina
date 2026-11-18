@@ -590,7 +590,14 @@ domain free of locks. These limits are still open:
   The glue, load, sink and frame tests check the widget lines. The cluster makes the widget lines
   of each probed value at each run, also when no **Inspector** shows them. The selfcheck selects a
   wire with a `Viewer` value and sees its text, thumbnail and waveform in the **Inspector**
-  (2026-11-18). No example type has widgets yet, and no hand test showed them.
+  (2026-11-18).
+- The `frame` type of the computer example gives a thumbnail, the screen as an image and a plot
+  of the colors (2026-11-18). A hidden `--shot` run selects a frame wire in computer and an image
+  wire in gpu, and waits for the thumbnail and the screen image in the **Inspector**. A node with
+  a free layout or a symbol shows no thumbnail. No hand test showed the widgets.
+- In a live run, the **Inspector** keeps the newest answer of its value requests (fixed
+  2026-11-18). Before, each frame cancelled the request, so a fast graph showed only the badge
+  text and no widgets.
 - An audio wire draws the wave of its `AudioBlock` and moves with each frame (5.3, 15.9,
   2026-11-17). The glue, outcome, frame and page tests check the wave text and the path. The
   editor selfcheck sees the wave change between two frames. No person looked at it on screen. A

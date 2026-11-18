@@ -3,6 +3,8 @@
 // subgraph through a use, so the screenshot shows the live values of that use (15.9).
 
 import { api, onEngine, type EngineEvent, type View } from '../api';
+import { changeLayout } from '../panels/Dock';
+import { openPanel } from '../panels/layout';
 import { mouseWheel } from './check-fixtures';
 
 const LIMIT_MS = 150_000;
@@ -52,6 +54,30 @@ async function poke({ from, path, to, also }: Poke) {
   return true;
 }
 
+/** The outputs of the examples with a `Viewer` thumbnail, and the image labels of the Inspector: the frame of the computer GPU with its screen widget, and the image of the gpu gradient. */
+const VIEWED: { from: string; shows: RegExp }[] = [
+  { from: 'ad357059907f778c.out0', shows: /^Value: 32 x 32 pixels, Screen: 32 x 32 pixels$/ },
+  { from: '1a2b3c4d5e6f7081.out', shows: /^Value: 64 x 16 pixels$/ },
+];
+
+/** Selects the first wire from an output of `VIEWED`, and waits for the thumbnail and the widgets of its Viewer in the Inspector (5.3). Returns the labels, or undefined when the graph has no such wire. */
+async function inspectThumb() {
+  const viewed = VIEWED.find(({ from }) => document.querySelector(`.react-flow__edge[data-id^="${from}>"]`));
+  const hit = viewed && document.querySelector<SVGPathElement>(`.react-flow__edge[data-id^="${viewed.from}>"] .wire-hit`);
+  if (!hit) return undefined;
+  changeLayout((l) => openPanel(l, 'inspector'));
+  const p = hit.getPointAtLength(hit.getTotalLength() / 2);
+  const m = hit.getScreenCTM()!;
+  hit.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: m.a * p.x + m.c * p.y + m.e, clientY: m.b * p.x + m.d * p.y + m.f }));
+  const shown = () => [...document.querySelectorAll('aside[aria-label="Inspector"] canvas.gui-image')].map((c) => c.getAttribute('aria-label'));
+  const end = Date.now() + 30_000;
+  while (!viewed.shows.test(shown().join(', '))) {
+    if (Date.now() > end) throw new Error(`the Inspector of the wire from ${viewed.from} shows: ${shown().join(', ')}`);
+    await sleep(100);
+  }
+  return shown().join(', ');
+}
+
 export async function runShot(project: string, show: (v: View) => void, open: Open) {
   const events: EngineEvent[] = [];
   const stop = await onEngine((e) => events.push(e));
@@ -99,6 +125,12 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       await sleep(500);
       await api.capture('main-poke');
       steps.push('main-poke');
+    }
+    const inspected = await inspectThumb();
+    if (inspected) {
+      steps.push(`inspect ${inspected}`);
+      await api.capture('main-inspect');
+      steps.push('main-inspect');
     }
     // Depth first: open each subgraph one time, through its first use, then go back.
     const visit = async (graph: View, path: [string, string][]) => {

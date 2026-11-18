@@ -40,6 +40,9 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 - **IO devices.** The CPU reads a `keyboard`, a `random`, a `joystick` and the pixels of the `gpu`. It
   writes a `terminal`, a `gpu` and a `sprites` chip on its IO ports. The `screen` shows the 32 x 32
   frame with the sprites.
+- **A type with a viewer.** Select a frame wire, for example the wire from the `gpu` node. The
+  **Inspector** shows the screen as a thumbnail, the screen larger, and a plot of the pixels of
+  each color.
 - **A view on the GPU.** Open **monitor** from the **Views** menu. The view draws the screen with
   `wgpu`, with a dark gap between the pixels.
 
