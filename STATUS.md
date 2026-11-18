@@ -223,6 +223,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   the self-check run on one thread.
   A thread that a node starts is not in a run. A Rust abort skips the handler.
 - Nobody looked at a viewport of the node process on screen. The probe ran on a hidden desktop.
+- A closed project ends its node process and rust-analyzer with their child processes, so no
+  file of the project stays open (fixed 2026-11-17). The lock of a project folder that the owner
+  saw did not reproduce here, so its cause is not proven.
 - The editor and the node process both check the graph of each run.
 - A crash outside a run shows on the serial of the last run or open.
 - Node code that nests deeper than about 1000 levels still overflows the parse stack in a debug

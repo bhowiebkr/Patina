@@ -4,7 +4,7 @@
 
 pub mod child;
 #[cfg(windows)]
-mod job;
+pub mod job;
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -188,10 +188,20 @@ impl Host {
         }
     }
 
-    /// Drops the loaded cluster when project `serial` opens.
+    /// Ends the node process of the last project when project `serial` opens.
     pub fn unload(&self, serial: u64) {
         lock(&self.0.state).serial = serial;
-        self.send(Job::Unload);
+        self.end();
+    }
+
+    /// Ends the node process and each process that it started, when a project closes. So no file
+    /// of the project stays open, and the user can delete the project folder (16.1).
+    pub fn end(&self) {
+        let Some(proc) = lock(&self.0.state).proc.take() else { return };
+        proc.killed.store(true, Ordering::SeqCst);
+        if let Err(e) = lock(&proc.child).kill() {
+            eprintln!("patina: the node process does not end: {e}");
+        }
     }
 
     /// Clears the stop request before a run (15.2).

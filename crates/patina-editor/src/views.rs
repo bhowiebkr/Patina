@@ -149,12 +149,6 @@ impl Views {
         self.open.retain(|(_, open, _)| open != instance);
         self.cancel(out, |b| b.instance == instance, "The panel closed.");
     }
-
-    /// Drops all instances and builds, for example when the project closes.
-    pub fn clear(&mut self, out: &Out) {
-        self.open.clear();
-        self.cancel(out, |_| true, "The project closed.");
-    }
 }
 
 /// Builds view `name` of the project `root` in a background thread. Builds run one at a time.

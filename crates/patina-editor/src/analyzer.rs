@@ -22,6 +22,9 @@ struct Running {
     stdin: ChildStdin,
     /// The number of this start. The messages of an older process carry an older number.
     serial: u64,
+    /// When it drops, the processes that rust-analyzer started end too, for example `cargo check`.
+    #[cfg(windows)]
+    _job: Option<crate::node_process::job::Job>,
 }
 
 /// A message of rust-analyzer to the page. No text means that the process stopped.
@@ -77,6 +80,9 @@ fn start(app: AppHandle, editor: &Editor) -> Result<u64, String> {
     let (Some(stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
         return Err("rust-analyzer has no pipes.".to_owned());
     };
+    // rust-analyzer starts no process before the first message, so the job is in time.
+    #[cfg(windows)]
+    let job = crate::node_process::job::Job::new(&child, None).inspect_err(|e| eprintln!("rust-analyzer has no job object: {e}")).ok();
     let serial = SERIAL.fetch_add(1, Ordering::Relaxed) + 1;
     std::thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
@@ -85,7 +91,13 @@ fn start(app: AppHandle, editor: &Editor) -> Result<u64, String> {
         }
         let _ = app.emit("analyzer", Message { serial, text: None });
     });
-    *slot = Some(Running { child, stdin, serial });
+    *slot = Some(Running {
+        child,
+        stdin,
+        serial,
+        #[cfg(windows)]
+        _job: job,
+    });
     Ok(serial)
 }
 

@@ -33,8 +33,6 @@ pub enum Job {
     /// Only the node process makes it, from the parts of the checked graph (16.1).
     #[serde(skip)]
     Run(Box<Run>),
-    /// Drops the cluster, for example when the project closes.
-    Unload,
     /// Ends the frame run (9.1). **Pause** and **Stop** send it.
     Pause,
     /// Ends the frame run, and runs one frame of the last run (9.1). **Step** sends it.
@@ -321,12 +319,6 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
         let mut batch = Batch::default();
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
-                Job::Unload => {
-                    (loaded, batch.newest, batch.build, last, fuse.at, framed) = (None, None, false, None, None, false);
-                    fuse.change();
-                    views.clear(out);
-                    shared.clear();
-                }
                 Job::Run(run) => batch.run(run, shared, &mut fuse),
                 Job::Pause | Job::Step => {
                     batch.pause(matches!(job, Job::Step));

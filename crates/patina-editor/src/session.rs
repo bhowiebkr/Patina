@@ -211,7 +211,7 @@ impl Editor {
         {
             eprintln!("{e}");
         }
-        self.engine.send(Job::Unload);
+        self.engine.end();
     }
 
     /// Applies a change to the graph or the code, then sends the graph to the engine when it is
