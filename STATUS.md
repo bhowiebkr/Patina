@@ -217,7 +217,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   of common errors (2026-11-18). The **Output** panel has the same highlight. A unit test checks
   the highlight parts. The **Debug** panel is a timeline with no text, so it has no highlight.
 - A lost parameter does not block a load, a paste or a run (2026-11-18). The node shows it with
-  an **x** that deletes it. An engine test checks that it is no problem.
+  an **x** that deletes it. An engine test checks that it is no problem. The self-check clicks the
+  **x** on a free knob and undoes the delete.
 - The **Code** tab highlights TOML, and the **About** dialog has the GitHub page (2026-11-18).
 - Known limits: **Delete** in the **Project** panel shows an error on Linux and macOS.
 
@@ -227,8 +228,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   The self-check clicks the menu entry and the **Delete** answer.
 - The doc comment of a node is its description (2026-11-18). The node header, the palette and
   the **Project** panel show it as a tooltip, and the **Inspector** shows it as text. The engine
-  test reads it. No check looks at the tooltips.
-- The **Code** tab has a **Save** button (2026-11-18).
+  test reads it. The self-check reads the tooltips of a free node caption and of its **Project**
+  item. No check looks at the palette tooltip.
+- The **Code** tab has a **Save** button (2026-11-18). The self-check fixes a slot error with it,
+  and checks that it is off when no file has changes.
 - When the rustup toolchain has no rust-analyzer, the editor adds it with rustup (2026-11-18).
   No check ran this install.
 - `#[node(free_layout)]` makes the GUI the whole node, with its own shape and pin places

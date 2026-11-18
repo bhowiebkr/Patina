@@ -144,11 +144,19 @@ fn broken() -> u32 {
   v = await step('break the slot', () => api.edit({ kind: 'SetCode', path: lib, text: slotError }));
   const slotBroken = await result(v, from, '2.5', BUILD_MS);
   if (!slotBroken.errors.some((e) => e.file === lib)) throw new Error(`no compile error in the slot: ${JSON.stringify(slotBroken.errors)}`);
+  // The Save button of the Code tab is on only while a file of the node has changes.
+  const saveButton = () => [...document.querySelectorAll<HTMLButtonElement>('.code-tab .code-bar .btn')].find((b) => b.textContent === 'Save');
+  await until('the slot error in the Code tab', RUN_MS, () => bufferOf(lib)?.getValue() === slotError && saveButton()?.disabled === true);
+  bufferOf(lib)!.setValue(stoppable);
+  await until('the Save button on', RUN_MS, () => saveButton()?.disabled === false);
   from = mark();
-  v = await step('fix the slot', () => api.edit({ kind: 'SetCode', path: lib, text: stoppable }));
+  saveButton()!.click();
   const slotFixed = await result(v, from, '2.5', BUILD_MS);
   if (!slotFixed.slotOnly || slotFixed.errors.length > 0) throw new Error(`the save after a slot error built all: ${JSON.stringify(slotFixed.errors)}`);
-  await until('no compile error on the node', RUN_MS, () => document.querySelector('.patina-node.compile-error') === null);
+  await until('no compile error on the node and the Save button off', RUN_MS, () =>
+    document.querySelector('.patina-node.compile-error') === null && saveButton()?.disabled === true,
+  );
+  steps.push('fix the slot with the Save button');
 
   const nodeClass = (id: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .patina-node`)?.classList;
   const endOf = async (v: View, from: number) => {

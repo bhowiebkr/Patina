@@ -7,6 +7,7 @@ import { BUILD_MS, RUN_MS, entry, leftTab, nodeToml, rightClick, type CheckConte
 /** A knob with a free layout. A drag to the right turns it up by 0.01 for each pixel, and a run prints its value. */
 const KNOB_NODE = `use patina_sdk::{Pointer, Ui, node};
 
+/// A knob that the self-check turns.
 #[node(free_layout)]
 pub struct Knob {
     value: f64,
@@ -64,6 +65,8 @@ export async function checkFree({ step, until, result, mark, steps }: CheckConte
       edits: [
         { kind: 'AddNode', id: K, folder: 'nodes/knob', pos: [0, 320] },
         { kind: 'SetParam', id: K, key: 'value', text: '0.25' },
+        // The knob has no input `gone`, so the parameter is lost.
+        { kind: 'SetParam', id: K, key: 'gone', text: '1' },
       ],
     }),
   );
@@ -80,6 +83,16 @@ export async function checkFree({ step, until, result, mark, steps }: CheckConte
   await until('the free knob with its canvas', BUILD_MS, () => label() === 'Knob 0.25');
   const caption = document.querySelector(`${node} .free-caption .title`)?.textContent;
   if (caption !== 'knob') throw new Error(`the caption of the free node is ${caption}`);
+  // The doc comment of the node is its tooltip on the canvas and in the Project panel.
+  const doc = 'A knob that the self-check turns.';
+  const tips = [document.querySelector(`${node} .free-caption`)?.getAttribute('title'), knobItem()?.title.split('\n')[0]];
+  if (tips.some((t) => t !== doc)) throw new Error(`the tooltips of the knob are ${JSON.stringify(tips)}`);
+  steps.push('the doc comment of a node is its tooltip');
+  // A lost parameter does not block the run. Its x deletes it.
+  const lostX = () => document.querySelector<HTMLButtonElement>(`${node} [aria-label="Delete the lost parameter gone"]`);
+  if (!lostX()) throw new Error('the free knob does not show its lost parameter');
+  lostX()!.click();
+  await until('no lost parameter on the knob', RUN_MS, () => !lostX());
   // The pins are at the places of `ui.pin`: value at (0, 20) and out at (100, 40) of the 100 x 60 canvas.
   await tick();
   const box = pad()!.getBoundingClientRect();
@@ -117,6 +130,10 @@ export async function checkFree({ step, until, result, mark, steps }: CheckConte
   await result(v, from, 'knob 0.25', RUN_MS);
   steps.push('drag a free node and undo the drag in one step');
 
+  v = await step('undo the delete of the lost parameter', () => api.undo());
+  if (v.graph.node?.find((n) => n.id === K)?.params?.gone !== '1') throw new Error('the undo did not give back the lost parameter');
+  await until('the lost parameter after the undo', RUN_MS, () => !!lostX());
+  steps.push('delete a lost parameter and undo it');
   v = await step('remove the free knob', () => api.undo());
   if (v.graph.node?.some((n) => n.id === K)) throw new Error('the undo did not remove the free knob');
   await api.checkWrite('nodes/knob', null);
