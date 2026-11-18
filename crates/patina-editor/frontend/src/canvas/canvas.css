@@ -304,6 +304,16 @@
   background: var(--disabled);
 }
 
+/* A lost pin (lostPins.ts): the wire ends at a pin that the node does not have. */
+.patina-row .lost-pin {
+  color: var(--error);
+  text-decoration: line-through;
+}
+
+.react-flow__node-patina .react-flow__handle.lost-pin {
+  background: var(--error);
+}
+
 /* An order socket is a hollow diamond in the header: it carries no data (9.2). One gradient in each
    quarter draws it, because a rotate on each pin makes each frame slow at 2000 nodes. */
 .react-flow__node-patina .react-flow__handle.order-pin {

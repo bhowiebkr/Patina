@@ -322,7 +322,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Checked: the engine test `the_use_paths_go_through_the_uses_inside_uses`, the frontend test of
   the path bar, and a selfcheck step that opens `fire_check` from the **Project** panel and finds
   the domain of its only use.
-- A removed public pin keeps the wires of the uses to it. The check shows a problem for each.
+- A removed public pin keeps the wires of the uses to it. The check shows a problem for each,
+  and the use shows a lost pin with the wire, so the user can delete it (fixed 2026-11-17, before
+  the wire was not visible). The frontend test checks the lost pins, and the selfcheck removes a
+  public output and finds the lost pin and its wire on the use.
 - Ctrl+G collapses the selected nodes into a new subgraph, with public pins for the wires that
   cross. Save writes its file while a graph uses it. An undo keeps it for a redo. Ctrl+Shift+G expands
   the selected uses.

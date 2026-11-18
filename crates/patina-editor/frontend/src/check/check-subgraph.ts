@@ -62,12 +62,20 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   for (const what of ['name', 'order', 'output']) v = await step(`undo the ${what} of the public output`, () => api.undo());
   await until('the old public pins', BUILD_MS, () => rows().length === 1 && rows()[0].dataset.pin === firstPin);
   steps.push('subgraph interface');
+  // A removed public pin keeps the wire of the use. The use shows a lost pin for it, so the user can delete the wire (15.9).
+  rows()[0].querySelector<HTMLButtonElement>('button[title="Remove"]')!.click();
+  await until('no public output', BUILD_MS, () => rows().length === 0);
   [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
   await until('the main graph from the path bar', BUILD_MS, () => document.querySelector('.graph-path') === null);
+  const lostPin = `.react-flow__node[data-id="${use}"] .react-flow__handle.lost-pin[data-handleid="${firstPin}"]`;
+  await until('the lost pin of the use and its wire', BUILD_MS, () => !!document.querySelector(lostPin) && !!document.querySelector(`.react-flow__edge[data-id="${use}.${firstPin}>${A}.text"]`));
   // The only use of a subgraph gives its values when it opens from the Project panel (15.9).
   leftTab('Project').click();
   [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')].find((b) => b.textContent === 'fire_check')!.click();
-  await until('the domain of the only use', BUILD_MS, () => document.querySelector('.graph-path') !== null && !!document.querySelector(`.react-flow__node[data-id="${T}"] .domain-icon`));
+  await until('the subgraph from the Project panel', BUILD_MS, () => document.querySelector('.graph-path') !== null);
+  v = await step('undo the removed public output', () => api.undo());
+  if (v.graph.output?.[0]?.key !== firstPin) throw new Error(`the undo did not give back the public output ${firstPin}`);
+  await until('the domain of the only use', BUILD_MS, () => !!document.querySelector(`.react-flow__node[data-id="${T}"] .domain-icon`));
   [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
   await until('the main graph again', BUILD_MS, () => document.querySelector('.graph-path') === null);
   steps.push('open a subgraph use and fire its trigger');

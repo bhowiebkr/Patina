@@ -12,6 +12,7 @@ import { outputTypeOf, socketKey } from './palette';
 import { FRAME_BOTTOM, FRAME_RIGHT } from './frames';
 import { nodeWidth } from '../controls/gui';
 import { DomainIcon, KindIcon } from '../controls/icons';
+import type { Lost } from './lostPins';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -101,6 +102,8 @@ export interface NodeData extends Record<string, unknown> {
   entry: NodeEntry;
   info: NodeInfo | null;
   wired: string[];
+  /** The wire ends that the node has no pin for. Each gets a row, so its wire shows (15.9). */
+  lost?: Lost;
   state: NodeState;
   message: string;
   editable: boolean;
@@ -259,9 +262,11 @@ function StateIcon({ state }: { state: NodeState }) {
 }
 
 function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
-  const { entry, info, wired, state, message, editable, time, gui, slot, sockets, domain, open, inner, thumb } = data;
-  const inputs = info?.inputs ?? [];
-  const outputs = info?.outputs ?? [];
+  const { entry, info, wired, lost, state, message, editable, time, gui, slot, sockets, domain, open, inner, thumb } = data;
+  const inputs = lost ? [...(info?.inputs ?? []), ...lost.inputs.map(lostPin)] : (info?.inputs ?? []);
+  const outputs = lost ? [...(info?.outputs ?? []), ...lost.outputs.map(lostPin)] : (info?.outputs ?? []);
+  const lostIn = (pin: Pin | undefined) => !!pin && !!lost?.inputs.includes(pin.key);
+  const lostOut = (pin: Pin | undefined) => !!pin && !!lost?.outputs.includes(pin.key);
   const rows = Math.max(inputs.length, outputs.length);
   const socket = (side: 'i' | 'o', pin: Pin | undefined) => (pin ? sockets?.[`${side}:${pin.key}`] : undefined);
   // A row with a bus socket is as tall as its contacts (15.9).
@@ -320,7 +325,8 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
           const row = { height, alignItems: height > ROW ? 'flex-start' : undefined };
           // A socket replaces the label of its pin.
           const [busIn, busOut] = [socket('i', input), socket('o', output)];
-          if (busIn) return <div key={i} className="patina-row" style={row}><span />{!busOut && <PinLabel pin={output} />}</div>;
+          if (busIn) return <div key={i} className="patina-row" style={row}><span />{!busOut && <PinLabel pin={output} lost={lostOut(output)} />}</div>;
+          if (lostIn(input)) return <div key={i} className="patina-row" style={row}><PinLabel pin={input} lost />{!busOut && <PinLabel pin={output} lost={lostOut(output)} />}</div>;
           const free = input && !wired.includes(input.key);
           const text = free ? entry.params?.[input.key] : undefined;
           // An unwired bool input is a switch that the user clicks in the node, as in a logic simulator.
@@ -342,7 +348,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
                   text !== undefined && <span className="param-text"> {text}</span>
                 )}
               </span>
-              {busOut ? <span /> : <PinLabel pin={output} />}
+              {busOut ? <span /> : <PinLabel pin={output} lost={lostOut(output)} />}
             </div>
           );
         })}
@@ -360,10 +366,10 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
       {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
       {inputs.map((pin, i) => (
-        <PinHandle key={`i-${pin.key}`} pin={pin} generics={info?.generics} output={false} editable={editable} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />
+        <PinHandle key={`i-${pin.key}`} pin={pin} generics={info?.generics} output={false} editable={editable} lost={lostIn(pin)} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />
       ))}
       {outputs.map((pin, i) => (
-        <PinHandle key={`o-${pin.key}`} pin={pin} generics={info?.generics} output editable={editable} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
+        <PinHandle key={`o-${pin.key}`} pin={pin} generics={info?.generics} output editable={editable} lost={lostOut(pin)} top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />
       ))}
       {/* The inner ends of the pins of a frame: the inner wires start and end at the edge (15.3). */}
       {open && inputs.map((pin, i) => <FramePin key={`fi-${pin.key}`} id={`in:${pin.key}`} output={false} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />)}
@@ -416,12 +422,17 @@ function FramePin({ id, output, top, socket }: { id: string; output: boolean; to
   return <Handle id={id} type={output ? 'target' : 'source'} position={output ? Position.Right : Position.Left} isConnectable={false} className={socket ? 'frame-pin bus-pin' : 'frame-pin'} style={style} />;
 }
 
-function PinLabel({ pin }: { pin: Pin | undefined }) {
+/** A row of a wire end that the node has no pin for, for example a removed public pin (6.4). */
+const lostPin = (key: string): Pin => ({ key, ty: '' });
+const lostTitle = (key: string) => `The node has no pin ${key}. Delete the wire, or give the node this pin again.`;
+
+function PinLabel({ pin, lost = false }: { pin: Pin | undefined; lost?: boolean }) {
+  if (pin && lost) return <span className="lost-pin" title={lostTitle(pin.key)}>{pin.key}</span>;
   return <span title={pin && `${pin.name ?? pin.key}: ${pin.ty}`}>{pin && (pin.name ?? pin.key)}</span>;
 }
 
 /** The pin of a row: a dot, or a bar as wide as the ribbon of a bus socket (15.9). */
-function PinHandle({ pin, generics = [], output, editable, top, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; top: number; socket: Socket | undefined }) {
+function PinHandle({ pin, generics = [], output, editable, lost, top, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; lost: boolean; top: number; socket: Socket | undefined }) {
   const bar = socket && socketBar(socket.bits.length);
   const style = bar ? { top, height: bar, marginTop: 1 - bar / 2 } : { top };
   return (
@@ -429,8 +440,9 @@ function PinHandle({ pin, generics = [], output, editable, top, socket }: { pin:
       id={pin.key}
       type={output ? 'source' : 'target'}
       position={output ? Position.Right : Position.Left}
-      isConnectable={editable}
-      className={socket ? 'bus-pin' : undefined}
+      isConnectable={editable && !lost}
+      className={socket ? 'bus-pin' : lost ? 'lost-pin' : undefined}
+      title={lost ? lostTitle(pin.key) : undefined}
       style={style}
       data-ty={socketKey(pin.ty, generics)}
     />
