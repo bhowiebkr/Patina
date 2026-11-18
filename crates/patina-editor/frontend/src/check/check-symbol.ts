@@ -2,7 +2,9 @@
 // unwired input whose type has no parameter support (4.3, 4.8).
 
 import { api, type View } from '../api';
-import { BUILD_MS, nodeToml, type CheckContext } from './check-fixtures';
+import { changeLayout } from '../panels/Dock';
+import { openPanel } from '../panels/layout';
+import { BUILD_MS, RUN_MS, nodeToml, type CheckContext } from './check-fixtures';
 
 /** An AND gate with an input that has no parameter support, so it needs a wire. */
 const GATE_NODE = `use patina_sdk::node;
@@ -31,6 +33,16 @@ export async function checkSymbol({ step, until, steps }: CheckContext, v: View)
   await until('the problem of the unwired input', BUILD_MS, () => message().includes('connect a wire to the input `bytes`'));
   if (!v.graph.node?.some((n) => n.id === G)) throw new Error('the gate is not in the graph');
   steps.push('an unwired input with no parameter support shows a node problem');
+  // The problem link of the status bar opens Logs (15.5). The first problem opened Logs, so show Output first.
+  const logs = () => document.querySelector('[role=log][aria-label="Logs"]');
+  const shown = () => (logs()?.getBoundingClientRect().width ?? 0) > 0;
+  changeLayout((l) => openPanel(l, 'output'));
+  await until('the Output tab over Logs', RUN_MS, () => !shown());
+  const link = () => [...document.querySelectorAll<HTMLButtonElement>('.status-link')].find((b) => b.textContent === '1 problem');
+  await until('the problem link of the status bar', RUN_MS, () => !!link());
+  link()!.click();
+  await until('the problem in Logs from the status link', RUN_MS, () => shown() && logs()!.textContent!.includes('connect a wire to the input `bytes`'));
+  steps.push('the problem link of the status bar opens Logs');
   v = await step('remove the gate', () => api.undo());
   if (v.graph.node?.some((n) => n.id === G)) throw new Error('the undo did not remove the gate');
   await api.checkWrite('nodes/gate', null);

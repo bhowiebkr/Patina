@@ -87,7 +87,12 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the new name in the preview', BUILD_MS, () => document.querySelector('.pin-preview-body > :last-child > :first-child')?.textContent === 'sum');
   rows()[0].querySelector<HTMLButtonElement>('button[title="Move down"]')!.click();
   await until('the new output last in the pin order after Move down', BUILD_MS, () => rows()[1].dataset.pin === added);
-  for (const what of ['move down', 'name', 'order', 'output']) v = await step(`undo the ${what} of the public output`, () => api.undo());
+  rows()[1].querySelector<HTMLButtonElement>('button[title="Remove"]')!.click();
+  await until('one public pin after Remove', BUILD_MS, () => rows().length === 1 && rows()[0].dataset.pin === firstPin);
+  [...document.querySelectorAll<HTMLButtonElement>('aside[aria-label="Inspector"] .btn')].find((b) => b.textContent === 'Add input')!.click();
+  await until('a new public input', BUILD_MS, () => rows().length === 2);
+  v = await step('undo the new public input', () => api.undo());
+  for (const what of ['remove', 'move down', 'name', 'order', 'output']) v = await step(`undo the ${what} of the public output`, () => api.undo());
   await until('the old public pins', BUILD_MS, () => rows().length === 1 && rows()[0].dataset.pin === firstPin);
   steps.push('subgraph interface');
   // Rename pin... in the menu of a public pin asks for the name in a field (6.4).
@@ -416,4 +421,14 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   v = await step('undo the collapse of the node menu', () => api.undo());
   await until('all nodes after the undo of the node menu collapse', BUILD_MS, () => count() === all);
   steps.push('collapse a selection from the node menu');
+  // New subgraph of the Graphs group makes an empty subgraph and opens it (15.2).
+  leftTab('Project').click();
+  await until('the New subgraph button', RUN_MS, () => !!document.querySelector('[aria-label="New subgraph"]'));
+  document.querySelector<HTMLButtonElement>('[aria-label="New subgraph"]')!.click();
+  await until('the name field of New subgraph', RUN_MS, () => !!nameField());
+  enterText(nameField()!, 'new_check');
+  await until('the empty new subgraph', BUILD_MS, () => current() === '/ new_check' && count() === 0);
+  crumb('main')!.click();
+  await until('the main graph after the new subgraph', BUILD_MS, () => document.querySelector('.graph-path') === null && count() === all);
+  steps.push('make and open an empty subgraph with New subgraph');
 }

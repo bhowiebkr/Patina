@@ -6,7 +6,7 @@ import { api, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { showGraph } from '../panels/layout';
 import { checkGuard, checkGuiZoom, checkWidgets } from './check-gui';
-import { A, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, button, mouseWheel, scale, statusText, tab, topButton, undoCode, type At, type CheckContext } from './check-fixtures';
+import { A, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, button, enterText, leftTab, mouseWheel, scale, statusText, tab, topButton, undoCode, type At, type CheckContext } from './check-fixtures';
 
 /** Runs the node GUI and view steps with the code file `lib` of node A, and returns the last view. */
 export async function checkViews({ step, until, result, mark, events, steps, fresh }: CheckContext, v: View, lib: string, at: At) {
@@ -93,7 +93,14 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
 
   // A view (15.8): the Views menu opens it in the View panel. Its button writes a parameter
   // through the edit path, so undo removes the write.
-  v = await step('make a view', () => api.newView('panel'));
+  leftTab('Project').click();
+  const viewName = () => document.querySelector<HTMLInputElement>('[aria-label="View name"]');
+  await until('the New view button', RUN_MS, () => !!document.querySelector('[aria-label="New view"]'));
+  document.querySelector<HTMLButtonElement>('[aria-label="New view"]')!.click();
+  await until('the view name field', RUN_MS, () => !!viewName());
+  enterText(viewName()!, 'panel');
+  await until('the new view folder', RUN_MS, () => !viewName() && [...document.querySelectorAll('[aria-label=Project] .item')].some((b) => b.textContent === 'panel'));
+  steps.push('make a view');
   v = await step('write the view code', () => api.edit({ kind: 'SetCode', path: 'views/panel/src/lib.rs', text: VIEW_CODE }));
   button('Views')!.click();
   const item = () => [...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find((e) => e.textContent?.trim() === 'panel');

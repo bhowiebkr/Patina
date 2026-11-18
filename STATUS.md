@@ -335,6 +335,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   focus rules of the style sheets, not the pixels. It found that a node showed no mark, because
   React Flow removes its outline (fixed 2026-11-18). The node box now shows the accent outline.
   A frontend test reads the selector parts.
+- The self-check records each button, menu item and tab that shows, and each click (added
+  2026-11-18). Its last step lists the controls with no click. The node GUIs and the code
+  editor are out. The list found **New subgraph**, **New view**, **Add input**, **Remove** of a
+  public pin and the problem link of the status bar. The self-check now clicks them. Known
+  limits: the list names each control by its label, so it also lists the items of the project
+  and the log lines. **Browse**, **Add from Git** and **Install toolchain** need a dialog or the
+  network, so the self-check does not click them.
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol

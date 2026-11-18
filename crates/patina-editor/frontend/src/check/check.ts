@@ -22,6 +22,7 @@ import { checkSubgraph } from './check-subgraph';
 import { checkViews } from './check-views';
 import { checkWires } from './check-wires';
 import { keepClipInMemory } from '../canvas/clip';
+import { watchClicks } from './coverage';
 
 /** The time in ms from the start of the page to the end of the start script, for the measure of the start time. */
 function startMs(): number {
@@ -31,6 +32,7 @@ function startMs(): number {
 
 export async function runCheck(dir: string, show: (v: View) => void, edited: (v: View) => void) {
   keepClipInMemory();
+  const clicks = watchClicks();
   const steps: string[] = [];
   const events: EngineEvent[] = [];
   const output: string[] = [];
@@ -110,6 +112,7 @@ export async function runCheck(dir: string, show: (v: View) => void, edited: (v:
     await checkPackage(c, dir);
     await checkUpdate(c, dir);
     await removeLibrary(c);
+    steps.push(clicks());
     await api.checkDone({ ok: true, steps, startMs: startMs() });
   } catch (e) {
     await api.checkDone({ ok: false, steps, error: String(e), output: output.slice(-20) });
