@@ -405,7 +405,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - A loop of only generic nodes and delays has no type, so the engine refuses it.
 - A generic node with no input gets its type from the readers of its output (4.5). The hello
   test runs a generic zero node in the batch domain, and a number node of the frame domain gives
-  its type. The slot test runs it in the slot. No check runs it with an async reader.
+  its type. The slot test runs it in the slot. The event slot test gives it an async reader, with
+  the async node in the slot and out of it.
 - Two Linux CI runs counted 1 allocation in 100 frames of the hello test. A slow frame can start
   the worker pool for the first time inside the counted frames. A parallel cluster now prepares
   the pool when it loads. One CI run with this fix passed on all three platforms.

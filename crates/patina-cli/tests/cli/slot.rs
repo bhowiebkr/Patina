@@ -251,12 +251,22 @@ fn an_event_node_in_the_slot_waits_for_its_future() {
     fs::create_dir_all(folder.join("src")).unwrap();
     fs::write(folder.join("Cargo.toml"), manifest.replace("\"add\"", "\"shout\"") + "patina-event = { workspace = true }\n").unwrap();
     fs::write(folder.join("src/lib.rs"), SHOUT).unwrap();
+    fs::create_dir_all(project.join("nodes/zero/src")).unwrap();
+    fs::write(project.join("nodes/zero/Cargo.toml"), manifest.replace("\"add\"", "\"zero\"")).unwrap();
+    fs::write(project.join("nodes/zero/src/lib.rs"), ZERO).unwrap();
+    // Async shout e4 reads zero e3, so it gives the type of zero (4.5).
     let graph = "format = 1\n\n\
         [[node]]\nid = \"00000000000000e0\"\nbuiltin = \"trigger\"\n\n\
         [[node]]\nid = \"00000000000000e1\"\nfolder = \"nodes/shout\"\n\n\
         [[node]]\nid = \"00000000000000e2\"\nfolder = \"nodes/show\"\n\n\
+        [[node]]\nid = \"00000000000000e3\"\nfolder = \"nodes/zero\"\n\n\
+        [[node]]\nid = \"00000000000000e4\"\nfolder = \"nodes/shout\"\n\n\
+        [[node]]\nid = \"00000000000000e5\"\nfolder = \"nodes/show\"\n\n\
         [[wire]]\nfrom = \"00000000000000e0.out\"\nto = \"00000000000000e1.text\"\n\n\
-        [[wire]]\nfrom = \"00000000000000e1.out\"\nto = \"00000000000000e2.value\"\n";
+        [[wire]]\nfrom = \"00000000000000e1.out\"\nto = \"00000000000000e2.value\"\n\n\
+        [[wire]]\nfrom = \"00000000000000e3.out\"\nto = \"00000000000000e4.text\"\n\n\
+        [[wire]]\nfrom = \"00000000000000e4.out\"\nto = \"00000000000000e5.value\"\n\n\
+        [[order]]\nbefore = \"00000000000000e0\"\nafter = \"00000000000000e4\"\n";
     fs::write(project.join("graphs/main.toml"), graph).unwrap();
     let toolchain = Toolchain::detect().unwrap();
     let control = Control::default();
@@ -266,11 +276,15 @@ fn an_event_node_in_the_slot_waits_for_its_future() {
         checked.set_slot(Some(name)).unwrap();
         checked
     };
+    // The batch run gives the value of zero e3, as in the editor.
     let value = |cluster: &mut patina_engine::Cluster| {
+        assert!(cluster.run(&control).ok);
         let mut text = None;
         assert!(cluster.run_events(1, &control, |run| {
             assert!(run.out.ok, "{:?}", run.out.reports);
-            text = run.out.values.iter().find(|v| v.from == "00000000000000e1.out").map(|v| v.text.clone());
+            let text_of = |id: &str| run.out.values.iter().find(|v| v.from == format!("00000000000000{id}.out")).map(|v| v.text.clone());
+            assert_eq!(text_of("e4"), text_of("e1"), "zero gives an empty text");
+            text = text_of("e1");
         }));
         text.expect("no value of e1")
     };
