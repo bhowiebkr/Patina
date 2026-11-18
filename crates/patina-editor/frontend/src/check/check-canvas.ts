@@ -2,7 +2,7 @@
 // right-click menus of the empty canvas, a node and a connection, and copy and paste (15.2, 15.4, 15.11).
 
 import { api, type View } from '../api';
-import { RUN_MS, entry, rightClick, type CheckContext } from './check-fixtures';
+import { RUN_MS, entry, rightClick, topButton, type CheckContext } from './check-fixtures';
 import { clipboard } from '../canvas/clip';
 import { NODE_MIME } from '../canvas/useAddNode';
 
@@ -35,6 +35,11 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
   await until('all nodes selected', RUN_MS, () => [...document.querySelectorAll(NODES)].every((n) => n.classList.contains('selected')));
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await until('the clear selection', RUN_MS, () => count(`${NODES}.selected`) === 0);
+  // Ctrl+A over the canvas selects all nodes too.
+  pane.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true }));
+  await until('all nodes selected with Ctrl+A', RUN_MS, () => [...document.querySelectorAll(NODES)].every((n) => n.classList.contains('selected')));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await until('the clear selection after Ctrl+A', RUN_MS, () => count(`${NODES}.selected`) === 0);
 
   // The menu of a node: a right-click selects the node, and Delete node asks, then removes it with undo.
   const node = document.querySelector(`${NODES}-patina`)!;
@@ -49,6 +54,36 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
   await until('the deleted node', RUN_MS, () => count(NODES) === nodes - 1);
   v = await step('undo the delete from the node menu', () => api.undo());
   await until('the node after the undo', RUN_MS, () => count(NODES) === nodes);
+  // Fit node of the node menu puts the node in the middle of the canvas.
+  const fitted = document.querySelector(`${NODES}-patina`)!;
+  const middle = (e: Element) => {
+    const b = e.getBoundingClientRect();
+    return [b.left + b.width / 2, b.top + b.height / 2];
+  };
+  const centered = () => {
+    const [nx, ny] = middle(fitted);
+    const [px, py] = middle(pane);
+    return Math.abs(nx - px) < 2 && Math.abs(ny - py) < 2;
+  };
+  const fitNode = async () => {
+    rightClick(fitted.querySelector('.title') ?? fitted);
+    await until('the Fit node entry', RUN_MS, () => !!entry('Node', 'Fit node'));
+    entry('Node', 'Fit node')!.click();
+    await until('the node in the middle after Fit node', RUN_MS, centered);
+  };
+  const inside = (b: DOMRect, p = pane.getBoundingClientRect()) => b.left >= p.left && b.right <= p.right && b.top >= p.top && b.bottom <= p.bottom;
+  const allFitted = () => !centered() && [...document.querySelectorAll(NODES)].every((n) => inside(n.getBoundingClientRect()));
+  await fitNode();
+  // Fit of the top bar fits all nodes, also when a node is selected.
+  topButton('Fit')!.click();
+  await until('all nodes in the canvas after Fit of the top bar', RUN_MS, allFitted);
+  // Esc clears the selection, and the F key fits all nodes again for the next steps.
+  await fitNode();
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await until('the clear selection after Fit node', RUN_MS, () => count(`${NODES}.selected`) === 0);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', bubbles: true }));
+  await until('all nodes in the canvas after the F key', RUN_MS, allFitted);
+  steps.push('Fit node in the node menu, Fit in the top bar, and the F key for all nodes');
 
   // Copy of the node menu and Paste of the canvas menu. The self-check keeps the clip in memory.
   // The undo made a new element for the node.
@@ -78,9 +113,35 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
   await until('the node cut with Ctrl+X', RUN_MS, () => count(NODES) === nodes);
   press('v');
   await until('the node of Ctrl+V, selected', RUN_MS, () => count(NODES) === nodes + 1 && selected().length === 1);
-  for (const what of ['the paste of Ctrl+V', 'the cut', 'the paste']) v = await step(`undo ${what}`, () => api.undo());
+  // Cut of the node menu removes the node, as Ctrl+X does.
+  const pasted = document.querySelector(`${NODES}.selected`)!;
+  rightClick(pasted.querySelector('.title') ?? pasted);
+  await until('the Cut entry', RUN_MS, () => !!entry('Node', 'Cut'));
+  entry('Node', 'Cut')!.click();
+  await until('the node cut from the menu', RUN_MS, () => count(NODES) === nodes);
+  for (const what of ['the cut from the menu', 'the paste of Ctrl+V', 'the cut', 'the paste']) v = await step(`undo ${what}`, () => api.undo());
   await until('the graph after the undo of the paste', RUN_MS, () => count(NODES) === nodes);
   steps.push('copy, cut and paste of a node, from the menus and the keys');
+
+  // Shift+L and Arrange of the canvas menu put a far node back in the layout, with undo (15.9).
+  const far = document.querySelector(`${NODES}-patina`)!.getAttribute('data-id')!;
+  const top = () => document.querySelector(`${NODES}[data-id="${far}"]`)!.getBoundingClientRect().top;
+  const [fx, fy] = v.graph.node!.find((n) => n.id === far)!.pos!;
+  const start = top();
+  v = await step('move a node far down', () => api.edit({ kind: 'MoveNode', id: far, pos: [fx + 300, fy + 1200] }));
+  await until('the node far down', RUN_MS, () => top() - start > 100);
+  const farTop = top();
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'L', shiftKey: true, bubbles: true }));
+  await until('the node in the layout after Shift+L', RUN_MS, () => farTop - top() > 100);
+  v = await step('undo the arrange of Shift+L', () => api.undo());
+  await until('the node far down after the undo', RUN_MS, () => Math.abs(top() - farTop) < 1);
+  rightClick(pane, r.left + 40, r.top + 40);
+  await until('the Arrange entry', RUN_MS, () => !!entry('Canvas', 'Arrange'));
+  entry('Canvas', 'Arrange')!.click();
+  await until('the node in the layout after Arrange', RUN_MS, () => farTop - top() > 100);
+  for (const what of ['the arrange of the menu', 'the move']) v = await step(`undo ${what}`, () => api.undo());
+  await until('the node at its start after the undo', RUN_MS, () => Math.abs(top() - start) < 1);
+  steps.push('Shift+L and Arrange of the canvas menu put a far node back in the layout');
 
   // The menu of a connection.
   const wires = count('.wire-hit');

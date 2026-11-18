@@ -36,6 +36,20 @@ async function checkDrag({ step, until, steps }: CheckContext, v: View): Promise
   await until('the wire to the moved node', RUN_MS, () => document.querySelector('.wire-hit')?.getAttribute('d') !== startRoute);
   // The open project has no undo history, so the Undo button turns on when the move edit arrives.
   await until('the move edit', RUN_MS, () => document.querySelector<HTMLButtonElement>('button[aria-label="Undo"]')?.disabled === false);
+  // The Undo and Redo buttons of the top bar, Ctrl+Z and Ctrl+Y move the node back and forth (15.10).
+  const history = (label: string) => document.querySelector<HTMLButtonElement>(`.topbar button[aria-label="${label}"]`)!;
+  const ctrl = (key: string) => document.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true }));
+  const atStart = () => Math.abs(nodeB().getBoundingClientRect().top - topB) < 1 && history('Undo').disabled;
+  const moved = () => nodeB().getBoundingClientRect().top - topB > 40 && history('Redo').disabled;
+  history('Undo').click();
+  await until('the node at its place after a click on Undo', RUN_MS, atStart);
+  ctrl('y');
+  await until('the moved node after Ctrl+Y', RUN_MS, moved);
+  ctrl('z');
+  await until('the node at its place after Ctrl+Z', RUN_MS, atStart);
+  history('Redo').click();
+  await until('the moved node after a click on Redo', RUN_MS, moved);
+  steps.push('undo and redo of a node drag with the top bar buttons and the keys');
   v = await step('undo the node drag', () => api.undo());
   if (posB(v) !== startPos) throw new Error(`undo did not give the node its place: ${posB(v)}, not ${startPos}`);
   steps.push('node dragged');

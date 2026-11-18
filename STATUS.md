@@ -212,7 +212,17 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   form and clicks **Create**. It removes the trust of the project in **Settings**, opens the
   project with the **Open project** form, and clicks **Trust project** in the banner. It also
   clicks **Pause** in the top bar, **Rename pin...** in the menu of a public pin and **Help** >
-  **About Patina**.
+  **About Patina**. It clicks **Add library** in **Settings** and **Import** in the Project
+  panel, and gives a folder in place of the folder dialog. The node menu clicks are **Cut**,
+  **Fit node**, **Open subgraph** and **Expand subgraph**. The timeline clicks are the End key
+  on the playhead and **Rewind**. The Logs panel click is **Clear**. The top bar clicks are
+  **Save**, **Fit**, **Run**, **Bake**, **Undo** and **Redo**, and it types a rate in the **FPS**
+  field. It clicks **Arrange** in the canvas menu. The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+G,
+  Ctrl+Shift+G, Shift+L and F.
+- Known limits: the self-check does not click **Package**, **Float in a window** or **Open
+  GitHub page**. These open a folder dialog, a window or the web browser.
+- Known limits: the self-check opens the **Import** dialog and clicks **Cancel**, but it does not
+  click **Import**. An import writes folders and has no undo. The engine tests cover the import.
 - Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
 - The first start shows an **Install the toolchain** card, and the install shows a progress bar
   (2026-11-18). A unit test checks the percent parse and the step math. No check ran a full

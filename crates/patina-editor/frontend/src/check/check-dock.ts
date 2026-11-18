@@ -140,11 +140,13 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   await until('the left area again', RUN_MS, () => document.querySelector('.area.left') !== null && rail('Project').getAttribute('aria-pressed') === 'true');
   steps.push('rail folds the left area');
 
+  // The Run button of the top bar starts the run. The run keeps the serial of the open project.
+  await until('an enabled Run button', RUN_MS, () => topButton('Run')?.disabled === false);
   from = mark();
-  v = await step('run again', () => api.run());
+  topButton('Run')!.click();
   await result(v, from, '2.5', BUILD_MS);
   await until('two ready nodes on the canvas', RUN_MS, () => document.querySelectorAll('.patina-node.ready').length === 2);
-  steps.push('ready on the canvas');
+  steps.push('the Run button runs the graph, and the nodes show ready');
   const timeOf = (id: string) => document.querySelector(`.react-flow__node[data-id="${id}"] .patina-node-time`)?.textContent ?? '';
   await until('the run time on each node', RUN_MS, () => [A, B].every((id) => /^Run \d+(\.\d+)? (us|ms|s)$/.test(timeOf(id))));
   steps.push(`run time on the nodes: ${timeOf(A)}, ${timeOf(B)}`);

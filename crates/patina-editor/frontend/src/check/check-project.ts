@@ -4,16 +4,32 @@
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
 import { revealOf, type Reveal } from '../code/reveal';
-import { A, B, BUILD_MS, RUN_MS, enterText, helloNodes, leftTab, statusText, tab, topButton, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, button, enterText, helloNodes, leftTab, statusText, tab, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */
 export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string, pick: (at: Reveal) => void) {
   // A second new project is a library of the check: the palette shows its nodes (6.2).
   const libProject = await step('new library project', () => api.newProject(dir, 'checklib'));
   await helloNodes();
-  await api.addLibrary(libProject.root);
-  // The Create button of the start screen makes the project of the check (15.10). Pause gives its view.
+  // Add library in Settings adds the library project. The check gives the folder in place of the folder dialog.
   topButton('Close')!.click();
+  await until('the Settings button of the start screen', RUN_MS, () => !!button('Settings'));
+  button('Settings')!.click();
+  const addLib = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Libraries"] button')].find((b) => b.textContent === 'Add library');
+  await until('the Add library button', RUN_MS, () => addLib()?.disabled === false);
+  const pickFolder = api.pickFolder;
+  api.pickFolder = async () => libProject.root;
+  try {
+    addLib()!.click();
+    const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+    await until('the row of the new library', RUN_MS, () =>
+      [...document.querySelectorAll('[aria-label="Libraries"] .path')].some((p) => norm(p.textContent ?? '') === norm(libProject.root)),
+    );
+  } finally {
+    api.pickFolder = pickFolder;
+  }
+  button('Back')!.click();
+  // The Create button of the start screen makes the project of the check (15.10). Pause gives its view.
   const newForm = () => [...document.querySelectorAll('form.start-box')].find((f) => f.querySelector('h2')?.textContent === 'New project');
   const create = () => [...(newForm()?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Create');
   await until('the New project form', RUN_MS, () => !!create());
@@ -89,8 +105,11 @@ fn broken() -> u32 {
   await until('the highlight and the Fix line of the error in the Logs panel', RUN_MS, () =>
     !!logs()?.querySelector('.hl-sev-err') && [...(logs()?.querySelectorAll('.hl-fix') ?? [])].some((f) => f.parentElement?.textContent?.includes('another type')),
   );
+  // Clear in the header of the Logs panel removes the lines.
+  [...tab('Logs')!.parentElement!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Clear')!.click();
+  await until('the empty Logs panel after Clear', RUN_MS, () => logs()?.textContent === '');
   shown?.click();
-  steps.push('the Logs panel highlights an error and gives a fix');
+  steps.push('the Logs panel highlights an error and gives a fix, and Clear removes the lines');
   await new Promise((r) => setTimeout(r, 300));
   await api.capture('code-error');
 

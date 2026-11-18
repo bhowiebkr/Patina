@@ -3,7 +3,7 @@
 
 import { api, type EngineEvent, type View } from '../api';
 import { frameStats } from './benchGraph';
-import { A, B, BUILD_MS, EVENT_NODE, RUN_MS, T, WAVE_NODE, fireButton, icon, statusText, topButton, undoCode, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, EVENT_NODE, RUN_MS, T, WAVE_NODE, enterText, fireButton, icon, statusText, topButton, undoCode, type CheckContext } from './check-fixtures';
 
 /**
  * A node drag while the frames run (15.2). The node follows the mouse in each animation frame and
@@ -116,11 +116,13 @@ export async function checkDomains(c: CheckContext, v: View, lib: string, change
   const stepEnd = ofRun().find((e) => e.state === 'ended');
   if (frameCount() !== 1 || stepEnd?.state !== 'ended' || stepEnd.frames !== 1) throw new Error(`Step did not run one frame: ${JSON.stringify(ofRun())}`);
   // The frame rate (9.1): at 120 FPS, each frame event shows the last of two frames.
-  v = await step('set 120 FPS', () => api.frameRate(120));
-  if (v.frameRate !== 120) throw new Error(`the view has ${v.frameRate} FPS`);
-  await until('120 in the FPS field', RUN_MS, () => document.querySelector<HTMLInputElement>('.fps input')?.value === '120');
+  // The FPS field of the top bar sends the rate on Enter, and then shows the rate of the view.
+  const fps = document.querySelector<HTMLInputElement>('.fps input')!;
+  enterText(fps, '120');
+  await until('120 in the FPS field', RUN_MS, () => fps.value === '120');
   from = mark();
   v = await step('run at 120 FPS', () => api.run());
+  if (v.frameRate !== 120) throw new Error(`the view has ${v.frameRate} FPS`);
   const twos = () => ofRun().filter((e) => e.state === 'frame' && e.frames === 2).length;
   await until('three events of two frames', BUILD_MS, () => twos() >= 3);
   topButton('Stop')!.click();

@@ -187,6 +187,26 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   button('Cancel')!.click();
   await until('the node folder after Cancel', RUN_MS, () => !asked() && !!item('lamp'));
   steps.push('cancel the Delete of a node folder from its menu');
+  // Import in the Project panel lists the folders of another project, and Cancel copies nothing (6.2).
+  // The check gives the library folder in place of the folder dialog.
+  const libRoot = (await api.settings()).libraries.find((l) => /[\\/]checklib$/.test(l.path))!.path;
+  const pickFolder = api.pickFolder;
+  api.pickFolder = async () => libRoot;
+  const importBox = () => document.querySelector('.dialog.import');
+  try {
+    button('Import')!.click();
+    await until('the Import dialog of the library', RUN_MS, () => importBox()?.querySelector('h2')?.textContent === 'Import from checklib');
+  } finally {
+    api.pickFolder = pickFolder;
+  }
+  const folderList = importBox()!.querySelector<HTMLSelectElement>('select[aria-label="Folder to import"]')!;
+  await until('the node folders of the library', RUN_MS, () => folderList.options.length > 1);
+  folderList.value = folderList.options[1].value;
+  folderList.dispatchEvent(new Event('change', { bubbles: true }));
+  await until('the plan of the import', RUN_MS, () => !!importBox()?.querySelector('.import-items li'));
+  [...importBox()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Cancel')!.click();
+  await until('the closed Import dialog', RUN_MS, () => !importBox());
+  steps.push('the Import dialog lists the folders of another project, and Cancel closes it');
 
   // A node GUI in a subgraph use shows and takes input, on the canvas and in the Inspector (4.3, 6.4).
   const lamp = 'f12e000000000002';
@@ -250,7 +270,11 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the chip preview of the public node', RUN_MS, () => shape()?.value === 'chip' && !!document.querySelector(`${inspector} .symbol-preview`));
   await toMain('the main graph with the chip');
   await until('the use as a chip', BUILD_MS, () => !!chip());
-  await openUse('the subgraph for the undo of its Shape');
+  // Open subgraph in the node menu opens the subgraph, as the button on the use does.
+  rightClick(useNode()!.querySelector('.title') ?? useNode()!);
+  await until('the Open subgraph entry', RUN_MS, () => !!entry('Node', 'Open subgraph'));
+  entry('Node', 'Open subgraph')!.click();
+  await until('the subgraph from the node menu', BUILD_MS, () => document.querySelector('.graph-path [aria-current="page"]')?.textContent === '/ fire_check');
   v = await step('undo the Shape of the subgraph', () => api.undo());
   if (v.graph.symbol) throw new Error(`the undo kept the symbol ${JSON.stringify(v.graph.symbol)}`);
   await toMain('the main graph after the undo of the Shape');
@@ -269,7 +293,34 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the subgraph name field', RUN_MS, () => !!nameField());
   enterText(nameField()!, 'all_check');
   await until('one use for all nodes', BUILD_MS, () => count() === 1 && document.querySelector('.react-flow__node .title')?.textContent?.includes('all_check') === true);
+  // Expand subgraph in the menu of the use puts the nodes back in the main graph (6.1).
+  const allUse = document.querySelector('.react-flow__node')!;
+  rightClick(allUse.querySelector('.title') ?? allUse);
+  await until('the Expand subgraph entry', RUN_MS, () => !!entry('Node', 'Expand subgraph'));
+  entry('Node', 'Expand subgraph')!.click();
+  await until('all nodes after Expand subgraph', BUILD_MS, () => count() === all);
+  v = await step('undo the expand from the node menu', () => api.undo());
+  await until('one use after the undo of the expand', BUILD_MS, () => count() === 1);
   v = await step('undo the collapse from the Inspector', () => api.undo());
   await until('all nodes after the undo of the collapse', BUILD_MS, () => count() === all);
-  steps.push('collapse a selection from the Inspector');
+  steps.push('collapse a selection from the Inspector, and expand it from the node menu');
+  // Ctrl+G collapses the selection, and Ctrl+Shift+G expands the selected use (6.1).
+  const pane = document.querySelector('.react-flow__pane')!;
+  const ctrl = (key: string, shiftKey = false) => pane.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey: true, shiftKey, bubbles: true, cancelable: true }));
+  const selected = () => document.querySelectorAll('.react-flow__node.selected').length;
+  ctrl('a');
+  await until('all nodes selected for Ctrl+G', RUN_MS, () => selected() === all);
+  ctrl('g');
+  await until('the subgraph name field of Ctrl+G', RUN_MS, () => !!nameField());
+  enterText(nameField()!, 'keys_check');
+  await until('one use after Ctrl+G', BUILD_MS, () => count() === 1 && document.querySelector('.react-flow__node .title')?.textContent?.includes('keys_check') === true);
+  ctrl('a');
+  await until('the use selected for Ctrl+Shift+G', RUN_MS, () => selected() === 1);
+  ctrl('G', true);
+  await until('all nodes after Ctrl+Shift+G', BUILD_MS, () => count() === all);
+  v = await step('undo the expand of Ctrl+Shift+G', () => api.undo());
+  await until('one use after the undo of Ctrl+Shift+G', BUILD_MS, () => count() === 1);
+  v = await step('undo the collapse of Ctrl+G', () => api.undo());
+  await until('all nodes after the undo of Ctrl+G', BUILD_MS, () => count() === all);
+  steps.push('collapse with Ctrl+G and expand with Ctrl+Shift+G');
 }

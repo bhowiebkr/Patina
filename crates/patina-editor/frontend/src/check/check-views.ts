@@ -35,8 +35,9 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   await result(v, from, '3.5', RUN_MS);
   if (v.graph.node?.find((n) => n.id === A)?.params?.value !== '2.5') throw new Error('undo did not remove the parameter write of the node GUI');
   // Bake fuses node A back into the base, and the base takes the state of A from the slot (7.2).
+  await until('an enabled Bake button', RUN_MS, () => topButton('Bake')?.disabled === false);
   from = mark();
-  v = await step('bake the node GUI', () => api.bake());
+  topButton('Bake')!.click();
   await until('the run of the fused clusters', BUILD_MS, () => {
     const e = ofRun().find((e) => e.state === 'failed' || (e.state === 'ran' && e.fused));
     if (e?.state === 'failed') throw new Error(`the fuse failed: ${e.text}`);
@@ -44,7 +45,7 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   });
   await until('the value of the moved state', RUN_MS, () => fresh().includes('3.5'));
   if (fresh().includes('2.5')) throw new Error('the fuse did not move the state of the node GUI');
-  steps.push('the fuse moves the state of the node GUI');
+  steps.push('the Bake button fuses the node, and the fuse moves the state of the node GUI');
   const gui = `.react-flow__node[data-id="${A}"] .node-gui`;
   await checkWidgets(until, gui);
   await checkGuard(until);

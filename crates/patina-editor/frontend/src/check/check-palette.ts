@@ -2,7 +2,7 @@
 // wires, the new folders and Add crate (9.2, 15.2, 15.4).
 
 import { api, type View } from '../api';
-import { A, B, RUN_MS, badge, enterText, type At, type CheckContext } from './check-fixtures';
+import { A, B, RUN_MS, badge, enterText, topButton, type At, type CheckContext } from './check-fixtures';
 
 /** Runs the palette steps with the point `at` on the canvas, and returns the last view. */
 export async function checkPalette({ step, until, steps }: CheckContext, v: View, at: At, edited: (v: View) => void) {
@@ -149,7 +149,12 @@ export async function checkPalette({ step, until, steps }: CheckContext, v: View
   v = await step('redo the new type folder', () => api.redo());
   await until('the type folder that redo makes again', RUN_MS, () => typeListed() && typeShown() && codeTab());
   steps.push('undo and redo a new folder');
-  v = await step('save the route', () => api.save());
+  // The Save button of the top bar saves the route, and then it is off until the next change.
+  if (!v.dirty || topButton('Save')?.disabled !== false) throw new Error('the project has no change for the Save button');
+  topButton('Save')!.click();
+  await until('a disabled Save button after the save', RUN_MS, () => topButton('Save')?.disabled === true);
+  v = await step('the view after the save of the route', () => api.save());
   if (v.dirty) throw new Error('the project is still dirty after a save');
+  steps.push('the Save button saves the route');
   return v;
 }

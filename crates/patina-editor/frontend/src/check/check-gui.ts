@@ -206,6 +206,11 @@ async function checkDrags(until: Until, gui: string) {
   snapList.value = '0.5';
   snapList.dispatchEvent(new Event('change', { bubbles: true }));
   await until('the snap that the node keeps', RUN_MS, () => snapList.value === '0.5');
+  const playhead = timeline.querySelector<HTMLElement>('[role="slider"][aria-label="Playhead"]')!;
+  playhead.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+  await until('the playhead at the end after the End key', RUN_MS, () => Number(playhead.getAttribute('aria-valuenow')) === Number(playhead.getAttribute('aria-valuemax')));
+  transport('Rewind').click();
+  await until('the playhead at 0 after Rewind', RUN_MS, () => playhead.getAttribute('aria-valuenow') === '0');
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */
