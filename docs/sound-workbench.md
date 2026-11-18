@@ -8,7 +8,7 @@ The sound workbench must help a beginner learn synthesis and let a sound designe
 
 The first instrument is [Ember](../examples/synth/README.md).
 Its three patches share 34 node types, instrument panels, and a reusable DSP library.
-The next work adds audio export.
+The CLI renders saved patches to WAV files for further work in a sound editor.
 
 ## Panel design
 
@@ -59,7 +59,8 @@ The implemented library covers these tasks:
 - Filter audio with external modulation.
 - Add saturation, reduced bit depth, chorus, and reverb.
 
-The three patches exercise these modules together. Audio export remains the next workflow.
+The three patches exercise these modules together. The CLI export command completes the saved-patch rendering workflow.
+Live recording, MIDI, sample import, stereo processing, and song arrangement remain open.
 
 Provide example patches that use the modules together. A list of unused node names does not prove a useful workflow.
 

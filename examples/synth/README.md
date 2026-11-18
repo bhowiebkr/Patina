@@ -98,6 +98,26 @@ Try these small edits inside **Atmosphere**:
 The saw and pulse oscillators reduce aliasing. The triangle sums harmonics below the Nyquist frequency.
 **Saturator** uses antiderivative antialiasing. These methods reduce aliasing; they do not remove it at every setting.
 
+## Export a sound
+
+1. Select a scene in the workbench panel.
+2. Adjust its sound and click **Save**.
+3. Keep **audible** enabled on the output node.
+4. Run this command from the repository root:
+
+```
+cargo run -p patina-cli -- render examples/synth ember.wav --seconds 16
+```
+
+The command writes mono, 32-bit float WAV audio at 48 kHz. It does not open a sound device.
+An existing output file stays unchanged. Choose a new name for another render.
+Use `--edit` for a faster build. The default uses **Bake**.
+
+The render uses the saved parameters and starts the patch from its initial state.
+It does not record live knob movements. The duration includes no extra effect tail or end fade.
+Import the WAV file into a sound editor to trim it or add a fade.
+Audio export currently uses the CLI. The editor has no export button.
+
 ## Code and checks
 
 - `nodes/` contains the graph modules and their instrument panels.
@@ -132,5 +152,5 @@ Ember uses its own code and panel drawings.
 The [workbench notes](../../docs/sound-workbench.md) record the wider node and GUI needs.
 
 Current limits: mono output, monophonic note input, and a fixed C minor keyboard.
-MIDI, sample import, audio export, and song arrangement are not implemented.
+MIDI, sample import, and song arrangement are not implemented.
 The tests check samples and controls. Speaker playback and listening quality have not been checked.

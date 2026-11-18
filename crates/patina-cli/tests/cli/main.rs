@@ -6,5 +6,6 @@ mod events;
 mod imports;
 mod nodes;
 mod run;
+mod render;
 mod slot;
 mod synth;

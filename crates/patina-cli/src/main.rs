@@ -13,9 +13,11 @@ use patina_engine::project::GraphFile;
 use patina_engine::{Audio, Cluster, Control, EventRun, Events, Frames, Mode, Outcome, Project, Toolchain, package};
 
 mod interrupt;
+mod render;
 
 const USAGE: &str = "usage: patina-cli run <project folder> [--graph <name>] [--frames <count>] [--blocks <count>] [--events <count>] [--edit]
-       patina-cli package <project folder> <package folder> [--graph <name>] [--edit]";
+       patina-cli package <project folder> <package folder> [--graph <name>] [--edit]
+       patina-cli render <project folder> <output.wav> --seconds <duration> [--graph <name>] [--edit]";
 
 /// The number of frames, of audio blocks and of event runs to run. `None` runs until the user stops the process.
 #[derive(Debug, PartialEq, Default, Clone, Copy)]
@@ -28,6 +30,7 @@ struct Counts {
 #[derive(Debug, PartialEq)]
 enum Command<'a> {
     Run { folder: &'a str, graph: &'a str, counts: Counts, mode: Mode },
+    Render { folder: &'a str, out: &'a str, graph: &'a str, seconds: f64, mode: Mode },
     Package { folder: &'a str, out: &'a str, graph: &'a str, mode: Mode },
 }
 
@@ -43,6 +46,10 @@ fn main() -> ExitCode {
         None => match parse(&args) {
             Some(Command::Run { folder, graph, counts, mode }) => run(Path::new(folder), graph, counts, mode),
             Some(Command::Package { folder, out, graph, mode }) => make(Path::new(folder), graph, Path::new(out), mode),
+            Some(Command::Render { folder, out, graph, seconds, mode }) => {
+                Project::open_top(Path::new(folder), graph).and_then(|p| p.check()).map_err(|e| e.to_string())
+                    .and_then(|checked| render::run(checked, Path::new(out), seconds, mode))
+            }
             None => {
                 eprintln!("{USAGE}");
                 return ExitCode::from(2);
@@ -65,17 +72,21 @@ fn main() -> ExitCode {
 
 /// Reads the arguments. `--edit` makes a fast build in edit mode, else the build is in bake mode
 /// (8.3). `--graph` names the top graph to run in place of `main` (6.1). Only `run` takes
-/// `--frames`, `--blocks` and `--events`.
+/// `--frames`, `--blocks` and `--events`. Only `render` requires `--seconds`.
 fn parse(args: &[String]) -> Option<Command<'_>> {
     let (command, rest) = args.split_first()?;
     let (paths, flags) = rest.split_at(rest.iter().position(|a| a.starts_with("--")).unwrap_or(rest.len()));
     let (mut counts, mut mode, mut graph) = (Counts::default(), Mode::Bake, None);
+    let mut seconds = None;
     let mut flags = flags.iter();
     while let Some(flag) = flags.next() {
         match flag.as_str() {
             "--frames" if counts.frames.is_none() && command == "run" => counts.frames = Some(flags.next()?.parse().ok()?),
             "--blocks" if counts.blocks.is_none() && command == "run" => counts.blocks = Some(flags.next()?.parse().ok()?),
             "--events" if counts.events.is_none() && command == "run" => counts.events = Some(flags.next()?.parse().ok()?),
+            "--seconds" if seconds.is_none() && command == "render" => {
+                seconds = Some(flags.next()?.parse().ok().filter(|s| render::samples(*s).is_ok())?);
+            }
             "--edit" if mode == Mode::Bake => mode = Mode::Edit,
             "--graph" if graph.is_none() => graph = Some(flags.next()?.as_str()),
             _ => return None,
@@ -85,6 +96,7 @@ fn parse(args: &[String]) -> Option<Command<'_>> {
     match (command.as_str(), paths) {
         ("run", [folder]) => Some(Command::Run { folder, graph, counts, mode }),
         ("package", [folder, out]) => Some(Command::Package { folder, out, graph, mode }),
+        ("render", [folder, out]) => Some(Command::Render { folder, out, graph, seconds: seconds?, mode }),
         _ => None,
     }
 }
@@ -376,6 +388,18 @@ mod tests {
         assert_eq!(parse(&args("run p --graph bench")), Some(Command::Run { folder: "p", graph: "bench", counts: Counts::default(), mode: Mode::Bake }));
         assert_eq!(parse(&args("package p out --graph bench")), Some(Command::Package { folder: "p", out: "out", graph: "bench", mode: Mode::Bake }));
         for bad in ["package p", "package p out --frames 3", "package p out --events 3", "package p --edit out", "run p --graph", "run p --graph a --graph b"] {
+            assert_eq!(parse(&args(bad)), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn render_requires_one_finite_duration_and_accepts_a_graph() {
+        let args = |text: &str| text.split(' ').map(str::to_owned).collect::<Vec<_>>();
+        let good = args("render p out.wav --seconds 1.25 --edit --graph alternate");
+        assert_eq!(parse(&good), Some(Command::Render { folder: "p", out: "out.wav", graph: "alternate", seconds: 1.25, mode: Mode::Edit }));
+        for bad in ["render p out", "render p --seconds 1", "render p out --seconds 0", "render p out --seconds -1",
+            "render p out --seconds NaN", "render p out --seconds inf", "render p out --seconds 86400",
+            "render p out --seconds 1 --seconds 2", "render p out --seconds 1 --blocks 2", "run p --seconds 1"] {
             assert_eq!(parse(&args(bad)), None, "{bad}");
         }
     }

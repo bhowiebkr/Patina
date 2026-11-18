@@ -19,7 +19,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
-- Ember sound workbench: a 16-step score, drums, twin oscillators, ADSR, filter, echo, live waveform cables, and spectrum display.
+- Ember sound workbench: 34 node types, three playable patches, instrument panels, live waveform cables, and offline WAV export through the CLI.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
 - Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.
@@ -161,14 +161,20 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### Ember sound workbench, 2026-11-18
 
-- The first patch has 13 nodes and six instrument panels. Panels use different sizes for their controls.
+- The library has 34 node types and three patches: **PHRASE**, **ATMOSPHERE**, and **IMPACT**.
+- Seven instrument panels and a general control knob use sizes that fit their controls.
+- Sources, envelopes, modulation, mixing, filters, dynamics, distortion, chorus, reverb, and DC removal work together in the patches.
 - Windows checks passed: workspace clippy and tests, frontend build and tests, and the example tests.
-- The hidden editor check operated the waveform buttons, detune knob, and sequencer transport.
-- It checked 14 cable routes, the Inspector, six full panels, text contrast, focus, and the small window layout.
-- Edit and Bake produced matching finite audio. The warm core DSP averaged 0.016 ms per block, with zero allocations.
-- These are numerical and hidden GUI checks. Speaker playback, Linux, and macOS were not checked.
-- The first patch is mono and monophonic. MIDI, sample import, export, and song arrangement remain open.
-- The [workbench notes](docs/sound-workbench.md) record the planned library and shared GUI needs.
+- The hidden editor check operated the waveform buttons, detune knob, sequencer transport, and all three scene buttons.
+- It checked 62 cable routes across the three graphs, the Inspector, full panels, contrast, focus, and the small window layout.
+- Edit and Bake produced matching phrase samples. All three scenes produced finite audio in both modes.
+- The warm core DSP averaged 0.015 ms per block, with 0.016 ms p95. The 15-processor path averaged 0.030 ms, with 0.032 ms p95.
+- Both DSP checks counted zero allocations after warmup. These timings exclude the graph scheduler, editor, and device.
+- The CLI renders saved patches to mono, 32-bit float WAV files at 48 kHz, without opening a sound device.
+- Export checks cover exact sample counts, frame timing, Edit/Bake equality, graph selection, invalid audio, and existing file protection.
+- Three 16-second renders contain finite audio. Speaker playback, listening quality, external sound-editor import, Linux, and macOS were not checked.
+- MIDI, sample import, stereo processing, polyphonic note input, live recording, an export button, and song arrangement remain open.
+- The [workbench notes](docs/sound-workbench.md) and [Ember guide](examples/synth/README.md) describe the modules, controls, and learning exercises.
 
 ### Performance audit, 2026-11-18
 

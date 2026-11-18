@@ -50,3 +50,21 @@ needs no admin rights. (Agent decision, 2026-11-15. The owner can change it.)
   - Node states and errors: the latest state of each node always arrives.
   - Logs: a queue with a fixed size. When it is full, the oldest lines drop, and the Logs tab shows how many dropped.
 - Edits from the UI are never dropped.
+
+### 3.2 Offline audio rendering
+
+`patina-cli render <project folder> <output.wav> --seconds <duration> [--graph <name>] [--edit]`
+renders a top graph without opening an audio device. The default graph is `main`.
+The command uses Bake unless `--edit` selects Edit.
+
+- The file contains mono, 32-bit IEEE float samples at 48 kHz, with RIFF, format, fact, and data chunks.
+- The duration rounds to the nearest sample. It must contain at least one sample and fit the RIFF size limit.
+- The graph sends its output through `audio::play`. Rendering captures these samples without device playback.
+- The batch domain runs once. Frames run before the first audio block at or after their scheduled time.
+- The last block contributes only the samples that fit the duration. Rendering does not add a fade or an effect tail.
+- The command preserves floating-point levels. It rejects non-finite samples.
+- The command rejects graphs without audio nodes and graphs with event nodes.
+- The command never replaces an existing file. A failed or cancelled render removes its new partial file.
+- Offline rendering uses saved parameters. It does not record live GUI gestures.
+
+This command supplies the export workflow of the sound workbench.

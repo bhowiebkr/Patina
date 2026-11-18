@@ -90,4 +90,32 @@ fn the_synthesizer_plays_the_same_patch_in_edit_and_bake_and_has_live_controls()
             "the audio graph needs its own thread"
         );
     }
+    render_the_saved_patch(&project);
+}
+
+fn render_the_saved_patch(project: &Path) {
+    let wav = project.join("ember.wav");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_patina-cli"))
+        .arg("render")
+        .arg(project)
+        .arg(&wav)
+        .args(["--seconds", "0.1"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bytes = std::fs::read(wav).unwrap();
+    assert_eq!(bytes.len(), 58 + 4800 * 4);
+    let sound: Vec<_> = bytes[58..]
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .copied()
+        .map(f32::from_le_bytes)
+        .collect();
+    assert!(sound.iter().all(|v| v.is_finite() && v.abs() <= 0.7));
+    assert!(sound.iter().any(|v| v.abs() > 0.1));
 }
