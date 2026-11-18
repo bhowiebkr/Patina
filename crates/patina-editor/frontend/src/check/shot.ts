@@ -77,6 +77,70 @@ async function poke({ from, path, to, also }: Poke) {
   return true;
 }
 
+/** Each placed widget is on its canvas (4.3), on the graph and in the Inspector. Returns false when no GUI has a placed widget. */
+function placesOnCanvas() {
+  const guis = [...document.querySelectorAll('.node-gui.placed')];
+  for (const gui of guis) {
+    const pad = gui.querySelector('svg.gui-canvas')!.getBoundingClientRect();
+    for (const p of gui.querySelectorAll('.gui-place')) {
+      const r = p.getBoundingClientRect();
+      if (r.left < pad.left || r.top < pad.top || r.right > pad.right + 1 || r.bottom > pad.bottom + 1) throw new Error(`a placed widget at ${r.left}, ${r.top} is outside its canvas at ${pad.left}, ${pad.top} in ${gui.getAttribute('aria-label')}`);
+    }
+  }
+  return guis.length > 0;
+}
+
+/** Throws on a widget out of its node or the Inspector, a label that cuts its text, or two nodes that overlap (4.3). */
+function guiFit(where: string) {
+  const bad: string[] = [];
+  let seen = 0;
+  const name = (w: Element) => `${w.tagName.toLowerCase()} ${w.getAttribute('aria-label') ?? w.textContent?.slice(0, 20) ?? ''}`;
+  const boxes = [...document.querySelectorAll('.react-flow__node'), ...document.querySelectorAll('aside[aria-label="Inspector"]')];
+  for (const box of boxes) {
+    const b = box.getBoundingClientRect();
+    for (const w of box.querySelectorAll('.node-gui :is(svg.gui-canvas, canvas, input, select, button, textarea, .label)')) {
+      const r = w.getBoundingClientRect();
+      if (r.width === 0) continue;
+      seen++;
+      if (r.left < b.left - 1 || r.top < b.top - 1 || r.right > b.right + 1 || r.bottom > b.bottom + 1) bad.push(`out ${box.getAttribute('data-id') ?? 'inspector'} ${name(w)}`);
+      if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement)) bad.push(`cut ${box.getAttribute('data-id') ?? 'inspector'} ${name(w)}`);
+    }
+  }
+  const nodes = [...document.querySelectorAll('.react-flow__node')].map((n) => [n.getAttribute('data-id'), n.getBoundingClientRect()] as const);
+  for (const [i, [a, p]] of nodes.entries())
+    for (const [b, q] of nodes.slice(i + 1)) if (Math.min(p.right, q.right) - Math.max(p.left, q.left) > 2 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 2) bad.push(`over ${a} ${b}`);
+  if (bad.length) throw new Error(`the layout of ${where} is wrong: ${bad.join(', ')}`);
+  return `fit ${where}: ${seen} widgets and ${nodes.length} nodes`;
+}
+
+/** Throws on a wire through a body that is not one of its ends, or on a route conflict mark (15.9). */
+function wiresClear(where: string) {
+  const bad: string[] = [];
+  let seen = 0;
+  const nodes = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => [n.dataset.id ?? '', n.getBoundingClientRect()] as const);
+  for (const e of document.querySelectorAll('.react-flow__edge')) {
+    const id = e.getAttribute('data-id') ?? '';
+    const ends = id.split('>').map((pin) => pin.slice(0, pin.lastIndexOf('.')));
+    const path = e.querySelector<SVGPathElement>('.wire-hit');
+    const m = path?.getScreenCTM();
+    if (!path || !m) continue;
+    seen++;
+    // The automatic route keeps 6 px from each body, so a point 3 px inside a body is wrong.
+    const inset = 3 * m.a;
+    const through = new Set<string>();
+    for (let s = 0, len = path.getTotalLength(); s <= len; s += 4) {
+      const p = path.getPointAtLength(s);
+      const x = m.a * p.x + m.c * p.y + m.e;
+      const y = m.b * p.x + m.d * p.y + m.f;
+      for (const [n, r] of nodes) if (!ends.includes(n) && x > r.left + inset && x < r.right - inset && y > r.top + inset && y < r.bottom - inset) through.add(n);
+    }
+    for (const n of through) bad.push(`${id} through ${n}`);
+  }
+  for (const c of document.querySelectorAll('.route-conflict')) bad.push(`a conflict mark at ${c.getAttribute('style')}`);
+  if (bad.length) throw new Error(`the wires of ${where} are wrong: ${bad.join(', ')}`);
+  return `wires ${where}: ${seen} wires clear of the bodies`;
+}
+
 /** The outputs of the examples with a `Viewer` thumbnail, and the image labels of the Inspector: the frame of the computer GPU with its screen widget, and the image of the gpu gradient. */
 const VIEWED: { from: string; shows: RegExp }[] = [
   { from: 'ad357059907f778c.out0', shows: /^Value: 32 x 32 pixels, Screen: 32 x 32 pixels$/ },
@@ -95,6 +159,20 @@ async function inspectThumb() {
   const shown = () => [...document.querySelectorAll('aside[aria-label="Inspector"] canvas.gui-image')].map((c) => c.getAttribute('aria-label'));
   await wait(() => viewed.shows.test(shown().join(', ')), () => `the Inspector of the wire from ${viewed.from} shows: ${shown().join(', ')}`);
   return shown().join(', ');
+}
+
+/** No node covers the badge of the selected wire, which shows all of its text (15.9). Returns false when the wire has no badge. */
+function badgeOnTop() {
+  const b = document.querySelector<HTMLElement>('.wire-value.selected');
+  if (!b) return false;
+  const r = b.getBoundingClientRect();
+  // The hit test skips a box without pointer events.
+  b.style.pointerEvents = 'auto';
+  const tops = [r.left + 2, r.right - 2].map((x) => document.elementFromPoint(x, r.top + r.height / 2));
+  b.style.pointerEvents = '';
+  const over = tops.find((t) => !b.contains(t));
+  if (over) throw new Error(`a ${over.tagName} ${over.getAttribute('class')} covers the selected badge "${b.textContent}"`);
+  return true;
 }
 
 /** Opens the full size of each node that has one, until a full size shows a code editor with line numbers and the band on the current line (4.3). Returns false when no full size has a code editor. */
@@ -183,10 +261,14 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       await sleep(500);
       await api.capture('main-poke');
       steps.push('main-poke');
+      if (placesOnCanvas()) steps.push('placed widgets on their canvas');
+      steps.push(guiFit('main'));
+      steps.push(wiresClear('main'));
     }
     const inspected = await inspectThumb();
     if (inspected) {
       steps.push(`inspect ${inspected}`);
+      if (badgeOnTop()) steps.push('the selected badge is above the nodes');
       await api.capture('main-inspect');
       steps.push('main-inspect');
     }
@@ -201,6 +283,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         await sleep(500);
         await api.capture(n.subgraph);
         steps.push(n.subgraph);
+        steps.push(guiFit(n.subgraph));
+        steps.push(wiresClear(n.subgraph));
         // A public pin of a bus type shows its contacts only near (15.9).
         await zoom(document.querySelector('.patina-node.port.bus'), n.subgraph);
         await visit(inner, [...path, [n.subgraph, n.id]]);

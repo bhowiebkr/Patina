@@ -1,7 +1,7 @@
 // The value widgets of a node GUI (spec 4.3): color picker, plot, waveform, table, curve and
 // image, with the shared controls of the GUI guide.
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { parseThumb } from '../api';
 import type { Widget } from './gui';
 
@@ -353,7 +353,8 @@ export function Thumbnail({ thumb, stale, label }: { thumb: string; stale: boole
   }, [picture]);
   if (!picture) return null;
   const { width, height } = picture;
-  return <canvas ref={ref} className={stale ? 'gui-image thumb stale' : 'gui-image thumb'} width={width} height={height} role="img" aria-label={`${label}: ${width} x ${height} pixels`} />;
+  const style = { '--aspect': width / height } as CSSProperties;
+  return <canvas ref={ref} className={stale ? 'gui-image thumb stale' : 'gui-image thumb'} style={style} width={width} height={height} role="img" aria-label={`${label}: ${width} x ${height} pixels`} />;
 }
 
 /** Draws the pixels of the image when they change. An empty image shows an empty box. */

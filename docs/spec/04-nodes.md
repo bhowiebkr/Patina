@@ -204,6 +204,7 @@ pub struct Button { held: bool }
 - A wire still leaves an output to the right and goes into an input from the left.
 - `ui.place([x, y])` puts the next widget at a point, on top of the other widgets. A widget in a section keeps its place in the section.
 - A placed image or field fills the width from `x` to the same margin at the right edge. The height of an image follows its aspect ratio. Thus an image fits in a drawn frame, for example the glass of a monitor. A field is a `number`, `text`, `path` or `dropdown` widget. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+- The **Inspector** and the full size GUI also show a GUI with placed widgets with no padding and no canvas label. Thus each widget stays at its place on the drawing. (Agent decision of 2026-11-18. The owner can change it.)
 - `canvas.path(data, color, fill)` draws SVG path data, for example `M 0 0 L 40 0 L 20 30 Z`. The editor skips a path with other letters than the path commands.
 - The name and the state icon of the node show above the shape. The selection is an outline. An error message shows below the shape.
 - The name, the state icon and the order pins show only when the pointer is on the node, or when the node is selected, has the focus or has an error. The order pins also show during a wire drag. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)

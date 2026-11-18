@@ -271,7 +271,7 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
   const places = tree.includes('place\t') ? freeLayout(tree).places : null;
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
-    <div className="node-gui nodrag nowheel" role="group" aria-label={label} style={places ? { position: 'relative' } : undefined}>
+    <div className={`node-gui nodrag nowheel${places ? ' placed' : ''}`} role="group" aria-label={label}>
       {blocks.map(function draw(w: Block): ReactNode {
         switch (w.kind) {
           case 'label':

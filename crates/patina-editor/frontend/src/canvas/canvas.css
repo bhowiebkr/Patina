@@ -635,7 +635,9 @@
   pointer-events: none;
 }
 
+/* The full label and badge of a selected wire are above the nodes (15.9). */
 .wire-type.selected {
+  z-index: 10;
   max-width: none;
 }
 
@@ -645,6 +647,7 @@
 }
 
 .wire-value.selected {
+  z-index: 10;
   max-width: none;
   border-color: var(--accent);
 }

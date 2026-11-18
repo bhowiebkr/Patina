@@ -39,6 +39,22 @@
   z-index: 1;
 }
 
+/* The places count from the corner of the canvas, also in the Inspector and the full size GUI (4.3). */
+.node-gui.placed {
+  position: relative;
+  width: fit-content;
+  padding: 0;
+}
+
+.full-gui .node-gui.placed {
+  padding: 0;
+  margin: 16px 24px;
+}
+
+.node-gui.placed .gui-canvas-row > .label {
+  display: none;
+}
+
 /* A viewport (15.8). The view draws under the page, so the area and its parents go transparent. */
 .gui-viewport {
   width: 100%;
@@ -402,6 +418,11 @@ html.native-viewport .gui-viewport {
 /* The thumbnail of a value (5.3), under the pins or in the Inspector. */
 .gui-image.thumb {
   image-rendering: auto;
+}
+
+/* The Inspector thumbnail is at most 128 px high, so the widgets of the viewer stay the large view. */
+aside[aria-label='Inspector'] .gui-image.thumb {
+  width: min(100%, calc(128px * var(--aspect, 1)));
 }
 
 .patina-node > .gui-image.thumb {

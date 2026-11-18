@@ -297,6 +297,17 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   `widgets/calc` (a pocket calculator) in hello and `widgets/scope` (a lab instrument) in gpu.
   A placed image or field fills the width to the same right margin. A free node shows no canvas
   label row, so its pins and placed widgets line up with the drawing. The tests of each crate pass.
+- The **Inspector** put a placed widget at the wrong place, for example the **Type** field of
+  the keyboard on the canvas title (fixed 2026-11-18). A GUI with placed widgets now has no
+  padding and no canvas label there too. The shot checks that each placed widget is on its canvas.
+- A node covered the full badge of a selected wire, for example `GpuImage 64x16` in gpu (fixed
+  2026-11-18). The badge and the label of a selected wire are now above the nodes. The shot
+  checks that no node covers the badge.
+- The shot checks the layout of each graph that it opens: no widget is out of its node or the
+  **Inspector**, no label cuts its text, no two nodes overlap, no wire goes through a node body
+  and no wire has a route conflict mark (added 2026-11-18).
+- The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
+  of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol
   node has no GUI widgets. Only the hidden shots checked the look of the examples.
 - An unwired input whose type has no parameter support gives a graph problem on its node, not
