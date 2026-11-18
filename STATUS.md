@@ -305,7 +305,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   checks that no node covers the badge.
 - The shot checks the layout of each graph that it opens: no widget is out of its node or the
   **Inspector**, no label cuts its text, no two nodes overlap, no wire goes through a node body
-  and no wire has a route conflict mark (added 2026-11-18).
+  and no wire has a route conflict mark (added 2026-11-18). It also selects each node of the
+  main graph, and the first node of each new kind in a subgraph. Its **Inspector** must not
+  scroll to the side, cut a label, show an error or show a GUI that cannot draw (added
+  2026-11-18).
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol

@@ -90,7 +90,7 @@ function placesOnCanvas() {
   return guis.length > 0;
 }
 
-/** Throws on a widget out of its node or the Inspector, a label that cuts its text, or two nodes that overlap (4.3). */
+/** Throws on a widget out of its node or the Inspector, a label that cuts its text, a GUI that cannot draw, or two nodes that overlap (4.3). */
 function guiFit(where: string) {
   const bad: string[] = [];
   let seen = 0;
@@ -103,10 +103,11 @@ function guiFit(where: string) {
       if (r.width === 0) continue;
       seen++;
       if (r.left < b.left - 1 || r.top < b.top - 1 || r.right > b.right + 1 || r.bottom > b.bottom + 1) bad.push(`out ${box.getAttribute('data-id') ?? 'inspector'} ${name(w)}`);
-      if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement)) bad.push(`cut ${box.getAttribute('data-id') ?? 'inspector'} ${name(w)}`);
+      if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${box.getAttribute('data-id') ?? 'inspector'} ${name(w)}`);
     }
   }
   const nodes = [...document.querySelectorAll('.react-flow__node')].map((n) => [n.getAttribute('data-id'), n.getBoundingClientRect()] as const);
+  for (const e of document.querySelectorAll('.node-gui [role=alert]')) bad.push(`a GUI cannot draw: ${e.textContent}`);
   for (const [i, [a, p]] of nodes.entries())
     for (const [b, q] of nodes.slice(i + 1)) if (Math.min(p.right, q.right) - Math.max(p.left, q.left) > 2 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 2) bad.push(`over ${a} ${b}`);
   if (bad.length) throw new Error(`the layout of ${where} is wrong: ${bad.join(', ')}`);
@@ -139,6 +140,36 @@ function wiresClear(where: string) {
   for (const c of document.querySelectorAll('.route-conflict')) bad.push(`a conflict mark at ${c.getAttribute('style')}`);
   if (bad.length) throw new Error(`the wires of ${where} are wrong: ${bad.join(', ')}`);
   return `wires ${where}: ${seen} wires clear of the bodies`;
+}
+
+/** Selects each node, and throws on an Inspector that scrolls to the side, a widget out of it, a label that cuts its text, a GUI that cannot draw or a node with an error (15.7). */
+async function inspectNodes(where: string, ids = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => n.dataset.id ?? '')) {
+  changeLayout((l) => openPanel(l, 'inspector'));
+  const aside = () => document.querySelector<HTMLElement>('aside[aria-label="Inspector"]');
+  const bad: string[] = [];
+  for (const id of ids) {
+    const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`);
+    if (!node) continue;
+    node.click();
+    await wait(() => [...(aside()?.querySelectorAll('.label') ?? [])].some((l) => l.textContent === `ID ${id}`), () => `the Inspector does not show node ${id}`);
+    // The engine draws the GUI again in the Inspector size (4.3).
+    if (node.querySelector('.node-gui')) await sleep(600);
+    const a = aside()!;
+    const b = a.getBoundingClientRect();
+    if (a.scrollWidth > a.clientWidth + 1) bad.push(`${id} scrolls the Inspector to the side`);
+    if (a.querySelector('.panel-title .error-text')) bad.push(`${id} has an error`);
+    if (a.querySelector('.node-gui [role=alert]')) bad.push(`the GUI of ${id} cannot draw`);
+    for (const w of a.querySelectorAll('.node-gui :is(svg.gui-canvas, canvas, input, select, button, textarea, .label), .param > *')) {
+      const r = w.getBoundingClientRect();
+      if (r.width === 0) continue;
+      const what = `${id} ${w.tagName.toLowerCase()} ${w.getAttribute('aria-label') ?? w.textContent?.slice(0, 20) ?? ''}`;
+      if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
+      if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
+    }
+    placesOnCanvas();
+  }
+  if (bad.length) throw new Error(`the Inspector of ${where} is wrong: ${bad.join(', ')}`);
+  return `inspect ${where}: ${ids.length} nodes`;
 }
 
 /** The outputs of the examples with a `Viewer` thumbnail, and the image labels of the Inspector: the frame of the computer GPU with its screen widget, and the image of the gpu gradient. */
@@ -265,6 +296,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       steps.push(guiFit('main'));
       steps.push(wiresClear('main'));
     }
+    steps.push(await inspectNodes('main'));
     const inspected = await inspectThumb();
     if (inspected) {
       steps.push(`inspect ${inspected}`);
@@ -274,6 +306,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     }
     if (await fullCode()) steps.push('main-full');
     if (await echo()) steps.push('main-echo');
+    // A subgraph inspects the first node of each kind that the shot did not inspect yet.
+    const kinds = new Set((v.graph.node ?? []).map((n) => n.folder ?? n.subgraph ?? n.builtin));
     // Depth first: open each subgraph one time, through its first use, then go back.
     const visit = async (graph: View, path: [string, string][]) => {
       for (const n of graph.graph.node ?? []) {
@@ -285,6 +319,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         steps.push(n.subgraph);
         steps.push(guiFit(n.subgraph));
         steps.push(wiresClear(n.subgraph));
+        const fresh = (inner.graph.node ?? []).filter((m) => !kinds.has(m.folder ?? m.subgraph ?? m.builtin) && kinds.add(m.folder ?? m.subgraph ?? m.builtin));
+        if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)));
         // A public pin of a bus type shows its contacts only near (15.9).
         await zoom(document.querySelector('.patina-node.port.bus'), n.subgraph);
         await visit(inner, [...path, [n.subgraph, n.id]]);
