@@ -13,7 +13,7 @@ import { Inspector, type InspectorTab } from './panels/Inspector';
 import { useEditKeys } from './canvas/keys';
 import { openPanel, type PanelId, type ViewSlot } from './panels/layout';
 import { Lines } from './run/Lines';
-import { ExpandGui, FullGui } from './controls/NodeGui';
+import { ExpandGui, FullGui, GuiScope } from './controls/NodeGui';
 import { LayersPanel } from './panels/LayersPanel';
 import type { WireData } from './wires/WireLayer';
 import { ProjectPanel, type Inspect } from './panels/ProjectPanel';
@@ -88,7 +88,7 @@ export function App() {
   );
 
   const { act, edit, undo, redo, saveAll, startTest, switchInput, collapse, expandUses, copyNodes, paste } = useGraphEdits({ serial, current, show, markStale, log, setError, setFocus });
-  const { path, testing, usePath, scoped, domains, goTo, openGraph } = useTrail(view, current, run, act);
+  const { path, testing, usePath, scoped, scopedGuis, domains, goTo, openGraph } = useTrail(view, current, run, guis, act);
   const fire = useCallback((id: string) => api.fire(usePath ? `${usePath}/${id}` : id, '').catch((e) => setError(String(e))), [usePath, setError]);
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */
@@ -195,7 +195,7 @@ export function App() {
         <Inspector
           view={view}
           run={scoped}
-          guis={guis}
+          guis={scopedGuis}
           inspect={inspect}
           tab={tab}
           reveal={reveal}
@@ -225,6 +225,7 @@ export function App() {
       {/* The dock waits for the layout of the project, so the graph opens at its saved pan and zoom. */}
       {layoutSerial === view.serial ? (
         <ExpandGui.Provider value={expand}>
+          <GuiScope.Provider value={usePath}>
           <OpenUse.Provider value={openGraph}>
           <Dock panels={panels} view={viewPanel}>
             {!view.trusted && (
@@ -238,7 +239,7 @@ export function App() {
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
                 <FireTrigger.Provider value={view.live && (view.graphName === 'main' || usePath) ? fire : null}>
-                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={guis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} lockRef={lockBends} />
+                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={scopedGuis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} lockRef={lockBends} />
                 </FireTrigger.Provider>
               </PortTest.Provider>
               {view.graphName !== 'main' && (
@@ -247,7 +248,7 @@ export function App() {
               {fullEntry && (
                 <FullGui
                   id={fullEntry.id}
-                  tree={guis.get(`2 ${fullEntry.id}`) ?? guis.get(`1 ${fullEntry.id}`) ?? guis.get(`0 ${fullEntry.id}`) ?? ''}
+                  tree={scopedGuis.get(`2 ${fullEntry.id}`) ?? scopedGuis.get(`1 ${fullEntry.id}`) ?? scopedGuis.get(`0 ${fullEntry.id}`) ?? ''}
                   disabled={!view.trusted}
                   onBack={closeFull}
                 />
@@ -255,6 +256,7 @@ export function App() {
             </div>
           </Dock>
           </OpenUse.Provider>
+          </GuiScope.Provider>
         </ExpandGui.Provider>
       ) : (
         <div className="middle" />

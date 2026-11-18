@@ -1,10 +1,12 @@
 // The layout state of the canvas: the nodes in view, the open frames and the route obstacles.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@xyflow/react';
 import { api, type GraphFile, type View } from '../api';
 import { gutter, HEADER, ROW } from './NodeView';
 import { FAR_ZOOM } from '../wires/gl';
 import { NODE_WIDTH } from '../controls/gui';
+import { GuiScope } from '../controls/NodeGui';
+import { engineId } from './crumbs';
 import { frameOf, shownFrames, toggleFrame, type Room } from './frames';
 import type { Labels } from '../wires/labels';
 import type { Rect } from '../wires/route';
@@ -26,10 +28,11 @@ export function useVisibleGuis() {
     }
     return ids.join('\n');
   });
+  const scope = useContext(GuiScope);
   useEffect(() => {
-    const t = setTimeout(() => api.visible(visible === '' ? [] : visible.split('\n')).catch(() => {}), 50);
+    const t = setTimeout(() => api.visible(visible === '' ? [] : visible.split('\n').map((id) => engineId(scope, id))).catch(() => {}), 50);
     return () => clearTimeout(t);
-  }, [visible]);
+  }, [visible, scope]);
 }
 
 /** Gives the node bodies to the automatic routes and the wire names, which go around them (15.9). */

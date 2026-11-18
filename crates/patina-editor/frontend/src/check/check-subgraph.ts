@@ -1,10 +1,37 @@
 // The subgraph steps of the self-check (check.ts): a trigger in a subgraph use, the Subgraph
-// interface and the frame of the inner nodes (6.4, 15.3, 15.8, 15.9).
+// interface, the frame of the inner nodes, a node GUI in a use and Collapse from the Inspector
+// (4.3, 6.1, 6.4, 15.3, 15.4, 15.8, 15.9).
 
 import { api, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
-import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, fireButton, leftTab, topButton, type CheckContext } from './check-fixtures';
+import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, closeMenu, enterText, entry, fireButton, leftTab, rightClick, topButton, type CheckContext } from './check-fixtures';
+
+const nodeToml = (name: string) => `[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\npatina-sdk = { workspace = true }\n`;
+
+/** A node with a GUI: a switch and a text that shows the state of the switch. */
+const LAMP_NODE = `use patina_sdk::node;
+
+#[node]
+pub struct Lamp {
+    on: bool,
+}
+
+impl Lamp {
+    pub fn init() -> Self {
+        Lamp { on: false }
+    }
+
+    pub fn process(&mut self, value: f64) -> f64 {
+        if self.on { value } else { 0.0 }
+    }
+
+    pub fn ui(&mut self, ui: &mut patina_sdk::Ui) {
+        ui.toggle("Power", &mut self.on);
+        ui.label(if self.on { "Lamp on" } else { "Lamp off" });
+    }
+}
+`;
 
 /** Runs the subgraph steps with the code file `lib` of node A. They are last, because the change of graph saves. */
 export async function checkSubgraph({ step, until, mark, events, steps, fresh }: CheckContext, v: View, lib: string) {
@@ -83,7 +110,7 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   // A node folder that comes or goes from outside the editor shows in the Project panel (15.10).
   const outside = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')].find((b) => b.textContent?.startsWith('outside'));
   await api.checkWrite('nodes/outside/src/lib.rs', '#[patina_sdk::node]\npub fn outside(a: f64) -> f64 {\n    a\n}\n');
-  await api.checkWrite('nodes/outside/Cargo.toml', '[package]\nname = "outside"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\npatina-sdk = { workspace = true }\n');
+  await api.checkWrite('nodes/outside/Cargo.toml', nodeToml('outside'));
   leftTab('Project').click();
   await until('the node from outside the editor', BUILD_MS, () => !!outside());
   await api.checkWrite('nodes/outside', null);
@@ -113,4 +140,90 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('no inner nodes', RUN_MS, () => !innerNode() && frameButton()?.getAttribute('aria-expanded') === 'false');
   await until('the nodes in their places again', BUILD_MS, () => places() === before);
   steps.push('show the inner nodes of a use in a frame');
+
+  // A built-in node has no folder, so the Nodes group of the Project panel does not list it (15.4).
+  const items = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')];
+  const item = (name: string) => items().find((b) => b.textContent?.startsWith(name));
+  await api.checkWrite('nodes/lamp/Cargo.toml', nodeToml('lamp'));
+  await api.checkWrite('nodes/lamp/src/lib.rs', LAMP_NODE);
+  leftTab('Project').click();
+  await until('the lamp node folder', BUILD_MS, () => !!item('lamp'));
+  const builtins = v.nodes.filter((n) => n.builtin).map((n) => n.name);
+  const listed = builtins.filter((name) => items().some((b) => b.textContent === name));
+  if (builtins.length === 0 || listed.length > 0) throw new Error(`the Project panel lists the built-in nodes ${listed.join()} of ${builtins.join()}`);
+  steps.push('no built-in nodes in the Project panel');
+  // The right-click menu of a node folder inspects its code (15.4).
+  const inspector = 'aside[aria-label="Inspector"]';
+  const inspectorTitle = () => document.querySelector(`${inspector} .panel-title`)?.textContent ?? '';
+  const inspectorTabs = () => [...document.querySelectorAll<HTMLButtonElement>(`${inspector} [role=tab]`)];
+  changeLayout((l) => openPanel(l, 'inspector'));
+  rightClick(item('lamp')!);
+  await until('the menu of the node folder', RUN_MS, () => !!entry('nodes/lamp', 'Inspect') && !!entry('nodes/lamp', 'Delete'));
+  entry('nodes/lamp', 'Inspect')!.click();
+  const tabNames = () => inspectorTabs().map((t) => t.textContent ?? '');
+  // A node folder shows its code and its files, but no Parameters tab.
+  await until('the code of the node folder', RUN_MS, () => inspectorTitle() === 'lamp' && tabNames().includes('src/lib.rs') && !tabNames().includes('Parameters')).catch((e: Error) => {
+    throw new Error(`${e.message} (title ${inspectorTitle()}, tabs ${tabNames().join()})`);
+  });
+  steps.push('inspect a node folder from its menu');
+
+  // A node GUI in a subgraph use shows and takes input, on the canvas and in the Inspector (4.3, 6.4).
+  const lamp = 'f12e000000000002';
+  document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${use}"] .open-subgraph`)!.click();
+  await until('the use in the path bar for the lamp', BUILD_MS, () => document.querySelector('.graph-path [aria-current="page"]')?.textContent === '/ fire_check');
+  v = await step('add a lamp to the subgraph', () => api.edit({ kind: 'AddNode', id: lamp, folder: 'nodes/lamp', pos: [-300, 150] }));
+  from = mark();
+  v = await step('run the lamp in the subgraph use', () => api.run());
+  await until('a run with the lamp in the use', BUILD_MS, () => {
+    const failed = ofRun().find((e) => e.state === 'failed' || (e.state === 'ran' && !e.ok));
+    if (failed) throw new Error(`the run failed: ${JSON.stringify(failed)}`);
+    return ofRun().some((e) => e.state === 'ran');
+  });
+  rightClick(document.querySelector('.react-flow__pane')!);
+  await until('the canvas menu in the subgraph', RUN_MS, () => !!entry('Canvas', 'Fit view'));
+  entry('Canvas', 'Fit view')!.click();
+  const onCanvas = `.react-flow__node[data-id="${lamp}"]`;
+  const gui = (where: string) => document.querySelector(`${where} .node-gui`);
+  const shows = (where: string, text: string) => gui(where)?.textContent?.includes(text) === true;
+  const flip = (where: string) => gui(where)!.querySelector<HTMLInputElement>('input[type=checkbox]')!.click();
+  await until('the lamp GUI in the use', BUILD_MS, () => shows(onCanvas, 'Lamp off'));
+  flip(onCanvas);
+  await until('the lamp on after a click on its switch', RUN_MS, () => shows(onCanvas, 'Lamp on'));
+  rightClick(document.querySelector(`${onCanvas} .title`)!);
+  await until('the node menu of the lamp', RUN_MS, () => !!entry('Node', 'Delete node'));
+  closeMenu();
+  await until('the lamp in the Inspector', RUN_MS, () => inspectorTitle().includes('lamp') && tabNames().includes('Parameters'));
+  inspectorTabs().find((t) => t.textContent === 'Parameters')!.click();
+  await until('the lamp GUI in the Inspector', BUILD_MS, () => shows(inspector, 'Lamp on'));
+  flip(inspector);
+  await until('the lamp off in the Inspector and on the canvas', RUN_MS, () => shows(inspector, 'Lamp off') && shows(onCanvas, 'Lamp off'));
+  topButton('Stop')!.click();
+  await until('the end of the lamp run', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
+  steps.push('a node GUI in a subgraph use shows and takes input');
+
+  // A subgraph use has no node folder, so its Inspector has no Code tab (6.4).
+  [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
+  const useNode = () => document.querySelector(`.react-flow__node[data-id="${use}"]`);
+  await until('the use in the main graph after the lamp', BUILD_MS, () => document.querySelector('.graph-path') === null && !!useNode());
+  rightClick(useNode()!.querySelector('.title') ?? useNode()!);
+  await until('the use in the Inspector', RUN_MS, () => inspectorTitle().includes('fire_check') && inspectorTabs().length > 0);
+  closeMenu();
+  if (inspectorTabs().map((t) => t.textContent).join() !== 'Parameters') throw new Error(`a subgraph use has the tabs ${inspectorTabs().map((t) => t.textContent).join()}`);
+  steps.push('a subgraph use has no Code tab');
+
+  // Select all and Collapse into subgraph of the Inspector put the nodes into a new subgraph, with undo (6.1).
+  const count = () => document.querySelectorAll('.react-flow__node').length;
+  const all = count();
+  rightClick(document.querySelector('.react-flow__pane')!);
+  await until('the canvas menu in the main graph', RUN_MS, () => !!entry('Canvas', 'Select all'));
+  entry('Canvas', 'Select all')!.click();
+  await until('the subgraph tools of the selection', RUN_MS, () => inspectorTitle() === `${all} items selected`);
+  [...document.querySelectorAll<HTMLButtonElement>(`${inspector} .btn`)].find((b) => b.textContent === 'Collapse into subgraph...')!.click();
+  const nameField = () => document.querySelector<HTMLInputElement>('[aria-label="Subgraph name"]');
+  await until('the subgraph name field', RUN_MS, () => !!nameField());
+  enterText(nameField()!, 'all_check');
+  await until('one use for all nodes', BUILD_MS, () => count() === 1 && document.querySelector('.react-flow__node .title')?.textContent?.includes('all_check') === true);
+  v = await step('undo the collapse from the Inspector', () => api.undo());
+  await until('all nodes after the undo of the collapse', BUILD_MS, () => count() === all);
+  steps.push('collapse a selection from the Inspector');
 }

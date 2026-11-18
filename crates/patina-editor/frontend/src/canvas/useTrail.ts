@@ -1,10 +1,10 @@
 // The trail of the open graphs, and the use path of the open graph (15.9).
 import { useCallback, useMemo, useState, type RefObject } from 'react';
 import { api, scopeDomains, type View } from '../api';
-import { crumbLabel, trailOf, usePathOf, type Crumb } from './crumbs';
-import { scopeRun, TEST_USE, type RunState } from './NodeView';
+import { crumbLabel, scopeGuis, scopeRun, trailOf, usePathOf, type Crumb } from './crumbs';
+import { TEST_USE, type RunState } from './NodeView';
 
-export function useTrail(view: View | null, current: RefObject<View | null>, run: RunState, act: (job: Promise<View>, after?: (v: View) => void) => Promise<void>) {
+export function useTrail(view: View | null, current: RefObject<View | null>, run: RunState, guis: ReadonlyMap<string, string>, act: (job: Promise<View>, after?: (v: View) => void) => Promise<void>) {
   // A change of graph keeps the unsaved changes of each graph in memory. Only Save writes files (15.10).
   // A use opens the subgraph with the live values of that use. The path bar keeps each use (15.9).
   const [trail, setTrail] = useState<Crumb[]>([]);
@@ -31,7 +31,9 @@ export function useTrail(view: View | null, current: RefObject<View | null>, run
   // The run IDs of the open graph start with this use path (6.4). A subgraph with no use has none.
   const usePath = view?.graphName === 'main' ? '' : testing ? TEST_USE : usePathOf(path, view?.uses ?? []);
   const scoped = useMemo(() => scopeRun(run, usePath), [run, usePath]);
+  const main = view?.graphName === 'main';
+  const scopedGuis = useMemo(() => scopeGuis(guis, main ? null : usePath), [guis, main, usePath]);
   // A subgraph with no use has no checked nodes, so its nodes show no domain.
   const domains = useMemo(() => scopeDomains(view && (view.graphName === 'main' || usePath) ? view.domains : {}, usePath), [view, usePath]);
-  return { path, testing, usePath, scoped, domains, goTo, openGraph };
+  return { path, testing, usePath, scoped, scopedGuis, domains, goTo, openGraph };
 }

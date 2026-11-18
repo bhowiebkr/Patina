@@ -2,6 +2,7 @@
 
 import { Component, createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from '../api';
+import { engineId } from '../canvas/crumbs';
 import { AssetPicker, CodeField, Field } from './Field';
 import { eventLine, freeLayout, nest, parseTree, type Block, type Shape, type Widget } from './gui';
 import { guiIcon } from './icons';
@@ -205,8 +206,9 @@ function Section({ w, send, disabled, children }: { w: Extract<Widget, { kind: '
 let queue = Promise.resolve();
 
 function NodeGuiImpl({ id, mode, tree, disabled }: Props) {
+  const scope = useContext(GuiScope);
   const send = (line: string) => {
-    queue = queue.then(() => api.gui(id, mode, line)).catch(() => {});
+    queue = queue.then(() => api.gui(engineId(scope, id), mode, line)).catch(() => {});
   };
   return <GuiWidgets tree={tree} disabled={disabled} label="Node controls" send={send} />;
 }
@@ -377,6 +379,9 @@ export const NodeGui = memo(NodeGuiImpl);
 /** Opens the full size of the GUI of a node (4.3). The app gives it. */
 export const ExpandGui = createContext<(id: string) => void>(() => {});
 
+/** The use path of the open subgraph (6.4). The engine knows a node inside a use as "<use path>/<id>". */
+export const GuiScope = createContext('');
+
 /** The expand button of a node with `full_gui`, in the node header and the Inspector header. */
 export function ExpandButton({ id }: { id: string }) {
   const expand = useContext(ExpandGui);
@@ -392,12 +397,13 @@ export function ExpandButton({ id }: { id: string }) {
 /** The full size of a node GUI over the graph area (4.3). Esc closes it. */
 export function FullGui({ id, tree, disabled, onBack }: { id: string; tree: string; disabled: boolean; onBack: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const scope = useContext(GuiScope);
   useEffect(() => {
     ref.current?.focus();
-    api.gui(id, 2, '').catch(() => {});
+    api.gui(engineId(scope, id), 2, '').catch(() => {});
     // An empty ID tells the engine to stop the draws of the full size.
     return () => void api.gui('', 2, '').catch(() => {});
-  }, [id]);
+  }, [id, scope]);
   return (
     <div
       ref={ref}

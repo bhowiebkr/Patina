@@ -2,22 +2,12 @@
 // right-click menus of the empty canvas, a node and a connection, and copy and paste (15.2, 15.4, 15.11).
 
 import { api, type View } from '../api';
-import { RUN_MS, type CheckContext } from './check-fixtures';
+import { RUN_MS, entry, rightClick, type CheckContext } from './check-fixtures';
 import { clipboard } from '../canvas/clip';
 import { NODE_MIME } from '../canvas/useAddNode';
 
 const count = (sel: string) => document.querySelectorAll(sel).length;
 const NODES = '.react-flow__node';
-/** The entry of an open menu, found by its label without the shortcut text. */
-const entry = (menu: string, label: string) =>
-  [...document.querySelectorAll<HTMLButtonElement>(`[role="menu"][aria-label="${menu}"] [role="menuitem"]`)].find((b) => b.childNodes[0]?.textContent === label);
-
-function rightClick(el: Element, x?: number, y?: number) {
-  const r = el.getBoundingClientRect();
-  const at = { bubbles: true, cancelable: true, button: 2, clientX: x ?? r.left + r.width / 2, clientY: y ?? r.top + r.height / 2 };
-  el.dispatchEvent(new MouseEvent('contextmenu', at));
-}
-
 /** Runs the canvas steps on the open main graph, and returns the last view. */
 export async function checkCanvas({ step, until, steps }: CheckContext, v: View): Promise<View> {
   // A drop of a node folder adds a use at the drop point (15.4).

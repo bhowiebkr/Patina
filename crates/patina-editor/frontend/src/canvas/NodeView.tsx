@@ -83,19 +83,6 @@ export const NO_RUN: RunState = {
   building: { base: true, slot: null },
 };
 
-/** The values and idle nodes of one use of a subgraph, with the IDs inside the use (6.4, 15.9). */
-export function scopeRun(run: RunState, scope: string): RunState {
-  if (!scope) return run;
-  const p = `${scope}/`;
-  const inner = <T,>(map: ReadonlyMap<string, T>) => [...map].filter(([k]) => k.startsWith(p)).map(([k, v]) => [k.slice(p.length), v] as const);
-  const values = new Map(inner(run.values).map(([k, v]) => [k, { ...v, from: k }]));
-  // The outputs of the use go to the public output pins, as "out:<key>.pin".
-  for (const [k, v] of run.values) {
-    if (k.startsWith(`${scope}.`)) values.set(`out:${k.slice(scope.length + 1)}.pin`, { ...v, from: `out:${k.slice(scope.length + 1)}.pin` });
-  }
-  return { ...run, values, idle: new Map(inner(run.idle)) };
-}
-
 /** The compile errors in the folder of a node. */
 export function nodeErrors(run: RunState, name: string): Diagnostic[] {
   return run.errors.filter((e) => e.file?.startsWith(`nodes/${name}/`));

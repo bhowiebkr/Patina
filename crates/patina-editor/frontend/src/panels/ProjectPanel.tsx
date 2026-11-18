@@ -84,7 +84,8 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
     e.dataTransfer.effectAllowed = 'move';
   };
   const subgraphs = view.nodes.filter((n) => n.subgraph);
-  const nodes = view.nodes.filter((n) => !n.subgraph);
+  // A built-in node has no folder, so the Nodes group does not list it.
+  const nodes = view.nodes.filter((n) => !n.subgraph && !n.builtin);
   const title = (group: Group | 'graphs', text: string, one: string) => (
     <div className="group-title" onContextMenu={menuOf(text, view.trusted ? [{ label: `New ${one.toLowerCase()}`, run: () => setNaming(group) }] : [])}>
       {text}

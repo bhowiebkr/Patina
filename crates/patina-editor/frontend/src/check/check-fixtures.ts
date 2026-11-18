@@ -219,6 +219,20 @@ impl Number {
 }
 `;
 
+/** The entry of an open menu, found by its label without the shortcut text. */
+export const entry = (menu: string, label: string) =>
+  [...document.querySelectorAll<HTMLButtonElement>(`[role="menu"][aria-label="${menu}"] [role="menuitem"]`)].find((b) => b.childNodes[0]?.textContent === label);
+
+/** A right-click on the element, at its middle or at a point. */
+export function rightClick(el: Element, x?: number, y?: number) {
+  const r = el.getBoundingClientRect();
+  const at = { bubbles: true, cancelable: true, button: 2, clientX: x ?? r.left + r.width / 2, clientY: y ?? r.top + r.height / 2 };
+  el.dispatchEvent(new MouseEvent('contextmenu', at));
+}
+
+/** Closes the open menu, as a click next to it does. */
+export const closeMenu = () => document.querySelector('.menu-layer')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+
 /** Types a text into a field as a person does, and presses Enter. */
 export function enterText(field: HTMLInputElement, text: string) {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, text);

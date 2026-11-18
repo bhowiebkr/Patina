@@ -373,6 +373,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   subgraph that opens from the **Project** panel shows the live values of its only use (fixed
   2026-11-17). With more than one use, it shows none, because no use is selected. The frame of
   **Show inner nodes** shows the values of one use.
+- The node GUIs in an open use show the state of that use and take input, on the canvas and in
+  the **Inspector** (fixed 2026-11-18, before they used the IDs of the main graph). The reports,
+  logs and times of the inner nodes show on the inner nodes. A use has no **Code** tab (before,
+  it tried to read `nodes/<subgraph>`). The **Nodes** group of the **Project** panel lists no
+  built-in nodes. The selfcheck adds a node with a switch to a use, clicks the switch on the
+  canvas and in the **Inspector**, and reads the text of the GUI.
 - **Import** and **Update** work only from a trusted project. A renamed folder keeps the comments
   and the key order of its `Cargo.toml` (fixed 2026-11-17, before they were lost). The import
   test checks a comment. A CLI test with the real toolchain imports a node and builds it. It

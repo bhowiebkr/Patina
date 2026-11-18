@@ -1,13 +1,14 @@
 // The Inspector (spec 15.5): the parameters, the code and the logs of the selected node, in a
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
-import { lazy, Suspense, useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useContext, useEffect, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { KindIcon } from '../controls/icons';
 import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
 import { valueStale } from '../canvas/liveValues';
-import { ExpandButton, GuiWidgets, NodeGui } from '../controls/NodeGui';
+import { ExpandButton, GuiScope, GuiWidgets, NodeGui } from '../controls/NodeGui';
+import { engineId } from '../canvas/crumbs';
 import { NameField } from '../controls/NameField';
 import type { Inspect } from './ProjectPanel';
 import { SubgraphInterface } from './SubgraphInterface';
@@ -248,9 +249,10 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
   // A node with a GUI draws it in the Inspector size after each run, once the engine knows (4.3).
   const guiId = entry && guis.has(`0 ${entry.id}`) ? entry.id : null;
+  const scope = useContext(GuiScope);
   useEffect(() => {
-    if (guiId) api.gui(guiId, 1, '').catch(() => {});
-  }, [guiId]);
+    if (guiId) api.gui(engineId(scope, guiId), 1, '').catch(() => {});
+  }, [guiId, scope]);
   const code = (folder: string) => (
     <Suspense fallback={null}>
       <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
@@ -305,8 +307,8 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
       e.currentTarget.blur();
     }
   };
-  // A built-in node has no code folder.
-  const hasCode = info && !info.builtin;
+  // A built-in node and a subgraph use have no node folder.
+  const hasCode = info && !info.builtin && !info.subgraph;
   const shown = hasCode ? tab : 'parameters';
   const reports = run.reports.filter((r) => r.id === entry.id);
   const logs = run.logs.filter((l) => l.id === entry.id);
