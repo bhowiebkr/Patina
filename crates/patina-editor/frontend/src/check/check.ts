@@ -16,7 +16,7 @@ import type { CheckContext } from './check-fixtures';
 import { checkIsolation } from './check-isolation';
 import { checkPackage } from './check-package';
 import { checkPalette } from './check-palette';
-import { checkProject, checkRecovery } from './check-project';
+import { checkProject, checkRecovery, checkUpdate, removeLibrary } from './check-project';
 import { checkStart } from './check-start';
 import { checkSubgraph } from './check-subgraph';
 import { checkViews } from './check-views';
@@ -108,6 +108,8 @@ export async function runCheck(dir: string, show: (v: View) => void, edited: (v:
     steps.push('screenshot');
     // The package step opens another project, so it comes after the screenshot of the check project.
     await checkPackage(c, dir);
+    await checkUpdate(c, dir);
+    await removeLibrary(c);
     await api.checkDone({ ok: true, steps, startMs: startMs() });
   } catch (e) {
     await api.checkDone({ ok: false, steps, error: String(e), output: output.slice(-20) });

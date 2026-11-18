@@ -118,7 +118,14 @@ export async function checkDomains(c: CheckContext, v: View, lib: string, change
   // The frame rate (9.1): at 120 FPS, each frame event shows the last of two frames.
   // The FPS field of the top bar sends the rate on Enter, and then shows the rate of the view.
   const fps = document.querySelector<HTMLInputElement>('.fps input')!;
+  const realRate = api.frameRate;
+  let sent: Promise<View> | undefined;
+  api.frameRate = (rate) => (sent = realRate(rate));
   enterText(fps, '120');
+  await until('the send of the FPS field', RUN_MS, () => sent !== undefined);
+  api.frameRate = realRate;
+  // The run must not start before the new rate is set.
+  await sent;
   await until('120 in the FPS field', RUN_MS, () => fps.value === '120');
   from = mark();
   v = await step('run at 120 FPS', () => api.run());

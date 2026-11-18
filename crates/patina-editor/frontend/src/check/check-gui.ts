@@ -233,6 +233,11 @@ async function checkDrags(until: Until, gui: string) {
   snapList.value = '0.5';
   snapList.dispatchEvent(new Event('change', { bubbles: true }));
   await until('the snap that the node keeps', RUN_MS, () => snapList.value === '0.5');
+  // An arrow key on a loop end moves it by one snap step, and the node keeps the range.
+  const loopEnd = timeline.querySelector<HTMLElement>('[role="slider"][aria-label="Loop end"]')!;
+  const endAt = Number(loopEnd.getAttribute('aria-valuenow'));
+  loopEnd.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+  await until('the loop end that the node keeps', RUN_MS, () => Math.abs(Number(loopEnd.getAttribute('aria-valuenow')) - (endAt - 0.5)) < 1e-6);
   const playhead = timeline.querySelector<HTMLElement>('[role="slider"][aria-label="Playhead"]')!;
   playhead.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
   await until('the playhead at the end after the End key', RUN_MS, () => Number(playhead.getAttribute('aria-valuenow')) === Number(playhead.getAttribute('aria-valuemax')));

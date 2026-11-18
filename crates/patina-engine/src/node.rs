@@ -413,19 +413,29 @@ fn read_attr(attr: &Attribute) -> Result<Args, String> {
     Ok(args)
 }
 
-/// Joins the lines of the doc comment. None when it is empty.
+/// Joins the lines of the doc comment as Markdown does: a blank line starts a paragraph, a list
+/// item starts a line, and other lines join with a space. None when it is empty.
 fn doc(attrs: &[Attribute]) -> Option<String> {
-    let lines: Vec<String> = attrs
-        .iter()
-        .filter_map(|a| match &a.meta {
-            Meta::NameValue(m) if m.path.is_ident("doc") => match &m.value {
-                syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }) => Some(s.value().trim().to_owned()),
-                _ => None,
-            },
+    let lines = attrs.iter().filter_map(|a| match &a.meta {
+        Meta::NameValue(m) if m.path.is_ident("doc") => match &m.value {
+            syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }) => Some(s.value()),
             _ => None,
-        })
-        .collect();
-    let text = lines.join("\n").trim().to_owned();
+        },
+        _ => None,
+    });
+    let (mut text, mut blank) = (String::new(), false);
+    for line in lines {
+        let line = line.trim();
+        if line.is_empty() {
+            blank = true;
+            continue;
+        }
+        if !text.is_empty() {
+            text.push_str(if blank { "\n\n" } else if line.starts_with("- ") || line.starts_with("* ") { "\n" } else { " " });
+        }
+        blank = false;
+        text.push_str(line);
+    }
     (!text.is_empty()).then_some(text)
 }
 
@@ -555,8 +565,8 @@ mod tests {
         assert!(!node.heavy && parse(&counter.replace("domain = frame", "domain = frame, heavy")).unwrap().heavy);
         let colored = counter.replace("#[node(domain = frame)]", "#[node(domain = frame, color = \"#175C59\")]");
         assert_eq!(parse(&colored).unwrap().color.as_deref(), Some("#175c59"));
-        let documented = parse(&colored.replace("#[node(", "/// Counts.\n///\n///  Up. \n#[node(")).unwrap();
-        assert_eq!((documented.doc.as_deref(), parse(&colored).unwrap().doc), (Some("Counts.\n\nUp."), None));
+        let documented = parse(&colored.replace("#[node(", "///\n/// Counts.\n///\n///\n///  Up. \n/// More.\n/// - a\n#[node(")).unwrap();
+        assert_eq!((documented.doc.as_deref(), parse(&colored).unwrap().doc), (Some("Counts.\n\nUp. More.\n- a"), None));
         assert!(parse(&colored.replace("#175C59", "175c59")).is_err());
         assert!(parse(&colored.replace("#175C59", "#17c5g9")).is_err());
         let gate = parse(&counter.replace("domain = frame", "symbol = \"nand\"")).unwrap();

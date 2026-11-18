@@ -368,6 +368,10 @@ fn a_timeline_plays_loops_and_stops_at_the_end() {
     assert_eq!((t.playhead, t.playing), (4.0, false));
     t.advance(1.0);
     assert_eq!(t.playhead, 4.0);
+    // A ruler shorter than the default loop range loops at its end.
+    let mut short = Timeline { length: 3.0, playing: true, looping: true, playhead: 2.5, ..Timeline::default() };
+    short.advance(1.0);
+    assert_eq!((short.playhead, short.playing), (0.5, true));
     let a = Automation { range: [0.0, 10.0], unit: String::new(), points: vec![[1.0, 2.0], [3.0, 6.0]] };
     assert_eq!([0.0, 1.0, 2.0, 3.0, 9.0].map(|time| a.value(time)), [2.0, 2.0, 4.0, 6.0, 6.0]);
     assert_eq!(Automation { points: Vec::new(), ..a }.value(1.0), 0.0);

@@ -188,12 +188,35 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   await emit('float-dock', 'view2');
   await until('the docked tab of the float view', RUN_MS, () => !!second());
   await until('the widgets of the docked view', BUILD_MS, () => viewText().startsWith('value '));
+  // A drag of the view tab that ends out of the window, with no drop, floats the view (15.2).
+  ready = false;
+  const stopOut = await listen<string>('float-ready', (e) => (ready ||= e.payload === 'view2'));
+  try {
+    const data = new DataTransfer();
+    second()!.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 50));
+    second()!.dispatchEvent(new DragEvent('dragend', { dataTransfer: data, bubbles: true, clientX: -20, clientY: 40, screenX: 200, screenY: 200 }));
+    await until('the tab of the view that dropped out of the window to go', RUN_MS, () => !second());
+    await until('the float window of the dropped view', BUILD_MS, () => ready);
+  } finally {
+    stopOut();
+  }
+  await emit('float-dock', 'view2');
+  await until('the docked tab of the dropped view', RUN_MS, () => !!second());
+  // Move to the right area and Move to the center of the tab menu move the view (15.2).
+  const menuOf = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.menu button')].find((b) => b.textContent === label);
+  for (const [label, area] of [['Move to the right area', 'right'], ['Move to the center', 'center']]) {
+    second()!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    await until(`${label} in the tab menu`, RUN_MS, () => !!menuOf(label));
+    menuOf(label)!.click();
+    await until(`the view tab in the ${area} area`, RUN_MS, () => !!second()?.closest(`.area.${area}`));
+  }
   // The views open in the center (15.2). The Graph tab shows the graph under them again.
   const graphTab = () => [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((t) => t.textContent === 'Graph');
   if (!document.querySelector('.center-view') || !graphTab()) throw new Error('the view did not open in the center');
   graphTab()!.click();
   await until('the graph under the views', RUN_MS, () => !document.querySelector('.center-view') && graphTab()?.getAttribute('aria-selected') === 'true');
   changeLayout(showGraph);
-  steps.push('a float window of a view');
+  steps.push('Float in a window and a drop out of the window float a view, and the tab menu moves it to the right area and the center');
   return v;
 }

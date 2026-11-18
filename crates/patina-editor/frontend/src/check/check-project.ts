@@ -258,6 +258,51 @@ fn broken() -> u32 {
   return { v, lib, original };
 }
 
+/** Changes an imported file in the copy and in the library, and picks a version in the Update dialog (6.2). */
+export async function checkUpdate({ step, until, steps }: CheckContext, dir: string) {
+  const libRoot = (await api.settings()).libraries.find((l) => /[\\/]checklib$/.test(l.path))!.path;
+  const [file, ours, theirs] = ['src/lib.rs', 'nodes/number-2/src/lib.rs', 'nodes/number/src/lib.rs'];
+  await step('open the check project for the update', () => api.openProject(`${dir}/check`));
+  await step('import a library folder for the update', () => api.importFolder(libRoot, 'nodes/number', { 'nodes/number': { kind: 'Rename', name: 'number-2' } }));
+  await api.checkWrite(ours, `${await api.readCode(ours)}// This project\n`);
+  await step('open the library for the update', () => api.openProject(libRoot));
+  await api.checkWrite(theirs, `${await api.readCode(theirs)}// Other project\n`);
+  await step('open the check project after the library change', () => api.openProject(`${dir}/check`));
+  leftTab('Project').click();
+  const box = () => document.querySelector('.dialog.import');
+  const copy = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Project] .item')].find((b) => b.title.startsWith('Compare') && b.textContent?.startsWith('nodes/number-2'));
+  const version = () => box()?.querySelector<HTMLSelectElement>(`select[aria-label="Version of ${file}"]`);
+  const update = () => [...(box()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((b) => b.textContent === 'Update');
+  await until('the copy in the Imports list for the update', RUN_MS, () => !!copy());
+  copy()!.click();
+  await until('Pick a version in the Update dialog, with Update off', RUN_MS, () => !!version() && update()?.disabled === true);
+  version()!.value = 'Other';
+  version()!.dispatchEvent(new Event('change', { bubbles: true }));
+  await until('Update on after the pick', RUN_MS, () => update()?.disabled === false);
+  update()!.click();
+  await until('the closed Update dialog after the update', BUILD_MS, () => !box()).catch((e: Error) => {
+    throw new Error(`${e.message} (${box()?.querySelector('.error-text')?.textContent ?? 'no error'})`);
+  });
+  const text = await api.readCode(ours);
+  if (!text.includes('// Other project') || text.includes('// This project')) throw new Error(`the update did not take the other version: ${text}`);
+  await api.checkWrite('nodes/number-2', null);
+  steps.push('Pick a version in the Update dialog for a file that changed on both sides');
+}
+
+/** Closes the project and removes the library of the check with Remove in Settings (6.2). */
+export async function removeLibrary({ until, steps }: CheckContext) {
+  topButton('Close')!.click();
+  await until('the Settings button after Close', RUN_MS, () => !!button('Settings'));
+  button('Settings')!.click();
+  const remove = () => document.querySelector<HTMLButtonElement>('[aria-label="Libraries"] button[aria-label^="Remove library"][aria-label$="checklib"]');
+  await until('Remove of the checklib library', RUN_MS, () => remove()?.disabled === false);
+  remove()!.click();
+  await until('no checklib library in Settings', RUN_MS, () => !remove());
+  if ((await api.settings()).libraries.some((l) => /[\\/]checklib$/.test(l.path))) throw new Error('Remove did not remove the library from the settings');
+  button('Back')!.click();
+  steps.push('Remove in Settings removes a library');
+}
+
 /** Restores a graph change and a code change after a stop of Patina, and returns the changed code. */
 export async function checkRecovery({ step, until, steps }: CheckContext, v: View, lib: string, original: string) {
   // The recovery file (15.10): an open after a stop of Patina restores the unsaved graph and code.

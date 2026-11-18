@@ -99,13 +99,18 @@ impl Automation {
 }
 
 impl Timeline {
+    /// The loop range inside the ruler. A node can set a `length` below the default range.
+    fn loop_span(&self) -> [f32; 2] {
+        self.loop_range.map(|v| v.clamp(0.0, self.length.max(0.0)))
+    }
+
     /// Moves the playhead by `seconds` when the timeline plays. With the loop on, the playhead
     /// goes back to the loop start at the loop end. Without it, the play stops at the ruler end.
     pub fn advance(&mut self, seconds: f32) {
         if !self.playing || !seconds.is_finite() {
             return;
         }
-        let [start, end] = self.loop_range;
+        let [start, end] = self.loop_span();
         let was = self.playhead;
         self.playhead += seconds.max(0.0);
         if self.looping && end > start && was < end && self.playhead >= end {
@@ -234,8 +239,8 @@ impl Ui {
             t.playhead,
             u8::from(t.playing),
             u8::from(t.looping),
-            t.loop_range[0],
-            t.loop_range[1],
+            t.loop_span()[0],
+            t.loop_span()[1],
             t.snap
         );
         if let Some([lane, i]) = t.selected {

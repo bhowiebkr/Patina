@@ -5,17 +5,26 @@
 import { api, onEngine, type EngineEvent, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
-import { button, mouseWheel } from './check-fixtures';
+import { button, enterText, entry, mouseWheel, rightClick } from './check-fixtures';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Waits up to 30 s for `test`, or throws the text of `what`. */
+async function wait(test: () => boolean, what: () => string) {
+  const end = Date.now() + 30_000;
+  while (!test()) {
+    if (Date.now() > end) throw new Error(what());
+    await sleep(100);
+  }
+}
+
 type Open = (name: string, use?: string) => Promise<View | undefined>;
 
-/** A node GUI input of an example: the canvas label before, the points in canvas units (one point is a tap), and the labels after. */
-type Poke = { from: RegExp; path: [number, number][]; to: RegExp; also?: RegExp };
+/** A node GUI input of an example: the canvas label before, the points in canvas units (one point is a tap) or a text for the field of the node, and the labels after. */
+type Poke = { from: RegExp; path: [number, number][] | string; to: RegExp; also?: RegExp };
 
 const POKES: Poke[] = [
   // hello: C and 7 on the keypad give 7 x 3 = 21 on the tape, and the + key gives 7 + 3 = 10.
@@ -26,8 +35,9 @@ const POKES: Poke[] = [
   { from: /^Knob 0\.75$/, path: [[66, 70], [66, 55], [66, 40]], to: /^Knob 0\.95$/ },
   { from: /^Mix 0\.30$/, path: [[67, 54], [100, 54], [148, 54]], to: /^Mix 1\.00$/ },
   { from: /^Gradient \d+ x \d+$/, path: [[59, 69]], to: /^Gradient \d+ x \d+ INV$/ },
-  // computer: a tap turns a switch on.
+  // computer: a tap turns a switch on, and a text with Enter goes into the key buffer of the keyboard.
   { from: /^Switch off$/, path: [[38, 16]], to: /^Switch on$/ },
+  { from: /^Buffer ?$/, path: 'HI', to: /^Buffer HI\|$/ },
 ];
 
 /** Gives the input of `poke` to the first canvas with its label, and waits for the labels after. Returns false when no canvas has the label. */
@@ -36,21 +46,34 @@ async function poke({ from, path, to, also }: Poke) {
   const canvases = () => [...document.querySelectorAll<SVGSVGElement>('.gui-canvas')];
   const pad = canvases().find((c) => from.test(label(c)));
   if (!pad) return false;
-  const box = pad.getBoundingClientRect();
-  const s = box.width / pad.viewBox.baseVal.width;
-  const at = ([x, y]: [number, number]) => ({ bubbles: true, button: 0, buttons: 1, pointerId: 1, isPrimary: true, clientX: box.left + x * s, clientY: box.top + y * s });
-  pad.dispatchEvent(new PointerEvent('pointerdown', at(path[0])));
-  for (const p of path.slice(1)) {
-    await sleep(100);
-    pad.dispatchEvent(new PointerEvent('pointermove', at(p)));
+  // The frames draw only the GUIs of the nodes in view (4.3 rule 3), so Fit node shows the node first.
+  const node = pad.closest('.react-flow__node');
+  const pane = document.querySelector('.react-flow__pane')!.getBoundingClientRect();
+  let box = pad.getBoundingClientRect();
+  if (node && (box.left < pane.left || box.top < pane.top || box.right > pane.right || box.bottom > pane.bottom)) {
+    rightClick(node);
+    await wait(() => !!entry('Node', 'Fit node'), () => `no Fit node entry for "${from.source}"`);
+    entry('Node', 'Fit node')!.click();
+    await sleep(1000);
+    box = pad.getBoundingClientRect();
   }
-  await sleep(100);
-  pad.dispatchEvent(new PointerEvent('pointerup', at(path[path.length - 1])));
-  const end = Date.now() + 30_000;
-  while (!to.test(label(pad)) || (also && !canvases().some((c) => also.test(label(c))))) {
-    if (Date.now() > end) throw new Error(`after the input on "${from.source}", the labels are: ${canvases().map(label).join(', ')}`);
+  if (typeof path === 'string') {
+    enterText(node!.querySelector<HTMLInputElement>('input.gui-field')!, path);
+  } else {
+    const s = box.width / pad.viewBox.baseVal.width;
+    const at = ([x, y]: [number, number]) => ({ bubbles: true, button: 0, buttons: 1, pointerId: 1, isPrimary: true, clientX: box.left + x * s, clientY: box.top + y * s });
+    pad.dispatchEvent(new PointerEvent('pointerdown', at(path[0])));
+    for (const p of path.slice(1)) {
+      await sleep(100);
+      pad.dispatchEvent(new PointerEvent('pointermove', at(p)));
+    }
     await sleep(100);
+    pad.dispatchEvent(new PointerEvent('pointerup', at(path[path.length - 1])));
   }
+  await wait(
+    () => to.test(label(pad)) && (!also || canvases().some((c) => also.test(label(c)))),
+    () => `after the input on "${from.source}", the labels are: ${canvases().map(label).join(', ')}`,
+  );
   return true;
 }
 
@@ -70,12 +93,45 @@ async function inspectThumb() {
   const m = hit.getScreenCTM()!;
   hit.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: m.a * p.x + m.c * p.y + m.e, clientY: m.b * p.x + m.d * p.y + m.f }));
   const shown = () => [...document.querySelectorAll('aside[aria-label="Inspector"] canvas.gui-image')].map((c) => c.getAttribute('aria-label'));
-  const end = Date.now() + 30_000;
-  while (!viewed.shows.test(shown().join(', '))) {
-    if (Date.now() > end) throw new Error(`the Inspector of the wire from ${viewed.from} shows: ${shown().join(', ')}`);
-    await sleep(100);
-  }
+  await wait(() => viewed.shows.test(shown().join(', ')), () => `the Inspector of the wire from ${viewed.from} shows: ${shown().join(', ')}`);
   return shown().join(', ');
+}
+
+/** Opens the full size of each node that has one, until a full size shows a code editor with line numbers and the band on the current line (4.3). Returns false when no full size has a code editor. */
+async function fullCode() {
+  const expand = 'button[aria-label="Open the full size"]';
+  const ids = [...document.querySelectorAll('.react-flow__node')].filter((n) => n.querySelector(expand)).map((n) => n.getAttribute('data-id'));
+  const full = () => document.querySelector<HTMLElement>('.full-gui');
+  const ready = () => !!full()?.querySelector('.gui-code-gutter div') && !!full()?.querySelector('.gui-code-line');
+  for (const id of ids) {
+    document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${id}"] ${expand}`)?.click();
+    await wait(() => !!full(), () => `no full size of node ${id}`);
+    const end = Date.now() + 5_000;
+    while (!ready() && Date.now() < end) await sleep(100);
+    const found = ready();
+    if (found) await api.capture('main-full');
+    full()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await wait(() => !full(), () => 'Esc did not close the full size');
+    if (found) return true;
+  }
+  return false;
+}
+
+/** computer: picks the echo program, and waits for the keys of the key buffer on the terminal. Returns false when no node can pick `echo.asm`. */
+async function echo() {
+  const pick = document.querySelector<HTMLSelectElement>('.react-flow__node select:has(option[value$="echo.asm"])');
+  const screen = () => document.querySelector<SVGSVGElement>('.gui-canvas[aria-label="Terminal"]');
+  if (!pick || !screen()) return false;
+  pick.value = pick.querySelector<HTMLOptionElement>('option[value$="echo.asm"]')!.value;
+  pick.dispatchEvent(new Event('change', { bubbles: true }));
+  // The frames draw only the GUIs of the nodes in view (4.3 rule 3).
+  rightClick(screen()!.closest('.react-flow__node')!);
+  await wait(() => !!entry('Node', 'Fit node'), () => 'no Fit node entry for the terminal');
+  entry('Node', 'Fit node')!.click();
+  const text = () => [...(screen()?.querySelectorAll('text') ?? [])].map((t) => t.textContent ?? '').filter((t) => t.length === 1).join('');
+  await wait(() => text().includes('HI'), () => `the terminal shows "${text()}"`);
+  await api.capture('main-echo');
+  return true;
 }
 
 export async function runShot(project: string, show: (v: View) => void, open: Open) {
@@ -134,6 +190,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       await api.capture('main-inspect');
       steps.push('main-inspect');
     }
+    if (await fullCode()) steps.push('main-full');
+    if (await echo()) steps.push('main-echo');
     // Depth first: open each subgraph one time, through its first use, then go back.
     const visit = async (graph: View, path: [string, string][]) => {
       for (const n of graph.graph.node ?? []) {

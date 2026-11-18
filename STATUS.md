@@ -197,8 +197,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 - Known limits: the `cpu` has one **io** input, so each device that gives values to LD passes the
   values of the device before it (see the `random` node). Node state
-  does not save, so the terminal, the frame and the key buffer are empty after an open. The
-  keyboard path to the terminal is checked only by unit tests, because it needs typed input.
+  does not save, so the terminal, the frame and the key buffer are empty after an open. A
+  hidden `--shot` run types a text into the keyboard and sees it in the key buffer (2026-11-18).
+  The shot then picks `echo.asm` in **Program** and sees the keys on the terminal (2026-11-18).
 
 ### Start screen
 
@@ -226,7 +227,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   **Views** menu. It clicks a bar in the **Debug** tab, the **1 compile error** link of the
   status bar, the error line in the **Logs** tab of the **Inspector**, and the middle crumb of
   the path bar in a nested subgraph. On an automation lane, a double click adds a point and the Delete key removes it.
-  The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+G, Ctrl+Shift+G, Shift+L and F.
+  It clicks **Expand subgraphs** on two uses of one subgraph, and moves a view with **Move to
+  the right area** and **Move to the center** in its tab menu (2026-11-18).
+  The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+G, Ctrl+Shift+G, Shift+L and F.
 - The self-check saves and clicks **Package** with a folder in place of the folder dialog. It
   waits for the log line of the package (2026-11-18). The local check copies `patina-cli` next
   to the editor, so the full package build runs. Then it clicks **Close** and opens the package
@@ -237,7 +240,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   browser.
 - The self-check opens the **Import** dialog and clicks **Cancel**. Then it imports `nodes/number`
   of the library with **Rename**, clicks the copy in the **Imports** list, and sees that
-  **Update** is off. Then it deletes the copy from outside the editor (2026-11-18).
+  **Update** is off. Then it deletes the copy from outside the editor (2026-11-18). A second step
+  changes `src/lib.rs` in a copy and in the library. It picks **Other project** in the **Update**
+  dialog, and the copy gets that file (2026-11-18).
 - Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
 - The first start shows an **Install the toolchain** card, and the install shows a progress bar
   (2026-11-18). A unit test checks the percent parse and the step math. No check ran a full
@@ -263,7 +268,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The doc comment of a node is its description (2026-11-18). The node header, the palette and
   the **Project** panel show it as a tooltip, and the **Inspector** shows it as text. The engine
   test reads it. The self-check reads the tooltips of a free node caption and of its **Project**
-  item and of a palette entry.
+  item and of a palette entry. The text kept each line break of the comment, so the
+  **Inspector** broke the lines in the wrong places (fixed 2026-11-18). The engine now joins
+  the lines of a paragraph as Markdown does.
 - The **Code** tab has a **Save** button (2026-11-18). The self-check fixes a slot error with it,
   and checks that it is off when no file has changes.
 - When the rustup toolchain has no rust-analyzer, the editor adds it with rustup (2026-11-18).
@@ -304,7 +311,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   that the user undoes. Nobody clicked the keys by hand.
 - A hidden `--shot` run taps the node GUIs of the examples (2026-11-18): **C** and **7** on a
   keypad and the **+** key of the operation in hello, a drag of the knob and of the fader and a
-  tap on **INV** in gpu, and a switch in computer. It waits for the new canvas labels.
+  tap on **INV** in gpu, and a switch and a typed text in the keyboard in computer. It waits for
+  the new canvas labels. A node out of the view gets **Fit node** first. In computer, it opens
+  the full size of **Program** and waits for the line numbers and the band on the current line.
 - The gpu example has a second row of lab nodes (2026-11-18): a **knob**, GPU color **bars**
   with a WGSL `override` level, a GPU **mix** with a fader, a second monitor and a **waveform**
   monitor. **gradient** has an **INV** switch, and **brightness** shows a histogram. The unit
@@ -516,7 +525,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   clip lanes and automation lanes. The SDK tests check the widget line, the edits, `advance` and
   `Automation::value`. The frontend tests check the parse and the limits of each drag. The
   selfcheck drags a clip, and clicks **Play**, **Pause**, **Loop** and a **Snap** value (2026-11-18).
-  No person tried it with a real mouse. A lane reorder is not in this version.
+  It moves the loop end with an arrow key. A ruler shorter than the default loop range of 0 - 4 s
+  did not loop, and its loop band went past the ruler end (fixed 2026-11-18). The SDK now keeps
+  the loop range inside the ruler. No person tried it with a real mouse. A lane reorder is not in this version.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. The editor selfcheck opens the full size,
@@ -595,7 +606,8 @@ domain free of locks. These limits are still open:
   crate** for a widget folder and for the `log` crate, and saves Cargo.toml (2026-11-18). The
   local check runs offline with `log` in the cargo cache. CI does not run the self-check.
 - The self-check does not click **Install toolchain**, because CI must not download the
-  toolchain. The self-check does not click **Remove**. The data test covers the removal.
+  toolchain. The self-check clicks **Remove** of a trusted project and of a library in
+  **Settings** (2026-11-18).
 - No check opened the folder dialog, the fatal message box or the WebView2 message. A person
   must click them. The message of a missing WebView2 Runtime did not run.
 - The check drags one node with mouse events of the page, not with the real mouse. A person
@@ -664,7 +676,8 @@ domain free of locks. These limits are still open:
   The **Lanes** row uses the bus name of 15.9 (fixed 2026-11-18). Nobody looked at the lane
   colors of a real run by hand.
 - The editor selfcheck drags a tab to another area and drags a splitter with page events, not
-  with the real mouse. No check dropped a view tab out of the window to float it.
+  with the real mouse. The selfcheck also ends a drag of a view tab out of the window, and the
+  view floats (2026-11-18). These are page events, not a drag of the operating system.
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size
   of the page script. The build is correct.
 - `package.json` sets `dompurify` to 3.4.17 with an override. Monaco 0.57.0 asks for 3.4.15,

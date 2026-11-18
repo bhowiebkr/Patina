@@ -5,6 +5,7 @@
 import { api, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { openPanel } from '../panels/layout';
+import { clipboard } from '../canvas/clip';
 import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, button, closeMenu, enterText, entry, fireButton, leftTab, nodeToml, rightClick, topButton, type CheckContext } from './check-fixtures';
 
 /** A node with a GUI: a switch and a text that shows the state of the switch. */
@@ -359,6 +360,35 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   v = await step('undo the collapse of Ctrl+G', () => api.undo());
   await until('all nodes after the undo of Ctrl+G', BUILD_MS, () => count() === all);
   steps.push('collapse with Ctrl+G and expand with Ctrl+Shift+G');
+  // Expand subgraphs in the node menu of two selected uses expands both (6.1).
+  const titled = (name: string) => [...document.querySelectorAll('.react-flow__node .title')].filter((t) => t.textContent?.includes(name)).length;
+  ctrl('a');
+  await until('all nodes selected for two uses', RUN_MS, () => selected() === all);
+  ctrl('g');
+  await until('the subgraph name field for two uses', RUN_MS, () => !!nameField());
+  enterText(nameField()!, 'two_check');
+  await until('one use of two_check', BUILD_MS, () => count() === 1 && titled('two_check') === 1);
+  ctrl('a');
+  await until('the use selected for the copy', RUN_MS, () => selected() === 1);
+  const useId = document.querySelector('.react-flow__node.selected')!.getAttribute('data-id')!;
+  ctrl('c');
+  let clip = '';
+  await until('the clip of the use', RUN_MS, () => {
+    clipboard.read().then((text) => (clip = text));
+    return clip.includes(`"${useId}"`);
+  });
+  ctrl('v');
+  await until('two uses of two_check', BUILD_MS, () => titled('two_check') === 2);
+  ctrl('a');
+  await until('the two uses selected', RUN_MS, () => selected() === 2);
+  const twoUse = document.querySelector('.react-flow__node')!;
+  rightClick(twoUse.querySelector('.title') ?? twoUse);
+  await until('the Expand subgraphs entry', RUN_MS, () => !!entry('Node', 'Expand subgraphs'));
+  entry('Node', 'Expand subgraphs')!.click();
+  await until('the nodes of two uses after Expand subgraphs', BUILD_MS, () => titled('two_check') === 0 && count() === 2 * all);
+  for (const what of ['expand', 'paste', 'collapse']) v = await step(`undo the ${what} of two uses`, () => api.undo());
+  await until('all nodes after the undo of two uses', BUILD_MS, () => count() === all && titled('two_check') === 0);
+  steps.push('Expand subgraphs in the node menu expands two uses');
   // Collapse into subgraph in the node menu of a selection opens the same name dialog.
   ctrl('a');
   await until('all nodes selected for the node menu', RUN_MS, () => selected() === all);
