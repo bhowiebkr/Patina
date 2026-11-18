@@ -3,7 +3,7 @@
 
 import { lazy, Suspense, useContext, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { KindIcon } from '../controls/icons';
-import { api, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
+import { api, docParts, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
 import { valueStale } from '../canvas/liveValues';
@@ -330,7 +330,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         {entry.subgraph !== undefined && <OpenButton graph={entry.subgraph} use={entry.id} />}
         <span className={state === 'compile-error' || state === 'run-error' ? 'error-text' : 'label'}>{STATE_NAMES[state]}</span>
       </div>
-      {info?.doc && <div className="section label doc">{info.doc}</div>}
+      {info?.doc && <div className="section label doc">{docParts(info.doc).map((p, i) => (p.kind === 'bold' ? <b key={i}>{p.text}</b> : p.kind === 'code' ? <code key={i}>{p.text}</code> : <span key={i}>{p.text}</span>))}</div>}
       <Tabs tab={shown} only={hasCode ? undefined : 'parameters'} onTab={onTab} />
       {shown === 'parameters' && (
         <>

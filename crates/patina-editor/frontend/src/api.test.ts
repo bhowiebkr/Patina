@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duration, firstSentence, logKind, nodeProblems, openType, paramEdit, parseThumb, scopeDomains } from './api.ts';
+import { docParts, duration, firstSentence, logKind, nodeProblems, openType, paramEdit, parseThumb, plainDoc, scopeDomains } from './api.ts';
 
 test('a thumbnail has a size of 1 to 64 pixels and 4 bytes for each pixel', () => {
   assert.deepEqual(parseThumb('2 1 AQIDBAUGBwg='), { width: 2, height: 1, pixels: Uint8ClampedArray.from([1, 2, 3, 4, 5, 6, 7, 8]) });
@@ -55,4 +55,17 @@ test('a node GUI writes only the parameters that change, of the nodes in the ope
   assert.deepEqual(paramEdit(graph, [set('a', 'file', 'y.asm'), set('a', 'file', 'z.asm')]), { kind: 'SetParam', id: 'a', key: 'file', text: 'z.asm' });
   const both = paramEdit(graph, [set('a', 'file', 'y.asm'), set('b', 'file', 'y.asm')]);
   assert.equal(both?.kind === 'Group' && both.edits.length, 2);
+});
+
+test('a node doc shows bold and code spans, and a tooltip drops the marks', () => {
+  assert.deepEqual(docParts('**C** clears `value`, **+/-** too.'), [
+    { text: 'C', kind: 'bold' },
+    { text: ' clears ', kind: 'plain' },
+    { text: 'value', kind: 'code' },
+    { text: ', ', kind: 'plain' },
+    { text: '+/-', kind: 'bold' },
+    { text: ' too.', kind: 'plain' },
+  ]);
+  assert.equal(plainDoc('a ** b and `c'), 'a ** b and `c');
+  assert.equal(plainDoc(null), undefined);
 });

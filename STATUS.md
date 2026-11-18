@@ -270,7 +270,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   test reads it. The self-check reads the tooltips of a free node caption and of its **Project**
   item and of a palette entry. The text kept each line break of the comment, so the
   **Inspector** broke the lines in the wrong places (fixed 2026-11-18). The engine now joins
-  the lines of a paragraph as Markdown does.
+  the lines of a paragraph as Markdown does. The **Inspector** showed the `**` marks of bold
+  words (fixed 2026-11-18). It now shows bold words and code spans, and a tooltip drops the
+  marks. A frontend test reads the parts, and the self-check reads a tooltip without the marks.
 - The **Code** tab has a **Save** button (2026-11-18). The self-check fixes a slot error with it,
   and checks that it is off when no file has changes.
 - When the rustup toolchain has no rust-analyzer, the editor adds it with rustup (2026-11-18).

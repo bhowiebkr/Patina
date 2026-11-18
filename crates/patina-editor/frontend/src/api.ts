@@ -644,6 +644,17 @@ export function folderName(node: NodeEntry): string {
   return (node.folder ?? node.subgraph ?? node.builtin ?? '?').split('/').pop() ?? '?';
 }
 
+export type DocPart = { text: string; kind: 'plain' | 'bold' | 'code' };
+/** The parts of a node doc comment (15.3): `**bold**`, a backtick code span and plain text. */
+export function docParts(doc: string): DocPart[] {
+  return doc
+    .split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/)
+    .map((p, i): DocPart => (i % 2 === 0 ? { text: p, kind: 'plain' } : p[0] === '*' ? { text: p.slice(2, -2), kind: 'bold' } : { text: p.slice(1, -1), kind: 'code' }))
+    .filter((p) => p.text !== '');
+}
+/** A node doc comment for a tooltip, without the Markdown marks. */
+export const plainDoc = (doc: string | null | undefined) => (doc ? docParts(doc).map((p) => p.text).join('') : undefined);
+
 /** One line for a compile error, for example `mismatched types: expected f32, found &str`. */
 export function errorText(e: Diagnostic): string {
   return e.label ? `${e.message}: ${e.label}` : e.message;

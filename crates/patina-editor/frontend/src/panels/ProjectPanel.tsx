@@ -2,7 +2,7 @@
 // and the types.
 
 import { useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
-import type { View } from '../api';
+import { plainDoc, type View } from '../api';
 import { NODE_MIME } from '../canvas/useAddNode';
 import { NameField } from '../controls/NameField';
 import { Confirm } from '../dialogs/Confirm';
@@ -126,7 +126,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             onDragStart={(e) => startDrag(e, n.name)}
             onClick={() => onInspect({ kind: 'type', name: n.name })}
             {...actions(`nodes/${n.name}`, { label: 'Inspect', run: () => onInspect({ kind: 'type', name: n.name }) })}
-            title={[n.doc, view.trusted && 'Drag to the graph to add the node'].filter(Boolean).join('\n\n') || undefined}
+            title={[plainDoc(n.doc), view.trusted && 'Drag to the graph to add the node'].filter(Boolean).join('\n\n') || undefined}
           >
             <span className="swatch" style={{ background: n.color ?? undefined }} aria-hidden="true" />
             {n.name}

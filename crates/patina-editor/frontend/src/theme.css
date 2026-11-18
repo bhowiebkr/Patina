@@ -184,6 +184,14 @@ select {
   white-space: pre-line;
 }
 
+.doc b {
+  color: var(--text);
+}
+
+.doc code {
+  font: 11px Consolas, 'Cascadia Mono', monospace;
+}
+
 /* Layout */
 
 .shell {

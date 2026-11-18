@@ -7,7 +7,7 @@ import { BUILD_MS, RUN_MS, entry, leftTab, nodeToml, rightClick, type CheckConte
 /** A knob with a free layout. A drag to the right turns it up by 0.01 for each pixel, and a run prints its value. */
 const KNOB_NODE = `use patina_sdk::{Pointer, Ui, node};
 
-/// A knob that the self-check turns.
+/// A knob that the **self-check** turns.
 #[node(free_layout)]
 pub struct Knob {
     value: f64,
@@ -83,7 +83,7 @@ export async function checkFree({ step, until, result, mark, steps }: CheckConte
   await until('the free knob with its canvas', BUILD_MS, () => label() === 'Knob 0.25');
   const caption = document.querySelector(`${node} .free-caption .title`)?.textContent;
   if (caption !== 'knob') throw new Error(`the caption of the free node is ${caption}`);
-  // The doc comment of the node is its tooltip on the canvas and in the Project panel.
+  // The doc comment is the tooltip on the canvas and in the Project panel, without bold marks.
   const doc = 'A knob that the self-check turns.';
   const tips = [document.querySelector(`${node} .free-caption`)?.getAttribute('title'), knobItem()?.title.split('\n')[0]];
   if (tips.some((t) => t !== doc)) throw new Error(`the tooltips of the knob are ${JSON.stringify(tips)}`);

@@ -2,7 +2,7 @@
 
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, openType, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type Value, type View } from '../api';
+import { duration, errorText, folderName, nodeProblems, openType, plainDoc, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type Value, type View } from '../api';
 import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from '../wires/gl';
@@ -308,7 +308,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     };
     return (
       <div className={[...classes, 'free', 'symbol'].join(' ')} style={{ width: layout.width }}>
-        <div className="free-caption" title={info.doc ?? undefined}>
+        <div className="free-caption" title={plainDoc(info.doc)}>
           <span className="title">{folderName(entry)}</span>
           {use && <OpenButton graph={entry.subgraph!} use={entry.id} />}
           {use && toggle && <FrameButton open={false} onClick={() => toggle(entry.id)} />}
@@ -341,7 +341,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     };
     return (
       <div className={[...classes, 'free'].join(' ')} style={{ width }}>
-        <div className="free-caption" title={info.doc ?? undefined}>
+        <div className="free-caption" title={plainDoc(info.doc)}>
           <span className="title">{folderName(entry)}</span>
           {domain && <DomainIcon domain={domain} />}
           <StateIcon state={state} />
@@ -359,7 +359,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   const style = { width: gui === undefined ? undefined : nodeWidth(gui), minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
   return (
     <div className={classes.join(' ')} style={style}>
-      <div className="patina-node-header" title={info?.doc ?? undefined}>
+      <div className="patina-node-header" title={plainDoc(info?.doc)}>
         {info && <KindIcon kind={info.kind} />}
         <span className="title">{folderName(entry)}</span>
         {info?.full && !inner && <ExpandButton id={entry.id} />}
