@@ -57,6 +57,10 @@ pub struct Value {
     /// The widget lines of `Viewer::show` (5.3), or an empty text.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub view: String,
+    /// The samples of `Viewer::wave` (15.9): integers from -100 to 100 with a space between them,
+    /// or an empty text.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub wave: String,
 }
 
 /// Reads the text of a `THUMB` report into `thumb`, and keeps its buffer. A defective cluster can
@@ -70,6 +74,14 @@ fn read_thumb(text: Option<&str>, thumb: &mut String) {
         data.len() == (width * height * 4).div_ceil(3) as usize * 4 && data.bytes().all(base64)
     };
     put(thumb, text.filter(|t| valid(t)).unwrap_or_default());
+}
+
+/// Reads the text of a `WAVE` report into `wave`, and keeps its buffer. A defective cluster can
+/// send a bad text, which gives no wave.
+fn read_wave(text: Option<&str>, wave: &mut String) {
+    let sample = |part: &str| part.parse::<i8>().is_ok_and(|v| (-100..=100).contains(&v));
+    let valid = |text: &str| text.split(' ').count() <= glue::WAVE_LEN && text.split(' ').all(sample);
+    put(wave, text.filter(|t| valid(t)).unwrap_or_default());
 }
 
 /// The lanes of a live value (6.3).
@@ -175,17 +187,19 @@ pub(crate) fn fill(out: &mut Outcome, spare: &mut Spare, ok: bool, sink: &Sink, 
                 let value = reuse(&mut out.values, &mut values, &mut spare.values);
                 put(&mut value.from, from);
                 put(&mut value.text, text);
-                // The thumbnail, the widgets and the lanes come after the text of the same value.
+                // The thumbnail, the widgets, the wave and the lanes come after the text of the value.
                 let thumb = items.next_if(|&(i, k, _)| (i, k) == (index, glue::THUMB));
                 read_thumb(thumb.map(|(_, _, text)| text), &mut value.thumb);
                 let view = items.next_if(|&(i, k, _)| (i, k) == (index, glue::VIEW));
                 put(&mut value.view, view.map_or("", |(_, _, text)| text));
+                let wave = items.next_if(|&(i, k, _)| (i, k) == (index, glue::WAVE));
+                read_wave(wave.map(|(_, _, text)| text), &mut value.wave);
                 let lanes = items.next_if(|&(i, k, _)| (i, k) == (index, glue::LANES));
                 Lanes::read(lanes.map(|(_, _, text)| text), &mut value.lanes);
             }
-            // Lanes, a thumbnail or widgets with no value before them come only from a defective
+            // Lanes, a thumbnail, widgets or a wave with no value before them come only from a defective
             // cluster. `Cluster::ui` reads the widget lines and the parameter writes.
-            glue::LANES | glue::THUMB | glue::VIEW | glue::UI | glue::EDIT => {}
+            glue::LANES | glue::THUMB | glue::VIEW | glue::WAVE | glue::UI | glue::EDIT => {}
             glue::TIME => {
                 // The nanoseconds of the call, then the `clock` at its end and the thread (`collect`).
                 let mut parts = text.split(' ').map(|part| part.parse::<u64>().ok());
@@ -299,9 +313,11 @@ mod tests {
             (0, glue::VALUE, "2.5"),
             (0, glue::THUMB, "1 1 AQIDBA=="),
             (0, glue::VIEW, "label\tx"),
+            (0, glue::WAVE, "-100 0 55"),
             (0, glue::LANES, "0110 data bus"),
             (0, glue::THUMB, "1 1 AQIDBA=="),
             (0, glue::VIEW, "label\ty"),
+            (0, glue::WAVE, "1"),
             (7, glue::VALUE, "x"),
             (0, glue::PANIC, "p"),
             (0, glue::TIME, "2500000 5000000 3"),
@@ -321,6 +337,13 @@ mod tests {
         assert_eq!(out.values[0].lanes, Some(Lanes { bits: "0110".to_owned(), label: "data bus".to_owned() }));
         assert_eq!(out.values[0].thumb, "1 1 AQIDBA==");
         assert_eq!(out.values[0].view, "label\tx");
+        assert_eq!(out.values[0].wave, "-100 0 55");
+        let long = vec!["1"; glue::WAVE_LEN + 1].join(" ");
+        for bad in [None, Some(""), Some("101"), Some("-101 0"), Some("1  2"), Some("1.5"), Some(" 1"), Some(long.as_str())] {
+            let mut wave = out.values[0].wave.clone();
+            read_wave(bad, &mut wave);
+            assert_eq!(wave, "", "{bad:?}");
+        }
         for bad in [None, Some("1 1"), Some("0 1 "), Some("65 1 AQIDBA=="), Some("1 1 AQIDBA="), Some("1 1 AQ.DBA=="), Some("x 1 AQIDBA==")] {
             let mut thumb = out.values[0].thumb.clone();
             read_thumb(bad, &mut thumb);

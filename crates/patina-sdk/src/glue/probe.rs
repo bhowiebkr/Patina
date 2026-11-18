@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::fmt::{self, Write as _};
 use std::panic::AssertUnwindSafe;
 
-use super::{LANES, Reporter, TEXT_LEN, THUMB, VALUE, VIEW, catch_unwind};
+use super::{LANES, Reporter, TEXT_LEN, THUMB, VALUE, VIEW, WAVE, WAVE_LEN, catch_unwind};
 use crate::{Lanes, Text, Thumbnail, Ui, Viewer};
 
 /// A held value for its text. The generated code calls `(&&&Probe(v)).view_fns()`, so Rust uses
@@ -105,7 +105,26 @@ fn send_views(rep: &Reporter, index: u32, viewer: &dyn Viewer) {
             rep.send(index, VIEW, ui.tree());
         }
         *text = ui.into_tree();
+        let wave = catch_unwind(AssertUnwindSafe(|| viewer.wave()));
+        if wave.is_ok_and(|samples| wave_text(samples, text)) {
+            rep.send(index, WAVE, text);
+        }
     });
+}
+
+/// Writes the wave of `samples` (15.9) into `text`: at most `WAVE_LEN` parts, and for each part
+/// its sample with the largest size, as an integer from -100 to 100. False when it has no samples.
+pub(super) fn wave_text(samples: &[f32], text: &mut String) -> bool {
+    text.clear();
+    let n = samples.len().min(WAVE_LEN);
+    for i in 0..n {
+        let part = &samples[i * samples.len() / n..(i + 1) * samples.len() / n];
+        let peak = part.iter().copied().fold(0.0f32, |a, s| if s.abs() > a.abs() { s } else { a });
+        let space = if i > 0 { " " } else { "" };
+        // The fold skips a NaN.
+        let _ = write!(text, "{space}{}", (peak.clamp(-1.0, 1.0) * 100.0).round() as i32);
+    }
+    n > 0
 }
 
 /// Sends the lanes of held value `index` (6.3), with its own catch. A panic sends no lanes.

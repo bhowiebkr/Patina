@@ -90,6 +90,30 @@ fn a_viewer_sends_its_thumbnail_and_widgets_after_the_text() {
 }
 
 #[test]
+#[allow(clippy::needless_borrow, reason = "the calls are the same as in the generated code")]
+fn an_audio_block_sends_its_wave_after_the_text() {
+    let mut sent: Vec<(u32, u32, String)> = Vec::new();
+    let rep = Reporter { ctx: (&raw mut sent).cast(), report: keep, control: std::ptr::null() };
+    // Part 1 of 64 has the samples 4 to 7, and its largest sample is -0.5.
+    let block = crate::AudioBlock::from_fn(|i| match i {
+        0 => 2.0,
+        5 => -0.5,
+        6 => 0.25,
+        _ => 0.0,
+    });
+    send_value(&rep, 0, &block, (&&&Probe(&block)).view_fns());
+    let kinds: Vec<_> = sent.iter().map(|&(i, k, _)| (i, k)).collect();
+    assert_eq!(kinds, [(0, VALUE), (0, WAVE)]);
+    assert_eq!(sent[0].2, "AudioBlock(peak 2.000)");
+    let wave: Vec<i32> = sent[1].2.split(' ').map(|s| s.parse().unwrap()).collect();
+    assert_eq!((wave.len(), &wave[..3]), (WAVE_LEN, &[100, -50, 0][..]));
+    let mut text = String::new();
+    assert!(wave_text(&[0.1, f32::NAN, -0.004], &mut text));
+    assert_eq!(text, "10 0 0");
+    assert!(!wave_text(&[], &mut text));
+}
+
+#[test]
 fn only_a_catch_with_a_report_keeps_the_place_of_the_panic() {
     // The inner catch gives no report, so its panic does not set the place.
     assert!(catch_quiet(|| catch_unwind(|| panic!("inner")).is_err()).unwrap());

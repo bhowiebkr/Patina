@@ -12,6 +12,7 @@ import { FAR_ZOOM } from './gl';
 import { RouteHandles, SegmentHandles } from './RouteHandles';
 import type { WireIn } from './route';
 import type { Router } from './router';
+import { wireWave } from './wave';
 import { anchor, insertAt, shape, wirePath } from './wires';
 import { WireContext, type WireData } from './WireLayer';
 
@@ -91,6 +92,12 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
     insert(p.x, p.y);
   };
   const d = wirePath(sourceX, sourceY, targetX, targetY, path);
+  // An audio value draws its wave along the wire (15.9). A far zoom and a bus hide it.
+  const waveText = far || bits.length > 1 ? undefined : value?.wave;
+  const wave = useMemo(
+    () => (waveText ? wireWave(sourceX, sourceY, targetX, targetY, path, waveText) : ''),
+    [waveText, sourceX, sourceY, targetX, targetY, path],
+  );
   const [mx, my, fit] = anchor(sourceX, sourceY, targetX, targetY, path);
   // + or Insert on the focused wire adds a route point at its middle: the keyboard double-click (15.9).
   const hitRef = useRef<SVGPathElement>(null);
@@ -148,6 +155,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
       {/* shortcut: the SVG fallback draws a bus as one line; draw its lanes when a GPU without WebGL2 matters. */}
       {/* shortcut: the SVG fallback has no crossing gaps (15.9); add a mask when the fallback is more than a lost context. */}
       <path className={cross ? 'wire-line cross' : 'wire-line'} d={d} />
+      {wave && <path className={old ? 'wire-wave stale' : 'wire-wave'} d={wave} />}
       <path ref={hitRef} className="wire-hit" d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
       {layer && createPortal(
         <>

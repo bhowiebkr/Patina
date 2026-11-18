@@ -253,6 +253,8 @@ export interface Value {
   thumb?: string;
   /** The widget lines of `Viewer::show` (5.3). Only `api.value` gives them. */
   view?: string;
+  /** The samples of `Viewer::wave` (5.3): integers from -100 to 100 with a space between them. */
+  wave?: string;
 }
 
 /** The size and the RGBA pixels of a thumbnail (5.3), or null for a bad text. */

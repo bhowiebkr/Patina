@@ -160,7 +160,7 @@ struct Badges<'a> {
 
 impl<'a> Serialize for Badges<'a> {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let badge = |v: &'a Value| Badge { from: &v.from, text: Cut(&v.text), lanes: v.lanes.as_ref(), thumb: &v.thumb };
+        let badge = |v: &'a Value| Badge { from: &v.from, text: Cut(&v.text), lanes: v.lanes.as_ref(), thumb: &v.thumb, wave: &v.wave };
         s.collect_seq(self.changed.iter().map(|&i| badge(&self.kept[i])))
     }
 }
@@ -174,6 +174,8 @@ struct Badge<'a> {
     lanes: Option<&'a Lanes>,
     #[serde(skip_serializing_if = "str::is_empty")]
     thumb: &'a str,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    wave: &'a str,
 }
 
 /// A text, cut for its badge as `badge` does, with no copy.
@@ -280,7 +282,7 @@ fn find(kept: &[Value], at: usize, from: &str) -> Option<usize> {
 /// Copies value `from` into `to` in the buffers of `to`, and keeps the output of `to`. True when
 /// the value changed.
 fn update(to: &mut Value, from: &Value) -> bool {
-    let changed = to.text != from.text || to.lanes != from.lanes || to.thumb != from.thumb || to.view != from.view;
+    let changed = to.text != from.text || to.lanes != from.lanes || to.thumb != from.thumb || to.view != from.view || to.wave != from.wave;
     if changed {
         to.text.clone_from(&from.text);
         match (&mut to.lanes, &from.lanes) {
@@ -292,6 +294,7 @@ fn update(to: &mut Value, from: &Value) -> bool {
         }
         to.thumb.clone_from(&from.thumb);
         to.view.clone_from(&from.view);
+        to.wave.clone_from(&from.wave);
     }
     changed
 }
@@ -306,7 +309,7 @@ pub(super) fn alias<'a>(values: impl IntoIterator<Item = &'a Value>, aliases: &[
 /// The values with the badge texts (15.9), and without the widgets. The **Inspector** asks for the
 /// full value (15.7).
 pub(super) fn badges<'a>(values: impl IntoIterator<Item = &'a Value>) -> Vec<Value> {
-    values.into_iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone(), thumb: v.thumb.clone(), view: String::new() }).collect()
+    values.into_iter().map(|v| Value { from: v.from.clone(), text: badge(&v.text), lanes: v.lanes.clone(), thumb: v.thumb.clone(), view: String::new(), wave: v.wave.clone() }).collect()
 }
 
 /// Cuts a text for its badge at a character boundary.
@@ -375,6 +378,9 @@ mod tests {
         let view = Value { view: "label\tx".to_owned(), ..thumb };
         assert_eq!(keep(&mut kept, &[view]).len(), 1);
         assert_eq!(badges(&kept)[2].view, "", "the run event has no widgets");
+        let wave = Value { wave: "1 -1".to_owned(), ..kept[2].clone() };
+        assert_eq!(keep(&mut kept, &[wave]).len(), 1, "a new wave is a change");
+        assert_eq!(badges(&kept)[2].wave, "1 -1");
         let lanes = Some(Lanes { bits: "01".to_owned(), label: String::new() });
         kept.push(Value { text: "\u{e9}".repeat(40), lanes, ..value("d.out", "") });
         let all: Vec<usize> = (0..kept.len()).collect();

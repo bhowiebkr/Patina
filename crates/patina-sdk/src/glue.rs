@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 23;
+pub const ABI_VERSION: u32 = 24;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -46,6 +46,11 @@ pub const EDIT: u32 = 11;
 pub const THUMB: u32 = 12;
 /// The widget lines of `Viewer::show` for a held value (5.3), after its `THUMB`.
 pub const VIEW: u32 = 13;
+/// The samples of `Viewer::wave` for a held value (15.9), after its `VIEW`: at most `WAVE_LEN`
+/// integers from -100 to 100, with a space between two of them.
+pub const WAVE: u32 = 14;
+/// The most samples of a `WAVE` report.
+pub const WAVE_LEN: usize = 64;
 
 /// The most log lines of one run (15.7). The cluster does not send the lines after them.
 pub const LOG_LINES: u32 = 1000;

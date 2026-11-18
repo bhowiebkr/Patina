@@ -384,6 +384,21 @@
   stroke: var(--accent);
 }
 
+/* The wave of an audio value on its wire (15.9), in a lane color of canvas/bus.ts. */
+.wire-wave {
+  fill: none;
+  stroke: #79d4c8;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* A stale wave is dim and dashed, as a stale badge. */
+.wire-wave.stale {
+  stroke: var(--subtle);
+  stroke-dasharray: 3 3;
+}
+
 /* An order wire is dotted, apart from the dashed cross-domain wires (15.9). SVG draws it always. */
 .order-line {
   fill: none;

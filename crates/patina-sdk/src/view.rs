@@ -53,6 +53,12 @@ pub trait Viewer {
     fn show(&self, ui: &mut Ui) {
         let _ = ui;
     }
+
+    /// Gives audio samples from -1 to 1, for example the samples of an audio block. The wire of
+    /// the value draws them as a wave that moves with each frame (15.9). The default gives none.
+    fn wave(&self) -> &[f32] {
+        &[]
+    }
 }
 
 /// The small picture of a value (5.3): RGBA pixels, row by row from the top. It allocates only

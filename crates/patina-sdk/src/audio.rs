@@ -2,7 +2,7 @@
 //! audio domain makes and returns blocks without an allocation.
 
 use std::cell::RefCell;
-use std::fmt;
+use std::fmt::{self, Write as _};
 use std::ops::{Deref, DerefMut};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
@@ -99,6 +99,16 @@ impl DerefMut for AudioBlock {
 impl fmt::Debug for AudioBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "AudioBlock(peak {:.3})", self.peak())
+    }
+}
+
+impl crate::Viewer for AudioBlock {
+    fn text(&self, out: &mut crate::Text<'_>) -> fmt::Result {
+        write!(out, "{self:?}")
+    }
+
+    fn wave(&self) -> &[f32] {
+        self
     }
 }
 

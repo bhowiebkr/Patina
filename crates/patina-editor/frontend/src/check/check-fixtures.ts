@@ -56,6 +56,25 @@ pub fn number(value: f64, text: &String) -> f64 {
 }
 `;
 
+/** An audio node whose blocks give a sine wave with a new phase in each block (9.3, 15.9). */
+export const WAVE_NODE = `#[patina_sdk::node(domain = audio)]
+pub struct Number {
+    phase: f32,
+}
+
+impl Number {
+    pub fn init() -> Self {
+        Number { phase: 0.0 }
+    }
+
+    pub fn process(&mut self, value: f64) -> patina_sdk::AudioBlock {
+        let block = patina_sdk::AudioBlock::from_fn(|i| ((self.phase + i as f32) * 0.05 + value as f32).sin() * 0.8);
+        self.phase += 37.0;
+        block
+    }
+}
+`;
+
 /** A number node with a bool input: the switch doubles the value. */
 export const SWITCH_NODE = `use patina_sdk::node;
 

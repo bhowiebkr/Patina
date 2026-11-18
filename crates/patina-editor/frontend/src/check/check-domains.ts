@@ -3,7 +3,7 @@
 
 import { api, type EngineEvent, type View } from '../api';
 import { frameStats } from './benchGraph';
-import { A, BUILD_MS, EVENT_NODE, RUN_MS, T, fireButton, icon, statusText, topButton, undoCode, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, EVENT_NODE, RUN_MS, T, WAVE_NODE, fireButton, icon, statusText, topButton, undoCode, type CheckContext } from './check-fixtures';
 
 /**
  * A node drag while the frames run (15.2). The node follows the mouse in each animation frame and
@@ -49,6 +49,36 @@ async function checkRunDrag({ step, until, steps }: CheckContext, frames: () => 
   const s = frameStats(gaps);
   steps.push(`node dragged while ${ran} frames ran: animation frames mean ${s.mean} ms, p95 ${s.p95} ms, max ${s.max} ms`);
   return v;
+}
+
+/** An audio wire draws the wave of its blocks, and the wave moves with the frames (15.9). */
+async function checkWave({ step, until, mark, events }: CheckContext, v: View, lib: string, delay: string): Promise<View> {
+  v = await step('make an audio node with a wave', () => api.edit({ kind: 'SetCode', path: lib, text: WAVE_NODE }));
+  v = await step('add a delay after the wave node', () =>
+    api.edit({
+      kind: 'Group',
+      edits: [
+        // The show node B takes an f64, so it cannot take the blocks.
+        { kind: 'Disconnect', from: `${A}.out`, to: `${B}.value` },
+        { kind: 'AddNode', id: delay, folder: 'delay', builtin: true, pos: [300, 300] },
+        { kind: 'Connect', from: `${A}.out`, to: `${delay}.value` },
+      ],
+    }),
+  );
+  const from = mark();
+  v = await step('run the wave', () => api.run());
+  const wave = () => document.querySelector('.wire-wave:not(.stale)')?.getAttribute('d') ?? '';
+  let first = '';
+  await until('the wave on the audio wire', BUILD_MS, () => {
+    const failed = events.slice(from).find((e) => e.state === 'failed');
+    if (failed) throw new Error(`the wave run failed: ${JSON.stringify(failed)}`);
+    return (first = wave()) !== '';
+  });
+  await until('a new wave in a later frame', RUN_MS, () => wave() !== '' && wave() !== first);
+  topButton('Stop')!.click();
+  await until('the end of the wave run', RUN_MS, () => events.slice(from).some((e) => e.serial === v.serial && e.state === 'ended'));
+  v = await step('undo the wave delay', () => api.undo());
+  return step('undo the wave node', undoCode);
 }
 
 /** Runs the domain steps with the node of code file `lib`, and returns the last view. */
@@ -149,6 +179,7 @@ export async function checkDomains(c: CheckContext, v: View, lib: string, change
   v = await step('undo the audio delay', () => api.undo());
   v = await step('undo the audio node', undoCode);
   steps.push(`blocks until Stop: ${blocks} in ${audioFrames} frames`);
+  v = await checkWave(c, v, lib, delay);
 
   // The event domain (9.4): Run starts the triggers. The button of a `trigger` node fires one
   // run of its downstream nodes, and a view or the editor can give a text. Stop ends the runs.

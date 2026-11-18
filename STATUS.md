@@ -495,6 +495,10 @@ domain free of locks. These limits are still open:
   The glue, load, sink and frame tests check the widget lines. The cluster makes the widget lines
   of each probed value at each run, also when no **Inspector** shows them. No example type has
   widgets yet, so no selfcheck or hand test showed them in the **Inspector**.
+- An audio wire draws the wave of its `AudioBlock` and moves with each frame (5.3, 15.9,
+  2026-11-17). The glue, outcome, frame and page tests check the wave text and the path. The
+  editor selfcheck sees the wave change between two frames. No person looked at it on screen. A
+  note wire does not flash for each note yet.
 - The node GUIs, the row text, the pins and the bus lanes draw down to a zoom of 25 percent
   (2026-11-17). All change to the simple form at the same zoom.
 - **Lock bends** keeps at most 12 bends of a longer route. Between two kept bends, the router
