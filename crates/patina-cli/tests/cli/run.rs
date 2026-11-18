@@ -595,3 +595,27 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     assert!(sum().contains("clicks, None"));
     assert!(sum().contains("clicks, Some(6.5)"));
 }
+
+#[test]
+fn a_node_with_the_log_crate_sends_its_log_lines() {
+    // The cluster turns on its logger for a `log` crate with another name and for a `log` crate
+    // in a target table (15.7). The logger shows Info and higher, so the debug line does not show.
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "log");
+    let (add, show) = (project.join("nodes/add"), project.join("nodes/show"));
+    let manifest = fs::read_to_string(add.join("Cargo.toml")).unwrap();
+    fs::write(add.join("Cargo.toml"), format!("{manifest}logger = {{ package = \"log\", version = \"0.4\" }}\n")).unwrap();
+    let code = fs::read_to_string(add.join("src/lib.rs")).unwrap();
+    let code = code.replace("    a + b", "    logger::info!(\"adds {a} and {b}\");\n    logger::debug!(\"a hidden line\");\n    a + b");
+    fs::write(add.join("src/lib.rs"), code).unwrap();
+    let manifest = fs::read_to_string(show.join("Cargo.toml")).unwrap();
+    fs::write(show.join("Cargo.toml"), format!("{manifest}\n[target.'cfg(all())'.dependencies]\nlog = \"0.4\"\n")).unwrap();
+    let code = fs::read_to_string(show.join("src/lib.rs")).unwrap();
+    fs::write(show.join("src/lib.rs"), code.replace("    println!", "    log::warn!(\"shows {value}\");\n    println!")).unwrap();
+
+    let (output, stdout, stderr) = run(&project, &[]);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(stdout.trim(), "6.5");
+    assert!(stderr.contains("Node f89c6e329e8ea336 (add): INFO adds 2.5 and 4\n"), "{stderr}");
+    assert!(stderr.contains("Node 3b7cec82f6a4ed1a (show): WARN shows 6.5\n"), "{stderr}");
+    assert!(!stderr.contains("hidden"), "{stderr}");
+}

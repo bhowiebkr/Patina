@@ -486,8 +486,9 @@ domain free of locks. These limits are still open:
   alias does not match its type, and two types of one name in two modules match.
 - `stop_requested()` is false on a thread that a node starts. The limits of milestone 12 tell how
   the waits of async nodes (4.6) stop.
-- The self-check does not run a node with the `log` crate, because that needs crates.io. The
-  type check covers the log lines of the page, but no check showed them in the editor yet.
+- The self-check does not run a node with the `log` crate, because that needs crates.io. A CLI
+  test builds and runs two such nodes and reads their log lines (2026-11-17). The type check
+  covers the log lines of the page, but no check showed them in the editor yet.
 - The `Viewer` gives text, a thumbnail of 64 x 64 pixels at most, and the widgets of a node GUI
   (5.3, fixed 2026-11-17). `Viewer::show` gives the plot, the waveform and the table with the
   `Ui` widgets. The **Inspector** reads the full text and the widgets one time after each run.
@@ -536,7 +537,8 @@ domain free of locks. These limits are still open:
   A frontend unit test checks the move. Nobody dragged an open frame by hand. The frame is
   read-only. Open the subgraph to edit its nodes.
 - A `log` crate with another name or in a target table now turns on the logger (fixed
-  2026-11-16). The plan test reads four manifests. No build ran with such a node.
+  2026-11-16). The plan test reads four manifests. A CLI test builds and runs a node of each
+  form (2026-11-17).
 - The editor has no bench with 500 nodes, so the far zoom form was not measured for frame
   drops. After each frame, the engine copies each changed value one time into the kept values,
   and makes a new badge text for the run event (fixed 2026-11-17).
