@@ -2,7 +2,16 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { lostParams, lostPins, wireEnds } from './lostPins.ts';
+import { lostParams, lostPins, wireEnds, wiredKeys } from './lostPins.ts';
+
+test('the wired keys of each node keep the order of the wires', () => {
+  const wired = wiredKeys(['a.x', 'b.y', 'a.z', 'b.in.1']);
+  assert.deepEqual([...wired], [
+    ['a', ['x', 'z']],
+    ['b', ['y', 'in.1']],
+  ]);
+  assert.equal(wiredKeys([]).size, 0);
+});
 
 test('a wire end at a pin key that the node does not have is a lost pin', () => {
   const ends = wireEnds({

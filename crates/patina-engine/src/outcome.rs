@@ -138,7 +138,7 @@ impl fmt::Display for NodeLog {
 }
 
 /// The result of one call: false when a node failed or the cluster failed with no report.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Outcome {
     pub ok: bool,
     pub reports: Vec<Report>,

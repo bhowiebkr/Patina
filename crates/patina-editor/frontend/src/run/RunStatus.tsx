@@ -64,7 +64,14 @@ export function useRun(serial: RefObject<number>) {
   useEvent(onEngine, (e: EngineEvent) => {
     if (e.serial !== serial.current) return;
     if (e.state === 'gui') {
-      setGuis((g) => new Map([...g, ...e.trees.map((t) => [`${t.mode} ${t.id}`, t.tree] as const)]));
+      // The same map when no lines changed, so that the canvas does not draw again.
+      setGuis((g) => {
+        const changed = e.trees.filter((t) => g.get(`${t.mode} ${t.id}`) !== t.tree);
+        if (changed.length === 0) return g;
+        const next = new Map(g);
+        for (const t of changed) next.set(`${t.mode} ${t.id}`, t.tree);
+        return next;
+      });
       if (e.reports.length > 0) log(nodeLines({ logs: [], reports: e.reports }));
       return;
     }
@@ -107,6 +114,15 @@ function runText(run: RunState): string {
   return parts.join(' - ');
 }
 
+/** The times of the stages of the last frame, for the tooltip of the run text. */
+function stagesText(run: RunState): string | undefined {
+  const s = run.stages;
+  return s ? `Frames ${millis(run.runMs ?? 0)}
+Values ${millis(s.keepMs)}
+Send ${millis(s.sendMs)}
+Node GUIs ${millis(s.guiMs)}` : undefined;
+}
+
 export function StatusBar({ view, run, stuck, error, onPick, onLogs }: { view: View; run: RunState; stuck: string; error: string; onPick: (at: Reveal) => void; onLogs: () => void }) {
   const text = runText(run);
   const firstError = () => run.errors.map((e) => revealOf(e, Date.now())).find((at) => at !== null);
@@ -121,7 +137,7 @@ export function StatusBar({ view, run, stuck, error, onPick, onLogs }: { view: V
           {plural(view.problems.length, 'problem')}
         </button>
       )}
-      {text && <span>{text}</span>}
+      {text && <span title={stagesText(run)}>{text}</span>}
       {(run.phase === 'ran' || run.phase === 'loaded') && <span>{run.slot !== null ? `Slot: ${run.slot}` : run.fused ? 'Fused' : 'Edit build'}</span>}
       {stuck && <span className="error-text">{stuck}</span>}
       {run.errors.length > 0 && (

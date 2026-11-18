@@ -23,10 +23,15 @@ pub(super) fn gui(out: &Out, control: &Control, part: &mut Frames, serial: u64, 
         *node = (!input.id.is_empty()).then(|| input.id.clone());
     }
     let (tree, done) = part.ui(control, &input.id, input.mode, &input.events);
+    let g = part.guis().iter().position(|(id, _)| *id == input.id);
+    // The page asked, so the lines go also when they did not change.
+    if let (Some(tree), Some(g)) = (&tree, g) {
+        shown.fresh(g, &input.id, input.mode, tree);
+    }
     let trees = tree.map(|tree| Tree { id: input.id.clone(), mode: input.mode, tree }).into_iter().collect();
     let params = done.params.into_iter().map(|(key, text)| ParamWrite { id: input.id.clone(), key, text }).collect();
     out.emit(&Event::Gui { serial, trees, reports: done.reports, params });
-    let frame = part.guis().iter().find(|(id, _)| *id == input.id).map(|&(_, frame)| frame)?;
+    let frame = part.guis()[g?].1;
     (input.rerun && !input.events.is_empty()).then_some(frame)
 }
 
@@ -37,6 +42,16 @@ pub(super) struct Shown {
     pub(super) sizes: [Option<String>; 2],
     /// The nodes in view. None until the page sends them, so that each node draws.
     pub(super) visible: Option<HashSet<String>>,
+    /// The last widget lines that the page got for each node of `Frames::guis`, by place. The page
+    /// keeps them, so a draw does not send the same lines again.
+    sent: Vec<Sent>,
+}
+
+/// The node ID and the last widget lines of each size that the page got for a node GUI.
+#[derive(Default)]
+struct Sent {
+    id: String,
+    trees: [Option<String>; 3],
 }
 
 impl Shown {
@@ -48,25 +63,54 @@ impl Shown {
             _ => self.sizes[mode as usize - 1].as_deref() == Some(id),
         }
     }
+
+    /// True when the page did not get `tree` as the last lines of node `id` at place `g` of
+    /// `Frames::guis` in size `mode`. Then keeps `tree` as the last lines.
+    fn fresh(&mut self, g: usize, id: &str, mode: u32, tree: &str) -> bool {
+        if self.sent.len() <= g {
+            self.sent.resize_with(g + 1, Sent::default);
+        }
+        let sent = &mut self.sent[g];
+        if sent.id != id {
+            *sent = Sent { id: id.to_owned(), trees: Default::default() };
+        }
+        match sent.trees.get_mut(mode as usize) {
+            Some(Some(last)) if last == tree => false,
+            Some(Some(last)) => {
+                last.clear();
+                last.push_str(tree);
+                true
+            }
+            Some(none) => {
+                *none = Some(tree.to_owned());
+                true
+            }
+            None => true,
+        }
+    }
 }
 
-/// Sends the widget lines of the node GUIs (4.3): the node body size of the nodes in view, and
-/// the larger sizes of the nodes in `shown`. After a run, `all` draws each node one time, so that
-/// each node gets its size. A user input that waited for a run of the node applies in this
-/// draw, so its parameter writes go with the lines.
-pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64, shown: &Shown, all: bool) {
+/// Sends the widget lines of the node GUIs (4.3) that changed: the node body size of the nodes in
+/// view, and the larger sizes of the nodes in `shown`. After a run, `all` draws each node one time
+/// and sends all lines, so that each node gets its size. A user input that waited for a run of the
+/// node applies in this draw, so its parameter writes go with the lines.
+pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64, shown: &mut Shown, all: bool) {
     let (mut trees, mut reports, mut params) = (Vec::new(), Vec::new(), Vec::new());
-    for n in 0..part.guis().len() {
-        let modes = [0, 1, 2].map(|m| shown.draws(&part.guis()[n].0, m, all));
-        if !modes.contains(&true) {
-            continue;
-        }
-        let id = part.guis()[n].0.clone();
-        for mode in (0..3).filter(|&m| modes[m as usize]) {
-            let (tree, done) = part.ui(control, &id, mode, "");
+    if all {
+        shown.sent.clear();
+    }
+    for g in 0..part.guis().len() {
+        for mode in 0..3 {
+            if !shown.draws(&part.guis()[g].0, mode, all) {
+                continue;
+            }
+            let (tree, done) = part.ui_at(control, g, mode, "");
+            let id = &part.guis()[g].0;
             reports.extend(done.reports);
             params.extend(done.params.into_iter().map(|(key, text)| ParamWrite { id: id.clone(), key, text }));
-            trees.extend(tree.map(|tree| Tree { id: id.clone(), mode, tree }));
+            if let Some(tree) = tree.filter(|tree| shown.fresh(g, id, mode, tree)) {
+                trees.push(Tree { id: id.clone(), mode, tree });
+            }
         }
     }
     if !trees.is_empty() || !reports.is_empty() || !params.is_empty() {
@@ -79,9 +123,9 @@ pub(super) fn draw(out: &Out, control: &Control, part: &mut Frames, serial: u64,
 /// values and no times. A failed frame shows at once. Display frame `show` of the run sends the
 /// node times only at 10 Hz (15.9). Then empties `blocks`. Returns false when a frame or a block
 /// failed, and the number of frames that ran. After one tick period, the next frame is the last and
-/// the frames after it do not run, so the page shows each tick (9.1). `changed` is a buffer for
-/// the places of the changed values, kept from frame to frame so that a frame does not allocate.
-pub(super) fn frame(out: &Out, (part, shown, aliases, changed): (&mut Frames, &Shown, &[(String, String)], &mut Vec<usize>), shared: &Shared, (serial, show, count): (u64, u64, u64), blocks: &mut Blocks) -> (bool, u64) {
+/// the frames after it do not run, so the page shows each tick (9.1). `tick` keeps its buffer from
+/// frame to frame so that a frame does not allocate, and gets the times of the display stages.
+pub(super) fn frame(out: &Out, (part, shown, aliases, tick): (&mut Frames, &mut Shown, &[(String, String)], &mut Tick), shared: &Shared, (serial, show, count): (u64, u64, u64), blocks: &mut Blocks) -> (bool, u64) {
     let (start, control) = (Instant::now(), &shared.control);
     let (mut quiet_logs, mut ran) = (Vec::new(), 0);
     for left in (0..count.max(1)).rev() {
@@ -96,16 +140,19 @@ pub(super) fn frame(out: &Out, (part, shown, aliases, changed): (&mut Frames, &S
     }
     control.set_quiet(false);
     let outcome = part.outcome();
-    let run_ms = start.elapsed().as_secs_f64() * 1000.0;
+    let run_ms = ms(start);
+    let at = Instant::now();
     let b = blocks.part();
     let mut kept = lock(&shared.values);
-    keep_all(&mut kept, aliases, outcome.values.iter().chain(b.values), changed);
+    keep_all(&mut kept, aliases, outcome.values.iter().chain(b.values), &mut tick.changed);
     let mut reports = lock(&shared.reports);
     reports.clear();
     reports.extend(outcome.reports.iter().chain(b.reports).cloned());
     drop(reports);
+    tick.stages.keep_ms = ms(at);
     let ok = outcome.ok && b.ok;
     let times = if show % TIMES_EVERY == 1 { [&outcome.times[..], b.times] } else { [&[][..]; 2] };
+    let at = Instant::now();
     out.emit(&FrameEvent {
         serial,
         frames: ran,
@@ -116,18 +163,46 @@ pub(super) fn frame(out: &Out, (part, shown, aliases, changed): (&mut Frames, &S
         times: Joined(&times),
         logs: Joined(&[&quiet_logs, &outcome.logs, b.logs]),
         reports: Joined(&[&outcome.reports, b.reports]),
-        values: Badges { kept: &kept, changed },
+        values: Badges { kept: &kept, changed: &tick.changed },
+        stages: tick.stages,
     });
     drop(kept);
+    tick.stages.send_ms = ms(at);
     blocks.clear();
+    let at = Instant::now();
     draw(out, control, part, serial, shown, false);
+    tick.stages.gui_ms = ms(at);
     (ok, ran)
+}
+
+/// The milliseconds since `start`.
+fn ms(start: Instant) -> f64 {
+    start.elapsed().as_secs_f64() * 1000.0
+}
+
+/// The buffer and the stage times of the frames of a run.
+#[derive(Default)]
+pub(super) struct Tick {
+    /// The places of the changed values of the last frame, a buffer that the frames use again.
+    changed: Vec<usize>,
+    stages: Stages,
+}
+
+/// The times of the display stages of a tick, after the frames, in ms (15.9): keep and compare
+/// the values, send the event, and make the node GUIs. The send and the GUIs end after the event,
+/// so the event has their times of the tick before.
+#[derive(Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Stages {
+    keep_ms: f64,
+    send_ms: f64,
+    gui_ms: f64,
 }
 
 /// The result of one frame (9.1), with the fields of `Event::Ran`, for the nodes of the frame domain
 /// and for the blocks of the audio domain since the last frame (9.3). It is the last of `frames`
-/// frames, and `run_ms` is the time of all the frames. It borrows its lists, so that the frame
-/// loop does not copy them.
+/// frames, and `run_ms` is the time of all the frames, before the display `stages`. It borrows its
+/// lists, so that the frame loop does not copy them.
 #[derive(Serialize)]
 #[serde(tag = "state", rename = "frame", rename_all = "camelCase")]
 struct FrameEvent<'a> {
@@ -141,6 +216,7 @@ struct FrameEvent<'a> {
     logs: Joined<'a, NodeLog>,
     reports: Joined<'a, Report>,
     values: Badges<'a>,
+    stages: Stages,
 }
 
 /// The items of some lists, as one list.
@@ -349,11 +425,22 @@ mod tests {
 
     #[test]
     fn the_frames_draw_only_the_node_guis_in_view() {
-        let mut shown = Shown { sizes: [Some("b".to_owned()), None], visible: None };
+        let mut shown = Shown { sizes: [Some("b".to_owned()), None], ..Shown::default() };
         assert!(shown.draws("a", 0, false));
         shown.visible = Some(HashSet::from(["a".to_owned()]));
         assert!(shown.draws("a", 0, false) && !shown.draws("b", 0, false) && shown.draws("b", 0, true));
         assert!(shown.draws("b", 1, false) && !shown.draws("a", 1, false) && !shown.draws("b", 2, false));
+    }
+
+    #[test]
+    fn a_draw_sends_only_the_widget_lines_that_the_page_does_not_have() {
+        let mut shown = Shown::default();
+        assert!(shown.fresh(1, "a", 0, "label\t1") && !shown.fresh(1, "a", 0, "label\t1"));
+        assert!(shown.fresh(1, "a", 2, "label\t1"), "each size has its own lines");
+        assert!(shown.fresh(1, "a", 0, "label\t2") && !shown.fresh(1, "a", 0, "label\t2"));
+        assert!(shown.fresh(1, "b", 0, "label\t2"), "another node at the same place");
+        assert!(shown.fresh(0, "c", 0, "") && !shown.fresh(0, "c", 0, ""), "empty lines are lines");
+        assert!(shown.fresh(0, "c", 7, "x") && shown.fresh(0, "c", 7, "x"), "an unknown size always sends");
     }
 
     #[test]

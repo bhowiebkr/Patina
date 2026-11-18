@@ -2,7 +2,7 @@
 
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, openType, plainDoc, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type Value, type View } from '../api';
+import { duration, errorText, folderName, nodeProblems, openType, plainDoc, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type TickStages, type Value, type View } from '../api';
 import type { Socket } from './bus';
 import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from '../wires/gl';
@@ -30,6 +30,8 @@ export interface RunState {
   baseMs: number | null;
   slotMs: number | null;
   runMs: number | null;
+  /** The display stages of the last frame (9.1), or null after a batch run. */
+  stages: TickStages | null;
   ok: boolean;
   reports: Report[];
   /** Each live value by output, "<node id>.<output key>" (15.9). */
@@ -67,6 +69,7 @@ export const NO_RUN: RunState = {
   baseMs: null,
   slotMs: null,
   runMs: null,
+  stages: null,
   ok: true,
   reports: [],
   values: new Map(),
@@ -92,7 +95,7 @@ export function nodeErrors(run: RunState, name: string): Diagnostic[] {
 export interface NodeData extends Record<string, unknown> {
   entry: NodeEntry;
   info: NodeInfo | null;
-  wired: string[];
+  wired: readonly string[];
   /** The wire ends that the node has no pin for. Each gets a row, so its wire shows (15.9). */
   lost?: Lost;
   /** The parameters that the node has no input for. Each shows with a delete button (15.8). */

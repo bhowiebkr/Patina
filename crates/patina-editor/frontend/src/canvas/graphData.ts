@@ -10,7 +10,7 @@ import type { WireData } from '../wires/WireLayer';
 import { pathOf } from '../wires/wires';
 import { same } from './same';
 import { valueStale } from './liveValues';
-import { lostParams, lostPins, wireEnds } from './lostPins';
+import { lostParams, lostPins, wireEnds, wiredKeys } from './lostPins';
 
 const NO_POINTS: readonly Point[] = [];
 
@@ -115,9 +115,21 @@ function sourcesOf(view: View): Map<string, string> {
   return new Map([...wires, ...(view.graph.input ?? []).flatMap((p) => (p.to ?? []).map((to) => [to, `in:${p.key}.pin`] as const))]);
 }
 
+const NO_KEYS: readonly string[] = [];
+
+type Structure = { sources: Map<string, string>; ends: Map<string, Set<string>>; wired: Map<string, string[]> };
+const structures = new WeakMap<View, Structure>();
+
+/** The wire data of `view` that a run update does not change, made one time for each view. */
+function structureOf(view: View): Structure {
+  let s = structures.get(view);
+  if (!s) structures.set(view, (s = { sources: sourcesOf(view), ends: wireEnds(view.graph), wired: wiredKeys((view.graph.wire ?? []).map((w) => w.to)) }));
+  return s;
+}
+
 /** The inner nodes of each frame, as children of their use. They have no edits (15.3). */
 function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], old: Map<string, GraphNode>): PatinaNode[] {
-  const outer = sourcesOf(view);
+  const outer = structureOf(view).sources;
   const lock = { draggable: false, selectable: false, connectable: false, deletable: false, focusable: false };
   return frames.flatMap((f) => {
     // An inner input that a public input feeds gets the value of the outer wire to the use.
@@ -126,13 +138,13 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
       return from === undefined ? [] : [[to, from] as const];
     });
     const sources = new Map([...f.wires.map((w) => [w.to, w.from] as const), ...fed]);
-    const wired = [...f.wires.map((w) => w.to), ...f.inputs.map((p) => p.to)].map(splitPin);
+    const wired = wiredKeys([...f.wires.map((w) => w.to), ...f.inputs.map((p) => p.to)]);
     return f.nodes.map(({ entry, x, y }): PatinaNode => {
       const info = infoOf(entry, view.nodes);
       const [state, message] = nodeState(entry, info, view, run);
       const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
       const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
-      const keys = wired.filter(([id]) => id === entry.id).map(([, key]) => key);
+      const keys = wired.get(entry.id) ?? NO_KEYS;
       const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
       const position = { x, y };
       const before = old.get(entry.id);
@@ -146,14 +158,12 @@ const NONE: ReadonlySet<string> = new Set();
 /** Keeps the selection and the measured size of the nodes that stay. The nodes of `held` keep their place. */
 export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[], prev: GraphNode[], held: ReadonlySet<string>): GraphNode[] {
   const old = new Map(prev.map((n) => [n.id, n]));
-  const wires = view.graph.wire ?? [];
-  const sources = sourcesOf(view);
+  const { sources, ends, wired: wiredBy } = structureOf(view);
   const open = new Set(frames.map((f) => f.use));
-  const ends = wireEnds(view.graph);
   const nodes: GraphNode[] = (view.graph.node ?? []).map((entry) => {
     const info = infoOf(entry, view.nodes);
     const [state, message] = nodeState(entry, info, view, run);
-    const wired = wires.map((w) => splitPin(w.to)).filter(([id]) => id === entry.id).map(([, key]) => key);
+    const wired = wiredBy.get(entry.id) ?? NO_KEYS;
     const [x, y] = place(rooms, entry.pos ?? [0, 0]);
     const position = { x: x - GUTTER, y };
     const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
@@ -173,7 +183,7 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
 
 /** The wires of each frame: between the inner nodes, and between the frame pins and the inner nodes (15.3). */
 function innerEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[]): Edge<WireData>[] {
-  const outer = sourcesOf(view);
+  const outer = structureOf(view).sources;
   const lock = { selectable: false, focusable: false, deletable: false, reconnectable: false };
   const edge = (id: string, [source, sourceHandle]: [string, string], [target, targetHandle]: [string, string], data: WireData): Edge<WireData> => ({ id, type: 'wire', source, sourceHandle, target, targetHandle, ...lock, data: { ...data, fixed: true } });
   return frames.flatMap((f) => {

@@ -46,6 +46,8 @@ pub struct Cluster {
     names: Vec<(String, String)>,
     /// The ID of each node with a GUI, and true when the node runs again after batch (4.3).
     guis: Vec<(String, bool)>,
+    /// The node index of each node of `guis`, in the same order.
+    gui_nodes: Vec<usize>,
     /// The node index and the input key of each parameter slot.
     slots: Vec<(usize, String)>,
     /// The output of each held value, as "<node id>.<output key>" (`Plan::held`).
@@ -89,10 +91,9 @@ impl Cluster {
             .held()
             .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
             .collect();
-        let guis = (plan.steps.iter())
-            .filter(|s| plan.nodes[s.node].1.ui && plan.nodes[s.node].1.state.is_some())
-            .map(|s| (s.id.clone(), s.domain != Domain::Batch))
-            .collect();
+        let has_gui = |n: &usize| plan.nodes[plan.steps[*n].node].1.ui && plan.nodes[plan.steps[*n].node].1.state.is_some();
+        let gui_nodes: Vec<usize> = (0..plan.steps.len()).filter(has_gui).collect();
+        let guis = gui_nodes.iter().map(|&n| (plan.steps[n].id.clone(), plan.steps[n].domain != Domain::Batch)).collect();
         let mut links = Vec::new();
         for (index, (n, k)) in (0u32..).zip(generate::links(plan)) {
             let from = plan.steps[n].domain;
@@ -120,6 +121,7 @@ impl Cluster {
             pace: [Pace::default(); 4],
             names,
             guis,
+            gui_nodes,
             has_text: vec![false; slots.len()],
             slots,
             probes,
@@ -338,6 +340,7 @@ impl Cluster {
             slotted: &self.slotted,
             domains: &self.domains,
             guis: &self.guis,
+            gui_nodes: &self.gui_nodes,
             audio,
             events,
             event_guis: event_library.as_ref().is_some_and(|library| library.parallel) && pool,

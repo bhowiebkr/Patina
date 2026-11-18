@@ -10,7 +10,7 @@ mod viewport;
 
 use std::future::Future;
 use std::pin::pin;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::task::{Context, Poll, Waker};
 
 pub use image::GpuImage;
@@ -27,6 +27,8 @@ pub struct Gpu {
     pub queue: wgpu::Queue,
     /// The pipeline that shrinks an image for a preview, made at the first use.
     shrink: OnceLock<Result<wgpu::ComputePipeline, String>>,
+    /// The objects of the last previews and reads, for the next call of the same size.
+    spares: Mutex<image::Spares>,
 }
 
 /// The context or the error of the first try. `patina_sdk::shared` keeps one for each process.
@@ -54,7 +56,7 @@ fn open() -> Result<Gpu, String> {
     let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).map_err(|e| e.to_string())?;
     // The default handler stops the process. Each call that can fail uses an error scope.
     device.on_uncaptured_error(Arc::new(|error| eprintln!("Patina: GPU error: {error}")));
-    Ok(Gpu { instance, adapter, device, queue, shrink: OnceLock::new() })
+    Ok(Gpu { instance, adapter, device, queue, shrink: OnceLock::new(), spares: Mutex::default() })
 }
 
 impl Gpu {

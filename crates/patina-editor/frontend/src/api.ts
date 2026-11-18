@@ -324,6 +324,13 @@ export function logKind(level: string): 'err' | 'warn' | 'out' {
   return level === 'ERROR' ? 'err' : level === 'WARN' ? 'warn' : 'out';
 }
 
+/** The times of the display stages of a tick after its frames, in ms. The send and the GUIs are of the tick before. */
+export interface TickStages {
+  keepMs: number;
+  sendMs: number;
+  guiMs: number;
+}
+
 /** When `errors` of a run is not empty, the build failed and the last build that compiled ran. */
 export type EngineEvent =
   | { state: 'building'; serial: number; base: boolean; slot: string | null }
@@ -334,7 +341,7 @@ export type EngineEvent =
   | { state: 'loaded'; serial: number; builtMs: number | null; fused: boolean; slot: string | null; errors: Diagnostic[] }
   | { state: 'lost'; serial: number; text: string }
   /** One frame of the frame domain (9.1). Only the nodes of the frame domain ran. */
-  | { state: 'frame'; serial: number; frames: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
+  | { state: 'frame'; serial: number; frames: number; runMs: number; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[]; stages: TickStages }
   /** One event run ended (9.4). Only the nodes of the run ran. `id` is 0 for a report of a trigger or of Patina. */
   | { state: 'fired'; serial: number; id: number; trigger: string; ok: boolean; skipped: string[]; stopped: string[]; times: NodeTime[]; logs: NodeLog[]; reports: Report[]; values: Value[] }
   /** The live run ended after `frames` frames. */

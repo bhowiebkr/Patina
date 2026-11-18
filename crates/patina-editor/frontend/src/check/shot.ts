@@ -11,11 +11,29 @@ import { noFocusLook } from './focus';
 import { textsMeet } from './boxes';
 import { GAP } from '../wires/route';
 import { skippedShape } from '../controls/gui';
+import { frameStats } from './benchGraph';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** The time of the next page frame. A hidden page gives no frames, so the wait ends after 200 ms. */
+const nextFrame = () => new Promise<number>((r) => (requestAnimationFrame(r), setTimeout(() => r(performance.now()), 200)));
+
+/** The mean stage times of the frame events of a run (9.1), and the page frame times while it runs, for the report. */
+async function tickTimes(events: EngineEvent[]): Promise<string> {
+  // The first ticks draw all node GUIs one time, so they do not count.
+  const ticks = events.flatMap((e) => (e.state === 'frame' ? [e] : [])).slice(2);
+  const mean = (of: (e: (typeof ticks)[number]) => number) => (ticks.reduce((sum, e) => sum + of(e), 0) / Math.max(ticks.length, 1)).toFixed(2);
+  const times: number[] = [];
+  for (let i = 0, last = await nextFrame(); i < 30; i++) {
+    const now = await nextFrame();
+    times.push(now - last);
+    last = now;
+  }
+  const page = frameStats(times);
+  return `tick of ${ticks.length} events: frames ${mean((e) => e.runMs)} ms, values ${mean((e) => e.stages.keepMs)} ms, send ${mean((e) => e.stages.sendMs)} ms, node GUIs ${mean((e) => e.stages.guiMs)} ms, page frame ${page.mean} ms (p95 ${page.p95} ms)`;
+}
 
 /** Waits up to `ms` for `test`, or throws the text of `what`. */
 async function wait(test: () => boolean, what: () => string, ms = 30_000) {
@@ -637,6 +655,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     await sleep(500);
     await api.capture('main');
     steps.push('main', openFit('main'));
+    if (ofRun().some((e) => e.state === 'frame')) steps.push(await tickTimes(ofRun()));
     // The node GUIs and the bus contacts hide at a far zoom (15.1), so a second screenshot zooms in.
     const zoom = async (node: Element | null | undefined, name: string) => {
       const box = node?.getBoundingClientRect();

@@ -33,6 +33,13 @@ export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' :
 const idleOf = (skipped: string[], stopped: string[]) =>
   new Map([...skipped.map((id) => [id, 'skipped'] as const), ...stopped.map((id) => [id, 'stopped'] as const)]);
 
+/** A copy of `map` with each item of `items` at its key. */
+function withAll<T>(map: ReadonlyMap<string, T>, items: readonly T[], key: (item: T) => string): Map<string, T> {
+  const next = new Map(map);
+  for (const item of items) next.set(key(item), item);
+  return next;
+}
+
 /** The run state after an engine event. */
 export function nextRun(r: RunState, e: RunEvent): RunState {
   switch (e.state) {
@@ -41,13 +48,14 @@ export function nextRun(r: RunState, e: RunEvent): RunState {
       return {
         ...r,
         runMs: e.runMs,
+        stages: e.stages,
         ok: e.ok,
         // The reports of the event runs stay, because the event nodes are not in the frame domain.
         reports: [...e.reports, ...r.eventReports],
         // A frame sends only the values that changed, and the times at 10 Hz (15.9).
-        values: e.values.length > 0 ? new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]) : r.values,
+        values: e.values.length > 0 ? withAll(r.values, e.values, (v) => v.from) : r.values,
         idle: idleOf(e.skipped, e.stopped),
-        times: e.times.length > 0 ? new Map([...r.times, ...e.times.map((t) => [t.id, t] as const)]) : r.times,
+        times: e.times.length > 0 ? withAll(r.times, e.times, (t) => t.id) : r.times,
         logs: e.logs,
         frames: r.frames + e.frames,
       };
@@ -60,8 +68,8 @@ export function nextRun(r: RunState, e: RunEvent): RunState {
         ok: r.ok && e.ok,
         reports: merge(r.reports),
         eventReports: merge(r.eventReports),
-        values: new Map([...r.values, ...e.values.map((v) => [v.from, v] as const)]),
-        times: new Map([...r.times, ...e.times.map((t) => [t.id, t] as const)]),
+        values: withAll(r.values, e.values, (v) => v.from),
+        times: withAll(r.times, e.times, (t) => t.id),
       };
     }
     case 'ended':
@@ -83,6 +91,7 @@ export function nextRun(r: RunState, e: RunEvent): RunState {
         baseMs: e.builtMs !== null && !failed && !e.slotOnly ? e.builtMs : r.baseMs,
         slotMs: e.slot === null ? null : e.builtMs !== null && !failed ? e.builtMs : r.slotMs,
         runMs: e.runMs,
+        stages: null,
         ok: e.ok,
         reports: e.reports,
         values,

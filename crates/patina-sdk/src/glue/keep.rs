@@ -14,7 +14,8 @@ use super::{Cluster, Cmd, Probe, Reporter, catch_unwind};
 type Copy = Option<Box<dyn Any + Send>>;
 
 /// The kept copies of the held values of a cluster, in the order of `Plan::held`. A copy is made
-/// only after a view asked for it. `any` is true after the first ask, so a net checks it once.
+/// only after a view asked for it, and only in a run that is not quiet, because a view reads only
+/// between two ticks (9.1). `any` is true after the first ask, so a net checks it once.
 pub struct Keeps {
     held: Box<[(AtomicBool, Mutex<Copy>)]>,
     any: AtomicBool,

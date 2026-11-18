@@ -559,17 +559,18 @@ fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
     }
     s.push_str("                });\n");
     // A gate has one output. One check of `quiet` and one of `any` cover the probes of the net.
+    // A view reads only between two ticks, so a quiet frame keeps no copies either (15.8).
     let shown: Vec<usize> = net.iter().copied().filter(|&n| plan.steps[n].consumers[0] > 0).collect();
     if !shown.is_empty() {
         s.push_str("                if !rep.quiet() {\n");
         for &n in &shown {
             let _ = writeln!(s, "                    if let ::std::option::Option::Some(v) = {}.as_ref() {{ {} }}", held(plan, n, 0)[0], send(plan, n, 0, first[n]));
         }
-        s.push_str("                }\n                if keeps.any() {\n");
+        s.push_str("                    if keeps.any() {\n");
         for &n in &shown {
-            let _ = writeln!(s, "                    if let ::std::option::Option::Some(v) = {}.as_ref() {{ {} }}", held(plan, n, 0)[0], keep(first[n]));
+            let _ = writeln!(s, "                        if let ::std::option::Option::Some(v) = {}.as_ref() {{ {} }}", held(plan, n, 0)[0], keep(first[n]));
         }
-        s.push_str("                }\n");
+        s.push_str("                    }\n                }\n");
     }
     s.push_str("            }
 ");
@@ -750,14 +751,15 @@ fn store(s: &mut String, plan: &Plan, n: usize, indent: &str) {
     }
 }
 
-/// Writes the probes of step `n` (15.9). `probe` is the index of its first held value.
+/// Writes the probes of step `n` (15.9). `probe` is the index of its first held value. A quiet
+/// run sends no values and keeps no copies, because a view reads only between two ticks (15.8).
 fn probes(s: &mut String, plan: &Plan, n: usize, mut probe: usize) {
     let step = &plan.steps[n];
     let indent = "                ";
     for k in (0..step.consumers.len()).filter(|k| step.consumers[*k] > 0) {
         let _ = writeln!(
             s,
-            "{indent}if let ::std::option::Option::Some(v) = {}.as_ref() {{ {} {} }}",
+            "{indent}if let (false, ::std::option::Option::Some(v)) = (rep.quiet(), {}.as_ref()) {{ {} {} }}",
             held(plan, n, k)[0],
             send(plan, n, k, probe),
             keep(probe)

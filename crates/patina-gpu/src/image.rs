@@ -1,8 +1,8 @@
 //! An RGBA image that stays on the GPU between GPU nodes (10.2).
 
 use std::fmt::{self, Write};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Arc, MutexGuard, PoisonError};
 
 use crate::Gpu;
 
@@ -49,11 +49,15 @@ impl GpuImage {
         let (width, height) = (self.width(), self.height());
         let row = width * 4;
         let stride = row.next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
-        let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("GpuImage read"),
-            size: u64::from(stride) * u64::from(height),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
+        let size = u64::from(stride) * u64::from(height);
+        let spare = take(&mut spares(gpu).reads, |b| b.size() == size);
+        let buffer = spare.unwrap_or_else(|| {
+            gpu.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("GpuImage read"),
+                size,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            })
         });
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         encoder.copy_texture_to_buffer(
@@ -78,13 +82,82 @@ impl GpuImage {
         if state.load(Ordering::SeqCst) != 1 {
             return Err("Patina could not read the image from the GPU".to_owned());
         }
-        let view = buffer.get_mapped_range(..).map_err(|e| e.to_string())?;
         let mut pixels = Vec::with_capacity((row * height) as usize);
-        for line in view.chunks(stride as usize) {
+        for line in buffer.get_mapped_range(..).map_err(|e| e.to_string())?.chunks(stride as usize) {
             pixels.extend_from_slice(&line[..row as usize]);
         }
+        buffer.unmap();
+        give(&mut spares(gpu).reads, buffer);
         Ok(pixels)
     }
+}
+
+/// The most objects of each kind that the previews and the reads keep for the next call.
+const SPARES: usize = 4;
+
+/// The objects of the last previews and reads, so that a call of the same size in each frame
+/// makes no new GPU objects (10.2).
+#[derive(Default)]
+pub(crate) struct Spares {
+    reads: Vec<wgpu::Buffer>,
+    shrinks: Vec<Shrink>,
+}
+
+fn spares(gpu: &Gpu) -> MutexGuard<'_, Spares> {
+    gpu.spares.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Takes an object that `fits` out of `list`. Another thread can use the other objects meanwhile.
+fn take<T>(list: &mut Vec<T>, fits: impl Fn(&T) -> bool) -> Option<T> {
+    list.iter().position(fits).map(|i| list.swap_remove(i))
+}
+
+/// Keeps `item` for the next call, and drops an old object when `list` is full.
+fn give<T>(list: &mut Vec<T>, item: T) {
+    if list.len() >= SPARES {
+        list.remove(0);
+    }
+    list.push(item);
+}
+
+/// The small image, the scale and the bind group of the previews of `source`. The bind group
+/// keeps `source`, so a spare keeps one old image until the next preview of its size.
+struct Shrink {
+    small: GpuImage,
+    scale: u32,
+    uniform: wgpu::Buffer,
+    source: wgpu::Texture,
+    group: wgpu::BindGroup,
+}
+
+impl Shrink {
+    fn new(gpu: &Gpu, pipeline: &wgpu::ComputePipeline, source: &wgpu::Texture, scale: u32, [width, height]: [u32; 2]) -> Shrink {
+        let small = GpuImage::new(gpu, width, height);
+        let uniform = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("GpuImage shrink scale"),
+            size: 16,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut bytes = [0u8; 16];
+        bytes[..4].copy_from_slice(&scale.to_le_bytes());
+        gpu.queue.write_buffer(&uniform, 0, &bytes);
+        let group = bind(gpu, pipeline, source, &small, &uniform);
+        Shrink { small, scale, uniform, source: source.clone(), group }
+    }
+}
+
+fn bind(gpu: &Gpu, pipeline: &wgpu::ComputePipeline, source: &wgpu::Texture, small: &GpuImage, uniform: &wgpu::Buffer) -> wgpu::BindGroup {
+    let (from, to) = (source.create_view(&Default::default()), small.texture.create_view(&Default::default()));
+    gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: None,
+        layout: &pipeline.get_bind_group_layout(0),
+        entries: &[
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&from) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&to) },
+            wgpu::BindGroupEntry { binding: 2, resource: uniform.as_entire_binding() },
+        ],
+    })
 }
 
 /// Writes the mean of each block of `scale` x `scale` pixels of `source` to one pixel of `small`.
@@ -122,7 +195,7 @@ impl GpuImage {
         if scale == 1 {
             return Ok(([width, height], self.read(gpu)?));
         }
-        let small = GpuImage::new(gpu, width.div_ceil(scale), height.div_ceil(scale));
+        let size = [width.div_ceil(scale), height.div_ceil(scale)];
         let pipeline = gpu
             .shrink
             .get_or_init(|| {
@@ -139,34 +212,23 @@ impl GpuImage {
             })
             .as_ref()
             .map_err(Clone::clone)?;
-        let uniform = gpu.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("GpuImage shrink scale"),
-            size: 16,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let mut bytes = [0u8; 16];
-        bytes[..4].copy_from_slice(&scale.to_le_bytes());
-        gpu.queue.write_buffer(&uniform, 0, &bytes);
-        let (from, to) = (self.texture.create_view(&Default::default()), small.texture.create_view(&Default::default()));
-        let group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &pipeline.get_bind_group_layout(0),
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&from) },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&to) },
-                wgpu::BindGroupEntry { binding: 2, resource: uniform.as_entire_binding() },
-            ],
-        });
+        let spare = take(&mut spares(gpu).shrinks, |s| s.scale == scale && [s.small.width(), s.small.height()] == size);
+        let mut shrink = spare.unwrap_or_else(|| Shrink::new(gpu, pipeline, &self.texture, scale, size));
+        if shrink.source != self.texture {
+            shrink.group = bind(gpu, pipeline, &self.texture, &shrink.small, &shrink.uniform);
+            shrink.source = self.texture.clone();
+        }
         let mut encoder = gpu.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_compute_pass(&Default::default());
             pass.set_pipeline(pipeline);
-            pass.set_bind_group(0, &group, &[]);
-            pass.dispatch_workgroups(small.width().div_ceil(8), small.height().div_ceil(8), 1);
+            pass.set_bind_group(0, &shrink.group, &[]);
+            pass.dispatch_workgroups(size[0].div_ceil(8), size[1].div_ceil(8), 1);
         }
         gpu.queue.submit([encoder.finish()]);
-        Ok(([small.width(), small.height()], small.read(gpu)?))
+        let pixels = shrink.small.read(gpu)?;
+        give(&mut spares(gpu).shrinks, shrink);
+        Ok((size, pixels))
     }
 }
 

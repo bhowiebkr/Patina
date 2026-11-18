@@ -151,8 +151,23 @@ impl Frames<'_> {
     /// the node in the same mode applies it first. During the call, `control` keeps the node, so a
     /// second **Stop** can end a GUI that does not return (15.2).
     pub fn ui(&mut self, control: &Control, id: &str, mode: u32, events: &str) -> (Option<String>, Outcome) {
+        if let Some(g) = self.nodes.guis.iter().position(|(g, _)| g == id) {
+            return self.ui_at(control, g, mode, events);
+        }
         let Some(n) = self.run.names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
-        let keep = self.nodes.guis.iter().any(|(g, _)| g == id);
+        self.node_ui(control, n, false, mode, events)
+    }
+
+    /// Calls the `ui` function of the node at place `g` of `guis`, as `ui` does, with no search for the node.
+    pub fn ui_at(&mut self, control: &Control, g: usize, mode: u32, events: &str) -> (Option<String>, Outcome) {
+        match self.nodes.gui_nodes.get(g) {
+            Some(&n) => self.node_ui(control, n, true, mode, events),
+            None => (None, Outcome::default()),
+        }
+    }
+
+    /// The `ui` calls of node `n`. A node with a GUI state (`keep`) keeps an input that waits.
+    fn node_ui(&mut self, control: &Control, n: usize, keep: bool, mode: u32, events: &str) -> (Option<String>, Outcome) {
         // One call for each waiting input, in order, so that each click counts.
         let mut earlier = Outcome::default();
         while let Some(i) = self.gui.waiting.iter().position(|w| w.0 == n && w.1 == mode) {
@@ -191,8 +206,8 @@ impl Frames<'_> {
         // reporter are valid during the call.
         calls.call(names, probes, control, Some(own), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
         let tree = calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
-        // A GUI call reports little, so the caller gets its lists.
-        let mut out = std::mem::take(&mut calls.out);
+        // A GUI call reports little, so the copy is small, and `calls.out` keeps its buffers.
+        let mut out = calls.out.clone();
         let edits = calls.sink.iter().filter(|&(_, kind, _)| kind == glue::EDIT).filter_map(|(_, _, text)| text.split_once('\t'));
         out.params = edits.map(|(key, text)| (key.to_owned(), text.to_owned())).collect();
         // A call that succeeds with no widget lines found the state held by a run (`glue::draw`).
@@ -254,6 +269,7 @@ pub(crate) struct Nodes<'a> {
     pub(crate) slotted: &'a [bool],
     pub(crate) domains: &'a [Domain],
     pub(crate) guis: &'a [(String, bool)],
+    pub(crate) gui_nodes: &'a [usize],
     /// False while the audio thread runs the audio domain (`Cluster::split`).
     pub(crate) audio: bool,
     /// False while the event runs call the event domain (`Cluster::live`).

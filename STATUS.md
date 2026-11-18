@@ -162,9 +162,25 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The [performance audit](docs/performance-audit.md) records 12 findings and the proposed implementation order.
 - The Windows CLI ran the committed computer example in edit and bake modes, with identical output.
   The incremental frame estimates were 91.9 us and 17.9 us, including stdout. These are not editor timings.
-- Open work: cache canvas structure, reduce value and GUI reporting, release view-copy subscriptions,
-  avoid unused GPU previews, and separate bus state from wire geometry. No audit proposal is implemented yet.
-- Not checked in this audit: editor timing, slot mode, allocation counts, Linux, and macOS.
+- Done on 2026-11-18:
+  - Finding 4: the canvas keeps the wire ends, the sources and the wired pins of each graph in a
+    cache, so a live update does not find them again.
+  - Finding 3: each tick measures its stages. The run text shows them as a tooltip, and `--shot`
+    writes them into `check.json`.
+  - Findings 2 and 6: a draw sends only the node GUI lines that changed. The page keeps its GUI
+    map and its value maps when no line or value changed.
+  - Finding 9: a GPU image keeps up to 4 spare read buffers and shrink objects again.
+  - Finding 8: a quiet frame keeps no copy for a view. A large value costs one copy for each tick.
+- The computer example in the shot, with a game on the owner's computer: a tick of 54 events took
+  2.08 ms for the frames, 0.38 ms for the values, 1.99 ms for the send and 0.01 ms for the node GUIs.
+  The page frame was 16.7 ms (p95 16.8 ms), so no frame dropped. No number before the change exists.
+- Known limits: the copies for a view stay after the view closes, until the graph loads again. A
+  reopened view on a paused graph thus still shows the last value. Each drawn node GUI still makes
+  its line text one time.
+- Open work: finding 1 (collect only the values in view) and finding 5 (collect times less often).
+  The numbers above show no dropped frame, and finding 1 can lose values that a paused pan, the
+  **Inspector** or a badge reads. Findings 10, 11 and 12 stay as they are (agent decision).
+- Not checked in this audit: slot mode, allocation counts, Linux, and macOS.
 - Open test improvement: the event test compares path strings and fails with a mixed-separator
   `CARGO_TARGET_DIR`. Its focused check passed after recompilation with a native Windows target path.
 

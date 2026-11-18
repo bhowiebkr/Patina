@@ -95,6 +95,10 @@ fn a_preview_takes_the_mean_of_each_block_and_keeps_the_ratio() {
     let row = image(4, 1, &pixels);
     assert_eq!(row.preview(gpu, 2).unwrap(), ([2, 1], vec![50, 50, 50, 255, 125, 125, 125, 255]));
     assert_eq!(row.preview(gpu, 8).unwrap(), ([4, 1], pixels));
+    // A second image of the same size uses the spare objects of the first, with its own pixels.
+    let other: Vec<u8> = [10u8, 30, 0, 0].iter().flat_map(|&v| [v, v, v, 255]).collect();
+    assert_eq!(image(4, 1, &other).preview(gpu, 2).unwrap(), ([2, 1], vec![20, 20, 20, 255, 0, 0, 0, 255]));
+    assert_eq!(row.preview(gpu, 2).unwrap().1[..4], [50, 50, 50, 255]);
     // A block at the edge is smaller: 5 x 3 with a scale of 3 gives 2 x 1, and the last block is 2 x 3.
     let ramp: Vec<u8> = (0..15u8).flat_map(|i| [i * 10, 0, 255 - i, 255]).collect();
     let (size, out) = image(5, 3, &ramp).preview(gpu, 2).unwrap();

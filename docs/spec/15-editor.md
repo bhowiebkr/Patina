@@ -376,7 +376,9 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
    `graph.value::<T>(id, key)` gives the value of the last run as a `&T`, or none. The type
    must have `Clone` and `Send`. The cluster keeps a copy of each held value that a view read
    one time, at the end of its node, with `clone_from`. The first read gives none, and the next
-   runs keep the copy. The `Any` type ID is the type check, because the clusters and the views
+   runs keep the copy. A quiet frame (9.1) keeps no copy, because a view reads only between two
+   ticks, after the last frame. (Agent decision of 2026-11-18. The owner can change it. Reason: a
+   large value then costs one copy for each tick, not one for each frame.) The `Any` type ID is the type check, because the clusters and the views
    of a project link one build of each type crate (5.2). A view reads only an output with a
    wire. (Agent decision, 2026-11-15. The owner can change it. Reason: a copy costs only for
    the outputs that a view reads, and a clone keeps the run free of locks on the value.)

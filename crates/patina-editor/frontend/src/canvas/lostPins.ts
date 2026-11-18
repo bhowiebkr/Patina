@@ -35,6 +35,19 @@ export function wireEnds(graph: GraphFile): Map<string, Set<string>> {
   return ends;
 }
 
+/** The wired input keys of each node, by node ID, in the order of `pins` (`<node ID>.<pin key>`). */
+export function wiredKeys(pins: Iterable<string>): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const pin of pins) {
+    const dot = pin.indexOf('.');
+    const [id, key] = dot < 0 ? [pin, ''] : [pin.slice(0, dot), pin.slice(dot + 1)];
+    const keys = out.get(id);
+    if (keys) keys.push(key);
+    else out.set(id, [key]);
+  }
+  return out;
+}
+
 /** The ends of `ends` that `pins` has no pin for. A node with no pins, for example a missing folder, loses all ends. */
 export function lostPins(pins: Pins | null, ends: ReadonlySet<string> | undefined): Lost | undefined {
   if (!ends) return undefined;
