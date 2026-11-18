@@ -529,7 +529,7 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     assert!(image.thumb.starts_with("64 16 ") && image.thumb.len() == 6 + (64 * 16 * 4_usize).div_ceil(3) * 4, "{}", image.thumb.len());
     // The mix gets the size of its first image, the color bars, and the waveform shows dots.
     let mixed = outcome.values.iter().find(|v| v.from == "708192a3b4c5d6e7.out").unwrap();
-    assert_eq!(mixed.text, "GpuImage 128x72");
+    assert_eq!(mixed.text, "128 x 72");
     let tree = cluster.ui(&Control::default(), "92a3b4c5d6e7f809", 0, "").0.unwrap();
     assert!(tree.starts_with("canvas\tWaveform ") && !tree.starts_with("canvas\tWaveform 0\t"), "{tree}");
     let tree = cluster.ui(&Control::default(), "4d5e6f708192a3b4", 0, "").0.unwrap();

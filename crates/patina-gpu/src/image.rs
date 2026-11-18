@@ -172,7 +172,7 @@ impl GpuImage {
 
 impl patina_sdk::Viewer for GpuImage {
     fn text(&self, out: &mut patina_sdk::Text<'_>) -> fmt::Result {
-        write!(out, "GpuImage {}x{}", self.width(), self.height())
+        write!(out, "{} x {}", self.width(), self.height())
     }
 
     fn thumbnail(&self, out: &mut patina_sdk::Thumbnail<'_>) {

@@ -300,7 +300,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The **Inspector** put a placed widget at the wrong place, for example the **Type** field of
   the keyboard on the canvas title (fixed 2026-11-18). A GUI with placed widgets now has no
   padding and no canvas label there too. The shot checks that each placed widget is on its canvas.
-- A node covered the full badge of a selected wire, for example `GpuImage 64x16` in gpu (fixed
+- A node covered the full badge of a selected wire, for example `64 x 16` in gpu (fixed
   2026-11-18). The badge and the label of a selected wire are now above the nodes. The shot
   checks that no node covers the badge.
 - The shot checks the layout of each graph that it opens: no widget is out of its node or the
