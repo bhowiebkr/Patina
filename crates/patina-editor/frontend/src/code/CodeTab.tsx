@@ -150,9 +150,14 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
       <div className="code-bar">
         <div className={bad ? 'code-state error-text' : 'code-state label'}>{state}</div>
         {!readOnly && (
-          <button className="btn" onClick={() => setAdding(true)}>
-            Add crate
-          </button>
+          <>
+            <button className="btn" title="Save (Ctrl+S)" disabled={!unsaved.some((f) => f.startsWith(folder))} onClick={() => save.current()}>
+              Save
+            </button>
+            <button className="btn" onClick={() => setAdding(true)}>
+              Add crate
+            </button>
+          </>
         )}
       </div>
       {adding && (

@@ -33,6 +33,12 @@
   gap: 4px;
 }
 
+/* A widget that `Ui::place` puts on top of the column (4.3). */
+.gui-place {
+  position: absolute;
+  z-index: 1;
+}
+
 /* A viewport (15.8). The view draws under the page, so the area and its parents go transparent. */
 .gui-viewport {
   width: 100%;

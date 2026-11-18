@@ -135,7 +135,7 @@ impl AdsrEnvelope {
 |---|---|
 | Basic | Label, button, icon button, toggle, slider, number field (with a unit and step buttons), text field, code field, file path field (with a **Browse** button), dropdown, tabs, section |
 | Values | Color picker, color ramp, layer stack, 2D transform gizmo, timeline, asset picker, curve with an optional histogram, plot with optional axes, scatter plot, progress bar, table, image, waveform |
-| Canvas | Lines, rectangles, circles, text, images. Mouse and key events |
+| Canvas | Lines, rectangles, circles, SVG paths, text, images. Mouse and key events |
 | Viewport | A GPU surface that the code draws into with `wgpu` (15.8). Not in the node body |
 | Custom | Widgets from widget folders (6.2) |
 
@@ -184,6 +184,26 @@ pub struct CurveEditor { points: Vec<[f32; 2]> }
 - **Back** in the top bar, or Esc, returns to the graph view.
 - The graph keeps running. The other panels stay, and the inspector shows the node.
 - A full-size GUI can use a viewport (15.8).
+
+**Free layout**
+
+A node can draw its whole body, for example a round push button or a knob. Then the node has its own shape and its own pin places.
+
+```rust
+#[node(free_layout)]
+pub struct Button { held: bool }
+```
+
+- A node with `free_layout` must have a `ui` function, else the node shows an error.
+- The compact GUI is the whole node. The node has no header, no pin rows, no box and no padding. A canvas has no background and no border.
+- The node width is the largest canvas width, up to 480 px. A node with no canvas is 200 px wide.
+- `ui.pin(key, [x, y])` puts a pin at a point, in pixels from the top left corner of the node body. A pin with no place goes to the left edge (inputs) or the right edge (outputs), in equal steps over the canvas height.
+- A wire still leaves an output to the right and goes into an input from the left.
+- `ui.place([x, y])` puts the next widget at a point, on top of the other widgets. A widget in a section keeps its place in the section.
+- `canvas.path(data, color, fill)` draws SVG path data, for example `M 0 0 L 40 0 L 20 30 Z`. The editor skips a path with other letters than the path commands.
+- The name and the state icon of the node show above the shape. The user drags the node by its name, because the GUI takes the pointer. The selection is an outline. An error message shows below the shape.
+- Until the node draws its first GUI, it shows the normal layout.
+- (Agent decision of 2026-11-18. The owner can change it.)
 
 A node can set the color of its header (15.3):
 

@@ -43,7 +43,7 @@ wires = [\"000000000000000b.value\"]
 fn project(name: &str, half: &str) -> (std::path::PathBuf, Project) {
     let root = std::env::temp_dir().join(format!("patina-clip-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
-    Project::create(&root, "1.94.0").unwrap();
+    Project::hello(&root);
     fs::write(root.join("graphs/half.toml"), half).unwrap();
     fs::write(root.join("graphs/main.toml"), MAIN_GRAPH).unwrap();
     let project = Project::open(&root).unwrap();

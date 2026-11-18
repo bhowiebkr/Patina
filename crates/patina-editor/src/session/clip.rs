@@ -205,6 +205,9 @@ mod tests {
         let (lib, other) = (dir.join("lib"), dir.join("other"));
         for root in [&lib, &other] {
             Project::create(root, "1.94.0").unwrap();
+            fs::create_dir_all(root.join("nodes/number/src")).unwrap();
+            fs::write(root.join("nodes/number/Cargo.toml"), include_str!("../../../../examples/hello/nodes/number/Cargo.toml")).unwrap();
+            fs::write(root.join("nodes/number/src/lib.rs"), include_str!("../../../../examples/hello/nodes/number/src/lib.rs")).unwrap();
             data.add_library(root).unwrap();
         }
         fs::write(lib.join("graphs/half.toml"), "format = 1

@@ -4,15 +4,17 @@
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
 import { revealOf, type Reveal } from '../code/reveal';
-import { A, B, BUILD_MS, RUN_MS, leftTab, statusText, topButton, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, helloNodes, leftTab, statusText, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */
 export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string, pick: (at: Reveal) => void) {
   // A second new project is a library of the check: the palette shows its nodes (6.2).
   const libProject = await step('new library project', () => api.newProject(dir, 'checklib'));
+  await helloNodes();
   await api.addLibrary(libProject.root);
   let v = await step('new project', () => api.newProject(dir, 'check'));
-  if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0) throw new Error('a new project is trusted, paused and empty');
+  if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0 || v.nodes.some((n) => !n.builtin && !n.subgraph)) throw new Error('a new project is trusted, paused and has no nodes');
+  await helloNodes();
   v = await step('add nodes', () =>
     api.edit({
       kind: 'Group',

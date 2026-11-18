@@ -99,7 +99,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             draggable={view.trusted}
             onDragStart={(e) => startDrag(e, n.name)}
             onClick={() => onInspect({ kind: 'type', name: n.name })}
-            title={view.trusted ? 'Drag to the graph to add the node' : undefined}
+            title={[n.doc, view.trusted && 'Drag to the graph to add the node'].filter(Boolean).join('\n\n') || undefined}
           >
             <span className="swatch" style={{ background: n.color ?? undefined }} aria-hidden="true" />
             {n.name}

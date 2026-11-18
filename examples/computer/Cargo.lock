@@ -152,6 +152,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87a0cf66fd1eb2fb7b822cb78370d82303750809bc6ba855f3f58e517d3238db"
 
 [[package]]
+name = "button"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+]
+
+[[package]]
 name = "byte"
 version = "0.1.0"
 dependencies = [

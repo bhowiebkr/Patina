@@ -112,6 +112,16 @@ fn a_canvas_reads_the_pointer_and_writes_its_shapes() {
 }
 
 #[test]
+fn a_free_layout_places_pins_widgets_and_paths() {
+    let mut ui = Ui::new(0, "");
+    ui.canvas("Knob", [48.0, 48.0]).path("M 0 0 L 48 0\tZ", [255, 255, 255], false);
+    ui.pin("out", [48.0, 24.0]);
+    ui.place([4.0, 2.5]);
+    ui.label("Go");
+    assert_eq!(ui.tree(), "canvas\tKnob\t48\t48\tpath #ffffff 0 M 0 0 L 48 0 Z\npin\tout\t48 24\nplace\t\t4 2.5\nlabel\tGo");
+}
+
+#[test]
 fn a_canvas_takes_keys_only_when_it_asks_for_them() {
     let mut ui = Ui::new(0, "0 key down ArrowUp\n0 down 1 2\n0 key up \n0 key up ArrowUp\n1 key down Space");
     let mut pad = ui.canvas("Pad", [8.0, 8.0]);

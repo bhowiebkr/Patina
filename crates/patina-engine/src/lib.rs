@@ -145,12 +145,16 @@ pub struct NodeInfo {
     pub generics: Vec<String>,
     /// True when the node GUI has a full size (4.3).
     pub full: bool,
+    /// True when the node GUI is the whole node: no header, its own shape and pin places (4.3).
+    pub free: bool,
     /// The header color of `#[node(color = "#rrggbb")]` (15.3).
     pub color: Option<String>,
     /// True for a subgraph in `graphs/` (6.1). Its name is the file name.
     pub subgraph: bool,
     /// The kind for the node icon (15.3): `function`, `stateful`, `generic`, `async`, `trigger` or `subgraph`.
     pub kind: &'static str,
+    /// The doc comment of the node code (15.3).
+    pub doc: Option<String>,
 }
 
 /// A connection kind (6.3), for the lanes, the bus sockets and the colors of the editor (15.9).
@@ -178,7 +182,7 @@ impl NodeInfo {
         } else {
             "function"
         };
-        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, color: node.color, subgraph: false, kind }
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, free: node.free, color: node.color, subgraph: false, kind, doc: node.doc }
     }
 }
 
@@ -202,9 +206,9 @@ pub struct Checked {
     test: bool,
 }
 
-/// The files of a new project (15.10), from the hello example.
-const NEW_FILES: [(&str, &str); 5] = [
-    ("graphs/main.toml", "format = 1\n"),
+/// The node folders of the hello example, for the tests.
+#[cfg(test)]
+const HELLO_NODES: [(&str, &str); 4] = [
     ("nodes/number/Cargo.toml", include_str!("../../../examples/hello/nodes/number/Cargo.toml")),
     ("nodes/number/src/lib.rs", include_str!("../../../examples/hello/nodes/number/src/lib.rs")),
     ("nodes/show/Cargo.toml", include_str!("../../../examples/hello/nodes/show/Cargo.toml")),
@@ -224,8 +228,7 @@ impl Project {
         Ok(Project { root, id: file.id, rust: file.rust, frame_rate, name: MAIN.to_owned(), history, parked: HashMap::new(), code_revision: 0, last_code: None })
     }
 
-    /// Makes a new project in a new or empty folder, with the `number` and `show` nodes and an
-    /// empty main graph (15.10).
+    /// Makes a new project in a new or empty folder, with an empty main graph and no nodes (15.10).
     pub fn create(path: &Path, rust: &str) -> Result<Project, Error> {
         let root = std::path::absolute(path).map_err(|e| Error::Io(path.to_owned(), e))?;
         if fs::read_dir(&root).is_ok_and(|mut entries| entries.next().is_some()) {
@@ -233,10 +236,20 @@ impl Project {
         }
         let id = RandomState::new().hash_one(std::time::SystemTime::now());
         let project = format!("format = 1\nid = \"{id:016x}\"\nrust = \"{rust}\"\n");
-        for (relative, text) in [("patina.toml", project.as_str())].into_iter().chain(NEW_FILES) {
+        for (relative, text) in [("patina.toml", project.as_str()), ("graphs/main.toml", "format = 1\n")] {
             write_file(&root.join(relative), text)?;
         }
         Project::open(&root)
+    }
+
+    /// Makes a new project with the `number` and `show` nodes of the hello example, for the tests.
+    #[cfg(test)]
+    pub(crate) fn hello(path: &Path) -> Project {
+        let root = Project::create(path, "1.94.0").unwrap().root;
+        for (relative, text) in HELLO_NODES {
+            write_file(&root.join(relative), text).unwrap();
+        }
+        Project::open(&root).unwrap()
     }
 
     /// Makes the node folder `nodes/<name>` with a start node (15.2).
@@ -323,7 +336,7 @@ impl Project {
             }
             nodes.push(match project::read_node(&self.root, &name) {
                 Ok(node) => NodeInfo::new(name, node, false),
-                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, color: None, subgraph: false, kind: "function" },
+                Err(text) => NodeInfo { name, inputs: Vec::new(), outputs: Vec::new(), error: Some(text), builtin: false, generics: Vec::new(), full: false, free: false, color: None, subgraph: false, kind: "function", doc: None },
             });
         }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
@@ -463,8 +476,11 @@ mod tests {
     fn a_new_project_lists_its_nodes_and_saves_edits() {
         let root = std::env::temp_dir().join(format!("patina-new-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
-        let mut project = Project::create(&root, "1.94.0").unwrap();
+        let empty = Project::create(&root, "1.94.0").unwrap();
+        assert!(empty.nodes().unwrap().is_empty() && empty.check().is_ok(), "a new project has no nodes and checks");
         assert!(Project::create(&root, "1.94.0").is_err(), "a folder with files is not used");
+        fs::remove_dir_all(&root).unwrap();
+        let mut project = Project::hello(&root);
         assert_eq!(project.frame_rate(), 60);
         assert!(project.set_frame_rate(0).is_err() && project.set_frame_rate(100_001).is_err());
         project.set_frame_rate(600).unwrap();
@@ -612,7 +628,7 @@ mod tests {
     fn a_test_runs_one_use_of_the_open_subgraph_with_the_input_params() {
         let root = std::env::temp_dir().join(format!("patina-test-use-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
-        let mut project = Project::create(&root, "1.94.0").unwrap();
+        let mut project = Project::hello(&root);
         let half = "format = 1
 [[node]]
 id = \"00000000000000a1\"

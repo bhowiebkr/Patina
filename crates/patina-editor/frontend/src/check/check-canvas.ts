@@ -46,12 +46,16 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await until('the clear selection', RUN_MS, () => count(`${NODES}.selected`) === 0);
 
-  // The menu of a node: a right-click selects the node, and Delete node removes it with undo.
+  // The menu of a node: a right-click selects the node, and Delete node asks, then removes it with undo.
   const node = document.querySelector(`${NODES}-patina`)!;
   rightClick(node.querySelector('.title') ?? node);
   await until('the node menu', RUN_MS, () => !!entry('Node', 'Delete node'));
   if (!node.classList.contains('selected')) throw new Error('a right-click did not select the node');
   entry('Node', 'Delete node')!.click();
+  // The menu asks first (15.2).
+  const answer = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('.dialog button')].find((b) => b.textContent === text);
+  await until('the delete question', RUN_MS, () => !!answer('Delete'));
+  answer('Delete')!.click();
   await until('the deleted node', RUN_MS, () => count(NODES) === nodes - 1);
   v = await step('undo the delete from the node menu', () => api.undo());
   await until('the node after the undo', RUN_MS, () => count(NODES) === nodes);

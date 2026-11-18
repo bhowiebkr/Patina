@@ -35,6 +35,8 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
   subgraph opens with the live values of that use.
 - **Node GUIs.** The `program`, `ram`, `readout`, `display`, `lcd`, `clock`, `analyzer`,
   `keyboard`, `terminal`, `screen` and `joystick` nodes draw their values in the graph.
+- **Free layout.** The `button` node is a round push button with no box. Its pin is on the
+  edge of the circle. See [Write a custom node](../../docs/custom-nodes.md).
 - **IO devices.** The CPU reads a `keyboard`, a `random`, a `joystick` and the pixels of the `gpu`. It
   writes a `terminal`, a `gpu` and a `sprites` chip on its IO ports. The `screen` shows the 32 x 32
   frame with the sprites.
@@ -49,7 +51,7 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 | Folder | Parts |
 | --- | --- |
-| `nodes/` | `nand`, `switch`, `clock`, `program`, `ram`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `sprites`, `screen`, `random`, `joystick` |
+| `nodes/` | `nand`, `switch`, `clock`, `program`, `ram`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `sprites`, `screen`, `random`, `joystick`, `button` |
 | `views/` | `monitor` |
 | `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm`, `paint.asm`, `snake.asm` |
 | `connections/` | `byte`, `segment-bus` |

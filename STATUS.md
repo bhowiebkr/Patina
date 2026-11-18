@@ -201,11 +201,26 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The **x** button of a recent project removes it from the list or moves its folder to the Recycle
   Bin (2026-11-17). The self-check runs **Remove from list** and the refusal of **Delete project**
   through the API. It does not click the button, and no check moved a project to the Recycle Bin.
+- A new project has no node folders (2026-11-17). The engine test and the self-check open an empty
+  new project, and the self-check then writes the hello nodes into it.
 - Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
 
 ### Canvas editing
 
-- Known limits: the self-check drop is a page event, not a drag of the operating system.
+- **Delete node** in the right-click menu asks first (2026-11-18). The Delete key does not ask.
+  The self-check clicks the menu entry and the **Delete** answer.
+- The doc comment of a node is its description (2026-11-18). The node header, the palette and
+  the **Project** panel show it as a tooltip, and the **Inspector** shows it as text. The engine
+  test reads it. No check looks at the tooltips.
+- The **Code** tab has a **Save** button (2026-11-18).
+- When the rustup toolchain has no rust-analyzer, the editor adds it with rustup (2026-11-18).
+  No check ran this install.
+- `#[node(free_layout)]` makes the GUI the whole node, with its own shape and pin places
+  (2026-11-18). `Ui::pin`, `Ui::place` and `Canvas::path` are new. The SDK, engine and frontend
+  unit tests read them. No self-check step shows a free node yet. The example is
+  `examples/computer/nodes/button`.
+- Known limits: the self-check drop is a page event, not a drag of the operating system. A wire
+  leaves a free pin only to the left or the right. A free node shows a bus pin as a dot.
 
 ### Canvas speed
 
@@ -677,6 +692,7 @@ Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list t
 
 - `crates/patina-cli/tests/run.rs:475`: The CLI test of `examples/gpu` checks only the build when no adapter exists. Add an adapter to CI when one is available.
 - `crates/patina-editor/frontend/src/wires/gl.ts:266`: One texture row holds each wire. Above `MAX_TEXTURE_SIZE` wires, SVG draws them. Pack the rows for larger graphs.
+- `crates/patina-editor/frontend/src/canvas/NodeView.tsx:305`: A wire leaves a free pin only to the left or the right. Add a side to `Ui::pin` when a node needs it.
 - `crates/patina-editor/frontend/src/canvas/palette.ts:37`: The palette drops module paths, so two types of one name match. Rustc checks the types at build time.
 - `crates/patina-editor/frontend/src/wires/route.ts:36`: A graph with a larger route grid gets simple orthogonal paths. Use a sparser grid when such graphs matter.
 - `crates/patina-editor/frontend/src/wires/WireEdge.tsx:149`: The SVG fallback draws a bus as one line. Draw its lanes when a GPU without WebGL2 matters.

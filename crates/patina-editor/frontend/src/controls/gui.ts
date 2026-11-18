@@ -80,10 +80,14 @@ export type Shape =
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: string }
   | { kind: 'rect'; x: number; y: number; w: number; h: number; color: string; fill: boolean }
   | { kind: 'circle'; x: number; y: number; r: number; color: string; fill: boolean }
-  | { kind: 'text'; x: number; y: number; color: string; text: string };
+  | { kind: 'text'; x: number; y: number; color: string; text: string }
+  | { kind: 'path'; d: string; color: string; fill: boolean };
 
-const COUNTS: Record<string, number> = { line: 4, rect: 4, circle: 3, text: 2 };
+const COUNTS: Record<string, number> = { line: 4, rect: 4, circle: 3, text: 2, path: 0 };
 const COLOR = /^#[0-9a-f]{6}$/;
+// SVG path data: only the path commands and numbers, so a path cannot name a URL.
+const PATH = /^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\- ]*$/;
+const MAX_PATH = 4096;
 // A layer: visible (0 or 1), the amount or '-', the color and the name.
 const LAYER = /^([01]) (\S+) (#[0-9a-f]{6}) (.*)$/;
 // The largest canvas side in pixels, so a bad tree cannot make a huge element.
@@ -113,6 +117,10 @@ function parseShape(field: string): Shape | null {
   if (kind === 'line') return { kind, x1: n[0], y1: n[1], x2: n[2], y2: n[3], color };
   if (kind === 'rect') return n[2] >= 0 && n[3] >= 0 ? { kind, x: n[0], y: n[1], w: n[2], h: n[3], color, fill } : null;
   if (kind === 'circle') return n[2] >= 0 ? { kind, x: n[0], y: n[1], r: n[2], color, fill } : null;
+  if (kind === 'path') {
+    const d = words.slice(2).join(' ');
+    return d.length <= MAX_PATH && PATH.test(d) ? { kind, d, color, fill } : null;
+  }
   return { kind: 'text', x: n[0], y: n[1], color, text: words.slice(count + 1).join(' ') };
 }
 
@@ -207,14 +215,33 @@ export const NODE_WIDTH = 200;
 const MAX_NODE_WIDTH = 480;
 const GUI_PAD = 26;
 
-/** The width of a node from the canvas sizes of its GUI. The values that it shows never change it. */
-export function nodeWidth(tree: string): number {
+/** The width of a node from the canvas sizes of its GUI. The values that it shows never change it.
+ * A free layout (4.3) has no padding, and its width is the canvas width. */
+export function nodeWidth(tree: string, free = false): number {
   let width = 0;
   for (const line of tree.split('\n')) {
     const [kind, , value] = line.split('\t', 3);
     if (kind === 'canvas') width = Math.max(width, Number(value) || 0);
   }
-  return Math.min(Math.max(NODE_WIDTH, Math.ceil(width) + GUI_PAD), MAX_NODE_WIDTH);
+  const least = free && width > 0 ? 0 : NODE_WIDTH;
+  return Math.min(Math.max(least, Math.ceil(width) + (free ? 0 : GUI_PAD)), MAX_NODE_WIDTH);
+}
+
+/** The places of a free layout (4.3) in pixels: the pins by key and the widgets by index. `height`
+ * is the largest canvas height. */
+export function freeLayout(tree: string): { pins: Map<string, [number, number]>; places: Map<number, [number, number]>; height: number } {
+  const pins = new Map<string, [number, number]>();
+  const places = new Map<number, [number, number]>();
+  let height = 0;
+  tree.split('\n').forEach((line, index) => {
+    const [kind, text = '', a = '', b = ''] = line.split('\t', 4);
+    const at = a.split(' ').map(Number);
+    const point = at.length === 2 && at.every((v) => Number.isFinite(v) && Math.abs(v) <= MAX_SIDE) ? (at as [number, number]) : null;
+    if (kind === 'canvas') height = Math.max(height, Math.min(Number(b) || 0, MAX_SIDE));
+    else if (kind === 'pin' && point) pins.set(text, point);
+    else if (kind === 'place' && point) places.set(index + 1, point);
+  });
+  return { pins, places, height };
 }
 
 /** Reads one widget from each line. A line of an unknown kind or with bad numbers keeps its index. */

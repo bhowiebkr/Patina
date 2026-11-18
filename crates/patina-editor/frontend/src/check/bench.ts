@@ -4,7 +4,7 @@
 
 import { api, type View } from '../api';
 import { benchGraph, frameStats } from './benchGraph';
-import { mouseWheel, scale } from './check-fixtures';
+import { helloNodes, mouseWheel, scale } from './check-fixtures';
 
 const SIZES = [500, 2000];
 const ZOOMS = [1, 0.5, 0.3, 0.2];
@@ -56,6 +56,7 @@ const panStep = (dx: number, at: { clientX: number; clientY: number }) =>
 
 async function benchSize(dir: string, n: number, show: (v: View) => void) {
   show(await api.newProject(dir, `bench${n}`));
+  await helloNodes();
   let t = performance.now();
   const v = await api.edit(benchGraph(n));
   const addMs = performance.now() - t;

@@ -139,6 +139,14 @@ impl Canvas<'_> {
         self.shape("circle", &[center[0], center[1], radius], color, Some(fill));
     }
 
+    /// Draws an SVG path, for example `M 0 0 L 40 0 L 20 30 Z` for a triangle (4.3). The editor
+    /// skips a path with other letters than the path commands.
+    pub fn path(&mut self, data: &str, color: [u8; 3], fill: bool) {
+        self.shape("path", &[], color, Some(fill));
+        self.tree.push(' ');
+        push_clean(self.tree, data);
+    }
+
     /// Writes `text` on one line. `at` is the left end of the base line.
     pub fn text(&mut self, at: [f32; 2], color: [u8; 3], text: &str) {
         self.shape("text", &at, color, None);
@@ -269,6 +277,21 @@ impl Ui {
             }
         }
         viewport
+    }
+
+    /// Puts the pin `key` of the node at `at`, in pixels from the top left corner of the node
+    /// body (4.3). Only a node with `#[node(free_layout)]` uses the pin places.
+    pub fn pin(&mut self, key: &str, at: [f32; 2]) {
+        self.push("pin", key);
+        let _ = write!(self.tree, "\t{} {}", at[0], at[1]);
+    }
+
+    /// Puts the next widget at `at`, in pixels from the top left corner of the GUI, on top of the
+    /// other widgets (4.3). The widgets after it stay in the column. A widget in a section keeps
+    /// its place in the section.
+    pub fn place(&mut self, at: [f32; 2]) {
+        self.push("place", "");
+        let _ = write!(self.tree, "\t{} {}", at[0], at[1]);
     }
 
     /// Shows a text.

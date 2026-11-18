@@ -67,7 +67,7 @@ export function AddNode({ x, y, nodes, none = 'The project has no nodes.', onAdd
         />
         <div id="add-node-list" role="listbox" aria-label="Nodes">
           {hits.map((n, i) => (
-            <div key={`${(n as Partial<LibraryNode>).path ?? ''} ${n.builtin} ${n.subgraph} ${n.name}`} id={`add-node-${i}`} role="option" aria-selected={i === at} onClick={() => add(n)}>
+            <div key={`${(n as Partial<LibraryNode>).path ?? ''} ${n.builtin} ${n.subgraph} ${n.name}`} id={`add-node-${i}`} role="option" aria-selected={i === at} title={n.doc ?? undefined} onClick={() => add(n)}>
               {n.name}
               {n.builtin && <span className="hint">built-in</span>}
               {n.subgraph && <span className="hint">subgraph</span>}

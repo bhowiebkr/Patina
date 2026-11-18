@@ -10,6 +10,19 @@ export const A = 'a000000000000001';
 export const B = 'b000000000000002';
 export const T = 'c000000000000003';
 
+/** Writes the number and show nodes of the hello example into the open project, because a new project has no nodes (15.10). */
+export async function helloNodes() {
+  const code = {
+    number: 'use patina_sdk::node;\n\n/// Gives a number.\n#[node]\npub fn number(value: f64) -> f64 {\n    value\n}\n',
+    show: 'use patina_sdk::node;\n\n/// Writes the value to the standard output.\n#[node]\npub fn show(value: &f64) {\n    println!("{value}");\n}\n',
+  };
+  for (const [name, lib] of Object.entries(code)) {
+    await api.checkWrite(`nodes/${name}/Cargo.toml`, `[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\npatina-sdk = { workspace = true }\n`);
+    await api.checkWrite(`nodes/${name}/src/lib.rs`, lib);
+  }
+  await api.refresh();
+}
+
 /** Undoes a code change. The text goes into the Code tab and writes no file, so a save builds it (15.10). */
 export async function undoCode(): Promise<View> {
   const v = await undoRedo(api.undo);

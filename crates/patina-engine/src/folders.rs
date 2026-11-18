@@ -272,7 +272,7 @@ mod tests {
     fn undo_removes_a_new_folder_only_while_it_has_its_start_files() {
         let root = std::env::temp_dir().join(format!("patina-folder-undo-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
-        let mut project = Project::create(&root, "1.94.0").unwrap();
+        let mut project = Project::hello(&root);
         let (dir, lib) = (root.join("views/panel"), "views/panel/src/lib.rs");
         project.new_view("panel").unwrap();
         project.apply(&Edit::SetCode { path: lib.to_owned(), text: "// mine\n".to_owned() }).unwrap();

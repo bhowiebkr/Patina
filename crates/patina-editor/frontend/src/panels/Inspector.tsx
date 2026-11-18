@@ -284,6 +284,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         {entry.subgraph !== undefined && <OpenButton graph={entry.subgraph} use={entry.id} />}
         <span className={state === 'compile-error' || state === 'run-error' ? 'error-text' : 'label'}>{STATE_NAMES[state]}</span>
       </div>
+      {info?.doc && <div className="section label doc">{info.doc}</div>}
       <Tabs tab={shown} only={hasCode ? undefined : 'parameters'} onTab={onTab} />
       {shown === 'parameters' && (
         <>

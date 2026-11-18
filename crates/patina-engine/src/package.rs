@@ -213,7 +213,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("patina-package-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let root = dir.join("project");
-        Project::create(&root, "1.94.0").unwrap();
+        Project::hello(&root);
         let graph = "format = 1\n\n[[node]]\nid = \"00000000000000a1\"\nfolder = \"nodes/number\"\npos = [0.0, 0.0]\n\n[node.params]\nvalue = \"2\"\n";
         fs::write(root.join("graphs/main.toml"), graph).unwrap();
         let mut checked = Project::open(&root).unwrap().check().unwrap();

@@ -1,7 +1,9 @@
 //! rust-analyzer for the Code tab (15.1). The editor starts it on a trusted project and passes the
 //! messages of the language server protocol between the page and the process.
 
+use std::ffi::OsStr;
 use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
 use std::process::{Child, ChildStdin, Stdio};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -62,7 +64,7 @@ fn start(app: AppHandle, editor: &Editor) -> Result<u64, String> {
     let toolchain = Toolchain::find(&editor.data.toolchain).map_err(|e| e.to_string())?;
     let program = toolchain.cargo.with_file_name(format!("rust-analyzer{}", std::env::consts::EXE_SUFFIX));
     if !program.is_file() {
-        return Err(format!("The toolchain has no rust-analyzer: {} is missing.", program.display()));
+        add_analyzer(&toolchain, &program)?;
     }
     // rust-analyzer finds the crates of the nodes through the workspace manifest.
     patina_engine::write_workspace(&root).map_err(|e| e.to_string())?;
@@ -139,6 +141,34 @@ fn read_message(from: &mut impl BufRead) -> Option<String> {
     let mut body = vec![0; length?];
     from.read_exact(&mut body).ok()?;
     String::from_utf8(body).ok()
+}
+
+/// Adds rust-analyzer and rust-src to the rustup toolchain of the system, which can come without
+/// them, for example from the minimal profile. The toolchain of Patina has them from its install (11).
+fn add_analyzer(toolchain: &Toolchain, program: &Path) -> Result<(), String> {
+    static ADDING: Mutex<()> = Mutex::new(());
+    let missing = format!("The Code tab has no completion, because the toolchain has no rust-analyzer ({} is missing).", program.display());
+    // A rustup toolchain is the folder `<rustup home>/toolchains/<name>`, the parent of `bin`.
+    let sysroot = program.parent().and_then(Path::parent).filter(|_| toolchain.own.is_none());
+    let Some(name) = sysroot.filter(|s| s.parent().and_then(Path::file_name) == Some(OsStr::new("toolchains"))).and_then(Path::file_name) else {
+        return Err(format!("{missing} Click Update toolchain in Settings to add it."));
+    };
+    let _adding = lock(&ADDING);
+    if program.is_file() {
+        return Ok(());
+    }
+    let name = name.to_string_lossy();
+    eprintln!("rust-analyzer: Patina adds rust-analyzer and rust-src to the Rust toolchain {name} with rustup.");
+    let mut command = toolchain.command(Path::new("rustup")).map_err(|e| e.to_string())?;
+    command.args(["component", "add", "rust-analyzer", "rust-src", "--toolchain", &name]).stdin(Stdio::null());
+    let done = command.output().map_err(|e| e.to_string()).and_then(|o| match o.status.success() {
+        true => Ok(()),
+        false => Err(String::from_utf8_lossy(&o.stderr).trim().to_owned()),
+    });
+    match (done, program.is_file()) {
+        (Ok(()), true) => Ok(()),
+        (done, _) => Err(format!("{missing} rustup did not add it ({}). Run: rustup component add rust-analyzer rust-src --toolchain {name}", done.err().unwrap_or_default())),
+    }
 }
 
 #[cfg(test)]

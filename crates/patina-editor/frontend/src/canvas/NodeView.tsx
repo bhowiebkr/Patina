@@ -10,7 +10,7 @@ import { ExpandButton, NodeGui } from '../controls/NodeGui';
 import { Thumbnail } from '../controls/ValueWidgets';
 import { outputTypeOf, socketKey } from './palette';
 import { FRAME_BOTTOM, FRAME_RIGHT } from './frames';
-import { nodeWidth } from '../controls/gui';
+import { freeLayout, nodeWidth } from '../controls/gui';
 import { DomainIcon, KindIcon } from '../controls/icons';
 import type { Lost } from './lostPins';
 
@@ -155,6 +155,8 @@ export const ORDER = '@order';
 export const HEADER = 32;
 export const ROW = 24;
 const PAD = 6;
+/** The height of the caption above a free node (canvas.css). */
+const CAPTION = 18;
 /** The padding on each side of the wrapper of a graph node, which holds its pins (canvas.css). */
 export const GUTTER = 8;
 /** The gutter of a React Flow node. The graph position is the left edge of the body, not of the wrapper. */
@@ -296,11 +298,41 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   if (selected) classes.push('selected');
   if (far) classes.push('far');
   if (info?.color) classes.push('colored');
+  if (info?.free && gui !== undefined && !open) {
+    // A free layout (4.3): the GUI is the whole node, with a caption above it and the pins at their places.
+    const layout = freeLayout(gui);
+    const width = nodeWidth(gui, true);
+    // shortcut: a wire leaves each pin to the left or the right, also from the middle of the shape; add a side to `Ui::pin` when a node needs it.
+    const place = (pin: Pin, i: number, output: boolean): [number, number] => {
+      const n = output ? outputs.length : inputs.length;
+      return layout.pins.get(pin.key) ?? [output ? width : 0, layout.height > 0 ? (layout.height * (i + 1)) / (n + 1) : ROW / 2 + i * ROW];
+    };
+    const handle = (pin: Pin, i: number, output: boolean) => {
+      const [x, y] = place(pin, i, output);
+      const gone = output ? lostOut(pin) : lostIn(pin);
+      return <PinHandle key={`${output ? 'o' : 'i'}-${pin.key}`} pin={pin} generics={info.generics} output={output} editable={editable} lost={gone} top={y} left={GUTTER + x} socket={undefined} />;
+    };
+    return (
+      <div className={[...classes, 'free'].join(' ')} style={{ width }}>
+        <div className="free-caption" title={info.doc ?? undefined}>
+          <span className="title">{folderName(entry)}</span>
+          {domain && <DomainIcon domain={domain} />}
+          <StateIcon state={state} />
+        </div>
+        <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />
+        {message && <div className="patina-node-message">{message}</div>}
+        {inputs.map((pin, i) => handle(pin, i, false))}
+        {outputs.map((pin, i) => handle(pin, i, true))}
+        <Handle id={ORDER} type="target" position={Position.Left} isConnectable={editable} className="order-pin" style={{ top: -CAPTION / 2 }} title="Order wire from a node that runs before this node" />
+        <Handle id={ORDER} type="source" position={Position.Right} isConnectable={editable} className="order-pin" style={{ top: -CAPTION / 2 }} title="Drag to a node that must run after this node" />
+      </div>
+    );
+  }
   const style = { width: gui === undefined ? undefined : nodeWidth(gui), minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
   const use = entry.subgraph !== undefined && !inner;
   return (
     <div className={classes.join(' ')} style={style}>
-      <div className="patina-node-header">
+      <div className="patina-node-header" title={info?.doc ?? undefined}>
         {info && <KindIcon kind={info.kind} />}
         <span className="title">{folderName(entry)}</span>
         {info?.full && !inner && <ExpandButton id={entry.id} />}
@@ -432,9 +464,9 @@ function PinLabel({ pin, lost = false }: { pin: Pin | undefined; lost?: boolean 
 }
 
 /** The pin of a row: a dot, or a bar as wide as the ribbon of a bus socket (15.9). */
-function PinHandle({ pin, generics = [], output, editable, lost, top, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; lost: boolean; top: number; socket: Socket | undefined }) {
+function PinHandle({ pin, generics = [], output, editable, lost, top, left, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; lost: boolean; top: number; left?: number; socket: Socket | undefined }) {
   const bar = socket && socketBar(socket.bits.length);
-  const style = bar ? { top, height: bar, marginTop: 1 - bar / 2 } : { top };
+  const style = bar ? { top, height: bar, marginTop: 1 - bar / 2 } : { top, left };
   return (
     <Handle
       id={pin.key}

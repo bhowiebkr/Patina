@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import type { Edit } from '../api';
 import { Menu, type Item } from '../panels/Dock';
+import { Confirm } from '../dialogs/Confirm';
 import { canvasMenu, type MenuAction, type MenuTarget } from './canvasMenu';
 import type { At, CanvasActions } from './canvasActions';
 import type { WireData } from '../wires/WireLayer';
@@ -22,6 +23,8 @@ export function useCanvasMenu(p: {
 }) {
   const { act, trusted, edit, onOpen, onAdd, onRename } = p;
   const [menu, setMenu] = useState<{ x: number; y: number; on: On } | null>(null);
+  // The menu asks before a delete. The Delete key does not, because undo gives the nodes back (15.2).
+  const [ask, setAsk] = useState<number | null>(null);
   const open = (e: Click, on: On) => {
     e.preventDefault();
     setMenu({ x: e.clientX, y: e.clientY, on });
@@ -41,7 +44,7 @@ export function useCanvasMenu(p: {
     else if (a === 'arrange') act.arrange();
     else if (a === 'collapse') act.collapse(at);
     else if (a === 'expand') act.expand();
-    else if (a === 'delete') act.remove();
+    else if (a === 'delete') setAsk(act.selected.length);
     else if (a === 'copy') act.copy();
     else if (a === 'cut') act.cut();
     else if (a === 'paste') act.paste(at);
@@ -62,8 +65,23 @@ export function useCanvasMenu(p: {
       if (!edge.selected) act.only(edge.id, false);
       open(e, edge);
     },
-    element: menu && items.length > 0 && (
-      <Menu x={menu.x} y={menu.y} label={menu.on === 'pane' ? 'Canvas' : menu.on === 'nodes' ? 'Node' : 'Connection'} items={items} onClose={() => setMenu(null)} />
+    element: (
+      <>
+        {menu && items.length > 0 && (
+          <Menu x={menu.x} y={menu.y} label={menu.on === 'pane' ? 'Canvas' : menu.on === 'nodes' ? 'Node' : 'Connection'} items={items} onClose={() => setMenu(null)} />
+        )}
+        {ask !== null && (
+          <Confirm
+            title={ask === 1 ? 'Delete the node?' : `Delete ${ask} items?`}
+            label="Undo (Ctrl+Z) gives it back."
+            answers={[
+              ['Delete', () => { setAsk(null); act.remove(); }],
+              ['Cancel', () => setAsk(null)],
+            ]}
+            onCancel={() => setAsk(null)}
+          />
+        )}
+      </>
     ),
   };
 }

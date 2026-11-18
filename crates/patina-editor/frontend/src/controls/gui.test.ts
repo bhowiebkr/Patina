@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyTransform, dragTransform, escapeCode, eventLine, movePivot, nest, nodeWidth, parseTree, rampGradient, scaleTo, stepped, transformEvent, unescapeCode } from './gui.ts';
+import { applyTransform, dragTransform, escapeCode, eventLine, freeLayout, movePivot, nest, nodeWidth, parseTree, rampGradient, scaleTo, stepped, transformEvent, unescapeCode } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
   const tree = 'label\tTick\nwheel\tX\nbutton\tReset\ntoggle\tOn\t1\nslider\tCount\t2.5\t0\t10\nslider\tBad\tx\t0\t1';
@@ -210,6 +210,19 @@ test('a canvas sets the node width, and the values and labels do not', () => {
   assert.equal(nodeWidth('label\tA long value that does not fit'), 200);
   assert.equal(nodeWidth('canvas\tLCD\t252\t57\nlabel\tx'), 278);
   assert.equal(nodeWidth('canvas\tBig\t4096\t10'), 480);
+  assert.equal(nodeWidth('canvas\tKnob\t56\t56', true), 56);
+  assert.equal(nodeWidth('label\tx', true), 200);
+});
+
+test('a free layout reads the pin places, the widget places and the paths', () => {
+  const tree = 'canvas\tKnob\t48\t40\tpath #ffffff 1 M 0 0 L 48 0 Z\tpath #ffffff 0 M 0 0 url(x)\npin\tout\t48 20\npin\tbad\tNaN 1\nplace\t\t4 2.5\nlabel\tGo';
+  const { pins, places, height } = freeLayout(tree);
+  assert.deepEqual([...pins], [['out', [48, 20]]]);
+  assert.deepEqual([...places], [[4, [4, 2.5]]]);
+  assert.equal(height, 40);
+  const [canvas, label] = parseTree(tree);
+  assert.deepEqual(canvas.kind === 'canvas' && canvas.shapes, [{ kind: 'path', d: 'M 0 0 L 48 0 Z', color: '#ffffff', fill: true }]);
+  assert.equal(label.index, 4);
 });
 
 test('a transform line reads its frame, its values and its image, and a bad line drops', () => {

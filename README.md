@@ -57,6 +57,8 @@ Patina is the Rust successor to [PyFlowGraph](https://github.com/bhowiebkr/PyFlo
 
 A node is a Rust function with the `#[node]` attribute. Patina reads the signature and makes the
 pins.
+[Write a custom node](docs/custom-nodes.md) tells a person or an AI agent how to write the logic
+and the look of a node.
 
 ```rust
 #[node]
@@ -590,7 +592,8 @@ build the editor again.
 
 To make your first graph:
 
-1. On the start screen, click **New project**. Give a name and click **Create**.
+1. On the start screen, click **Open project** and open `examples/hello`. A new project has no
+   nodes. To make a node, see the next part.
 2. Drag `number` and `show` from the **Project** panel into the graph. You can also
    double-click an empty area of the graph, type a part of the name and push Enter.
 3. Drag from the output of `number` to the input of `show`. You can also drag from a pin into
@@ -691,6 +694,8 @@ questions.
   [gpu](examples/gpu/README.md), WESL shaders on the GPU.
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
+- [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free
+  layout of a node, with examples.
 - [Mockups](docs/mockups/): the visual direction of the editor.
 - [GUI visual guide](docs/gui-visual-guide.md): palette, node sizing, custom controls,
   views and implementation notes for each mockup.

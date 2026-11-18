@@ -3,7 +3,7 @@
 import { Component, createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { api } from '../api';
 import { AssetPicker, CodeField, Field } from './Field';
-import { eventLine, nest, parseTree, type Block, type Shape, type Widget } from './gui';
+import { eventLine, freeLayout, nest, parseTree, type Block, type Shape, type Widget } from './gui';
 import { guiIcon } from './icons';
 import { LayerStack } from './LayerStack';
 import { ColorRamp } from './Ramp';
@@ -65,6 +65,8 @@ function ShapeView({ s }: { s: Shape }) {
           {s.text}
         </text>
       );
+    case 'path':
+      return <path d={s.d} stroke={s.color} fill={s.fill ? s.color : 'none'} />;
   }
 }
 
@@ -222,10 +224,13 @@ export class Guard extends Component<GuardProps, { error: string; tree: string }
 
 function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsProps) {
   const send = (index: number) => (value: number | string) => sendLine(eventLine(index, value));
+  const blocks = nest(parseTree(tree));
+  // A placed widget (4.3) is on top of the column, at its point.
+  const places = tree.includes('place\t') ? freeLayout(tree).places : null;
   return (
     // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
-    <div className="node-gui nodrag nowheel" role="group" aria-label={label}>
-      {nest(parseTree(tree)).map(function draw(w: Block): ReactNode {
+    <div className="node-gui nodrag nowheel" role="group" aria-label={label} style={places ? { position: 'relative' } : undefined}>
+      {blocks.map(function draw(w: Block): ReactNode {
         switch (w.kind) {
           case 'label':
             return (
@@ -315,6 +320,15 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
           case 'timeline':
             return <Timeline key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
         }
+      }).map((node, i) => {
+        const at = places?.get(blocks[i].index);
+        return at ? (
+          <div key={blocks[i].index} className="gui-place" style={{ left: at[0], top: at[1] }}>
+            {node}
+          </div>
+        ) : (
+          node
+        );
       })}
     </div>
   );

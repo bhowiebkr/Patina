@@ -17,6 +17,7 @@ Part of the [Patina Specification](README.md).
 - rust-analyzer gives completion and hover in the **Code** tab. The editor starts the rust-analyzer of the toolchain when the **Code** tab opens a Rust file of a trusted project. rust-analyzer runs the build scripts and the procedural macros, so a project that the user does not trust gets no rust-analyzer (11). The editor stops it when the project closes.
 - Before the start, the editor writes the workspace manifest and the SDK crates, as a build does. rust-analyzer gets the `rustc` flags of the build and its own target folder `build/analyzer`, so it does not wait for a build. It has no check on save. The compile errors of the **Code** tab come from the build (15.5).
 - Without rust-analyzer, the **Code** tab works with no completion. The reason goes to the **Output** tab. (Agent decision, 2026-11-17. The owner can change it.)
+- The rustup toolchain of the system can come without rust-analyzer, for example from the minimal profile. Then the editor runs `rustup component add rust-analyzer rust-src --toolchain <name>` one time, and starts rust-analyzer after it. The **Output** tab shows this. When rustup fails, the **Output** tab shows the command for the user. The toolchain of Patina has rust-analyzer from its install, and **Update toolchain** adds it to an older one. (Agent decision of 2026-11-18, for the owner report of the missing rust-analyzer. The owner can change it.)
 - Sharp text and graphics on high-DPI screens at all zoom levels.
 - If HTML/SVG becomes slow with thousands of nodes, change the graph view to a WebGL canvas.
 - The connections (15.9) draw on one WebGL2 canvas under the nodes, not as SVG edges. In the connections prototype (19), SVG dropped frames in a pan, and the WebGL layer held 60 FPS with 2 to 11 times less CPU. React Flow with this layer met the targets, so the framework is React. Svelte Flow was not measured. (Agent decision, 2026-11-15. The owner can change it. The measurements are in STATUS.md.)
@@ -164,6 +165,7 @@ The owner asked for right-click menus that change with the target (2026-11-16). 
 
 - A right-click on a node or a connection out of the selection selects only that item, as a click does. A right-click in the selection keeps the selection, and the entries act on all of it.
 - **Add node...** and **Paste** act at the point of the right-click.
+- **Delete node** and **Delete selection** ask **Delete** or **Cancel** first. The Delete key does not ask, because undo gives the nodes back. (Agent decision of 2026-11-17, for the owner request for a confirm dialog. The owner can change it.)
 
 The **Add node** palette is the second way to add a node, after a drag from the **Project** panel. (Agent decision, 2026-11-15. The owner can change it.)
 
@@ -216,6 +218,7 @@ Node bodies fit their contents; their widths and heights need not match. A node 
 - The node code sets the header color, for example `#[node(color = "#175c59")]`. Nodes for one kind of work usually share a color, for example teal for image filters. The guide proposes a header color for each common kind of work. The **Project** panel shows the color next to each node folder.
 - A node with no header color has a neutral gray header. The accent color shows its selection.
 - A node with a header color has a border of the header color with 25% white. Its selection has the hue of the header color, a lightness of 0.8 in OKLCH and 1.25 times the chroma. A browser without relative colors uses the header color with 60% white. A subgraph has the gray header. (Agent decision, 2026-11-16. The owner can change it.)
+- The doc comment of the node item (`///` lines above `#[node]`) is the description of the node. The node header, the **Add node** palette and the **Project** panel show it as a tooltip. The **Inspector** shows it under its title. (Agent decision of 2026-11-18. The owner can change it.)
 - A header color never means a state. The state shows only with the state dot, its icon, and the red error border (the table below).
 - [mockup-1-main-editor-colored-headers.png](../mockups/mockup-1-main-editor-colored-headers.png) shows the direction for header colors. Its selected node has the accent outline. Patina uses a lighter shade of the header color instead.
 - Subgraph borders and other structure use neutral gray.
@@ -571,6 +574,7 @@ This is an agent decision of 2026-11-15 for question 9 (18). The owner can chang
 
 - A graph edit goes to the engine at once, with undo (7.4). A wiring change rebuilds its cluster (7.2). A code edit goes to the engine when the user saves it.
 - Ctrl+S saves all changes of the project: the graph files and the code files (6.4). A saved code file starts the build of each unit that uses it (7.2, 8.2).
+- The bar of the **Code** tab has a **Save** button. It does the same as Ctrl+S, and it is active when a file of the folder has unsaved changes. The **Save** button of the top bar stays for the graph edits. (Agent decision of 2026-11-17, for the owner request for a Save button in the code area. The owner can change it.)
 - A save sends one `SetCode` edit for each changed code file (7.4). A save does not clear the undo history.
 - Reason: Cargo builds from the files on disk. Thus the build that runs always matches a saved file. Patina does not write half-typed code into the folder of the user.
 - After each change, Patina writes the unsaved changes to a recovery file in `data/` (11). A save deletes the recovery file. When a project opens with a recovery file, Patina asks the user to restore it or to discard it. The next part gives the details.
@@ -642,14 +646,14 @@ This is an agent decision of 2026-11-15. The owner can change it.
 These are the fewest steps from a new project to a reopen:
 
 1. On the start screen, click **New project**. Select a folder and a name.
-2. Drag the `number` node folder from the **Project** panel into the graph.
-3. Drag the `show` node folder into the graph.
-4. Connect the output of `number` to the input of `show`.
+2. Click **+** in the title of the **Nodes** group of the **Project** panel. Type `number` and push Enter.
+3. Make the node `show` in the same way. In its code, write its input to the standard output.
+4. Drag `number` and `show` into the graph. Connect the output of `number` to the input of `show`.
 5. Click **Run**. The **Output** tab shows the value.
 6. Push Ctrl+S.
 7. Close the project. On the start screen, select it in the recent projects list.
 
-- A new project has the `number` and `show` node folders and an empty main graph. `number` has a parameter and gives its value. `show` writes its input to the **Output** tab.
+- A new project has only `patina.toml` and an empty main graph. It has no node folders. The `examples/hello` project has the `number` and `show` nodes. (Agent decision of 2026-11-17, for the owner request that a new project has no nodes. The owner can change it.)
 - A new project goes on the list of trusted projects (11).
 - A project opens with its graph paused. The user clicks **Run**.
 - When a trusted project has a build, the open loads the clusters of that build, and the graph does not run. So the node GUIs show while the graph is paused. The nodes show **Not run**, and the status bar shows the build time and **Not run**. A project with no build waits for **Run**. (Agent decision, 2026-11-16, for the owner request that an open shows the built node GUIs. The owner can change it.)

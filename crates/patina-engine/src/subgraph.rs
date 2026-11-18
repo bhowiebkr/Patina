@@ -225,7 +225,7 @@ pub(crate) fn infos(root: &Path, edits: Edits) -> Vec<NodeInfo> {
     let mut infos = Vec::new();
     let files = &mut Files::new(root, edits);
     for name in &names {
-        let mut info = NodeInfo { name: name.clone(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, color: None, subgraph: true, kind: "subgraph" };
+        let mut info = NodeInfo { name: name.clone(), inputs: Vec::new(), outputs: Vec::new(), error: None, builtin: false, generics: Vec::new(), full: false, free: false, color: None, subgraph: true, kind: "subgraph", doc: None };
         match files.graph(name) {
             Ok(graph) => {
                 let stack = &mut vec![name.clone()];

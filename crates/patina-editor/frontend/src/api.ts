@@ -103,6 +103,10 @@ export interface NodeInfo {
   /** True for a subgraph in `graphs/` (6.1). Its name is the file name. */
   subgraph: boolean;
   kind: NodeKind;
+  /** The doc comment of the node code: the description of the node (15.3). */
+  doc: string | null;
+  /** True when the node GUI is the whole node: no header, its own shape and pin places (4.3). */
+  free: boolean;
 }
 
 export interface View {
