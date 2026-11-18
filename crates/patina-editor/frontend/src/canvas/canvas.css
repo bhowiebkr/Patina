@@ -111,12 +111,16 @@
 /* The path of the open subgraph, with a button back to the main graph (6.1). */
 .graph-path {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 4px;
+  left: 4px;
   z-index: 4;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 6px;
+  /* A wire under the path bar must not cross its text. */
+  background: color-mix(in srgb, var(--canvas) 90%, transparent);
   color: var(--muted);
 }
 
@@ -216,16 +220,18 @@
 }
 
 /* The name above a free node. It is a drag handle, as a drag on a canvas is.
-   It starts after the order pins, which span 2 to 16 px from each side (15.3). */
+   It starts after the order pins, which span 2 to 16 px from each side (15.3).
+   On a narrow node, the icons wrap to rows above the name, so no order pin covers them. */
 .free-caption {
   position: absolute;
   bottom: 100%;
   left: 20px;
   max-width: calc(100% - 40px);
-  height: 18px;
+  min-height: 18px;
   display: flex;
+  flex-wrap: wrap-reverse;
   align-items: center;
-  gap: 6px;
+  gap: 0 6px;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;

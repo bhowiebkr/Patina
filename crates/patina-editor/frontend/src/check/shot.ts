@@ -141,6 +141,14 @@ function guiFit(where: string) {
         if (r.width && Math.min(right, q.right) - Math.max(left, q.left) > 1 && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 1) bad.push(`a pin covers the title ${t.textContent} of ${node.getAttribute('data-id')}`);
       }
     }
+  // The order pins are in the row of the caption of a free node, so they must not cover its icons (15.3).
+  for (const icon of document.querySelectorAll('.free-caption > :not(.title)')) {
+    const [r, node] = [icon.getBoundingClientRect(), icon.closest('.react-flow__node')];
+    for (const q of [...(node?.querySelectorAll('.order-pin') ?? [])].map((h) => h.getBoundingClientRect())) {
+      const x = Math.min(r.right, q.right) - Math.max(r.left, q.left);
+      if (r.width && x > 0.5 && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 0.5) bad.push(`an order pin covers ${x.toFixed(1)} px of the ${icon.getAttribute('aria-label') ?? icon.className} of ${node?.getAttribute('data-id')}, caption ${icon.parentElement?.getBoundingClientRect().width.toFixed(1)} px of node ${node?.getBoundingClientRect().width.toFixed(1)} px`);
+    }
+  }
   for (const [i, [a, p]] of nodes.entries())
     for (const [b, q] of nodes.slice(i + 1)) if (Math.min(p.right, q.right) - Math.max(p.left, q.left) > 2 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 2) bad.push(`over ${a} ${b}`);
   if (bad.length) throw new Error(`the layout of ${where} is wrong: ${bad.join(', ')}`);
@@ -182,6 +190,12 @@ function chromeFit(where: string) {
     const r = box.getBoundingClientRect();
     if (r.left < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push(`out ${what}`);
     if (w.scrollWidth > w.clientWidth + 1) bad.push(`cut ${what}`);
+    // Two buttons side by side need a gap, so they do not read as one control (15.2).
+    const next = w.nextElementSibling;
+    if (w.classList.contains('btn') && next?.classList.contains('btn')) {
+      const [a, b] = [w.getBoundingClientRect(), next.getBoundingClientRect()];
+      if (b.width && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1 && Math.abs(b.left - a.right) < 2) bad.push(`no gap after ${what}`);
+    }
   }
   bad.push(...unnamed(document));
   if (bad.length) throw new Error(`the chrome of ${where} is wrong: ${bad.join(', ')}`);
@@ -244,6 +258,14 @@ async function menusFit(where: string) {
   return `menus ${where}: ${menus.join(', ')}`;
 }
 
+/** Throws when an Inspector row shows the random key of a public pin of a subgraph, not its name (6.4). */
+function pinNames(where: string) {
+  const rows = [...document.querySelectorAll('aside[aria-label="Inspector"] .param > span')].map((s) => s.textContent ?? '');
+  const keys = rows.filter((t) => /(^|[.:])[0-9a-f]{8}$/.test(t));
+  if (keys.length) throw new Error(`the Inspector of ${where} shows the pin keys ${keys.join(', ')}`);
+  return `pin names ${where}: ${rows.length} rows`;
+}
+
 /** Throws on a wire through a body that is not one of its ends, or on a route conflict mark (15.9). */
 function wiresClear(where: string) {
   const bad: string[] = [];
@@ -271,6 +293,13 @@ function wiresClear(where: string) {
   // A badge keeps room for a value of 6 characters (15.3).
   for (const b of document.querySelectorAll<HTMLElement>('.wire-value'))
     if ((b.textContent ?? '').length <= 6 && b.scrollWidth > b.clientWidth + 1) bad.push(`the badge "${b.textContent}" cuts its text`);
+  // A badge that is not selected is under the nodes, so a pin or a node body must not cover it (15.9).
+  const solid = [...document.querySelectorAll('.patina-node:not(.frame), .react-flow__handle:not(.frame-pin)')].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0);
+  for (const b of document.querySelectorAll('.wire-value:not(.selected)')) {
+    const r = b.getBoundingClientRect();
+    const on = (s: DOMRect) => Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.5 && Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.5;
+    if (solid.some(on)) bad.push(`a pin or a node covers the badge "${b.textContent}"`);
+  }
   if (bad.length) throw new Error(`the wires of ${where} are wrong: ${bad.join(', ')}`);
   return `wires ${where}: ${seen} wires clear of the bodies`;
 }
@@ -312,6 +341,7 @@ async function inspectNodes(where: string, ids = [...document.querySelectorAll<H
       if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
     }
     bad.push(...unnamed(a).map((b) => `${id} ${b}`), ...textsClear(a));
+    pinNames(`${where} ${id}`);
     placesOnCanvas();
   }
   if (bad.length) throw new Error(`the Inspector of ${where} is wrong: ${bad.join(', ')}`);
@@ -530,7 +560,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     steps.push(await inspectNodes('main'));
     const inspected = await inspectThumb();
     if (inspected) {
-      steps.push(`inspect ${inspected}`, contrastOk('main-inspect'), focusOk('main-inspect'));
+      steps.push(`inspect ${inspected}`, chromeFit('main-inspect'), contrastOk('main-inspect'), focusOk('main-inspect'));
       if (badgeOnTop()) steps.push('the selected badge is above the nodes');
       await api.capture('main-inspect');
       steps.push('main-inspect');
@@ -556,7 +586,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         steps.push(guiFit(n.subgraph));
         steps.push(wiresClear(n.subgraph));
         steps.push(chromeFit(n.subgraph), contrastOk(n.subgraph), focusOk(n.subgraph));
-        steps.push(await menusFit(n.subgraph));
+        steps.push(await menusFit(n.subgraph), pinNames(n.subgraph));
         const fresh = (inner.graph.node ?? []).filter((m) => !kinds.has(m.folder ?? m.subgraph ?? m.builtin) && kinds.add(m.folder ?? m.subgraph ?? m.builtin));
         if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)), (await fullSizes(n.subgraph, fresh.map((m) => m.id))).text);
         // A public pin of a bus type shows its contacts only near (15.9).

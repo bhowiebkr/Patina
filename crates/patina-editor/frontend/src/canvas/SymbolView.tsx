@@ -243,7 +243,8 @@ function bus(label: string, inputs: readonly Pin[], outputs: readonly Pin[]): Sy
   const height = top + rows * PITCH;
   const mid = top + (rows * PITCH) / 2;
   const names = tags(many);
-  const stub = Math.max(26, widest(names) + 14);
+  // The stub keeps room for the caption icons between the order pins (15.3).
+  const stub = Math.max(36, widest(names) + 14);
   const bar = split ? LEAD + 10 : stub;
   const width = bar + (split ? stub : LEAD + 10);
   const [manyX, fewX] = split ? [width, 0] : [0, width];

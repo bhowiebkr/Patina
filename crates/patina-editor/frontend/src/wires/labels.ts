@@ -12,7 +12,9 @@ interface Entry {
   badgeHidden: boolean;
 }
 
-const overlap = (a: Rect, b: Rect) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+const overlap = (a: Rect, b: Rect, m = 0) => a.l < b.r + m && b.l - m < a.r && a.t < b.b + m && b.t - m < a.b;
+/** The pins stick out 6 px from a node body, with their shadow. */
+const PIN = 6;
 
 /**
  * The wire labels that hide. A label hides when a value badge, a node body or a label of a lower
@@ -61,8 +63,8 @@ export class Labels {
   }
 
   /**
-   * Shows the badges, then the labels, in the order of their rank. A badge hides when a shown badge
-   * covers it. A label hides when a shown box covers it.
+   * Shows the badges, then the labels, in the order of their rank. A badge hides when it covers a node
+   * body or a pin, or when a shown badge covers it. A label hides when a shown box covers it.
    */
   compute() {
     const order = this.order;
@@ -74,7 +76,11 @@ export class Labels {
     for (let i = 0; i < order.length; i++) {
       const e = order[i];
       let hide = false;
-      if (e.badge && e.rank >= 0) for (let j = 0; j < i && !hide; j++) hide = shown(order[j]) && overlap(e.badge, order[j].badge!);
+      const badge = e.badge;
+      if (badge && e.rank >= 0) {
+        hide = this.rects.some((r) => overlap(badge, r, PIN));
+        for (let j = 0; j < i && !hide; j++) hide = shown(order[j]) && overlap(badge, order[j].badge!);
+      }
       if (e.badgeHidden !== hide) [e.badgeHidden, changed] = [hide, true];
     }
     for (let i = 0; i < order.length; i++) {

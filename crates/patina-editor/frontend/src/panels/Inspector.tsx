@@ -128,10 +128,16 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
       setFull({ from, value });
     }, reportError);
   }, [from, run.values]);
-  const end = (key: string) => {
+  // A public pin shows its name, not its random key (6.4): on a subgraph use, and as a port in the open subgraph.
+  const end = (key: string, output: boolean) => {
     const dot = key.indexOf('.');
-    const node = view.graph.node?.find((n) => n.id === key.slice(0, dot));
-    return `${node ? folderName(node) : key.slice(0, dot)}.${key.slice(dot + 1)}`;
+    const [id, pin] = [key.slice(0, dot), key.slice(dot + 1)];
+    const port = id.startsWith('in:') ? view.graph.input?.find((p) => `in:${p.key}` === id) : view.graph.output?.find((p) => `out:${p.key}` === id);
+    if (port) return port.name;
+    const node = view.graph.node?.find((n) => n.id === id);
+    const info = node && infoOf(node, view.nodes);
+    const name = (output ? info?.outputs : info?.inputs)?.find((p) => p.key === pin)?.name ?? pin;
+    return `${node ? folderName(node) : id}.${name}`;
   };
   // The badge text shows until the full text arrives.
   const value = run.values.get(from);
@@ -156,11 +162,11 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
       <div className="section">
         <div className="param">
           <span className="label">From</span>
-          <span>{end(from)}</span>
+          <span>{end(from, true)}</span>
         </div>
         <div className="param">
           <span className="label">To</span>
-          <span>{end(to)}</span>
+          <span>{end(to, false)}</span>
         </div>
         <label className="param">
           <span className="label">Name</span>
@@ -336,11 +342,11 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         <>
           <div className="section">
             {(info?.inputs ?? []).length === 0 && <div className="label">No inputs</div>}
-            {(info?.inputs ?? []).map(({ key, ty }) => {
+            {(info?.inputs ?? []).map(({ key, ty, name }) => {
               const before = entry.params?.[key] ?? '';
               return (
                 <label key={key} className="param">
-                  <span className="label">{key}</span>
+                  <span className="label">{name ?? key}</span>
                   {wired.has(`${entry.id}.${key}`) ? (
                     <span className="label">Wired</span>
                   ) : ty === 'bool' ? (

@@ -223,6 +223,10 @@ html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas .r
   border-bottom: 1px solid var(--border);
 }
 
+:is(.section, .group) > .btn + .btn {
+  margin-left: 6px;
+}
+
 .section h3 {
   margin: 0 0 8px;
   font-size: 12px;

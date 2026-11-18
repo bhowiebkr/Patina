@@ -702,6 +702,24 @@ domain free of locks. These limits are still open:
 - A wire badge cut short values to `12...` or `0...` (fixed 2026-11-18). A badge now keeps at
   least 50 px, so a value of 6 characters shows whole. The shot checks that no badge of 6 or
   fewer characters cuts its text.
+- A badge of 50 px on a short wire went under the pin of the node, for example `GpuIm...` from
+  **bars** to **mix** in gpu (fixed 2026-11-18). A badge that is not selected now hides within
+  6 px of a node body. The shot checks that no pin or node covers a badge.
+- The Inspector showed the random keys of the public pins of a subgraph, for example `dcc47589`
+  for **sel** of a **mux** use (fixed 2026-11-18). The parameter rows and the wire **From** and
+  **To** rows now show the pin names. The shot checks that no parameter row and no wire row of
+  a subgraph shows a pin key.
+- The state dot of a bus join symbol went under its order pin, for example in **counter-4** of
+  computer (fixed 2026-11-18). A join was 50 px wide, so its caption icons did not fit between
+  the pins. A bus stub is now at least 36 px. The shot checks that no order pin covers an icon.
+- Wires crossed the text of the subgraph path bar at the top left of the canvas (fixed
+  2026-11-18). The bar now has a background of the canvas color.
+- The caption of a narrow symbol use went past its node, for example the AND gate of
+  **half-adder** in computer (fixed 2026-11-18). The caption icons now wrap to rows above the
+  name. The shot checks that no caption leaves its node and no order pin covers an icon.
+- **Reset route** and **Lock bends**, and **Import** and **Package**, touched with no gap, so
+  each pair looked like one control (fixed 2026-11-18). The shot checks that two buttons side by
+  side have a gap.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
   A pool unit test sees a task on a worker give its pool index above 0. A CLI test and the

@@ -47,3 +47,15 @@ test('a covered badge hides, and a hidden badge does not hide a label', () => {
   assert.deepEqual(['a', 'b'].map(labels.badgeHidden), [true, false]);
   assert.equal(labels.hidden('c'), true);
 });
+
+test('a badge on a pin or a node body hides, and a selected badge shows', () => {
+  const labels = new Labels();
+  labels.setObstacles([box(100, 0, 100, 100)]);
+  // The pins stick out 6 px from the body, so a badge 3 px from the body covers a pin.
+  labels.set('pin', null, box(57, 10), 2);
+  labels.set('clear', null, box(50, 40), 2);
+  labels.set('body', null, box(150, 60), 2);
+  labels.set('selected', null, box(150, 80), -1);
+  labels.compute();
+  assert.deepEqual(['pin', 'clear', 'body', 'selected'].map(labels.badgeHidden), [true, false, true, false]);
+});

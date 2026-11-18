@@ -207,7 +207,7 @@ pub struct Button { held: bool }
 - The **Inspector** and the full size GUI also show a GUI with placed widgets with no padding and no canvas label. Thus each widget stays at its place on the drawing. (Agent decision of 2026-11-18. The owner can change it.)
 - `canvas.path(data, color, fill)` draws SVG path data, for example `M 0 0 L 40 0 L 20 30 Z`. The editor skips a path with other letters than the path commands.
 - The name and the state icon of the node show above the shape. The selection is an outline. An error message shows below the shape.
-- The name starts after the left order pin and ends before the right order pin, so no pin covers the name. (Agent decision of 2026-11-18. The owner can change it.)
+- The name starts after the left order pin and ends before the right order pin, so no pin covers the name. On a narrow node, the icons and buttons wrap to rows above the name. (Agent decision of 2026-11-18. The owner can change it.)
 - The name, the state icon and the order pins show only when the pointer is on the node, or when the node is selected, has the focus or has an error. The order pins also show during a wire drag. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The user drags the node by its name or by a drag on a canvas (see the canvas text above).
 - Until the node draws its first GUI, it shows the normal layout.
