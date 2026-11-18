@@ -16,28 +16,36 @@ const STEPS: usize = 37;
 pub struct Gradient {
     invert: bool,
     size: [u32; 2],
+    /// The pipeline of the last run, with the WGSL that made it.
+    pipeline: Option<(String, wgpu::ComputePipeline)>,
 }
 
 impl Gradient {
     pub fn init() -> Self {
-        Gradient { invert: false, size: [0, 0] }
+        Gradient { invert: false, size: [0, 0], pipeline: None }
     }
 
     pub fn process(&mut self, width: u32, height: u32, invert: bool) -> Result<GpuImage, String> {
         self.invert = invert;
         let gpu = gpu()?;
         let wgsl = link(&asset!("gradient.wesl"), &[("invert", invert)])?;
-        let module = gpu.shader("gradient.wesl", &wgsl)?;
+        let pipeline = match &mut self.pipeline {
+            Some((w, p)) if *w == wgsl => p,
+            slot => {
+                let module = gpu.shader("gradient.wesl", &wgsl)?;
+                let p = gpu.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("gradient"),
+                    layout: None,
+                    module: &module,
+                    entry_point: Some("main"),
+                    compilation_options: Default::default(),
+                    cache: None,
+                });
+                &mut slot.insert((wgsl, p)).1
+            }
+        };
         let image = GpuImage::new(gpu, width, height);
         self.size = [image.width(), image.height()];
-        let pipeline = gpu.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("gradient"),
-            layout: None,
-            module: &module,
-            entry_point: Some("main"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
         let view = image.texture.create_view(&Default::default());
         let group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -47,7 +55,7 @@ impl Gradient {
         let mut encoder = gpu.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_compute_pass(&Default::default());
-            pass.set_pipeline(&pipeline);
+            pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &group, &[]);
             pass.dispatch_workgroups(image.width().div_ceil(8), image.height().div_ceil(8), 1);
         }

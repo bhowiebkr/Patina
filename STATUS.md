@@ -264,8 +264,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   monitor. **gradient** has an **INV** switch, and **brightness** shows a histogram. The unit
   tests of the nodes and the gpu CLI test pass. A hidden shot showed the bars, the mix and the
   waveform.
-- Known limits: the bars and mix nodes make a new pipeline at each run. Nobody dragged the knob
-  or the fader by hand.
+- The bars, mix and gradient nodes keep their pipeline while the WGSL and the `override`
+  constant stay the same (2026-11-18). A bars run took 0.6 ms with the same level and 15.8 ms
+  with a new level (release, 20 runs each, with a game open on the computer).
+- Known limits: a new level or a new fader place makes a new pipeline, because the GPU fixes an
+  `override` constant in the pipeline. Nobody dragged the knob or the fader by hand.
 
 ### Canvas speed
 

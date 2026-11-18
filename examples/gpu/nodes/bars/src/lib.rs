@@ -16,30 +16,40 @@ const COLORS: [[u8; 3]; 7] =
 pub struct Bars {
     level: f64,
     size: [u32; 2],
+    /// The pipeline of the last run, with the WGSL and the level that made it.
+    pipeline: Option<(String, f64, wgpu::ComputePipeline)>,
 }
 
 impl Bars {
     pub fn init() -> Self {
-        Bars { level: 0.0, size: [0, 0] }
+        Bars { level: 0.0, size: [0, 0], pipeline: None }
     }
 
     pub fn process(&mut self, width: u32, height: u32, level: f64) -> Result<GpuImage, String> {
         self.level = level.clamp(0.0, 1.0);
         let gpu = gpu()?;
-        let module = gpu.shader("bars.wesl", &link(&asset!("bars.wesl"), &[])?)?;
+        let wgsl = link(&asset!("bars.wesl"), &[])?;
+        // A new level needs a new pipeline, because the GPU fixes an override constant in the pipeline.
+        let pipeline = match &mut self.pipeline {
+            Some((w, l, p)) if *w == wgsl && *l == self.level => p,
+            slot => {
+                let module = gpu.shader("bars.wesl", &wgsl)?;
+                let p = gpu.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("bars"),
+                    layout: None,
+                    module: &module,
+                    entry_point: Some("main"),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[("level", self.level)],
+                        ..Default::default()
+                    },
+                    cache: None,
+                });
+                &mut slot.insert((wgsl, self.level, p)).2
+            }
+        };
         let image = GpuImage::new(gpu, width, height);
         self.size = [image.width(), image.height()];
-        let pipeline = gpu.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("bars"),
-            layout: None,
-            module: &module,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions {
-                constants: &[("level", self.level)],
-                ..Default::default()
-            },
-            cache: None,
-        });
         let view = image.texture.create_view(&Default::default());
         let group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -49,7 +59,7 @@ impl Bars {
         let mut encoder = gpu.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_compute_pass(&Default::default());
-            pass.set_pipeline(&pipeline);
+            pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &group, &[]);
             pass.dispatch_workgroups(image.width().div_ceil(8), image.height().div_ceil(8), 1);
         }
@@ -102,5 +112,20 @@ mod tests {
         let mut ui = Ui::new(0, "");
         bars.ui(&mut ui);
         assert!(ui.tree().starts_with("canvas\tBars 128 x 72\t176\t104\t"), "{}", ui.tree());
+    }
+
+    #[test]
+    fn a_run_at_the_same_level_keeps_the_pipeline() {
+        if gpu().is_err() {
+            return; // shortcut: a computer without a GPU adapter checks nothing here, CI on Linux has none.
+        }
+        let mut bars = Bars::init();
+        let pipeline = |bars: &Bars| bars.pipeline.as_ref().unwrap().2.clone();
+        bars.process(16, 8, 0.5).unwrap();
+        let first = pipeline(&bars);
+        bars.process(32, 8, 0.5).unwrap();
+        assert!(pipeline(&bars) == first, "a new size keeps the pipeline");
+        bars.process(16, 8, 0.25).unwrap();
+        assert!(pipeline(&bars) != first, "a new level makes a new pipeline");
     }
 }

@@ -15,29 +15,39 @@ const CAP: [u8; 3] = [70, 82, 96];
 pub struct Mix {
     amount: f64,
     drag: bool,
+    /// The pipeline of the last run, with the WGSL and the amount that made it.
+    pipeline: Option<(String, f64, wgpu::ComputePipeline)>,
 }
 
 impl Mix {
     pub fn init() -> Self {
-        Mix { amount: 0.0, drag: false }
+        Mix { amount: 0.0, drag: false, pipeline: None }
     }
 
     pub fn process(&mut self, a: &GpuImage, b: &GpuImage, amount: f64) -> Result<GpuImage, String> {
         self.amount = amount.clamp(0.0, 1.0);
         let gpu = gpu()?;
-        let module = gpu.shader("mix.wesl", &link(&asset!("mix.wesl"), &[])?)?;
+        let wgsl = link(&asset!("mix.wesl"), &[])?;
+        // A new amount needs a new pipeline, because the GPU fixes an override constant in the pipeline.
+        let pipeline = match &mut self.pipeline {
+            Some((w, m, p)) if *w == wgsl && *m == self.amount => p,
+            slot => {
+                let module = gpu.shader("mix.wesl", &wgsl)?;
+                let p = gpu.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("mix"),
+                    layout: None,
+                    module: &module,
+                    entry_point: Some("main"),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[("amount", self.amount)],
+                        ..Default::default()
+                    },
+                    cache: None,
+                });
+                &mut slot.insert((wgsl, self.amount, p)).2
+            }
+        };
         let image = GpuImage::new(gpu, a.width(), a.height());
-        let pipeline = gpu.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("mix"),
-            layout: None,
-            module: &module,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions {
-                constants: &[("amount", self.amount)],
-                ..Default::default()
-            },
-            cache: None,
-        });
         let views = [a, b, &image].map(|i| i.texture.create_view(&Default::default()));
         let entries = [0, 1, 2]
             .map(|i| wgpu::BindGroupEntry { binding: i as u32, resource: wgpu::BindingResource::TextureView(&views[i]) });
@@ -49,7 +59,7 @@ impl Mix {
         let mut encoder = gpu.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_compute_pass(&Default::default());
-            pass.set_pipeline(&pipeline);
+            pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &group, &[]);
             pass.dispatch_workgroups(image.width().div_ceil(8), image.height().div_ceil(8), 1);
         }
