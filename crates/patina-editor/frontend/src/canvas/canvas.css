@@ -209,12 +209,13 @@
   opacity: 1;
 }
 
-/* The name above a free node. It is a drag handle, as a drag on a canvas is. */
+/* The name above a free node. It is a drag handle, as a drag on a canvas is.
+   It starts after the order pins, which span 2 to 16 px from each side (15.3). */
 .free-caption {
   position: absolute;
   bottom: 100%;
-  left: 8px;
-  max-width: calc(100% - 16px);
+  left: 20px;
+  max-width: calc(100% - 40px);
   height: 18px;
   display: flex;
   align-items: center;

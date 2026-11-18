@@ -309,6 +309,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   main graph, and the first node of each new kind in a subgraph. Its **Inspector** must not
   scroll to the side, cut a label, show an error or show a GUI that cannot draw (added
   2026-11-18).
+- The order pins of a free node covered the first letters of its name, for example
+  **Gradient** in gpu (fixed 2026-11-18). The name now starts after the left pin. The shot checks
+  that no pin covers the title of a node.
+- The shot checks that no button, tab, title or label of the panels and the bars cuts its text
+  or is out of the window. It does this at 1440 x 900 and again at 1280 x 720, and captures
+  `main-small.png` (added 2026-11-18).
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol

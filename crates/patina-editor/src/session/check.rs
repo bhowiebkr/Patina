@@ -48,6 +48,15 @@ pub fn write_check(dir: &Path, result: &Value) {
     }
 }
 
+/// Sets the inner size of the window in logical pixels, only in the self-check.
+#[tauri::command(async)]
+pub fn check_resize(window: WebviewWindow, editor: State<'_, Editor>, width: f64, height: f64) -> Result<(), String> {
+    if editor.check.is_none() {
+        return Err("only the self-check can resize the window".to_owned());
+    }
+    window.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())
+}
+
 /// Writes a screenshot of the page to `<check folder>/<name>.png`, only in the self-check.
 #[tauri::command(async)]
 pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String) -> Result<(), String> {

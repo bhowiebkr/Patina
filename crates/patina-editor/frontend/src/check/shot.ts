@@ -108,10 +108,49 @@ function guiFit(where: string) {
   }
   const nodes = [...document.querySelectorAll('.react-flow__node')].map((n) => [n.getAttribute('data-id'), n.getBoundingClientRect()] as const);
   for (const e of document.querySelectorAll('.node-gui [role=alert]')) bad.push(`a GUI cannot draw: ${e.textContent}`);
+  // A pin shows on hover, so it must not cover the text of the title (15.3).
+  for (const node of document.querySelectorAll('.react-flow__node'))
+    for (const t of node.querySelectorAll('.title')) {
+      const range = document.createRange();
+      range.selectNodeContents(t);
+      // The text can clip with an ellipsis, so only its visible part counts.
+      const [r, c] = [range.getBoundingClientRect(), t.getBoundingClientRect()];
+      const [left, right] = [Math.max(r.left, c.left), Math.min(r.right, c.right)];
+      for (const h of node.querySelectorAll('.react-flow__handle')) {
+        const q = h.getBoundingClientRect();
+        if (r.width && Math.min(right, q.right) - Math.max(left, q.left) > 1 && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 1) bad.push(`a pin covers the title ${t.textContent} of ${node.getAttribute('data-id')}`);
+      }
+    }
   for (const [i, [a, p]] of nodes.entries())
     for (const [b, q] of nodes.slice(i + 1)) if (Math.min(p.right, q.right) - Math.max(p.left, q.left) > 2 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 2) bad.push(`over ${a} ${b}`);
   if (bad.length) throw new Error(`the layout of ${where} is wrong: ${bad.join(', ')}`);
   return `fit ${where}: ${seen} widgets and ${nodes.length} nodes`;
+}
+
+/** Throws on a button, a tab, a title or a label of the panels and the bars that cuts its text or is out of the window (15.2). */
+function chromeFit(where: string) {
+  const bad: string[] = [];
+  let seen = 0;
+  for (const w of document.querySelectorAll<HTMLElement>('button, [role=tab], .panel-title, .label, .topbar *, .statusbar *, h3')) {
+    if (w.closest('.react-flow__node, .node-gui, .monaco-editor')) continue;
+    if (w.getBoundingClientRect().width === 0) continue;
+    seen++;
+    const what = `${w.tagName.toLowerCase()}.${w.className} "${(w.getAttribute('aria-label') ?? w.textContent ?? '').slice(0, 30)}"`;
+    // An item in a scroll area can scroll out of view, so the area must be in the window.
+    let box: Element = w;
+    for (let a = w.parentElement; a; a = a.parentElement) {
+      const s = getComputedStyle(a);
+      if (/auto|scroll/.test(s.overflowX + s.overflowY)) {
+        box = a;
+        break;
+      }
+    }
+    const r = box.getBoundingClientRect();
+    if (r.left < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push(`out ${what}`);
+    if (w.scrollWidth > w.clientWidth + 1) bad.push(`cut ${what}`);
+  }
+  if (bad.length) throw new Error(`the chrome of ${where} is wrong: ${bad.join(', ')}`);
+  return `chrome ${where}: ${seen} items`;
 }
 
 /** Throws on a wire through a body that is not one of its ends, or on a route conflict mark (15.9). */
@@ -295,6 +334,15 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       if (placesOnCanvas()) steps.push('placed widgets on their canvas');
       steps.push(guiFit('main'));
       steps.push(wiresClear('main'));
+      steps.push(chromeFit('main'));
+      // A laptop of 1920 x 1080 pixels at 150% gives a window of 1280 x 720 (15.2).
+      await api.checkResize(1280, 720);
+      await sleep(1000);
+      await api.capture('main-small');
+      const small = chromeFit('small');
+      await api.checkResize(1440, 900);
+      await sleep(1000);
+      steps.push(small);
     }
     steps.push(await inspectNodes('main'));
     const inspected = await inspectThumb();

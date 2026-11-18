@@ -47,6 +47,7 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 - The **Views** menu opens a view (15.8) as a new tab, in the center by default.
 - The top bar and the status bar do not move.
 - The table above is the default layout. **Reset layout** in the **Views** menu returns to it.
+- The default layout fits a window of 1280 x 720 logical pixels, for example a laptop screen of 1920 x 1080 at 150%. No button, tab, title or label cuts its text at this size. (Agent decision of 2026-11-18. The owner can change it.)
 
 **Version 1 of the dock:**
 

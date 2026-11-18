@@ -582,6 +582,7 @@ export const api = {
   /** Writes or, with null, removes a file or folder of the open project, as a change from outside the editor. Only the self-check can. */
   checkWrite: (path: string, text: string | null) => invoke<void>('check_write', { path, text }),
   capture: (name: string) => invoke<void>('capture', { name }),
+  checkResize: (width: number, height: number) => invoke<void>('check_resize', { width, height }),
 };
 
 export function onEngine(handler: (event: EngineEvent) => void): Promise<UnlistenFn> {

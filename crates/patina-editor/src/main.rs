@@ -313,6 +313,7 @@ fn main() {
             session::quit,
             session::check_done,
             session::check_write,
+            session::check_resize,
             session::page_error,
             session::capture,
             toolchain::install_toolchain,
