@@ -157,6 +157,17 @@ editor with the built page, on the Windows 11 computer of the owner.
 
 The open items of each section. Items that the text marks as fixed are in [docs/history.md](docs/history.md).
 
+### Performance audit, 2026-11-18
+
+- The [performance audit](docs/performance-audit.md) records 12 findings and the proposed implementation order.
+- The Windows CLI ran the committed computer example in edit and bake modes, with identical output.
+  The incremental frame estimates were 91.9 us and 17.9 us, including stdout. These are not editor timings.
+- Open work: cache canvas structure, reduce value and GUI reporting, release view-copy subscriptions,
+  avoid unused GPU previews, and separate bus state from wire geometry. No audit proposal is implemented yet.
+- Not checked in this audit: editor timing, slot mode, allocation counts, Linux, and macOS.
+- Open test improvement: the event test compares path strings and fails with a mixed-separator
+  `CARGO_TARGET_DIR`. Its focused check passed after recompilation with a native Windows target path.
+
 ### Copy, paste and libraries
 
 - Known limits: the index has no libraries yet. A clip has 256 subgraphs at most.
