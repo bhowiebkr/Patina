@@ -13,6 +13,11 @@ pub unsafe extern "C" fn patina_cluster_host(share: ::patina_sdk::glue::ShareFn,
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn patina_cluster_node() -> u32 {
+    ::patina_sdk::glue::thread_node()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn patina_cluster_new() -> *mut ::std::ffi::c_void {
     ::patina_sdk::glue::new_cluster(make).cast()
 }

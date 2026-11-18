@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockRea
 use crate::{Param, Text};
 
 /// The version of the C ABI between the engine and a cluster.
-pub const ABI_VERSION: u32 = 22;
+pub const ABI_VERSION: u32 = 23;
 
 /// The kinds of a report.
 pub const ERROR: u32 = 1;
@@ -188,6 +188,12 @@ fn with_run<R>(f: impl FnOnce(&Reporter) -> R) -> Option<R> {
     // SAFETY: `run` sets the pointer only during the call, and the engine keeps the reporter
     // valid during the call.
     unsafe { RUN.with(Cell::get).as_ref() }.map(f)
+}
+
+/// The body of `patina_cluster_node`: the node that runs on this thread in this cluster, or `IDLE`,
+/// for the crash handler of the engine (16.1). It never allocates and never waits.
+pub fn thread_node() -> u32 {
+    NODE.try_with(Cell::get).unwrap_or(IDLE)
 }
 
 pub(crate) fn stop_requested() -> bool {

@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use patina_sdk::audio::{BLOCK, Mix};
 use patina_sdk::glue::{self, Control, Reporter};
 
-use crate::library::{Calling, Library, Sink, clock, collect, lock};
+use crate::library::{Calling, Library, NodeFn, Sink, clock, collect, lock};
 use crate::outcome::{Outcome, Spare, fill};
 use crate::node::Domain;
 use crate::pool::{self, Work};
@@ -23,9 +23,10 @@ pub(crate) struct Calls {
 
 impl Calls {
     /// Calls `f` with a reporter that adds to the sink. Then fills the outcome from the sink.
-    pub(crate) fn call(&mut self, names: &[(String, String)], probes: &[String], control: *const Control, f: impl FnOnce(*const Reporter) -> bool) {
+    /// `node` is the node function of the called cluster, for a crash handler (16.1).
+    pub(crate) fn call(&mut self, names: &[(String, String)], probes: &[String], control: *const Control, node: Option<NodeFn>, f: impl FnOnce(*const Reporter) -> bool) {
         let reporter = Reporter { ctx: (&raw mut self.sink).cast(), report: collect, control };
-        let _calling = Calling::new(control);
+        let _calling = Calling::new(control, node);
         let ok = f(&reporter);
         fill(&mut self.out, &mut self.spare, ok, &self.sink, names, probes);
     }
@@ -46,7 +47,7 @@ impl Run<'_> {
     pub(crate) fn domain(&mut self, domain: Domain, control: &Control) {
         let Some(library) = self.library else {
             self.calls.sink.clear();
-            self.calls.call(self.names, self.probes, control, |_| true);
+            self.calls.call(self.names, self.probes, control, None, |_| true);
             return;
         };
         let begin = clock();
@@ -74,7 +75,7 @@ impl Run<'_> {
         let (state, end, ok) = (library.state, library.end, tasks.ok.load(Relaxed));
         // SAFETY: `state` is live, no task runs, and the reporter and the control are valid
         // during the call.
-        self.calls.call(self.names, self.probes, control, |rep| unsafe { end(state, domain as u32, rep) });
+        self.calls.call(self.names, self.probes, control, Some(library.node), |rep| unsafe { end(state, domain as u32, rep) });
         self.calls.out.ok &= ok && begun;
         // A quiet run sends no times (9.1), so the last measure stays.
         if !control.quiet() {
@@ -128,14 +129,14 @@ impl Frames<'_> {
         let (names, probes) = (self.run.names, self.run.probes);
         let Some(n) = names.iter().position(|(n, _)| n == id) else { return (None, Outcome::default()) };
         let (Some(library), Ok(node)) = (self.nodes.owner(n), u32::try_from(n)) else { return (None, Outcome::default()) };
-        let (state, ui) = (library.state, library.ui);
+        let (state, ui, own) = (library.state, library.ui, library.node);
         let calls = &mut *self.gui;
         calls.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run of this thread is active, the
         // audio thread never calls the library of a node that is not an audio node, the event runs
         // share only a parallel library with this call (`Nodes::event_guis`), and `events` and the
         // reporter are valid during the call.
-        calls.call(names, probes, control, |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
+        calls.call(names, probes, control, Some(own), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
         let tree = calls.sink.iter().find(|&(_, kind, _)| kind == glue::UI).map(|(_, _, text)| text.to_owned());
         // A GUI call reports little, so the caller gets its lists.
         let mut out = std::mem::take(&mut calls.out);

@@ -26,6 +26,8 @@ type TaskFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 pub(crate) type FireFn = unsafe extern "C" fn(*const c_void, u32, *const u8, usize, *const Reporter) -> bool;
 pub(crate) type EndFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> bool;
 type FreeFn = unsafe extern "C" fn(*mut c_void);
+/// Gives the node that runs on the calling thread in the cluster, or `glue::IDLE` (16.1).
+pub(crate) type NodeFn = unsafe extern "C" fn() -> u32;
 pub(crate) type TakeFn = unsafe extern "C" fn(*const c_void, u32, *const Reporter) -> *mut c_void;
 pub(crate) type PutFn = unsafe extern "C" fn(*const c_void, u32, *mut c_void, *const Reporter) -> bool;
 pub(crate) type SlotFn = unsafe extern "C" fn(*const c_void, *const SlotRef, *const Reporter) -> bool;
@@ -50,6 +52,8 @@ pub(crate) struct Library {
     pub call: CallFn,
     /// Runs one event run of an event task (9.4).
     pub fire: FireFn,
+    /// The node that runs on the calling thread, for a crash handler (16.1).
+    pub node: NodeFn,
     /// True when the tasks of a run can run on many threads at a time (9.2).
     pub parallel: bool,
     /// The tasks of the domain (9.1).
@@ -88,6 +92,7 @@ impl Library {
             let read: TakeFn = symbol(&library, b"patina_cluster_read\0").map_err(missing)?;
             let slot: SlotFn = symbol(&library, b"patina_cluster_slot\0").map_err(missing)?;
             let call: CallFn = symbol(&library, b"patina_cluster_call\0").map_err(missing)?;
+            let node: NodeFn = symbol(&library, b"patina_cluster_node\0").map_err(missing)?;
             let fire: FireFn = symbol(&library, b"patina_cluster_fire\0").map_err(missing)?;
             let state = {
                 let _unnamed = Unnamed::new();
@@ -96,8 +101,8 @@ impl Library {
             if state.is_null() {
                 return Err(fail("a parameter default panicked".to_owned()));
             }
-            let tasks = Arc::new(Tasks::new(state, task, all, domain));
-            Library { state, set, ui, begin, end, free, take, put, export, import, read, slot, call, fire, parallel: parallel(state), tasks }
+            let tasks = Arc::new(Tasks::new(state, task, node, all, domain));
+            Library { state, set, ui, begin, end, free, take, put, export, import, read, slot, call, fire, node, parallel: parallel(state), tasks }
         };
         // Rust libraries do not unload safely, so the library stays loaded (8.5).
         std::mem::forget(library);
@@ -209,6 +214,7 @@ pub(crate) struct Tasks {
     pub state: AtomicPtr<c_void>,
     pub control: AtomicPtr<Control>,
     task: TaskFn,
+    node: NodeFn,
     /// The cluster task index of each task.
     pub ids: Vec<usize>,
     pub inputs: Vec<u32>,
@@ -238,7 +244,7 @@ impl Work for Tasks {
         let (Some(sink), Some(index)) = (self.sinks.get(task), index) else { return };
         let mut sink = lock(sink);
         let rep = Reporter { ctx: (&raw mut *sink).cast(), report: collect, control: self.control.load(Relaxed) };
-        let _calling = Calling::new(rep.control);
+        let _calling = Calling::new(rep.control, Some(self.node));
         // SAFETY: the same as for `unsafe impl Send for Tasks`. The reporter and its sink are valid
         // during the call.
         if !unsafe { (self.task)(self.state.load(Relaxed), index, &rep) } {
@@ -249,7 +255,7 @@ impl Work for Tasks {
 
 impl Tasks {
     /// The tasks of `all` in `domain`, in the same order. A link to another domain is not a wait.
-    fn new(state: *mut c_void, task: TaskFn, all: &[Task], domain: Domain) -> Tasks {
+    fn new(state: *mut c_void, task: TaskFn, node: NodeFn, all: &[Task], domain: Domain) -> Tasks {
         let ids: Vec<usize> = (0..all.len()).filter(|&t| all[t].domain == domain).collect();
         let next: Vec<Vec<usize>> =
             ids.iter().map(|&t| all[t].next.iter().filter_map(|n| ids.iter().position(|i| i == n)).collect()).collect();
@@ -259,21 +265,23 @@ impl Tasks {
         }
         let sinks = ids.iter().map(|_| Mutex::new(Sink::default())).collect();
         let (state, control) = (AtomicPtr::new(state), AtomicPtr::new(std::ptr::null_mut()));
-        Tasks { state, control, task, ids, inputs, next, sinks, ok: AtomicBool::new(true) }
+        Tasks { state, control, task, node, ids, inputs, next, sinks, ok: AtomicBool::new(true) }
     }
 }
 
 thread_local! {
-    /// The control of the run that calls a cluster on this thread. Null outside a call.
-    static CALLING: Cell<*const Control> = const { Cell::new(std::ptr::null()) };
+    /// The control of the run that calls a cluster on this thread, and the node function of the
+    /// cluster. Null outside a call.
+    static CALLING: Cell<(*const Control, Option<NodeFn>)> = const { Cell::new((std::ptr::null(), None)) };
 }
 
-/// Keeps the control of a run on this thread during a call into a cluster.
-pub(crate) struct Calling(*const Control);
+/// Keeps the control of a run and the node function of the called cluster on this thread during
+/// a call into the cluster.
+pub(crate) struct Calling((*const Control, Option<NodeFn>));
 
 impl Calling {
-    pub(crate) fn new(control: *const Control) -> Calling {
-        Calling(CALLING.replace(control))
+    pub(crate) fn new(control: *const Control, node: Option<NodeFn>) -> Calling {
+        Calling(CALLING.replace((control, node)))
     }
 }
 
@@ -283,12 +291,15 @@ impl Drop for Calling {
     }
 }
 
-/// The node that started last in the run that calls a cluster on this thread, for a crash handler
-/// that runs on the thread that crashed (16.1). It never allocates and never waits.
+/// The node that runs on this thread in the called cluster, or else the node that started last in
+/// the run of the call, for a crash handler that runs on the thread that crashed (16.1). It never
+/// allocates and never waits.
 pub fn thread_node() -> Option<u32> {
-    let control = CALLING.try_with(Cell::get).ok()?;
+    let (control, node) = CALLING.try_with(Cell::get).ok()?;
+    // SAFETY: a library stays loaded (8.5), and the function only reads a thread-local.
+    let own = node.map(|node| unsafe { node() }).filter(|&n| n != glue::IDLE);
     // SAFETY: a `Calling` keeps the control valid while it is set on this thread.
-    unsafe { control.as_ref() }?.node()
+    own.or_else(|| unsafe { control.as_ref() }?.node())
 }
 
 /// The number of active calls into project code that name no node: the default or the drop of a
@@ -377,13 +388,26 @@ mod tests {
         };
         assert!(enter(&outer, 3) && enter(&inner, 7));
         assert_eq!(thread_node(), None);
-        let calling = Calling::new(&outer);
+        let calling = Calling::new(&outer, None);
         {
-            let _nested = Calling::new(&inner);
+            let _nested = Calling::new(&inner, None);
             assert_eq!(thread_node(), Some(7));
             assert_eq!(std::thread::scope(|s| s.spawn(thread_node).join().unwrap()), None);
         }
         assert_eq!(thread_node(), Some(3));
+        // The node of this thread in the cluster comes first, also when another worker entered last.
+        unsafe extern "C" fn five() -> u32 {
+            5
+        }
+        unsafe extern "C" fn idle() -> u32 {
+            glue::IDLE
+        }
+        let own = Calling::new(&outer, Some(five));
+        assert_eq!(thread_node(), Some(5));
+        drop(own);
+        let own = Calling::new(&outer, Some(idle));
+        assert_eq!(thread_node(), Some(3));
+        drop(own);
         drop(calling);
         assert_eq!(thread_node(), None);
         // Other tests can load clusters at the same time, so only the active call is sure.

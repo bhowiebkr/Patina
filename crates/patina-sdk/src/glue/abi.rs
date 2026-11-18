@@ -53,7 +53,10 @@ pub unsafe fn ui(cluster: *const Cluster, node: u32, mode: u32, text: *const u8,
     let Ok(events) = std::str::from_utf8(bytes) else {
         return false;
     };
-    catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Ui(node, mode, events), rep))).unwrap_or(false)
+    let ok = catch_unwind(AssertUnwindSafe(|| (cluster.f)(Cmd::Ui(node, mode, events), rep))).unwrap_or(false);
+    // A later call on this thread that names no node must not name this node after a crash.
+    NODE.set(IDLE);
+    ok
 }
 
 /// The body of `patina_cluster_parallel`: true when the engine can run the tasks of a run on many

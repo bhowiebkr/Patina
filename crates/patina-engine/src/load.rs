@@ -409,7 +409,7 @@ impl Cluster {
 
     /// Calls `f` with a reporter that adds to the sink. Then fills the outcome from the sink.
     fn call(&mut self, control: *const Control, f: impl FnOnce(*const Reporter) -> bool) {
-        self.calls.call(&self.names, &self.probes, control, f);
+        self.calls.call(&self.names, &self.probes, control, None, f);
     }
 }
 

@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use patina_sdk::glue::{Control, Reporter};
 
-use crate::library::{Calling, FireFn, Library, Sink, clock, collect, lock};
+use crate::library::{Calling, FireFn, Library, NodeFn, Sink, clock, collect, lock};
 use crate::outcome::{Outcome, Report, ReportKind, Spare, fill};
 use crate::node::Builtin;
 
@@ -103,10 +103,11 @@ pub struct EventRun {
     pub out: Outcome,
 }
 
-/// The event function and the state of the event cluster, for the run threads.
+/// The event function, the node function and the state of the event cluster, for the run threads.
 #[derive(Clone, Copy)]
 struct Entry {
     fire: FireFn,
+    node: Option<NodeFn>,
     state: *mut c_void,
 }
 
@@ -143,7 +144,7 @@ impl Shared<'_> {
         let mut sink = Sink::default();
         sink.begin = clock();
         let rep = Reporter { ctx: (&raw mut sink).cast(), report: collect, control };
-        let _calling = Calling::new(control);
+        let _calling = Calling::new(control, self.entry.node);
         let gate = self.gate.as_ref().map(lock);
         // SAFETY: the state is live while the cluster is borrowed, `text` and the reporter are
         // valid during the call, and the gate keeps the rule of `parallel` (Entry).
@@ -273,7 +274,7 @@ pub struct Events<'a> {
 
 impl<'a> Events<'a> {
     pub(crate) fn new(library: &Library, slot_parallel: bool, triggers: &'a [Trigger], names: &'a [(String, String)], probes: &'a [String], root: &'a Path) -> Events<'a> {
-        let entry = Entry { fire: library.fire, state: library.state };
+        let entry = Entry { fire: library.fire, node: Some(library.node), state: library.state };
         Events { entry, parallel: library.parallel && slot_parallel, triggers, names, probes, root }
     }
 
@@ -505,7 +506,7 @@ mod tests {
     fn the_runs_with_no_inbox_follow_the_quiet_control() {
         let triggers = [Trigger::new(0, 0, Builtin::Trigger)];
         let names = [("t".to_owned(), "trigger".to_owned())];
-        let entry = Entry { fire: quiet, state: std::ptr::null_mut() };
+        let entry = Entry { fire: quiet, node: None, state: std::ptr::null_mut() };
         let events = Events { entry, parallel: true, triggers: &triggers, names: &names, probes: &[], root: Path::new(".") };
         let control = Control::default();
         assert!(!events.run(1, &control, None, |_| {}), "the C API reads the values");
@@ -517,7 +518,7 @@ mod tests {
     fn a_remote_fires_triggers_until_it_ends_the_runs() {
         let triggers = [Trigger::new(0, 0, Builtin::Trigger)];
         let names = [("t".to_owned(), "trigger".to_owned())];
-        let entry = Entry { fire, state: std::ptr::null_mut() };
+        let entry = Entry { fire, node: None, state: std::ptr::null_mut() };
         let events = Events { entry, parallel: true, triggers: &triggers, names: &names, probes: &[], root: Path::new(".") };
         let (remote, inbox) = remote();
         // The trigger does not fire at the start. An unknown ID gives a report, and a fire after
@@ -545,7 +546,7 @@ mod tests {
     fn the_runs_use_the_threads_of_the_pool_again() {
         let triggers = [Trigger::new(0, 0, Builtin::Trigger)];
         let names = [("t".to_owned(), "trigger".to_owned())];
-        let entry = Entry { fire: keep_thread, state: std::ptr::null_mut() };
+        let entry = Entry { fire: keep_thread, node: None, state: std::ptr::null_mut() };
         let events = Events { entry, parallel: true, triggers: &triggers, names: &names, probes: &[], root: Path::new(".") };
         let (remote, inbox) = remote();
         // The fires queue, so one run is active at a time, and each run uses the thread of the last.
@@ -576,7 +577,7 @@ mod tests {
     fn the_remote_names_the_node_of_an_active_run() {
         let triggers = [Trigger::new(0, 0, Builtin::Trigger)];
         let names = [("t".to_owned(), "trigger".to_owned())];
-        let entry = Entry { fire: hold, state: std::ptr::null_mut() };
+        let entry = Entry { fire: hold, node: None, state: std::ptr::null_mut() };
         let events = Events { entry, parallel: true, triggers: &triggers, names: &names, probes: &[], root: Path::new(".") };
         let (remote, inbox) = remote();
         std::thread::scope(|s| {

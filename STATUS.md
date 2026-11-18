@@ -217,8 +217,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### Process isolation
 
-- The crash handler is only on Windows. It names the last node that started in the run of the
-  thread that crashed. In a parallel run, this can be a node of another worker of the same run.
+- The crash handler is only on Windows. It names the node that runs on the thread that crashed,
+  also in a parallel run (fixed 2026-11-17). A unit test checks the parallel rule. The crashes of
+  the self-check run on one thread.
   A thread that a node starts is not in a run. A Rust abort skips the handler.
 - Nobody looked at a viewport of the node process on screen. The probe ran on a hidden desktop.
 - The editor and the node process both check the graph of each run.
