@@ -223,8 +223,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   timeline lane. It sets the **Corners** and **Default route** fields, the pivot and **Aspect
   lock** of a transform, a slider, a dropdown and the **Name** of a bus wire. It closes a panel
   with its **Close** button and with **Close** in its tab menu, and shows it again from the
-  **Views** menu. It clicks a bar in the **Debug** tab and the **1 compile error** link of the
-  status bar. On an automation lane, a double click adds a point and the Delete key removes it.
+  **Views** menu. It clicks a bar in the **Debug** tab, the **1 compile error** link of the
+  status bar, the error line in the **Logs** tab of the **Inspector**, and the middle crumb of
+  the path bar in a nested subgraph. On an automation lane, a double click adds a point and the Delete key removes it.
   The keys are Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+G, Ctrl+Shift+G, Shift+L and F.
 - Known limits: the self-check does not click **Package**, **Float in a window** or **Open
   GitHub page**. These open a folder dialog, a window or the web browser.

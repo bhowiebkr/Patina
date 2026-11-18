@@ -130,6 +130,13 @@ fn broken() -> u32 {
   tabOf('aside[aria-label="Inspector"]', (t) => t.textContent === 'Code').click();
   await until('the cursor on line 2 after the Code tab opens again', RUN_MS, () => lineAt() === 2);
   steps.push('the Code tab keeps the cursor');
+  // The error line in the Logs tab of the Inspector opens the Code tab at the error.
+  tabOf('aside[aria-label="Inspector"]', (t) => t.textContent === 'Logs').click();
+  const errorLine = () => document.querySelector<HTMLButtonElement>('aside[aria-label="Inspector"] .line-link.err');
+  await until('the error line in the Logs tab of the Inspector', RUN_MS, () => !!errorLine());
+  errorLine()!.click();
+  await until('the cursor at the error after a click on the error line', RUN_MS, () => lineAt() === error.start[0]);
+  steps.push('the error line of the Inspector opens the error');
 
   // The fixed code also panics at 13 (15.3), and waits while the value is 99 until the user
   // clicks Stop (15.2). It crashes at 66, overflows its stack at 55, allocates 1 TB at 44, does

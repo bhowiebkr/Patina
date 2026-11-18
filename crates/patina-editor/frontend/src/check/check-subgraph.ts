@@ -335,6 +335,20 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the subgraph name field of the node menu', RUN_MS, () => !!nameField());
   enterText(nameField()!, 'menu_check');
   await until('one use after the collapse of the node menu', BUILD_MS, () => count() === 1 && document.querySelector('.react-flow__node .title')?.textContent?.includes('menu_check') === true);
+  // A use in a subgraph adds a crumb to the path bar. A click on the middle crumb opens its graph (15.9).
+  const openOf = (name: string) =>
+    [...document.querySelectorAll<HTMLElement>('.react-flow__node')].find((n) => n.querySelector('.title')?.textContent?.includes(name))?.querySelector<HTMLButtonElement>('.open-subgraph');
+  const current = () => document.querySelector('.graph-path [aria-current="page"]')?.textContent;
+  const crumb = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === label);
+  openOf('menu_check')!.click();
+  await until('the fire_check use in the menu_check subgraph', BUILD_MS, () => current() === '/ menu_check' && !!openOf('fire_check'));
+  openOf('fire_check')!.click();
+  await until('the menu_check crumb before fire_check', BUILD_MS, () => current() === '/ fire_check' && !!crumb('menu_check'));
+  crumb('menu_check')!.click();
+  await until('the menu_check subgraph from its crumb', BUILD_MS, () => current() === '/ menu_check');
+  crumb('main')!.click();
+  await until('the main graph after the nested use', BUILD_MS, () => document.querySelector('.graph-path') === null && count() === 1);
+  steps.push('open a use in a subgraph and go back with the middle crumb of the path bar');
   v = await step('undo the collapse of the node menu', () => api.undo());
   await until('all nodes after the undo of the node menu collapse', BUILD_MS, () => count() === all);
   steps.push('collapse a selection from the node menu');
