@@ -509,8 +509,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   handle with a key, reads the axis labels, the scatter dots and the curve histogram, clicks an icon button and reads the progress bar, adds a ramp stop with a click, removes it with Delete, sets the ramp blend, hides a layer and moves it with the down arrow, types a file path, picks a project file in the asset picker, clicks the canvas, shows the large size in the **Inspector**, and opens the full size and closes it with Esc. It drags a curve point, a trim handle, a ramp stop, a layer, a canvas, the box of a 2D transform gizmo and a timeline clip with page pointer events, not with the real mouse.
   Chromium ignores the pointer capture of these events, so the drags do not check the capture. A
   layer drag down could lose its capture, because React moves the row of the handle. The list
-  now holds the capture (fixed 2026-11-17 from the source, not tried with a real mouse). No
-  check picks a color or clicks **Browse** in the editor. The dialog of the platform needs a person.
+  now holds the capture (fixed 2026-11-17 from the source, not tried with a real mouse). The
+  selfcheck sets a color with the change event that the closed picker sends (2026-11-18). No check
+  opens the color picker or clicks **Browse**. The dialogs of the platform need a person.
 - The timeline widget (4.3, mockup 5) has a transport, a ruler with the loop and the playhead,
   clip lanes and automation lanes. The SDK tests check the widget line, the edits, `advance` and
   `Automation::value`. The frontend tests check the parse and the limits of each drag. The
@@ -590,8 +591,9 @@ domain free of locks. These limits are still open:
 
 ### Milestone 2: editor
 
-- **Add crate** has no search of crates.io and no list of versions. The self-check does not run
-  `cargo add`, because CI must not need crates.io for the UI check.
+- **Add crate** has no search of crates.io and no list of versions. The self-check clicks **Add
+  crate** for a widget folder and for the `log` crate, and saves Cargo.toml (2026-11-18). The
+  local check runs offline with `log` in the cargo cache. CI does not run the self-check.
 - The self-check does not click **Install toolchain**, because CI must not download the
   toolchain. The self-check does not click **Remove**. The data test covers the removal.
 - No check opened the folder dialog, the fatal message box or the WebView2 message. A person
@@ -619,9 +621,9 @@ domain free of locks. These limits are still open:
   alias does not match its type, and two types of one name in two modules match.
 - `stop_requested()` is false on a thread that a node starts. The limits of milestone 12 tell how
   the waits of async nodes (4.6) stop.
-- The self-check does not run a node with the `log` crate, because that needs crates.io. A CLI
-  test builds and runs two such nodes and reads their log lines (2026-11-17). The type check
-  covers the log lines of the page, but no check showed them in the editor yet.
+- The self-check builds a node with the `log` crate and reads its line in the **Logs** tab of the
+  **Inspector** and in the **Logs** panel (2026-11-18). The crate must be in the cargo cache or on
+  crates.io. A CLI test builds and runs two such nodes and reads their log lines (2026-11-17).
 - The `Viewer` gives text, a thumbnail of 64 x 64 pixels at most, and the widgets of a node GUI
   (5.3, fixed 2026-11-17). `Viewer::show` gives the plot, the waveform and the table with the
   `Ui` widgets. The **Inspector** reads the full text and the widgets one time after each run.

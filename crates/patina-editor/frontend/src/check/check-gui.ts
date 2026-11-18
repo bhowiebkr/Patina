@@ -17,6 +17,11 @@ export async function checkWidgets(until: Until, gui: string) {
   const row = () => document.querySelector<HTMLElement>(`${gui} .gui-table tbody tr:nth-child(2)`);
   row()!.click();
   await until('the selected row of the table', RUN_MS, () => row()?.getAttribute('aria-selected') === 'true');
+  // The native color picker needs a person. It sends one change event when it closes, as the check does.
+  const tint = () => document.querySelector<HTMLInputElement>(`${gui} input.gui-color`)!;
+  tint().value = '#40c0a0';
+  tint().dispatchEvent(new Event('change', { bubbles: true }));
+  await until('the picked color that the node keeps', RUN_MS, () => tint().nextElementSibling?.textContent?.toLowerCase() === '#40c0a0');
   document.querySelector<HTMLButtonElement>(`${gui} button[aria-label="Increase Gain"]`)!.click();
   await until('the stepped number field', RUN_MS, () => document.querySelector<HTMLInputElement>(`${gui} input.gui-field`)?.value === '2');
   // A slider move shows its value and sends it at the pointer up. React shows the old value until the node answers.
