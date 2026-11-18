@@ -343,6 +343,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
       <div className={[...classes, 'free'].join(' ')} style={{ width }}>
         <div className="free-caption" title={plainDoc(info.doc)}>
           <span className="title">{folderName(entry)}</span>
+          {info.full && !inner && <ExpandButton id={entry.id} />}
           {domain && <DomainIcon domain={domain} />}
           <StateIcon state={state} />
         </div>

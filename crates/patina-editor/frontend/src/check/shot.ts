@@ -245,24 +245,43 @@ function badgeOnTop() {
   return true;
 }
 
-/** Opens the full size of each node that has one, until a full size shows a code editor with line numbers and the band on the current line (4.3). Returns false when no full size has a code editor. */
-async function fullCode() {
+/** Opens the full size of each node that has one, and throws on a side scroll, a widget out of it, a label that cuts its text or a GUI that cannot draw (4.3). Captures `main-full` on the first code editor with line numbers and the band on the current line. */
+async function fullSizes(where: string, ids = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => n.dataset.id ?? '')) {
   const expand = 'button[aria-label="Open the full size"]';
-  const ids = [...document.querySelectorAll('.react-flow__node')].filter((n) => n.querySelector(expand)).map((n) => n.getAttribute('data-id'));
   const full = () => document.querySelector<HTMLElement>('.full-gui');
   const ready = () => !!full()?.querySelector('.gui-code-gutter div') && !!full()?.querySelector('.gui-code-line');
+  const bad: string[] = [];
+  let [code, seen] = [false, 0];
   for (const id of ids) {
-    document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${id}"] ${expand}`)?.click();
+    const button = document.querySelector<HTMLButtonElement>(`.react-flow__node[data-id="${id}"] ${expand}`);
+    if (!button) continue;
+    seen++;
+    button.click();
     await wait(() => !!full(), () => `no full size of node ${id}`);
-    const end = Date.now() + 5_000;
-    while (!ready() && Date.now() < end) await sleep(100);
-    const found = ready();
-    if (found) await api.capture('main-full');
-    full()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    // The engine draws the GUI again in the full size (4.3).
+    await sleep(600);
+    if (!code && full()!.querySelector('.gui-code-box')) {
+      const end = Date.now() + 5_000;
+      while (!ready() && Date.now() < end) await sleep(100);
+      code = ready();
+      if (code) await api.capture('main-full');
+    }
+    const f = full()!;
+    const b = f.getBoundingClientRect();
+    if (f.scrollWidth > f.clientWidth + 1) bad.push(`${id} scrolls to the side`);
+    if (f.querySelector('[role=alert]')) bad.push(`the GUI of ${id} cannot draw`);
+    for (const w of f.querySelectorAll('.node-gui :is(svg.gui-canvas, canvas, input, select, button, textarea, .label)')) {
+      const r = w.getBoundingClientRect();
+      if (r.width === 0) continue;
+      const what = `${id} ${w.tagName.toLowerCase()} ${w.getAttribute('aria-label') ?? w.textContent?.slice(0, 20) ?? ''}`;
+      if (r.left < b.left - 1 || r.right > b.right + 1) bad.push(`out ${what}`);
+      if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${what}`);
+    }
+    f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await wait(() => !full(), () => 'Esc did not close the full size');
-    if (found) return true;
   }
-  return false;
+  if (bad.length) throw new Error(`the full size GUIs of ${where} are wrong: ${bad.join(', ')}`);
+  return { text: `full ${where}: ${seen} nodes`, code };
 }
 
 /** computer: picks the echo program, and waits for the keys of the key buffer on the terminal. Returns false when no node can pick `echo.asm`. */
@@ -352,7 +371,9 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       await api.capture('main-inspect');
       steps.push('main-inspect');
     }
-    if (await fullCode()) steps.push('main-full');
+    const full = await fullSizes('main');
+    if (full.code) steps.push('main-full');
+    steps.push(full.text);
     if (await echo()) steps.push('main-echo');
     // A subgraph inspects the first node of each kind that the shot did not inspect yet.
     const kinds = new Set((v.graph.node ?? []).map((n) => n.folder ?? n.subgraph ?? n.builtin));
@@ -368,7 +389,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         steps.push(guiFit(n.subgraph));
         steps.push(wiresClear(n.subgraph));
         const fresh = (inner.graph.node ?? []).filter((m) => !kinds.has(m.folder ?? m.subgraph ?? m.builtin) && kinds.add(m.folder ?? m.subgraph ?? m.builtin));
-        if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)));
+        if (fresh.length) steps.push(await inspectNodes(n.subgraph, fresh.map((m) => m.id)), (await fullSizes(n.subgraph, fresh.map((m) => m.id))).text);
         // A public pin of a bus type shows its contacts only near (15.9).
         await zoom(document.querySelector('.patina-node.port.bus'), n.subgraph);
         await visit(inner, [...path, [n.subgraph, n.id]]);

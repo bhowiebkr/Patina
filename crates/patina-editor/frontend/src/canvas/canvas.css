@@ -230,6 +230,12 @@
   text-overflow: ellipsis;
 }
 
+.free-caption .icon-btn {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
 /* The left offset of a free pin is its place, so the margin centers the pin on it for both sides. */
 .patina-node.free .react-flow__handle:not(.order-pin) {
   margin-left: -5.5px;

@@ -315,6 +315,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The shot checks that no button, tab, title or label of the panels and the bars cuts its text
   or is out of the window. It does this at 1440 x 900 and again at 1280 x 720, and captures
   `main-small.png` (added 2026-11-18).
+- A node with a free layout and a full size, for example **ram** in computer, had no expand
+  button on the canvas (fixed 2026-11-18). The button is now after its name. The shot opens the
+  full size of each node in the main graph, and of each new kind in a subgraph. A full size must
+  not scroll to the side, cut a label or show a GUI that cannot draw.
 - The **Inspector** showed the thumbnail of a wire as wide as the panel, larger than the widgets
   of the viewer (fixed 2026-11-18). The thumbnail is now at most 128 px high.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol
