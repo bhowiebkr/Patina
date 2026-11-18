@@ -300,6 +300,7 @@ pub async fn fetch(url: &str) -> Result<String, FetchError> { ... }
 - A `bool` parameter also shows its check box in the row of its pin in the node body. A click sets it, as in a logic simulator, so a switch node needs no Inspector. (Agent decision, 2026-11-15. The owner can change it.)
 - A type crate gives parameter support to its own types with the `Param` trait from `patina-sdk`. The trait gives a default value, a control (a built-in or a custom widget), and a text form for save and undo. The engine stays free of types (2).
 - An input whose type has no parameter support needs a wire. Until it has one, the node shows an error and does not run.
+- The check finds parameter support for a scalar, a `String`, a `&str` and a type parameter. It also finds a type with an `impl Param for` it in the node crate or in a type crate of the project. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The project file saves the text form of each value (6.4).
 - Node code can set ranges and defaults with an attribute:
 

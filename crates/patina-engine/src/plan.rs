@@ -173,6 +173,10 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         step_of[entry] = step;
     }
     let (mut steps, slots) = make_steps(&order, &step_of, &entries, &nodes, is_delay)?;
+    let unwired = needs_wire(root, &steps, &slots, &nodes, |n| builtins.iter().any(|&(i, _)| i == n));
+    if !unwired.is_empty() {
+        return Err(unwired);
+    }
     resolve(&mut steps, &nodes, fires)?;
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
     let own: Vec<Option<Domain>> = order.iter().map(|&e| entries[e].domain).collect();
@@ -228,6 +232,56 @@ fn make_steps(order: &[usize], step_of: &[usize], entries: &[Entry], nodes: &[(S
         }
     }
     Ok((steps, slots))
+}
+
+/// The problems of the inputs with no wire whose type has no parameter support (4.8). The wires
+/// give the type of a type parameter (4.5), and a built-in node has only parameter types.
+fn needs_wire(root: &Path, steps: &[Step], slots: &[Slot], nodes: &[(String, Node)], builtin: impl Fn(usize) -> bool) -> Vec<String> {
+    let mut problems = Vec::new();
+    for slot in slots {
+        let step = &steps[slot.step];
+        let (name, node) = &nodes[step.node];
+        let Some(input) = node.inputs.iter().find(|i| i.key == slot.key) else { continue };
+        let generic = input.value.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| node.generics.iter().any(|g| g == w));
+        if !(builtin(step.node) || input.is_str || generic || has_param(root, name, &input.value)) {
+            problems.push(format!("node {}: connect a wire to the input `{}`. Its type `{}` has no parameter support (spec 4.8)", step.id, input.key, input.value));
+        }
+    }
+    problems
+}
+
+/// True when a parameter can hold a value of `ty`: a scalar, a `String`, or a type with an
+/// `impl Param for` it in the node crate or in a type crate of the project (4.8).
+fn has_param(root: &Path, node: &str, ty: &str) -> bool {
+    let name = ty.rsplit("::").next().unwrap_or(ty);
+    if scalar(ty) || name == "String" {
+        return true;
+    }
+    let name = name.split('<').next().unwrap_or(name).trim();
+    let mut dirs = vec![root.join("nodes").join(node).join("src")];
+    if let Ok(types) = std::fs::read_dir(root.join("types")) {
+        dirs.extend(types.filter_map(Result::ok).map(|e| e.path().join("src")));
+    }
+    while let Some(dir) = dirs.pop() {
+        for path in std::fs::read_dir(&dir).into_iter().flatten().filter_map(Result::ok).map(|e| e.path()) {
+            if path.is_dir() {
+                dirs.push(path);
+            } else if path.extension().is_some_and(|e| e == "rs") && std::fs::read_to_string(&path).is_ok_and(|code| impls_param(&code, name)) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// True when `code` has `impl Param for <name>`, also with a path before `Param` or `<name>`.
+fn impls_param(code: &str, name: &str) -> bool {
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    code.match_indices("Param").any(|(at, m)| {
+        let Some(after) = code[at + m.len()..].trim_start().strip_prefix("for") else { return false };
+        let path: String = after.trim_start().chars().take_while(|&c| word(c) || c == ':').collect();
+        !code[..at].ends_with(word) && after.starts_with(char::is_whitespace) && path.rsplit("::").next() == Some(name)
+    })
 }
 
 /// Sets the output types of each step. The wires give the type parameters of a generic node (4.5):
@@ -568,5 +622,37 @@ logos = \"0.15\"
         let found: Vec<bool> = manifests.iter().map(|(name, _)| uses_log(&root, "nodes", name)).collect();
         std::fs::remove_dir_all(&root).unwrap();
         assert_eq!(found, [true, true, true, false]);
+    }
+
+    #[test]
+    fn an_unwired_input_needs_parameter_support() {
+        let root = std::env::temp_dir().join(format!("patina-param-{}", std::process::id()));
+        let files = [
+            ("nodes/paint/src/lib.rs", "#[patina_sdk::node]
+pub fn paint(f: &frame::Frame, m: Mode, n: Option<f32>, s: &str, x: f32) {}
+"),
+            ("nodes/paint/Cargo.toml", "[package]
+name = \"paint\"
+"),
+            ("types/frame/src/lib.rs", "pub struct Frame;
+"),
+            ("types/mode/src/kinds/mod.rs", "impl patina_sdk::Param
+    for crate::Mode { }
+"),
+        ];
+        for (path, text) in files {
+            std::fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
+            std::fs::write(root.join(path), text).unwrap();
+        }
+        let graph = toml::from_str("format = 1
+[[node]]
+id = \"000000000000000a\"
+folder = \"nodes/paint\"
+").unwrap();
+        let problems = check(&root, &graph).err().unwrap_or_default();
+        std::fs::remove_dir_all(&root).unwrap();
+        let inputs: Vec<&str> = problems.iter().filter_map(|p| p.split('`').nth(1)).collect();
+        assert_eq!(inputs, ["f", "n"], "{problems:?}");
+        assert!(!impls_param("impl Param for Moded {}", "Mode") && !impls_param("impl MyParam for Mode {}", "Mode") && impls_param("impl<T> Param for Mode<T> {}", "Mode"));
     }
 }

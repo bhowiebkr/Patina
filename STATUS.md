@@ -245,6 +245,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   label row, so its pins and placed widgets line up with the drawing. The tests of each crate pass.
 - Known limits: the style crates are copies of one pattern, not a shared library. A symbol
   node has no GUI widgets. Only the hidden shots checked the look of the examples.
+- An unwired input whose type has no parameter support gives a graph problem on its node, not
+  a compile error (2026-11-18). The engine test checks it. A hidden shot showed three problems.
+- Known limits: a generic input that resolves to a type with no parameter support still gives
+  a compile error. The check does not find an `impl Param` that a macro makes.
 
 ### Canvas speed
 
