@@ -45,7 +45,7 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   await until('the value of the moved state', RUN_MS, () => fresh().includes('3.5'));
   if (fresh().includes('2.5')) throw new Error('the fuse did not move the state of the node GUI');
   steps.push('the fuse moves the state of the node GUI');
-  const gui =`.react-flow__node[data-id="${A}"] .node-gui`;
+  const gui = `.react-flow__node[data-id="${A}"] .node-gui`;
   await checkWidgets(until, gui);
   await checkGuard(until);
   await checkGuiZoom(until, gui, wheel, scale);
@@ -62,6 +62,25 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   await api.capture('node-gui-full');
   full()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await until('the closed full size', RUN_MS, () => !full());
+  // A new wire builds again, and the new build takes the GUI state of A from the fused base (7.2).
+  const delay = 'd000000000000004';
+  const moveX = () => document.querySelector<HTMLInputElement>(`${gui} .gui-transform-fields input`)?.value;
+  from = mark();
+  v = await step('wire a delay after the baked node GUI', () =>
+    api.edit({
+      kind: 'Group',
+      edits: [
+        { kind: 'AddNode', id: delay, folder: 'delay', builtin: true, pos: [300, 300] },
+        { kind: 'Connect', from: `${A}.out`, to: `${delay}.value` },
+      ],
+    }),
+  );
+  const wired = await result(v, from, '3.5', BUILD_MS);
+  if (wired.builtMs === null) throw new Error('a new wire did not build the graph again');
+  if (fresh().includes('2.5')) throw new Error(`the build after a new wire did not move the GUI state: ${fresh().join(', ')}`);
+  await until('the transform X of the moved GUI state', RUN_MS, () => moveX() === '48.78');
+  v = await step('undo the delay', () => api.undo());
+  steps.push('a new wire moves the state of the node GUI');
   await step('pause', () => api.pause());
   v = await step('undo the node GUI', undoCode);
   steps.push('click a node GUI');

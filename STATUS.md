@@ -349,7 +349,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The reader cluster depends on the crates of the producer and of the steps before it, so a
   change of a batch node builds the frame cluster again too.
 - The editor selfcheck clicks **Bake** after a click in a node GUI. The fuse keeps the state of
-  that node from the slot. No check moved a state in the editor after a change of the wiring.
+  that node from the slot. Then it wires a delay after the node, and the new build keeps the
+  output and the transform of the node GUI (2026-11-17).
 - The modes have no debug assertions, so a `debug_assert!` in a node does not run (8.3).
 - The fuse builds in a background thread, so the graph runs on during a fuse (fixed
   2026-11-17). The engine loads the fused clusters only when no change, pause or step came after
