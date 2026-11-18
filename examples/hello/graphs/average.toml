@@ -1,0 +1,41 @@
+format = 1
+
+[symbol]
+shape = "chip"
+label = "AVG"
+
+[[node]]
+id = "c25224361d95e642"
+folder = "nodes/add"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "f89aa0be798300ec"
+folder = "nodes/operation"
+pos = [220.0, -20.0]
+
+[node.params]
+b = "2"
+op = "/"
+
+[[wire]]
+from = "c25224361d95e642.out"
+to = "f89aa0be798300ec.a"
+
+[[input]]
+key = "1c74073c"
+name = "a"
+pos = [-220.0, 0.0]
+to = ["c25224361d95e642.a"]
+
+[[input]]
+key = "6374e313"
+name = "b"
+pos = [-220.0, 60.0]
+to = ["c25224361d95e642.b"]
+
+[[output]]
+key = "ff42b1ff"
+name = "avg"
+pos = [500.0, 26.0]
+from = "f89aa0be798300ec.out"

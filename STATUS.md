@@ -19,6 +19,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
 - Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.
 - Subgraph tools: **New subgraph** in the **Graphs** group makes an empty subgraph. Two or more selected nodes show **Collapse into subgraph...** in the **Inspector**.
 - Editor menus: The **Project** panel has right-click menus, and the WebView menu does not show. A build keeps the node GUIs, and only the slot node shows **Compiling**.
@@ -249,6 +250,19 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   a compile error (2026-11-18). The engine test checks it. A hidden shot showed three problems.
 - Known limits: a generic input that resolves to a type with no parameter support still gives
   a compile error. The check does not find an `impl Param` that a macro makes.
+- The hello example has a pocket calculator (2026-11-18): two **keypad** nodes, an
+  **operation** with four keys, two paper **tape** nodes and an `average` subgraph with the
+  **AVG** chip. The unit tests of the nodes and the CLI tests pass. A hidden shot showed 36
+  and 7.5 on the tapes.
+- Known limits: a click on a key gives a new run, so the tape prints each edit, also an edit
+  that the user undoes. Nobody clicked the keys by hand.
+- The gpu example has a second row of lab nodes (2026-11-18): a **knob**, GPU color **bars**
+  with a WGSL `override` level, a GPU **mix** with a fader, a second monitor and a **waveform**
+  monitor. **gradient** has an **INV** switch, and **brightness** shows a histogram. The unit
+  tests of the nodes and the gpu CLI test pass. A hidden shot showed the bars, the mix and the
+  waveform.
+- Known limits: the bars and mix nodes make a new pipeline at each run. Nobody dragged the knob
+  or the fader by hand.
 
 ### Canvas speed
 

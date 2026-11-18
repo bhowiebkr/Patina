@@ -65,6 +65,14 @@ pub fn screen(c: &mut Canvas, [x, y]: [f32; 2], [w, h]: [f32; 2]) {
     }
 }
 
+/// A small screen with a value, at the right end of the top edge of a panel of the width `w`.
+pub fn readout(c: &mut Canvas, w: f32, text: &str) {
+    // A character of the font is about 6.6 pixels wide.
+    let tw = text.len() as f32 * 6.6 + 10.0;
+    round_rect(c, [w - 16.0 - tw, 6.0], [tw, 15.0], 3.0, SCREEN);
+    c.text([w - 11.0 - tw, 17.0], TRACE, text);
+}
+
 /// A bar of segments that shows `level` from 0 to 1, with marks at 0, 0.5 and 1 under it.
 pub fn bar(c: &mut Canvas, [x, y]: [f32; 2], w: f32, level: f64) {
     let (gap, step) = (2.0, w / SEGMENTS as f32);

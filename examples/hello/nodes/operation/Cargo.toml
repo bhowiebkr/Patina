@@ -1,0 +1,8 @@
+[package]
+name = "operation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+patina-sdk = { workspace = true }
+calc = { path = "../../widgets/calc" }

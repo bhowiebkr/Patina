@@ -162,12 +162,13 @@ builtin = \"delay\"
     let (tree, out) = cluster.ui(&Control::default(), "00000000000000f1", 0, "2 7");
     assert!(out.ok && tree.unwrap().ends_with("slider\tCount\t7\t0\t10"));
     assert!(cluster.ui(&Control::default(), "00000000000000f3", 0, "").0.is_none());
-    // Tick has a GUI, and so have the 4 number nodes and the 2 show nodes of hello.
-    assert!(cluster.guis().contains(&("00000000000000f1".to_owned(), true)) && cluster.guis().len() == 7, "{:?}", cluster.guis());
+    // Tick has a GUI, and so have the 4 number nodes, the 2 show nodes and the 6 calculator nodes.
+    assert!(cluster.guis().contains(&("00000000000000f1".to_owned(), true)) && cluster.guis().len() == 13, "{:?}", cluster.guis());
 
     // After an edit of mix, the new cluster gets the state of tick (7.2). An edit of tick changes
-    // its state key, so its count starts again. The number and show nodes keep their 6 states.
-    for (name, code, moved, count) in [("mix", MIX, 7, "7"), ("tick", TICK, 6, "0")] {
+    // its state key, so its count starts again. The number, show and calculator nodes keep their
+    // 12 states.
+    for (name, code, moved, count) in [("mix", MIX, 13, "7"), ("tick", TICK, 12, "0")] {
         fs::write(project.join("nodes").join(name).join("src/lib.rs"), format!("{code}// An edit.\n")).unwrap();
         let mut new = Project::open(&project).unwrap().check().unwrap().build(&toolchain, Mode::Edit).unwrap();
         assert_eq!(new.adopt(&mut cluster), moved, "{name}");
@@ -526,6 +527,11 @@ fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
     // The image on the wire of the gradient has a thumbnail of 64 x 16 pixels (5.3).
     let image = outcome.values.iter().find(|v| v.from == "1a2b3c4d5e6f7081.out").unwrap();
     assert!(image.thumb.starts_with("64 16 ") && image.thumb.len() == 6 + (64 * 16 * 4_usize).div_ceil(3) * 4, "{}", image.thumb.len());
+    // The mix gets the size of its first image, the color bars, and the waveform shows dots.
+    let mixed = outcome.values.iter().find(|v| v.from == "708192a3b4c5d6e7.out").unwrap();
+    assert_eq!(mixed.text, "GpuImage 128x72");
+    let tree = cluster.ui(&Control::default(), "92a3b4c5d6e7f809", 0, "").0.unwrap();
+    assert!(tree.starts_with("canvas\tWaveform ") && !tree.starts_with("canvas\tWaveform 0\t"), "{tree}");
     let tree = cluster.ui(&Control::default(), "4d5e6f708192a3b4", 0, "").0.unwrap();
     assert!(tree.starts_with("canvas\tPreview 64 x 16\t200\t") && tree.contains("\nplace\t\t18 28\nimage\t\t64\t16\t"), "{tree}");
 
@@ -573,7 +579,7 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     let graph = snapshot(opened.graph(), &[], &[], &[]);
     let mut view = View::load(&library, &project).unwrap();
     let frame = view.ui(0, "", &graph, None).unwrap();
-    assert_eq!(frame.tree, "label\t4 nodes, Some(\"2.5\"), 0 clicks, None\nbutton\tSet");
+    assert_eq!(frame.tree, "label\t10 nodes, Some(\"2.5\"), 0 clicks, None\nbutton\tSet");
     assert!(frame.edits.is_empty() && frame.select.is_none());
 
     // A click writes the parameter as an edit, and the view draws again with its new state.

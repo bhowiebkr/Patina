@@ -19,6 +19,14 @@ pub const INK: [u8; 3] = [28, 34, 26];
 const GHOST: [u8; 3] = [154, 168, 137];
 /// The cells of the solar panel.
 const SOLAR: [u8; 3] = [58, 40, 34];
+/// The cap of a key.
+pub const KEY: [u8; 3] = [74, 76, 82];
+/// The cap of an orange key, for clear.
+pub const ORANGE: [u8; 3] = [200, 106, 46];
+/// The dark edge under a key, so that the key stands up from the case.
+const KEY_EDGE: [u8; 3] = [18, 19, 21];
+/// The text on a key.
+const KEY_TEXT: [u8; 3] = [236, 237, 240];
 
 /// The segments a to g of the digits 0 to 9, with segment a in bit 0.
 const DIGITS: [u8; 10] = [0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F];
@@ -53,14 +61,30 @@ pub fn solar(c: &mut Canvas, [x, y]: [f32; 2]) {
 }
 
 /// An LCD with a bezel that shows `value` on `count` digits, at the right end.
-pub fn lcd(c: &mut Canvas, [x, y]: [f32; 2], count: usize, value: f64) {
+pub fn lcd(c: &mut Canvas, at: [f32; 2], count: usize, value: f64) {
+    lcd_text(c, at, count, &fit(value, count));
+}
+
+/// An LCD with a bezel that shows `text` on `count` digits, at the right end, for example a
+/// number that the user types.
+pub fn lcd_text(c: &mut Canvas, [x, y]: [f32; 2], count: usize, text: &str) {
     let h = 22.0;
     let size = [count as f32 * step(h) + 16.0, h + 14.0];
     round_rect(c, [x - 3.0, y - 3.0], [size[0] + 6.0, size[1] + 6.0], 5.0, BEZEL);
     round_rect(c, [x, y], size, 3.0, LCD);
-    for (i, bits) in cells(&fit(value, count), count).into_iter().enumerate() {
+    for (i, bits) in cells(text, count).into_iter().enumerate() {
         digit(c, [x + 9.0 + i as f32 * step(h), y + 7.0], h, bits);
     }
+}
+
+/// A key at `at` of `size`, with `label` in the middle. A key that is down sits lower, so a
+/// selected key shows as held.
+pub fn key(c: &mut Canvas, [x, y]: [f32; 2], [w, h]: [f32; 2], label: &str, cap: [u8; 3], down: bool) {
+    round_rect(c, [x, y + 2.0], [w, h - 2.0], 4.0, KEY_EDGE);
+    let top = if down { y + 2.0 } else { y };
+    round_rect(c, [x, top], [w, h - 2.0], 4.0, cap);
+    // A label character is about 6.6 pixels wide at the 12 pixel font of the canvas.
+    c.text([x + w / 2.0 - label.len() as f32 * 3.3, top + h / 2.0 + 3.0], KEY_TEXT, label);
 }
 
 /// The distance from one digit of the height `h` to the next.

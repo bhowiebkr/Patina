@@ -26,6 +26,45 @@ id = "3b7cec82f6a4ed1a"
 folder = "nodes/show"
 pos = [560.0, 60.0]
 
+[[node]]
+id = "e96d5b5f19862f00"
+folder = "nodes/keypad"
+pos = [0.0, 300.0]
+
+[node.params]
+value = "12"
+
+[[node]]
+id = "66812c659e3db8a9"
+folder = "nodes/keypad"
+pos = [0.0, 560.0]
+
+[node.params]
+value = "3"
+
+[[node]]
+id = "28dcabcba1481ff2"
+folder = "nodes/operation"
+pos = [280.0, 360.0]
+
+[node.params]
+op = "x"
+
+[[node]]
+id = "8810a76c02b79ca3"
+folder = "nodes/tape"
+pos = [560.0, 340.0]
+
+[[node]]
+id = "56c26e9cc04cbdfa"
+subgraph = "average"
+pos = [280.0, 620.0]
+
+[[node]]
+id = "21b65968b4dd1a38"
+folder = "nodes/tape"
+pos = [560.0, 580.0]
+
 [[wire]]
 from = "9bc1790966687030.out"
 to = "f89c6e329e8ea336.a"
@@ -37,3 +76,27 @@ to = "f89c6e329e8ea336.b"
 [[wire]]
 from = "f89c6e329e8ea336.out"
 to = "3b7cec82f6a4ed1a.value"
+
+[[wire]]
+from = "e96d5b5f19862f00.out"
+to = "28dcabcba1481ff2.a"
+
+[[wire]]
+from = "66812c659e3db8a9.out"
+to = "28dcabcba1481ff2.b"
+
+[[wire]]
+from = "28dcabcba1481ff2.out"
+to = "8810a76c02b79ca3.value"
+
+[[wire]]
+from = "e96d5b5f19862f00.out"
+to = "56c26e9cc04cbdfa.1c74073c"
+
+[[wire]]
+from = "66812c659e3db8a9.out"
+to = "56c26e9cc04cbdfa.6374e313"
+
+[[wire]]
+from = "56c26e9cc04cbdfa.ff42b1ff"
+to = "21b65968b4dd1a38.value"

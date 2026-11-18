@@ -36,3 +36,58 @@ pos = [280.0, 160.0]
 [[wire]]
 from = "1a2b3c4d5e6f7081.out"
 to = "4d5e6f708192a3b4.image"
+
+[[node]]
+id = "5e6f708192a3b4c5"
+folder = "nodes/knob"
+pos = [0.0, 340.0]
+
+[node.params]
+value = "0.75"
+
+[[node]]
+id = "6f708192a3b4c5d6"
+folder = "nodes/bars"
+pos = [200.0, 340.0]
+
+[node.params]
+width = "128"
+height = "72"
+
+[[node]]
+id = "708192a3b4c5d6e7"
+folder = "nodes/mix"
+pos = [440.0, 340.0]
+
+[node.params]
+amount = "0.3"
+
+[[node]]
+id = "8192a3b4c5d6e7f8"
+folder = "nodes/preview"
+pos = [700.0, 340.0]
+
+[[node]]
+id = "92a3b4c5d6e7f809"
+folder = "nodes/waveform"
+pos = [700.0, 540.0]
+
+[[wire]]
+from = "5e6f708192a3b4c5.out"
+to = "6f708192a3b4c5d6.level"
+
+[[wire]]
+from = "6f708192a3b4c5d6.out"
+to = "708192a3b4c5d6e7.a"
+
+[[wire]]
+from = "1a2b3c4d5e6f7081.out"
+to = "708192a3b4c5d6e7.b"
+
+[[wire]]
+from = "708192a3b4c5d6e7.out"
+to = "8192a3b4c5d6e7f8.image"
+
+[[wire]]
+from = "708192a3b4c5d6e7.out"
+to = "92a3b4c5d6e7f809.image"
