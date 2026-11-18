@@ -23,7 +23,8 @@ fn copy_dir(from: &Path, to: &Path) {
     fs::create_dir_all(to).unwrap();
     for entry in fs::read_dir(from).unwrap().map(Result::unwrap) {
         let (source, target) = (entry.path(), to.join(entry.file_name()));
-        if entry.file_name() == "build" {
+        // A cargo `target` folder is build output, not part of the project.
+        if entry.file_name() == "build" || (source.is_dir() && entry.file_name() == "target") {
             continue;
         } else if source.is_dir() {
             copy_dir(&source, &target);
@@ -41,7 +42,6 @@ fn cli(project: &Path, more: &[&str]) -> Command {
 
 /// Runs the CLI as `run` does, and calls `poke` about each 50 ms until the CLI ends. Stops the CLI
 /// after 300 s.
-#[allow(dead_code)]
 pub fn run_while(project: &Path, more: &[&str], mut poke: impl FnMut()) -> (ExitStatus, String, String) {
     let (out, err) = (project.with_extension("out"), project.with_extension("err"));
     let mut child = cli(project, more).stdout(fs::File::create(&out).unwrap()).stderr(fs::File::create(&err).unwrap()).spawn().unwrap();

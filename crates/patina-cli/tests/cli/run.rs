@@ -11,11 +11,8 @@ use std::time::Instant;
 
 use patina_engine::{Cluster, Control, Lanes, Mode, Project, Toolchain};
 
-mod nodes;
-use nodes::{HOLD, KIND, METER, MIX, SPEAKER, TICK, TONE, ZERO};
-
-mod common;
-use common::{copy, run};
+use crate::common::{copy, run};
+use crate::nodes::{HOLD, KIND, METER, MIX, SPEAKER, TICK, TONE, ZERO};
 
 thread_local! {
     static COUNTING: Cell<bool> = const { Cell::new(false) };

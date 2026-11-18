@@ -3,8 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-mod common;
-use common::{copy, run};
+use crate::common::{copy, run};
 use patina_engine::view::{View, snapshot};
 use patina_engine::{Project, Toolchain};
 

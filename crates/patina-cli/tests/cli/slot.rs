@@ -6,10 +6,7 @@ use std::time::Instant;
 
 use patina_engine::{Control, Mode, Project, Toolchain};
 
-// The slot tests do not run the CLI.
-#[allow(dead_code)]
-mod common;
-use common::copy;
+use crate::common::copy;
 
 fn hello() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello")

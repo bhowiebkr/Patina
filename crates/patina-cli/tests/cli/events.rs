@@ -6,8 +6,7 @@ use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::Path;
 use std::process::Command;
 
-mod common;
-use common::{copy, run, run_while};
+use crate::common::{copy, run, run_while};
 
 /// An async node. Run 1 waits 1 s, the other runs do not wait. It gives 10 x the run ID plus the
 /// number of active runs at its start.
