@@ -333,9 +333,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   **Show inner nodes** shows the values of one use.
 - **Import** and **Update** work only from a trusted project. A renamed folder keeps the comments
   and the key order of its `Cargo.toml` (fixed 2026-11-17, before they were lost). The import
-  test checks a comment. A temporary test with the real toolchain on Windows imported a node and
-  built it, put back an update that did not compile, and built a good update. The test is not
-  in the repository. The two dialogs did not run in the window yet.
+  test checks a comment. A CLI test with the real toolchain imports a node and builds it. It
+  puts back an update that does not compile, then builds and runs a good update. The two
+  dialogs did not run in the window yet.
 
 ### Milestone 6: layers
 
