@@ -10,6 +10,7 @@ import { lowContrast } from './contrast';
 import { noFocusLook } from './focus';
 import { textsMeet } from './boxes';
 import { GAP } from '../wires/route';
+import { skippedShape } from '../controls/gui';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -155,6 +156,18 @@ function guiFit(where: string) {
   // A public pin shows its name in its header only, not again in its bus socket (15.9).
   for (const head of document.querySelectorAll('.port .bus-socket-head'))
     if (!head.textContent?.startsWith('[')) bad.push(`the bus socket of ${head.closest('.react-flow__node')?.getAttribute('data-id')} repeats the name in "${head.textContent}"`);
+  // A free layout with a bus pin keeps the contacts of each lane in columns beside its drawing (4.3).
+  for (const node of document.querySelectorAll('.patina-node.socketed')) {
+    const id = node.closest('.react-flow__node')?.getAttribute('data-id');
+    const drawing = node.querySelector('.socketed-gui')?.getBoundingClientRect();
+    if (!drawing?.width) bad.push(`the socketed node ${id} shows no drawing`);
+    for (const socket of node.querySelectorAll('.bus-socket'))
+      if (!socket.querySelector('.bus-contact')) bad.push(`a bus socket of ${id} has no contacts`);
+    for (const e of node.querySelectorAll('.bus-contact, .bus-socket-head, .patina-row > span')) {
+      const r = e.getBoundingClientRect();
+      if (drawing && r.width && Math.min(r.right, drawing.right) - Math.max(r.left, drawing.left) > 0.5 && Math.min(r.bottom, drawing.bottom) - Math.max(r.top, drawing.top) > 0.5) bad.push(`the drawing of ${id} covers "${e.textContent}"`);
+    }
+  }
   // The order pins are in the row of the caption of a free node, so they must not cover its icons (15.3).
   for (const icon of document.querySelectorAll('.free-caption > :not(.title)')) {
     const [r, node] = [icon.getBoundingClientRect(), icon.closest('.react-flow__node')];
@@ -166,7 +179,7 @@ function guiFit(where: string) {
   for (const [i, [a, p]] of nodes.entries())
     for (const [b, q] of nodes.slice(i + 1)) if (Math.min(p.right, q.right) - Math.max(p.left, q.left) > 2 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 2) bad.push(`over ${a} ${b}`);
   if (bad.length) throw new Error(`the layout of ${where} is wrong: ${bad.join(', ')}`);
-  return `fit ${where}: ${seen} widgets, ${document.querySelectorAll('svg.gui-canvas text, .patina-node.symbol > svg text').length} drawn texts and ${nodes.length} nodes`;
+  return `fit ${where}: ${seen} widgets, ${document.querySelectorAll('svg.gui-canvas text, .patina-node.symbol > svg text').length} drawn texts, ${nodes.length} nodes and ${document.querySelectorAll('.patina-node.socketed').length} socketed nodes`;
 }
 
 /** The buttons, fields and tabs in `root` that have no accessible name, for a screen reader (15.3). */
@@ -636,6 +649,13 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     };
     const nodes = document.querySelectorAll('.react-flow__node');
     await zoom(nodes[nodes.length - 1], 'main');
+    // A free layout with bus pins shows its sockets beside the drawing (4.3). The widest one shows the most.
+    const socketed = [...document.querySelectorAll('.patina-node.socketed')].sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
+    if (socketed) {
+      button('Fit')?.click();
+      await sleep(500);
+      await zoom(socketed, 'main-socket');
+    }
     // The taps and the drags of the node GUIs, which a person does with the mouse (4.3).
     const before = events.length;
     const poked = [];
@@ -703,6 +723,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
       }
     };
     await visit(v, []);
+    if (skippedShape) throw new Error(`the canvas "${skippedShape}" has a shape that the editor skips (4.3)`);
+    steps.push('no skipped canvas shapes');
     await api.checkDone({ ok: true, steps });
   } catch (e) {
     await api.checkDone({ ok: false, steps, error: String(e) });

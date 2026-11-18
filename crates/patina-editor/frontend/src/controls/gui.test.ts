@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyTransform, dragTransform, escapeCode, eventLine, freeLayout, movePivot, nest, nodeWidth, parseTree, rampGradient, scaleTo, stepped, transformEvent, unescapeCode } from './gui.ts';
+import { applyTransform, dragTransform, escapeCode, eventLine, freeLayout, movePivot, nest, nodeWidth, parseTree, rampGradient, scaleTo, skippedShape, stepped, transformEvent, unescapeCode } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
   const tree = 'label\tTick\nwheel\tX\nbutton\tReset\ntoggle\tOn\t1\nslider\tCount\t2.5\t0\t10\nslider\tBad\tx\t0\t1';
@@ -224,6 +224,13 @@ test('a free layout reads the pin places, the widget places and the paths', () =
   const [canvas, label] = parseTree(tree);
   assert.deepEqual(canvas.kind === 'canvas' && canvas.shapes, [{ kind: 'path', d: 'M 0 0 L 48 0 Z', color: '#ffffff', fill: true }]);
   assert.equal(label.index, 4);
+  assert.equal(skippedShape, 'Knob');
+  // A path of more than 4096 characters also drops, but the keys and grab words are no shapes.
+  const [long] = parseTree(`canvas	Long	8	8	keys	grab	path #ffffff 1 ${'M 0 0 h 8 v 8 h -8 Z '.repeat(200)}`);
+  assert.deepEqual(long.kind === 'canvas' && long.shapes, []);
+  assert.equal(skippedShape, 'Long');
+  parseTree('canvas	Good	8	8	keys	grab');
+  assert.equal(skippedShape, 'Long');
 });
 
 test('a transform line reads its frame, its values and its image, and a bad line drops', () => {

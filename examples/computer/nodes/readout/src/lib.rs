@@ -1,11 +1,8 @@
-use parts::{SILK, board, digits, glass, led};
+use parts::{SILK, digits, edges, package, window};
 use patina_sdk::{Ui, node};
 
-/// The labels of the bits, from the high bit.
-const BITS: [&str; 8] = ["7", "6", "5", "4", "3", "2", "1", "0"];
-
-/// Shows a byte as 8 LEDs, as two hex digits and as a decimal number. A change writes it to the
-/// standard output.
+/// Shows a byte as two hex digits and as a decimal number. The socket of `value` shows the 8 bits.
+/// A change writes the byte to the standard output.
 #[node(color = "#59366f", free_layout)]
 pub struct Readout {
     value: u8,
@@ -25,20 +22,12 @@ impl Readout {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let (text, number) = (self.text(), self.value);
-        let size = [240.0, 62.0];
-        let mut c = ui.canvas(&format!("{text} = {number}"), size);
-        board(&mut c, size);
-        for (i, bit) in BITS.iter().enumerate() {
-            // A gap splits the two hex digits.
-            let x = 18.0 + 18.0 * i as f32 + if i > 3 { 8.0 } else { 0.0 };
-            c.text([x - 3.5, 18.0], SILK, bit);
-            led(&mut c, [x, 30.0], 5.0, number >> (7 - i) & 1 == 1);
-        }
-        c.text([12.0, 54.0], SILK, &format!("dec {number}"));
-        glass(&mut c, [166.0, 9.0], [66.0, 44.0]);
-        digits(&mut c, [177.0, 16.0], 30.0, 2, &format!("{number:02X}"));
-        drop(c);
-        ui.pin("value", [0.0, 30.0]);
+        let (e, w) = (edges(&[8], &[]), 136.0);
+        let mut c = ui.canvas(&format!("{text} = {number}"), [w, e.height]);
+        let [x0, _] = package(&mut c, &e, w);
+        window(&mut c, [x0 + 10.0, 14.0], [84.0, 70.0]);
+        digits(&mut c, [x0 + 19.0, 25.0], 48.0, 2, &format!("{number:02X}"));
+        c.text([x0 + 10.0, 104.0], SILK, &format!("HEX  dec {number}"));
     }
 
     fn text(&self) -> String {

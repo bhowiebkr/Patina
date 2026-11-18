@@ -1,11 +1,12 @@
-use frame::{Frame, SIZE};
-use parts::{PIN_STEP, SILK, board, chip, pin_names};
+use frame::{Frame, PALETTE, SIZE};
+use parts::{EDGE, SILK, TEXT, digits, edges, package, round_rect, window};
 use patina_sdk::{Ui, node};
+use std::fmt::Write;
 
-/// The size of the board.
-const BOARD: [f32; 2] = [212.0, 96.0];
-/// The inputs on the left edge, in order.
-const PINS: [&str; 5] = ["bus", "data", "port", "wr", "address"];
+/// The width of the drawing of the chip.
+const WIDTH: f32 = 284.0;
+/// The size of a pixel of the frame on the chip.
+const DOT: f32 = 6.0;
 
 /// A small video chip on the IO ports of the CPU. It keeps a frame of 32 x 32 pixels with 16 colors
 /// and gives it to the screen. When `wr` is on, the CPU writes `data` to the register at `port`:
@@ -56,20 +57,48 @@ impl Gpu {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        {
-            let mut c = ui.canvas(&format!("GPU X {} Y {}", self.x, self.y), BOARD);
-            board(&mut c, BOARD);
-            pin_names(&mut c, 16.0, &["bus", "data", "port", "wr", "adr"]);
-            chip(&mut c, [48.0, 14.0], [120.0, 68.0], "GPU");
-            c.text([64.0, 58.0], SILK, &format!("X {}  Y {}", self.x, self.y));
-            c.text([176.0, 36.0], SILK, "frame");
-            c.text([186.0, 68.0], SILK, "bus");
+        let e = edges(&[8, 8, 8, 0, 8], &[0, 8]);
+        let mut c = ui.canvas(&format!("GPU X {} Y {}", self.x, self.y), [WIDTH, e.height]);
+        let [x0, _] = package(&mut c, &e, WIDTH);
+        c.text([x0 + 18.0, 24.0], TEXT, "GPU");
+        c.text([x0 + 56.0, 24.0], SILK, "32 x 32 x 16");
+        // The frame in the video memory: one path for each color, with a rectangle for each run of a row.
+        let [left, top] = [x0 + 18.0, 38.0];
+        window(&mut c, [left - 4.0, top - 4.0], [SIZE as f32 * DOT + 8.0; 2]);
+        let mut paths: [String; 16] = Default::default();
+        for (y, row) in self.frame.0.chunks(SIZE).enumerate() {
+            let mut x = 0;
+            while x < SIZE {
+                let run = row[x..].iter().take_while(|&&p| p == row[x]).count();
+                if row[x] != 0 {
+                    let (at, w) = ([left + x as f32 * DOT, top + y as f32 * DOT], run as f32 * DOT);
+                    let _ = write!(paths[usize::from(row[x] % 16)], "M {} {} h {w} v {DOT} h -{w} Z ", at[0], at[1]);
+                }
+                x += run;
+            }
         }
-        for (i, key) in PINS.iter().enumerate() {
-            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
+        for (d, color) in paths.iter().zip(PALETTE).filter(|(d, _)| !d.is_empty()) {
+            c.path(d, color, true);
         }
-        ui.pin("out0", [BOARD[0], 32.0]);
-        ui.pin("out1", [BOARD[0], 64.0]);
+        c.rect([left + self.x as f32 * DOT - 1.0, top + self.y as f32 * DOT - 1.0], [DOT + 2.0; 2], TEXT, false);
+        // The place of the next pixel.
+        window(&mut c, [x0 + 14.0, 246.0], [200.0, 36.0]);
+        c.text([x0 + 26.0, 269.0], SILK, "X");
+        digits(&mut c, [x0 + 40.0, 252.0], 24.0, 2, &self.x.to_string());
+        c.text([x0 + 110.0, 269.0], SILK, "Y");
+        digits(&mut c, [x0 + 124.0, 252.0], 24.0, 2, &self.y.to_string());
+        c.text([x0 + 14.0, 304.0], SILK, "PALETTE");
+        for (i, color) in PALETTE.into_iter().enumerate() {
+            let at = [x0 + 14.0 + (i % 8) as f32 * 25.0, 312.0 + (i / 8) as f32 * 18.0];
+            round_rect(&mut c, at, [22.0, 14.0], 2.0, color);
+            c.rect(at, [22.0, 14.0], EDGE, false);
+        }
+        c.text([x0 + 14.0, 368.0], SILK, "REGISTERS");
+        for (i, name) in ["X", "Y", "PLOT", "CLEAR"].into_iter().enumerate() {
+            let y = 390.0 + i as f32 * 20.0;
+            c.text([x0 + 14.0, y], SILK, &format!("+{i}"));
+            c.text([x0 + 44.0, y], TEXT, name);
+        }
     }
 }
 

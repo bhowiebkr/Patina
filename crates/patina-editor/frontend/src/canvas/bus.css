@@ -144,6 +144,69 @@
   margin-right: -3.5px;
 }
 
+/* A free layout with a bus pin (4.3): a socket column of COLUMN (NodeView.tsx) on each side of the drawing. */
+.patina-node.socketed .bus-socket {
+  width: 96px;
+}
+
+.patina-node.socketed .patina-row > span {
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A lead goes on from each contact and each pin label to the finger of the drawing at the column edge. */
+.patina-node.socketed .bus-socket.in .bus-contact {
+  right: 0;
+}
+
+.patina-node.socketed .bus-socket.out .bus-contact {
+  left: 0;
+}
+
+.patina-node.socketed .bus-contact::after {
+  content: '';
+  flex: 1 0 6px;
+  height: 1.5px;
+  background: color-mix(in srgb, var(--lane) 30%, var(--node));
+}
+
+.patina-node.socketed .bus-contact.on::after {
+  background: var(--lane);
+}
+
+.patina-node.socketed .bus-socket.stale .bus-contact.on::after {
+  background: color-mix(in srgb, var(--lane) 65%, black);
+}
+
+.patina-node.socketed .bus-contact.hot::after {
+  background: var(--accent);
+}
+
+.patina-node.socketed .patina-row > span:not(:empty) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 84px;
+  min-width: 0;
+  height: 24px;
+}
+
+.patina-node.socketed .patina-row > span:not(:empty)::after {
+  content: '';
+  flex: 1 0 6px;
+  height: 1.5px;
+  background: var(--subtle);
+}
+
+.patina-node.socketed .patina-row > span:last-child:not(:empty) {
+  flex-direction: row-reverse;
+}
+
+.socketed-gui {
+  position: absolute;
+}
+
 /* A public pin of a bus type: the socket fills the pin box, and the bar has the pin colors. */
 .patina-node.port.bus {
   width: 150px;

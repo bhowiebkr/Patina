@@ -29,10 +29,10 @@ export function OrderEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
   );
 }
 
-/** True for a node that shows its pins as dots: a free layout or a circuit symbol (4.3). */
+/** True for a node that shows its pins as dots: a circuit symbol, or a free layout with no bus socket (4.3). */
 function dots(n: { type?: string; data: unknown } | undefined) {
   const d = n?.type === 'patina' ? (n.data as NodeData) : undefined;
-  return !!d && !d.open && (!!d.info?.symbol || (!!d.info?.free && d.gui !== undefined));
+  return !!d && !d.open && (!!d.info?.symbol || (!!d.info?.free && d.gui !== undefined && d.sockets === undefined));
 }
 
 const CONFLICT = 'No clear path around the nodes. Move a node or a route point.';

@@ -174,12 +174,12 @@
   box-shadow: none;
 }
 
-.patina-node.free .node-gui {
+.patina-node:is(.free, .socketed) .node-gui {
   padding: 0;
   border-top: 0;
 }
 
-.patina-node.free .gui-canvas {
+.patina-node:is(.free, .socketed) .gui-canvas {
   background: none;
   border: 0;
   border-radius: 0;
@@ -187,7 +187,7 @@
 }
 
 /* The label of a canvas stays its accessible name, so the drawing starts at the pin and place origin (4.3). */
-.patina-node.free .gui-canvas-row > .label {
+.patina-node:is(.free, .socketed) .gui-canvas-row > .label {
   display: none;
 }
 
@@ -208,14 +208,14 @@
 
 /* The caption and the order pins of a free node show only when they help, so the shape stays clean (4.3).
    Opacity keeps their places, so the order wires stay on their pins. */
-.patina-node.free > :is(.free-caption, .order-pin) {
+.patina-node:is(.free, .socketed) > :is(.free-caption, .order-pin) {
   opacity: 0;
   transition: opacity 0.12s;
 }
 
-.react-flow__node:hover .patina-node.free > :is(.free-caption, .order-pin),
-.patina-node.free:is(.selected, :focus-within, .compile-error, .run-error) > :is(.free-caption, .order-pin),
-.react-flow:has(.react-flow__connectionline) .patina-node.free > .order-pin {
+.react-flow__node:hover .patina-node:is(.free, .socketed) > :is(.free-caption, .order-pin),
+.patina-node:is(.free, .socketed):is(.selected, :focus-within, .compile-error, .run-error) > :is(.free-caption, .order-pin),
+.react-flow:has(.react-flow__connectionline) .patina-node:is(.free, .socketed) > .order-pin {
   opacity: 1;
 }
 

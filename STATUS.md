@@ -717,6 +717,17 @@ domain free of locks. These limits are still open:
   that no routed wire of another output goes through a badge.
 - The **value** output of counter-4 in computer showed its name two times, in the header and
   in the bus socket (fixed 2026-11-18). The socket of a public pin now shows only `[7:0]`.
+- The chip drawings of computer, for example **gpu**, **ram** and **sprites**, showed bus pins as
+  dots with no contacts (fixed 2026-11-18). A node with a free layout and a bus pin now shows a
+  socket column on each side of the drawing (4.3). The drawings no longer draw pin names. The
+  shot checks that each bus pin of such a node has its contacts and that the drawing does not
+  cover a column. Each chip is now a package with gold fingers, copper traces and legs at the
+  contact rows, and a lead goes from each contact to its finger. The bottom row of the main graph
+  moved to the right, so no wire goes through the bigger chips.
+- The memory map of **ram** in computer showed no empty cells (fixed 2026-11-18). The path of
+  the empty cells had more than 4096 characters, and the editor skips such a path with no
+  message. The map now draws one path for each row. The shot now fails when a canvas has a
+  skipped shape.
 - Two equal bus labels `address[7:0] / 8` on one trunk ran together with no space in computer
   (fixed 2026-11-18). A label now hides when a shown label is nearer than 4 px. The shot
   checks that no two shown labels touch.

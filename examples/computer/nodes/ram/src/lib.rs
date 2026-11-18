@@ -1,5 +1,6 @@
-use parts::{PIN_STEP, SILK, board, chip, pin_names};
+use parts::{LIT, SILK, TEXT as WHITE, UNLIT, digits, edges, mix, package, window};
 use patina_sdk::{Mode, Ui, node};
+use std::fmt::Write;
 
 const TEXT: [u8; 3] = [178, 178, 173];
 const DIM: [u8; 3] = [102, 102, 97];
@@ -7,10 +8,8 @@ const ON: [u8; 3] = [223, 166, 75];
 const BACK: [u8; 3] = [24, 24, 23];
 const MARK: [u8; 3] = [70, 54, 26];
 const CELL: [f32; 2] = [20.0, 15.0];
-/// The size of the board of the compact GUI.
-const BOARD: [f32; 2] = [212.0, 96.0];
-/// The inputs on the left edge, in order.
-const PINS: [&str; 3] = ["address", "data", "write"];
+/// The width of the drawing of the chip.
+const WIDTH: f32 = 252.0;
 
 /// A RAM chip of 256 bytes. It gives the byte at `address`. When `write` is on, the byte at
 /// `address` gets `data` after the read, as at the clock edge of a real chip. The node shows the
@@ -42,18 +41,35 @@ impl Ram {
         let at = self.address;
         let text = format!("{at:02X}: {:02X}", self.bytes[usize::from(at)]);
         if ui.mode() == Mode::Compact {
-            {
-                let mut c = ui.canvas(&format!("RAM {text}"), BOARD);
-                board(&mut c, BOARD);
-                pin_names(&mut c, 16.0, &["adr", "data", "wr"]);
-                chip(&mut c, [48.0, 14.0], [120.0, 68.0], "RAM 256 x 8");
-                c.text([64.0, 58.0], SILK, &text);
-                c.text([186.0, 52.0], SILK, "out");
+            let e = edges(&[8, 8, 0], &[8]);
+            let mut c = ui.canvas(&format!("RAM {text}"), [WIDTH, e.height]);
+            let [x0, _] = package(&mut c, &e, WIDTH);
+            c.text([x0 + 18.0, 24.0], WHITE, "RAM");
+            c.text([x0 + 52.0, 24.0], SILK, "256 x 8");
+            // The memory map: one cell for each byte, brighter for a larger byte. One path for each
+            // row keeps each path under the limit of the editor (4.3).
+            window(&mut c, [x0 + 14.0, 34.0], [168.0, 168.0]);
+            let mut levels: [String; 5] = Default::default();
+            for (row, bytes) in self.bytes.chunks(16).enumerate() {
+                let y = 38.0 + row as f32 * 10.0;
+                for (col, &byte) in bytes.iter().enumerate() {
+                    let level = if byte == 0 { 0 } else { 1 + usize::from(byte >> 6) };
+                    let _ = write!(levels[level], "M {} {y} h 8 v 8 h -8 Z ", x0 + 18.0 + col as f32 * 10.0);
+                }
+                for (level, d) in levels.iter_mut().enumerate().filter(|(_, d)| !d.is_empty()) {
+                    let t = if level == 0 { 0.0 } else { 0.2 + 0.2 * level as f32 };
+                    c.path(d, mix(UNLIT, LIT, t), true);
+                    d.clear();
+                }
             }
-            for (i, key) in PINS.iter().enumerate() {
-                ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
-            }
-            ui.pin("out", [BOARD[0], 48.0]);
+            let [x, y] = [x0 + 18.0 + f32::from(at % 16) * 10.0, 38.0 + f32::from(at / 16) * 10.0];
+            c.rect([x - 1.5, y - 1.5], [11.0, 11.0], WHITE, false);
+            // The address and the byte of the last access.
+            window(&mut c, [x0 + 14.0, 212.0], [168.0, 36.0]);
+            c.text([x0 + 24.0, 235.0], SILK, "A");
+            digits(&mut c, [x0 + 38.0, 218.0], 24.0, 2, &format!("{at:02X}"));
+            c.text([x0 + 98.0, 235.0], SILK, "D");
+            digits(&mut c, [x0 + 112.0, 218.0], 24.0, 2, &format!("{:02X}", self.bytes[usize::from(at)]));
             return;
         }
         ui.label(&text);
@@ -101,5 +117,10 @@ mod tests {
         let mut ui = Ui::new(0, "");
         ram.ui(&mut ui);
         assert!(ui.tree().starts_with("canvas\tRAM 2A: BE\t"), "{}", ui.tree());
+        // The editor skips a path of more than 4096 characters (4.3), also when all bytes are set.
+        ram.bytes = [0xFF; 256];
+        let mut full = Ui::new(0, "");
+        ram.ui(&mut full);
+        assert!(full.tree().split('\t').all(|field| field.len() <= 4096));
     }
 }

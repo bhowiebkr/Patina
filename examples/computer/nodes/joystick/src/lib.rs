@@ -1,24 +1,22 @@
 use pad::{DOWN, FIRE, LEFT, RIGHT, UP, button};
-use parts::{BODY, GLASS, LIT, PIN_STEP, SILK, board, pin_names, round_rect};
+use parts::{BODY, GLASS, LIT, SILK, TEXT, edges, led, package, round_rect};
 use patina_sdk::{Key, Mode, Pointer, Ui, node};
 
 /// The cap of the fire button when it is up.
 const CAP: [u8; 3] = [101, 82, 25];
-/// The size of the board.
-const SIZE: [f32; 2] = [176.0, 88.0];
-/// The inputs on the left edge, in order.
-const PINS: [&str; 3] = ["bus", "port", "address"];
+/// The width of the drawing of the chip.
+const WIDTH: f32 = 224.0;
 
 /// The buttons of the pad: the bit, the top left corner and the size. The arrows make a cross.
 const PAD: [(u8, [f32; 2], [f32; 2]); 5] = [
-    (UP, [74.0, 12.0], [20.0, 22.0]),
-    (DOWN, [74.0, 54.0], [20.0, 22.0]),
-    (LEFT, [52.0, 34.0], [22.0, 20.0]),
-    (RIGHT, [94.0, 34.0], [22.0, 20.0]),
-    (FIRE, [128.0, 24.0], [32.0, 32.0]),
+    (UP, [97.0, 70.0], [30.0, 34.0]),
+    (DOWN, [97.0, 136.0], [30.0, 34.0]),
+    (LEFT, [62.0, 105.0], [34.0, 30.0]),
+    (RIGHT, [128.0, 105.0], [34.0, 30.0]),
+    (FIRE, [82.0, 220.0], [60.0, 60.0]),
 ];
 /// The arrow on each arm of the cross, in the order of `PAD`.
-const ARROWS: [&str; 4] = ["M 84 17 L 89 24 L 79 24 Z", "M 84 71 L 89 64 L 79 64 Z", "M 57 44 L 64 39 L 64 49 Z", "M 111 44 L 104 39 L 104 49 Z"];
+const ARROWS: [&str; 4] = ["M 112 78 L 120 92 L 104 92 Z", "M 112 162 L 120 148 L 104 148 Z", "M 70 120 L 84 112 L 84 128 Z", "M 154 120 L 140 112 L 140 128 Z"];
 
 /// A joystick on IO ports of the CPU. Click the pad, then hold the arrow keys or W, A, S and D,
 /// and Space for fire. A mouse press on a button of the pad holds it too, and so do the keys of the
@@ -53,7 +51,8 @@ impl Joystick {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        let mut pad = ui.canvas("Pad", SIZE);
+        let e = edges(&[8, 8, 8], &[8]);
+        let mut pad = ui.canvas("Pad", [WIDTH, e.height]);
         pad.grab();
         for key in pad.keys() {
             match key {
@@ -69,24 +68,27 @@ impl Joystick {
         }
         let held = self.keys | self.mouse | pad::held();
         let color = |bit: u8, off: [u8; 3]| if held & bit != 0 { LIT } else { off };
-        board(&mut pad, SIZE);
-        pin_names(&mut pad, 20.0, &["bus", "port", "adr"]);
+        package(&mut pad, &e, WIDTH);
+        pad.text([46.0, 24.0], TEXT, "PAD");
+        pad.text([84.0, 24.0], SILK, "JOYSTICK");
         // The cross of the arrows, with a lit arm for each held arrow.
-        round_rect(&mut pad, [72.0, 10.0], [24.0, 68.0], 4.0, GLASS);
-        round_rect(&mut pad, [50.0, 32.0], [68.0, 24.0], 4.0, GLASS);
-        pad.rect([74.0, 34.0], [20.0, 20.0], BODY, true);
+        round_rect(&mut pad, [94.0, 67.0], [36.0, 106.0], 5.0, GLASS);
+        round_rect(&mut pad, [59.0, 102.0], [106.0, 36.0], 5.0, GLASS);
+        pad.rect([96.0, 104.0], [32.0, 32.0], BODY, true);
         for ((bit, at, size), arrow) in PAD.iter().zip(ARROWS) {
-            round_rect(&mut pad, *at, *size, 3.0, color(*bit, BODY));
+            round_rect(&mut pad, *at, *size, 4.0, color(*bit, BODY));
             pad.path(arrow, if held & bit != 0 { GLASS } else { SILK }, true);
         }
-        pad.circle([144.0, 40.0], 17.0, GLASS, true);
-        pad.circle([144.0, 40.0], 14.0, color(FIRE, CAP), true);
-        pad.text([129.0, 76.0], SILK, "FIRE");
-        drop(pad);
-        for (i, key) in PINS.iter().enumerate() {
-            ui.pin(key, [0.0, 20.0 + i as f32 * PIN_STEP]);
+        pad.circle([112.0, 250.0], 32.0, GLASS, true);
+        pad.circle([112.0, 250.0], 26.0, color(FIRE, CAP), true);
+        pad.text([97.0, 302.0], SILK, "FIRE");
+        // An LED for each button bit of the value that the port gives.
+        for (i, (bit, name)) in [(UP, "U"), (DOWN, "D"), (LEFT, "L"), (RIGHT, "R"), (FIRE, "F")].into_iter().enumerate() {
+            let x = 68.0 + i as f32 * 22.0;
+            led(&mut pad, [x, 318.0], 4.0, held & bit != 0);
+            pad.text([x - 4.0, 338.0], SILK, name);
         }
-        ui.pin("out", [SIZE[0], 44.0]);
+        drop(pad);
         if ui.mode() != Mode::Compact {
             ui.label("Click the pad, then hold");
             ui.label("the arrow keys and Space.");
@@ -120,13 +122,13 @@ mod tests {
     #[test]
     fn the_pad_reads_the_keys_and_the_mouse() {
         let mut stick = Joystick::init();
-        let mut ui = Ui::new(0, "0 key down ArrowUp\n0 key down KeyD\n0 key up ArrowUp\n0 down 144 40");
+        let mut ui = Ui::new(0, "0 key down ArrowUp\n0 key down KeyD\n0 key up ArrowUp\n0 down 112 250");
         stick.ui(&mut ui);
         assert_eq!((stick.keys, stick.mouse), (RIGHT, FIRE));
-        assert!(ui.tree().starts_with("canvas\tPad\t176\t88\tgrab\tkeys\t"));
-        stick.ui(&mut Ui::new(0, "0 move 84 20\n0 up 84 20"));
+        assert!(ui.tree().starts_with("canvas\tPad\t224\t354\tgrab\tkeys\t"));
+        stick.ui(&mut Ui::new(0, "0 move 112 85\n0 up 112 85"));
         assert_eq!(stick.mouse, 0);
-        stick.ui(&mut Ui::new(0, "0 down 84 20"));
+        stick.ui(&mut Ui::new(0, "0 down 112 85"));
         assert_eq!(stick.mouse, UP);
         assert_eq!(hit([200.0, 0.0]), 0);
     }

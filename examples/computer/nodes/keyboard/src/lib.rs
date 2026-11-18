@@ -1,4 +1,4 @@
-use parts::{LIT, PIN_STEP, SILK, TEXT, board, glass, pin_names};
+use parts::{BODY, GLASS, LIT, SILK, TEXT, digits, edges, package, round_rect, window};
 use patina_sdk::{Ui, node};
 use std::collections::VecDeque;
 
@@ -6,10 +6,10 @@ use std::collections::VecDeque;
 const BUFFER: usize = 64;
 /// The ASCII code of the Enter key.
 const ENTER: u8 = 13;
-/// The size of the board.
-const SIZE: [f32; 2] = [232.0, 84.0];
-/// The inputs on the left edge, in order.
-const PINS: [&str; 3] = ["port", "rd", "address"];
+/// The width of the drawing of the chip.
+const WIDTH: f32 = 260.0;
+/// The rows of keys on the face of the chip, with the indent of each row.
+const KEYS: [(&str, f32); 4] = [("1234567890", 0.0), ("QWERTYUIOP", 0.0), ("ASDFGHJKL", 9.0), ("ZXCVBNM", 18.0)];
 /// The number of waiting keys that the glass shows.
 const SHOWN: usize = 19;
 
@@ -38,24 +38,49 @@ impl Keyboard {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let waiting: String = self.keys.iter().map(|&k| if k == ENTER { '|' } else { char::from(k) }).collect();
-        {
-            let mut c = ui.canvas(&format!("Buffer {waiting}"), SIZE);
-            board(&mut c, SIZE);
-            pin_names(&mut c, 20.0, &["port", "rd", "adr"]);
+        let e = edges(&[8, 0, 8], &[8]);
+        let x0 = {
+            let mut c = ui.canvas(&format!("Buffer {waiting}"), [WIDTH, e.height]);
+            let [x0, _] = package(&mut c, &e, WIDTH);
+            c.text([x0 + 18.0, 24.0], TEXT, "KBD");
+            c.text([x0 + 56.0, 24.0], SILK, "ASCII  FIFO 64");
             // The key buffer on the glass, the next key for the CPU first and lit.
-            glass(&mut c, [44.0, 40.0], [180.0, 24.0]);
+            window(&mut c, [x0 + 12.0, 62.0], [180.0, 22.0]);
             let mut one = [0u8; 4];
             for (i, key) in waiting.chars().take(SHOWN).enumerate() {
                 let color = if i == 0 { LIT } else { TEXT };
-                c.text([50.0 + i as f32 * 9.0, 57.0], color, key.encode_utf8(&mut one));
+                c.text([x0 + 18.0 + i as f32 * 9.0, 77.0], color, key.encode_utf8(&mut one));
             }
-            c.text([44.0, 78.0], SILK, &format!("FIFO {}/{BUFFER}", self.keys.len()));
-        }
-        for (i, key) in PINS.iter().enumerate() {
-            ui.pin(key, [0.0, 20.0 + i as f32 * PIN_STEP]);
-        }
-        ui.pin("out", [SIZE[0], 52.0]);
-        ui.place([44.0, 8.0]);
+            // The keys, with the key of the next code for the CPU lit.
+            let next = self.keys.front().copied().unwrap_or(0);
+            let lit = next.to_ascii_uppercase();
+            for (row, (keys, indent)) in KEYS.iter().enumerate() {
+                for (i, key) in keys.bytes().enumerate() {
+                    let at = [x0 + 12.0 + indent + i as f32 * 18.0, 94.0 + row as f32 * 18.0];
+                    let on = key == lit;
+                    round_rect(&mut c, at, [16.0, 16.0], 3.0, if on { LIT } else { BODY });
+                    c.text([at[0] + 4.0, at[1] + 12.5], if on { GLASS } else { SILK }, char::from(key).encode_utf8(&mut one));
+                }
+            }
+            round_rect(&mut c, [x0 + 48.0, 166.0], [108.0, 16.0], 3.0, if next == b' ' { LIT } else { BODY });
+            let enter = next == ENTER;
+            round_rect(&mut c, [x0 + 160.0, 166.0], [32.0, 16.0], 3.0, if enter { LIT } else { BODY });
+            c.text([x0 + 165.0, 178.5], if enter { GLASS } else { SILK }, "RET");
+            c.text([x0 + 12.0, 200.0], SILK, &format!("FIFO {}/{BUFFER}", self.keys.len()));
+            // The code that the CPU reads next, as hex digits and as a name.
+            window(&mut c, [x0 + 12.0, 208.0], [180.0, 40.0]);
+            c.text([x0 + 22.0, 233.0], SILK, "NEXT");
+            digits(&mut c, [x0 + 70.0, 214.0], 28.0, 2, &format!("{next:02X}"));
+            let name = match next {
+                0 => "EMPTY",
+                ENTER => "RET",
+                b' ' => "SPACE",
+                k => &*char::from(k).encode_utf8(&mut one),
+            };
+            c.text([x0 + 130.0, 233.0], TEXT, name);
+            x0
+        };
+        ui.place([x0 + 12.0, 30.0]);
         if ui.text_field("Type", &mut self.text).changed() && !self.text.is_empty() {
             self.send();
         }

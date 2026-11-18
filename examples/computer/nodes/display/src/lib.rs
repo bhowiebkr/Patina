@@ -1,4 +1,4 @@
-use parts::{board, digit, glass};
+use parts::{digit, edges, package, window};
 use patina_sdk::{Ui, node};
 use segments::Segments;
 
@@ -22,14 +22,12 @@ impl Display {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        let size = [64.0, 96.0];
-        let mut c = ui.canvas(&format!("Segments {}", self.text()), size);
-        board(&mut c, size);
-        glass(&mut c, [6.0, 6.0], [52.0, 84.0]);
+        let (e, w) = (edges(&[7], &[]), 128.0);
+        let mut c = ui.canvas(&format!("Segments {}", self.text()), [w, e.height]);
+        let [x0, _] = package(&mut c, &e, w);
+        window(&mut c, [x0 + 20.0, 12.0], [62.0, 82.0]);
         let bits = self.on.iter().rev().fold(0, |bits, &on| bits << 1 | u8::from(on));
-        digit(&mut c, [12.0, 18.0], 60.0, bits);
-        drop(c);
-        ui.pin("seg", [0.0, 48.0]);
+        digit(&mut c, [x0 + 30.0, 22.0], 62.0, bits);
     }
 
     fn text(&self) -> String {

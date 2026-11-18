@@ -1,8 +1,5 @@
-use parts::{PIN_STEP, SILK, board, digits, glass, pin_names};
+use parts::{SILK, TEXT, digits, edges, led, package, window};
 use patina_sdk::{Ui, node};
-
-/// The inputs on the left edge, in order.
-const PINS: [&str; 4] = ["bus", "port", "rd", "address"];
 
 /// A random number chip on an IO port of the CPU. When `port` is `address`, it gives a random byte,
 /// and each LD (`rd` on) gives a new byte. At the other ports, the byte on `bus` goes through, so
@@ -41,18 +38,24 @@ impl Random {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        let size = [136.0, 80.0];
-        let mut c = ui.canvas(&format!("Last read {}", self.last), size);
-        board(&mut c, size);
-        pin_names(&mut c, 16.0, &["bus", "port", "rd", "adr"]);
-        c.text([72.0, 19.0], SILK, "RND");
-        glass(&mut c, [72.0, 26.0], [56.0, 44.0]);
-        digits(&mut c, [81.0, 34.0], 28.0, 2, &format!("{:02X}", self.last));
-        drop(c);
-        for (i, key) in PINS.iter().enumerate() {
-            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
+        let (e, w) = (edges(&[8, 8, 0, 8], &[8]), 232.0);
+        let mut c = ui.canvas(&format!("Last read {}", self.last), [w, e.height]);
+        let [x0, _] = package(&mut c, &e, w);
+        c.text([x0 + 18.0, 24.0], TEXT, "RNG");
+        c.text([x0 + 56.0, 24.0], SILK, "XORSHIFT 32");
+        window(&mut c, [x0 + 14.0, 36.0], [148.0, 80.0]);
+        digits(&mut c, [x0 + 44.0, 46.0], 60.0, 2, &format!("{:02X}", self.last));
+        c.text([x0 + 14.0, 136.0], SILK, "LAST READ");
+        // The 32 bits of the state, the most significant bit first.
+        c.text([x0 + 14.0, 162.0], SILK, "STATE");
+        window(&mut c, [x0 + 14.0, 170.0], [148.0, 76.0]);
+        for bit in 0..32 {
+            let at = [x0 + 25.0 + (bit % 8) as f32 * 18.0, 183.0 + (bit / 8) as f32 * 17.0];
+            led(&mut c, at, 4.0, self.state >> (31 - bit) & 1 == 1);
         }
-        ui.pin("out", [size[0], 48.0]);
+        for (i, line) in ["x ^= x << 13", "x ^= x >> 17", "x ^= x << 5", "SEED: CLOCK"].into_iter().enumerate() {
+            c.text([x0 + 14.0, 276.0 + i as f32 * 18.0], SILK, line);
+        }
     }
 }
 

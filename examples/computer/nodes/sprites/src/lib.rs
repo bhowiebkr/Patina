@@ -1,11 +1,10 @@
-use frame::{Frame, SIZE};
-use parts::{PIN_STEP, SILK, board, chip, pin_names};
+use frame::{Frame, PALETTE, SIZE};
+use parts::{BOARD, EDGE, LIT, SILK, TEXT, UNLIT, digits, edges, package, round_rect, window};
 use patina_sdk::{Ui, node};
+use std::fmt::Write;
 
-/// The size of the board.
-const BOARD: [f32; 2] = [212.0, 96.0];
-/// The inputs on the left edge, in order.
-const PINS: [&str; 5] = ["frame", "data", "port", "wr", "address"];
+/// The width of the drawing of the chip.
+const WIDTH: f32 = 252.0;
 
 /// The number of sprites.
 const COUNT: usize = 8;
@@ -78,18 +77,63 @@ impl Sprites {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let shown = self.sprites.iter().filter(|s| s.color != 0).count();
-        {
-            let mut c = ui.canvas(&format!("Sprite {}, {shown} of {COUNT} shown", self.selected), BOARD);
-            board(&mut c, BOARD);
-            pin_names(&mut c, 16.0, &["frame", "data", "port", "wr", "adr"]);
-            chip(&mut c, [48.0, 14.0], [120.0, 68.0], "SPRITES");
-            c.text([64.0, 58.0], SILK, &format!("#{}  {shown}/{COUNT} on", self.selected));
-            c.text([176.0, 52.0], SILK, "frame");
+        let e = edges(&[0, 8, 8, 0, 8], &[0]);
+        let mut c = ui.canvas(&format!("Sprite {}, {shown} of {COUNT} shown", self.selected), [WIDTH, e.height]);
+        let [x0, _] = package(&mut c, &e, WIDTH);
+        c.text([x0 + 18.0, 24.0], TEXT, "SPRITES");
+        c.text([x0 + 96.0, 24.0], SILK, "8 x 8 x 8");
+        // The patterns of the sprites in their colors. A hidden sprite is dark, and the selected one has a frame.
+        window(&mut c, [x0 + 14.0, 34.0], [168.0, 86.0]);
+        let mut d = String::new();
+        for (i, sprite) in self.sprites.iter().enumerate() {
+            let at = [x0 + 21.0 + (i % 4) as f32 * 41.0, 40.0 + (i / 4) as f32 * 41.0];
+            c.rect([at[0] - 1.0, at[1] - 1.0], [34.0, 34.0], BOARD, true);
+            pattern(&mut d, &sprite.rows, at, 4.0);
+            c.path(&d, if sprite.color == 0 { UNLIT } else { PALETTE[usize::from(sprite.color % 16)] }, true);
+            if i == self.selected {
+                c.rect([at[0] - 3.0, at[1] - 3.0], [38.0, 38.0], LIT, false);
+            }
         }
-        for (i, key) in PINS.iter().enumerate() {
-            ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);
+        // The selected sprite: its place, its pattern with the next row, and its color.
+        let s = self.sprites[self.selected];
+        window(&mut c, [x0 + 14.0, 134.0], [168.0, 36.0]);
+        c.text([x0 + 22.0, 157.0], SILK, "#");
+        digits(&mut c, [x0 + 34.0, 140.0], 24.0, 1, &self.selected.to_string());
+        c.text([x0 + 62.0, 157.0], SILK, "X");
+        digits(&mut c, [x0 + 74.0, 140.0], 24.0, 2, &format!("{:02X}", s.x));
+        c.text([x0 + 118.0, 157.0], SILK, "Y");
+        digits(&mut c, [x0 + 130.0, 140.0], 24.0, 2, &format!("{:02X}", s.y));
+        window(&mut c, [x0 + 14.0, 184.0], [88.0, 88.0]);
+        pattern(&mut d, &s.rows.map(|r| !r), [x0 + 18.0, 188.0], 10.0);
+        c.path(&d, UNLIT, true);
+        pattern(&mut d, &s.rows, [x0 + 18.0, 188.0], 10.0);
+        c.path(&d, if s.color == 0 { SILK } else { PALETTE[usize::from(s.color % 16)] }, true);
+        let y = 192.0 + self.row as f32 * 10.0;
+        c.path(&format!("M {} {y} l 7 -5 v 10 Z", x0 + 106.0), LIT, true);
+        round_rect(&mut c, [x0 + 116.0, 184.0], [66.0, 28.0], 3.0, PALETTE[usize::from(s.color % 16)]);
+        c.rect([x0 + 116.0, 184.0], [66.0, 28.0], EDGE, false);
+        c.text([x0 + 116.0, 232.0], SILK, &format!("COLOR {}", s.color));
+        c.text([x0 + 116.0, 250.0], SILK, &format!("ROW {}", self.row));
+        c.text([x0 + 116.0, 268.0], SILK, &format!("{shown}/{COUNT} ON"));
+        c.text([x0 + 14.0, 302.0], SILK, "REGISTERS");
+        for (i, name) in ["SEL", "X", "Y", "COLOR", "ROW"].into_iter().enumerate() {
+            let at = [x0 + 14.0 + (i / 3) as f32 * 90.0, 322.0 + (i % 3) as f32 * 18.0];
+            c.text(at, SILK, &format!("+{i}"));
+            c.text([at[0] + 26.0, at[1]], TEXT, name);
         }
-        ui.pin("out", [BOARD[0], 48.0]);
+    }
+}
+
+/// Writes the path of the pixels of a pattern, bit 7 at the left, at `at` with a pitch of `dot`.
+fn pattern(d: &mut String, rows: &[u8; 8], [x, y]: [f32; 2], dot: f32) {
+    d.clear();
+    let size = dot - 1.0;
+    for (r, bits) in rows.iter().enumerate() {
+        for col in 0..8 {
+            if bits << col & 0x80 != 0 {
+                let _ = write!(d, "M {} {} h {size} v {size} h -{size} Z ", x + col as f32 * dot, y + r as f32 * dot);
+            }
+        }
     }
 }
 

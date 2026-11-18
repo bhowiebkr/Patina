@@ -30,6 +30,22 @@ pub const CHIP: [u8; 3] = [24, 24, 23];
 const HALO: [u8; 3] = [96, 75, 41];
 /// The highlight of a lit LED.
 const SHINE: [u8; 3] = [252, 228, 176];
+/// The gold of a finger on the edge of a board.
+pub const GOLD: [u8; 3] = [186, 150, 84];
+/// The copper of a trace on a board.
+pub const COPPER: [u8; 3] = [112, 92, 58];
+/// The edge line of a chip body.
+const LID: [u8; 3] = [62, 62, 58];
+/// The rim of a window on a chip body.
+const RIM: [u8; 3] = [70, 70, 66];
+
+// The rows of the socket columns beside a drawing, as the editor shows them (NodeView.tsx, BusSocket.tsx).
+const ROW: f32 = 24.0;
+const SOCKET: f32 = 22.0;
+const FIRST: f32 = 24.0;
+const CONTACT: f32 = 12.0;
+/// The space from an edge with pins to the chip body: the finger, the trace and the leg.
+const LEGS: f32 = 28.0;
 
 /// The distance between two pins on the edge of a board.
 pub const PIN_STEP: f32 = 16.0;
@@ -69,20 +85,71 @@ pub fn glass(c: &mut Canvas, at: [f32; 2], size: [f32; 2]) {
     round_rect(c, at, size, 3.0, GLASS);
 }
 
-/// A chip in a DIP package with its name: legs on the long sides, a notch at the left end and a
-/// dot at pin 1.
-pub fn chip(c: &mut Canvas, [x, y]: [f32; 2], [w, h]: [f32; 2], name: &str) {
-    let legs = ((w - 8.0) / 12.5) as usize;
-    let first = x + (w - (legs as f32 - 1.0) * 12.5 - 6.0) / 2.0;
-    for i in 0..legs {
-        let leg = first + i as f32 * 12.5;
-        c.rect([leg, y - 4.0], [6.0, 4.0], METAL, true);
-        c.rect([leg, y + h], [6.0, 4.0], METAL, true);
+/// The color at `t` of the way from `a` to `b`, with `t` from 0 to 1.
+pub fn mix(a: [u8; 3], b: [u8; 3], t: f32) -> [u8; 3] {
+    std::array::from_fn(|i| (f32::from(a[i]) + (f32::from(b[i]) - f32::from(a[i])) * t).round() as u8)
+}
+
+/// A window with a rim on a chip body, for digits, pixels or text.
+pub fn window(c: &mut Canvas, [x, y]: [f32; 2], [w, h]: [f32; 2]) {
+    round_rect(c, [x - 2.0, y - 2.0], [w + 4.0, h + 4.0], 5.0, RIM);
+    round_rect(c, [x, y], [w, h], 3.0, GLASS);
+}
+
+/// The y of each contact on the left and the right edge of a drawing between socket columns, and
+/// the height of the rows.
+pub struct Edges {
+    pub left: Vec<f32>,
+    pub right: Vec<f32>,
+    pub height: f32,
+}
+
+/// The edges of a drawing between socket columns (4.3). `left` and `right` give the contacts of
+/// each pin in order: the lanes of a bus pin, or 0 for a pin with a label and no lanes.
+pub fn edges(left: &[usize], right: &[usize]) -> Edges {
+    let mut e = Edges { left: Vec::new(), right: Vec::new(), height: 0.0 };
+    for i in 0..left.len().max(right.len()) {
+        let (top, mut row) = (e.height, ROW);
+        for (pins, ys) in [(left, &mut e.left), (right, &mut e.right)] {
+            match pins.get(i) {
+                Some(0) => ys.push(top + ROW / 2.0),
+                Some(&n) => {
+                    ys.extend((0..n).map(|j| top + FIRST + j as f32 * CONTACT));
+                    row = row.max(SOCKET + n as f32 * CONTACT);
+                }
+                None => {}
+            }
+        }
+        e.height += row;
     }
-    round_rect(c, [x, y], [w, h], 2.0, CHIP);
-    c.circle([x, y + h / 2.0], 6.0, BOARD, true);
-    c.circle([x + 9.0, y + h - 8.0], 2.0, SILK, true);
-    c.text([x + 16.0, y + 26.0], TEXT, name);
+    e
+}
+
+/// A chip package as large as a drawing between socket columns, `w` wide and as tall as the rows.
+/// Each contact of the edges gets a gold finger, a copper trace and a leg into the body, so a
+/// lead of a socket goes on into the chip. It gives the left and the right end of the body.
+pub fn package(c: &mut Canvas, e: &Edges, w: f32) -> [f32; 2] {
+    let h = e.height;
+    board(c, [w, h]);
+    let x0 = if e.left.is_empty() { 4.0 } else { LEGS };
+    let x1 = if e.right.is_empty() { w - 4.0 } else { w - LEGS };
+    for &y in &e.left {
+        c.rect([0.0, y - 3.0], [8.0, 6.0], GOLD, true);
+        c.line([8.0, y], [x0 - 6.0, y], COPPER);
+        c.rect([x0 - 6.0, y - 2.5], [6.0, 5.0], METAL, true);
+    }
+    for &y in &e.right {
+        c.rect([w - 8.0, y - 3.0], [8.0, 6.0], GOLD, true);
+        c.line([x1 + 6.0, y], [w - 8.0, y], COPPER);
+        c.rect([x1, y - 2.5], [6.0, 5.0], METAL, true);
+    }
+    round_rect(c, [x0, 4.0], [x1 - x0, h - 8.0], 4.0, LID);
+    round_rect(c, [x0 + 1.5, 5.5], [x1 - x0 - 3.0, h - 11.0], 3.0, CHIP);
+    // The notch at the top end and the dot at pin 1.
+    let mid = (x0 + x1) / 2.0;
+    c.path(&format!("M {} 4 A 7 7 0 0 0 {} 4 Z", mid - 7.0, mid + 7.0), BOARD, true);
+    c.circle([x0 + 10.0, 15.0], 2.5, SILK, true);
+    [x0, x1]
 }
 
 /// The names of the pins on the left edge of a board, from `top` down in steps of [`PIN_STEP`].
@@ -188,5 +255,14 @@ mod tests {
         assert_eq!(segments("inf", 3), [0x04, 0x54, HEX[15]]);
         assert_eq!(segments("12345", 4), [0x40; 4], "a long text shows dashes");
         assert_eq!(segments("", 1), [0]);
+    }
+
+    #[test]
+    fn edges_follow_the_rows_of_the_socket_columns() {
+        // The RAM: address, data and write on the left, out on the right.
+        let e = edges(&[8, 8, 0], &[8]);
+        assert_eq!(e.height, 260.0);
+        assert_eq!((e.left.len(), e.left[0], e.left[8], e.left[16]), (17, 24.0, 142.0, 248.0));
+        assert_eq!((e.right.len(), e.right[7]), (8, 108.0));
     }
 }

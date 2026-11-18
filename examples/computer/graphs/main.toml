@@ -184,7 +184,7 @@ address = "245"
 [[node]]
 id = "4f1c9a7e2b6d3085"
 folder = "nodes/joystick"
-pos = [1587.0, 3568.0]
+pos = [1700.0, 3568.0]
 
 [node.params]
 address = "246"
@@ -205,7 +205,7 @@ address = "240"
 [[node]]
 id = "ad357059907f778c"
 folder = "nodes/gpu"
-pos = [2016.0, 3570.0]
+pos = [2260.0, 3570.0]
 
 [node.params]
 address = "241"
@@ -213,7 +213,7 @@ address = "241"
 [[node]]
 id = "5b0e8d3f71c2a964"
 folder = "nodes/sprites"
-pos = [2518.0, 3468.0]
+pos = [2880.0, 3468.0]
 
 [node.params]
 address = "249"
@@ -221,7 +221,7 @@ address = "249"
 [[node]]
 id = "778819ef9f467d80"
 folder = "nodes/screen"
-pos = [2924.0, 3468.0]
+pos = [3460.0, 3468.0]
 
 [[node]]
 id = "1cd0a5c11d15b1a7"

@@ -152,6 +152,8 @@ export const ROW = 24;
 const PAD = 6;
 /** The height of the caption above a free node (canvas.css). */
 const CAPTION = 18;
+/** The width of a socket column beside the drawing of a free layout (bus.css). */
+const COLUMN = 96;
 /** The padding on each side of the wrapper of a graph node, which holds its pins (canvas.css). */
 export const GUTTER = 8;
 /** The gutter of a React Flow node. The graph position is the left edge of the body, not of the wrapper. */
@@ -208,6 +210,18 @@ export function outputType(view: View, from: string): string | undefined {
     return entry && infoOf(entry, view.nodes);
   };
   return outputTypeOf(from, pins, (to) => view.graph.wire?.find((w) => w.to === to)?.from);
+}
+
+/** The name and the icons above a node with a free layout (4.3). */
+function FreeCaption({ entry, info, inner, domain, state }: { entry: NodeEntry; info: NodeInfo; inner?: boolean; domain?: Domain; state: NodeState }) {
+  return (
+    <div className="free-caption" title={plainDoc(info.doc)}>
+      <span className="title">{folderName(entry)}</span>
+      {info.full && !inner && <ExpandButton id={entry.id} />}
+      {domain && <DomainIcon domain={domain} />}
+      <StateIcon state={state} />
+    </div>
+  );
 }
 
 function StateIcon({ state }: { state: NodeState }) {
@@ -270,8 +284,11 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   const lostOut = (pin: Pin | undefined) => !!pin && !!lost?.outputs.includes(pin.key);
   const rows = Math.max(inputs.length, outputs.length);
   const socket = (side: 'i' | 'o', pin: Pin | undefined) => (pin ? sockets?.[`${side}:${pin.key}`] : undefined);
+  // A free layout with a bus pin shows its pins in socket columns beside the drawing, with no header (4.3).
+  const socketed = !!info?.free && gui !== undefined && !open && sockets !== undefined;
+  const head = socketed ? 0 : HEADER;
   // A row with a bus socket is as tall as its contacts (15.9).
-  const tops = [HEADER + PAD];
+  const tops = [head + PAD];
   for (let i = 0; i < rows; i++) {
     const [a, b] = [socket('i', inputs[i]), socket('o', outputs[i])];
     tops.push(tops[i] + Math.max(ROW, a ? socketHeight(a.bits.length) : 0, b ? socketHeight(b.bits.length) : 0));
@@ -325,7 +342,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
       </div>
     );
   }
-  if (info?.free && gui !== undefined && !open) {
+  if (info?.free && gui !== undefined && !open && !socketed) {
     // A free layout (4.3): the GUI is the whole node, with a caption above it and the pins at their places.
     const layout = freeLayout(gui);
     const width = nodeWidth(gui, true);
@@ -341,12 +358,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     };
     return (
       <div className={[...classes, 'free'].join(' ')} style={{ width }}>
-        <div className="free-caption" title={plainDoc(info.doc)}>
-          <span className="title">{folderName(entry)}</span>
-          {info.full && !inner && <ExpandButton id={entry.id} />}
-          {domain && <DomainIcon domain={domain} />}
-          <StateIcon state={state} />
-        </div>
+        <FreeCaption entry={entry} info={info} inner={inner} domain={domain} state={state} />
         <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />
         {lostParams && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
         {message && <div className="patina-node-message">{message}</div>}
@@ -357,10 +369,16 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
       </div>
     );
   }
-  const style = { width: gui === undefined ? undefined : nodeWidth(gui), minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
+  // A socket column is on each side with pins. The drawing is between the columns, at the middle of the rows.
+  const column = (pins: Pin[]) => (pins.length > 0 ? COLUMN : PAD);
+  const drawing = socketed ? freeLayout(gui!).height : 0;
+  const body = Math.max(tops[rows] - head + PAD, drawing + 2 * PAD);
+  const width = socketed ? column(inputs) + nodeWidth(gui!, true) + column(outputs) : gui === undefined ? undefined : nodeWidth(gui);
+  if (socketed) classes.push('socketed');
+  const style = { width, minWidth: open ? Math.floor(size / 65536) + FRAME_RIGHT : undefined, '--head': info?.color ?? undefined } as CSSProperties;
   return (
     <div className={classes.join(' ')} style={style}>
-      <div className="patina-node-header" title={plainDoc(info?.doc)}>
+      {socketed ? <FreeCaption entry={entry} info={info!} inner={inner} domain={domain} state={state} /> : <div className="patina-node-header" title={plainDoc(info?.doc)}>
         {info && <KindIcon kind={info.kind} />}
         <span className="title">{folderName(entry)}</span>
         {info?.full && !inner && <ExpandButton id={entry.id} />}
@@ -377,8 +395,8 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
         )}
         {domain && <DomainIcon domain={domain} />}
         <StateIcon state={state} />
-      </div>
-      <div className="patina-rows" style={{ height: tops[rows] - HEADER + PAD }}>
+      </div>}
+      <div className="patina-rows" style={{ height: body }}>
         {!far && Array.from({ length: rows }, (_, i) => {
           const [input, output] = [inputs[i], outputs[i]];
           const height = tops[i + 1] - tops[i];
@@ -416,16 +434,21 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
           Array.from({ length: rows }, (_, i) =>
             (['i', 'o'] as const).map((side) => {
               const s = socket(side, side === 'i' ? inputs[i] : outputs[i]);
-              return s && <BusSocket key={`${side}${i}`} socket={s} output={side === 'o'} top={tops[i] - HEADER} />;
+              return s && <BusSocket key={`${side}${i}`} socket={s} output={side === 'o'} top={tops[i] - head} />;
             }),
           )}
+        {socketed && (
+          <div className="socketed-gui" style={{ left: column(inputs), top: (body - drawing) / 2 }}>
+            <NodeGui id={entry.id} mode={0} tree={gui!} disabled={!editable} />
+          </div>
+        )}
       </div>
       {lostParams && !inner && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
       {open && <div style={{ height: Math.max(0, (size % 65536) + FRAME_BOTTOM - tops[rows] - PAD) }} />}
-      {thumb && <Thumbnail thumb={thumb.text} stale={thumb.stale} label={thumb.label} />}
-      {gui !== undefined && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
+      {thumb && !socketed && <Thumbnail thumb={thumb.text} stale={thumb.stale} label={thumb.label} />}
+      {gui !== undefined && !socketed && <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />}
       {message && <div className={state === 'unresolved' || state === 'skipped' ? 'patina-node-message muted' : 'patina-node-message'}>{message}</div>}
-      {time !== undefined && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
+      {time !== undefined && !socketed && <div className="patina-node-time">{!far && `Run ${duration(time)}`}</div>}
       {inputs.map((pin, i) => (
         <PinHandle key={`i-${pin.key}`} pin={pin} generics={info?.generics} output={false} editable={editable} lost={lostIn(pin)} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />
       ))}
@@ -435,8 +458,8 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
       {/* The inner ends of the pins of a frame: the inner wires start and end at the edge (15.3). */}
       {open && inputs.map((pin, i) => <FramePin key={`fi-${pin.key}`} id={`in:${pin.key}`} output={false} top={pinTop(i, socket('i', pin))} socket={socket('i', pin)} />)}
       {open && outputs.map((pin, i) => <FramePin key={`fo-${pin.key}`} id={`out:${pin.key}`} output top={pinTop(i, socket('o', pin))} socket={socket('o', pin)} />)}
-      <Handle id={ORDER} type="target" position={Position.Left} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Order wire from a node that runs before this node" />
-      <Handle id={ORDER} type="source" position={Position.Right} isConnectable={editable} className="order-pin" style={{ top: HEADER / 2 }} title="Drag to a node that must run after this node" />
+      <Handle id={ORDER} type="target" position={Position.Left} isConnectable={editable} className="order-pin" style={{ top: socketed ? -CAPTION / 2 : HEADER / 2 }} title="Order wire from a node that runs before this node" />
+      <Handle id={ORDER} type="source" position={Position.Right} isConnectable={editable} className="order-pin" style={{ top: socketed ? -CAPTION / 2 : HEADER / 2 }} title="Drag to a node that must run after this node" />
     </div>
   );
 }

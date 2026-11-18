@@ -244,6 +244,9 @@ export function freeLayout(tree: string): { pins: Map<string, [number, number]>;
   return { pins, places, height };
 }
 
+/** The label of the last canvas with a shape that the editor skipped. The shot fails on it (4.3). */
+export let skippedShape = '';
+
 /** Reads one widget from each line. A line of an unknown kind or with bad numbers keeps its index. */
 export function parseTree(tree: string): Widget[] {
   const widgets: Widget[] = [];
@@ -264,7 +267,12 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'section' && Number.isFinite(value)) widgets.push({ kind, index, text, open: value !== 0 });
     else if (kind === 'end') widgets.push({ kind, index, text });
     else if (kind === 'canvas' && value > 0 && low > 0) {
-      const shapes = rest.slice(2).flatMap((f) => parseShape(f) ?? []);
+      const shapes: Shape[] = [];
+      for (const field of rest.slice(2)) {
+        const shape = parseShape(field);
+        if (shape) shapes.push(shape);
+        else if (field !== 'keys' && field !== 'grab') skippedShape = text;
+      }
       const keys = rest.slice(2).includes('keys');
       const grab = rest.slice(2).includes('grab');
       widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes, keys, grab });

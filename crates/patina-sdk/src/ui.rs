@@ -148,7 +148,7 @@ impl Canvas<'_> {
     }
 
     /// Draws an SVG path, for example `M 0 0 L 40 0 L 20 30 Z` for a triangle (4.3). The editor
-    /// skips a path with other letters than the path commands.
+    /// skips a path of more than 4096 characters or with other letters than the path commands.
     pub fn path(&mut self, data: &str, color: [u8; 3], fill: bool) {
         self.shape("path", &[], color, Some(fill));
         self.tree.push(' ');
