@@ -395,6 +395,7 @@ const WINDOW_ICON = 'M1.5 2.5h13v11h-13zM1.5 5.5h13';
 const RAIL_ICONS: Partial<Record<PanelId, string>> = {
   layers: 'M8 1.5 14.5 5 8 8.5 1.5 5zM1.5 8 8 11.5 14.5 8M1.5 11 8 14.5 14.5 11',
   project: 'M1.5 3.5h5l1.5 2h6.5v8h-13z',
+  library: 'M2 2.5h3v11H2zM6.5 2.5h3v11h-3zM11 3.5l2.5-.7 2 10-2.5.7z',
   inspector: 'M3 2v12M8 2v12M13 2v12M1.5 5h3M6.5 10h3M11.5 6.5h3',
   logs: 'M2 4h12M2 8h12M2 12h8',
   output: 'M1.5 2.5h13v11h-13zM4 6l2 2-2 2M8 10.5h4',

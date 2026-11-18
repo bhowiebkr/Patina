@@ -384,3 +384,66 @@ html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas .r
   background: var(--canvas);
   overflow-x: auto;
 }
+
+/* The Library panel (15.2): the list scrolls, and the preview keeps its place at the bottom. */
+.panel.library {
+  overflow: hidden;
+}
+
+.library-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 8px 0 12px;
+}
+
+.library-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.library-note {
+  height: auto;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  cursor: default;
+}
+
+.library-preview {
+  flex: none;
+  max-height: 55%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.library-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.library-head .swatch {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.library-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+  align-items: center;
+}

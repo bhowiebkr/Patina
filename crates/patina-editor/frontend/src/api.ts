@@ -440,6 +440,9 @@ export interface Pasted {
 /** A node or a subgraph of a library, for the node palette (6.2). */
 export type LibraryNode = NodeInfo & { library: string; path: string };
 
+/** A subgraph or a folder that a library pick brings, with its state (6.2). */
+export type Need = { folder: string } & ({ state: 'New' | 'Same' | 'Keep' } | { state: 'Rename'; to: string } | { state: 'Clash'; existing: string });
+
 /** The wire of a pin drag to the pin `key` of a new library node (15.3). `output` is true when `end` is an output. */
 export interface DragLink {
   end: string;
@@ -480,6 +483,8 @@ export const api = {
   /** Adds a node or a subgraph of a library, as a paste of one node (6.2). */
   pasteLibrary: (n: LibraryNode, at: [number, number], link?: DragLink) => invoke<Pasted>('paste_library', { path: n.path, name: n.name, subgraph: n.subgraph, at, link: link ?? null }),
   libraryNodes: () => invoke<LibraryNode[]>('library_nodes'),
+  /** What a pick of a library node or subgraph brings into the open project, with no change (6.2). */
+  libraryPlan: (n: LibraryNode) => invoke<Need[]>('library_plan', { path: n.path, name: n.name, subgraph: n.subgraph }),
   /** Adds a Patina project to the libraries and trusts it (6.2), and returns the new list. */
   addLibrary: (path: string) => invoke<Library[]>('add_library', { path }),
   /** Takes a folder off the libraries. A copy from Git is deleted (6.2). */

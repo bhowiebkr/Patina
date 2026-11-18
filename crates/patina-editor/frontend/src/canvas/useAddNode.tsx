@@ -11,6 +11,8 @@ import { nodeSource, PUBLIC_INPUT, PUBLIC_OUTPUT, type FreeEnd } from './graphEd
 import { portKey, splitPin, type GraphNode } from './graphData';
 
 export const NODE_MIME = 'application/patina-node';
+/** A drag from the Library panel: the JSON of a `LibraryNode` (15.2). */
+export const LIBRARY_MIME = 'application/patina-library';
 
 export function useAddNode(p: { view: View; flow: ReactFlowInstance<GraphNode, Edge<WireData>>; act: CanvasActions; edit: (edit: Edit) => Promise<void> }) {
   const { view, flow, act, edit } = p;
@@ -67,12 +69,19 @@ export function useAddNode(p: { view: View; flow: ReactFlowInstance<GraphNode, E
     open: setPalette,
     onConnectEnd,
     onDragOver: (e: DragEvent) => {
-      if (e.dataTransfer.types.includes(NODE_MIME) && view.trusted) {
+      const library = e.dataTransfer.types.includes(LIBRARY_MIME);
+      if ((library || e.dataTransfer.types.includes(NODE_MIME)) && view.trusted) {
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+        e.dataTransfer.dropEffect = library ? 'copy' : 'move';
       }
     },
     onDrop: (e: DragEvent) => {
+      const picked = e.dataTransfer.getData(LIBRARY_MIME);
+      if (picked && view.trusted) {
+        e.preventDefault();
+        act.paste({ x: e.clientX, y: e.clientY }, JSON.parse(picked) as LibraryNode);
+        return;
+      }
       const info = view.nodes.find((n) => n.name === e.dataTransfer.getData(NODE_MIME));
       if (!info || !view.trusted) return;
       e.preventDefault();

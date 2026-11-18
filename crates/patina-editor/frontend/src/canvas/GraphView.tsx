@@ -78,9 +78,11 @@ interface Props {
   onPaste: (at: [number, number], library?: LibraryNode, link?: DragLink) => void;
   /** Gets the function of the Lock bends button of the Inspector for the wire to an input (15.9). */
   lockRef: MutableRefObject<(to: string) => void>;
+  /** Gets the function of the **Add to graph** button of the Library panel (15.2). */
+  addRef: MutableRefObject<(n: LibraryNode) => void>;
 }
 
-export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand, onCopy, onPaste, lockRef }: Props) {
+export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, onOpen, onCollapse, onExpand, onCopy, onPaste, lockRef, addRef }: Props) {
   const flow = useReactFlow<GraphNode, Edge<WireData>>();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<Edge<WireData>[]>([]);
@@ -215,6 +217,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const collapse = useCallback((ids: string[], at: At) => setCollapsing({ ids, ...at }), []);
   const act = useCanvasActions({ view, run, nodes, edges, setNodes, setEdges, flow, pointer, edit, onCollapse: collapse, onExpand, onCopy, onPaste });
   const adding = useAddNode({ view, flow, act, edit });
+  useEffect(() => {
+    addRef.current = (n) => act.paste(act.middle(), n);
+  }, [addRef, act]);
   useCanvasKeys(act, view.trusted, pointer, adding.open);
   const menu = useCanvasMenu({ act, trusted: view.trusted, edit, onOpen, onAdd: adding.open, onRename: (key, name, at) => setRenaming({ key, name, ...at }) });
 

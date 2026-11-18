@@ -56,6 +56,30 @@ pub struct Link {
     pub key: String,
 }
 
+/// One subgraph or folder that a paste brings into this project, with its state (6.2).
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Need {
+    /// For example `graphs/half`, `nodes/blur` or `types/image`.
+    pub folder: String,
+    #[serde(flatten)]
+    pub state: NeedState,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(tag = "state")]
+pub enum NeedState {
+    /// The paste copies it.
+    New,
+    /// This project has it with the same contents, so the paste uses it.
+    Same,
+    /// This project has the folder with other files. The paste uses the folder of this project.
+    Keep,
+    /// A different subgraph has the name, so the paste uses the subgraph `to`.
+    Rename { to: String },
+    /// A folder of another group has the crate name, so the paste fails.
+    Clash { existing: String },
+}
+
 impl Project {
     /// The clip text of the nodes `ids` of the open graph (15.11). A wire, an order, a collar or a
     /// cable goes into the clip only when all of its nodes do.
@@ -140,6 +164,43 @@ impl Project {
         Ok(Pasted { ids, warnings })
     }
 
+    /// What a paste of the clip `text` brings into this project, with no change (6.2): each
+    /// subgraph, then each folder. The Library panel shows it before a pick (15.2).
+    pub fn paste_plan(&self, text: &str, source: impl Fn(&str) -> Option<PathBuf>) -> Result<Vec<Need>, String> {
+        let clip = parse(text)?;
+        let order = leaves_first(&clip)?;
+        let (renames, new) = self.place_graphs(&clip, &order)?;
+        let mut needs: Vec<Need> = order
+            .iter()
+            .map(|name| {
+                let to = &renames[name];
+                let state = if to != name {
+                    NeedState::Rename { to: to.clone() }
+                } else if new.iter().any(|(made, _)| made == to) {
+                    NeedState::New
+                } else {
+                    NeedState::Same
+                };
+                Need { folder: format!("graphs/{name}"), state }
+            })
+            .collect();
+        let folders = node_folders(&clip, &order);
+        if clip.project == self.id || folders.is_empty() {
+            return Ok(needs);
+        }
+        let other = source(&clip.project).ok_or_else(|| format!("Open the project {} in Patina and trust it.", clip.name))?;
+        for item in import::plan_all(&self.root, &other, &folders)? {
+            let state = match item.state {
+                State::New => NeedState::New,
+                State::Same => NeedState::Same,
+                State::Conflict { replace: true, .. } => NeedState::Keep,
+                State::Conflict { existing, replace: false } => NeedState::Clash { existing },
+            };
+            needs.push(Need { folder: item.folder, state });
+        }
+        Ok(needs)
+    }
+
     /// The name in this project of each subgraph of the clip, and the new subgraphs. A subgraph
     /// with the same name and the same graph is used again. A different graph gets a free name
     /// `<name>-2`, `<name>-3` and so on.
@@ -176,15 +237,7 @@ impl Project {
     /// project, with the type and widget folders that they need (6.2). A folder that this
     /// project has with other files stays, with a warning.
     fn import_folders(&mut self, clip: &Clip, order: &[String], toolchain: Option<&Toolchain>, source: &dyn Fn(&str) -> Option<PathBuf>, warnings: &mut Vec<String>) -> Result<(), String> {
-        let graphs = order.iter().map(|name| &clip.graphs[name]);
-        let mut folders: Vec<String> = Vec::new();
-        for entry in std::iter::once(&clip.nodes).chain(graphs).flat_map(|g| &g.node) {
-            if let Some(folder) = &entry.folder
-                && !folders.contains(folder)
-            {
-                folders.push(folder.clone());
-            }
-        }
+        let folders = node_folders(clip, order);
         if folders.is_empty() {
             return Ok(());
         }
@@ -283,6 +336,20 @@ impl Project {
         self.history.replace(graph);
         new
     }
+}
+
+/// The node folders of the clip and of its subgraphs, each one time.
+fn node_folders(clip: &Clip, order: &[String]) -> Vec<String> {
+    let graphs = order.iter().map(|name| &clip.graphs[name]);
+    let mut folders: Vec<String> = Vec::new();
+    for entry in std::iter::once(&clip.nodes).chain(graphs).flat_map(|g| &g.node) {
+        if let Some(folder) = &entry.folder
+            && !folders.contains(folder)
+        {
+            folders.push(folder.clone());
+        }
+    }
+    folders
 }
 
 /// Reads and checks a clip. The text comes from the clipboard, so it is not trusted: a folder

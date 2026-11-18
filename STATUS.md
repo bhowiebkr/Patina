@@ -26,7 +26,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Subgraph tools: **New subgraph** in the **Graphs** group makes an empty subgraph. Two or more selected nodes show **Collapse into subgraph...** in the **Inspector**.
 - Editor menus: The **Project** panel has right-click menus, and the WebView menu does not show. A build keeps the node GUIs, and only the slot node shows **Compiling**.
 - Rust version of a project: The `rust` of `patina.toml` is the oldest Rust version that builds the project. **Update toolchain** raises the toolchain.
-- Copy, paste and libraries: **Copy**, **Cut** and **Paste** of nodes work. **Settings** > **Libraries** and **Add from Git** give nodes from other projects.
+- Copy, paste and libraries: **Copy**, **Cut** and **Paste** of nodes work. **Settings** > **Libraries** and **Add from Git** give nodes from other projects. The **Library** tab shows them with a preview of what a pick brings.
 - Gate speed: Light nodes share one task, nets share one check and skip the `Option` checks when their inputs have values, and the frame rate goes up to 100000 FPS.
 - Touchpad pan: A two-finger touchpad scroll pans the graph. The mouse wheel and a pinch zoom.
 - Arrange with node sizes and bus widths: **Arrange** uses node sizes and wire widths. The 25 graphs of `examples/computer` have 0 node overlaps.
@@ -205,6 +205,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 ### Copy, paste and libraries
 
 - Known limits: the index has no libraries yet. A clip has 256 subgraphs at most.
+- The **Library** tab (2026-11-18) lists the library nodes and subgraphs, with a search and a
+  preview. The **Brings** list shows each subgraph and folder that a pick adds, and its state.
+  A drag or **Add to graph** adds the item. An imported type now brings its connection kind.
+- Checked on 2026-11-18: engine tests for the plan and the connection kind. The self-check
+  shows the preview, drops the item, clicks **Add to graph** and undoes each add.
+- Known limits: the tab reads the libraries at each open of the tab. A type that an import
+  renames keeps the connection kind check of its old name.
 
 ### Gate speed
 

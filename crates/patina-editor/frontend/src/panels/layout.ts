@@ -4,14 +4,14 @@
 /** The panels of the view instances (15.8). Each slot shows one instance of a view. */
 export const VIEW_SLOTS = ['view', 'view2', 'view3', 'view4'] as const;
 export type ViewSlot = (typeof VIEW_SLOTS)[number];
-export const PANELS = ['layers', 'project', 'inspector', 'logs', 'output', 'debug', ...VIEW_SLOTS] as const;
+export const PANELS = ['layers', 'project', 'library', 'inspector', 'logs', 'output', 'debug', ...VIEW_SLOTS] as const;
 export type PanelId = (typeof PANELS)[number];
 export const AREAS = ['left', 'right', 'bottom', 'center'] as const;
 export type AreaId = (typeof AREAS)[number];
 
-export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', inspector: 'Inspector', logs: 'Logs', output: 'Output', debug: 'Debug', view: 'View', view2: 'View 2', view3: 'View 3', view4: 'View 4' };
+export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', library: 'Library', inspector: 'Inspector', logs: 'Logs', output: 'Output', debug: 'Debug', view: 'View', view2: 'View 2', view3: 'View 3', view4: 'View 4' };
 /** The area of each panel in the default layout. A closed panel opens there again. */
-const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', debug: 'bottom', view: 'center', view2: 'center', view3: 'center', view4: 'center' };
+const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', library: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', debug: 'bottom', view: 'center', view2: 'center', view3: 'center', view4: 'center' };
 
 export const MIN_SIZE = 120;
 export const MAX_SIZE = 1600;
@@ -58,7 +58,7 @@ export interface Layout {
 export function defaultLayout(): Layout {
   return {
     areas: {
-      left: { tabs: ['layers', 'project'], active: 'project', size: 260 },
+      left: { tabs: ['layers', 'project', 'library'], active: 'project', size: 260 },
       right: { tabs: ['inspector'], active: 'inspector', size: 360 },
       bottom: { tabs: ['logs', 'output', 'debug'], active: 'output', size: 200 },
       center: { tabs: [], active: null, size: 0 },
@@ -234,7 +234,7 @@ export function parseLayout(text: string | null): Layout {
   }
   // A panel that the file does not list is newer than the file, so it opens in its home area.
   // A file without the list came from an editor before the Layers tab.
-  const known: unknown[] = Array.isArray(raw.panels) ? raw.panels : PANELS.filter((p) => p !== 'layers');
+  const known: unknown[] = Array.isArray(raw.panels) ? raw.panels : PANELS.filter((p) => p !== 'layers' && p !== 'library');
   for (const p of PANELS) {
     const area = layout.areas[HOME[p]];
     if (known.includes(p) || seen.has(p) || !defaultLayout().areas[HOME[p]].tabs.includes(p)) continue;

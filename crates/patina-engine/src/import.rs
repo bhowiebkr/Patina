@@ -75,7 +75,7 @@ pub fn plan(root: &Path, other: &Path, folder: &str) -> Result<Vec<Item>, String
 /// The folders that an import of `folders` copies, as [`plan`] gives them.
 pub fn plan_all(root: &Path, other: &Path, folders: &[String]) -> Result<Vec<Item>, String> {
     let (root, other) = (absolute(root)?, absolute(other)?);
-    let folders = closure(&other, folders)?;
+    let folders = closure(&root, &other, folders)?;
     folders.iter().map(|f| item(&root, &other, f)).collect()
 }
 
@@ -246,7 +246,7 @@ fn targets(root: &Path, items: &[Item], choices: &BTreeMap<String, Choice>) -> R
 }
 
 /// The folders and the type and widget folders that they depend on, without repeats.
-fn closure(other: &Path, folders: &[String]) -> Result<Vec<String>, String> {
+fn closure(root: &Path, other: &Path, folders: &[String]) -> Result<Vec<String>, String> {
     let mut found: Vec<String> = Vec::new();
     for folder in folders {
         check_folder(folder)?;
@@ -269,9 +269,26 @@ fn closure(other: &Path, folders: &[String]) -> Result<Vec<String>, String> {
                 found.push(dep);
             }
         }
+        // A copied type brings its connection kind, unless this project shows the type with its own kind (6.3).
+        if found[next].starts_with("types/") && kinds_of(root, &found[next]).is_empty() {
+            for kind in kinds_of(other, &found[next]) {
+                if !found.contains(&kind) {
+                    found.push(kind);
+                }
+            }
+        }
         next += 1;
     }
     Ok(found)
+}
+
+/// The connection folders of the project at `root` that depend on the type folder `ty`.
+fn kinds_of(root: &Path, ty: &str) -> Vec<String> {
+    let depends = |folder: &String| {
+        let dir = root.join(folder);
+        path_deps(&dir).is_ok_and(|deps| deps.iter().any(|(_, path)| inside(root, &dir.join(path)).as_deref() == Some(ty)))
+    };
+    folders(root).into_iter().filter(|f| f.starts_with("connections/") && depends(f)).collect()
 }
 
 fn item(root: &Path, other: &Path, folder: &str) -> Result<Item, String> {
@@ -556,6 +573,27 @@ mod tests {
         assert_eq!(plan(&root, &other, "types/image").unwrap()[0].state, State::Same);
         applied.undo().unwrap();
         assert_eq!(fs::read_to_string(root.join("types/image/src/lib.rs")).unwrap(), "// B");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn a_copied_type_brings_its_connection_kind_unless_this_project_has_one() {
+        let base = std::env::temp_dir().join(format!("patina-import-kind-{}", std::process::id()));
+        let (root, other) = (base.join("this"), base.join("other"));
+        let _ = fs::remove_dir_all(&base);
+        let byte = "byte = { path = \"../../types/byte\" }\n";
+        write(&other, &[
+            ("patina.toml", "format = 1\nid = \"aaaaaaaaaaaaaaaa\"\nrust = \"1.100.0\"\n"),
+            ("nodes/count/Cargo.toml", &manifest("count", byte)),
+            ("types/byte/Cargo.toml", &manifest("byte", "")),
+            ("connections/bits/Cargo.toml", &manifest("bits", byte)),
+            ("connections/other/Cargo.toml", &manifest("other", "")),
+        ]);
+        write(&root, &[("patina.toml", "format = 1\nid = \"bbbbbbbbbbbbbbbb\"\nrust = \"1.100.0\"\n")]);
+        let folders = |items: Vec<Item>| items.into_iter().map(|i| i.folder).collect::<Vec<_>>();
+        assert_eq!(folders(plan(&root, &other, "nodes/count").unwrap()), ["nodes/count", "types/byte", "connections/bits"]);
+        write(&root, &[("types/byte/Cargo.toml", &manifest("byte", "")), ("connections/lanes/Cargo.toml", &manifest("lanes", byte))]);
+        assert_eq!(folders(plan(&root, &other, "nodes/count").unwrap()), ["nodes/count", "types/byte"]);
         let _ = fs::remove_dir_all(&base);
     }
 }

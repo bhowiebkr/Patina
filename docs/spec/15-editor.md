@@ -34,7 +34,7 @@ The editor window is a dock system. The built-in panels and the views (15.8) doc
 | Area | Default contents |
 |---|---|
 | Top bar | Project and graph path, Live indicator, Run, Pause, Step, Stop, Bake, undo, redo, zoom, fit, grid, Views menu |
-| Left panel | Layers tab: the base and the slot, with build state and build time (7.3). Project tab |
+| Left panel | Layers tab: the base and the slot, with build state and build time (7.3). Project tab. Library tab |
 | Center | Graph view, or the full-size GUI of a node (4.3) |
 | Right panel (inspector) | Selected node: Parameters, Code, Logs tabs, and the large node GUI |
 | Bottom panel | Logs, Output, Debug tabs |
@@ -56,7 +56,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The left, right and bottom areas take panels. The center has the **Graph** tab first, and then the view tabs (15.8). A view opens in the center. The built-in panels do not go in the center. (Agent decision, 2026-11-17. The owner can change it.)
 - The **Graph** tab does not move or close. The active view covers the graph, so the graph keeps its pan, zoom and selection. The keys of the graph do not act while a view covers it.
 - A change of the open graph shows the **Graph** tab, so the user sees the graph that opens. The view tabs stay. (Agent decision of 2026-11-18. The owner can change it.)
-- The panels are **Layers**, **Project**, **Inspector**, **Logs**, **Output** and **Debug**. The left area has the **Layers** tab and the **Project** tab, and **Project** is active at the start.
+- The panels are **Layers**, **Project**, **Library**, **Inspector**, **Logs**, **Output** and **Debug**. The left area has the **Layers**, **Project** and **Library** tabs, and **Project** is active at the start.
 - A view panel can float in its own window: with **Float in a window** in its right-click menu, or with a drag out of the window. The built-in panels stay in the dock. The **Dock** button of a float window moves the view back to its default area. A close of a float window closes the view instance. (Agent decision, 2026-11-15. The owner can change it.)
 - Dock starts the view instance again with `init`, because the surface of a float window must not outlive its window. A float from the dock keeps the instance. (Agent decision, 2026-11-15. The owner can change it.)
 - A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area**, **Move to the center** (only for a view tab) and **Close**. The menu is the method for the keyboard and for screen readers.
@@ -129,6 +129,16 @@ The **Import** button at the end of the **Project** panel copies a folder from a
   - An imported folder keeps its record in `patina.toml`, but goes from the **Imports** list. A restore from the Recycle Bin shows it again. (Agent decision of 2026-11-18. The owner can change it.)
   - On Linux and macOS, **Delete** shows an error for now.
 - The **Update** dialog lists the files that are different, with **Only in the other project**, **Only in this project** or **Different**. A file that only one side changed shows the version that the update takes: **Other project** or **This project**. A file that the two sides changed has a choice of **Other project** or **This project** (6.2). **Update** stays off until each such file has a choice, or when the other project did not change. During the build check the dialog shows **Building**.
+
+The **Library** tab shows the nodes and the subgraphs of the libraries (6.2), so the user can see the parts of another project and bring them into this project. This is an agent decision of 2026-11-18, for the owner request. The owner can change it.
+
+- The tab lists each library as a group, with its node folders and its subgraphs. A subgraph has the hint **subgraph**. The search field finds an item by its name, its library or its doc.
+- A click on an item shows the preview under the list: the header color, the doc, the input and output pins with their types, and the **Brings** list.
+- The **Brings** list shows each subgraph and each folder that the pick adds, with its state: **new**, **in the project**, **uses the folder of this project**, **as** a new subgraph name, or a crate name clash. Patina reads the list with no change to the project.
+- A drag of an item to the graph, or **Add to graph**, adds the item as a library pick of the **Add node** palette. **Add to graph** puts it at the pointer or in the middle of the graph.
+- **Add to graph** is off in an untrusted project, while Patina reads the list, and when a folder has the crate name of a folder of another group in this project.
+- The tab shows only trusted libraries. The user adds a library in **Settings** > **Libraries**, because Patina trusts each library.
+- Reason: the palette shows the library nodes only by their names. The preview shows what a pick copies before the project changes.
 
 **Graph view navigation:**
 

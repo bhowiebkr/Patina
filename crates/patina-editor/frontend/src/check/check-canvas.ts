@@ -2,9 +2,9 @@
 // right-click menus of the empty canvas, a node and a connection, and copy and paste (15.2, 15.4, 15.11).
 
 import { api, type View } from '../api';
-import { RUN_MS, entry, rightClick, topButton, type CheckContext } from './check-fixtures';
+import { RUN_MS, button, entry, leftTab, rightClick, topButton, type CheckContext } from './check-fixtures';
 import { clipboard } from '../canvas/clip';
-import { NODE_MIME } from '../canvas/useAddNode';
+import { LIBRARY_MIME, NODE_MIME } from '../canvas/useAddNode';
 
 const count = (sel: string) => document.querySelectorAll(sel).length;
 const NODES = '.react-flow__node';
@@ -24,6 +24,34 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
   v = await step('undo the drop', () => api.undo());
   await until('the graph after the undo of the drop', RUN_MS, () => count(NODES) === nodes);
   steps.push(`node folder ${folder} dropped on the canvas`);
+
+  // The Library panel shows the preview of a library node with what it brings. A drag and Add to graph add it (15.2).
+  leftTab('Library').click();
+  const libItem = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label=Library] .item')].find((b) => b.textContent === 'number');
+  await until('the number node of the library in the Library panel', RUN_MS, () => !!libItem());
+  document.querySelector<HTMLButtonElement>('[aria-label="Read the libraries again"]')!.click();
+  await until('the library after a second read', RUN_MS, () => !!libItem());
+  libItem()!.click();
+  const brings = () => [...document.querySelectorAll('[aria-label="Brings"] li')].map((li) => li.textContent ?? '');
+  await until('the Brings list of the preview', RUN_MS, () => brings().some((t) => t.startsWith('nodes/number '))).catch((e: Error) => {
+    throw new Error(`${e.message} (rows ${brings().join(' | ')})`);
+  });
+  const libData = new DataTransfer();
+  libItem()!.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: libData }));
+  if (!libData.getData(LIBRARY_MIME)) throw new Error('a drag of a Library item gives no data');
+  const libDrag = { ...drag, dataTransfer: libData };
+  pane.dispatchEvent(new DragEvent('dragover', libDrag));
+  pane.dispatchEvent(new DragEvent('drop', libDrag));
+  await until('the library node of the drop', RUN_MS, () => count(NODES) === nodes + 1);
+  v = await step('undo the library drop', () => api.undo());
+  await until('the graph after the undo of the library drop', RUN_MS, () => count(NODES) === nodes);
+  await until('Add to graph', RUN_MS, () => button('Add to graph')?.disabled === false);
+  button('Add to graph')!.click();
+  await until('the library node of Add to graph', RUN_MS, () => count(NODES) === nodes + 1);
+  v = await step('undo Add to graph', () => api.undo());
+  await until('the graph after the undo of Add to graph', RUN_MS, () => count(NODES) === nodes);
+  leftTab('Project').click();
+  steps.push('Library panel: preview with Brings, drop and Add to graph');
 
   // The menu of the empty canvas.
   rightClick(pane, r.left + 40, r.top + 40);

@@ -264,6 +264,7 @@ fn main() {
             session::library_index,
             session::update_library,
             session::library_nodes,
+            session::library_plan,
             session::edit,
             session::undo,
             session::redo,

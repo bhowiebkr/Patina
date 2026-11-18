@@ -53,7 +53,7 @@ test('a closed tab gives the next tab and opens again in its default area', () =
   let l = closePanel(closePanel(defaultLayout(), 'debug'), 'output');
   assert.deepEqual(l.areas.bottom, { tabs: ['logs'], active: 'logs', size: 200 });
   l = closePanel(movePanel(l, 'logs', 'left'), 'project');
-  assert.deepEqual([l.areas.left.tabs, l.areas.left.active, l.areas.bottom.active], [['layers', 'logs'], 'logs', null]);
+  assert.deepEqual([l.areas.left.tabs, l.areas.left.active, l.areas.bottom.active], [['layers', 'library', 'logs'], 'logs', null]);
   l = openPanel(l, 'output');
   assert.deepEqual(l.areas.bottom, { tabs: ['output'], active: 'output', size: 200 });
   l = openPanel(l, 'logs');
@@ -71,7 +71,7 @@ test('a saved layout reads back, and bad parts are dropped', () => {
       viewports: { main: { x: 0, y: 0, zoom: 99 }, other: { x: 1, y: 2, zoom: 1 } },
     }),
   );
-  assert.deepEqual(odd.areas.left, { tabs: ['project', 'layers'], active: 'project', size: MAX_SIZE }, 'a file without a panel list gets the Layers tab');
+  assert.deepEqual(odd.areas.left, { tabs: ['project', 'layers', 'library'], active: 'project', size: MAX_SIZE }, 'a file without a panel list gets the Layers and Library tabs');
   assert.deepEqual(odd.areas.right, { tabs: ['logs'], active: 'logs', size: 360 });
   assert.deepEqual(odd.areas.bottom, { tabs: [], active: null, size: 200 });
   assert.deepEqual(odd.viewports, { other: { x: 1, y: 2, zoom: 1 } });
@@ -79,9 +79,9 @@ test('a saved layout reads back, and bad parts are dropped', () => {
 
 test('a panel that is newer than the layout file opens in its home area', () => {
   const closed = closePanel(defaultLayout(), 'layers');
-  assert.deepEqual(parseLayout(layoutText(closed)).areas.left.tabs, ['project'], 'a closed panel stays closed');
+  assert.deepEqual(parseLayout(layoutText(closed)).areas.left.tabs, ['project', 'library'], 'a closed panel stays closed');
   const old = JSON.stringify({ version: 1, panels: ['project', 'inspector', 'logs'], areas: { left: { tabs: [] }, right: { tabs: ['inspector'] } } });
-  assert.deepEqual(parseLayout(old).areas.left, { tabs: ['layers'], active: 'layers', size: 260 });
+  assert.deepEqual(parseLayout(old).areas.left, { tabs: ['layers', 'library'], active: 'layers', size: 260 });
   assert.deepEqual(parseLayout(old).areas.bottom.tabs, ['output', 'debug']);
 });
 
@@ -132,7 +132,7 @@ test('a bad float rect or a float without a view does not load', () => {
 
 test('the rail folds and unfolds the left area', () => {
   const start = defaultLayout();
-  assert.deepEqual(railPanels(start), ['layers', 'project']);
+  assert.deepEqual(railPanels(start), ['layers', 'project', 'library']);
   let l = railClick(start, 'project');
   assert.equal(l.folded, true, 'the icon of the active panel folds the area');
   assert.equal(isShown(l, 'project'), false);
@@ -147,7 +147,7 @@ test('the rail folds and unfolds the left area', () => {
   assert.equal(movePanel(l, 'logs', 'right').folded, true);
   assert.equal(resetLayout(l).folded, false);
   l = closePanel(start, 'project');
-  assert.deepEqual(railPanels(l), ['layers', 'project'], 'a closed Project panel keeps its icon');
+  assert.deepEqual(railPanels(l), ['layers', 'library', 'project'], 'a closed Project panel keeps its icon');
   assert.equal(railClick(l, 'project').areas.left.active, 'project');
   assert.equal(parseLayout(JSON.stringify({ version: 1, areas: {}, folded: 'yes' })).folded, false);
 });

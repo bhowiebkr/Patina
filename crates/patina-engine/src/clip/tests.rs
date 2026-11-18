@@ -163,6 +163,24 @@ subgraph = \"inner\"
 }
 
 #[test]
+fn a_paste_plan_lists_what_a_library_pick_brings_and_changes_nothing() {
+    let (source, from) = project("plan-from", HALF);
+    let (root, project) = project("plan-into", "format = 1\n");
+    let find = |want: &str| (want == from.id).then(|| source.clone());
+    let text = from.library_clip("half", true).unwrap();
+    let plan = project.paste_plan(&text, find).unwrap();
+    assert_eq!(plan[0], Need { folder: "graphs/half".into(), state: NeedState::Rename { to: "half-2".into() } });
+    assert_eq!(plan[1], Need { folder: "nodes/number".into(), state: NeedState::Same });
+    assert!(project.paste_plan(&text, |_| None).unwrap_err().contains("Open the project"));
+    assert!(!project.has_graph("half-2") && project.unsaved().count() == 0, "a plan changes nothing");
+    let own = project.paste_plan(&project.library_clip("half", true).unwrap(), |_| None).unwrap();
+    assert_eq!(own, [Need { folder: "graphs/half".into(), state: NeedState::Same }], "the same project needs no folder");
+    for dir in [&source, &root] {
+        fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[test]
 fn a_bad_clip_is_refused() {
     let (root, project) = project("bad", HALF);
     let text = project.copy(&ids(&["a", "b", "c"])).unwrap();

@@ -2,7 +2,7 @@
 // the status bar. The start screen shows when no project is open.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { api, folderName, type StartInfo, type View } from './api';
+import { api, folderName, type LibraryNode, type StartInfo, type View } from './api';
 import { analyzerProject, closeCode, onCodeError, reloadCode, showErrors, subscribe, unsavedFiles } from './code/codeState';
 import type { Reveal } from './code/reveal';
 import { changeLayout, Dock, loadLayout, useLayoutSerial, type Panel } from './panels/Dock';
@@ -15,6 +15,7 @@ import { openPanel, showGraph, type PanelId, type ViewSlot } from './panels/layo
 import { Lines } from './run/Lines';
 import { ExpandGui, FullGui, GuiScope } from './controls/NodeGui';
 import { LayersPanel } from './panels/LayersPanel';
+import { LibraryPanel } from './panels/LibraryPanel';
 import type { WireData } from './wires/WireLayer';
 import { ProjectPanel, type Inspect } from './panels/ProjectPanel';
 import { useProjectActions } from './dialogs/ProjectActions';
@@ -48,6 +49,7 @@ export function App() {
   const revision = useRef(0);
   const current = useRef<View | null>(null);
   const lockBends = useRef<(to: string) => void>(() => {});
+  const addFromLibrary = useRef<(n: LibraryNode) => void>(() => {});
   const unsaved = useSyncExternalStore(subscribe, unsavedFiles);
   const layoutSerial = useLayoutSerial();
   const { run, guis, output, setOutput, logs, setLogs, busy, stuck, log, reset, markStale, watchStop } = useRun(serial);
@@ -197,6 +199,7 @@ export function App() {
         />
       ),
     },
+    library: { body: <LibraryPanel view={view} onAdd={(n) => addFromLibrary.current(n)} /> },
     inspector: {
       body: (
         <Inspector
@@ -246,7 +249,7 @@ export function App() {
             <div className="canvas">
               <PortTest.Provider value={switchInput}>
                 <FireTrigger.Provider value={view.live && (view.graphName === 'main' || usePath) ? fire : null}>
-                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={scopedGuis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} lockRef={lockBends} />
+                  <GraphView key={`${view.serial} ${view.graphName}`} view={view} run={scoped} domains={domains} guis={scopedGuis} onEdit={edit} onSelect={onSelect} focus={focus} onOpen={openGraph} onCollapse={collapse} onExpand={expandUses} onCopy={copyNodes} onPaste={paste} lockRef={lockBends} addRef={addFromLibrary} />
                 </FireTrigger.Provider>
               </PortTest.Provider>
               {view.graphName !== 'main' && (

@@ -43,7 +43,7 @@ pub(crate) use folders::list_files;
 
 pub use cargo::{Diagnostic, Mode, Toolchain, add_crate, write_workspace};
 pub use checked::{Compiled, Parts};
-pub use clip::{Link, Pasted};
+pub use clip::{Link, Need, NeedState, Pasted};
 pub use edit::Edit;
 pub use folders::Stamps;
 pub use events::{EventRun, Events, Inbox, Remote, remote};

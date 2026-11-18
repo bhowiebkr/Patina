@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use patina_engine::git::{self, Check};
 use patina_engine::project::{self, ProjectFile};
-use patina_engine::{Link, NodeInfo, Pasted, Project, Toolchain};
+use patina_engine::{Link, Need, NodeInfo, Pasted, Project, Toolchain};
 use serde::Serialize;
 use tauri::State;
 
@@ -45,11 +45,24 @@ pub fn paste_clip(editor: State<'_, Editor>, text: String, at: [f64; 2]) -> Resu
 /// gives `link`, the wire to the new node (15.3).
 #[tauri::command(async)]
 pub fn paste_library(editor: State<'_, Editor>, path: PathBuf, name: String, subgraph: bool, at: [f64; 2], link: Option<Link>) -> Result<PastedView, String> {
-    if !editor.data.libraries().iter().any(|p| crate::data::same_path(p, &path)) || !editor.data.is_trusted(&path) {
+    let text = library_clip(&editor, &path, &name, subgraph)?;
+    paste(&editor, &text, at, link.as_ref())
+}
+
+/// What a pick of the node or the subgraph `name` of a library brings into the open project,
+/// with no change: the subgraphs and the folders (6.2, 15.2).
+#[tauri::command(async)]
+pub fn library_plan(editor: State<'_, Editor>, path: PathBuf, name: String, subgraph: bool) -> Result<Vec<Need>, String> {
+    let text = library_clip(&editor, &path, &name, subgraph)?;
+    editor.with(|session| session.project.paste_plan(&text, |id| trusted_by_id(&editor, id)))
+}
+
+/// The clip of one node or subgraph of a trusted library (6.2).
+fn library_clip(editor: &Editor, path: &Path, name: &str, subgraph: bool) -> Result<String, String> {
+    if !editor.data.libraries().iter().any(|p| crate::data::same_path(p, path)) || !editor.data.is_trusted(path) {
         return Err(format!("Add {} to the libraries in Settings first.", path.display()));
     }
-    let text = Project::open(&path).map_err(|e| e.to_string())?.library_clip(&name, subgraph)?;
-    paste(&editor, &text, at, link.as_ref())
+    Project::open(path).map_err(|e| e.to_string())?.library_clip(name, subgraph)
 }
 
 fn paste(editor: &Editor, text: &str, at: [f64; 2], link: Option<&Link>) -> Result<PastedView, String> {
