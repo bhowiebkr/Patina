@@ -7,6 +7,8 @@ import { api, errorText, folderName, laneLabel, logKind, reportError, reportText
 import { revealOf, type Reveal } from '../code/reveal';
 import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
 import { valueStale } from '../canvas/liveValues';
+import { busText, kindOf } from '../canvas/bus';
+import { wireName } from '../canvas/graphData';
 import { ExpandButton, GuiScope, GuiWidgets, NodeGui } from '../controls/NodeGui';
 import { engineId } from '../canvas/crumbs';
 import { NameField } from '../controls/NameField';
@@ -133,6 +135,7 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
   const fresh = full?.from === from ? full.value : null;
   const text = fresh?.text ?? value?.text;
   const lanes = value?.lanes;
+  const ty = outputType(view, from);
   const stale = valueStale(run, from);
   const wire = view.graph.wire?.find((w) => w.to === to);
   const locked = !view.trusted || !wire;
@@ -179,13 +182,13 @@ function WireView({ view, run, from, to, onEdit, onLock }: WireProps) {
         </label>
         <div className="param">
           <span className="label">Type</span>
-          <span>{outputType(view, from) ?? 'Unknown'}</span>
+          <span>{ty ?? 'Unknown'}</span>
         </div>
         {lanes && (
           <div className="param">
             <span className="label">Lanes</span>
             <span title="The most significant lane first">
-              {laneLabel(lanes)}: {lanes.bits}
+              {laneLabel({ bits: lanes.bits, label: busText(wireName(view, from, to, wire?.name), kindOf(view.kinds, ty), value, ty) })}: {lanes.bits}
             </span>
           </div>
         )}

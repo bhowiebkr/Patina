@@ -19,6 +19,14 @@ export const LANE_COLORS = [
 /** The distance between the centers of two lanes of a ribbon, in graph pixels. */
 export const PITCH = 5;
 
+/**
+ * The bus name of a wire (15.9): the wire or pin name, else the label of the kind, else the
+ * label of the live lanes, else the type.
+ */
+export function busText(name: string | undefined, kind: KindInfo | undefined, value: Value | undefined, ty: string | undefined): string {
+  return name ?? kind?.label ?? (value?.lanes?.label || ty) ?? 'bus';
+}
+
 /** The kind of a type. An input type `&T` or `&mut T` has the kind of `T`. */
 export function kindOf(kinds: readonly KindInfo[], ty: string | undefined): KindInfo | undefined {
   const bare = ty?.replace(/^&\s*(mut\s+)?/, '');

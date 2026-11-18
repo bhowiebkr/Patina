@@ -202,6 +202,17 @@ function innerEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: re
   });
 }
 
+/** The wire or pin name of a wire of the open graph, for its bus name (15.9). */
+export function wireName(view: View, from: string, to: string, name?: string): string | undefined {
+  const info = (pin: string) => {
+    const id = splitPin(pin)[0];
+    const entry = view.graph.node?.find((n) => n.id === id);
+    return [id, entry ? infoOf(entry, view.nodes) : null] as const;
+  };
+  const infos = new Map([info(from), info(to)]);
+  return name ?? pinName(view, infos, from, true) ?? pinName(view, infos, to, false);
+}
+
 /** A wire between two known clock domains that differ is dashed (15.3). */
 export function buildEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[], prev: Edge<WireData>[]): Edge<WireData>[] {
   const selected = new Set(prev.filter((e) => e.selected).map((e) => e.id));

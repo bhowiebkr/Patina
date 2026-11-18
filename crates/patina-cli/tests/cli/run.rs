@@ -626,3 +626,48 @@ fn a_node_with_the_log_crate_sends_its_log_lines() {
     assert!(stderr.contains("Node 3b7cec82f6a4ed1a (show): WARN shows 6.5\n"), "{stderr}");
     assert!(!stderr.contains("hidden"), "{stderr}");
 }
+
+#[test]
+fn two_heavy_nodes_with_no_wire_run_on_two_threads() {
+    // Two heavy naps with no wire have two tasks, so the pool runs them at the same time (4.1, 9.2,
+    // 15.7). With no `heavy`, the two light naps share one task on one thread.
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "naps");
+    let mut graph = String::from("format = 1
+");
+    for (i, name) in ["nap1", "nap2"].into_iter().enumerate() {
+        let folder = project.join("nodes").join(name);
+        fs::create_dir_all(folder.join("src")).unwrap();
+        let manifest = format!("[package]
+name = \"{name}\"
+version = \"0.1.0\"
+edition = \"2024\"
+
+[dependencies]
+patina-sdk = {{ workspace = true }}
+");
+        fs::write(folder.join("Cargo.toml"), manifest).unwrap();
+        let code = format!("#[patina_sdk::node(heavy)]
+pub fn {name}() {{
+    std::thread::sleep(std::time::Duration::from_millis(50));
+}}
+");
+        fs::write(folder.join("src/lib.rs"), code).unwrap();
+        graph += &format!("
+[[node]]
+id = \"00000000000000e{i}\"
+folder = \"nodes/{name}\"
+");
+    }
+    fs::write(project.join("graphs/main.toml"), graph).unwrap();
+    let opened = Project::open(&project).unwrap();
+    let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
+    // While another test holds the pool, this thread runs all the tasks, so try again.
+    let mut times = Vec::new();
+    for _ in 0..50 {
+        times = cluster.run(&Control::default()).times;
+        if matches!(&times[..], [a, b] if a.thread != b.thread) {
+            return;
+        }
+    }
+    panic!("the two naps ran on one thread: {times:?}");
+}

@@ -571,8 +571,9 @@ domain free of locks. These limits are still open:
   keeps its view tabs in the right area.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
-  A pool unit test sees a task on a worker give its pool index above 0. No graph check showed
-  such a call, and nobody looked at the tab by hand.
+  A pool unit test sees a task on a worker give its pool index above 0. A CLI test and the
+  selfcheck run two `heavy` naps with no wire and see them on two threads (2026-11-18). Two light
+  naps share one task, so they run on one thread (9.2). Nobody looked at the tab by hand.
 - The palette of a drag from a pin compares the type text with no module paths (15.2). A type
   alias does not match its type, and two types of one name in two modules match.
 - `stop_requested()` is false on a thread that a node starts. The limits of milestone 12 tell how
@@ -607,9 +608,11 @@ domain free of locks. These limits are still open:
   stops the build of all of the graph.
 - The lanes have no groups. The lane hover works only on the WebGL wires, at a zoom of 0.25 or
   more. The badge is always the viewer text.
-- The self-check makes a connection kind with **New connection**, but no value of the self-check
-  uses it. The lanes ran in the CLI test, and the look
-  had one manual check with fake lanes in the page. No check zoomed a bus out below 0.25.
+- The self-check makes a connection kind with **New connection** and wires a `u16` of that kind
+  (2026-11-18). It checks the bus label before and after a run, the **Lanes** row of the
+  **Inspector**, a lane tooltip with its live state and the "/ 16" label below a zoom of 0.25.
+  The **Lanes** row uses the bus name of 15.9 (fixed 2026-11-18). Nobody looked at the lane
+  colors of a real run by hand.
 - The editor selfcheck drags a tab to another area and drags a splitter with page events, not
   with the real mouse. No check dropped a view tab out of the window to float it.
 - Vite shows a warning for the `"use client"` lines of React Flow, and a warning for the size

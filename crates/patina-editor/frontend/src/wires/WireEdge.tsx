@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import { getBezierPath, Position, useReactFlow, useStore, type Edge, type EdgeProps, type ReactFlowState } from '@xyflow/react';
 import type { Point } from '../api';
 import { dragRoute } from '../canvas/frames';
-import { HoverContext, PITCH, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
+import { HoverContext, PITCH, busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
 import { FAR_ZOOM } from './gl';
 import { RouteHandles, SegmentHandles } from './RouteHandles';
 import type { WireIn } from './route';
@@ -116,7 +116,7 @@ export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, dat
   // At a far zoom, only a selected wire shows its badge and type label. A bus keeps its width (15.1, 15.9).
   const near = !far || selected;
   // A bus shows its name and width in place of the type label, above its lanes.
-  const bus = data!.bus ?? kind?.label ?? value?.lanes?.label ?? data!.ty ?? 'bus';
+  const bus = busText(data!.bus, kind, value, data!.ty);
   // One line shows its wire name in place of the type label.
   // A label with no room hides. The sockets and the pin tooltips at the two ends show the names.
   const room = selected ? Infinity : fit;

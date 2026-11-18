@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { KindInfo } from '../api.ts';
-import { familyOf, hoveredLane, kindOf, laneAt, laneTip, socketOf, wireBits } from './bus.ts';
+import { busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, socketOf, wireBits } from './bus.ts';
 
 const ctrl: KindInfo = { ty: 'u16', lanes: ['HLT', 'MI', 'RI'], label: 'ctrl', color: 'violet' };
 const byte: KindInfo = { ty: 'u8', lanes: [], label: null, color: null };
@@ -12,6 +12,15 @@ test('an input of a reference type has the kind of the value type', () => {
   assert.equal(kindOf([ctrl, byte], 'u32'), undefined);
   assert.equal(familyOf(ctrl), 3);
   assert.equal(familyOf(byte), 0);
+});
+
+test('the bus name is the wire or pin name, then the kind label, then the live label', () => {
+  const live = { from: 'a.out', text: '5', lanes: { bits: '101', label: '' } };
+  assert.equal(busText('data', ctrl, live, 'u16'), 'data');
+  assert.equal(busText(undefined, ctrl, live, 'u16'), 'ctrl');
+  assert.equal(busText(undefined, byte, live, 'u8'), 'u8');
+  assert.equal(busText(undefined, byte, { ...live, lanes: { bits: '1', label: 'x' } }, 'u8'), 'x');
+  assert.equal(busText(undefined, undefined, undefined, undefined), 'bus');
 });
 
 test('a kind with lanes gives off lanes before a run, and the live lanes win', () => {

@@ -4,11 +4,13 @@
 
 import { api, onEngine, onOutput, outputLines, type EngineEvent, type View } from '../api';
 import type { Reveal } from '../code/reveal';
+import { checkBus } from './check-bus';
 import { checkCanvas } from './check-canvas';
 import { checkDock } from './check-dock';
 import { checkDomains } from './check-domains';
 import { checkFree } from './check-free';
 import { checkSymbol } from './check-symbol';
+import { checkThreads } from './check-threads';
 import { checkViewer } from './check-viewer';
 import type { CheckContext } from './check-fixtures';
 import { checkIsolation } from './check-isolation';
@@ -97,6 +99,7 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     v = await checkDomains(c, recovered.v, lib, recovered.changedCode);
     v = await checkViews(c, v, lib, dock.at);
     v = await checkViewer(c, await checkSymbol(c, await checkFree(c, v)));
+    v = await checkThreads(c, await checkBus(c, v));
     await checkSubgraph(c, v, lib);
 
     await new Promise((r) => setTimeout(r, 300));
