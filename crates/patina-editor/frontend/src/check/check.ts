@@ -46,7 +46,8 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
       if (left <= 0) throw new Error(`no result after ${ms} ms: ${what}`);
       await new Promise<void>((r) => {
         wake = r;
-        setTimeout(r, Math.min(left, 250));
+        // A change of the page does not wake the wait, so look again soon.
+        setTimeout(r, Math.min(left, 20));
       });
     }
   }

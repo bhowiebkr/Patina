@@ -167,8 +167,10 @@ Measure before and after each change. Write the numbers into STATUS.md.
   small. A shown frame of the computer example went from about 9650 to 21 allocations
   (STATUS.md). Agent decision, 2026-11-17: the 21 stay. They are small (16.8 KB), and the
   JSON event stays, because a binary frame is not necessary at 60 FPS.
-- [ ] Find the slowest tests of `cargo test --workspace` and of the selfcheck. Make them
-  faster without less cover.
+- [x] Find the slowest tests of `cargo test --workspace` and of the selfcheck. Make them
+  faster without less cover. The tests of `patina-cli` went from 30.0 s to 12.4 s, and the
+  selfcheck from 62.4 s to 33.6 s (STATUS.md). The code generation of the computer example
+  went from about 1060 ms to 30 ms.
 - [ ] Measure the compile time of `patina-engine` after a change to one file. Split the crate
   into the model, the build and the runtime only if the time is high. Write the decision into
   the spec.

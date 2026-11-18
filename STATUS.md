@@ -117,6 +117,25 @@ editor with the built page, on the Windows 11 computer of the owner.
     9 allocations (16.8 KB) and 2.6 ms. About 787 values change in each frame.
   - The event now borrows the lists of the frame, and the copies for the subgraph pins reuse
     their buffers. The rest of the time is the JSON of the badges in the debug build.
+- Tests and builds of the computer example, 2026-11-17. A game ran in the background. The old
+  code ran as the control in the same run.
+  - The code generation searched all steps for the readers of each output. In a debug test, the
+    code of the computer example (2,177,691 bytes) took about 1060 ms.
+  - Now each step keeps the readers of its outputs. The same code takes about 30 ms, and the
+    text is the same, byte for byte. The editor and the CLI generate it at each build.
+  - A build generates the code two times: for the hash of the base and for the files. The second
+    time now costs about 25 ms, so it stays.
+  - The CLI tests also copied the cargo `target` folder of a project. The copy now skips it, as
+    the walk of the project files does.
+  - The CLI tests were 4 test binaries, and cargo runs them one after the other. They are now
+    one binary, `tests/cli`, so the 11 tests run in parallel.
+  - The tests of `patina-cli` went from 30.0 s to 12.9 s and 12.4 s. The computer test alone
+    went from 16.1 s (in an earlier check) to 8.9 s. The events test is now the longest: it runs
+    the CLI 12 times, with a build after each graph change.
+  - Each wait of the selfcheck looked at the page again only every 250 ms. An engine event
+    stopped the wait, but a change of the page did not. Now it looks every 20 ms.
+  - The selfcheck went from 62.4 s to 33.6 s, with the same 201 steps. The slowest steps that
+    stay do real work: a build, the 2 s flood test and the stop of an endless loop.
 
 ## Known limits
 
