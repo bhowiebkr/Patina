@@ -68,6 +68,10 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   await api.closeProject();
   const start = await api.startInfo();
   if (start.recent[0]?.path !== v.root) throw new Error(`the recent list starts with ${start.recent[0]?.path}`);
+  // Remove takes the project off the recent list. Delete project then refuses it (15.10). The next open adds it again.
+  if ((await api.forgetProject(v.root)).recent.some((r) => r.path === v.root)) throw new Error('the removed project is in the recent list');
+  const refused = await api.deleteProject(v.root).then(() => 'no error', String);
+  if (!refused.includes('not a recent project')) throw new Error(`Delete project did not refuse a project off the recent list: ${refused}`);
   steps.push('close');
 
   let from = mark();

@@ -3,27 +3,40 @@
 import { useState, type FormEvent } from 'react';
 import { AboutDialog, useVersion } from './About';
 import { api, type StartInfo, type View } from '../api';
+import { Icon } from '../panels/Dock';
+import { Confirm } from './Confirm';
 import { StartBackdrop } from './StartBackdrop';
+
+type Recent = StartInfo['recent'][number];
 
 interface Props {
   start: StartInfo;
   onOpen: (view: View) => void;
+  /** Gives the new recent list after a project goes off the list. */
+  onStart: (start: StartInfo) => void;
   onSettings: () => void;
 }
 
-export function StartScreen({ start, onOpen, onSettings }: Props) {
+export function StartScreen({ start, onOpen, onStart, onSettings }: Props) {
   const [parent, setParent] = useState(start.projectsDir);
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [about, setAbout] = useState(false);
+  const [remove, setRemove] = useState<Recent | null>(null);
   const version = useVersion();
 
   const act = (job: Promise<View>) => {
     setBusy(true);
     setError('');
     job.then(onOpen).catch((e) => setError(String(e))).finally(() => setBusy(false));
+  };
+  const change = (job: Promise<StartInfo>) => {
+    setRemove(null);
+    setBusy(true);
+    setError('');
+    job.then(onStart).catch((e) => setError(String(e))).finally(() => setBusy(false));
   };
   const create = (e: FormEvent) => {
     e.preventDefault();
@@ -96,21 +109,33 @@ export function StartScreen({ start, onOpen, onSettings }: Props) {
           {start.recent.length === 0 && <div className="label">None</div>}
           <div className="recent">
             {start.recent.map((r) => (
-              <button
-                key={r.path}
-                className={r.exists ? 'item' : 'item empty'}
-                disabled={busy || !r.exists}
-                onClick={() => act(api.openProject(r.path))}
-              >
-                <span>{r.name}</span>
-                <span className="path">{r.path}</span>
-                {!r.exists && <span className="hint">Missing</span>}
-              </button>
+              <div key={r.path} className="recent-row">
+                <button className={r.exists ? 'item' : 'item empty'} disabled={busy || !r.exists} onClick={() => act(api.openProject(r.path))}>
+                  <span>{r.name}</span>
+                  <span className="path">{r.path}</span>
+                  {!r.exists && <span className="hint">Missing</span>}
+                </button>
+                <button className="icon-btn recent-remove" aria-label={`Remove ${r.name}`} title="Remove" disabled={busy} onClick={() => setRemove(r)}>
+                  <Icon d="m5 5 6 6m0-6-6 6" />
+                </button>
+              </div>
             ))}
           </div>
         </div>
       </div>
       {about && <AboutDialog onClose={() => setAbout(false)} />}
+      {remove && (
+        <Confirm
+          title={`Remove ${remove.name}?`}
+          label={remove.exists ? `Delete project moves the folder ${remove.path} to the Recycle Bin.` : 'The project folder is missing.'}
+          answers={[
+            ['Remove from list', () => change(api.forgetProject(remove.path))],
+            ...(remove.exists ? [['Delete project', () => change(api.deleteProject(remove.path))] as [string, () => void]] : []),
+            ['Cancel', () => setRemove(null)],
+          ]}
+          onCancel={() => setRemove(null)}
+        />
+      )}
     </main>
   );
 }

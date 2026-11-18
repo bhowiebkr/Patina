@@ -144,7 +144,7 @@ export function App() {
 
   if (!view) {
     if (settings) return <SettingsScreen onBack={closeSettings} />;
-    return start ? <StartScreen start={start} onOpen={show} onSettings={() => setSettings(true)} /> : null;
+    return start ? <StartScreen start={start} onOpen={show} onStart={setStart} onSettings={() => setSettings(true)} /> : null;
   }
 
   const fullEntry = full ? view.graph.node?.find((n) => n.id === full) : undefined;

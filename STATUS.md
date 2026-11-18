@@ -196,6 +196,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   does not save, so the terminal, the frame and the key buffer are empty after an open. The
   keyboard path to the terminal is checked only by unit tests, because it needs typed input.
 
+### Start screen
+
+- The **x** button of a recent project removes it from the list or moves its folder to the Recycle
+  Bin (2026-11-17). The self-check runs **Remove from list** and the refusal of **Delete project**
+  through the API. It does not click the button, and no check moved a project to the Recycle Bin.
+- Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
+
 ### Canvas editing
 
 - Known limits: the self-check drop is a page event, not a drag of the operating system.

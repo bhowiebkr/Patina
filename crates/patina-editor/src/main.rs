@@ -15,6 +15,8 @@ mod engine;
 mod floats;
 mod node_process;
 mod output;
+#[cfg(windows)]
+mod recycle;
 mod session;
 #[cfg(windows)]
 mod shot;
@@ -247,6 +249,8 @@ fn main() {
             session::trust_project,
             session::settings,
             session::untrust_project,
+            session::forget_project,
+            session::delete_project,
             session::copy_clip,
             session::paste_clip,
             session::paste_library,

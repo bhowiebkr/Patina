@@ -150,6 +150,10 @@ impl Data {
         self.write_list(RECENT, &list)
     }
 
+    pub fn remove_recent(&self, root: &Path) -> Result<(), String> {
+        self.remove_from(RECENT, root)
+    }
+
     /// The trusted project folders, in the order of trust (11).
     pub fn trusted(&self) -> Vec<PathBuf> {
         self.read_list(TRUSTED)

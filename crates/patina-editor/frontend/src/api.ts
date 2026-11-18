@@ -440,6 +440,8 @@ export const api = {
   checkUpdate: () => invoke<Release | null>('check_update'),
   /** Takes a folder off the list of trusted projects (11), and returns the new list. */
   untrustProject: (path: string) => invoke<string[]>('untrust_project', { path }),
+  forgetProject: (path: string) => invoke<StartInfo>('forget_project', { path }),
+  deleteProject: (path: string) => invoke<StartInfo>('delete_project', { path }),
   /** The clip text of the nodes, for the clipboard (15.11). */
   copyClip: (ids: string[]) => invoke<string>('copy_clip', { ids }),
   pasteClip: (text: string, at: [number, number]) => invoke<Pasted>('paste_clip', { text, at }),

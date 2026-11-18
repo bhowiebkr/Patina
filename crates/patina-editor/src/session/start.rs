@@ -1,6 +1,6 @@
 //! The commands of the start screen and of the settings screen (15.10).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use patina_engine::{Project, Toolchain, package};
 use serde::Serialize;
@@ -118,6 +118,50 @@ pub fn close_project(editor: State<'_, Editor>) {
     editor.close();
 }
 
+/// Takes a project off the recent list. The folder stays (15.10).
+#[tauri::command(async)]
+pub fn forget_project(editor: State<'_, Editor>, path: PathBuf) -> Result<StartInfo, String> {
+    editor.data.remove_recent(&path)?;
+    Ok(start_info(editor))
+}
+
+/// Moves a recent project to the Recycle Bin, and takes it off the recent and trusted lists, so
+/// that a new folder at the same path is not trusted (11, 15.10).
+#[tauri::command(async)]
+pub fn delete_project(editor: State<'_, Editor>, path: PathBuf) -> Result<StartInfo, String> {
+    deletable(&editor.data.recent(), &path)?;
+    if editor.lock().is_some() {
+        return Err("Close the project first.".to_owned());
+    }
+    // No process of Patina may keep a file of the project open (16.1).
+    editor.analyzer.stop();
+    editor.engine.end();
+    recycle(&path)?;
+    editor.data.remove_recent(&path)?;
+    editor.data.untrust(&path)?;
+    Ok(start_info(editor))
+}
+
+/// Only a project of the recent list can go, so the page cannot delete another folder.
+fn deletable(recent: &[PathBuf], path: &Path) -> Result<(), String> {
+    if !recent.iter().any(|r| r == path) {
+        return Err(format!("{} is not a recent project.", path.display()));
+    }
+    if !path.is_absolute() || !path.join("patina.toml").is_file() {
+        return Err(format!("{} is not a Patina project.", path.display()));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+use crate::recycle::recycle;
+
+// shortcut: no trash on Linux and macOS, add the freedesktop trash when a user asks.
+#[cfg(not(windows))]
+fn recycle(_: &Path) -> Result<(), String> {
+    Err("Patina can delete a project only on Windows. Delete the folder in the file manager.".to_owned())
+}
+
 #[tauri::command(async)]
 pub fn trust_project(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
@@ -132,6 +176,22 @@ pub fn trust_project(editor: State<'_, Editor>) -> Result<View, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+
+    #[test]
+    fn only_a_recent_project_can_go() {
+        let dir = std::env::temp_dir().join(format!("patina-deletable-{}", std::process::id()));
+        let other = dir.join("other");
+        fs::create_dir_all(&other).unwrap();
+        fs::write(dir.join("patina.toml"), "").unwrap();
+        fs::write(other.join("patina.toml"), "").unwrap();
+        let recent = [dir.clone(), dir.join("missing")];
+        let results = [deletable(&recent, &dir), deletable(&recent, &other), deletable(&recent, &dir.join("missing"))];
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(results[0].is_ok());
+        assert!(results[1].as_ref().unwrap_err().contains("not a recent project"));
+        assert!(results[2].as_ref().unwrap_err().contains("not a Patina project"));
+    }
 
     #[test]
     fn project_names_are_safe_folder_names() {

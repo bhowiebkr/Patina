@@ -231,3 +231,24 @@
   color: var(--subtle);
   font-size: 12px;
 }
+
+.recent-row {
+  position: relative;
+}
+
+.recent-row .item {
+  padding-right: 40px;
+}
+
+/* The remove button shows only on the row under the pointer or with the focus (15.10). */
+.recent-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+}
+
+.recent-row:hover .recent-remove,
+.recent-row:focus-within .recent-remove {
+  opacity: 1;
+}
