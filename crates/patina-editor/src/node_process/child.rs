@@ -49,7 +49,7 @@ pub fn run(toolchain: PathBuf) -> ! {
             ToNode::Job(job) => {
                 let _ = jobs.send(job);
             }
-            ToNode::Stop(stop) => shared.control.set_stop(stop),
+            ToNode::Stop(stop) => shared.set_stop(stop),
             ToNode::Ask { id, ask: Ask::Running } => out.reply(id, Ok(shared.running())),
             ToNode::Ask { id, ask: Ask::Value(from) } => {
                 let value = lock(&shared.values).iter().find(|v| v.from == from).cloned();

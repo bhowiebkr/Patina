@@ -235,6 +235,9 @@ pub struct Shared {
     pub remote: Mutex<Option<Remote>>,
     /// The stop flag and the node that runs (15.2).
     pub control: Control,
+    /// The control of the audio thread, so that **Stop** reaches a block and the editor can name
+    /// an audio node that does not stop (15.2).
+    audio: Control,
     /// The node ID of each node index of the loaded cluster.
     ids: Mutex<Vec<String>>,
     /// The number of sent runs with a build that the engine did not take yet.
@@ -242,6 +245,12 @@ pub struct Shared {
 }
 
 impl Shared {
+    /// Asks the runs to stop, or removes the request (15.2).
+    pub fn set_stop(&self, stop: bool) {
+        self.control.set_stop(stop);
+        self.audio.set_stop(stop);
+    }
+
     /// Clears the live values and the node errors of the last run.
     fn clear(&self) {
         lock(&self.values).clear();
@@ -249,14 +258,14 @@ impl Shared {
         lock(&self.event_reports).clear();
     }
 
-    /// The ID of the node that runs, or that ran last in the active run, on the engine thread or in
-    /// an event run. An empty ID while project code runs that names no node (16.1). None between runs.
+    /// The ID of the node that runs, or that ran last in the active run, on the engine thread, on
+    /// the audio thread or in an event run. An empty ID while project code runs that names no node (16.1). None between runs.
     pub fn running(&self) -> Option<String> {
         // `control` keeps the last node of a run after its task, so an unnamed call comes first.
         if patina_engine::in_unnamed_call() {
             return Some(String::new());
         }
-        let node = self.control.node().or_else(|| lock(&self.remote).as_ref()?.running())?;
+        let node = self.control.node().or_else(|| self.audio.node()).or_else(|| lock(&self.remote).as_ref()?.running())?;
         lock(&self.ids).get(node as usize).cloned()
     }
 
@@ -267,7 +276,7 @@ impl Shared {
         let node = patina_engine::thread_node().or_else(|| match patina_engine::in_unnamed_call() {
             // The last node of the run is not the code that crashed.
             true => None,
-            false => self.control.node().or_else(|| self.remote.try_lock().ok()?.as_ref()?.try_running()),
+            false => self.control.node().or_else(|| self.audio.node()).or_else(|| self.remote.try_lock().ok()?.as_ref()?.try_running()),
         });
         if let (Some(node), Ok(ids)) = (node, self.ids.try_lock())
             && let Some(id) = ids.get(node as usize)
@@ -575,12 +584,12 @@ fn split(live: &mut Live, part: &mut Frames, audio: Audio) -> Option<Job> {
 /// sends its values and times, so they come at the frame rate, not at each block (15.6).
 fn play(mut audio: Audio, shared: &Shared, stop: &AtomicBool, out: &Mutex<Blocks>, taken: &AtomicBool) {
     raise_priority();
-    // Each thread has its own control: the control keeps the node that runs (15.2).
-    let (control, mut pace, mut blocks) = (Control::default(), Pace::default(), Blocks::default());
+    // The audio thread has its own control, because the control keeps the node that runs (15.2).
+    let (control, mut pace, mut blocks) = (&shared.audio, Pace::default(), Blocks::default());
     while !stop.load(Ordering::Relaxed) && !shared.control.stopped() {
         pace.wait();
         control.set_quiet(!taken.swap(false, Ordering::Relaxed));
-        let block = audio.block(&control);
+        let block = audio.block(control);
         let ok = block.ok;
         blocks.gather(&Part::from(block));
         if let Some(notice) = pace.play(audio.sound().map(|s| s.as_slice())) {
@@ -758,4 +767,28 @@ fn run_one(out: &Out, (folder, toolchain): (&Path, &mut Option<Toolchain>), load
     let goes_on = params.ok && outcome.ok && !shared.control.stopped();
     let (frames, events) = (goes_on && (cluster.frames() || cluster.blocks()), goes_on && cluster.events());
     Ok(Some(Event::Ran { serial: run.serial, built_ms, slot_only, fused, slot, run_ms, ok: outcome.ok, frames, events, skipped: outcome.skipped, stopped: outcome.stopped, times: outcome.times, logs: outcome.logs, reports, values, errors }))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::c_void;
+
+    use patina_sdk::glue::Reporter;
+
+    use super::*;
+
+    unsafe extern "C" fn ignore(_: *mut c_void, _: u32, _: u32, _: *const u8, _: usize) {}
+
+    #[test]
+    fn stop_reaches_the_audio_thread_and_the_editor_names_its_node() {
+        let shared = Shared::default();
+        *lock(&shared.ids) = vec!["a".to_owned(), "b".to_owned()];
+        shared.set_stop(true);
+        assert!(shared.audio.stopped() && shared.control.stopped());
+        shared.set_stop(false);
+        let rep = Reporter { ctx: std::ptr::null_mut(), report: ignore, control: &shared.audio };
+        assert_eq!(shared.running(), None);
+        assert!(rep.enter(1, true), "an audio node starts");
+        assert_eq!(shared.running().as_deref(), Some("b"));
+    }
 }

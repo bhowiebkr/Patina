@@ -32,4 +32,5 @@ tauri-build = "2.7"
 workspace = true
 
 [dev-dependencies]
+patina-sdk = { path = "../patina-sdk" }
 toml = "1"

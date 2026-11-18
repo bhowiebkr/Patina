@@ -251,8 +251,6 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     thread between the frames, so a slow frame or node GUI makes them late.
 - While the audio thread of the editor runs, a view reads no output of an audio node, and the
   GUI of an audio node does not draw. The badges of the audio outputs still show.
-- The audio thread has its own `Control`. So the editor does not show an audio node as the node
-  that runs, and **Stop** stops the audio thread only at the end of a block (15.2).
 - No check played a sound in the editor. The editor uses the same device code as the CLI.
 - When an audio node keeps a value that is not `Sync`, the blocks run on the thread of the
   frames. A slow frame then makes the blocks late. The device queue of 43 ms hides a short delay
