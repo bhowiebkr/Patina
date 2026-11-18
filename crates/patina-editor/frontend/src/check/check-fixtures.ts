@@ -115,6 +115,7 @@ pub struct Number {
     source: String,
     dot: [f32; 2],
     code: String,
+    tf: patina_sdk::Transform2d,
 }
 
 impl Number {
@@ -123,7 +124,7 @@ impl Number {
             patina_sdk::Layer { name: "Edge polish".into(), color: [232, 176, 128], visible: true, amount: Some(0.35) },
             patina_sdk::Layer { name: "Verdigris".into(), color: [52, 190, 160], visible: true, amount: Some(0.62) },
             patina_sdk::Layer { name: "Copper".into(), color: [180, 100, 56], visible: true, amount: None },
-        ], layer: 1, path: "out/frame_####.png".into(), source: String::new(), dot: [20.0, 24.0], code: "LDI 1\\nOUT".into() }
+        ], layer: 1, path: "out/frame_####.png".into(), source: String::new(), dot: [20.0, 24.0], code: "LDI 1\\nOUT".into(), tf: patina_sdk::Transform2d::default() }
     }
 
     pub fn process(&mut self, value: f64) -> f64 {
@@ -156,6 +157,8 @@ impl Number {
             self.dot = p;
         }
         pad.circle(self.dot, 6.0, [232, 163, 61], true);
+        let checker: [u8; 16] = [24, 32, 96, 255, 232, 163, 61, 255, 232, 163, 61, 255, 24, 32, 96, 255];
+        ui.transform("Move", [160.0, 90.0], &mut self.tf, Some(([2, 2], &checker[..])));
         if ui.mode() == patina_sdk::Mode::Full {
             ui.label("Full size");
         }

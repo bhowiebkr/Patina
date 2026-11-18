@@ -254,3 +254,34 @@ fn an_asset_picker_writes_its_extensions_and_takes_the_new_path() {
     assert_eq!(ui.tree(), "asset\tSource\tglb obj\t");
     assert_eq!(path, "meshes/ball.glb");
 }
+
+#[test]
+fn a_transform_reads_a_set_event_and_maps_points_both_ways() {
+    let mut t = Transform2d::default();
+    let mut ui = Ui::new(0, "0 set 10 -5 450 2 3 0 1 0");
+    assert!(ui.transform("Move", [100.0, 50.0], &mut t, Some(([1, 1], &[1, 2, 3, 4]))).changed());
+    assert_eq!(ui.tree(), "transform\tMove\t100 50\t0 0\t0\t1 1\t0.5 0.5\t1\t1\t1\tAQIDBA==");
+    assert_eq!(t, Transform2d { offset: [10.0, -5.0], rotation: 90.0, scale: [2.0, 3.0], pivot: [0.0, 1.0], lock: false });
+    // The pivot at the bottom left stays, plus the move. A turn of 90 degrees puts x down.
+    let near = |a: [f32; 2], b: [f32; 2]| (a[0] - b[0]).abs() < 1e-3 && (a[1] - b[1]).abs() < 1e-3;
+    assert!(near(t.apply([100.0, 50.0], [0.0, 50.0]), [10.0, 45.0]));
+    assert!(near(t.apply([100.0, 50.0], [1.0, 50.0]), [10.0, 47.0]));
+    for p in [[0.0, 0.0], [25.0, 10.0], [100.0, 50.0]] {
+        assert!(near(t.invert([100.0, 50.0], t.apply([100.0, 50.0], p)), p), "{p:?}");
+    }
+    let mut ui = Ui::new(0, "0 set 0 0 -190 0 1000 -1 2 1");
+    ui.transform("", [0.0, f32::NAN], &mut t, Some(([2, 2], &[0; 4])));
+    assert_eq!(ui.tree(), "transform\t\t1 1\t10 -5\t90\t2 3\t0 1\t0\t0\t0\t");
+    assert_eq!((t.rotation, t.scale, t.pivot, t.lock), (170.0, [0.01, 100.0], [0.0, 1.0], true));
+}
+
+#[test]
+fn a_bad_transform_event_changes_nothing() {
+    let start = Transform2d::default();
+    for event in ["0 set 1 2 3 4 5 6 7", "0 set 1 2 NaN 1 1 0 0 1", "0 move 1 2 0 1 1 0 0 1", "0 set 0 0 0 1 1 0.5 0.5 1"] {
+        let mut t = start;
+        let mut ui = Ui::new(0, event);
+        assert!(!ui.transform("", [10.0, 10.0], &mut t, None).changed(), "{event}");
+        assert_eq!(t, start, "{event}");
+    }
+}

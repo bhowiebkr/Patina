@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { escapeCode, eventLine, nest, nodeWidth, parseTree, rampGradient, stepped, unescapeCode } from './gui.ts';
+import { applyTransform, dragTransform, escapeCode, eventLine, movePivot, nest, nodeWidth, parseTree, rampGradient, scaleTo, stepped, transformEvent, unescapeCode } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
   const tree = 'label\tTick\nwheel\tX\nbutton\tReset\ntoggle\tOn\t1\nslider\tCount\t2.5\t0\t10\nslider\tBad\tx\t0\t1';
@@ -210,4 +210,41 @@ test('a canvas sets the node width, and the values and labels do not', () => {
   assert.equal(nodeWidth('label\tA long value that does not fit'), 200);
   assert.equal(nodeWidth('canvas\tLCD\t252\t57\nlabel\tx'), 278);
   assert.equal(nodeWidth('canvas\tBig\t4096\t10'), 480);
+});
+
+test('a transform line reads its frame, its values and its image, and a bad line drops', () => {
+  const tree = [
+    'transform\tMove\t100 50\t10 -5\t90\t2 3\t0 1.5\t1\t1\t1\tAQIDBA==',
+    'transform\tNo image\t1 1\t0 0\t0\t1 1\t0.5 0.5\t0\t0\t0\t',
+    'transform\tBad scale\t1 1\t0 0\t0\t0 1\t0.5 0.5\t0\t0\t0\t',
+    'transform\tBad frame\t0 1\t0 0\t0\t1 1\t0.5 0.5\t0\t0\t0\t',
+    'transform\tBad image\t1 1\t0 0\t0\t1 1\t0.5 0.5\t0\t1\t1\tAQID',
+    'transform\tShort\t1 1\t0 0',
+  ].join('\n');
+  assert.deepEqual(parseTree(tree), [
+    { kind: 'transform', index: 0, text: 'Move', frame: [100, 50], t: { x: 10, y: -5, rotation: 90, sx: 2, sy: 3, px: 0, py: 1, lock: true }, image: { width: 1, height: 1, rgba: 'AQIDBA==' } },
+    { kind: 'transform', index: 1, text: 'No image', frame: [1, 1], t: { x: 0, y: 0, rotation: 0, sx: 1, sy: 1, px: 0.5, py: 0.5, lock: false }, image: null },
+  ]);
+});
+
+test('a transform drag moves, turns and scales around the pivot, and a pivot preset keeps the box', () => {
+  const t = { x: 0, y: 0, rotation: 0, sx: 1, sy: 1, px: 0.5, py: 0.5, lock: true };
+  const at: [number, number] = [50, 50];
+  assert.deepEqual(applyTransform({ ...t, rotation: 90, sx: 2 }, [100, 100], [60, 50]), [50, 70]);
+  assert.deepEqual(dragTransform(t, 'move', [0, 0], [10, 4], at, 2, false), { ...t, x: 5, y: 2 });
+  assert.deepEqual(dragTransform(t, 'y', [0, 0], [10, 4], at, 2, false), { ...t, y: 2 });
+  // A quarter turn clockwise on the screen, and a snap to 15 degrees.
+  assert.equal(dragTransform(t, 'rotate', [60, 50], [50, 60], at, 1, false).rotation, 90);
+  assert.equal(dragTransform(t, 'rotate', [60, 50], [60, 55], at, 1, true).rotation, 30);
+  assert.equal(dragTransform({ ...t, rotation: 170 }, 'rotate', [60, 50], [50, 60], at, 1, false).rotation, -100);
+  // A corner twice as far from the pivot doubles the scale. The lock keeps the ratio.
+  assert.deepEqual(dragTransform({ ...t, sy: 2 }, 'corner', [60, 60], [70, 70], at, 1, false), { ...t, sx: 2, sy: 4 });
+  assert.deepEqual(dragTransform({ ...t, lock: false }, 'corner', [60, 60], [70, 60], at, 1, false), { ...t, lock: false, sx: 2 });
+  assert.equal(dragTransform(t, 'corner', [60, 60], [40, 40], at, 1, false).sx, 0.01);
+  const turned = { ...t, rotation: 90, sx: 2 };
+  const moved = movePivot(turned, [100, 100], [0, 0]);
+  assert.deepEqual([moved.px, moved.py], [0, 0]);
+  assert.deepEqual(applyTransform(moved, [100, 100], [10, 20]).map(Math.round), applyTransform(turned, [100, 100], [10, 20]).map(Math.round));
+  assert.deepEqual(scaleTo({ ...t, sy: 2 }, 3), { ...t, sx: 3, sy: 6 });
+  assert.equal(transformEvent({ ...t, x: 1 / 3 }), 'set 0.333 0 0 1 1 0.5 0.5 1');
 });

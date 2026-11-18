@@ -8,9 +8,11 @@ mod code;
 mod layers;
 mod path;
 mod ramp;
+mod transform;
 pub use layers::Layer;
 pub use path::PathKind;
 pub use ramp::{Blend, ColorRamp};
+pub use transform::Transform2d;
 
 /// The most values of a plot line. A longer line sends the lowest and the highest value of parts.
 const MAX_PLOT: usize = 1024;
@@ -507,13 +509,7 @@ impl Ui {
     /// row by row from the top. An image of more than 256 x 256 pixels or of a wrong length is empty.
     pub fn image(&mut self, text: &str, size: [u32; 2], rgba: &[u8]) {
         self.push("image", text);
-        let pixels = size[0].checked_mul(size[1]).filter(|&p| p <= MAX_PIXELS && p as usize * 4 == rgba.len());
-        if pixels.is_some() {
-            let _ = write!(self.tree, "\t{}\t{}\t", size[0], size[1]);
-            crate::view::push_base64(&mut self.tree, rgba);
-        } else {
-            self.tree.push_str("\t0\t0\t");
-        }
+        push_pixels(&mut self.tree, size, rgba);
     }
 
     /// The widget lines, for the editor.
@@ -550,6 +546,18 @@ impl Ui {
 /// A tab or a line break in a text would break the widget lines, so it becomes a space.
 fn push_clean(tree: &mut String, text: &str) {
     tree.extend(text.chars().map(|c| if c.is_control() { ' ' } else { c }));
+}
+
+/// Writes the size and the base64 RGBA of an image, or `0 0` for an image of more than 256 x 256
+/// pixels or of a wrong length.
+fn push_pixels(tree: &mut String, size: [u32; 2], rgba: &[u8]) {
+    let pixels = size[0].checked_mul(size[1]).filter(|&p| p <= MAX_PIXELS && p as usize * 4 == rgba.len());
+    if pixels.is_some() {
+        let _ = write!(tree, "\t{}\t{}\t", size[0], size[1]);
+        crate::view::push_base64(tree, rgba);
+    } else {
+        tree.push_str("\t0\t0\t");
+    }
 }
 
 fn push_color(tree: &mut String, [r, g, b]: [u8; 3]) {

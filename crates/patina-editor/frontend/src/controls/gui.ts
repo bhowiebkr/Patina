@@ -28,7 +28,28 @@ export type Widget =
   | { kind: 'curve'; index: number; text: string; points: [number, number][]; histogram: number[] }
   | { kind: 'ramp'; index: number; text: string; blend: Blend; selected: number; stops: Stop[] }
   | { kind: 'layers'; index: number; text: string; selected: number; layers: Layer[] }
-  | { kind: 'image'; index: number; text: string; width: number; height: number; rgba: string };
+  | ({ kind: 'image'; index: number; text: string } & Picture)
+  /** A 2D transform on a frame of `frame` pixels, with an image of the frame behind it or none. */
+  | { kind: 'transform'; index: number; text: string; frame: [number, number]; t: Transform; image: Picture | null };
+
+/** The size and the base64 RGBA pixels of an image. */
+export interface Picture {
+  width: number;
+  height: number;
+  rgba: string;
+}
+
+/** A move in pixels, a rotation in degrees and a scale around a pivot from 0 to 1, as `patina_sdk::Transform2d`. */
+export interface Transform {
+  x: number;
+  y: number;
+  rotation: number;
+  sx: number;
+  sy: number;
+  px: number;
+  py: number;
+  lock: boolean;
+}
 
 /** The position from 0 to 1 and the color of a color ramp stop. */
 export type Stop = [number, string];
@@ -97,6 +118,19 @@ function numbers(field: string | undefined, max: number): number[] {
   return field ? field.split(' ', max).map(Number) : [];
 }
 
+/** Reads the width, the height and the base64 RGBA of an image, or null when they are bad. */
+function pixels(fields: string[]): Picture | null {
+  const [width, height] = fields.map(Number);
+  const rgba = fields[2] ?? '';
+  const ok = Number.isInteger(width) && Number.isInteger(height) && width >= 0 && height >= 0 && width * height <= MAX_PIXELS;
+  // Base64 has 4 digits for each 3 bytes, and each pixel has 4 bytes. Other digits or ends make
+  // the decode fail or give the wrong length, so the line is bad.
+  const end = '='.repeat((3 - ((width * height * 4) % 3)) % 3);
+  const digits = rgba.slice(0, rgba.length - end.length);
+  const data = rgba.length === 4 * Math.ceil((width * height * 4) / 3) && rgba.endsWith(end) && BASE64.test(digits);
+  return ok && data ? { width, height, rgba } : null;
+}
+
 /** Reads a value widget line, or null when it is bad. */
 function parseValue(kind: string, index: number, text: string, rest: string[]): Widget | null {
   if (kind === 'color') return COLOR.test(rest[0] ?? '') ? { kind, index, text, value: rest[0] } : null;
@@ -144,15 +178,19 @@ function parseValue(kind: string, index: number, text: string, rest: string[]): 
     return { kind, index, text, selected, layers };
   }
   if (kind === 'image') {
-    const [width, height] = rest.map(Number);
-    const rgba = rest[2] ?? '';
-    const ok = Number.isInteger(width) && Number.isInteger(height) && width >= 0 && height >= 0 && width * height <= MAX_PIXELS;
-    // Base64 has 4 digits for each 3 bytes, and each pixel has 4 bytes. Other digits or ends make
-    // the decode fail or give the wrong length, so the line is bad.
-    const end = '='.repeat((3 - ((width * height * 4) % 3)) % 3);
-    const digits = rgba.slice(0, rgba.length - end.length);
-    const data = rgba.length === 4 * Math.ceil((width * height * 4) / 3) && rgba.endsWith(end) && BASE64.test(digits);
-    return ok && data ? { kind, index, text, width, height, rgba } : null;
+    const image = pixels(rest);
+    return image && { kind, index, text, ...image };
+  }
+  if (kind === 'transform') {
+    const [fw, fh] = numbers(rest[0], 2);
+    const [x, y] = numbers(rest[1], 2);
+    const [sx, sy] = numbers(rest[3], 2);
+    const [px, py] = numbers(rest[4], 2);
+    const rotation = Number(rest[2]);
+    const image = pixels(rest.slice(6));
+    if (![fw, fh, x, y, rotation, sx, sy, px, py].every(Number.isFinite) || !(fw > 0 && fh > 0 && sx > 0 && sy > 0) || !image) return null;
+    const t = { x, y, rotation, sx, sy, px: Math.min(Math.max(px, 0), 1), py: Math.min(Math.max(py, 0), 1), lock: rest[5] === '1' };
+    return { kind, index, text, frame: [fw, fh], t, image: image.width > 0 && image.height > 0 ? image : null };
   }
   return null;
 }
@@ -298,4 +336,70 @@ function codeLines(fields: string[]): { editor: boolean; current: number; errors
 /** The event line of a user input to widget `index`. A line break in a text becomes a space. */
 export function eventLine(index: number, value: number | string): string {
   return `${index} ${String(value).replace(/[\r\n]/g, ' ')}`;
+}
+
+/** A point in pixels. */
+export type Point = [number, number];
+/** The part of a transform gizmo that a drag holds. */
+export type Part = 'move' | 'x' | 'y' | 'rotate' | 'corner';
+const MIN_SCALE = 0.01;
+const MAX_SCALE = 100;
+const limit = (s: number) => Math.min(Math.max(s, MIN_SCALE), MAX_SCALE);
+const r3 = (v: number) => Math.round(v * 1000) / 1000;
+
+/** An angle in degrees from -180 to 180, as `patina_sdk::Transform2d` keeps it. */
+function wrap(degrees: number): number {
+  const r = degrees % 360;
+  return r > 180 ? r - 360 : r <= -180 ? r + 360 : r;
+}
+
+/** The place of the point `p` of a frame of `size` after the transform, as `patina_sdk::Transform2d::apply`. */
+export function applyTransform(t: Transform, size: Point, [x, y]: Point): Point {
+  const a = (t.rotation * Math.PI) / 180;
+  const [cx, cy] = [t.px * size[0], t.py * size[1]];
+  const [dx, dy] = [(x - cx) * t.sx, (y - cy) * t.sy];
+  return [cx + dx * Math.cos(a) - dy * Math.sin(a) + t.x, cy + dx * Math.sin(a) + dy * Math.cos(a) + t.y];
+}
+
+/** The transform with the pivot at `pivot`, with a move that keeps the box in its place. */
+export function movePivot(t: Transform, size: Point, pivot: Point): Transform {
+  const moved = { ...t, px: pivot[0], py: pivot[1] };
+  // The two transforms differ only by a move, so one point that stays keeps all points.
+  const [a, b] = [applyTransform(t, size, [0, 0]), applyTransform(moved, size, [0, 0])];
+  return { ...moved, x: r3(t.x + a[0] - b[0]), y: r3(t.y + a[1] - b[1]) };
+}
+
+/** A scale of `value` for x. The aspect lock keeps the ratio of the two scales. */
+export function scaleTo(t: Transform, value: number): Transform {
+  return t.lock ? { ...t, sx: limit(value), sy: limit((t.sy * value) / t.sx) } : { ...t, sx: limit(value) };
+}
+
+/** The transform after a drag of `part` from `from` to `to`. The points are on a display with `k`
+ * units for each pixel of the frame, and `at` is the pivot on it. `snap` turns in steps of 15 degrees. */
+export function dragTransform(t: Transform, part: Part, from: Point, to: Point, at: Point, k: number, snap: boolean): Transform {
+  const [dx, dy] = [(to[0] - from[0]) / k, (to[1] - from[1]) / k];
+  if (part === 'move') return { ...t, x: r3(t.x + dx), y: r3(t.y + dy) };
+  if (part === 'x') return { ...t, x: r3(t.x + dx) };
+  if (part === 'y') return { ...t, y: r3(t.y + dy) };
+  const angle = (p: Point) => Math.atan2(p[1] - at[1], p[0] - at[0]);
+  if (part === 'rotate') {
+    const r = t.rotation + ((angle(to) - angle(from)) * 180) / Math.PI;
+    return { ...t, rotation: r3(wrap(snap ? Math.round(r / 15) * 15 : r)) };
+  }
+  // A corner: the points in the axes of the box, from the pivot.
+  const a = (-t.rotation * Math.PI) / 180;
+  const local = ([x, y]: Point): Point => [(x - at[0]) * Math.cos(a) - (y - at[1]) * Math.sin(a), (x - at[0]) * Math.sin(a) + (y - at[1]) * Math.cos(a)];
+  const [p0, p1] = [local(from), local(to)];
+  if (t.lock) {
+    const f = (p1[0] * p0[0] + p1[1] * p0[1]) / (p0[0] ** 2 + p0[1] ** 2 || 1);
+    return { ...t, sx: r3(limit(t.sx * f)), sy: r3(limit(t.sy * f)) };
+  }
+  // A corner on the line of the pivot does not change the scale of that axis.
+  const ratio = (i: number) => (Math.abs(p0[i]) > 1 ? p1[i] / p0[i] : 1);
+  return { ...t, sx: r3(limit(t.sx * ratio(0))), sy: r3(limit(t.sy * ratio(1))) };
+}
+
+/** The event of a transform, as `patina_sdk::Ui::transform` reads it. */
+export function transformEvent(t: Transform): string {
+  return `set ${[t.x, t.y, t.rotation, t.sx, t.sy, t.px, t.py].map(r3).join(' ')} ${t.lock ? 1 : 0}`;
 }

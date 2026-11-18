@@ -166,6 +166,20 @@ async function checkDrags(until: Until, gui: string) {
   await until('the canvas dot during a drag', RUN_MS, () => Math.abs(dotX() - 80) < 1);
   pad.dispatchEvent(new PointerEvent('pointerup', padAt(0.5)));
   await tick();
+
+  // A drag of the transform box by a quarter of the gizmo is 50 of its 200 units: 48.78 px of the 160 px frame.
+  const gizmo = document.querySelector<SVGSVGElement>(`${gui} svg.gui-transform`)!;
+  if (!gizmo.querySelector('image')?.getAttribute('href')?.startsWith('data:image/png')) throw new Error('the transform gizmo shows no image');
+  const moveX = () => Number(document.querySelector<HTMLInputElement>(`${gui} .gui-transform-fields input`)?.value);
+  const [bx, by] = centre(gizmo.querySelector('.box')!);
+  const to = mouse([bx + gizmo.getBoundingClientRect().width / 4, by]);
+  gizmo.querySelector('.box')!.dispatchEvent(new PointerEvent('pointerdown', mouse([bx, by])));
+  await tick();
+  gizmo.dispatchEvent(new PointerEvent('pointermove', to));
+  await until('the transform X during a drag', RUN_MS, () => Math.abs(moveX() - 48.78) < 0.01);
+  gizmo.dispatchEvent(new PointerEvent('pointerup', to));
+  await tick();
+  await until('the transform X that the node keeps', RUN_MS, () => Math.abs(moveX() - 48.78) < 0.01 && !gizmo.querySelector('.dragging'));
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */

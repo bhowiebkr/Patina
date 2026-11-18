@@ -60,6 +60,7 @@ html.native-viewport .gui-viewport {
 /* The value widgets (4.3): a field box with a neutral grid and a trace in the wire color. */
 .gui-chart,
 .gui-curve,
+.gui-transform,
 .gui-image,
 .gui-table-box {
   display: block;
@@ -224,6 +225,105 @@ html.native-viewport .gui-viewport {
 .gui-curve .handle:focus-visible {
   fill: var(--accent);
   stroke: var(--accent);
+}
+
+/* A 2D transform: a light gizmo with a dark edge shows on a light or a dark image (mockup 4). */
+.gui-transform {
+  height: auto;
+  touch-action: none;
+}
+
+.gui-transform .frame {
+  fill: none;
+  stroke: var(--control-border);
+  stroke-dasharray: 3 3;
+}
+
+.gui-transform .gizmo {
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+}
+
+.gui-transform .box,
+.gui-transform .gizmo path,
+.gui-transform .corner {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.2;
+}
+
+.gui-transform .box {
+  fill: transparent;
+  cursor: move;
+  outline: none;
+}
+
+.gui-transform .box:focus-visible {
+  stroke: var(--accent);
+}
+
+.gui-transform .gizmo .hit {
+  stroke: transparent;
+  stroke-width: 8;
+}
+
+.gui-transform .gizmo-rotate {
+  cursor: grab;
+}
+
+.gui-transform .gizmo-x {
+  cursor: ew-resize;
+}
+
+.gui-transform .gizmo-y {
+  cursor: ns-resize;
+}
+
+.gui-transform .pivot {
+  fill: var(--text);
+  cursor: move;
+}
+
+.gui-transform .corner {
+  fill: var(--field);
+  cursor: nwse-resize;
+}
+
+.gui-transform-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.gui-transform-fields .gui-row {
+  flex: 1 1 72px;
+  min-width: 0;
+}
+
+.gui-pivots {
+  display: grid;
+  grid-template-columns: repeat(3, 10px);
+  gap: 3px;
+}
+
+.gui-pivot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 50%;
+  background: var(--field);
+  cursor: pointer;
+}
+
+.gui-pivot.selected {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.gui-pivot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .gui-hint {
