@@ -41,7 +41,10 @@ export async function checkIsolation({ step, until, mark, result, events, steps 
 
   // The value 44 allocates more than the memory limit of the job, which is only on Windows.
   if (windows) {
-    v = await step('pause before the memory limit', () => api.pause());
+    // The undo left the graph live, so the check clicks Pause in the top bar (15.2).
+    await until('the Pause button of the live graph', RUN_MS, () => topButton('Pause')?.disabled === false);
+    topButton('Pause')!.click();
+    await until('the paused graph after a click on Pause', RUN_MS, () => topButton('Pause')!.disabled && topButton('Run')?.disabled === false);
     v = await step('a value over the memory limit', () => api.edit({ kind: 'SetParam', id: A, key: 'value', text: '44' }));
     from = mark();
     v = await step('run a node over the memory limit', () => api.run());

@@ -87,6 +87,20 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   for (const what of ['name', 'order', 'output']) v = await step(`undo the ${what} of the public output`, () => api.undo());
   await until('the old public pins', BUILD_MS, () => rows().length === 1 && rows()[0].dataset.pin === firstPin);
   steps.push('subgraph interface');
+  // Rename pin... in the menu of a public pin asks for the name in a field (6.4).
+  const portNode = () => document.querySelector(`.react-flow__node[data-id="out:${firstPin}"] .title`);
+  const oldName = portNode()!.textContent!;
+  rightClick(portNode()!);
+  await until('the Rename pin entry', RUN_MS, () => !!entry('Node', 'Rename pin...'));
+  entry('Node', 'Rename pin...')!.click();
+  const pinField = () => document.querySelector<HTMLInputElement>('[role="dialog"][aria-label="Rename the public pin"] input[aria-label="Pin name"]');
+  await until('the pin name field with the old name', RUN_MS, () => pinField()?.value === oldName);
+  enterText(pinField()!, 'total');
+  await until('the new pin name on the canvas', BUILD_MS, () => !pinField() && portNode()?.textContent === 'total');
+  v = await step('undo the rename of the public pin', () => api.undo());
+  if (v.graph.output?.[0]?.name !== oldName) throw new Error(`the undo gave the pin name ${v.graph.output?.[0]?.name}, not ${oldName}`);
+  await until('the old pin name on the canvas', BUILD_MS, () => portNode()?.textContent === oldName);
+  steps.push('rename a public pin from its menu');
   // A removed public pin keeps the wire of the use. The use shows a lost pin for it, so the user can delete the wire (15.9).
   rows()[0].querySelector<HTMLButtonElement>('button[title="Remove"]')!.click();
   await until('no public output', BUILD_MS, () => rows().length === 0);

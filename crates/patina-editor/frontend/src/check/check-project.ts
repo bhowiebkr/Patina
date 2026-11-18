@@ -4,7 +4,7 @@
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
 import { revealOf, type Reveal } from '../code/reveal';
-import { A, B, BUILD_MS, RUN_MS, helloNodes, leftTab, statusText, tab, topButton, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, enterText, helloNodes, leftTab, statusText, tab, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */
 export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string, pick: (at: Reveal) => void) {
@@ -12,7 +12,19 @@ export async function checkProject({ step, until, result, mark, events, steps, f
   const libProject = await step('new library project', () => api.newProject(dir, 'checklib'));
   await helloNodes();
   await api.addLibrary(libProject.root);
-  let v = await step('new project', () => api.newProject(dir, 'check'));
+  // The Create button of the start screen makes the project of the check (15.10). Pause gives its view.
+  topButton('Close')!.click();
+  const newForm = () => [...document.querySelectorAll('form.start-box')].find((f) => f.querySelector('h2')?.textContent === 'New project');
+  const create = () => [...(newForm()?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Create');
+  await until('the New project form', RUN_MS, () => !!create());
+  const [folder, name] = newForm()!.querySelectorAll('input');
+  enterText(folder, dir);
+  enterText(name, 'check');
+  await until('the Create button on', RUN_MS, () => create()?.disabled === false);
+  create()!.click();
+  await until('the new project in the editor', BUILD_MS, () => !newForm() && !!topButton('Run'));
+  let v = await step('new project', () => api.pause());
+  if (v.root.replace(/\\/g, '/').split('/').pop() !== 'check') throw new Error(`the Create button made ${v.root}, not the check project`);
   if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0 || v.nodes.some((n) => !n.builtin && !n.subgraph)) throw new Error('a new project is trusted, paused and has no nodes');
   await helloNodes();
   v = await step('add nodes', () =>

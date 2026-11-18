@@ -193,6 +193,19 @@ async function checkDrags(until: Until, gui: string) {
   timeline.dispatchEvent(new PointerEvent('pointerup', mouse([cx + lane.width / 3, cy])));
   await tick();
   await until('the clip start that the node keeps', RUN_MS, () => clipLabel() === 'Hit: start 1 s, length 1 s' && !!timeline.querySelector('.tl-clip.selected'));
+  // The transport row writes the play, loop and snap state that the node keeps. React puts the old value back until the node answers.
+  const transport = (label: string) => timeline.querySelector<HTMLButtonElement>(`.tl-transport button[aria-label="${label}"]`)!;
+  transport('Play').click();
+  await until('the play state that the node keeps', RUN_MS, () => transport('Play').getAttribute('aria-pressed') === 'true');
+  transport('Pause').click();
+  await until('the pause state that the node keeps', RUN_MS, () => transport('Play').getAttribute('aria-pressed') === 'false');
+  const loopBox = timeline.querySelector<HTMLInputElement>('.tl-option input[type="checkbox"]')!;
+  loopBox.click();
+  await until('the loop that the node keeps', RUN_MS, () => loopBox.checked && !!timeline.querySelector('.tl-loop.on'));
+  const snapList = timeline.querySelector<HTMLSelectElement>('.tl-option select')!;
+  snapList.value = '0.5';
+  snapList.dispatchEvent(new Event('change', { bubbles: true }));
+  await until('the snap that the node keeps', RUN_MS, () => snapList.value === '0.5');
 }
 
 /** A GUI that throws shows its error in its own box, and its next tree draws again (16.1). */

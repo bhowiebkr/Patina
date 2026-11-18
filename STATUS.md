@@ -208,6 +208,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   the Recycle Bin.
 - A new project has no node folders (2026-11-17). The engine test and the self-check open an empty
   new project, and the self-check then writes the hello nodes into it.
+- The self-check uses the start screen as a person does (2026-11-18). It fills the **New project**
+  form and clicks **Create**. It removes the trust of the project in **Settings**, opens the
+  project with the **Open project** form, and clicks **Trust project** in the banner. It also
+  clicks **Pause** in the top bar, **Rename pin...** in the menu of a public pin and **Help** >
+  **About Patina**.
 - Known limits: **Delete project** shows an error on Linux and macOS. It has no trash there yet.
 - The first start shows an **Install the toolchain** card, and the install shows a progress bar
   (2026-11-18). A unit test checks the percent parse and the step math. No check ran a full
@@ -482,7 +487,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The timeline widget (4.3, mockup 5) has a transport, a ruler with the loop and the playhead,
   clip lanes and automation lanes. The SDK tests check the widget line, the edits, `advance` and
   `Automation::value`. The frontend tests check the parse and the limits of each drag. The
-  selfcheck drags a clip. No person tried it with a real mouse. A lane reorder is not in this version.
+  selfcheck drags a clip, and clicks **Play**, **Pause**, **Loop** and a **Snap** value (2026-11-18).
+  No person tried it with a real mouse. A lane reorder is not in this version.
 - A node with `#[node(full_gui)]` has an expand button in its header and in the **Inspector**
   header. The button opens the full size over the graph area. **Back** or Esc closes it. The
   parse test and the macro test check `full_gui`. The editor selfcheck opens the full size,

@@ -5,7 +5,7 @@ import { api, type EngineEvent, type View } from '../api';
 import { flushLayout, savedViewport } from '../panels/Dock';
 import { layoutText, parseLayout } from '../panels/layout';
 import { FAR_ZOOM } from '../wires/gl';
-import { A, B, BUILD_MS, RUN_MS, badge, button, mouseWheel, scale, tab, topButton, transform, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, badge, button, enterText, entry, mouseWheel, scale, tab, topButton, transform, type CheckContext } from './check-fixtures';
 
 /** Saves, closes and opens the project again. It returns the last view and the middle of the canvas. */
 export async function checkDock({ step, until, result, mark, events, steps }: CheckContext, v: View) {
@@ -65,6 +65,16 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   }
   steps.push('dock layout saved');
 
+  // The Help menu of the top bar opens the About dialog, and its Close gives the focus back to Help (15.3).
+  topButton('Help')!.click();
+  await until('the Help menu', RUN_MS, () => !!entry('Help', 'About Patina'));
+  entry('Help', 'About Patina')!.click();
+  await until('the About dialog from the Help menu', RUN_MS, () => /Version \d/.test(document.querySelector('.dialog.about')?.textContent ?? ''));
+  // The top bar has a Close button too, so the check takes the one of the dialog.
+  [...document.querySelectorAll<HTMLButtonElement>('.dialog.about button')].find((b) => b.textContent === 'Close')!.click();
+  await until('the focus on Help after About', RUN_MS, () => !document.querySelector('.dialog.about') && document.activeElement === topButton('Help'));
+  steps.push('about dialog from the Help menu');
+
   // The Close button shows the start screen. Its x button and Remove from list take the project off the recent list (15.10).
   topButton('Close')!.click();
   const row = () => [...document.querySelectorAll('.recent-row')].find((r) => r.querySelector('.path')?.textContent === v.root);
@@ -79,6 +89,26 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   const refused = await api.deleteProject(v.root).then(() => 'no error', String);
   if (!refused.includes('not a recent project')) throw new Error(`Delete project did not refuse a project off the recent list: ${refused}`);
   steps.push('close');
+  // Settings > Trusted projects > Remove takes the trust away. The Open form then opens the project with the trust banner, and Trust project trusts it again (11, 15.10).
+  button('Settings')!.click();
+  const same = (p: string | null | undefined) => p?.replace(/\\/g, '/').toLowerCase() === v.root.replace(/\\/g, '/').toLowerCase();
+  const trustRow = () => [...document.querySelectorAll('[aria-label="Trusted projects"] .settings-row')].find((r) => same(r.querySelector('.path')?.textContent));
+  await until('the project in the trusted list', RUN_MS, () => !!trustRow());
+  trustRow()!.querySelector('button')!.click();
+  await until('the project off the trusted list', RUN_MS, () => !trustRow());
+  button('Back')!.click();
+  const openForm = () => [...document.querySelectorAll('form.start-box')].find((f) => f.querySelector('h2')?.textContent === 'Open project');
+  const openButton = () => [...(openForm()?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Open');
+  await until('the Open project form', RUN_MS, () => !!openButton());
+  enterText(openForm()!.querySelector('input')!, v.root);
+  await until('the Open button on', RUN_MS, () => openButton()?.disabled === false);
+  openButton()!.click();
+  await until('the trust banner and no Run', BUILD_MS, () => !!button('Trust project') && topButton('Run')?.disabled === true);
+  button('Trust project')!.click();
+  await until('the trusted project', BUILD_MS, () => !button('Trust project') && topButton('Run')?.disabled === false);
+  if (!(await api.settings()).trusted.some(same)) throw new Error('Trust project did not put the project in the trusted list');
+  await api.closeProject();
+  steps.push('remove the trust and trust the project again');
 
   let from = mark();
   v = await step('open again', () => api.openProject(v.root));
