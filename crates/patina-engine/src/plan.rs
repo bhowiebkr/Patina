@@ -173,11 +173,17 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
         step_of[entry] = step;
     }
     let (mut steps, slots) = make_steps(&order, &step_of, &entries, &nodes, is_delay)?;
-    let unwired = needs_wire(root, &steps, &slots, &nodes, |n| builtins.iter().any(|&(i, _)| i == n));
+    let builtin = |n: usize| builtins.iter().any(|&(i, _)| i == n);
+    let unwired = needs_wire(root, &steps, &slots, &nodes, builtin, None);
     if !unwired.is_empty() {
         return Err(unwired);
     }
-    resolve(&mut steps, &nodes, fires)?;
+    let mut slot_types = vec![None; slots.len()];
+    resolve(&mut steps, &nodes, fires, &mut slot_types)?;
+    let unwired = needs_wire(root, &steps, &slots, &nodes, builtin, Some(&slot_types));
+    if !unwired.is_empty() {
+        return Err(unwired);
+    }
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
     let own: Vec<Option<Domain>> = order.iter().map(|&e| entries[e].domain).collect();
     domain::assign(&mut steps, &edges, &own, is_delay)?;
@@ -234,17 +240,22 @@ fn make_steps(order: &[usize], step_of: &[usize], entries: &[Entry], nodes: &[(S
     Ok((steps, slots))
 }
 
-/// The problems of the inputs with no wire whose type has no parameter support (4.8). The wires
-/// give the type of a type parameter (4.5), and a built-in node has only parameter types.
-fn needs_wire(root: &Path, steps: &[Step], slots: &[Slot], nodes: &[(String, Node)], builtin: impl Fn(usize) -> bool) -> Vec<String> {
+/// The problems of the inputs with no wire whose type has no parameter support (4.8). A built-in
+/// node has only parameter types. With no `resolved` types, it checks the inputs whose type does
+/// not mention a type parameter. With them, it checks the type that the wires gave (4.5).
+fn needs_wire(root: &Path, steps: &[Step], slots: &[Slot], nodes: &[(String, Node)], builtin: impl Fn(usize) -> bool, resolved: Option<&[Option<String>]>) -> Vec<String> {
     let mut problems = Vec::new();
-    for slot in slots {
+    for (s, slot) in slots.iter().enumerate() {
         let step = &steps[slot.step];
         let (name, node) = &nodes[step.node];
         let Some(input) = node.inputs.iter().find(|i| i.key == slot.key) else { continue };
-        let generic = input.value.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| node.generics.iter().any(|g| g == w));
-        if !(builtin(step.node) || input.is_str || generic || has_param(root, name, &input.value)) {
-            problems.push(format!("node {}: connect a wire to the input `{}`. Its type `{}` has no parameter support (spec 4.8)", step.id, input.key, input.value));
+        let ty = match resolved {
+            None => (!types::mentions(&input.value, &node.generics)).then_some(&input.value),
+            Some(resolved) => resolved[s].as_ref(),
+        };
+        let Some(ty) = ty else { continue };
+        if !(builtin(step.node) || input.is_str || has_param(root, name, ty)) {
+            problems.push(format!("node {}: connect a wire to the input `{}`. Its type `{ty}` has no parameter support (spec 4.8)", step.id, input.key));
         }
     }
     problems
@@ -288,8 +299,9 @@ fn impls_param(code: &str, name: &str) -> bool {
 /// first the input wires, then the wires from the outputs to inputs of a known type. A trigger does
 /// not run its inputs in the witness (8.2), so it gives no type. The compiler then makes a copy of
 /// the node for each set of types. A delay comes before the node of its input (9.2), so a step that
-/// waits for a type goes to the next pass.
-fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -> bool) -> Result<(), Vec<String>> {
+/// waits for a type goes to the next pass. It puts the resolved type of each generic input with no
+/// wire into `slot_types`.
+fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -> bool, slot_types: &mut [Option<String>]) -> Result<(), Vec<String>> {
     let mut problems = Vec::new();
     let mut done = vec![false; steps.len()];
     let mut progress = true;
@@ -338,7 +350,14 @@ fn resolve(steps: &mut [Step], nodes: &[(String, Node)], fires: impl Fn(usize) -
                 continue;
             }
             let bound: Vec<String> = bound.into_iter().flatten().collect();
-            steps[n].types = node.output_types.iter().map(|ty| types::substitute(ty, &node.generics, &bound)).collect();
+            for (input, source) in node.inputs.iter().zip(&steps[n].inputs) {
+                if let Source::Slot(s) = *source
+                    && types::mentions(&input.value, &node.generics)
+                {
+                    slot_types[s] = Some(types::substitute(&input.value, &node.generics, &bound));
+                }
+            }
+            steps[n].types =node.output_types.iter().map(|ty| types::substitute(ty, &node.generics, &bound)).collect();
         }
     }
     for n in (0..steps.len()).filter(|&n| !done[n]) {
@@ -639,6 +658,12 @@ name = \"paint\"
             ("types/mode/src/kinds/mod.rs", "impl patina_sdk::Param
     for crate::Mode { }
 "),
+            ("nodes/bytes/src/lib.rs", "#[patina_sdk::node]\npub fn bytes() -> Vec<u8> { todo!() }\n"),
+            ("nodes/bytes/Cargo.toml", "[package]\nname = \"bytes\"\n"),
+            ("nodes/num/src/lib.rs", "#[patina_sdk::node]\npub fn num() -> f64 { 1.0 }\n"),
+            ("nodes/num/Cargo.toml", "[package]\nname = \"num\"\n"),
+            ("nodes/pick/src/lib.rs", "#[patina_sdk::node]\npub fn pick<T>(a: T, b: &T) -> T { todo!() }\n"),
+            ("nodes/pick/Cargo.toml", "[package]\nname = \"pick\"\n"),
         ];
         for (path, text) in files {
             std::fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
@@ -650,9 +675,18 @@ id = \"000000000000000a\"
 folder = \"nodes/paint\"
 ").unwrap();
         let problems = check(&root, &graph).err().unwrap_or_default();
+        // The wire to `a` gives the type of `T`, so the unwired `b` needs the support of that type.
+        let picked = |folder: &str| {
+            let text = format!("format = 1\n[[node]]\nid = \"000000000000000b\"\nfolder = \"nodes/{folder}\"\n[[node]]\nid = \"000000000000000c\"\nfolder = \"nodes/pick\"\n[[wire]]\nfrom = \"000000000000000b.out\"\nto = \"000000000000000c.a\"\n");
+            check(&root, &toml::from_str(&text).unwrap())
+        };
+        let (bytes, num) = (picked("bytes"), picked("num"));
         std::fs::remove_dir_all(&root).unwrap();
         let inputs: Vec<&str> = problems.iter().filter_map(|p| p.split('`').nth(1)).collect();
         assert_eq!(inputs, ["f", "n"], "{problems:?}");
+        let bytes = bytes.err().unwrap_or_default();
+        assert!(bytes.len() == 1 && bytes[0].contains("connect a wire to the input `b`. Its type `Vec<u8>` has no"), "{bytes:?}");
+        assert!(num.is_ok(), "{:?}", num.err());
         assert!(!impls_param("impl Param for Moded {}", "Mode") && !impls_param("impl MyParam for Mode {}", "Mode") && impls_param("impl<T> Param for Mode<T> {}", "Mode"));
     }
 }

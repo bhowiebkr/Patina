@@ -258,8 +258,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - An unwired input whose type has no parameter support gives a graph problem on its node, not
   a compile error (2026-11-18). The engine test checks it. A hidden shot showed three problems.
   The self-check adds a node with such an input and reads the problem on the node.
-- Known limits: a generic input that resolves to a type with no parameter support still gives
-  a compile error. The check does not find an `impl Param` that a macro makes.
+- An unwired generic input gets the same check with the type that its wires give (2026-11-18).
+  The engine test checks it.
+- Known limits: the check does not find an `impl Param` that a macro makes.
 - The hello example has a pocket calculator (2026-11-18): two **keypad** nodes, an
   **operation** with four keys, two paper **tape** nodes and an `average` subgraph with the
   **AVG** chip. The unit tests of the nodes and the CLI tests pass. A hidden shot showed 36
