@@ -584,8 +584,9 @@ domain free of locks. These limits are still open:
   (5.3, fixed 2026-11-17). `Viewer::show` gives the plot, the waveform and the table with the
   `Ui` widgets. The **Inspector** reads the full text and the widgets one time after each run.
   The glue, load, sink and frame tests check the widget lines. The cluster makes the widget lines
-  of each probed value at each run, also when no **Inspector** shows them. No example type has
-  widgets yet, so no selfcheck or hand test showed them in the **Inspector**.
+  of each probed value at each run, also when no **Inspector** shows them. The selfcheck selects a
+  wire with a `Viewer` value and sees its text, thumbnail and waveform in the **Inspector**
+  (2026-11-18). No example type has widgets yet, and no hand test showed them.
 - An audio wire draws the wave of its `AudioBlock` and moves with each frame (5.3, 15.9,
   2026-11-17). The glue, outcome, frame and page tests check the wave text and the path. The
   editor selfcheck sees the wave change between two frames. No person looked at it on screen. A
@@ -597,8 +598,9 @@ domain free of locks. These limits are still open:
 - The automatic route and **Arrange** have no undo of a route change, because a route is not
   saved. The route changes when a node moves, and the wires of a large graph can jump.
 - The recovery file does not have the typing of the last 300 ms before a crash. The check did
-  not crash Patina, and it did not click **Discard**. A project that is not trusted keeps its
-  old recovery file, and its new changes do not go into the file until the user answers.
+  not crash Patina. The selfcheck clicks **Discard** and sees the saved graph (2026-11-18). A
+  project that is not trusted keeps its old recovery file, and its new changes do not go into
+  the file until the user answers.
 - A connection kind matches a type by the type text that the node code writes, not by the type
   crates of 5.1. A panic in a kind gives no lanes. Its message shows only in the **Output**
   panel, from the standard error (4.7). A compile error in a kind

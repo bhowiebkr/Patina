@@ -9,6 +9,7 @@ import { checkDock } from './check-dock';
 import { checkDomains } from './check-domains';
 import { checkFree } from './check-free';
 import { checkSymbol } from './check-symbol';
+import { checkViewer } from './check-viewer';
 import type { CheckContext } from './check-fixtures';
 import { checkIsolation } from './check-isolation';
 import { checkPalette } from './check-palette';
@@ -95,7 +96,7 @@ export async function runCheck(dir: string, show: (v: View) => void, pick: (at: 
     const recovered = await checkRecovery(c, v, lib, original);
     v = await checkDomains(c, recovered.v, lib, recovered.changedCode);
     v = await checkViews(c, v, lib, dock.at);
-    v = await checkSymbol(c, await checkFree(c, v));
+    v = await checkViewer(c, await checkSymbol(c, await checkFree(c, v)));
     await checkSubgraph(c, v, lib);
 
     await new Promise((r) => setTimeout(r, 300));
