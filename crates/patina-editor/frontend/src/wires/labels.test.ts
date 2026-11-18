@@ -70,3 +70,27 @@ test('a badge on a junction dot hides', () => {
   labels.compute();
   assert.deepEqual(['dot', 'clear', 'selected'].map(labels.badgeHidden), [true, false, false]);
 });
+
+test('a type label hides with its badge, and a wire name stays', () => {
+  const labels = new Labels();
+  labels.setObstacles([box(300, 0, 100, 100)]);
+  // The badge of a covers the badge of b, and a node covers the badge of the named wire c.
+  labels.set('a', box(0, -20), box(0, 0), 2);
+  labels.set('b', box(60, -20), box(20, 0), 2);
+  labels.set('c', box(200, -20), box(310, 10), 1);
+  labels.compute();
+  assert.deepEqual(['a', 'b', 'c'].map(labels.badgeHidden), [false, true, true]);
+  assert.deepEqual(['a', 'b', 'c'].map(labels.hidden), [false, true, false]);
+});
+
+test('a label hides where another wire goes through it, but not on its own wire', () => {
+  const labels = new Labels();
+  const line = (points: [number, number][]) => ({ points, width: 2 });
+  // The wire a goes through the label of b at y 10, and its own label at x 120.
+  labels.setLines(new Map([['a', line([[0, 10], [140, 10]])], ['b', line([[0, 40], [140, 40]])]]));
+  labels.set('a', box(100, 0), null, 2);
+  labels.set('b', box(20, 0), null, 2);
+  labels.set('c', box(20, 60), null, 2);
+  labels.compute();
+  assert.deepEqual(['a', 'b', 'c'].map(labels.hidden), [false, true, false]);
+});

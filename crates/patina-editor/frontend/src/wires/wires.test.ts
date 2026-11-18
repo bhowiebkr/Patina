@@ -98,6 +98,8 @@ test('a wire label fits between the two nodes and keeps off the corners', () => 
   const up = shape(0, 100, 60, 0, [[40, 100], [40, 0]], 'polyline');
   assert.deepEqual(anchor(0, 100, 60, 0, up), [20, 100, 32 - 2 * up.radius]);
   assert.equal(anchor(0, 0, 60, 100, shape(0, 0, 60, 100, [[40, 0], [40, 100]], 'polyline'))[2], 32, 'a corner that turns down is not in the way');
+  const jog = shape(0, 0, 200, 6, [[40, 0], [40, 6]], 'polyline');
+  assert.equal(anchor(0, 0, 200, 6, jog)[2], 152, 'a small jog does not reach the label');
 });
 
 test('the largest route fits in a row, and a longer route gets fewer points for each corner', () => {

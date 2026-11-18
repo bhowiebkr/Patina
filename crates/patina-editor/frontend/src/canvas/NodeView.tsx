@@ -405,7 +405,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
                     onChange={(e) => edit({ kind: 'SetParam', id: entry.id, key: input.key, text: String(e.currentTarget.checked) })}
                   />
                 ) : (
-                  text !== undefined && <span className="param-text"> {text}</span>
+                  text !== undefined && <span className="param-text">{text}</span>
                 )}
               </span>
               {busOut ? <span /> : <PinLabel pin={output} lost={lostOut(output)} />}

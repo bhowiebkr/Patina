@@ -141,6 +141,16 @@ function guiFit(where: string) {
         if (r.width && Math.min(right, q.right) - Math.max(left, q.left) > 1 && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 1) bad.push(`a pin covers the title ${t.textContent} of ${node.getAttribute('data-id')}`);
       }
     }
+  // The pin names, the parameter fields and the bus socket heads of a node must not cover each other (15.3).
+  for (const node of document.querySelectorAll('.react-flow__node')) {
+    const items = [...node.querySelectorAll('.patina-row > span, .patina-row .param-text, .patina-row .pin-switch, .bus-socket-head')].filter((e) => e.getBoundingClientRect().width > 0);
+    for (const [i, a] of items.entries())
+      for (const b of items.slice(i + 1)) {
+        const [r, q] = [a.getBoundingClientRect(), b.getBoundingClientRect()];
+        if (!a.contains(b) && !b.contains(a) && Math.min(r.right, q.right) - Math.max(r.left, q.left) > 0.5 && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 0.5)
+          bad.push(`"${a.textContent}" covers "${b.textContent}" in ${node.getAttribute('data-id')}`);
+      }
+  }
   // The order pins are in the row of the caption of a free node, so they must not cover its icons (15.3).
   for (const icon of document.querySelectorAll('.free-caption > :not(.title)')) {
     const [r, node] = [icon.getBoundingClientRect(), icon.closest('.react-flow__node')];
@@ -271,6 +281,9 @@ function wiresClear(where: string) {
   const bad: string[] = [];
   let seen = 0;
   const nodes = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => [n.dataset.id ?? '', n.getBoundingClientRect()] as const);
+  // A label that is not selected hides where another wire goes through it (15.9).
+  const labels = [...document.querySelectorAll<HTMLElement>('.wire-type:not(.selected)')].map((l) => [l, l.getBoundingClientRect()] as const);
+  const crossed = new Set<string>();
   for (const e of document.querySelectorAll('.react-flow__edge')) {
     const id = e.getAttribute('data-id') ?? '';
     const ends = id.split('>').map((pin) => pin.slice(0, pin.lastIndexOf('.')));
@@ -286,9 +299,11 @@ function wiresClear(where: string) {
       const x = m.a * p.x + m.c * p.y + m.e;
       const y = m.b * p.x + m.d * p.y + m.f;
       for (const [n, r] of nodes) if (!ends.includes(n) && x > r.left + inset && x < r.right - inset && y > r.top + inset && y < r.bottom - inset) through.add(n);
+      for (const [l, r] of labels) if (l.dataset.wire !== id && x > r.left + 1 && x < r.right - 1 && y > r.top + 1 && y < r.bottom - 1) crossed.add(`${id} through the label "${l.textContent}"`);
     }
     for (const n of through) bad.push(`${id} through ${n}`);
   }
+  bad.push(...crossed);
   for (const c of document.querySelectorAll('.route-conflict')) bad.push(`a conflict mark at ${c.getAttribute('style')}`);
   // A badge keeps room for a value of 6 characters (15.3).
   for (const b of document.querySelectorAll<HTMLElement>('.wire-value'))

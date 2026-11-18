@@ -292,11 +292,14 @@ export function anchor(sx: number, sy: number, tx: number, ty: number, shape: Sh
     [x, y] = [(ctl[0] + 3 * ctl[2] + 3 * ctl[4] + ctl[6]) / 8, (ctl[1] + 3 * ctl[3] + 3 * ctl[5] + ctl[7]) / 8];
   }
   if (!flat) return [x, y, Math.min(LABEL_WIDTH, tx > sx ? 2 * Math.min(x - sx, tx - x) - 8 : LABEL_WIDTH)];
-  const up = (k: number) => k >= 0 && k <= route.length + 1 && at(k, 1) < y - 0.5;
+  // A corner that rises less than the gap under the label, for example a small S-bend, does not reach the label.
+  const up = (k: number) => k >= 0 && k <= route.length + 1 && at(k, 1) < y - LABEL_GAP;
   const inset = Math.max(best > 0 && up(best - 1) ? shape.radius : 0, best < route.length && up(best + 2) ? shape.radius : 0);
   return [x, y, Math.min(LABEL_WIDTH, longest - 2 * inset - 8)];
 }
 const LABEL_WIDTH = 160;
+/** The gap between a wire and the bottom of its label, less the half width of a line. */
+const LABEL_GAP = 10;
 
 /** The distance from (x, y) to the segment from (ax, ay) to (bx, by). */
 function segmentDistance(ax: number, ay: number, bx: number, by: number, x: number, y: number): number {

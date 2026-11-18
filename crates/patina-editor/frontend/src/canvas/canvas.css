@@ -331,9 +331,14 @@
   vertical-align: middle;
 }
 
+/* An inline block, so the field keeps its width and does not cover the output name of the row. */
 .patina-row .param-text {
+  display: inline-block;
+  vertical-align: middle;
   max-width: 70px;
+  margin-left: 4px;
   padding: 0 6px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   background: var(--field);

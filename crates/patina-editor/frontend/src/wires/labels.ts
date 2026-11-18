@@ -2,6 +2,7 @@
 
 import type { Point } from '../api';
 import type { Rect } from './route';
+import type { Line } from './router';
 
 interface Entry {
   id: string;
@@ -18,15 +19,30 @@ const overlap = (a: Rect, b: Rect, m = 0) => a.l < b.r + m && b.l - m < a.r && a
 const PIN = 6;
 /** The radius of a junction dot of canvas.css. */
 const JOINT = 4;
+/** The rank of a type label, which hides with the badge of its wire. */
+const TYPE = 2;
+
+/** True when a segment of a wire other than `id` goes through the box. */
+function crossed(box: Rect, id: string, lines: ReadonlyMap<string, Line>): boolean {
+  for (const [other, { points: p, width }] of lines) {
+    if (other === id) continue;
+    for (let k = 0; k + 1 < p.length; k++) {
+      const [[x0, y0], [x1, y1]] = [p[k], p[k + 1]];
+      if (overlap(box, { l: Math.min(x0, x1), t: Math.min(y0, y1), r: Math.max(x0, x1), b: Math.max(y0, y1) }, width / 2 + 1)) return true;
+    }
+  }
+  return false;
+}
 
 /**
- * The wire labels that hide. A label hides when a value badge, a node body or a label of a lower
- * rank covers it. The sockets and the pin tooltips still show the names.
+ * The wire labels that hide. A label hides when a value badge, a node body, another wire or a label
+ * of a lower rank covers it. The sockets and the pin tooltips still show the names.
  */
 export class Labels {
   private entries = new Map<string, Entry>();
   private rects: readonly Rect[] = [];
   private dots: readonly Point[] = [];
+  private lines: ReadonlyMap<string, Line> = new Map();
   private order: Entry[] = [];
   private listeners = new Set<() => void>();
   private queued = false;
@@ -55,6 +71,13 @@ export class Labels {
     this.queue();
   }
 
+  /** The paths of the routed wires, the same map until they change (15.9). */
+  setLines(lines: ReadonlyMap<string, Line>) {
+    if (lines === this.lines) return;
+    this.lines = lines;
+    this.queue();
+  }
+
   hidden = (id: string): boolean => this.entries.get(id)?.hidden ?? false;
 
   badgeHidden = (id: string): boolean => this.entries.get(id)?.badgeHidden ?? false;
@@ -76,6 +99,8 @@ export class Labels {
   /**
    * Shows the badges, then the labels, in the order of their rank. A badge hides when it covers a node
    * body, a pin or a junction dot, or when a shown badge covers it. A label hides when a shown box covers it.
+   * A type label also hides with its badge, so it does not stand alone beside the badge of another wire.
+   * A label also hides when another routed wire goes through it.
    */
   compute() {
     const order = this.order;
@@ -99,7 +124,7 @@ export class Labels {
       const box = e.label;
       let hide = false;
       if (box && e.rank >= 0) {
-        hide = this.rects.some((r) => overlap(box, r));
+        hide = (e.rank === TYPE && e.badgeHidden) || this.rects.some((r) => overlap(box, r)) || crossed(box, e.id, this.lines);
         for (let j = 0; j < order.length && !hide; j++) hide = j !== i && shown(order[j]) && overlap(box, order[j].badge!);
         for (let j = 0; j < i && !hide; j++) hide = !order[j].hidden && order[j].label !== null && overlap(box, order[j].label!);
       }

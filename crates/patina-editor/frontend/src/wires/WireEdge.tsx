@@ -178,6 +178,7 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
             <div
               className={`wire-type${data!.name ? ' named' : ''}${selected ? ' selected' : ''}`}
               title={data!.ty}
+              data-wire={id}
               style={{ transform: `translate(${mx}px, ${my}px) translate(-50%, calc(-100% - ${above}px))`, maxWidth: selected ? undefined : room }}
             >
               {label}

@@ -727,9 +727,21 @@ domain free of locks. These limits are still open:
 - A bus label cut its text, for example `value[7...` in **ram-4x4** of computer (fixed
   2026-11-18). With too little room, a bus label now shows `name / n`, else `/ n`. The shot
   checks that no bus label cuts its text.
+- A bus label beside a small S-bend showed only `/ 8`, for example in **ram-4x4** of computer at a
+  near zoom (fixed 2026-11-18). A corner that rises less than 10 px no longer takes room from the
+  label.
 - A value badge covered a junction dot, for example at the **JOIN** of **register-8** in computer
   (fixed 2026-11-18). A badge that is not selected now hides on a junction dot. The shot checks
   that no badge covers a junction dot.
+- Another wire went through a type label, for example **f64** at the **A x B** node of hello (fixed
+  2026-11-18). A label now hides where another wire with the automatic route goes through it. The
+  shot checks that no wire goes through a label. A wire with its own route or a curve does not
+  hide a label yet.
+- The parameter field in a node row covered the output name, for example **file** over **out1** of the
+  **rom** node in computer (fixed 2026-11-18). The field now keeps its width of 70 px at most. The
+  shot checks that the pin names, the fields and the bus socket heads of a node do not cover each other.
+- A type label stayed when its badge hid, so two `bool` labels stood over one badge, for example
+  in **alu-8** of computer (fixed 2026-11-18). A type label now hides with its badge.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
   A pool unit test sees a task on a worker give its pool index above 0. A CLI test and the

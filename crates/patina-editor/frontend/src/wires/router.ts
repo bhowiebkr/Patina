@@ -57,6 +57,12 @@ export function conflictAt(path: readonly Point[], rects: readonly Rect[]): Poin
   return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
 }
 
+/** The full path of a routed wire, from pin to pin, and its width. */
+export interface Line {
+  points: readonly Point[];
+  width: number;
+}
+
 const samePoints = (a: readonly Point[], b: readonly Point[]) => a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1]);
 
 /**
@@ -73,6 +79,7 @@ export class Router {
   private marks = new Map<string, Point>();
   private joints = new Map<string, readonly Point[]>();
   private allJoints: readonly Point[] = [];
+  private lines: ReadonlyMap<string, Line> = new Map();
   private cuts = new Map<string, readonly Gap[]>();
   private listeners = new Set<() => void>();
   private queued = false;
@@ -109,6 +116,9 @@ export class Router {
 
   /** The junction marks of all outputs, the same array until one moves (15.9). */
   allJunctions = (): readonly Point[] => this.allJoints;
+
+  /** The full paths of all routed wires, the same map until one moves (15.9). */
+  allLines = (): ReadonlyMap<string, Line> => this.lines;
 
   /** The gaps of a wire where it goes under a wire of another output (15.9). */
   gaps = (id: string): readonly Gap[] | undefined => this.cuts.get(id);
@@ -147,9 +157,14 @@ export class Router {
     const ids = [...this.raw.keys()];
     const paths = ids.map((id) => this.raw.get(id)!.map(([x, y]): Point => [x, y]));
     nudge(paths, ids.map((id) => this.wires.get(id)!), this.rects);
+    const linesMoved = ids.length !== this.lines.size || ids.some((id, i) => {
+      const was = this.lines.get(id);
+      return was === undefined || was.width !== this.wires.get(id)!.width || !samePoints(was.points, paths[i]);
+    });
+    if (linesMoved) this.lines = new Map(ids.map((id, i) => [id, { points: paths[i], width: this.wires.get(id)!.width }]));
     const out = new Map<string, readonly Point[]>();
     const marks = new Map<string, Point>();
-    let changed = ids.length !== this.out.size || this.conflicts.size !== this.marks.size;
+    let changed = linesMoved || ids.length !== this.out.size || this.conflicts.size !== this.marks.size;
     ids.forEach((id, i) => {
       const bends = paths[i].slice(1, -1);
       const old = this.out.get(id);

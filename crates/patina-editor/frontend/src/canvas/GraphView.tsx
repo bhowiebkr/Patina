@@ -87,9 +87,12 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const [wires] = useState(() => new WireStore());
   const [router] = useState(() => new Router());
   const [labels] = useState(() => new Labels());
-  // A badge hides on a junction dot (15.9).
+  // A badge hides on a junction dot, and a label hides where another wire goes through it (15.9).
   useEffect(() => {
-    const update = () => labels.setDots(router.allJunctions());
+    const update = () => {
+      labels.setDots(router.allJunctions());
+      labels.setLines(router.allLines());
+    };
     update();
     return router.subscribe(update);
   }, [router, labels]);
