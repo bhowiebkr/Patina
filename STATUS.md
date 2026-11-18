@@ -724,6 +724,9 @@ domain free of locks. These limits are still open:
 - **Reset route** and **Lock bends**, and **Import** and **Package**, touched with no gap, so
   each pair looked like one control (fixed 2026-11-18). The shot checks that two buttons side by
   side have a gap.
+- A bus label cut its text, for example `value[7...` in **ram-4x4** of computer (fixed
+  2026-11-18). With too little room, a bus label now shows `name / n`, else `/ n`. The shot
+  checks that no bus label cuts its text.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
   A pool unit test sees a task on a worker give its pool index above 0. A CLI test and the

@@ -8,7 +8,7 @@ import { getBezierPath, Position, useReactFlow, useStore, type Edge, type EdgePr
 import type { Point } from '../api';
 import { dragRoute } from '../canvas/frames';
 import type { NodeData } from '../canvas/NodeView';
-import { HoverContext, PITCH, busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
+import { HoverContext, PITCH, busLabel, busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
 import { FAR_ZOOM } from './gl';
 import { RouteHandles, SegmentHandles } from './RouteHandles';
 import type { WireIn } from './route';
@@ -129,7 +129,7 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
   // One line shows its wire name in place of the type label.
   // A label with no room hides. The sockets and the pin tooltips at the two ends show the names.
   const room = selected ? Infinity : fit;
-  const label = room < 24 ? undefined : ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? (data!.name ?? data!.ty) : undefined;
+  const label = room < 24 ? undefined : ribbon ? (far ? `/ ${n}` : busLabel(bus, n, room)) : near ? (data!.name ?? data!.ty) : undefined;
   const above = 12 + (ribbon && !far ? ((n - 1) * PITCH) / 2 : 0);
   const badge = value !== undefined && near ? value.text : undefined;
   // A badge cuts its text to the room of the label, but keeps room for a value of 6 characters.

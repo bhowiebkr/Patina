@@ -293,6 +293,9 @@ function wiresClear(where: string) {
   // A badge keeps room for a value of 6 characters (15.3).
   for (const b of document.querySelectorAll<HTMLElement>('.wire-value'))
     if ((b.textContent ?? '').length <= 6 && b.scrollWidth > b.clientWidth + 1) bad.push(`the badge "${b.textContent}" cuts its text`);
+  // A bus label drops parts to fit, so it never cuts its text (15.9).
+  for (const l of document.querySelectorAll<HTMLElement>('.wire-type'))
+    if (/ \/ \d+$|^\/ \d+$/.test(l.textContent ?? '') && l.scrollWidth > l.clientWidth + 1) bad.push(`the bus label "${l.textContent}" cuts its text`);
   // A badge that is not selected is under the nodes, so a pin or a node body must not cover it (15.9).
   const solid = [...document.querySelectorAll('.patina-node:not(.frame), .react-flow__handle:not(.frame-pin)')].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0);
   for (const b of document.querySelectorAll('.wire-value:not(.selected)')) {

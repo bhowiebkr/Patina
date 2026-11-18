@@ -1,10 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { KindInfo } from '../api.ts';
-import { busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, socketOf, wireBits } from './bus.ts';
+import { busLabel, busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, socketOf, wireBits } from './bus.ts';
 
 const ctrl: KindInfo = { ty: 'u16', lanes: ['HLT', 'MI', 'RI'], label: 'ctrl', color: 'violet' };
 const byte: KindInfo = { ty: 'u8', lanes: [], label: null, color: null };
+
+test('a bus label drops the range, then the name, to fit its room', () => {
+  assert.equal(busLabel('value', 8, Infinity), 'value[7:0] / 8');
+  assert.equal(busLabel('value', 8, 77), 'value[7:0] / 8');
+  assert.equal(busLabel('value', 8, 76), 'value / 8');
+  assert.equal(busLabel('value', 8, 40), '/ 8');
+});
 
 test('an input of a reference type has the kind of the value type', () => {
   assert.equal(kindOf([ctrl, byte], '&u16'), ctrl);

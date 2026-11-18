@@ -27,6 +27,15 @@ export function busText(name: string | undefined, kind: KindInfo | undefined, va
   return name ?? kind?.label ?? (value?.lanes?.label || ty) ?? 'bus';
 }
 
+/**
+ * The label above a bus of `n` lanes that fits `room` px of 10 px Consolas (15.9). It drops the
+ * range, then the name, so a bus label never cuts its text.
+ */
+export function busLabel(name: string, n: number, room: number): string {
+  const forms = [`${name}[${n - 1}:0] / ${n}`, `${name} / ${n}`];
+  return forms.find((f) => f.length * 5.5 <= room) ?? `/ ${n}`;
+}
+
 /** The kind of a type. An input type `&T` or `&mut T` has the kind of `T`. */
 export function kindOf(kinds: readonly KindInfo[], ty: string | undefined): KindInfo | undefined {
   const bare = ty?.replace(/^&\s*(mut\s+)?/, '');
