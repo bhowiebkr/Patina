@@ -362,6 +362,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   and 7.5 on the tapes.
 - Known limits: a click on a key gives a new run, so the tape prints each edit, also an edit
   that the user undoes. Nobody clicked the keys by hand.
+- The numbers 7.5 and 1.5 on a **tape** ended 4 px left of the integer rows (fixed 2026-11-18).
+  A point and a minus sign now count narrower than a digit. A hidden shot showed one right edge.
 - A hidden `--shot` run taps the node GUIs of the examples (2026-11-18): **C** and **7** on a
   keypad and the **+** key of the operation in hello, a drag of the knob and of the fader and a
   tap on **INV** in gpu, and a switch and a typed text in the keyboard in computer. It waits for

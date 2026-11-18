@@ -47,8 +47,7 @@ impl Tape {
                 let text = fit(*v, DIGITS);
                 let y = top + 18.0 * i as f32 + 14.0;
                 let newest = i + 1 == self.lines.len();
-                // A digit is about 6.6 pixels wide, so the numbers end at the same right edge.
-                c.text([SIZE[0] - 34.0 - text.len() as f32 * 6.6, y], if newest { RED } else { INK }, &text);
+                c.text([SIZE[0] - 34.0 - width(&text), y], if newest { RED } else { INK }, &text);
                 c.text([SIZE[0] - 30.0, y], if newest { RED } else { INK }, if newest { "*" } else { "+" });
             }
         }
@@ -68,6 +67,16 @@ fn tear(c: &mut patina_sdk::Canvas, y: f32) {
     c.path(&d, PAPER, true);
 }
 
+/// The drawn width of a number, so that the numbers end at the same right edge. A digit is about
+/// 6.6 pixels wide, and a point or a minus sign is narrower.
+fn width(text: &str) -> f32 {
+    text.chars().map(|ch| match ch {
+        '.' => 3.0,
+        '-' => 4.0,
+        _ => 6.6,
+    }).sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,5 +91,6 @@ mod tests {
         let mut ui = Ui::new(0, "");
         tape.ui(&mut ui);
         assert!(ui.tree().starts_with("canvas\tTape 7.5\t150\t168\t"), "{}", ui.tree());
+        assert!(width("-7.5") < width("1075"), "a point and a minus sign are narrower than a digit");
     }
 }
