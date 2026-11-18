@@ -434,6 +434,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   types had different type IDs. A view now builds in the mode of the loaded cluster. The
   computer CLI test reads a frame with a bake cluster and a bake view. After a fuse, the view
   builds again, and its panel keeps the last frame until the build ends.
+- The `Graph` handle of a view is the open graph (15.8). In a subgraph, the **monitor** view has
+  no screen node, so it shows no frame. It now tells the user to open the main graph. A view
+  that reads the main graph from a subgraph is not done.
 - The graph showed through the transparent viewport of a view in the center (fixed 2026-11-18).
   The graph now hides under a view with a viewport. React Flow sets the visibility of each node,
   so the first fix still showed a node there. The shot opens each view of the example, checks
@@ -668,6 +671,15 @@ domain free of locks. These limits are still open:
   center. The selfcheck checks that a view opens in the center and that **Graph** shows the
   graph again. Nobody dragged a view tab into the center by hand. A layout file from before
   keeps its view tabs in the right area.
+- A change of the open graph kept a view tab over the new graph (fixed 2026-11-18). Thus the
+  shot captured the **monitor** view in place of each subgraph of computer, and its checks did
+  not see it. A change of graph now shows the **Graph** tab. The shot checks that no view covers
+  each subgraph.
+- At open, the graph fit before the node GUIs had their size, so the shot cut the bottom keypad
+  of hello (fixed 2026-11-18). The graph now fits again when a node changes size, until the user
+  clicks, types, pans or zooms in the canvas.
+- A wire badge cut short values to `12...` or `0...` (fixed 2026-11-18). A badge now keeps at
+  least 50 px, so a value of 6 characters shows whole.
 - The **Debug** tab shows a timeline of the node calls of each domain and thread (15.7, added
   2026-11-17). The load, CLI run, frontend and selfcheck tests check the start and the thread.
   A pool unit test sees a task on a worker give its pool index above 0. A CLI test and the

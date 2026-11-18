@@ -497,6 +497,8 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
         if (!n.subgraph || steps.includes(n.subgraph)) continue;
         const inner = await open(n.subgraph, n.id);
         if (!inner) throw new Error(`cannot open ${n.subgraph}`);
+        // A change of graph shows the Graph tab, so an open view does not cover the subgraph (15.2).
+        await wait(() => !document.querySelector('.center-view'), () => `a view covers the graph ${n.subgraph}`);
         await sleep(500);
         await api.capture(n.subgraph);
         steps.push(n.subgraph);

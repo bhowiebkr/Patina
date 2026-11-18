@@ -102,6 +102,8 @@ impl Monitor {
         *error = drawn.err().or(failed).unwrap_or_default();
         match frame {
             Some(frame) => ui.label(&format!("{frame:?}. Click the monitor and push the arrows to play.")),
+            // The Graph handle is the open graph (15.8), so a subgraph has no screen node.
+            None if !graph.nodes().any(|id| graph.folder(id) == Some("nodes/screen")) => ui.label("The open graph has no screen node. Open the main graph to see the screen."),
             None => ui.label("No frame yet. Connect a frame to the screen node, and run the graph."),
         }
         if !error.is_empty() {

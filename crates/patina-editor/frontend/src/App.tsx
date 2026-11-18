@@ -11,7 +11,7 @@ import { GraphPath } from './canvas/GraphPath';
 import { GraphView } from './canvas/GraphView';
 import { Inspector, type InspectorTab } from './panels/Inspector';
 import { useEditKeys } from './canvas/keys';
-import { openPanel, type PanelId, type ViewSlot } from './panels/layout';
+import { openPanel, showGraph, type PanelId, type ViewSlot } from './panels/layout';
 import { Lines } from './run/Lines';
 import { ExpandGui, FullGui, GuiScope } from './controls/NodeGui';
 import { LayersPanel } from './panels/LayersPanel';
@@ -89,6 +89,13 @@ export function App() {
 
   const { act, edit, undo, redo, saveAll, startTest, switchInput, collapse, expandUses, copyNodes, paste } = useGraphEdits({ serial, current, show, markStale, log, setError, setFocus });
   const { path, testing, usePath, scoped, scopedGuis, domains, goTo, openGraph } = useTrail(view, current, run, guis, act);
+  // A change of the open graph shows the Graph tab (15.2).
+  const graphName = view?.graphName;
+  const shownGraph = useRef(graphName);
+  useEffect(() => {
+    if (shownGraph.current !== undefined && graphName !== undefined && graphName !== shownGraph.current) changeLayout(showGraph);
+    shownGraph.current = graphName;
+  }, [graphName]);
   const fire = useCallback((id: string) => api.fire(usePath ? `${usePath}/${id}` : id, '').catch((e) => setError(String(e))), [usePath, setError]);
 
   /** Shows a place in the code: selects its node and opens the Code tab at the line (15.5). */

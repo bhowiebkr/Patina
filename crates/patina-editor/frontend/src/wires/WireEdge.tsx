@@ -132,8 +132,8 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
   const label = room < 24 ? undefined : ribbon ? (far ? `/ ${n}` : `${bus}[${n - 1}:0] / ${n}`) : near ? (data!.name ?? data!.ty) : undefined;
   const above = 12 + (ribbon && !far ? ((n - 1) * PITCH) / 2 : 0);
   const badge = value !== undefined && near ? value.text : undefined;
-  // A badge cuts its text to the room of the label, but keeps room for a short value.
-  const badgeRoom = selected ? undefined : Math.max(fit, 32);
+  // A badge cuts its text to the room of the label, but keeps room for a value of 6 characters.
+  const badgeRoom = selected ? undefined : Math.max(fit, 50);
   const named = data!.name !== undefined;
   // The boxes of the label and the badge, from the Consolas sizes of canvas.css.
   useLayoutEffect(() => {

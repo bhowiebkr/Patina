@@ -139,7 +139,16 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
     setEdges((list) => list.map((x) => (x.selected ? { ...x, selected: false } : x)));
   }, [focus]);
 
-  const onNodesChange = useCallback((changes: NodeChange<GraphNode>[]) => setNodes((n) => applyNodeChanges(changes, n)), []);
+  // With no saved pan and zoom, the graph fits again when a node GUI gets its size, until the user acts on the canvas (15.2).
+  const autoFit = useRef(!viewport);
+  const stopFit = useCallback(() => (autoFit.current = false), []);
+  const onNodesChange = useCallback(
+    (changes: NodeChange<GraphNode>[]) => {
+      setNodes((n) => applyNodeChanges(changes, n));
+      if (autoFit.current && changes.some((c) => c.type === 'dimensions')) requestAnimationFrame(() => autoFit.current && flow.fitView(FIT));
+    },
+    [flow],
+  );
   const onEdgesChange = useCallback((changes: EdgeChange<Edge<WireData>>[]) => setEdges((e) => applyEdgeChanges(changes, e)), []);
 
   const onSelectionChange = useCallback(
@@ -234,6 +243,9 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           onEdgeContextMenu={menu.onEdge}
           onPointerMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
           onPointerLeave={() => (pointer.current = null)}
+          onPointerDownCapture={stopFit}
+          onKeyDownCapture={stopFit}
+          onMoveStart={(e) => e && stopFit()}
           nodesDraggable={view.trusted}
           nodesConnectable={view.trusted}
           panOnDrag={PAN_BUTTONS}
