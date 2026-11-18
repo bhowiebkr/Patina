@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, lockPoints, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, pathOf, segments, shape, STALE, STRIDE, TAPER, taperEnds, WireStore, wirePath, wirePoints } from './wires.ts';
+import { anchor, DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, insertAt, instances, LIT, lockPoints, MAX_POINTS, MAX_ROUTE, moveSegment, normals, orthogonal, pathOf, restyle, segments, shape, STALE, STRIDE, TAPER, taperEnds, WireStore, wirePath, wirePoints } from './wires.ts';
 import type { Corners, Path } from '../api.ts';
 
 /** The miter normals of a line through the x, y pairs. */
@@ -152,6 +152,22 @@ test('a route with a new number of points rebuilds the segment lists', () => {
   assert.ok(!store.layout, 'a moved point keeps the number of points');
 });
 
+test('a new lane state writes only the flags of its wire again', () => {
+  const store = new WireStore();
+  const line = shape(0, 0, 100, 0, [[50, 40]]);
+  for (const id of ['a', 'b', 'c']) store.set(id, 0, 0, 100, 0, line, false, '0000');
+  const data = instances(store, false);
+  store.layout = false;
+  store.set('b', 0, 0, 100, 0, line, false, '1010', true, 2, 1, true);
+  store.set('c', 0, 0, 100, 0, line, false, '0000');
+  assert.ok(!store.layout);
+  assert.deepEqual([...store.restyled], [1], 'the same state is no change');
+  const per = (store.counts[0] - 1) * 4;
+  assert.deepEqual(restyle(store, data, store.restyled), [per, 2 * per], 'only the instances of b');
+  assert.deepEqual([...data], [...instances(store, false)]);
+  assert.deepEqual(restyle(store, data, [7]), [data.length / 4, 0], 'a slot with no instances changes nothing');
+});
+
 test('a gap where the wire goes under another wire is a segment that is not drawn', () => {
   const store = new WireStore();
   const line = shape(0, 0, 100, 0, [], 'polyline');
@@ -190,7 +206,9 @@ test('a bus draws each lane of each segment, and a selected bus draws one ribbon
   store.set('bus', 0, 0, 100, 0, shape(0, 0, 100, 0, [[50, 40]]), true, '0110', true);
   assert.ok(!store.layout, 'the same lanes keep the instances');
   store.set('bus', 0, 0, 100, 0, shape(0, 0, 100, 0, [[50, 40]]), true, '0111', true);
-  assert.ok(store.layout, 'a new lane state needs new instances');
+  assert.ok(!store.layout && store.restyled.has(1), 'a new lane state keeps the instances and changes their flags');
+  store.set('bus', 0, 0, 100, 0, shape(0, 0, 100, 0, [[50, 40]]), true, '011', true);
+  assert.ok(store.layout, 'a new number of lanes needs new instances');
   for (let k = 0; k < 20; k++) store.set(`w${k}`, 0, 0, 10, 0, shape(0, 0, 10, 0, []), false, '1');
   assert.equal(store.bits.length, store.counts.length, 'the lanes grow with the slots');
   assert.equal(store.bits[21], '1');
@@ -205,7 +223,7 @@ test('a bus keeps its color family, and the hovered lane is marked', () => {
   assert.deepEqual([...instances(store, false)], [0, 0, 0, flags | LIT, 0, 0, 1, flags | HOVER]);
   store.layout = false;
   store.set('bus', 0, 0, 100, 0, shape(0, 0, 100, 0, [], 'polyline'), false, '10', false, 3, -1);
-  assert.ok(store.layout, 'a new hover needs new instances');
+  assert.ok(!store.layout && store.restyled.has(0), 'a new hover needs new flags only');
   // The wire goes right, so its left side is up: negative y gives a negative distance.
   assert.equal(store.across('bus', 40, -3), -3);
   assert.equal(store.across('bus', 140, 4), 4, 'beyond the end, the nearest segment');
@@ -244,15 +262,17 @@ test('a bus fans its lanes in to a dot pin over the last TAPER px', () => {
   assert.equal(store.counts[1], 2, 'a wire of one lane has no taper');
 });
 
-test('a cross-domain wire has the dashed flag, and a change of the flag needs new instances', () => {
+test('a cross-domain wire has the dashed flag, and a change of the flag needs new flags', () => {
   const store = new WireStore();
   const line = shape(0, 0, 100, 0, [], 'polyline');
   store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, true);
   assert.deepEqual([...instances(store, false)], [0, 0, 0, DASHED]);
   store.layout = false;
+  const data = instances(store, false);
   store.set('w', 0, 0, 100, 0, line, false, '', false, 0, -1, false);
-  assert.ok(store.layout);
-  assert.deepEqual([...instances(store, false)], [0, 0, 0, 0]);
+  assert.ok(!store.layout && store.restyled.has(0));
+  restyle(store, data, store.restyled);
+  assert.deepEqual([...data], [0, 0, 0, 0]);
 });
 
 test('the value badge sits at the middle of the curve or of the longest horizontal segment', () => {

@@ -2,7 +2,7 @@
 // canvas under the nodes. A texture row holds the points and the miter normals of each wire.
 
 import { LANE_COLORS, PITCH } from '../canvas/bus';
-import { DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, instances, LIT, MAX_POINTS, STALE, STRIDE, type WireStore } from './wires';
+import { DASHED, FAMILY_SHIFT, HAS_LANES, HOVER, instances, LIT, MAX_POINTS, restyle, STALE, STRIDE, type WireStore } from './wires';
 
 /** The line widths and the lane pitch, in graph pixels, and the colors of docs/gui-visual-guide.md. */
 const WIRE_WIDTH = 2;
@@ -162,6 +162,8 @@ class Instances {
   readonly vao: WebGLVertexArrayObject;
   readonly buffer: WebGLBuffer;
   count = 0;
+  /** The last instances that went to the GPU. */
+  data: Uint16Array = new Uint16Array(0);
 
   constructor(private readonly gl: WebGL2RenderingContext) {
     this.vao = gl.createVertexArray()!;
@@ -179,6 +181,15 @@ class Instances {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
     this.count = data.length / 4;
+    this.data = data;
+  }
+
+  /** Sends the instances from `lo` to `hi` (not included) of `data` again, after a change in place. */
+  patch(lo: number, hi: number) {
+    if (lo >= hi) return;
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, lo * 8, this.data, lo * 4, (hi - lo) * 4);
   }
 
   dispose() {
@@ -276,9 +287,18 @@ export class GlWires {
     if (store.layout) {
       this.all.upload(instances(store, false));
       this.chosen.upload(instances(store, true));
+    } else if (store.restyled.size > 0) {
+      this.all.patch(...restyle(store, this.all.data, store.restyled));
+      // The selected wires are few, and their accent reads the dash flag.
+      for (const s of store.restyled) {
+        if (!store.selected[s]) continue;
+        this.chosen.upload(instances(store, true));
+        break;
+      }
     }
     store.grown = false;
     store.layout = false;
+    store.restyled.clear();
     store.changed.clear();
 
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);

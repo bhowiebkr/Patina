@@ -550,19 +550,49 @@ export function instances(store: WireStore, selectedOnly: boolean): Uint16Array 
   let at = 0;
   for (let s = 0; s < store.counts.length; s++) {
     if (selectedOnly && !store.selected[s]) continue;
-    const bits = store.bits[s];
-    const flags = (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0) | (store.family[s] << FAMILY_SHIFT) | (store.dashed[s] ? DASHED : 0);
+    const flags = wireFlags(store, s);
     for (let k = 0; k < store.counts[s] - 1; k++) {
       if (!drawn(s, k)) continue;
       for (let lane = 0; lane < lanesOf(s); lane++, at += 4) {
         out[at] = s;
         out[at + 1] = k;
         out[at + 2] = lane;
-        out[at + 3] = flags | (bits[lane] === '1' ? LIT : 0) | (store.hover[s] === lane ? HOVER : 0);
+        out[at + 3] = laneFlags(store, s, lane, flags);
       }
     }
   }
   return out;
+}
+
+/** The flags that all lanes of wire `s` share. */
+function wireFlags(store: WireStore, s: number): number {
+  const bits = store.bits[s];
+  return (Math.max(1, bits.length) - 1) | (bits ? HAS_LANES : 0) | (store.stale[s] ? STALE : 0) | (store.family[s] << FAMILY_SHIFT) | (store.dashed[s] ? DASHED : 0);
+}
+
+const laneFlags = (store: WireStore, s: number, lane: number, flags: number) => flags | (store.bits[s][lane] === '1' ? LIT : 0) | (store.hover[s] === lane ? HOVER : 0);
+
+/**
+ * Writes again the flags of the wires in `slots` into `data`, the instances of all wires from
+ * `instances`, after a change of their lane states only. Returns the first instance and the end
+ * instance that changed, so that only this range goes to the GPU. The instances are in the order of the slots.
+ */
+export function restyle(store: WireStore, data: Uint16Array, slots: Iterable<number>): [number, number] {
+  const n = data.length / 4;
+  let [lo, hi] = [n, 0];
+  for (const s of slots) {
+    let [a, b] = [0, n];
+    while (a < b) {
+      const m = (a + b) >> 1;
+      if (data[m * 4] < s) a = m + 1;
+      else b = m;
+    }
+    const flags = wireFlags(store, s);
+    let i = a;
+    for (; i < n && data[i * 4] === s; i++) data[i * 4 + 3] = laneFlags(store, s, data[i * 4 + 2], flags);
+    if (i > a) [lo, hi] = [Math.min(lo, a), Math.max(hi, i)];
+  }
+  return [lo, hi];
 }
 
 /** The wires that the WebGL layer draws. A free slot has 0 points. */
@@ -584,8 +614,10 @@ export class WireStore {
   /** The slots that changed since the last draw. All slots changed when `grown` is true. */
   readonly changed = new Set<number>();
   grown = true;
-  /** True when a wire was added, removed, selected, cleared, or got new lanes or a new number of points since the last draw. */
+  /** True when a wire was added, removed, selected, cleared, or got a new number of lanes or of points since the last draw. */
   layout = true;
+  /** The slots that got only new lane states, a new hover lane, color or dash since the last draw. */
+  readonly restyled = new Set<number>();
   private readonly slots = new Map<string, number>();
   private readonly free: number[] = [];
   private notify = () => {};
@@ -607,8 +639,9 @@ export class WireStore {
     const sel = selected ? 1 : 0;
     const old = stale ? 1 : 0;
     const dash = dashed ? 1 : 0;
-    // shortcut: a new lane state rebuilds the instances of all wires (1 ms for 2000 wires); put the lane states in a texture when larger graphs change at each frame.
-    if (this.selected[slot] !== sel || this.bits[slot] !== bits || this.stale[slot] !== old || this.family[slot] !== family || this.hover[slot] !== hover || this.dashed[slot] !== dash) this.layout = true;
+    const lanes = (b: string) => Math.max(1, b.length);
+    if (this.selected[slot] !== sel || lanes(this.bits[slot]) !== lanes(bits)) this.layout = true;
+    else if (this.bits[slot] !== bits || this.stale[slot] !== old || this.family[slot] !== family || this.hover[slot] !== hover || this.dashed[slot] !== dash) this.restyled.add(slot);
     this.selected[slot] = sel;
     this.bits[slot] = bits;
     this.stale[slot] = old;

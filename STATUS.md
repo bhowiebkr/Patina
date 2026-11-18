@@ -171,15 +171,22 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     map and its value maps when no line or value changed.
   - Finding 9: a GPU image keeps up to 4 spare read buffers and shrink objects again.
   - Finding 8: a quiet frame keeps no copy for a view. A large value costs one copy for each tick.
+  - Finding 7: a new lane state, hover lane, color or dash writes only the flags of its wire, and
+    only that range goes to the GPU. A new number of lanes or points still makes all instances.
+    In Node, 2000 wires of 8 lanes (208000 instances): the full rebuild took 1.14 ms and a new
+    1.6 MB array, and the patch of 3 wires took 0.004 ms with no new instance array.
 - The computer example in the shot, with a game on the owner's computer: a tick of 54 events took
   2.08 ms for the frames, 0.38 ms for the values, 1.99 ms for the send and 0.01 ms for the node GUIs.
   The page frame was 16.7 ms (p95 16.8 ms), so no frame dropped. No number before the change exists.
 - Known limits: the copies for a view stay after the view closes, until the graph loads again. A
   reopened view on a paused graph thus still shows the last value. Each drawn node GUI still makes
   its line text one time.
-- Open work: finding 1 (collect only the values in view) and finding 5 (collect times less often).
-  The numbers above show no dropped frame, and finding 1 can lose values that a paused pan, the
-  **Inspector** or a badge reads. Findings 10, 11 and 12 stay as they are (agent decision).
+- No change for findings 1, 5, 10, 11 and 12 (agent decision of 2026-11-18, the owner can change it):
+  - Finding 1: a filter by view can lose the values that a paused pan, the **Inspector** or a badge
+    reads, and the numbers above show no dropped frame.
+  - Finding 5: a quiet frame already sends no times, so only the last frame of a tick makes them.
+    The gain is a part of the 2.08 ms of the frames.
+  - Findings 10, 11 and 12 need a measurement or a design change first.
 - Not checked in this audit: slot mode, allocation counts, Linux, and macOS.
 - Open test improvement: the event test compares path strings and fails with a mixed-separator
   `CARGO_TARGET_DIR`. Its focused check passed after recompilation with a native Windows target path.
