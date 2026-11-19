@@ -284,7 +284,7 @@ impl Arrange {
                             .slider("Source body / Hz", &mut track.rave.body, 200.0..=8000.0)
                             .changed();
                         changed |= number8(ui, "Source bits", &mut track.rave.bits, [4, 16]);
-                        ui.label("Root + fifth > low-pass > bit depth > drive > cutoff.");
+                        ui.label("Open Sound for the voice filter, envelope, and source edge.");
                     }
                     changed |= ui
                         .slider("Delay send", &mut track.delay_mix, 0.0..=0.8)

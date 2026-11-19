@@ -1,7 +1,7 @@
 use crate::{RATE, finite};
 use patina_sdk::AudioBlock;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct Integrators {
     band: f32,
     low: f32,

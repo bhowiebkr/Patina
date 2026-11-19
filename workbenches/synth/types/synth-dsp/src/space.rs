@@ -77,9 +77,14 @@ pub struct Reverb {
 }
 impl Default for Reverb {
     fn default() -> Self {
+        Self::with_spread(0)
+    }
+}
+impl Reverb {
+    pub(crate) fn with_spread(spread: usize) -> Self {
         Self {
-            comb: [1427, 1783, 1973, 2099].map(Delay::new),
-            diffuse: [241, 79].map(Delay::new),
+            comb: [1427, 1783, 1973, 2099].map(|length| Delay::new(length + spread)),
+            diffuse: [241, 79].map(|length| Delay::new(length + spread)),
             feedback: [0.0; 4],
             mix: 0.0,
             damping: 0.0,

@@ -72,6 +72,8 @@ pub struct Track {
     pub delay_beats: f32,
     #[serde(default)]
     pub rave: crate::RaveTone,
+    #[serde(default)]
+    pub sound: super::Sound,
     pub clips: Vec<Clip>,
     pub automation: Vec<Automation>,
 }
@@ -95,6 +97,7 @@ impl Track {
             delay_mix: 0.0,
             delay_beats: 0.75,
             rave: crate::RaveTone::default(),
+            sound: super::Sound::default(),
             clips: Vec::new(),
             automation: Vec::new(),
         }
@@ -249,6 +252,7 @@ impl Score {
                 || track.clips.len() > MAX_CLIPS
                 || track.automation.len() > 4
                 || !track.rave.valid()
+                || !track.sound.valid()
             {
                 return Err(format!("Invalid track: {}", track.name));
             }
@@ -262,7 +266,7 @@ impl Score {
                 (track.delay_mix, 0.0, 0.8),
                 (track.delay_beats, 0.125, 4.0),
             ] {
-                if !valid(value.into(), lo, hi) {
+                if !value.is_finite() || !(lo..=hi).contains(&value) {
                     return Err(format!("Invalid control in {}", track.name));
                 }
             }

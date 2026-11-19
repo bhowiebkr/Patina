@@ -23,6 +23,12 @@ The node canvas remains the main workspace.
   identifies the JP-8080 Sandstorm preset as a pad sound.
   [Sound On Sound's interview](https://www.soundonsound.com/techniques/classic-tracks-darude-sandstorm)
   describes a processed sample for the lead. Its indexed excerpt was available; the full page refused access.
+- [Surge XT's manual](https://surge-synthesizer.github.io/manual-xt/)
+  describes separate amplitude and filter envelopes, unison, waveshaping, and effect routing.
+  These are useful instrument controls beyond note scheduling.
+- [Roland's TR-909 history](https://www.roland.com/uk/promos/roland_tr-909/)
+  explains its combination of synthesized drums and recorded cymbals.
+  Ember's procedural hats are an alternative design, not a TR-909 sample recreation.
 
 Sandstorm is a useful capability test: fast repeated notes, drums, bass, pads, effects, and changes across song sections.
 A supersaw alone does not reproduce its lead process.
@@ -43,23 +49,52 @@ The [piano note guide](https://pianoletternotes.blogspot.com/2018/03/sandstorm-b
 informed the short hook's pitches and repeated-note pattern.
 The octave, gates, mix, accompaniment, and synthesis settings are approximations.
 
-The new **Rave lead** instrument filters a root-and-fifth source before bit reduction and track distortion.
-Its **Fifth level**, **Source body / Hz**, and **Source bits** controls save with the score.
+The **Rave lead** instrument filters a root-and-fifth source before bit reduction and source distortion.
+Distortion precedes the amplitude envelope so short notes retain their shape.
+The source runs at 192 kHz. A 96-tap FIR reduces ultrasonic content before decimation to 48 kHz.
+Its source, amplitude, filter, and effect controls save with the score.
 The separate **rave-oscillator** node exposes the same source for modular sound design.
 Older saved scores receive default source controls when they load.
 The existing **song** graph remains an original learning arrangement.
 
-Windows example tests and Clippy passed for the source and its controls.
-Workspace Clippy, workspace tests, and frontend checks passed on Windows.
-One compiler process crashed during a state-migration test. Its retry and the full test run passed with two test threads.
-The **sandstorm** graph passed **Edit** and **Bake** rendering, with sample differences below 0.00001.
-The actual dock view passed a lead-control edit, save, reopen, and undo test.
-A ten-second stereo WAV render contains 480000 frames at 48 kHz.
-Its peak is 0.8830. Its left and right RMS levels are about 0.1673 and 0.1675.
-The last-second RMS is 0.0000424. The source test counted zero allocations.
-The debug source test averaged 0.017 ms per 256 samples across three source settings.
-This measurement excludes track effects, mixing, the graph scheduler, and device output.
-No listening comparison established fidelity to the original recording. Other operating systems remain unchecked.
+The earlier render passed numerical checks, but the owner rejected its sound.
+Those checks did not establish instrument quality or fidelity to the recording.
+
+## Instrument revision, 2026-11-19
+
+The timeline schedules notes. The workbench's instrument code creates their sound.
+The earlier voices shared simple envelopes and offered little control over their harmonic shape.
+Track distortion also changed the lead's amplitude envelope after the note envelope had run.
+
+- The lead now shapes its source before its filter and amplitude envelope.
+- The bass aligns its sine body with the saw's fundamental. Their earlier phase relationship weakened the fundamental.
+- The pad and pulse lead use seven oscillators with controlled detune and stereo spread.
+- Each pitched voice has a resonant filter and a velocity-sensitive filter sweep.
+- The kick, snare, and hats use separate body, transient, and decay designs.
+- Drums play one shot. Closed hats choke open hats; stopping playback releases all voices.
+- Track processing adds low cut, a stereo room, and beat-synchronized volume reduction.
+- The **Sound** page exposes these controls in responsive columns.
+- Track validation now accepts the exact minimum release value represented as an `f32`.
+
+The revised graph moves the lead up one octave and retunes its gates, source, envelopes, effects, and mix.
+These choices remain a synthesis approximation. No listening comparison established fidelity to Darude's recording.
+
+### Checks of the instrument revision
+
+Windows workbench tests and Clippy passed. The tests cover source alias reduction, mono compatibility, filter sweeps, drum decay, hat choking, and control validation.
+Workspace Clippy, workspace tests, the three frontend builds, and all 203 editor frontend tests passed on Windows.
+The actual **sandstorm** graph passed **Edit** and **Bake** rendering with sample differences below 0.00001.
+The **Mixer** and **Sound** controls passed edit, save, reopen, and undo checks through the generated view library.
+
+The ten-second render has 480000 stereo frames at 48 kHz.
+Its peak is 0.829138. Its RMS over the musical section is 0.199170. No samples reach the 0.95 limiter threshold.
+The last-second peak is 0.000475. Six solo renders permit separate checks of the instruments.
+The previous and revised mixes also have an RMS-matched comparison file. RMS matching does not establish equal perceived loudness.
+
+The optimized six-track test measured a mean of 0.159 ms and p95 of 0.182 ms per 256 frames.
+It counted zero allocations after warmup.
+This measures track processing and effects. It excludes the transport, graph scheduler, device output, and editor.
+The tests do not establish listening quality. Speaker playback, visual inspection of the new page, and other operating systems remain unchecked.
 
 ## Architecture
 

@@ -1,5 +1,5 @@
-use super::{Arrangement, ClockBlock, Target, voice::Voice};
-use crate::{RATE, Saturator};
+use super::{Arrangement, ClockBlock, Instrument, Target, sound::Prepared, voice::Voice};
+use crate::{RATE, Reverb, Saturator};
 use patina_sdk::audio::{BLOCK, StereoBlock};
 
 const VOICES: usize = 32;
@@ -12,6 +12,9 @@ pub struct TrackPlayer {
     track: u32,
     filter: [[f32; 2]; 2],
     drive: [Saturator; 2],
+    room: [Reverb; 2],
+    highpass: [f32; 2],
+    highpass_alpha: f32,
     delay: Box<[[f32; 2]]>,
     write: usize,
     gain: f32,
@@ -31,6 +34,9 @@ impl Default for TrackPlayer {
             track: u32::MAX,
             filter: [[0.0; 2]; 2],
             drive: Default::default(),
+            room: [Reverb::default(), Reverb::with_spread(23)],
+            highpass: [0.0; 2],
+            highpass_alpha: 0.0,
             delay: vec![[0.0; 2]; DELAY].into_boxed_slice(),
             write: 0,
             gain: 0.0,
@@ -44,7 +50,12 @@ impl Default for TrackPlayer {
 }
 
 impl TrackPlayer {
-    fn start(&mut self, note: super::NoteEvent, elapsed: u64) {
+    fn start(&mut self, note: super::NoteEvent, elapsed: u64, instrument: Instrument) {
+        if instrument == Instrument::Hat && note.key == 42 {
+            for voice in self.voices.iter_mut().filter(|v| v.active && v.key == 46) {
+                voice.release();
+            }
+        }
         let index = self
             .voices
             .iter()
@@ -66,6 +77,7 @@ impl TrackPlayer {
             return out;
         };
         let (track, compiled) = (&song.score.tracks[index], &song.tracks[index]);
+        let prepared = Prepared::new(track);
         let changed = self.revision != song.revision || self.track != id;
         self.revision = song.revision;
         self.track = id;
@@ -83,7 +95,7 @@ impl TrackPlayer {
                         .iter()
                         .filter(|n| n.end > position)
                     {
-                        self.start(*note, position - note.start);
+                        self.start(*note, position - note.start, track.instrument);
                     }
                 }
             }
@@ -94,17 +106,17 @@ impl TrackPlayer {
                     .filter(|n| n.start <= position)
                 {
                     if note.end > position {
-                        self.start(*note, position - note.start);
+                        self.start(*note, position - note.start, track.instrument);
                     }
                     self.cursor += 1;
                 }
             }
             let mut pair = [0.0; 2];
             for voice in self.voices.iter_mut().filter(|v| v.active) {
-                if !clock.running[i] || position >= voice.end {
+                if !clock.running[i] || (!prepared.drum && position >= voice.end) {
                     voice.release();
                 }
-                let value = voice.next(track, compiled.sample.as_deref());
+                let value = voice.next(track, &prepared, compiled.sample.as_deref());
                 pair[0] += value[0];
                 pair[1] += value[1];
             }
@@ -149,12 +161,15 @@ impl TrackPlayer {
             out.left = self.drive[0].process(&out.left, track.drive, 1.0);
             out.right = self.drive[1].process(&out.right, track.drive, 1.0);
         }
+        out.left = self.room[0].process(&out.left, 1.15, 0.58, track.sound.room);
+        out.right = self.room[1].process(&out.right, 1.15, 0.58, track.sound.room);
         let solo = song.score.tracks.iter().any(|t| t.solo);
         let audible = !track.mute && (!solo || track.solo);
         let spb = song.samples_per_beat();
         let delay = (f64::from(track.delay_beats) * spb)
             .round()
             .clamp(1.0, (DELAY - 1) as f64) as usize;
+        let highpass_alpha = 1.0 - (-std::f32::consts::TAU * track.sound.highpass / RATE).exp();
         for i in 0..BLOCK {
             let beat = clock.position[i] as f64 / spb;
             let gain = if audible {
@@ -169,6 +184,14 @@ impl TrackPlayer {
             let mix = track.value(Target::Delay, beat, track.delay_mix);
             let echo = self.delay[(self.write + DELAY - delay) % DELAY];
             let pair = [out.left[i], out.right[i]];
+            self.highpass_alpha += (highpass_alpha - self.highpass_alpha) * 0.004;
+            // This is a beat-synchronized volume curve, not an audio sidechain input.
+            let seconds = beat.fract() as f32 * 60.0 / song.score.bpm as f32;
+            let duck = if clock.running[i] {
+                1.0 - track.sound.duck * (-seconds / 0.095).exp() * (1.0 - (-seconds / 0.002).exp())
+            } else {
+                1.0
+            };
             let mut final_pair = [0.0; 2];
             for channel in 0..2 {
                 self.filter[channel][0] += alpha * (pair[channel] - self.filter[channel][0]);
@@ -185,7 +208,9 @@ impl TrackPlayer {
                 } else {
                     (1.0 + self.pan).min(1.0)
                 };
-                final_pair[channel] = (dry + echo[channel]) * self.gain * pan;
+                let wet = dry + echo[channel];
+                self.highpass[channel] += self.highpass_alpha * (wet - self.highpass[channel]);
+                final_pair[channel] = (wet - self.highpass[channel]) * self.gain * pan * duck;
             }
             self.write = (self.write + 1) % DELAY;
             out.left[i] = final_pair[0];

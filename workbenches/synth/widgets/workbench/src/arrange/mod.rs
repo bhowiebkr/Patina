@@ -6,6 +6,7 @@ mod details;
 mod lanes;
 mod piano;
 mod routing;
+mod sound;
 #[cfg(test)]
 mod tests;
 
@@ -144,12 +145,13 @@ impl Arrange {
         ui.tabs(
             "Song tools",
             &mut self.page,
-            &["Arrange", "Piano roll", "Mixer", "Automation"],
+            &["Arrange", "Piano roll", "Mixer", "Automation", "Sound"],
         );
         changed |= match self.page {
             0 => self.lanes(ui, live.as_ref()),
             1 => self.piano_page(ui),
             2 => self.mixer(ui, live.as_ref()),
+            4 => self.sound(ui),
             _ => self.automation(ui, live.as_ref()),
         };
         ui.label("");

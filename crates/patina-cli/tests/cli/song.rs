@@ -175,4 +175,23 @@ fn the_sandstorm_excerpt_renders_and_its_lead_controls_save_and_undo() {
     assert!(snapshot(saved.graph(), &[], &[], &[]).contains("\"fifth\":0.25"));
     project.undo(&mut Default::default()).unwrap();
     assert_eq!(snapshot(project.graph(), &[], &[], &[]), before);
+
+    let sound = view
+        .ui(2, &format!("@size 1100 620\n{tabs} 4"), &before, None)
+        .unwrap();
+    let edge = sound
+        .tree
+        .lines()
+        .position(|s| s.starts_with("slider\tSource edge"))
+        .unwrap();
+    let edit = view
+        .ui(2, &format!("@size 1100 620\n{edge} 7.5"), &before, None)
+        .unwrap();
+    assert_eq!(edit.edits.len(), 1);
+    project.apply(&Edit::Group { edits: edit.edits }).unwrap();
+    project.save().unwrap();
+    let saved = Project::open_top(&path, "sandstorm").unwrap();
+    assert!(snapshot(saved.graph(), &[], &[], &[]).contains("\"edge\":7.5"));
+    project.undo(&mut Default::default()).unwrap();
+    assert_eq!(snapshot(project.graph(), &[], &[], &[]), before);
 }
