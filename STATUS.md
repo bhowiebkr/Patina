@@ -899,7 +899,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   field of an input with `min` and `max`. Engine unit tests and a CLI test cover it.
 - An input of `process` of a stateful node can have `#[param]` too (2026-11-19). A bare
   `#[node]` on the `impl` block removes it. An engine unit test and the CLI test cover it.
-- Known limits: no shot checked the slider.
+- The model shot moves the **taper** slider of an `extrude` node in the **Inspector** to 0.5
+  (2026-11-19). The field shows 0.5, the graph runs, the 3D view draws a new image, and undo
+  clears the field. A hidden shot on Windows showed the tapered solid.
+- Known limits: no person dragged the slider by hand. The check sets the value as a drag does.
 - The model nodes have `#[param]` defaults and ranges (2026-11-19). A new `cuboid` is a box of
   1 x 1 x 1, `taper` has a slider from 0 to 1 and `gap` has a slider from 0 to 360. The city
   has the new copies of `cuboid`, `cylinder` and `sphere`. The model and city CLI tests pass.

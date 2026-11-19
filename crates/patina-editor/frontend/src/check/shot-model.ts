@@ -11,8 +11,9 @@ const shown = () => panel()?.innerText.match(/\d+ triangles, bounds [^\n]+/)?.[0
 // The seed node, the node that the check selects, the first name of the captures, and a capture with Toon.
 // `next` is a workbench beside this one that the check opens while the 3D view shows, when the folder is there.
 // `wall` is a view in the bottom dock whose click sets the seed and selects `node` again.
-const TARGETS: { seed: string; node: string; title: string; shot: string; toon: boolean; next?: string; wall?: string }[] = [
-  { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false },
+// `taper` is an `extrude` node whose **taper** slider in the Inspector the check moves (4.8).
+const TARGETS: { seed: string; node: string; title: string; shot: string; toon: boolean; next?: string; wall?: string; taper?: string }[] = [
+  { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false, taper: 'b0d1000000000004' },
   { seed: 'c170000000000001', node: 'c170000000000017', title: 'merge', shot: 'city', toon: false, next: 'gun' },
   { seed: '9a70000000000001', node: '9a70000000000002', title: 'look', shot: 'gun', toon: true, wall: 'gun-wall' },
 ];
@@ -20,7 +21,7 @@ const TARGETS: { seed: string; node: string; title: string; shot: string; toon: 
 export async function modelWorkbench(view: View, show: (view: View) => void): Promise<string[]> {
   const target = TARGETS.find((t) => view.graph.node?.some((n) => n.id === t.node));
   if (!view.views.includes('model-view') || !target) return [];
-  const { seed, node, title, shot, toon, next, wall } = target;
+  const { seed, node, title, shot, toon, next, wall, taper } = target;
   let stage = 'open';
   let failure = '';
   let runs = 0;
@@ -91,6 +92,30 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
     show(await api.undo());
     await until(() => shown() === first, 'Undo of the seed did not give the first mesh again');
     steps.push(`seed 8 gives a new mesh (${second}) and a new image, and undo gives the first mesh again`);
+    if (taper) {
+      stage = 'move the taper slider';
+      rightClick(document.querySelector(`.react-flow__node[data-id="${taper}"]`)!);
+      await until(() => !!document.querySelector('.menu-layer'), 'The node menu did not open');
+      closeMenu();
+      const range = () => document.querySelector<HTMLInputElement>('aside[aria-label="Inspector"] input.gui-slider[aria-label="taper"]');
+      const field = () => range()?.parentElement?.querySelector<HTMLInputElement>('input.field');
+      await until(() => !!range() && !document.querySelector('.menu-layer') && !!panel()?.textContent?.includes('extrude - ') && shown() !== '', 'The Inspector did not show the taper slider of extrude');
+      await sleep(800);
+      const flat = await capture(`${shot}-view-taper-0`);
+      // A drag sends its value at the pointer up, so the check sets the value as a drag does and then lifts the pointer.
+      const beforeTaper = runs;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(range()!, '0.5');
+      range()!.dispatchEvent(new Event('input', { bubbles: true }));
+      await sleep(100);
+      range()!.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      await until(() => field()?.value === '0.5' && runs > beforeTaper, 'The taper slider did not set 0.5 and run the graph');
+      await sleep(800);
+      if ((await capture(`${shot}-view-taper-half`)) === flat) throw new Error('The 3D view drew the same image for taper 0.5');
+      await api.capture(`${shot}-taper-slider`);
+      steps.push(`the taper slider of extrude sets 0.5 and gives a new image: ${shown()}`);
+      show(await api.undo());
+      await until(() => field()?.value === '', 'Undo of the taper did not clear the field');
+    }
     if (wall) {
       stage = `click the ${wall}`;
       changeLayout((layout) => openView(layout, wall, 'bottom'));
