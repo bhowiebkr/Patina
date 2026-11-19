@@ -57,8 +57,9 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
     await until(() => !!document.querySelector('.menu-layer'), 'The node menu did not open');
     closeMenu();
     await until(() => !document.querySelector('.menu-layer') && !!panel()?.textContent?.includes(`${title} - `) && shown() !== '', `The 3D view did not show the selected ${title}`);
-    const first = shown();
+    // Two nodes can have the same name, for example the two `look` nodes of the gun, so let the view take the selection first.
     await sleep(800);
+    const first = shown();
     // Only a capture with an area shows the 3D surface under the page (15.8).
     const capture = async (name: string) => {
       const r = panel()!.querySelector('.gui-viewport')!.getBoundingClientRect();
