@@ -2,8 +2,8 @@ use parts::{SILK, TEXT, edges, package, window};
 use patina_sdk::{Ui, node};
 
 /// The width of the drawing of the chip and the size of a pixel.
-const WIDTH: f32 = 220.0;
-const PIXEL: f32 = 8.0;
+const WIDTH: f32 = 576.0;
+const PIXEL: f32 = 30.0;
 
 /// A display of 16 x 16 pixels with 4 bits for each of red, green and blue, as the RGB display of
 /// Digital Logic Sim 2. At a rising edge of **clock**, **reset** clears the back buffer, or
@@ -51,9 +51,10 @@ impl RgbDisplay {
         let lit = self.screen.iter().filter(|&&p| p != 0).count();
         let mut c = ui.canvas(&format!("RGB display, pixels on: {lit}"), [WIDTH, e.height]);
         let [x0, _] = package(&mut c, &e, WIDTH);
-        c.text([x0 + 18.0, 24.0], TEXT, "RGB");
-        c.text([x0 + 52.0, 24.0], SILK, "16 x 16 x 12");
-        let [left, top] = [x0 + 18.0, 38.0];
+        // The name and the screen fill the height of the rows.
+        let [left, top] = [x0 + 20.0, ((e.height - 16.0 * PIXEL + 16.0) / 2.0).round()];
+        c.text([left, top - 12.0], TEXT, "RGB");
+        c.text([left + 34.0, top - 12.0], SILK, "16 x 16 x 12");
         window(&mut c, [left - 4.0, top - 4.0], [16.0 * PIXEL + 8.0; 2]);
         // One rect for each run of one color in a row keeps the drawing small.
         for (y, row) in self.screen.chunks(16).enumerate() {
@@ -90,7 +91,7 @@ mod tests {
         assert!(rgb.rows().ends_with(" 000f05000000000000000000000000000000000000000000"), "{}", rgb.rows());
         let mut ui = Ui::new(0, "");
         rgb.ui(&mut ui);
-        assert!(ui.tree().contains("\trect 54 158 8 8 #ff0055 1"), "{}", ui.tree());
+        assert!(ui.tree().contains("\trect 78 502 30 30 #ff0055 1"), "{}", ui.tree());
         rgb.process(&1, &0, &0, &0, &true, &false, &true, &true);
         assert_eq!(rgb.process(&1, &0, &0, &0, &false, &false, &false, &false), (0, 0, 0));
     }

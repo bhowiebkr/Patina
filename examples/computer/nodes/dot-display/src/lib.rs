@@ -2,8 +2,8 @@ use parts::{SILK, TEXT, edges, package, window};
 use patina_sdk::{Ui, node};
 
 /// The width of the drawing of the chip and the size of a dot cell.
-const WIDTH: f32 = 220.0;
-const CELL: f32 = 8.0;
+const WIDTH: f32 = 288.0;
+const CELL: f32 = 12.0;
 const ON: [u8; 3] = [238, 238, 235];
 const OFF: [u8; 3] = [32, 32, 31];
 
@@ -51,10 +51,11 @@ impl DotDisplay {
         let lit = self.screen.iter().filter(|&&on| on).count();
         let mut c = ui.canvas(&format!("Dot display, dots on: {lit}"), [WIDTH, e.height]);
         let [x0, _] = package(&mut c, &e, WIDTH);
-        c.text([x0 + 18.0, 24.0], TEXT, "DOTS");
-        c.text([x0 + 60.0, 24.0], SILK, "16 x 16");
-        let [left, top] = [x0 + 18.0, 38.0];
+        // The screen fills the height of the rows, and the name goes under it.
+        let [left, top] = [x0 + 20.0, 18.0];
         window(&mut c, [left - 4.0, top - 4.0], [16.0 * CELL + 8.0; 2]);
+        c.text([left, e.height - 10.0], TEXT, "DOTS");
+        c.text([left + 42.0, e.height - 10.0], SILK, "16 x 16");
         for (i, &on) in self.screen.iter().enumerate() {
             let x = left + (i % 16) as f32 * CELL + CELL / 2.0;
             let y = top + (15 - i / 16) as f32 * CELL + CELL / 2.0;
