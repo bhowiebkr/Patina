@@ -3,7 +3,7 @@ use geometry::Seed;
 use patina_sdk::node;
 
 /// Grows arterials and local streets out from the highways. Each new segment is about `block`
-/// long. It follows the contours, and it stops at the edge, at the water and on steep slopes.
+/// long. It follows the contours, and it turns along the edge, the water and steep slopes.
 /// It joins a near crossing or stops at a street that it meets. A high density gives more
 /// branches: `branch` is the chance of a branch at full density. No street grows where the
 /// density is below `threshold`. The widths are full widths.

@@ -351,7 +351,7 @@ impl Growth<'_> {
             turns
                 .iter()
                 .map(|&turn| (turn, rotate(prop.dir, turn.to_radians())))
-                .filter(|&(_, dir)| self.terrain.contains(add(p, scale(dir, reach))) && self.good(p, add(p, scale(dir, reach))))
+                .filter(|&(_, dir)| self.inside(add(p, scale(dir, reach)), prop.class) && self.good(p, add(p, scale(dir, reach))))
                 .min_by(|a, b| score(a.1, a.0).total_cmp(&score(b.1, b.0)))
         };
         let dir = best(turns).or_else(|| best(wide))?.1;
@@ -428,6 +428,12 @@ impl Growth<'_> {
             }
         };
         self.net.add_edge(from, q, self.widths[class as usize], class);
+    }
+
+    /// True when a street of class `class` that ends at `q` stays in the area with all its width.
+    fn inside(&self, q: [f64; 2], class: u8) -> bool {
+        let half = self.widths[class as usize] / 2.0;
+        q[0].abs() <= self.terrain.width() / 2.0 - half && q[1].abs() <= self.terrain.depth() / 2.0 - half
     }
 
     /// True when the segment has no water and is not too steep.

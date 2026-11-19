@@ -38,7 +38,8 @@ pub fn roads(streets: &Streets, blocks: &Plots, terrain: &Terrain, sidewalk: f64
         return Err("a street has a point that is not in the list".into());
     }
     let step = (0.75 * terrain.cell).max(0.5);
-    let corners = corners(streets);
+    let area = [terrain.width() / 2.0, terrain.depth() / 2.0];
+    let corners = corners(streets, area);
     let profiles = bridges(streets, terrain, step);
     let mut meshes: [Mesh; 5] = Default::default();
     let [asphalt, walks, white, yellow, bridge] = &mut meshes;
@@ -101,7 +102,7 @@ pub fn roads(streets: &Streets, blocks: &Plots, terrain: &Terrain, sidewalk: f64
             let (mut s, period) = (start, dash.map_or(f64::INFINITY, |(on, off)| on + off));
             while s < end - 1e-6 {
                 let stop = dash.map_or(end, |(on, _)| (s + on).min(end));
-                stripe(mesh, add(p, scale(u, s)), add(p, scale(u, stop)), n, offset, half, step, &surface);
+                stripe(mesh, add(p, scale(u, s)), add(p, scale(u, stop)), n, [offset, half], step, area, &surface);
                 s += period.min(end - s + 1.0);
             }
         };
@@ -145,7 +146,7 @@ pub fn roads(streets: &Streets, blocks: &Plots, terrain: &Terrain, sidewalk: f64
 }
 
 /// For each edge, the mouth of its ribbon at point a and at point b, each seen from its point.
-fn corners(streets: &Streets) -> Vec<(Mouth, Mouth)> {
+fn corners(streets: &Streets, area: [f64; 2]) -> Vec<(Mouth, Mouth)> {
     let (points, edges) = (&streets.points, &streets.edges);
     let mut result = vec![([[0.0; 2]; 2], [[0.0; 2]; 2]); edges.len()];
     for (v, list) in outgoing(streets).iter().enumerate() {
@@ -154,12 +155,14 @@ fn corners(streets: &Streets) -> Vec<(Mouth, Mouth)> {
             let half = edges[k].width / 2.0;
             let mouth = if m < 2 {
                 let n = [-dir[1] * half, dir[0] * half];
-                [sub(c, n), add(c, n)]
+                [sub(c, n), add(c, n)].map(|corner| to_edge(c, corner, dir, area))
             } else {
                 let (_, kn, dn) = list[(i + 1) % m];
                 let (_, kp, dp) = list[(i + m - 1) % m];
                 [meet(c, dp, edges[kp].width / 2.0, dir, half), meet(c, dir, half, dn, edges[kn].width / 2.0)]
-            };
+            }
+            // The ribbons lie between their corners, so no road goes out of the area.
+            .map(|corner| [corner[0].clamp(-area[0], area[0]), corner[1].clamp(-area[1], area[1])]);
             if edges[k].a == v {
                 result[k].0 = mouth;
             } else {
@@ -168,6 +171,15 @@ fn corners(streets: &Streets) -> Vec<(Mouth, Mouth)> {
         }
     }
     result
+}
+
+/// The corner of a dead end at `c` moved along the street to the edge of the area of half size
+/// `half` when `c` is on the edge. A street at an angle to the edge then ends along the edge.
+fn to_edge(c: [f64; 2], corner: [f64; 2], dir: [f64; 2], half: [f64; 2]) -> [f64; 2] {
+    match (0..2).find(|&i| c[i].abs() >= half[i] - 1e-6 && dir[i].abs() > 0.2) {
+        Some(i) => add(corner, scale(dir, (half[i].copysign(c[i]) - corner[i]) / dir[i])),
+        None => corner,
+    }
 }
 
 /// The streets out of each point, sorted counterclockwise: (angle, edge, unit direction).
@@ -361,9 +373,10 @@ fn piers_of(profile: &[(f64, f64, f64)], p: [f64; 2], u: [f64; 2], l: f64, width
     }
 }
 
-/// A thin line on the road from `a` to `b`, `offset` to the left, a little over the surface.
+/// A thin line on the road from `a` to `b`, `offset` to the left and `half` wide on each side, a
+/// little over the surface. The parts out of the area of half size `area` are left out.
 #[allow(clippy::too_many_arguments)]
-fn stripe(mesh: &mut Mesh, a: [f64; 2], b: [f64; 2], n: [f64; 2], offset: f64, half: f64, step: f64, surface: &impl Fn([f64; 2]) -> f64) {
+fn stripe(mesh: &mut Mesh, a: [f64; 2], b: [f64; 2], n: [f64; 2], [offset, half]: [f64; 2], step: f64, area: [f64; 2], surface: &impl Fn([f64; 2]) -> f64) {
     let parts = (length(sub(b, a)) / step).ceil().max(1.0) as usize;
     let at = |f: f64, side: f64| {
         let x = add(lerp(a, b, f), scale(n, offset + side * half));
@@ -371,7 +384,10 @@ fn stripe(mesh: &mut Mesh, a: [f64; 2], b: [f64; 2], n: [f64; 2], offset: f64, h
     };
     for i in 0..parts {
         let (f0, f1) = (i as f64 / parts as f64, (i + 1) as f64 / parts as f64);
-        quad(mesh, [at(f0, -1.0), at(f1, -1.0), at(f1, 1.0), at(f0, 1.0)]);
+        let corners = [at(f0, -1.0), at(f1, -1.0), at(f1, 1.0), at(f0, 1.0)];
+        if corners.iter().all(|c| c[0].abs() <= area[0] && c[1].abs() <= area[1]) {
+            quad(mesh, corners);
+        }
     }
 }
 

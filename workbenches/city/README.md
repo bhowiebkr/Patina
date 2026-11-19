@@ -15,7 +15,7 @@ cargo run -p patina-cli -- run workbenches/city --frames 1
 
 The `main` graph makes an organic city of 600 m x 450 m on hills, with a river and a coast.
 The `report` node writes
-`647 items, 52068 places, 1605650 triangles, bounds -308.118 -230.145 -6.5 to 300 232.34 172.772, scene hash ...`.
+`545 items, 43281 places, 1337422 triangles, bounds -300 -225 -6.5 to 300 225 173.134, scene hash ...`.
 The first build compiles the C++ kernel of the model workbench in about 5 to 10 s.
 
 The `planned` graph puts the same buildings on a grid of streets on flat land. Run it with
@@ -89,12 +89,12 @@ wire to the node. A run after a change does not write.
 
 On 2026-11-19, on the Windows computer of the owner, with a bake build:
 
-- The `main` graph runs in about 0.4 s after the build. It has 197 buildings.
-- A city of 1 km x 1 km has 72122 places and 2284204 triangles. It runs in less than 0.5 s
+- The `main` graph runs in about 0.4 s after the build. It has 163 buildings.
+- A city of 1 km x 1 km has 75523 places and 2404503 triangles. It runs in less than 0.5 s
   after the build. The target of task E8 is 2 s.
 
 ## Known limits
 
 - The terrain is value noise. It has no erosion, and the river does not follow the valleys.
 - A block is one face of the street graph, so a very concave block can give thin lots.
-- A street at the edge of the land turns along the edge.
+- A street at the edge of the land turns along the edge. The roads stop at the edge.

@@ -15,12 +15,12 @@ fn the_city_workbench_builds_a_district_and_exports_each_building() {
     assert!(output.status.success(), "{stderr}");
     // Round trees and turned roofs can give another hash on another platform, so the check stops
     // before the hash. `main` is the organic city on the terrain (E9 to E12).
-    let line = "647 items, 52068 places, 1605650 triangles, bounds -308.118 -230.145 -6.5 to 300 232.34 172.772, scene hash ";
+    let line = "545 items, 43281 places, 1337422 triangles, bounds -300 -225 -6.5 to 300 225 173.134, scene hash ";
     assert!(stdout.starts_with(line), "{stdout}");
     // `planned` puts the same buildings on the street grid on flat land.
     let (output, stdout, stderr) = run(&project, &["--graph", "planned", "--frames", "1"]);
     assert!(output.status.success(), "{stderr}");
-    assert!(stdout.starts_with("1269 items, 151305 places, 4580018 triangles, bounds -308 -233 1 to 305 230 151.351, scene hash "), "{stdout}");
+    assert!(stdout.starts_with("1269 items, 151305 places, 4579762 triangles, bounds -300 -225 1 to 300 225 151.351, scene hash "), "{stdout}");
     let folder = project.join("buildings");
     assert!(!folder.exists(), "a run with no fire writes no file");
 
@@ -33,7 +33,7 @@ fn the_city_workbench_builds_a_district_and_exports_each_building() {
     let total = start.elapsed().as_secs_f64();
     let (stdout, stderr) = (String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
     assert!(output.status.success(), "{stderr}");
-    assert!(stdout.starts_with("1250 items, 72122 places, 2284204 triangles, bounds -500.83 -505.66 -6.5 to 500 500.384 157.994, scene hash "), "{stdout}");
+    assert!(stdout.starts_with("1419 items, 75523 places, 2404503 triangles, bounds -500 -500 -6.5 to 500 500 172.006, scene hash "), "{stdout}");
     let built: f64 = stderr.lines().find_map(|l| l.strip_prefix("Built in ")?.strip_suffix(" s")?.parse().ok()).unwrap();
     println!("1 km x 1 km district: {:.2} s after a build of {built:.2} s", total - built);
     assert!(total - built < 2.0, "the district took {:.2} s", total - built);

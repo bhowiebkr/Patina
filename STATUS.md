@@ -338,10 +338,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   and `ground` make the land. `density`, `highways`, `grow` and `prune` make the roads.
   `zoning` and `heights` make the zones. `buildings`, `walls`, `facades` and `roofs` make
   houses, apartments, shops, towers and warehouses. The grid city is the `planned` graph.
-  - Checked on Windows: 16 unit tests of `types/city` and the other city crate tests, and the
-    CLI test with `main`, `planned`, the 1 km check and the export of 197 buildings.
-  - `main`: 647 items, 52068 places and 1605650 triangles. `planned`: 1269 items and 4580018
-    triangles. A city of 1 km x 1 km: 2284204 triangles, 0.13 s after the build in the CLI
+  - The roads, the road lines and the streets stay in the area of the terrain.
+  - Checked on Windows: 17 unit tests of `types/city` and the other city crate tests, and the
+    CLI test with `main`, `planned`, the 1 km check and the export of 163 buildings.
+  - `main`: 545 items, 43281 places and 1337422 triangles. `planned`: 1269 items and 4579762
+    triangles. A city of 1 km x 1 km: 2404503 triangles, 0.14 s after the build in the CLI
     test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:

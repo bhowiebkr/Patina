@@ -130,6 +130,24 @@ fn a_street_at_the_water_turns_along_the_bank() {
 }
 
 #[test]
+fn a_street_at_an_angle_to_the_edge_ends_on_the_edge() {
+    let t = flat(300.0, 200.0, 5.0, |_| false);
+    let hw = |a, b| Edge { a, b, width: 20.0, class: HIGHWAY };
+    let end = Streets { points: vec![[0.0, 0.0], [-150.0, 60.0]], edges: vec![hw(0, 1)] };
+    let fork = Streets { points: vec![[0.0, 0.0], [-150.0, 60.0], [-60.0, 95.0]], edges: vec![hw(0, 1), hw(1, 2)] };
+    for streets in [&end, &fork] {
+        let scene = roads(streets, &blocks(streets), &t, 3.0).unwrap();
+        for item in scene.items() {
+            let out = item.mesh.positions.iter().find(|p| p[0] < -150.0 - 1e-3 || p[1] > 100.0 + 1e-3);
+            assert!(out.is_none(), "{} goes out at {out:?}", item.name);
+        }
+        assert!(scene.items()[0].mesh.normals.iter().all(|n| n[2] > 0.0));
+    }
+    let scene = roads(&end, &blocks(&end), &t, 3.0).unwrap();
+    assert!(scene.items()[0].mesh.positions.iter().any(|p| p[0] < -149.0 && p[1] > 64.0), "the end follows the edge");
+}
+
+#[test]
 fn roads_follow_the_ground_and_bridge_the_water() {
     let t = flat(300.0, 200.0, 5.0, |p| p[0].abs() < 15.0);
     let (hw, lo) = (|a, b| Edge { a, b, width: 20.0, class: HIGHWAY }, |a, b| Edge { a, b, width: 10.0, class: LOCAL });

@@ -407,8 +407,8 @@ were too simple. The owner can change them:
   places and runs in about 0.3 s after a bake build. A district of 1 km x 1 km runs in less than
   0.5 s. The CLI test runs the district, the 1 km check and the export of each building. Next
   is F.
-- 2026-11-19: E9 to E12 are done on Windows. The organic city has 197 buildings, 52068 places
-  and 1605650 triangles. A city of 1 km x 1 km ran in 0.13 s after the build in the CLI test.
+- 2026-11-19: E9 to E12 are done on Windows. The organic city has 163 buildings, 43281 places
+  and 1337422 triangles. A city of 1 km x 1 km ran in 0.14 s after the build in the CLI test.
   The CLI test runs `main`, `planned`, the 1 km check and the export of each building.
 - 2026-11-19: F1 to F7 are done on Windows. The CLI test runs `main` and the export with a
   trigger. The unit tests check the seeds, the sockets, the stats, the rarity weights, the side
