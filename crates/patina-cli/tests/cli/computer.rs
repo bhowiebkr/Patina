@@ -87,6 +87,24 @@ const TEST_WORDS: [(u8, u8); 30] = [
 ];
 
 #[test]
+fn the_d_latch_of_two_nor_gates_keeps_its_value() {
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer-latch");
+    let (output, stdout, stderr) = run(&project, &["--graph", "latch", "--frames", "16"]);
+    assert!(output.status.success(), "{stderr}");
+    // The bits 0 to 3 are Q, STORE, DATA and not Q. With STORE on, Q follows DATA. With STORE off,
+    // Q keeps its value: 1 after 7, and 0 after 10 (9.2).
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines, ["00000111 7", "00000001 1", "00001010 10", "00001000 8", "00000111 7", "00000001 1", "00001010 10", "00001000 8"]);
+    assert!(!stderr.contains("did not settle"), "{stderr}");
+    // A NAND gate that reads its own output never settles, so the run warns (9.2).
+    let osc = "format = 1\ntop = true\n[[node]]\nid = \"5a0c3e7b9d1f2468\"\nfolder = \"nodes/nand\"\ndomain = \"frame\"\n[node.params]\nb = \"true\"\n\
+               [[wire]]\nfrom = \"5a0c3e7b9d1f2468.out\"\nto = \"5a0c3e7b9d1f2468.a\"\n";
+    fs::write(project.join("graphs/osc.toml"), osc).unwrap();
+    let (output, _, stderr) = run(&project, &["--graph", "osc", "--frames", "2"]);
+    assert!(output.status.success() && stderr.contains("did not settle in 64 passes"), "{stderr}");
+}
+
+#[test]
 fn the_computer_example_of_nand_gates_counts_adds_and_runs_programs() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer");
     // 560 frames run 140 instructions. At the carry, the program starts again.

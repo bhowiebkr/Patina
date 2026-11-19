@@ -45,19 +45,31 @@ pub(super) fn reaches(from: Domain, to: Domain) -> bool {
 
 /// Sets the domain of each step (9.1). A step with no domain of its own takes the domain that all
 /// its inputs reach, audio before frame before batch, or the batch domain when it has no inputs.
+/// A wire back in a cycle of gates (9.2) reads the domain of the pass before, so the passes repeat
+/// until no domain changes.
 fn domains(steps: &mut [Step], edges: &[(usize, usize)], own: impl Fn(usize) -> Option<Domain>) -> Result<(), Vec<String>> {
     let mut problems = Vec::new();
-    for n in 0..steps.len() {
-        let inputs: BTreeSet<Domain> = edges.iter().filter(|e| e.1 == n).map(|e| steps[e.0].domain).collect();
-        let common = inputs.iter().copied().rev().find(|&d| inputs.iter().all(|&i| reaches(i, d)));
-        steps[n].domain = match (own(n), common) {
-            (Some(domain), _) | (None, Some(domain)) => domain,
-            (None, None) if inputs.is_empty() => Domain::Batch,
-            (None, None) => {
-                problems.push(format!("node {}: its inputs come from more than one domain. Select its domain", steps[n].id));
-                Domain::Batch
-            }
-        };
+    let back = edges.iter().any(|&(from, to)| from >= to);
+    for _ in 0..=steps.len() {
+        problems.clear();
+        let mut moved = false;
+        for n in 0..steps.len() {
+            let inputs: BTreeSet<Domain> = edges.iter().filter(|e| e.1 == n).map(|e| steps[e.0].domain).collect();
+            let common = inputs.iter().copied().rev().find(|&d| inputs.iter().all(|&i| reaches(i, d)));
+            let domain = match (own(n), common) {
+                (Some(domain), _) | (None, Some(domain)) => domain,
+                (None, None) if inputs.is_empty() => Domain::Batch,
+                (None, None) => {
+                    problems.push(format!("node {}: its inputs come from more than one domain. Select its domain", steps[n].id));
+                    Domain::Batch
+                }
+            };
+            moved |= steps[n].domain != domain;
+            steps[n].domain = domain;
+        }
+        if !back || !moved {
+            break;
+        }
     }
     for &(from, to) in edges.iter().collect::<BTreeSet<_>>() {
         let (a, b) = (steps[from].domain, steps[to].domain);

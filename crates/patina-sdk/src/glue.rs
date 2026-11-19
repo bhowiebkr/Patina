@@ -216,6 +216,15 @@ pub fn log_line(level: &str, message: &fmt::Arguments<'_>) {
     }
 }
 
+/// Reports that the cycle of gates that starts at node `node` did not settle in `passes` passes
+/// (9.2). Its values then change at each frame.
+#[cold]
+#[inline(never)]
+pub fn unsettled(node: u32, passes: u32) {
+    NODE.set(node);
+    log_line("WARN", &format_args!("the cycle of gates did not settle in {passes} passes, so its values change at each frame (spec 9.2)"));
+}
+
 /// Sends the record to the node that runs on this thread. Gives false when no node runs here.
 fn log_to_run(level: &str, message: &fmt::Arguments<'_>) -> bool {
     with_run(|rep| {

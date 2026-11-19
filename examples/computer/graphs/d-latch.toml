@@ -1,0 +1,74 @@
+format = 1
+
+[symbol]
+shape = "chip"
+label = "D LATCH"
+
+[[node]]
+id = "5f1b7e2a90c4d813"
+subgraph = "and"
+pos = [-100.0, 0.0]
+
+[[node]]
+id = "8a3d0c6f2e5b1974"
+subgraph = "not"
+pos = [-100.0, 204.0]
+
+[[node]]
+id = "e72c4a1b5d9f0386"
+subgraph = "and"
+pos = [193.0, 204.0]
+
+[[node]]
+id = "1c9e5b3f7a0d2468"
+subgraph = "nor"
+pos = [500.0, 204.0]
+
+[[node]]
+id = "b4f0a2d6c8e1937a"
+subgraph = "nor"
+pos = [500.0, 0.0]
+
+[[wire]]
+from = "8a3d0c6f2e5b1974.7ff633ef"
+to = "e72c4a1b5d9f0386.665555f1"
+
+[[wire]]
+from = "5f1b7e2a90c4d813.72b5072c"
+to = "b4f0a2d6c8e1937a.a1e5c0d3"
+
+[[wire]]
+from = "e72c4a1b5d9f0386.72b5072c"
+to = "1c9e5b3f7a0d2468.a1e5c0d3"
+
+[[wire]]
+from = "1c9e5b3f7a0d2468.d05e8a17"
+to = "b4f0a2d6c8e1937a.b7f2049e"
+
+[[wire]]
+from = "b4f0a2d6c8e1937a.d05e8a17"
+to = "1c9e5b3f7a0d2468.b7f2049e"
+
+[[input]]
+key = "3d8f1a6c"
+name = "data"
+pos = [-300.0, 34.0]
+to = ["5f1b7e2a90c4d813.665555f1", "8a3d0c6f2e5b1974.5ade65ce"]
+
+[[input]]
+key = "9e2b7c40"
+name = "store"
+pos = [-300.0, 136.0]
+to = ["5f1b7e2a90c4d813.072eae79", "e72c4a1b5d9f0386.072eae79"]
+
+[[output]]
+key = "6a0f4d2e"
+name = "q"
+pos = [800.0, 238.0]
+from = "1c9e5b3f7a0d2468.d05e8a17"
+
+[[output]]
+key = "c5e19b73"
+name = "qbar"
+pos = [800.0, 34.0]
+from = "b4f0a2d6c8e1937a.d05e8a17"

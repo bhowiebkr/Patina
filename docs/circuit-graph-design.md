@@ -174,7 +174,7 @@ implementation result.
 | Memory and timing panels | Independent Views, spec 15.8 | Bound viewers; capture history in graph-owned state rather than losing it when a view closes |
 | Ribbon buses and routes | Typed wires and editor visual rules | Lane metadata, renderer, routing, picking, style controls and persistence decisions |
 | Synchronous logic | Stateful nodes and explicit delays | Defined edge/step semantics and repeatable simulation tests |
-| Feedback-built latches | Frame/audio delay nodes only | A frame delay is not electrical propagation. Arbitrary cycles are currently rejected by spec 9.2. |
+| Feedback-built latches | Gate cycles that settle in the frame, spec 9.2 | A gate cycle runs until its values do not change, with a cap of 64 passes. Other cycles still need a delay. |
 | Shared electrical bus drivers | No equivalent generic merge rule | Explicit resolver/tri-state model and contention rules; ordinary wires cannot silently merge sources |
 | Fast circuit simulation | Headless engine and compiled clusters | Prototype performance and event/settling behavior; no speed claim is supported by the artwork |
 
@@ -191,7 +191,9 @@ model and no engine change:
 
 - One frame is one clock step. All gates settle in the frame, in the order of the wires.
 - A `delay` node is a D flip-flop. It gives in each frame the value of its input in the frame before.
-- A cycle needs a delay. A latch of two NAND gates without a delay stays refused (spec 9.2).
+- A cycle needs a delay, except a cycle of light gates with no state. Since 2026-11-18, such a
+  cycle runs again in the frame until its values settle (spec 9.2). The `latch` graph is a D latch
+  of two NOR gates, as in a logic simulator. The CLI test checks that it keeps its value.
 - A wire has one driver. A shared bus uses an explicit multiplexer.
 
 The `examples/computer` project has one Rust node for the gate, `nand`. The gates `not`, `and`,

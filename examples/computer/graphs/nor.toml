@@ -1,0 +1,36 @@
+format = 1
+
+[symbol]
+shape = "nor"
+
+[[node]]
+id = "4e0a1c7d9b2f6e31"
+subgraph = "or"
+pos = [-100.0, 0.0]
+
+[[node]]
+id = "c39f5a0e7d21b846"
+subgraph = "not"
+pos = [193.0, 0.0]
+
+[[wire]]
+from = "4e0a1c7d9b2f6e31.67d0fbe0"
+to = "c39f5a0e7d21b846.5ade65ce"
+
+[[input]]
+key = "a1e5c0d3"
+name = "a"
+pos = [-300.0, 0.0]
+to = ["4e0a1c7d9b2f6e31.37c6cc47"]
+
+[[input]]
+key = "b7f2049e"
+name = "b"
+pos = [-300.0, 102.0]
+to = ["4e0a1c7d9b2f6e31.3fbd40e4"]
+
+[[output]]
+key = "d05e8a17"
+name = "out"
+pos = [473.0, 34.0]
+from = "c39f5a0e7d21b846.7ff633ef"

@@ -17,6 +17,9 @@ use exports::{EXPORTS, LOGGER};
 
 const HEADER: &str = "# Made by Patina. Patina writes this file again at each build.\n";
 
+/// The most passes of a cycle of gates in one run (9.2). A cycle that settles needs few passes.
+const PASSES: u32 = 64;
+
 /// The domains that get a cluster: each domain with a step, or batch for a graph with no step.
 /// shortcut: one cluster for each domain, with no boundary at large nodes (8.2). Split at large nodes and subgraphs when milestone 6 measures the need.
 pub fn domains(plan: &Plan) -> Vec<Domain> {
@@ -239,6 +242,15 @@ fn cells(s: &mut String, plan: &Plan, domain: Domain) -> Cells {
         let _ = writeln!(s, "    let d{n} = ::patina_sdk::glue::delay_for(&n{from}_{output}); // {}", step.id);
         shared.push(format!("d{n}"));
     }
+    // The value of each wire back in a cycle of gates (9.2). It stays from run to run, so the
+    // cycle keeps its value, as a latch does. The first run gives `Default::default()`.
+    for &(first, last) in plan.loops.iter().filter(|(first, _)| mine(*first)) {
+        for (from, k) in backs(plan, first, last) {
+            let ty = &plan.steps[from].types[k];
+            let _ = writeln!(s, "    let b{from}_{k} = ::patina_sdk::glue::Shared::new(<{ty} as ::std::default::Default>::default()); // {}", plan.steps[from].id);
+            shared.push(format!("b{from}_{k}"));
+        }
+    }
     Cells { shared, slotted, stateful }
 }
 
@@ -268,11 +280,17 @@ fn tasks(s: &mut String, plan: &Plan, domain: Domain) {
                 "            let mut n{n}_{k} = if false {{ ::std::option::Option::Some(::patina_sdk::glue::like(&w{n}).{k}) }} else {{ ::std::option::Option::None }};"
             );
         }
-        for run in task.steps.chunk_by(|&a, &b| gates[a] && gates[b]) {
+        for run in task.steps.chunk_by(|&a, &b| gates[a] && gates[b] && plan.loop_of(a) == plan.loop_of(b)) {
+            if plan.loops.iter().any(|&(first, _)| first == run[0]) {
+                let _ = writeln!(s, "            let mut pass{} = 0u32;\n            loop {{", run[0]);
+            }
             if gates[run[0]] {
                 net(s, plan, run, &probes);
             } else {
                 step(s, plan, run[0], probes[run[0]]);
+            }
+            if let Some(&(first, last)) = plan.loops.iter().find(|&&(_, last)| last == run[run.len() - 1]) {
+                settle(s, plan, first, last);
             }
         }
         for (n, k) in &local {
@@ -280,6 +298,34 @@ fn tasks(s: &mut String, plan: &Plan, domain: Domain) {
         }
         s.push_str("            ok\n        }\n");
     }
+}
+
+/// The outputs that the wires back in the cycle from step `first` to step `last` read (9.2).
+fn backs(plan: &Plan, first: usize, last: usize) -> BTreeSet<(usize, usize)> {
+    let back = |n: usize| {
+        plan.steps[n].inputs.iter().filter_map(move |source| match *source {
+            Source::Wire { step: from, output } if from >= n => Some((from, output)),
+            _ => None,
+        })
+    };
+    (first..=last).flat_map(back).collect()
+}
+
+/// Ends a pass of the cycle of gates from step `first` to step `last` (9.2). Each wire back gets
+/// the newest value. The passes stop when no value changes, or after `PASSES` with a warning.
+fn settle(s: &mut String, plan: &Plan, first: usize, last: usize) {
+    s.push_str("            let mut moved = false;\n");
+    for (from, k) in backs(plan, first, last) {
+        let _ = writeln!(
+            s,
+            "            if let ::std::option::Option::Some(v) = {}.as_ref() {{ if *b{from}_{k}.read() != *v {{ *b{from}_{k}.write() = *v; moved = true; }} }}",
+            held(plan, from, k)[0]
+        );
+    }
+    let _ = writeln!(
+        s,
+        "            pass{first} += 1;\n            if !moved {{ break; }}\n            if pass{first} == {PASSES} {{ ::patina_sdk::glue::unsettled({first}, pass{first}); break; }}\n            }}"
+    );
 }
 
 /// Writes the arms that move the states (7.2) and the links between domains (8.2), and the start
@@ -384,6 +430,10 @@ fn witness(s: &mut String, plan: &Plan, steps: BTreeSet<usize>) {
             let owned = match source {
                 Source::Slot(i) if plan.slots[*i].is_str => "::patina_sdk::glue::default_value::<::std::string::String>()".to_owned(),
                 Source::Slot(_) => "::patina_sdk::glue::default_value()".to_owned(),
+                // A wire back in a cycle reads a later step, so the type gives the value (9.2).
+                Source::Wire { step: from, output } if plan.is_back(m, *from) => {
+                    format!("<{} as ::std::default::Default>::default()", plan.steps[*from].types[*output])
+                }
                 Source::Wire { step: from, output } => format!("::patina_sdk::glue::like(&w{from}).{output}"),
             };
             match input.pass {
@@ -475,6 +525,7 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
         .iter()
         .filter(|_| !delay)
         .filter_map(|source| match source {
+            Source::Wire { step: from, .. } if plan.is_back(n, *from) => None,
             Source::Wire { step, output } => Some(format!("{}.is_some()", held(plan, *step, *output)[0])),
             Source::Slot(_) => None,
         })
@@ -535,6 +586,7 @@ fn net(s: &mut String, plan: &Plan, net: &[usize], first: &[usize]) {
         for (input, source) in node.inputs.iter().zip(&step.inputs) {
             let value = match *source {
                 Source::Slot(p) => format!("*p{p}.read()"),
+                Source::Wire { step: from, output } if plan.is_back(n, from) => format!("*b{from}_{output}.read()"),
                 Source::Wire { step: from, output } => {
                     pats.push(format!("::std::option::Option::Some(a{})", wired.len()));
                     wired.push(format!("{}.as_ref()", held(plan, from, output)[0]));
@@ -588,6 +640,7 @@ fn fast(s: &mut String, plan: &Plan, net: &[usize]) {
         for (input, source) in node.inputs.iter().zip(&step.inputs) {
             let value = match *source {
                 Source::Slot(p) => format!("*p{p}.read()"),
+                Source::Wire { step: from, output } if plan.is_back(n, from) => format!("*b{from}_{output}.read()"),
                 // A gate has one output, and the gates of a task are in the order of their wires.
                 Source::Wire { step: from, .. } if net.contains(&from) => format!("v{from}"),
                 Source::Wire { step: from, output } => {
@@ -709,13 +762,18 @@ fn inputs(plan: &Plan, n: usize, wrap: bool) -> Vec<String> {
         (Source::Slot(i), Pass::Ref) if input.is_str && wrap => format!("::std::string::String::as_str(&*p{i}.read())"),
         (Source::Slot(i), Pass::Ref) => format!("&*p{i}.read()"),
         (Source::Slot(i), _) => cloned(format!("&*p{i}.read()")),
+        (Source::Wire { step: from, output }, Pass::Ref) if plan.is_back(n, *from) => format!("&*b{from}_{output}.read()"),
+        (Source::Wire { step: from, output }, _) if plan.is_back(n, *from) => cloned(format!("&*b{from}_{output}.read()")),
         (Source::Wire { step: from, output }, pass) => {
             let [read, write, _] = held(plan, *from, *output);
             match pass {
                 Pass::Ref => format!("{read}.as_ref().unwrap()"),
                 // Only one node reads the value, so it takes the value with no copy. A frame
-                // reads a batch value again at each frame.
-                _ if plan.steps[*from].consumers[*output] == 1 && plan.steps[*from].domain == step.domain => {
+                // reads a batch value again at each frame, and a cycle at each pass (9.2).
+                _ if plan.steps[*from].consumers[*output] == 1
+                    && plan.steps[*from].domain == step.domain
+                    && plan.loop_of(*from) == plan.loop_of(n) =>
+                {
                     moved(format!("{write}.take().unwrap()"))
                 }
                 _ => cloned(format!("{read}.as_ref().unwrap()")),

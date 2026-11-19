@@ -254,11 +254,13 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         Edit::Connect { from, to } => {
             check_end(graph, from)?;
             check_end(graph, to)?;
-            if let Some(ids) = cycle(graph, node_of(from), node_of(to)) {
-                return Err(format!("the wire makes a cycle through these nodes: {}", ids.join(", ")));
-            }
             free_input(graph, to);
             graph.wire.push(Wire { from: from.clone(), to: to.clone(), name: None, style: None, corners: None, points: Vec::new() });
+            // A cycle of gates can run, and the plan check decides each other cycle (9.2). An order
+            // wire in a cycle can never run.
+            if let Some(ids) = graph.order.iter().find_map(|o| cycle(graph, &o.before, &o.after)) {
+                return Err(format!("the wire makes a cycle with an order wire through these nodes: {}", ids.join(", ")));
+            }
         }
         Edit::Disconnect { from, to } => {
             let count = graph.wire.len();

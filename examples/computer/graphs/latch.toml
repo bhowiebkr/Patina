@@ -1,0 +1,63 @@
+format = 1
+top = true
+
+[[node]]
+id = "0b7d3e9a5c1f8264"
+folder = "nodes/clock"
+pos = [-520.0, 0.0]
+
+[node.params]
+every = "8"
+halt = "false"
+
+[[node]]
+id = "6e2a8c0f4b9d1753"
+folder = "nodes/clock"
+pos = [-520.0, 240.0]
+
+[node.params]
+every = "4"
+halt = "false"
+
+[[node]]
+id = "f3c1e7a9d5b20864"
+subgraph = "d-latch"
+pos = [-140.0, 80.0]
+
+[[node]]
+id = "2d9b5f1c7e3a0846"
+folder = "nodes/join"
+pos = [240.0, 40.0]
+
+[[node]]
+id = "a8e4c0b6d2f19573"
+folder = "nodes/readout"
+pos = [560.0, 40.0]
+
+[[wire]]
+from = "0b7d3e9a5c1f8264.out"
+to = "f3c1e7a9d5b20864.3d8f1a6c"
+
+[[wire]]
+from = "6e2a8c0f4b9d1753.out"
+to = "f3c1e7a9d5b20864.9e2b7c40"
+
+[[wire]]
+from = "f3c1e7a9d5b20864.6a0f4d2e"
+to = "2d9b5f1c7e3a0846.b0"
+
+[[wire]]
+from = "6e2a8c0f4b9d1753.out"
+to = "2d9b5f1c7e3a0846.b1"
+
+[[wire]]
+from = "0b7d3e9a5c1f8264.out"
+to = "2d9b5f1c7e3a0846.b2"
+
+[[wire]]
+from = "f3c1e7a9d5b20864.c5e19b73"
+to = "2d9b5f1c7e3a0846.b3"
+
+[[wire]]
+from = "2d9b5f1c7e3a0846.out"
+to = "a8e4c0b6d2f19573.value"

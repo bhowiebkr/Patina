@@ -290,6 +290,16 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   parallel only with `#[node(heavy)]`. The fast copy of each net makes the generated Rust and
   the bake build of the cluster about 11% larger and longer.
 
+### Gate cycles, 2026-11-18
+
+- A cycle of light gates with no state runs with no delay. It runs again in the frame until its
+  values settle (spec 9.2). The `latch` graph of `examples/computer` is a D latch of two NOR
+  gates. The CLI test runs it for 16 frames and checks that it keeps its value. It also checks
+  the **WARN** line of a NAND gate that reads its own output.
+- Known limits: a rebuild of the cluster, for example after a graph edit, sets the values of a
+  cycle back to the default, so a latch forgets its value. A cycle that does not settle stops
+  after 64 passes. No check ran the latch in the editor.
+
 ### Touchpad pan
 
 - Known limits: a mouse with smooth scroll steps can give touchpad values, so its wheel pans. A

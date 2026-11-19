@@ -6,6 +6,9 @@ use std::path::Path;
 use crate::node::{Builtin, Domain, Node};
 use crate::project::{GraphFile, NodeEntry, is_id, read_node};
 
+/// Edges of the run order, each from one entry to another.
+type Edges = Vec<(usize, usize)>;
+
 pub(super) struct Entry {
     pub(super) id: String,
     pub(super) node: usize,
@@ -125,10 +128,10 @@ impl<'a> Read<'a> {
         }
     }
 
-    /// Records the source of each wired input. Gives the edges of the run order: the data wires,
-    /// except the input wire of a delay, and the order wires.
-    pub(super) fn wires(&mut self, graph: &GraphFile, problems: &mut Vec<String>) -> Vec<(usize, usize)> {
-        let mut edges = Vec::new();
+    /// Records the source of each wired input. Gives the edges of the run order apart: the data
+    /// wires, except the input wire of a delay, and the order wires.
+    pub(super) fn wires(&mut self, graph: &GraphFile, problems: &mut Vec<String>) -> (Edges, Edges) {
+        let (mut edges, mut orders) = (Vec::new(), Vec::new());
         for wire in &graph.wire {
             let from = self.find_pin(&wire.from, Node::output_keys);
             let to = self.find_pin(&wire.to, |n| n.inputs.iter().map(|i| i.key.clone()).collect());
@@ -157,11 +160,11 @@ impl<'a> Read<'a> {
         }
         for order in &graph.order {
             match (self.by_id.get(order.before.as_str()), self.by_id.get(order.after.as_str())) {
-                (Some(&before), Some(&after)) => edges.push((before, after)),
+                (Some(&before), Some(&after)) => orders.push((before, after)),
                 _ => problems.push(format!("the order wire {} to {} names no node", order.before, order.after)),
             }
         }
-        edges
+        (edges, orders)
     }
 
     /// Finds the entry and the pin index of a wire end `<node ID>.<pin key>`.

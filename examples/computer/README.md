@@ -31,6 +31,9 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
   of the byte. Each lane is lit when its bit is true.
 - **Segment buses.** A `segment-bus` wire has the 7 lanes a to g of a 7-segment display. It
   is copper.
+- **A D latch.** The `latch` graph has a `d-latch` of two NOR gates that read each other, with
+  no delay. The loop runs again in the frame until its values settle. **STORE** copies **DATA**
+  to **Q**, and the latch keeps **Q** when **STORE** is false.
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
 - **Node GUIs.** The `program`, `ram`, `readout`, `display`, `lcd`, `clock`, `analyzer`,
@@ -59,11 +62,11 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 | `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm`, `paint.asm`, `snake.asm` |
 | `connections/` | `byte`, `segment-bus` |
 | `types/` | `segments`, `frame` |
-| `graphs/` | `main` and 27 subgraphs |
+| `graphs/` | `main`, `latch` and 29 subgraphs |
 
 The subgraphs, from small to large:
 
-- **Gates:** `not`, `and`, `or`, `xor`, `mux`.
+- **Gates:** `not`, `and`, `or`, `nor`, `xor`, `mux`, `d-latch`.
 - **Arithmetic:** `half-adder`, `full-adder`, `adder-4`, `adder-8`, `incrementer-8`,
   `alu-8`, `is-zero-8`.
 - **Selection:** `mux-4`, `mux-8`, `decoder-2`, `decoder-3`, `decoder-4`.

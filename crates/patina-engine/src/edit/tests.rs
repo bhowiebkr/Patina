@@ -29,10 +29,10 @@ fn edits_undo_and_redo() {
     history.apply(&connect("000000000000000a.out", "000000000000000b.value")).unwrap();
     history.apply(&connect("000000000000000c.out", "000000000000000b.value")).unwrap();
     assert_eq!(history.graph.wire.len(), 1, "a second wire to one input replaces the first");
-    let err = history.apply(&connect("000000000000000b.out", "000000000000000c.value")).unwrap_err();
-    assert!(err.ends_with("nodes: 000000000000000c, 000000000000000b"), "{err}");
-    assert!(history.apply(&connect("000000000000000b.out", "000000000000000b.value")).is_err());
-    assert_eq!(history.graph.wire.len(), 1, "a wire that makes a cycle changes nothing");
+    // A cycle of wires is kept, as for a latch of two NOR gates. The plan check decides it (9.2).
+    history.apply(&connect("000000000000000b.out", "000000000000000c.value")).unwrap();
+    assert_eq!(history.graph.wire.len(), 2);
+    assert!(history.undo(no_code).unwrap());
     let param = Edit::SetParam { id: A.to_owned(), key: "value".to_owned(), text: Some("2".to_owned()) };
     history.apply(&param).unwrap();
     assert!(history.apply(&param).is_err(), "an edit that changes nothing is not kept");

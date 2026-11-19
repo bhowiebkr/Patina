@@ -35,6 +35,9 @@ pub struct Plan {
     /// The index in `nodes` of the node in the slot (7.1). Each of its uses runs in the slot
     /// library.
     pub slot: Option<usize>,
+    /// The first and the last step of each cycle of gates (9.2). Its steps are in a row in one
+    /// task, and they run again until their values do not change.
+    pub loops: Vec<(usize, usize)>,
 }
 
 /// A chain of steps that one call runs in order (9.2).
@@ -130,6 +133,17 @@ impl Plan {
         self.slot == Some(self.steps[n].node)
     }
 
+    /// The index in `loops` of the cycle of gates that holds step `n` (9.2).
+    pub fn loop_of(&self, n: usize) -> Option<usize> {
+        self.loops.iter().position(|&(first, last)| first <= n && n <= last)
+    }
+
+    /// True when the wire from step `from` into step `n` goes back in a cycle of gates (9.2). It
+    /// gives the value of the pass before.
+    pub fn is_back(&self, n: usize, from: usize) -> bool {
+        from >= n && self.loop_of(n).is_some()
+    }
+
     /// The connection kind of output `k` of step `n`, when a kind shows its type (6.3).
     pub fn kind(&self, n: usize, k: usize) -> Option<&(String, Kind)> {
         let ty = &self.steps[n].types[k];
@@ -156,7 +170,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let mut problems = Vec::new();
     let kinds = read_kinds(root, &mut problems);
     let mut read = Read::new(root, graph, &mut problems);
-    let edges = read.wires(graph, &mut problems);
+    let (data, orders) = read.wires(graph, &mut problems);
     if !problems.is_empty() {
         return Err(problems);
     }
@@ -164,10 +178,8 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let is_delay = |node: usize| read::is_delay(&builtins, node);
     let fires = |node: usize| read::fires(&builtins, node);
     let entries: Vec<Entry> = entries.into_iter().map(|e| e.expect("no problems")).collect();
-    let order = sort(entries.len(), &edges).map_err(|left| {
-        let ids: Vec<&str> = left.iter().map(|&i| entries[i].id.as_str()).collect();
-        vec![format!("the graph has a cycle through these nodes: {}", ids.join(", "))]
-    })?;
+    let edges: Vec<(usize, usize)> = data.iter().chain(&orders).copied().collect();
+    let (order, loops) = sort(entries.len(), &edges);
     let mut step_of = vec![0; entries.len()];
     for (step, &entry) in order.iter().enumerate() {
         step_of[entry] = step;
@@ -187,15 +199,44 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     let edges: Vec<(usize, usize)> = edges.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
     let own: Vec<Option<Domain>> = order.iter().map(|&e| entries[e].domain).collect();
     domain::assign(&mut steps, &edges, &own, is_delay)?;
-    let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
     let light: Vec<bool> = (0..steps.len()).map(|n| is_light(&steps, &nodes, n, is_delay(steps[n].node))).collect();
-    let tasks = split(&mut steps, &edges, &trigger, &light);
-    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None };
+    let orders: Vec<(usize, usize)> = orders.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
+    check_loops(&steps, &nodes, &loops, &orders, &light, builtin)?;
+    let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
+    let tasks = split(&mut steps, &edges, &trigger, &light, &loops);
+    let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None, loops };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
     plan.kinds.retain(|(name, _)| used.contains(name));
     let mut folders = plan.nodes.iter().enumerate().filter(|(i, _)| !plan.is_builtin_node(*i)).map(|(_, (n, _))| ("nodes", n)).chain(plan.kinds.iter().map(|(n, _)| ("connections", n)));
     plan.log = folders.any(|(group, name)| uses_log(root, group, name));
     Ok(plan)
+}
+
+/// Checks each cycle of steps (9.2). A cycle with no delay runs again in its frame until its
+/// values do not change, so it holds only light nodes with no state, in one domain, frame or
+/// audio, and no order wire.
+fn check_loops(steps: &[Step], nodes: &[(String, Node)], loops: &[(usize, usize)], orders: &[(usize, usize)], light: &[bool], builtin: impl Fn(usize) -> bool) -> Result<(), Vec<String>> {
+    let mut problems = Vec::new();
+    for &(first, last) in loops {
+        let members = first..=last;
+        let domain = steps[first].domain;
+        let heavy = members.clone().find(|&n| !light[n] || builtin(steps[n].node) || nodes[steps[n].node].1.state.is_some());
+        let reason = if orders.iter().any(|(a, b)| members.contains(a) && members.contains(b)) {
+            "An order wire is part of it".to_owned()
+        } else if !matches!(domain, Domain::Frame | Domain::Audio) || members.clone().any(|n| steps[n].domain != domain) {
+            "Its nodes are not all in the frame domain or all in the audio domain".to_owned()
+        } else if let Some(n) = heavy {
+            format!("The node {} is not a light node with no state", steps[n].id)
+        } else {
+            continue;
+        };
+        let ids: Vec<&str> = members.map(|n| steps[n].id.as_str()).collect();
+        problems.push(format!(
+            "the graph has a cycle through these nodes: {}. {reason}. Put a delay node in the cycle, or use only light nodes with no state, for example gates, in the frame or the audio domain (spec 9.2)",
+            ids.join(", ")
+        ));
+    }
+    if problems.is_empty() { Ok(()) } else { Err(problems) }
 }
 
 /// Makes one step for each entry in run `order`, with the source of each input. `step_of` gives
@@ -614,6 +655,44 @@ to = \"000000000000000f.value\"
         let latest = latest.unwrap_or_else(|p| panic!("{p:?}"));
         let parts: Vec<(Domain, &[usize])> = latest.tasks.iter().map(|t| (t.domain, &t.steps[..])).collect();
         assert_eq!(parts, [(Domain::Batch, &[0][..]), (Domain::Frame, &[1][..])], "a task holds the steps of one domain");
+    }
+
+    #[test]
+    fn a_cycle_of_gates_runs_and_other_cycles_need_a_delay() {
+        let root = std::env::temp_dir().join(format!("patina-loop-{}", std::process::id()));
+        let files = [
+            ("nor", "#[patina_sdk::node(domain = frame)]\npub fn nor(a: bool, b: bool) -> bool { !(a || b) }\n"),
+            ("or", "#[patina_sdk::node]\npub fn or(a: bool, b: bool) -> bool { a || b }\n"),
+            ("slow", "#[patina_sdk::node(domain = frame, heavy)]\npub fn slow(a: bool, b: bool) -> bool { a }\n"),
+            ("hold", "#[patina_sdk::node(domain = frame)]\npub struct Hold { v: bool }\nimpl Hold {\n    pub fn init() -> Self { Hold { v: false } }\n    pub fn process(&mut self, a: bool, b: bool) -> bool { a }\n}\n"),
+        ];
+        for (name, code) in files {
+            std::fs::create_dir_all(root.join("nodes").join(name).join("src")).unwrap();
+            std::fs::write(root.join(format!("nodes/{name}/Cargo.toml")), format!("[package]\nname = \"{name}\"\n")).unwrap();
+            std::fs::write(root.join(format!("nodes/{name}/src/lib.rs")), code).unwrap();
+        }
+        // Node a and node b read each other, as the two NOR gates of a latch. `more` adds to the graph.
+        let pair = |a: &str, b: &str, more: &str| {
+            let text = format!(
+                "format = 1\n[[node]]\nid = \"000000000000000a\"\nfolder = \"nodes/{a}\"\n[[node]]\nid = \"000000000000000b\"\nfolder = \"nodes/{b}\"\n\
+                 [[wire]]\nfrom = \"000000000000000a.out\"\nto = \"000000000000000b.a\"\n[[wire]]\nfrom = \"000000000000000b.out\"\nto = \"000000000000000a.a\"\n{more}"
+            );
+            check(&root, &toml::from_str(&text).unwrap())
+        };
+        let order = "[[order]]\nbefore = \"000000000000000a\"\nafter = \"000000000000000b\"\n";
+        let (latch, ordered, batch) = (pair("nor", "nor", ""), pair("nor", "nor", order), pair("or", "or", ""));
+        let (heavy, stateful) = (pair("nor", "slow", ""), pair("hold", "nor", ""));
+        std::fs::remove_dir_all(&root).unwrap();
+
+        let latch = latch.unwrap_or_else(|p| panic!("{p:?}"));
+        assert_eq!(latch.loops, [(0, 1)]);
+        assert!(latch.is_back(0, 1) && !latch.is_back(1, 0), "a reads b, which runs after a");
+        assert_eq!(latch.tasks.len(), 1, "the cycle is one task");
+        let reason = |plan: Result<Plan, Vec<String>>| plan.err().unwrap()[0].split(". ").nth(1).unwrap_or_default().to_owned();
+        assert_eq!(reason(ordered), "An order wire is part of it");
+        assert_eq!(reason(batch), "Its nodes are not all in the frame domain or all in the audio domain");
+        assert_eq!(reason(heavy), "The node 000000000000000b is not a light node with no state");
+        assert_eq!(reason(stateful), "The node 000000000000000a is not a light node with no state");
     }
 
     #[test]

@@ -102,10 +102,11 @@ pub(crate) fn collapse(graph: &GraphFile, ids: &[String], use_id: &str, name: &s
     outer.collar = graph.collar.iter().map(|c| Collar { wires: keep(&c.wires), ..c.clone() }).filter(|c| !c.wires.is_empty()).collect();
     outer.cable = graph.cable.iter().map(|c| project::Cable { wires: keep(&c.wires), ..c.clone() }).filter(|c| !c.wires.is_empty()).collect();
 
-    let next = outer.wire.iter().filter(|w| node_of(&w.from) == use_id).map(|w| node_of(&w.to));
-    for after in next.chain(outer.order.iter().filter(|o| o.before == use_id).map(|o| o.after.as_str())) {
-        if let Some(path) = cycle(&outer, use_id, after) {
-            return Err(format!("the subgraph makes a cycle through these nodes: {}", path.join(", ")));
+    // An order wire of the use orders each node of the subgraph, so it can make a cycle that the
+    // graph did not have. A cycle of data wires can run, and the plan check decides it (9.2).
+    for o in outer.order.iter().filter(|o| o.before == use_id || o.after == use_id) {
+        if let Some(path) = cycle(&outer, &o.before, &o.after) {
+            return Err(format!("the subgraph makes a cycle with an order wire through these nodes: {}", path.join(", ")));
         }
     }
     Ok((outer, inner))
@@ -281,7 +282,8 @@ after = "00000000000000b2"
         let use_entry = outer.node.last().unwrap();
         assert_eq!((use_entry.subgraph.as_deref(), use_entry.pos), (Some("part"), Some([100.0, 0.0])));
 
-        // a1 and c1 around b1 make a cycle through the use. An empty selection does nothing.
+        // a1 and c1 around b1 make a cycle through the use and its order wire to b2. An empty
+        // selection does nothing.
         let ends = ["00000000000000a1".to_owned(), "00000000000000c1".to_owned()];
         let mut main = main;
         main.wire.push(Wire { from: "00000000000000c1.out".to_owned(), to: "00000000000000b1.c".to_owned(), name: None, style: None, corners: None, points: Vec::new() });
