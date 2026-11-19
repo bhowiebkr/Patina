@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use patina_sdk::Param;
+
 /// The start value of the random values of a model. The same seed gives the same model.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Seed(pub u64);
@@ -20,6 +22,21 @@ impl Seed {
     /// A generator of random values that starts at this seed.
     pub fn random(self) -> Random {
         Random(self.0)
+    }
+}
+
+/// A seed input with no wire is a whole number in the **Inspector**.
+impl Param for Seed {
+    fn default_value() -> Seed {
+        Seed(0)
+    }
+
+    fn from_text(text: &str) -> Result<Seed, String> {
+        text.trim().parse().map(Seed).map_err(|_| format!("{text:?} is not a seed: write a whole number from 0"))
+    }
+
+    fn to_text(&self) -> String {
+        self.0.to_string()
     }
 }
 

@@ -3,6 +3,14 @@
 version = 4
 
 [[package]]
+name = "attach"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
 name = "cc"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21,16 +29,65 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "circle"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
 name = "cluster-batch"
 version = "0.0.0"
 dependencies = [
  "cuboid",
+ "cut",
+ "extrude",
  "patina-sdk",
+ "polar-array",
+ "polygon",
+ "random",
  "report",
+ "rotate",
+ "seed",
+ "translate",
+ "union",
+]
+
+[[package]]
+name = "cone"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
 ]
 
 [[package]]
 name = "cuboid"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "cut"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "cylinder"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "extrude"
 version = "0.1.0"
 dependencies = [
  "geometry",
@@ -63,6 +120,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "hull"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "intersect"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
 name = "jobserver"
 version = "0.1.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -79,6 +152,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
+name = "linear-array"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "mirror"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
 name = "patina-macros"
 version = "0.0.0"
 
@@ -90,13 +179,85 @@ dependencies = [
 ]
 
 [[package]]
+name = "pick"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "polar-array"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "polygon"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
 name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
+name = "random"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "rectangle"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
 name = "report"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "revolve"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "rotate"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "scale"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "seed"
 version = "0.1.0"
 dependencies = [
  "geometry",
@@ -108,6 +269,38 @@ name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
+
+[[package]]
+name = "sphere"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "torus"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "translate"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
+
+[[package]]
+name = "union"
+version = "0.1.0"
+dependencies = [
+ "geometry",
+ "patina-sdk",
+]
 
 [[patch.unused]]
 name = "foldhash"

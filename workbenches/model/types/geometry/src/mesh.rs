@@ -1,9 +1,10 @@
 //! `Mesh`: the triangles of a solid, for the view and the export.
 
+use std::collections::HashMap;
 use std::fmt;
 
 /// A triangle mesh with three corners for each triangle, so each triangle has its own flat
-/// normal and UV. Z is up.
+/// normal and UV. Z is up. The triangles are in the order of their corners.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Mesh {
     /// The corners, three for each triangle, in counterclockwise order from the outside.
@@ -12,8 +13,8 @@ pub struct Mesh {
     pub normals: Vec<[f32; 3]>,
     /// The UV of each corner: a box projection along the main axis of the normal.
     pub uvs: Vec<[f32; 2]>,
-    /// The part of each triangle: 0 for the first part of the mesh, 1 for the next part, and
-    /// so on. Each primitive and each `Solid::as_part` makes a part.
+    /// The part of each triangle: 0 for the part of the first triangle, 1 for the next new part,
+    /// and so on. Each primitive and each `Solid::as_part` makes a part.
     pub parts: Vec<u32>,
 }
 
@@ -23,35 +24,36 @@ impl Mesh {
     /// each run in `tris`, and one more item at the end. `ids` has the part ID of each run.
     pub(crate) fn from_kernel(props: &[f32], stride: usize, tris: &[u32], runs: &[u32], ids: &[u32]) -> Mesh {
         let count = tris.len() / 3;
-        let mut mesh = Mesh {
-            positions: Vec::with_capacity(count * 3),
-            normals: Vec::with_capacity(count * 3),
-            uvs: Vec::with_capacity(count * 3),
-            parts: vec![0; count],
-        };
         let vertex = |i: u32| {
             let at = i as usize * stride;
             props.get(at..at + 3).map_or([0.0; 3], |p| [p[0], p[1], p[2]])
         };
-        for tri in tris.chunks_exact(3) {
-            let corners = [vertex(tri[0]), vertex(tri[1]), vertex(tri[2])];
+        let mut id_of = vec![0; count];
+        for (run, &id) in runs.windows(2).zip(ids) {
+            let (start, end) = ((run[0] / 3) as usize, ((run[1] / 3) as usize).min(count));
+            if let Some(slice) = id_of.get_mut(start..end) {
+                slice.fill(id);
+            }
+        }
+        let mut triangles: Vec<([[f32; 3]; 3], u32)> =
+            tris.as_chunks::<3>().0.iter().zip(id_of).map(|(&[a, b, c], id)| ([vertex(a), vertex(b), vertex(c)], id)).collect();
+        // The kernel orders the triangles by IDs from a global counter, and parallel nodes take
+        // these IDs in any order. The order of the corners is the same at each build.
+        triangles.sort_unstable_by_key(|(corners, _)| corners.map(|p| p.map(f32::to_bits)));
+        let mut mesh = Mesh {
+            positions: Vec::with_capacity(count * 3),
+            normals: Vec::with_capacity(count * 3),
+            uvs: Vec::with_capacity(count * 3),
+            parts: Vec::with_capacity(count),
+        };
+        let mut parts: HashMap<u32, u32> = HashMap::new();
+        for (corners, id) in triangles {
             let normal = normal(corners);
             mesh.positions.extend(corners);
             mesh.normals.extend([normal; 3]);
             mesh.uvs.extend(corners.map(|p| project(p, normal)));
-        }
-        // The kernel IDs come from a global counter, so each build gives other IDs for the same
-        // graph. The index of the first run of each ID is the same at each build.
-        let mut seen: Vec<u32> = Vec::new();
-        for (run, &id) in runs.windows(2).zip(ids) {
-            let part = seen.iter().position(|&s| s == id).unwrap_or_else(|| {
-                seen.push(id);
-                seen.len() - 1
-            });
-            let (start, end) = ((run[0] / 3) as usize, ((run[1] / 3) as usize).min(count));
-            if let Some(parts) = mesh.parts.get_mut(start..end) {
-                parts.fill(part as u32);
-            }
+            let next = parts.len() as u32;
+            mesh.parts.push(*parts.entry(id).or_insert(next));
         }
         mesh
     }
@@ -109,7 +111,7 @@ pub(crate) fn summary(f: &mut fmt::Formatter, triangles: usize, [low, high]: [[f
 }
 
 /// A number with at most 3 decimals and no trailing zeros, for example "1.5" and "-0.125".
-struct Short(f64);
+pub(crate) struct Short(pub(crate) f64);
 
 impl fmt::Display for Short {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

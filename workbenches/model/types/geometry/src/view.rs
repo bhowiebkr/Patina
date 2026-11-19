@@ -1,11 +1,13 @@
 //! A small software raster of a mesh, for the thumbnail and the **Inspector**.
 
+use std::f32::consts::FRAC_1_SQRT_2;
+
 use crate::mesh::Mesh;
 
 /// The direction to the eye: from the front right and above. Front is -Y, and Z is up.
 const EYE: [f32; 3] = [0.577_350_3, -0.577_350_3, 0.577_350_3];
 /// The screen axes of the isometric view. `RIGHT` and `UP` are at 90 degrees to `EYE`.
-const RIGHT: [f32; 3] = [0.707_106_8, 0.707_106_8, 0.0];
+const RIGHT: [f32; 3] = [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.0];
 const UP: [f32; 3] = [-0.408_248_3, 0.408_248_3, 0.816_496_6];
 /// The direction to the light, normalized at use.
 const LIGHT: [f32; 3] = [0.3, -0.6, 0.9];
@@ -43,7 +45,7 @@ pub fn draw(mesh: &Mesh, size: usize, rgba: &mut [u8]) {
     let length = dot(LIGHT, LIGHT).sqrt();
     let light = LIGHT.map(|x| x / length);
     let mut depth = vec![f32::MIN; size * size];
-    for (tri, (corners, &part)) in screen.chunks_exact(3).zip(&mesh.parts).enumerate() {
+    for (tri, (corners, &part)) in screen.as_chunks::<3>().0.iter().zip(&mesh.parts).enumerate() {
         let normal = mesh.normals[tri * 3];
         if dot(normal, EYE) <= 0.0 {
             continue;

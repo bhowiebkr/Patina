@@ -44,6 +44,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Center split and workbenches: the center area splits into the graph and a second pane of a
   changeable size (15.2). The examples are now workbenches, and the start screen lists them (13.3).
 - Geometry kernel prototype: Manifold cuts a seeded gun of 30 parts in 2.7 ms on Windows. The model workbench will use it (task D0).
+- Model workbench base nodes: primitives, sketches, extrude, revolve, moves, arrays, booleans,
+  attach at a socket, and seeded random values and picks (task D3).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -243,14 +245,38 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     unless the build script prints `rerun-if-changed`. Only Windows: the Linux toolchain sets
     no `CXX`, and Linux and macOS did not run.
 
+### Model workbench base nodes, 2026-11-19
+
+- Task D3: [workbenches/model](workbenches/model/README.md) has 25 nodes and a `Sketch` type.
+  The sample graph makes a tower from a seed. The agent decisions are in
+  [the workbenches plan](docs/workbenches-plan.md), task D3.
+- Each boolean runs at once, and the mesh sorts its triangles by their corners. Before this,
+  the hash of the tower changed between runs, because the kernel orders the triangles by IDs
+  from a global counter.
+- Checked on 2026-11-19, on Windows only:
+  - The CI clippy and `cargo test --workspace`. The CLI test runs the tower and compares the
+    mesh hash.
+  - 12 unit tests of the workbench crates and their clippy passed with the MSVC toolchain. CI
+    does not run them.
+  - The tower gave one mesh hash in 14 runs: 4 with MSVC and 10 with a toolchain run.
+- Known limits:
+  - The `#[param(default, min, max)]` attribute of spec 4.8 is not in the code. An unwired number
+    starts at 0.
+  - Round shapes and turns that are not multiples of 90 degrees use the sine of the C++
+    runtime. Their hashes were not compared across platforms.
+  - The kernel has no loft, no fillet and no bevel.
+  - `pick` chooses one of two inputs. Chain picks for more choices.
+  - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. It was not measured
+    on large meshes.
+
 ### Model workbench types and seeds, 2026-11-19
 
 - Tasks D1 and D2: [workbenches/model](workbenches/model/README.md) has the `geometry` type
   crate with `Solid`, `Mesh`, `Sockets` and `Seed`, and the nodes `cuboid` and `report`. The
   crate compiles the vendored Manifold and Clipper2 sources with `cc`.
 - The **Inspector** shows a solid or a mesh as a small isometric picture, from a software raster.
-- `Mesh::parts` gives a dense part index in run order, because the kernel IDs come from a global
-  counter.
+- `Mesh::parts` gives a dense part index in the order of the sorted triangles, because the kernel
+  IDs come from a global counter.
 - Checked on 2026-11-19, on Windows only:
   - The CLI test runs the workbench and compares the mesh hash of the box.
   - 7 unit tests of the type crate passed with the MSVC toolchain. CI does not run them.
@@ -259,8 +285,6 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - A model builds again at each frame. Task D4 makes it build only after a change.
   - A C++ `bad_alloc` in the kernel stops the program. It does not give an error.
-  - The part index can change when two nodes build primitives in parallel, because the kernel
-    IDs set the run order.
   - The `parallel` feature of `cc` adds `jobserver` and `libc` to the crate downloads.
   - Linux and macOS did not run.
 

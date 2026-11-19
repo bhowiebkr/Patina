@@ -139,6 +139,21 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
   - Union, cut, intersect, hull, and bevel or fillet if the kernel has it.
   - Attach at a socket.
   - A random number from a seed, and a pick of one of N inputs by seed and weights.
+- Agent decisions of 2026-11-19 for D3, the owner can change them:
+  - Manifold has no loft, no fillet and no bevel, so D3 has none of them.
+  - `pick` has two solid inputs and a weights text, because a node has a fixed set of inputs.
+    Chain picks for more choices.
+  - Seeds and sockets have a text form, so an input with no wire can hold them. `attach` reads
+    a sockets text, for example `muzzle 0 0 2; grip 1 2 3 0 0 90`.
+  - The plan of spec 4.8 for `#[param]` defaults is not in the code. An input with no wire
+    starts at 0, so the nodes use inputs where 0 is useful: `taper`, `gap` and `segments`.
+  - A shape has 1024 segments at most, and an array has 1000 copies at most. A larger value
+    from a wire could use all the memory, and the kernel stops the program then.
+  - Each boolean runs at once. The kernel collapses a lazy boolean tree by reference counts at
+    its evaluation, so a later evaluation could give other triangles.
+  - The mesh sorts its triangles by their corners. The kernel orders them by IDs from a global
+    counter, and parallel nodes take these IDs in any order. Before the sort, the hash of the
+    sample tower changed between runs.
 - **D4. Run model.** A model builds only when an input changes, not at each frame. Use the batch
   domain or the event domain (spec 9). A long build must not stop the frames. Measure it.
 - **D5. 3D view.** The `model-view` view of the workbench: orbit, pan and zoom, its own depth
@@ -195,6 +210,9 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
 - 2026-11-19: D0c is done on Windows with a toolchain run. Next is D1.
 - 2026-11-19: D1 and D2 are done on Windows. The MSVC build and the Patina toolchain gave the
   same mesh hash for a seeded model. Next is D3.
+- 2026-11-19: D3 is done on Windows. The sample tower gave one mesh hash in 14 runs: 4 with
+  MSVC and 10 with a toolchain run. Round shapes and turns that are not multiples of 90 degrees
+  are not compared across platforms. Next is D4.
 
 ## Order
 

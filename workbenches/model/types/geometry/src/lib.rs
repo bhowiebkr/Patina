@@ -1,8 +1,9 @@
-//! The geometry types of the model workbench: solids from the Manifold kernel, meshes, sockets
-//! and seeds. The kernel is C++ in `vendor/`, and `build.rs` compiles it.
+//! The geometry types of the model workbench: solids and sketches from the Manifold kernel,
+//! meshes, sockets and seeds. The kernel is C++ in `vendor/`, and `build.rs` compiles it.
 
 mod mesh;
 mod seed;
+mod sketch;
 mod sockets;
 mod solid;
 mod view;
@@ -13,8 +14,9 @@ use patina_sdk::{Text, Thumbnail, Ui, Viewer};
 
 pub use mesh::Mesh;
 pub use seed::{Random, Seed};
+pub use sketch::Sketch;
 pub use sockets::{Frame, Sockets};
-pub use solid::Solid;
+pub use solid::{MAX_COPIES, MAX_SEGMENTS, Solid};
 
 /// The side of the thumbnail and of the larger view of the **Inspector**, in pixels.
 const THUMBNAIL: usize = 64;
@@ -40,6 +42,28 @@ impl Viewer for Solid {
     fn show(&self, ui: &mut Ui) {
         ui.image("Solid", [LARGE as u32; 2], &picture(&self.mesh(), LARGE));
     }
+}
+
+/// The **Inspector** shows a sketch as a thin plate, with the corner count and the area.
+impl Viewer for Sketch {
+    fn text(&self, out: &mut Text<'_>) -> fmt::Result {
+        write!(out, "{self:?}")
+    }
+
+    fn thumbnail(&self, out: &mut Thumbnail<'_>) {
+        view::draw(&plate(self).mesh(), THUMBNAIL, out.pixels(THUMBNAIL as u32, THUMBNAIL as u32));
+    }
+
+    fn show(&self, ui: &mut Ui) {
+        ui.image("Sketch", [LARGE as u32; 2], &picture(&plate(self).mesh(), LARGE));
+    }
+}
+
+/// The sketch with a thickness of 5 % of its size, to draw it.
+fn plate(sketch: &Sketch) -> Solid {
+    let [[x0, y0], [x1, y1]] = sketch.bounds();
+    let size = (x1 - x0).max(y1 - y0);
+    Solid::extrude(sketch, if size.is_finite() && size > 0.0 { size * 0.05 } else { 1.0 }, 0.0, [1.0; 2], 0)
 }
 
 /// Shows "12 triangles, bounds -1 -1 -1 to 1 1 1".

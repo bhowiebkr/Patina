@@ -1,9 +1,11 @@
-//! `Solid`: a closed solid of the Manifold kernel. Only this file calls the kernel.
+//! `Solid`: a closed solid of the Manifold kernel. Only this file and `sketch.rs` call the kernel.
 
 use std::ffi::{c_int, c_void};
 use std::fmt;
 
 use crate::mesh::Mesh;
+use crate::sketch::Sketch;
+use crate::sockets::Frame;
 
 #[repr(C)]
 struct Raw {
@@ -36,6 +38,19 @@ unsafe extern "C" {
     fn manifold_translate(mem: *mut Raw, m: *mut Raw, x: f64, y: f64, z: f64) -> *mut Raw;
     fn manifold_rotate(mem: *mut Raw, m: *mut Raw, x: f64, y: f64, z: f64) -> *mut Raw;
     fn manifold_scale(mem: *mut Raw, m: *mut Raw, x: f64, y: f64, z: f64) -> *mut Raw;
+    fn manifold_mirror(mem: *mut Raw, m: *mut Raw, x: f64, y: f64, z: f64) -> *mut Raw;
+    fn manifold_transform(
+        mem: *mut Raw, m: *mut Raw, x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z2: f64, x3: f64, y3: f64, z3: f64,
+        x4: f64, y4: f64, z4: f64,
+    ) -> *mut Raw;
+    fn manifold_hull(mem: *mut Raw, m: *mut Raw) -> *mut Raw;
+    fn manifold_extrude(mem: *mut Raw, cs: *mut c_void, height: f64, slices: c_int, twist: f64, sx: f64, sy: f64) -> *mut Raw;
+    fn manifold_revolve(mem: *mut Raw, cs: *mut c_void, segments: c_int, degrees: f64) -> *mut Raw;
+    fn manifold_alloc_manifold_vec() -> *mut c_void;
+    fn manifold_delete_manifold_vec(v: *mut c_void);
+    fn manifold_manifold_vec(mem: *mut c_void, size: usize) -> *mut c_void;
+    fn manifold_manifold_vec_set(v: *mut c_void, index: usize, m: *mut Raw);
+    fn manifold_batch_boolean(mem: *mut Raw, v: *mut c_void, op: c_int) -> *mut Raw;
     fn manifold_as_original(mem: *mut Raw, m: *mut Raw) -> *mut Raw;
     fn manifold_original_id(m: *mut Raw) -> c_int;
     fn manifold_status(m: *mut Raw) -> c_int;
@@ -91,6 +106,15 @@ impl Solid {
         Solid(make(unsafe { manifold_alloc_manifold() }))
     }
 
+    /// Makes a solid with `make`, and runs its boolean at once. The kernel collapses a lazy boolean
+    /// tree by the reference counts at its evaluation, so a later evaluation can give other triangles.
+    fn boolean(make: impl FnOnce(*mut Raw) -> *mut Raw) -> Solid {
+        let solid = Solid::make(make);
+        // SAFETY: the solid is valid. The status runs the boolean and keeps its result.
+        unsafe { manifold_status(solid.0) };
+        solid
+    }
+
     /// A solid with no volume.
     pub fn empty() -> Solid {
         // SAFETY: `mem` is new Manifold memory.
@@ -107,31 +131,31 @@ impl Solid {
     /// choose the number of sides from the radius.
     pub fn cylinder(height: f64, radius_low: f64, radius_high: f64, segments: i32) -> Solid {
         // SAFETY: `mem` is new Manifold memory.
-        Solid::make(|mem| unsafe { manifold_cylinder(mem, height, radius_low, radius_high, segments, 1) })
+        Solid::make(|mem| unsafe { manifold_cylinder(mem, height, radius_low, radius_high, limit(segments), 1) })
     }
 
     /// A sphere with its center at the origin. `segments` 0 lets the kernel choose.
     pub fn sphere(radius: f64, segments: i32) -> Solid {
         // SAFETY: `mem` is new Manifold memory.
-        Solid::make(|mem| unsafe { manifold_sphere(mem, radius, segments) })
+        Solid::make(|mem| unsafe { manifold_sphere(mem, radius, limit(segments)) })
     }
 
     /// The volume in this solid or in `other`.
     pub fn union(&self, other: &Solid) -> Solid {
         // SAFETY: `mem` is new Manifold memory, and both inputs are valid solids.
-        Solid::make(|mem| unsafe { manifold_union(mem, self.0, other.0) })
+        Solid::boolean(|mem| unsafe { manifold_union(mem, self.0, other.0) })
     }
 
     /// The volume in this solid and not in `other`.
     pub fn difference(&self, other: &Solid) -> Solid {
         // SAFETY: `mem` is new Manifold memory, and both inputs are valid solids.
-        Solid::make(|mem| unsafe { manifold_difference(mem, self.0, other.0) })
+        Solid::boolean(|mem| unsafe { manifold_difference(mem, self.0, other.0) })
     }
 
     /// The volume in both solids.
     pub fn intersection(&self, other: &Solid) -> Solid {
         // SAFETY: `mem` is new Manifold memory, and both inputs are valid solids.
-        Solid::make(|mem| unsafe { manifold_intersection(mem, self.0, other.0) })
+        Solid::boolean(|mem| unsafe { manifold_intersection(mem, self.0, other.0) })
     }
 
     /// Moves the solid by `[x, y, z]`.
@@ -150,6 +174,67 @@ impl Solid {
     pub fn scale(&self, [x, y, z]: [f64; 3]) -> Solid {
         // SAFETY: `mem` is new Manifold memory, and the input is a valid solid.
         Solid::make(|mem| unsafe { manifold_scale(mem, self.0, x, y, z) })
+    }
+
+    /// Makes the sketch thick along Z, from 0 to `height`. The top turns by `twist` degrees and
+    /// scales by `scale`. `slices` 0 makes one slice, or more when the top turns.
+    pub fn extrude(sketch: &Sketch, height: f64, twist: f64, scale: [f64; 2], slices: i32) -> Solid {
+        sketch.with_polygons(|polygons| {
+            // SAFETY: `mem` is new Manifold memory, and the polygons are valid during the call.
+            Solid::make(|mem| unsafe { manifold_extrude(mem, polygons, height, limit(slices), twist, scale[0], scale[1]) })
+        })
+    }
+
+    /// Turns the sketch around its Y axis by `degrees`, and makes that axis the Z axis. The kernel
+    /// uses only the part of the sketch at x > 0. `segments` 0 lets the kernel choose.
+    pub fn revolve(sketch: &Sketch, degrees: f64, segments: i32) -> Solid {
+        // SAFETY: `mem` is new Manifold memory, and the polygons are valid during the call.
+        sketch.with_polygons(|polygons| Solid::make(|mem| unsafe { manifold_revolve(mem, polygons, limit(segments), degrees) }))
+    }
+
+    /// The union of all the solids, in one kernel operation. It is faster than a chain of unions.
+    pub fn union_all(solids: &[Solid]) -> Solid {
+        // SAFETY: the vector gets copies of valid solids (the kernel shares their data), and it is
+        // deleted after the boolean. 0 is `MANIFOLD_ADD`.
+        unsafe {
+            let all = manifold_manifold_vec(manifold_alloc_manifold_vec(), solids.len());
+            for (i, solid) in solids.iter().enumerate() {
+                manifold_manifold_vec_set(all, i, solid.0);
+            }
+            let union = Solid::boolean(|mem| manifold_batch_boolean(mem, all, 0));
+            manifold_delete_manifold_vec(all);
+            union
+        }
+    }
+
+    /// Mirrors the solid on the plane through the origin with the normal `[x, y, z]`.
+    pub fn mirror(&self, [x, y, z]: [f64; 3]) -> Solid {
+        // SAFETY: `mem` is new Manifold memory, and the input is a valid solid.
+        Solid::make(|mem| unsafe { manifold_mirror(mem, self.0, x, y, z) })
+    }
+
+    /// Moves the solid from the axes of the model into `frame`: its origin goes to the origin of
+    /// the frame, and its X, Y and Z axes go to the axes of the frame.
+    pub fn place(&self, frame: &Frame) -> Solid {
+        let Frame { x, y, z, origin: o } = *frame;
+        // SAFETY: `mem` is new Manifold memory, and the input is a valid solid.
+        Solid::make(|mem| unsafe {
+            manifold_transform(mem, self.0, x[0], x[1], x[2], y[0], y[1], y[2], z[0], z[1], z[2], o[0], o[1], o[2])
+        })
+    }
+
+    /// The smallest convex solid around this solid.
+    pub fn hull(&self) -> Solid {
+        // SAFETY: `mem` is new Manifold memory, and the input is a valid solid.
+        Solid::make(|mem| unsafe { manifold_hull(mem, self.0) })
+    }
+
+    /// The solid, or the kernel error as a text for the node.
+    pub fn checked(self) -> Result<Solid, String> {
+        match self.error() {
+            Some(error) => Err(format!("the kernel gave an error: {error}")),
+            None => Ok(self),
+        }
     }
 
     /// Gives the solid a new part ID. The triangles keep it through the booleans, so the mesh
@@ -229,6 +314,17 @@ impl Default for Solid {
     fn default() -> Solid {
         Solid::empty()
     }
+}
+
+/// The most segments or slices of one shape. A larger count from a parameter could use all the memory.
+pub const MAX_SEGMENTS: i32 = 1024;
+
+/// The most copies that an array node makes, for the same reason.
+pub const MAX_COPIES: u32 = 1000;
+
+/// A segment or slice count for the kernel: 0 (the kernel chooses) to `MAX_SEGMENTS`.
+pub(crate) fn limit(segments: i32) -> i32 {
+    segments.clamp(0, MAX_SEGMENTS)
 }
 
 /// Shows the triangle count and the bounds, for example "12 triangles, -1 -1 -1 to 1 1 1".
