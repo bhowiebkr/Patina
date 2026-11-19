@@ -69,7 +69,9 @@ The `model-view` view shows a scene with GPU instances. Do these steps:
 ## Export the buildings
 
 The `export-buildings` node writes each building to its own file `building-<group>.glb` in a
-folder. The center of the base of each building is at the origin. Do these steps:
+folder. The center of the base of each building is at the origin. Each item of the building,
+for example the walls or the windows, is one primitive. Each color of the items is one glTF
+material with no metal. Do these steps:
 
 1. Click **Folder** in the node and choose a folder. A relative path starts at the project
    folder.

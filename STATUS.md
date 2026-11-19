@@ -346,6 +346,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     ridges. The sea takes their soil, so the coast stays. **erosion** sets the drops for each
     sample (default 1, 0 to 8). A unit test checks the seed, 0 drops, the range and the soil.
     The hidden editor shot of `city` showed the eroded city in `model-view`, and seed 8 passed.
+  - Each building `.glb` file has one glTF material for each item color (2026-11-19). The
+    color goes from sRGB to linear, with no metal. A `geometry` test checks the material JSON,
+    and the `export-buildings` test finds the materials in a written file.
   - Checked on Windows: 20 unit tests of `types/city` and the other city crate tests, and the
     CLI test with `main`, `planned`, the 1 km check and the export of 173 buildings.
   - `main`: 574 items, 42651 places and 1329526 triangles. `planned`: 1269 items and 4580506
@@ -393,7 +396,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The unit tests of `geometry` and `export` and their clippy, with the MSVC toolchain. They
     check the three formats, the sockets in the extras, the replace and the click rule.
 - Known limits:
-  - The `.obj` and the `.stl` files have no sockets. The export writes no materials.
+  - The `.obj` and the `.stl` files have no sockets. A solid has no colors, so the `export`
+    node writes no materials. The `.glb` writer gives each part with a color a material
+    (2026-11-19), and the city building export uses it.
   - No other program opened the files. The tests read the bytes only.
   - The **Export** click in the editor is not checked. The unit test checks its rule.
 

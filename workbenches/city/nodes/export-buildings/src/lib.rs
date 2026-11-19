@@ -61,7 +61,7 @@ fn write(scene: &Scene, folder: &str) -> Result<String, String> {
     std::fs::create_dir_all(&root).map_err(|e| format!("{}: {e}", root.display()))?;
     let mut triangles = 0;
     for &group in &groups {
-        let mut mesh = scene.bake(Some(group));
+        let (mut mesh, colors) = scene.bake(Some(group));
         let (mut low, mut high) = ([f32::INFINITY; 3], [f32::NEG_INFINITY; 3]);
         for p in &mesh.positions {
             for i in 0..3 {
@@ -72,7 +72,7 @@ fn write(scene: &Scene, folder: &str) -> Result<String, String> {
         for p in &mut mesh.positions {
             *p = std::array::from_fn(|i| p[i] - base[i]);
         }
-        export::write(&root.join(format!("building-{group}.glb")), &mesh, &Sockets::default())?;
+        export::write(&root.join(format!("building-{group}.glb")), &mesh, &Sockets::default(), &colors)?;
         triangles += mesh.triangles();
     }
     Ok(format!("Wrote {} buildings to {folder}, {triangles} triangles", groups.len()))
@@ -99,6 +99,8 @@ mod tests {
         node.process(&scene, text, 4).unwrap();
         assert!(node.status.starts_with("Wrote 2 buildings"), "{}", node.status);
         assert!(folder.join("building-1.glb").exists() && folder.join("building-2.glb").exists());
+        let glb = std::fs::read(folder.join("building-1.glb")).unwrap();
+        assert!(glb.windows(12).any(|w| w == b"\"materials\":"), "the item colors give materials");
         node.armed = Some(5);
         assert!(node.process(&Scene::default(), text, 5).is_err());
         std::fs::remove_dir_all(&folder).unwrap();

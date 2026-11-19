@@ -27,22 +27,23 @@ impl Format {
     }
 }
 
-/// The bytes of the file. The sockets go into the glTF extras of the model node. The `.obj` and
-/// the `.stl` files have no sockets.
-pub fn bytes(mesh: &Mesh, sockets: &Sockets, format: Format) -> Result<Vec<u8>, String> {
+/// The bytes of the file. The sockets go into the glTF extras of the model node. `colors` has
+/// the sRGB color 0xRRGGBB of each part, and each part with a color gets a glTF material. The
+/// `.obj` and the `.stl` files have no sockets and no colors.
+pub fn bytes(mesh: &Mesh, sockets: &Sockets, colors: &[u32], format: Format) -> Result<Vec<u8>, String> {
     if mesh.triangles() == 0 {
         return Err("The solid is empty, so there is nothing to export".into());
     }
     Ok(match format {
-        Format::Glb => glb(mesh, sockets),
+        Format::Glb => glb(mesh, sockets, colors),
         Format::Obj => obj(mesh).into_bytes(),
         Format::Stl => stl(mesh),
     })
 }
 
 /// Writes the file. It writes a temporary file first, so a failed write keeps the old file.
-pub fn write(path: &Path, mesh: &Mesh, sockets: &Sockets) -> Result<(), String> {
-    let data = bytes(mesh, sockets, Format::of(path)?)?;
+pub fn write(path: &Path, mesh: &Mesh, sockets: &Sockets, colors: &[u32]) -> Result<(), String> {
+    let data = bytes(mesh, sockets, colors, Format::of(path)?)?;
     let mut temporary = path.as_os_str().to_owned();
     temporary.push(".part");
     let result = std::fs::write(&temporary, data).and_then(|()| std::fs::rename(&temporary, path));
@@ -66,7 +67,7 @@ fn by_part(mesh: &Mesh) -> (Vec<usize>, Vec<usize>) {
     (order, starts)
 }
 
-fn glb(mesh: &Mesh, sockets: &Sockets) -> Vec<u8> {
+fn glb(mesh: &Mesh, sockets: &Sockets, colors: &[u32]) -> Vec<u8> {
     let (order, starts) = by_part(mesh);
     let corners = || order.iter().flat_map(|&t| 3 * t..3 * t + 3);
     let mut bin: Vec<u8> = Vec::with_capacity(order.len() * 3 * 32);
@@ -76,6 +77,7 @@ fn glb(mesh: &Mesh, sockets: &Sockets) -> Vec<u8> {
     let count = order.len() * 3;
     let mut accessors = Vec::new();
     let mut primitives = Vec::new();
+    let mut materials: Vec<u32> = Vec::new();
     for (part, &start) in starts.iter().enumerate() {
         let end = starts.get(part + 1).copied().unwrap_or(order.len());
         let (first, corners) = (start * 3, (end - start) * 3);
@@ -95,8 +97,18 @@ fn glb(mesh: &Mesh, sockets: &Sockets) -> Vec<u8> {
         ));
         accessors.push(format!(r#"{{"bufferView":1,"byteOffset":{},"componentType":5126,"count":{corners},"type":"VEC3"}}"#, first * 12));
         accessors.push(format!(r#"{{"bufferView":2,"byteOffset":{},"componentType":5126,"count":{corners},"type":"VEC2"}}"#, first * 8));
-        primitives.push(format!(r#"{{"attributes":{{"POSITION":{a},"NORMAL":{},"TEXCOORD_0":{}}},"mode":4}}"#, a + 1, a + 2));
+        // Parts with the same color share one material.
+        let material = colors.get(mesh.parts[order[start]] as usize).map_or(String::new(), |color| {
+            let at = materials.iter().position(|c| c == color).unwrap_or_else(|| {
+                materials.push(*color);
+                materials.len() - 1
+            });
+            format!(r#","material":{at}"#)
+        });
+        primitives.push(format!(r#"{{"attributes":{{"POSITION":{a},"NORMAL":{},"TEXCOORD_0":{}}},"mode":4{material}}}"#, a + 1, a + 2));
     }
+    let materials: Vec<String> = materials.into_iter().map(material).collect();
+    let materials = if materials.is_empty() { String::new() } else { format!(r#""materials":[{}],"#, materials.join(",")) };
     let mut extras = String::new();
     for (i, (name, frame)) in sockets.iter().enumerate() {
         let _ = write!(extras, "{}{}:{}", if i == 0 { "" } else { "," }, quote(name), socket(frame));
@@ -105,13 +117,14 @@ fn glb(mesh: &Mesh, sockets: &Sockets) -> Vec<u8> {
         concat!(
             r#"{{"asset":{{"version":"2.0","generator":"Patina model workbench"}},"scene":0,"scenes":[{{"nodes":[0]}}],"#,
             r#""nodes":[{{"name":"model","mesh":0,"extras":{{"sockets":{{{}}}}}}}],"meshes":[{{"primitives":[{}]}}],"#,
-            r#""buffers":[{{"byteLength":{}}}],"bufferViews":["#,
+            r#"{}"buffers":[{{"byteLength":{}}}],"bufferViews":["#,
             r#"{{"buffer":0,"byteOffset":0,"byteLength":{},"target":34962}},"#,
             r#"{{"buffer":0,"byteOffset":{},"byteLength":{},"target":34962}},"#,
             r#"{{"buffer":0,"byteOffset":{},"byteLength":{},"target":34962}}],"accessors":[{}]}}"#
         ),
         extras,
         primitives.join(","),
+        materials,
         bin.len(),
         count * 12,
         count * 12,
@@ -133,6 +146,15 @@ fn glb(mesh: &Mesh, sockets: &Sockets) -> Vec<u8> {
     out.extend(u32::to_le_bytes(0x004e_4942));
     out.extend(bin);
     out
+}
+
+/// A glTF material of the sRGB color 0xRRGGBB, with no metal. The glTF base color is linear.
+fn material(color: u32) -> String {
+    let [r, g, b] = [16, 8, 0].map(|shift| {
+        let c = ((color >> shift) & 0xff) as f32 / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    });
+    format!(r#"{{"pbrMetallicRoughness":{{"baseColorFactor":{},"metallicFactor":0}}}}"#, list(&[r, g, b, 1.0]))
 }
 
 /// A socket frame in the glTF extras, with Y up.

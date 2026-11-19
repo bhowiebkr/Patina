@@ -66,7 +66,7 @@ fn write(gun: &Gun, folder: &str, name: &str) -> Result<String, String> {
     }
     let root = project_path(folder);
     std::fs::create_dir_all(&root).map_err(|e| format!("{}: {e}", root.display()))?;
-    export::write(&root.join(format!("{name}.glb")), &solid.mesh(), &gun.sockets)?;
+    export::write(&root.join(format!("{name}.glb")), &solid.mesh(), &gun.sockets, &[])?;
     let text = root.join(format!("{name}.txt"));
     std::fs::write(&text, gun.report()).map_err(|e| format!("{}: {e}", text.display()))?;
     Ok(format!("Wrote {name}.glb and {name}.txt to {folder}, {} triangles", solid.triangles()))

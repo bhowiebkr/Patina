@@ -54,7 +54,8 @@ fn write(solid: &Solid, sockets: &Sockets, path: &str) -> Result<String, String>
         return Err("Choose a .glb, .obj or .stl file name".into());
     }
     let mesh = solid.clone().checked()?.mesh();
-    export::write(&project_path(path), &mesh, sockets)?;
+    // A solid has no colors, so the file has no materials.
+    export::write(&project_path(path), &mesh, sockets, &[])?;
     Ok(format!("Wrote {path}, {} triangles", mesh.triangles()))
 }
 

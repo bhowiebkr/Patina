@@ -202,7 +202,7 @@ fn the_export_writes_glb_obj_and_stl() {
     let (a, b) = (Solid::cube(2.0, 2.0, 2.0).as_part(), Solid::cube(1.0, 1.0, 1.0).translate([1.5, 0.0, 0.0]).as_part());
     let mesh = a.union(&b).mesh();
     let sockets = Sockets::from_text("muzzle 0 0 2; grip\"x 1 2 3").unwrap();
-    let glb = bytes(&mesh, &sockets, Format::Glb).unwrap();
+    let glb = bytes(&mesh, &sockets, &[], Format::Glb).unwrap();
     let word = |at: usize| u32::from_le_bytes(glb[at..at + 4].try_into().unwrap());
     assert_eq!((&glb[..4], word(4), word(8) as usize), (&b"glTF"[..], 2, glb.len()));
     let json = std::str::from_utf8(&glb[20..20 + word(12) as usize]).unwrap();
@@ -211,13 +211,20 @@ fn the_export_writes_glb_obj_and_stl() {
     assert!(json.contains(r#""grip\"x":{"origin":[1,3,-2]"#), "{json}");
     assert_eq!(json.matches("POSITION").count(), 2, "one primitive for each part");
     assert_eq!(word(20 + word(12) as usize) as usize, mesh.triangles() * 3 * 32);
-    let obj = String::from_utf8(bytes(&mesh, &sockets, Format::Obj).unwrap()).unwrap();
+    assert!(!json.contains("material"), "no colors give no materials");
+    // The two parts share a red material: sRGB 0xff0000 is linear [1, 0, 0].
+    let glb = bytes(&mesh, &sockets, &[0xff_0000, 0xff_0000], Format::Glb).unwrap();
+    let word = |at: usize| u32::from_le_bytes(glb[at..at + 4].try_into().unwrap());
+    let json = std::str::from_utf8(&glb[20..20 + word(12) as usize]).unwrap();
+    assert!(json.contains(r#""materials":[{"pbrMetallicRoughness":{"baseColorFactor":[1,0,0,1],"metallicFactor":0}}]"#), "{json}");
+    assert_eq!(json.matches(r#""material":0"#).count(), 2, "{json}");
+    let obj = String::from_utf8(bytes(&mesh, &sockets, &[], Format::Obj).unwrap()).unwrap();
     assert_eq!(obj.lines().filter(|l| l.starts_with("v ")).count(), mesh.triangles() * 3);
     assert_eq!(obj.lines().filter(|l| l.starts_with("f ")).count(), mesh.triangles());
     assert_eq!(obj.lines().filter(|l| l.starts_with("g part")).count(), 2);
-    let stl = bytes(&mesh, &sockets, Format::Stl).unwrap();
+    let stl = bytes(&mesh, &sockets, &[], Format::Stl).unwrap();
     assert_eq!(stl.len(), 84 + 50 * mesh.triangles());
-    assert!(bytes(&Solid::empty().mesh(), &sockets, Format::Stl).is_err());
+    assert!(bytes(&Solid::empty().mesh(), &sockets, &[], Format::Stl).is_err());
     assert!(Format::of(std::path::Path::new("gun.fbx")).is_err());
     assert_eq!(Format::of(std::path::Path::new("Gun.GLB")), Ok(Format::Glb));
 }
@@ -228,10 +235,10 @@ fn the_export_replaces_a_file_and_keeps_no_temporary_file() {
     std::fs::create_dir_all(&folder).unwrap();
     let path = folder.join("box.stl");
     let sockets = Sockets::default();
-    export::write(&path, &Solid::cube(1.0, 1.0, 1.0).mesh(), &sockets).unwrap();
-    export::write(&path, &Solid::cube(1.0, 1.0, 1.0).union(&Solid::cube(1.0, 1.0, 1.0).translate([2.0, 0.0, 0.0])).mesh(), &sockets).unwrap();
+    export::write(&path, &Solid::cube(1.0, 1.0, 1.0).mesh(), &sockets, &[]).unwrap();
+    export::write(&path, &Solid::cube(1.0, 1.0, 1.0).union(&Solid::cube(1.0, 1.0, 1.0).translate([2.0, 0.0, 0.0])).mesh(), &sockets, &[]).unwrap();
     assert_eq!(std::fs::metadata(&path).unwrap().len(), 84 + 50 * 24);
-    assert!(export::write(&folder.join("box.txt"), &Solid::cube(1.0, 1.0, 1.0).mesh(), &sockets).is_err());
+    assert!(export::write(&folder.join("box.txt"), &Solid::cube(1.0, 1.0, 1.0).mesh(), &sockets, &[]).is_err());
     assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
     std::fs::remove_dir_all(&folder).unwrap();
 }
@@ -250,11 +257,12 @@ fn a_scene_places_meshes_and_bakes_each_group() {
     assert_eq!((both.groups(), both.places()), (vec![1, 2], 3));
     assert_ne!(both.serial(), a.serial());
     // A group bakes only its places, with the scale of the frame and normals of length 1.
-    let two = both.bake(Some(2));
-    assert_eq!((two.triangles(), Scene::new([]).bake(None).triangles()), (12, 0));
+    let (two, colors) = both.bake(Some(2));
+    assert_eq!((two.triangles(), Scene::new([]).bake(None).0.triangles(), colors), (12, 0, vec![0x80_8080]));
     assert!(two.positions.iter().all(|p| (8.0..=12.0).contains(&p[0])));
     assert!(two.normals.iter().all(|n| (n[0] * n[0] + n[1] * n[1] + n[2] * n[2] - 1.0).abs() < 1e-6));
-    let all = both.bake(None);
+    let (all, colors) = both.bake(None);
+    assert_eq!(colors.len(), 2);
     assert_eq!((all.triangles(), all.parts.iter().max()), (36, Some(&1)));
     // The hash sees a change of a place.
     let moved = Scene::new([item("b", vec![Place::new(&Frame::at([0.0, 5.5, 0.0]), 0)])]);

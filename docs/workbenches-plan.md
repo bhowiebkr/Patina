@@ -201,6 +201,9 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
     `extras.sockets` of the model node, with Y up.
   - The node replaces the file through a temporary file. The `.obj` and the `.stl` files have
     no sockets.
+  - The writer takes the sRGB color of each part. Each color gives one glTF material with a
+    linear base color and no metal (added 2026-11-19). A solid has no colors, so only the city
+    building export writes materials.
 - **D7. Graphs and guide.** A `main` graph with a seeded sample model, learning graphs and a
   README.
 - **D8. Checks.** The seed test, a mesh test, a headless CLI run, a selfcheck step (open the

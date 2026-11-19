@@ -125,10 +125,11 @@ impl Scene {
         bounds
     }
 
-    /// One mesh with the places of `group`, or of all the groups for `None`. Each item gives a
-    /// part, so a `.glb` file has one primitive for each item.
-    pub fn bake(&self, group: Option<u32>) -> Mesh {
+    /// One mesh with the places of `group`, or of all the groups for `None`, and the color of
+    /// each part. Each item gives a part, so a `.glb` file has one primitive for each item.
+    pub fn bake(&self, group: Option<u32>) -> (Mesh, Vec<u32>) {
         let mut mesh = Mesh::default();
+        let mut colors = Vec::new();
         let mut part = 0;
         for item in &self.items {
             let mut used = false;
@@ -139,9 +140,12 @@ impl Scene {
                 mesh.uvs.extend_from_slice(&item.mesh.uvs);
                 mesh.parts.extend(std::iter::repeat_n(part, item.mesh.triangles()));
             }
-            part += u32::from(used);
+            if used {
+                colors.push(item.color);
+                part += 1;
+            }
         }
-        mesh
+        (mesh, colors)
     }
 
     /// A hash of the meshes, the colors and the places, the same on each platform.
