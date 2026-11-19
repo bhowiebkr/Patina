@@ -102,6 +102,12 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
 - Recommendation before the prototype: game assets need triangle meshes, not exact CAD. Thus a
   mesh kernel such as Manifold fits better than B-rep. The nodes look like CadQuery: workplane,
   sketch, extrude and cut. The kernel stays behind the type crate, so that it can change.
+- Result of 2026-11-19, on Windows with the MSVC target: Manifold cut the gun in 2.7 ms and made
+  a block of 500 in 81 ms. monstertruck failed the gun union. csgrs does not resolve. The
+  details are in [prototypes/geometry](../prototypes/geometry/README.md).
+- Agent decision of 2026-11-19, the owner can change it: use Manifold behind the type crate.
+- **D0b. Build Manifold with no CMake.** Compile the Manifold and Clipper2 sources with the `cc`
+  crate in the type crate. Prove it with the Patina toolchain (Zig and the gnu target).
 - **D1. Types.** `Solid`, `Mesh` (positions, normals, UV and a part ID), `Sockets` (named frames,
   for example `muzzle` and `grip`) and `Seed`. The viewer gives a thumbnail and a text with the
   triangle count and the bounds.
@@ -165,6 +171,8 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
 ## Progress
 
 - 2026-11-19: A and B1 to B5 are done. [STATUS.md](../STATUS.md) has the checks.
+- 2026-11-19: D0 is done on Windows with the MSVC target. The Patina toolchain build is task
+  D0b.
 
 ## Order
 
@@ -178,7 +186,7 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
 ## Open decisions for the owner
 
 - The name of the model workbench.
-- The kernel, after D0. A C++ kernel needs CMake, or a prebuilt library (spec 13.4).
+- The kernel. The agent decision after D0 is Manifold, built from source with Zig (task D0b).
 - City and gun as two workbenches that use the model workbench as a library (recommended), or
   as graphs of one workbench.
 - When the workbenches move out of the Patina repository.

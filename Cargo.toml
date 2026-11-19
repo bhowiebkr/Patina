@@ -14,6 +14,7 @@ members = [
     "prototypes/hot-reload",
     "prototypes/types-across-clusters",
     "prototypes/toolchain",
+    "prototypes/geometry",
     "tools/package",
     "tools/repo-checks",
 ]

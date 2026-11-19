@@ -43,6 +43,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 - Center split and workbenches: the center area splits into the graph and a second pane of a
   changeable size (15.2). The examples are now workbenches, and the start screen lists them (13.3).
+- Geometry kernel prototype: Manifold cuts a seeded gun of 30 parts in 2.7 ms on Windows. The model workbench will use it (task D0).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -212,6 +213,19 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     does not remove them, because they can have edits of the person.
   - No check opened the editor again with a saved split. The selfcheck does not click **Open**
     in the **Workbenches** box. A unit test reads the list.
+
+### Geometry kernel prototype, 2026-11-19
+
+- Task D0 of [docs/workbenches-plan.md](docs/workbenches-plan.md) measured kernels for the model
+  workbench. [prototypes/geometry](prototypes/geometry/README.md) has the pure Rust baseline and
+  the results.
+- Manifold cut a gun of 30 parts in 2.7 ms and made a block of 500 buildings in 81 ms, with valid
+  manifolds. monstertruck failed the gun union. csgrs does not resolve.
+- Agent decision: Manifold behind the type crate of the model workbench.
+- Known limits:
+  - The trials ran only on Windows with the MSVC target, in throwaway crates. The build with
+    the Patina toolchain (Zig, gnu target) is task D0b.
+  - The default Manifold crate build needs CMake and git. Spec 13.4 does not allow them.
 
 ### Groups, notes and the error display, 2026-11-18
 
@@ -1267,6 +1281,7 @@ Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list t
 - `prototypes/connections/src/feed.rs:62`: Each send allocates, because Tauri takes the frame by value. A pooled path needs shared memory.
 - `prototypes/connections/src/main.rs:91`: Screenshots work only on Windows. Add a path for Linux when the bench runs there.
 - `prototypes/connections/src/main.rs:116`: The page is read from the source tree. Embed it when the editor ships.
+- `prototypes/geometry/src/lib.rs:125`: A prism takes only convex outlines. Add ear clipping when a node needs L shapes.
 - `prototypes/toolchain/src/install.rs:157`: `curl.exe` downloads all Rust files, because a firewall can block a new `rustup-init.exe`.
 - `prototypes/toolchain/src/main.rs:161`: `PATINA_FETCH_CARGO` names a `cargo.exe` that the firewall allows, for the crate download.
 - `prototypes/viewport/src/bench.rs:3`: The bench code is a copy of the connections bench. Merge both into one crate when a third prototype needs it.

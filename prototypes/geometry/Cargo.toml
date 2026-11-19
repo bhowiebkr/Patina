@@ -1,0 +1,10 @@
+[package]
+name = "geometry"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "Task D0 of docs/workbenches-plan.md: a pure Rust mesh baseline with no kernel and no dependency."
+
+[lints]
+workspace = true
