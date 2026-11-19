@@ -2,7 +2,7 @@
 // the content security policy (15.3, 15.10).
 
 import { api } from '../api';
-import { RUN_MS, button, type CheckContext } from './check-fixtures';
+import { RUN_MS, button, enterText, startAction, type CheckContext } from './check-fixtures';
 
 /** Runs the steps of the start screen before a project opens. */
 export async function checkStart({ until, steps }: CheckContext) {
@@ -17,11 +17,26 @@ export async function checkStart({ until, steps }: CheckContext) {
   await until('the Git URL field of the libraries', RUN_MS, () => !!document.querySelector('input[aria-label="Git URL"]') && !!button('Add from Git') && !!button('Browse libraries'));
   await api.capture('settings');
   button('Back')!.click();
-  // The check does not click Browse: the folder dialog of the platform would wait for a person.
+  // The start screen has New project and Open project, and no path field (15.10). The check does not
+  // click Browse or Open project: the folder dialog of the platform would wait for a person.
   const browse = () => [...document.querySelectorAll('button')].filter((b) => b.textContent === 'Browse').length;
-  await until('the start screen with two Browse buttons', RUN_MS, () => !!button('Settings') && browse() === 2);
+  const actions = () => !!startAction('New project') && !!startAction('Open project');
+  await until('the start screen with New project, Open project and no Browse', RUN_MS, () => !!button('Settings') && actions() && browse() === 0);
   await api.capture('start');
   steps.push('settings screen');
+  // Ctrl+N opens the New project dialog. It checks the name while the user types.
+  dispatchEvent(new KeyboardEvent('keydown', { key: 'n', ctrlKey: true }));
+  const dialog = () => document.querySelector('.dialog.new-project');
+  const nameField = () => dialog()!.querySelector('input')!;
+  await until('the New project dialog with Browse and Create off', RUN_MS, () => browse() === 1 && button('Create')?.disabled === true);
+  enterText(nameField(), '.bad');
+  await until('the name problem with Create off', RUN_MS, () => !!dialog()?.querySelector('.error-text') && button('Create')?.disabled === true);
+  enterText(nameField(), 'good name');
+  const path = () => dialog()?.querySelector('.new-project-path')?.textContent ?? '';
+  await until('the folder path with Create on', RUN_MS, () => /[\\/]good name$/.test(path()) && button('Create')?.disabled === false);
+  button('Cancel')!.click();
+  await until('the start screen after Cancel', RUN_MS, () => !dialog() && actions());
+  steps.push('new project dialog');
   // The About dialog (15.3). The check does not click Check for updates: it needs the network.
   button('About')!.click();
   const about = () => document.querySelector('.dialog.about')?.textContent ?? '';

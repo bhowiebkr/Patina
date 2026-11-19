@@ -5,7 +5,7 @@ import { api, type EngineEvent, type View } from '../api';
 import { flushLayout, savedViewport } from '../panels/Dock';
 import { layoutText, parseLayout } from '../panels/layout';
 import { FAR_ZOOM } from '../wires/gl';
-import { A, B, BUILD_MS, RUN_MS, badge, button, enterText, entry, mouseWheel, scale, tab, topButton, transform, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, badge, button, entry, mouseWheel, scale, startAction, tab, topButton, transform, type CheckContext } from './check-fixtures';
 
 /** Saves, closes and opens the project again. It returns the last view and the middle of the canvas. */
 export async function checkDock({ step, until, result, mark, events, steps }: CheckContext, v: View) {
@@ -79,6 +79,21 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   topButton('Close')!.click();
   const row = () => [...document.querySelectorAll('.recent-row')].find((r) => r.querySelector('.path')?.textContent === v.root);
   await until('the project at the top of the recent list', RUN_MS, () => document.querySelector('.recent-row') === row() && !!row());
+  {
+    // The filter of the recent list shows only the rows that match (15.10). Enter is not sent: it opens a project.
+    const field = document.querySelector<HTMLInputElement>('.recent-filter')!;
+    const typeFilter = (text: string) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, text);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const recent = () => document.querySelector('[aria-label="Recent projects"]')?.textContent ?? '';
+    typeFilter('no project has this name');
+    await until('no row for a filter with no match', RUN_MS, () => !document.querySelector('.recent-row') && recent().includes('No project matches'));
+    typeFilter(v.root.split(/[\\/]/).pop()!.toUpperCase());
+    await until('the project row for its name', RUN_MS, () => !!row());
+    typeFilter('');
+    await until('the project at the top after the filter', RUN_MS, () => document.querySelector('.recent-row') === row() && !!row());
+  }
   row()!.querySelector<HTMLButtonElement>('.recent-remove')!.click();
   const dialog = () => document.querySelector('.dialog[role="dialog"]')?.textContent ?? '';
   await until('the remove dialog with three answers', RUN_MS, () => dialog().includes('Recycle Bin') && !!button('Remove from list') && !!button('Delete project') && !!button('Cancel'));
@@ -89,7 +104,7 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   const refused = await api.deleteProject(v.root).then(() => 'no error', String);
   if (!refused.includes('not a recent project')) throw new Error(`Delete project did not refuse a project off the recent list: ${refused}`);
   steps.push('close');
-  // Settings > Trusted projects > Remove takes the trust away. The Open form then opens the project with the trust banner, and Trust project trusts it again (11, 15.10).
+  // Settings > Trusted projects > Remove takes the trust away. Open project then opens the project with the trust banner, and Trust project trusts it again (11, 15.10).
   button('Settings')!.click();
   const same = (p: string | null | undefined) => p?.replace(/\\/g, '/').toLowerCase() === v.root.replace(/\\/g, '/').toLowerCase();
   const trustRow = () => [...document.querySelectorAll('[aria-label="Trusted projects"] .settings-row')].find((r) => same(r.querySelector('.path')?.textContent));
@@ -97,13 +112,16 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
   trustRow()!.querySelector('button')!.click();
   await until('the project off the trusted list', RUN_MS, () => !trustRow());
   button('Back')!.click();
-  const openForm = () => [...document.querySelectorAll('form.start-box')].find((f) => f.querySelector('h2')?.textContent === 'Open project');
-  const openButton = () => [...(openForm()?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Open');
-  await until('the Open project form', RUN_MS, () => !!openButton());
-  enterText(openForm()!.querySelector('input')!, v.root);
-  await until('the Open button on', RUN_MS, () => openButton()?.disabled === false);
-  openButton()!.click();
-  await until('the trust banner and no Run', BUILD_MS, () => !!button('Trust project') && topButton('Run')?.disabled === true);
+  // Open project opens the selected folder at once. The check stubs the folder dialog, which waits for a person.
+  const pickFolder = api.pickFolder;
+  api.pickFolder = async () => v.root;
+  try {
+    await until('the Open project button', RUN_MS, () => startAction('Open project')?.disabled === false);
+    startAction('Open project')!.click();
+    await until('the trust banner and no Run', BUILD_MS, () => !!button('Trust project') && topButton('Run')?.disabled === true);
+  } finally {
+    api.pickFolder = pickFolder;
+  }
   button('Trust project')!.click();
   await until('the trusted project', BUILD_MS, () => !button('Trust project') && topButton('Run')?.disabled === false);
   if (!(await api.settings()).trusted.some(same)) throw new Error('Trust project did not put the project in the trusted list');

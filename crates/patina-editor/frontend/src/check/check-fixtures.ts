@@ -262,6 +262,9 @@ export const gray = (r: number, g: number, b: number) => Math.abs(r - g) < 12 &&
 
 /** The first button with the text in the window. */
 export const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text);
+/** A large button of the start screen, New project or Open project (15.10). */
+export const startAction = (title: string) =>
+  [...document.querySelectorAll<HTMLButtonElement>('.start-action')].find((b) => b.querySelector('.start-action-title')?.textContent === title);
 export const tab = (name: string) => [...document.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent === name);
 export const leftTab = (name: string) => [...document.querySelectorAll<HTMLElement>('.area.left [role=tab]')].find((t) => t.textContent === name)!;
 export const topButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.topbar button')].find((b) => b.textContent === label);

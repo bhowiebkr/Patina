@@ -23,6 +23,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
   Windows frontend checks, workspace Clippy, and workspace tests passed on 2026-11-18.
   The synth dock tools are in progress. Their GUI resize checks are not complete.
 
+- Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
 
@@ -319,15 +320,25 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### Start screen
 
+- The start screen has two large buttons, **New project** and **Open project** (2026-11-18).
+  **Open project** opens the folder dialog, and the selected folder opens at once. **New
+  project** opens a dialog with **Name**, **Location** and a check of the name while the user
+  types. The recent list has the columns **Name** and **Path**, a **Filter** field and the
+  arrow keys. Ctrl+N and Ctrl+O click the two buttons.
+- Checked on 2026-11-18, on Windows only: the frontend type check, 198 frontend unit tests with the new name test, the frontend build, the CI clippy command and the workspace tests passed. The selfcheck passed 326 steps, with the New project dialog, Ctrl+N, the name check, Create, the recent filter and Open project with a stubbed folder dialog.
+- Known limits: no check sent Ctrl+O or the arrow keys, and no check opened the real folder
+  dialog, because it waits for a person. The recent list has no time of the last open, because
+  the list file has no times (13.3).
 - The **x** button of a recent project removes it from the list or moves its folder to the Recycle
   Bin (2026-11-17). The self-check clicks **Close**, the **x** of the project and **Remove from
   list**, and runs the refusal of **Delete project** through the API. No check moved a project to
   the Recycle Bin.
 - A new project has no node folders (2026-11-17). The engine test and the self-check open an empty
   new project, and the self-check then writes the hello nodes into it.
-- The self-check uses the start screen as a person does (2026-11-18). It fills the **New project**
-  form and clicks **Create**. It removes the trust of the project in **Settings**, opens the
-  project with the **Open project** form, and clicks **Trust project** in the banner. It also
+- The self-check uses the start screen as a person does (2026-11-18). It clicks **New project**, fills
+  the dialog and clicks **Create**. It removes the trust of the project in **Settings**, clicks
+  **Open project** with a folder in place of the folder dialog, and clicks **Trust project** in
+  the banner. It also
   clicks **Pause** in the top bar, **Rename pin...** in the menu of a public pin and **Help** >
   **About Patina**. It clicks **Add library** in **Settings** and **Import** in the Project
   panel, and gives a folder in place of the folder dialog. The node menu clicks are **Cut**,

@@ -714,23 +714,31 @@ This is an agent decision of 2026-11-15. The owner can change it.
 
 These are the fewest steps from a new project to a reopen:
 
-1. On the start screen, click **New project**. Select a folder and a name.
+1. On the start screen, click **New project**. In the dialog, type a name and click **Create**.
 2. Click **+** in the title of the **Nodes** group of the **Project** panel. Type `number` and push Enter.
 3. Make the node `show` in the same way. In its code, write its input to the standard output.
 4. Drag `number` and `show` into the graph. Connect the output of `number` to the input of `show`.
 5. Click **Run**. The **Output** tab shows the value.
 6. Push Ctrl+S.
-7. Close the project. On the start screen, select it in the recent projects list.
+7. Close the project. On the start screen, click it in the recent projects list.
 
 - A new project has only `patina.toml` and an empty main graph. It has no node folders. The `examples/hello` project has the `number` and `show` nodes. (Agent decision of 2026-11-17, for the owner request that a new project has no nodes. The owner can change it.)
 - A new project goes on the list of trusted projects (11).
 - A project opens with its graph paused. The user clicks **Run**.
 - When a trusted project has a build, the open loads the clusters of that build, and the graph does not run. So the node GUIs show while the graph is paused. The nodes show **Not run**, and the status bar shows the build time and **Not run**. A project with no build waits for **Run**. (Agent decision, 2026-11-16, for the owner request that an open shows the built node GUIs. The owner can change it.)
-- The start screen has **New project**, **Open project** and a list of the last 50 projects (13.3). The list scrolls.
+- The start screen has two large buttons, **New project** and **Open project**, and a list of the last 50 projects (13.3). (Owner request of 2026-11-18.)
+- Each large button has one line that tells what it does, and its tooltip shows its key. Ctrl+N clicks **New project** and Ctrl+O clicks **Open project**. The keys work only on the start screen with no dialog open. (Agent decision of 2026-11-18. The owner can change it.)
+- **Open project** opens the folder dialog of the platform at the folder of new projects. The folder that the user selects opens at once. **Cancel** in the folder dialog changes nothing. The start screen has no path field. (Owner request of 2026-11-18.)
+- **New project** opens the **New project** dialog. It has a **Name** field, a **Location** field with **Browse**, and the path of the new folder. **Location** starts at the folder of new projects. (Owner request of 2026-11-18.)
+- The dialog checks the name while the user types, with the same rule as the editor: letters, digits, spaces, `-`, `_` and `.`, 64 characters or fewer, and no `.` at the start or the end. **Create** is off until the name is correct. Enter clicks **Create**. **Cancel** or Esc closes the dialog. An error of the editor, for example a folder that exists, shows in the dialog. (Agent decision of 2026-11-18. The owner can change it.)
+- The recent list has two columns, **Name** and **Path**, with a header. A long text ends with an ellipsis, and its tooltip shows all of it. The list scrolls. (Owner request of 2026-11-18.)
+- A **Filter** field above the recent list shows only the projects whose name or path contains its text. Enter in the field opens the first project of the list. The up and down arrow keys move between the field and the rows. With no recent project, the list tells the user to click **New project** or **Open project**. (Agent decision of 2026-11-18. The owner can change it.)
+- The row of a missing project shows **Missing**. A click on it opens the remove dialog. (Agent decision of 2026-11-18. The owner can change it.)
+- Reason: the owner found the path fields slow. A person who opens Patina for the first time sees two clear actions. A person who opens it often finds a project with the filter and the keys.
 - Each row of the recent list has a small **x** button at its right. The button shows only on the row under the pointer or with the keyboard focus. It opens a dialog with **Remove from list**, **Delete project** and **Cancel**. **Remove from list** keeps the folder. **Delete project** moves the project folder to the Recycle Bin, and removes the project from the recent list and from the trusted list. A missing project has no **Delete project**. Patina deletes only a project of the recent list with a `patina.toml` file. On Linux and macOS, **Delete project** shows an error for now. (Agent decision of 2026-11-17. The owner can change it.)
 - Reason: the user asked for a quiet button to remove a project. The Recycle Bin lets the user get a project back. A new folder at the same path must not get the trust of the deleted project (11).
 - The start screen and the settings screen are at the vertical center of the window. Behind their panels, a picture of a node network with lit wires shows. All of the picture is blurred, as behind frosted glass. The picture has a fixed scale and fills the window, so a larger screen shows more nodes, not larger nodes. The picture is only for the look. It has no motion when the platform asks for reduced motion. This is an agent decision of 2026-11-15. The owner can change it.
-- The user can type each folder, or click **Browse** to select it in the folder dialog of the platform. This is an agent decision of 2026-11-15. The owner can change it.
+- In the **New project** dialog, the user can type the location, or click **Browse** to select it in the folder dialog of the platform. This is an agent decision of 2026-11-15, changed on 2026-11-18 for the owner request. The owner can change it.
 
 **Branding**
 

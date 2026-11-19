@@ -613,8 +613,8 @@ build the editor again.
 
 To make your first graph:
 
-1. On the start screen, click **Open project** and open `examples/hello`. A new project has no
-   nodes. To make a node, see the next part.
+1. On the start screen, click **Open project** and select `examples/hello` in the folder
+   dialog. A new project has no nodes. To make a node, see the next part.
 2. Drag `number` and `show` from the **Project** panel into the graph. You can also
    double-click an empty area of the graph, type a part of the name and push Enter.
 3. Drag from the output of `number` to the input of `show`. You can also drag from a pin into

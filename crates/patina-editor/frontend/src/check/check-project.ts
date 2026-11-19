@@ -3,7 +3,7 @@
 
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
-import { A, B, BUILD_MS, RUN_MS, button, enterText, helloNodes, leftTab, statusText, tab, topButton, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, button, enterText, helloNodes, leftTab, startAction, statusText, tab, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */
 export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string) {
@@ -28,16 +28,17 @@ export async function checkProject({ step, until, result, mark, events, steps, f
     api.pickFolder = pickFolder;
   }
   button('Back')!.click();
-  // The Create button of the start screen makes the project of the check (15.10). Pause gives its view.
-  const newForm = () => [...document.querySelectorAll('form.start-box')].find((f) => f.querySelector('h2')?.textContent === 'New project');
-  const create = () => [...(newForm()?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Create');
-  await until('the New project form', RUN_MS, () => !!create());
-  const [folder, name] = newForm()!.querySelectorAll('input');
-  enterText(folder, dir);
+  // New project opens its dialog, and Create makes the project of the check (15.10). Pause gives its view.
+  const dialog = () => document.querySelector('.dialog.new-project');
+  await until('the New project button', RUN_MS, () => startAction('New project')?.disabled === false);
+  startAction('New project')!.click();
+  await until('the New project dialog', RUN_MS, () => !!dialog() && !!button('Create'));
+  const [name, folder] = dialog()!.querySelectorAll('input');
   enterText(name, 'check');
-  await until('the Create button on', RUN_MS, () => create()?.disabled === false);
-  create()!.click();
-  await until('the new project in the editor', BUILD_MS, () => !newForm() && !!topButton('Run'));
+  enterText(folder, dir);
+  await until('the Create button on', RUN_MS, () => button('Create')?.disabled === false);
+  button('Create')!.click();
+  await until('the new project in the editor', BUILD_MS, () => !dialog() && !!topButton('Run'));
   let v = await step('new project', () => api.pause());
   if (v.root.replace(/\\/g, '/').split('/').pop() !== 'check') throw new Error(`the Create button made ${v.root}, not the check project`);
   if (!v.trusted || v.live || (v.graph.node ?? []).length !== 0 || v.nodes.some((n) => !n.builtin && !n.subgraph)) throw new Error('a new project is trusted, paused and has no nodes');
@@ -105,7 +106,7 @@ fn broken() -> u32 {
     !!logs()?.querySelector('.hl-sev-err') && [...(logs()?.querySelectorAll('.hl-fix') ?? [])].some((f) => f.parentElement?.textContent?.includes('another type')),
   );
   // Clear in the header of the Logs panel removes the lines.
-  [...tab('Logs')!.parentElement!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Clear')!.click();
+  [...tab('Logs')!.closest('[role=tablist]')!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Clear')!.click();
   await until('the empty Logs panel after Clear', RUN_MS, () => logs()?.textContent === '');
   shown?.click();
   steps.push('the Logs panel highlights an error and gives a fix, and Clear removes the lines');
