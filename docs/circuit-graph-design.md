@@ -174,8 +174,8 @@ implementation result.
 | Memory and timing panels | Independent Views, spec 15.8 | Bound viewers; capture history in graph-owned state rather than losing it when a view closes |
 | Ribbon buses and routes | Typed wires and editor visual rules | Lane metadata, renderer, routing, picking, style controls and persistence decisions |
 | Synchronous logic | Stateful nodes and explicit delays | Defined edge/step semantics and repeatable simulation tests |
-| Feedback-built latches | Gate cycles, spec 9.2 | Each gate of a cycle runs one time in each frame, as in DLS2. A latch settles over some frames. Other cycles still need a delay. |
-| Shared electrical bus drivers | No equivalent generic merge rule | Explicit resolver/tri-state model and contention rules; ordinary wires cannot silently merge sources |
+| Feedback-built latches | Gate cycles, spec 9.2 | Each node of a cycle runs one time in each frame, as in DLS2. A cycle can hold light nodes with state, for example RAM and ROM. A latch settles over some frames. Other cycles still need a delay. |
+| Shared electrical bus drivers | The `bus` node of `examples/computer` gives the OR of the drivers that are on | A wire has one driver. A general tri-state model with contention rules is not designed. See [docs/dls2-parity.md](dls2-parity.md). |
 | Fast circuit simulation | Headless engine and compiled clusters | Prototype performance and event/settling behavior; no speed claim is supported by the artwork |
 
 A specialized simulation node or compiled subgraph could own electrical

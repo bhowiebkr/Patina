@@ -22,7 +22,7 @@ pub fn split(text: &str) -> (String, String) { ... }
 - The source of a node can also have helper functions and `use` statements.
 - `syn` parses with recursion, so Patina parses node code on a thread with a 64 MB stack. A debug build then parses types with about 1000 levels of nesting. Code that nests deeper can still stop the process. (Agent decision, 2026-11-16. The owner can change it.)
 
-A node with only `bool`, `char` and number values is a light node. Light nodes share one task (9.2). A light node that does much work, for example a long loop, can set `heavy`:
+A node with only `bool`, `char` and number wires is a light node. Its parameters can have each type, for example a text. Light nodes share one task (9.2). A light node that does much work, for example a long loop, can set `heavy`:
 
 ```rust
 #[node(heavy)]

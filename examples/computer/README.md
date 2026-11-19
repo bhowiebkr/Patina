@@ -34,6 +34,10 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 - **A D latch.** The `latch` graph has a `d-latch` of two NOR gates that read each other, with
   no delay. Each gate runs one time in each frame, so the latch settles over some frames.
   **STORE** copies **DATA** to **Q**, and the latch keeps **Q** when **STORE** is false.
+- **Parts as in Digital Logic Sim 2.** The `d-flip-flop` subgraph is two D latches. **Q** gets
+  **DATA** when **CLOCK** goes on. The `rom` node has 256 words of 16 bits, the `pulse` node
+  gives a pulse at a rising edge, and the `bus` node replaces tri-state buffers. See
+  [Build the computers of Digital Logic Sim 2](../../docs/dls2-parity.md).
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
 - **Node GUIs.** The `program`, `ram`, `readout`, `display`, `lcd`, `clock`, `analyzer`,
@@ -57,16 +61,16 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 | Folder | Parts |
 | --- | --- |
-| `nodes/` | `nand`, `switch`, `clock`, `program`, `ram`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `sprites`, `screen`, `random`, `joystick`, `button` |
+| `nodes/` | `nand`, `switch`, `clock`, `program`, `ram`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `sprites`, `screen`, `random`, `joystick`, `button`, `rom`, `pulse`, `bus` |
 | `views/` | `monitor` |
 | `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm`, `paint.asm`, `snake.asm` |
 | `connections/` | `byte`, `segment-bus` |
 | `types/` | `segments`, `frame` |
-| `graphs/` | `main`, `latch` and 29 subgraphs |
+| `graphs/` | `main`, `latch` and 30 subgraphs |
 
 The subgraphs, from small to large:
 
-- **Gates:** `not`, `and`, `or`, `nor`, `xor`, `mux`, `d-latch`.
+- **Gates:** `not`, `and`, `or`, `nor`, `xor`, `mux`, `d-latch`, `d-flip-flop`.
 - **Arithmetic:** `half-adder`, `full-adder`, `adder-4`, `adder-8`, `incrementer-8`,
   `alu-8`, `is-zero-8`.
 - **Selection:** `mux-4`, `mux-8`, `decoder-2`, `decoder-3`, `decoder-4`.

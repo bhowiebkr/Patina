@@ -296,8 +296,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   as in Digital Logic Sim 2, so a latch settles over some frames (spec 9.2). The `latch` graph of `examples/computer` is a D latch of two NOR
   gates. The CLI test runs it for 16 frames and checks that it keeps its value. It also checks
   that a NAND gate that reads its own output changes at each frame, with no **WARN** line.
+- A node with state, for example `ram` or the new `rom`, can be part of a gate cycle. A light
+  node can have a text parameter. The new `d-flip-flop` subgraph is two D latches. A CLI test runs a
+  4-bit counter of these flip-flops with no delay node, a ROM and a RAM that read their own output,
+  and the new `pulse` and `bus` nodes. See [docs/dls2-parity.md](docs/dls2-parity.md).
 - Known limits: a rebuild of the cluster, for example after a graph edit, sets the values of a
   cycle back to the default, so a latch forgets its value. No check ran the latch in the editor.
+- Known limits for the parts of Digital Logic Sim 2: no wire with many drivers (use `bus`), no
+  RGB or dot display, no buzzer, no Key chip, and no random order in a race. The `rom`, `pulse`
+  and `bus` nodes have no custom GUI, and no check ran them in the editor.
 
 ### Touchpad pan
 

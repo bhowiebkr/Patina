@@ -303,7 +303,7 @@ A graph can be a digital circuit. The `examples/computer` project has one node f
 `nand`. The other gates, the adders and a 4-bit counter are subgraphs of NAND gates. Each frame
 is one clock step. A `delay` node keeps a bit for one step, as a flip-flop does. A loop of gates
 with no state needs no delay: each gate of the loop runs one time in each frame, and a wire back
-gives the value of the frame before. So two NOR gates make a latch, as in a logic simulator. Run the example and the latch:
+gives the value of the frame before. So two NOR gates make a latch, as in a logic simulator. To build the circuits of Digital Logic Sim 2, see [Build the computers of Digital Logic Sim 2](docs/dls2-parity.md). Run the example and the latch:
 
 ```
 cargo run -p patina-cli -- run examples/computer --frames 16

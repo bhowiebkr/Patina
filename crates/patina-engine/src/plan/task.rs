@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{Source, Step, Task, scalar};
-use crate::node::{self, Domain, Node};
+use crate::node::{Domain, Node};
 
 /// Puts the nodes in run order (9.2). The nodes of a cycle are one group, and the groups go in
 /// the order of their wires, with ties in file order. In a group, a node comes after the nodes of
@@ -112,18 +112,19 @@ fn groups(after: &[Vec<usize>]) -> Vec<usize> {
 }
 
 /// True when step `n` is so small that a task of its own costs more than the step (9.2): a delay,
-/// or a node with only `bool`, `char` and number values, for example a NAND gate. `heavy` stops it.
+/// or a node with only `bool`, `char` and number wires, for example a NAND gate or a ROM with a
+/// text parameter. `heavy` stops it.
 pub(super) fn is_light(steps: &[Step], nodes: &[(String, Node)], n: usize, is_delay: bool) -> bool {
     let (step, node) = (&steps[n], &nodes[steps[n].node].1);
-    let input = |(i, source): (&node::Input, &Source)| match *source {
+    let input = |source: &Source| match *source {
         Source::Wire { step, output } => scalar(&steps[step].types[output]),
-        Source::Slot(_) => scalar(&i.value),
+        Source::Slot(_) => true,
     };
     is_delay
         || (!node.is_async
             && !node.heavy
             && step.domain != Domain::Event
-            && node.inputs.iter().zip(&step.inputs).all(input)
+            && step.inputs.iter().all(input)
             && step.types.iter().take(step.consumers.len()).all(|ty| scalar(ty)))
 }
 

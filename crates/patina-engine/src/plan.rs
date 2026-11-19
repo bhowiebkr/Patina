@@ -201,7 +201,7 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     domain::assign(&mut steps, &edges, &own, is_delay)?;
     let light: Vec<bool> = (0..steps.len()).map(|n| is_light(&steps, &nodes, n, is_delay(steps[n].node))).collect();
     let orders: Vec<(usize, usize)> = orders.iter().map(|&(from, to)| (step_of[from], step_of[to])).collect();
-    check_loops(&steps, &nodes, &loops, &orders, &light, builtin)?;
+    check_loops(&steps, &loops, &orders, &light, builtin)?;
     let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
     let tasks = split(&mut steps, &edges, &trigger, &light, &loops);
     let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None, loops };
@@ -212,27 +212,27 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     Ok(plan)
 }
 
-/// Checks each cycle of steps (9.2). A cycle with no delay runs again in its frame until its
-/// values do not change, so it holds only light nodes with no state, in one domain, frame or
-/// audio, and no order wire.
-fn check_loops(steps: &[Step], nodes: &[(String, Node)], loops: &[(usize, usize)], orders: &[(usize, usize)], light: &[bool], builtin: impl Fn(usize) -> bool) -> Result<(), Vec<String>> {
+/// Checks each cycle of steps (9.2). A cycle with no delay is one task that runs each of its steps
+/// one time in each frame or block, so it holds only light nodes that are not builtins, in one
+/// domain, frame or audio, and no order wire.
+fn check_loops(steps: &[Step], loops: &[(usize, usize)], orders: &[(usize, usize)], light: &[bool], builtin: impl Fn(usize) -> bool) -> Result<(), Vec<String>> {
     let mut problems = Vec::new();
     for &(first, last) in loops {
         let members = first..=last;
         let domain = steps[first].domain;
-        let heavy = members.clone().find(|&n| !light[n] || builtin(steps[n].node) || nodes[steps[n].node].1.state.is_some());
+        let heavy = members.clone().find(|&n| !light[n] || builtin(steps[n].node));
         let reason = if orders.iter().any(|(a, b)| members.contains(a) && members.contains(b)) {
             "An order wire is part of it".to_owned()
         } else if !matches!(domain, Domain::Frame | Domain::Audio) || members.clone().any(|n| steps[n].domain != domain) {
             "Its nodes are not all in the frame domain or all in the audio domain".to_owned()
         } else if let Some(n) = heavy {
-            format!("The node {} is not a light node with no state", steps[n].id)
+            format!("The node {} is not a light node", steps[n].id)
         } else {
             continue;
         };
         let ids: Vec<&str> = members.map(|n| steps[n].id.as_str()).collect();
         problems.push(format!(
-            "the graph has a cycle through these nodes: {}. {reason}. Put a delay node in the cycle, or use only light nodes with no state, for example gates, in the frame or the audio domain (spec 9.2)",
+            "the graph has a cycle through these nodes: {}. {reason}. Put a delay node in the cycle, or use only light nodes, for example gates, in the frame or the audio domain (spec 9.2)",
             ids.join(", ")
         ));
     }
@@ -455,7 +455,7 @@ pub(crate) fn read_kinds(root: &Path, problems: &mut Vec<String>) -> Vec<(String
 }
 
 /// True for a `bool`, `char` or number type, also behind `&` or `&mut`.
-fn scalar(ty: &str) -> bool {
+pub(crate) fn scalar(ty: &str) -> bool {
     const SCALARS: [&str; 16] = ["bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize"];
     SCALARS.contains(&ty.trim_start_matches('&').trim_start_matches("mut ").trim())
 }
@@ -691,8 +691,9 @@ to = \"000000000000000f.value\"
         let reason = |plan: Result<Plan, Vec<String>>| plan.err().unwrap()[0].split(". ").nth(1).unwrap_or_default().to_owned();
         assert_eq!(reason(ordered), "An order wire is part of it");
         assert_eq!(reason(batch), "Its nodes are not all in the frame domain or all in the audio domain");
-        assert_eq!(reason(heavy), "The node 000000000000000b is not a light node with no state");
-        assert_eq!(reason(stateful), "The node 000000000000000a is not a light node with no state");
+        assert_eq!(reason(heavy), "The node 000000000000000b is not a light node");
+        // A node with state runs one time in each frame, also in a cycle, as a RAM chip of DLS2 does.
+        assert_eq!(stateful.unwrap_or_else(|p| panic!("{p:?}")).loops, [(0, 1)]);
     }
 
     #[test]

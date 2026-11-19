@@ -107,6 +107,70 @@ fn the_d_latch_of_two_nor_gates_keeps_its_value() {
     assert_eq!(stdout.lines().collect::<Vec<_>>(), ["00000001 1", "00000000 0", "00000001 1", "00000000 0"]);
 }
 
+/// A top graph of `nodes`, each an id and the rest of its TOML, and `wires`, each two pins.
+fn graph(nodes: &[(&str, &str)], wires: &[(String, String)]) -> String {
+    let nodes = nodes.iter().map(|(id, rest)| format!("\n[[node]]\nid = \"{id}\"\n{rest}\n"));
+    let wires = wires.iter().map(|(from, to)| format!("\n[[wire]]\nfrom = \"{from}\"\nto = \"{to}\"\n"));
+    format!("format = 1\ntop = true\n{}{}", nodes.collect::<String>(), wires.collect::<String>())
+}
+
+/// Runs the top graph `name` for `frames` frames and gives the values that the readout wrote.
+fn values(project: &Path, name: &str, frames: &str) -> Vec<u8> {
+    let (output, stdout, stderr) = run(project, &["--graph", name, "--frames", frames]);
+    assert!(output.status.success() && !stderr.contains("WARN"), "{stderr}");
+    stdout.lines().map(|line| line.split(' ').nth(1).unwrap().parse().unwrap()).collect()
+}
+
+#[test]
+fn the_parts_of_digital_logic_sim_2_work_in_cycles_with_no_delay() {
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer-dls2");
+    let w = |from: &str, to: &str| (from.to_owned(), to.to_owned());
+    // A counter of 4 D flip-flops of NAND gates, as in the videos of Digital Logic Sim 2.
+    let (q, d) = (|i: usize| format!("f00000000000000{i}.c3a96e04"), |i: usize| format!("f00000000000000{i}.4d1c7a90"));
+    let mut wires = vec![(q(0), "a000000000000000.5ade65ce".to_owned()), ("a000000000000000.7ff633ef".to_owned(), d(0))];
+    let mut carry = q(0);
+    for i in 0..4 {
+        wires.extend([w("c0c0c0c0c0c0c001.out", &format!("f00000000000000{i}.8b2e5f13")), (q(i), format!("d000000000000001.b{i}"))]);
+        if i > 0 {
+            let add = format!("a00000000000000{i}");
+            wires.extend([(q(i), format!("{add}.9131f68f")), (carry, format!("{add}.1e8b06d1")), (format!("{add}.301a2640"), d(i))]);
+            carry = format!("{add}.d84ec94f");
+        }
+    }
+    wires.push(w("d000000000000001.out", "d000000000000002.value"));
+    let (ff, half) = ("subgraph = \"d-flip-flop\"", "subgraph = \"half-adder\"");
+    let nodes = [
+        ("c0c0c0c0c0c0c001", "folder = \"nodes/clock\"\n[node.params]\nevery = \"4\""),
+        ("f000000000000000", ff), ("f000000000000001", ff), ("f000000000000002", ff), ("f000000000000003", ff),
+        ("a000000000000000", "subgraph = \"not\""), ("a000000000000001", half), ("a000000000000002", half), ("a000000000000003", half),
+        ("d000000000000001", "folder = \"nodes/join\""), ("d000000000000002", "folder = \"nodes/readout\""),
+    ];
+    fs::write(project.join("graphs/count.toml"), graph(&nodes, &wires)).unwrap();
+    // The first value comes from the latches at power on. Then the counter counts 0 to 15 and
+    // again 0. A bit that goes off changes one frame before a bit that goes on, so a short value
+    // can come between two counts, as for one step in Digital Logic Sim 2 (9.2).
+    let counts = [15, 0, 1, 0, 2, 3, 0, 4, 5, 4, 6, 7, 0, 8, 9, 8, 10, 11, 8, 12, 13, 12, 14, 15, 0];
+    assert_eq!(values(&project, "count", "70"), counts);
+    // A ROM, a RAM and a pulse in cycles. Each reads its own output of the frame before.
+    let (rom, ram, out) = ("e000000000000003", "e000000000000001", "d000000000000002");
+    let rom_node = [(rom, "folder = \"nodes/rom\"\ndomain = \"frame\"\n[node.params]\nwords = \"1 2 3 0x10\""), (out, "folder = \"nodes/readout\"")];
+    fs::write(project.join("graphs/rom.toml"), graph(&rom_node, &[w(&format!("{rom}.out1"), &format!("{rom}.address")), w(&format!("{rom}.out1"), &format!("{out}.value"))])).unwrap();
+    assert_eq!(values(&project, "rom", "6"), [1, 2, 3, 16, 0, 1]);
+    let ram_node = [(ram, "folder = \"nodes/ram\"\ndomain = \"frame\"\n[node.params]\ndata = \"5\"\nwrite = \"true\""), (out, "folder = \"nodes/readout\"")];
+    fs::write(project.join("graphs/ram.toml"), graph(&ram_node, &[w(&format!("{ram}.out"), &format!("{ram}.address")), w(&format!("{ram}.out"), &format!("{out}.value"))])).unwrap();
+    assert_eq!(values(&project, "ram", "6"), [5, 0, 5]);
+    // A pulse of 2 frames at each clock tick drives the bus with a second driver of 64.
+    let parts = [
+        ("c0c0c0c0c0c0c001", "folder = \"nodes/clock\"\n[node.params]\nevery = \"4\""),
+        ("e000000000000004", "folder = \"nodes/pulse\"\n[node.params]\nticks = \"2\""),
+        ("e000000000000005", "folder = \"nodes/bus\"\n[node.params]\non0 = \"true\"\nd1 = \"64\"\non1 = \"true\"\nd2 = \"128\""),
+        ("d000000000000001", "folder = \"nodes/join\""), (out, "folder = \"nodes/readout\""),
+    ];
+    let wires = [w("c0c0c0c0c0c0c001.out", "e000000000000004.input"), w("e000000000000004.out", "d000000000000001.b0"), w("d000000000000001.out", "e000000000000005.d0"), w("e000000000000005.out", &format!("{out}.value"))];
+    fs::write(project.join("graphs/parts.toml"), graph(&parts, &wires)).unwrap();
+    assert_eq!(values(&project, "parts", "9"), [65, 64, 65, 64, 65]);
+}
+
 #[test]
 fn the_computer_example_of_nand_gates_counts_adds_and_runs_programs() {
     let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer");

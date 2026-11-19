@@ -545,10 +545,11 @@ fn step(s: &mut String, plan: &Plan, n: usize, probe: usize) {
 }
 
 /// True when step `n` can be a gate of a net (9.2): a light node with no state, no error, no
-/// `&mut` input and one output, which no other domain reads.
+/// `&mut` input, number parameters and one output, which no other domain reads.
 fn is_gate(plan: &Plan, n: usize) -> bool {
     let node = &plan.nodes[plan.steps[n].node].1;
     plan.is_light(n)
+        && node.inputs.iter().zip(&plan.steps[n].inputs).all(|(i, source)| !matches!(source, Source::Slot(_)) || crate::plan::scalar(&i.value))
         && plan.builtin(n).is_none()
         && !plan.in_slot(n)
         && node.state.is_none()

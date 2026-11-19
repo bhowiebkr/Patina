@@ -1,0 +1,46 @@
+format = 1
+
+[symbol]
+shape = "chip"
+label = "D FF"
+
+[[node]]
+id = "0f1e2d3c4b5a6978"
+subgraph = "not"
+pos = [0.0, 204.0]
+
+[[node]]
+id = "1a2b3c4d5e6f7081"
+subgraph = "d-latch"
+pos = [300.0, 0.0]
+
+[[node]]
+id = "2b3c4d5e6f708192"
+subgraph = "d-latch"
+pos = [650.0, 0.0]
+
+[[wire]]
+from = "0f1e2d3c4b5a6978.7ff633ef"
+to = "1a2b3c4d5e6f7081.9e2b7c40"
+
+[[wire]]
+from = "1a2b3c4d5e6f7081.6a0f4d2e"
+to = "2b3c4d5e6f708192.3d8f1a6c"
+
+[[input]]
+key = "4d1c7a90"
+name = "data"
+pos = [-250.0, 34.0]
+to = ["1a2b3c4d5e6f7081.3d8f1a6c"]
+
+[[input]]
+key = "8b2e5f13"
+name = "clock"
+pos = [-250.0, 204.0]
+to = ["0f1e2d3c4b5a6978.5ade65ce", "2b3c4d5e6f708192.9e2b7c40"]
+
+[[output]]
+key = "c3a96e04"
+name = "q"
+pos = [1000.0, 34.0]
+from = "2b3c4d5e6f708192.6a0f4d2e"
