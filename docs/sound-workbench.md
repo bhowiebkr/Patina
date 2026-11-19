@@ -15,6 +15,10 @@ The sound workbench needs its own views and widgets around the graph.
 Keep the graph, docks, undo, project files, build tools, and shared controls in Patina.
 Keep sound presets, performance controls, musical editing, and audio analysis in Ember.
 
+Owner direction, 2026-11-18: keep the canvas central. Add workbench tools as tabs in the left, right, and bottom docks.
+The [dock design study](synth-dock-design.md) applies this direction to the owner's screenshot and defines resize behavior.
+Its controls and measurements are proposed designs, not working features.
+
 ## GUI research, 2026-11-18
 
 This review uses official product pages and manuals. It also checks the current Ember source and Patina view API.
