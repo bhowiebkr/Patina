@@ -1,11 +1,11 @@
-use city::Plots;
+use city::{Density, Plots};
 use geometry::Seed;
 use patina_sdk::node;
 
-/// Gives each lot that is not a park a height in full floors of `floor`. The height is near
-/// `high` at the center of the city and goes down to `low` at `radius` and farther, with a random
-/// part from the seed.
-#[node]
-pub fn heights(plots: &Plots, seed: &Seed, low: f64, high: f64, radius: f64, floor: f64) -> Result<Plots, String> {
-    city::heights(plots, *seed, low, high, radius, floor)
+/// Gives each lot its floors from the density and the zone, up to `high`. A residential lot has
+/// houses at a low density and apartments at a high density. A commercial lot has shops, and
+/// towers near `high` at the peak of the density. An industrial lot has one or two floors.
+#[node(color = "#6a4f7a")]
+pub fn heights(plots: &Plots, density: &Density, seed: &Seed, high: u32) -> Result<Plots, String> {
+    city::heights(plots, density, *seed, high)
 }

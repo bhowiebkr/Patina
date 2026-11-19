@@ -13,25 +13,44 @@ Run this command from the root of the repository:
 cargo run -p patina-cli -- run workbenches/city --frames 1
 ```
 
-The sample graph makes a district of 600 m x 450 m. The `report` node writes
-`559 items, 53244 places, 664546 triangles, bounds -308 -233 -0.1 to 308 233 54.2, scene hash ...`.
+The `main` graph makes an organic city of 600 m x 450 m on hills, with a river and a coast.
+The `report` node writes
+`647 items, 52068 places, 1605650 triangles, bounds -308.118 -230.145 -6.5 to 300 232.34 172.772, scene hash ...`.
 The first build compiles the C++ kernel of the model workbench in about 5 to 10 s.
+
+The `planned` graph puts the same buildings on a grid of streets on flat land. Run it with
+`--graph planned`.
 
 ## The steps of a city
 
-Each step is a node, so you can change or replace one step:
+Each step is a node, so you can change or replace one step. The `main` graph has these steps:
 
-1. `streets` makes a grid of streets from the seed. Each `avenue`th line is a wide, straight
-   avenue. `jitter` moves the crossings, and `drop` removes a part of the inner streets.
-2. `blocks` gives the faces between the streets. `inset` moves the edges in for a sidewalk.
-3. `lots` splits each block into lots. A lot with no street edge becomes a park.
-4. `heights` gives each lot a number of floors. The buildings are tall at the center.
-5. `masses` makes the body and the roof of each building: flat, gable or hip.
-6. `facades` puts a window on each floor and bay, and a door on the street. The window and the
-   door are solid inputs, for example `cuboid` nodes.
-7. `roads` makes the asphalt and the sidewalks. `scatter` puts a solid along the edges of the
-   plots, for example trees on the parks and lamps on the sidewalks.
-8. `merge` puts two scenes into one. `report` writes the scene as text.
+1. `terrain` makes the hills from the seed, with a slope down to the coast. `river` cuts a
+   winding river across the land. `ground` shows the grass, the sand, the rock and the water.
+2. `density` puts the people on the land: a main center and sub-centers, less on steep slopes
+   and none on the water.
+3. `highways` joins gates on the edge to the center. A steep slope costs more, and the water
+   costs a bridge. `grow` grows the arterial roads and the local streets from the highways.
+   A street follows the ground, and it turns along a bank or a steep slope. `prune` removes
+   the dead ends.
+4. `blocks` gives the faces between the streets. `inset` moves the edges in for a sidewalk.
+   `lots` splits each block into lots.
+5. `zoning` gives each lot a zone: residential, commercial, industrial or park. `heights`
+   gives each lot a number of floors from the density and the zone.
+6. `buildings` plans a building on each lot: a house, an apartment, a shop, a tower or a
+   warehouse. The plan has the footprint, the wings, the step-backs, the floors, the roof form
+   and a style.
+7. `walls` builds the bodies, the floor bands, the cornices and the parapets. `facades` puts
+   the windows, the doors, the shop fronts, the loading doors and the balconies on the walls.
+   `roofs` builds the gable, hip, flat and sawtooth roofs and the parts on them.
+8. `roads` makes the asphalt, the sidewalks, the center lines and the bridges. `parks` gives
+   the park lots, and `scatter` puts a solid along the edges of the plots on the ground, for
+   example trees on the parks and lamps on the sidewalks.
+9. `merge` puts two scenes into one. `report` writes the scene as text.
+
+In the `planned` graph, `streets` makes the grid from the seed instead of steps 1 to 3. Each
+`avenue`th line is a wide, straight avenue. `jitter` moves the crossings, and `drop` removes a
+part of the inner streets.
 
 ## Scenes and instances
 
@@ -43,7 +62,7 @@ The `model-view` view shows a scene with GPU instances. Do these steps:
 
 1. Open the project in the editor and click **Run**.
 2. Open **Views** and select **model-view**.
-3. Click `report` to see the full city, or click a step, for example `masses`.
+3. Click `report` to see the full city, or click a step, for example `buildings`.
 
 ## Export the buildings
 
@@ -70,14 +89,12 @@ wire to the node. A run after a change does not write.
 
 On 2026-11-19, on the Windows computer of the owner, with a bake build:
 
-- The sample district runs in about 0.3 s after the build.
-- A district of 1 km x 1 km has 105482 places and 1352998 triangles. It runs in less than 0.5 s
+- The `main` graph runs in about 0.4 s after the build. It has 197 buildings.
+- A city of 1 km x 1 km has 72122 places and 2284204 triangles. It runs in less than 0.5 s
   after the build. The target of task E8 is 2 s.
 
 ## Known limits
 
-- The streets are a grid with jitter. The workbench has no curved streets and no terrain.
+- The terrain is value noise. It has no erosion, and the river does not follow the valleys.
 - A block is one face of the street graph, so a very concave block can give thin lots.
-- Round shapes and turned roofs use the sine of the C++ runtime, so the scene hash can be
-  different on another platform. This is not checked.
-- The export writes no materials. The colors are on the scene items only.
+- A street at the edge of the land turns along the edge.

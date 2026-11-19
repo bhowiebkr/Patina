@@ -80,7 +80,7 @@ fn write(scene: &Scene, folder: &str) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use city::{Plot, Plots};
+    use city::{Plot, Plots, Terrain};
     use geometry::Seed;
 
     use super::*;
@@ -89,8 +89,9 @@ mod tests {
     fn only_a_click_writes_one_file_for_each_building() {
         let folder = std::env::temp_dir().join(format!("patina-export-buildings-{}", std::process::id()));
         let text = folder.to_str().unwrap();
-        let lot = |x: f64| Plot { corners: vec![[x, 0.0], [x + 10.0, 0.0], [x + 10.0, 8.0], [x, 8.0]], fronts: vec![true; 4], floors: 2, height: 6.0, ..Plot::default() };
-        let scene = city::masses(&Plots(vec![lot(0.0), lot(20.0)]), Seed(1), 0.0, 1.0).unwrap();
+        let lot = |x: f64| Plot { corners: vec![[x, 0.0], [x + 16.0, 0.0], [x + 16.0, 20.0], [x, 20.0]], fronts: vec![Some(2); 4], floors: 2, ..Plot::default() };
+        let plans = city::buildings(&Plots(vec![lot(0.0), lot(30.0)]), &Terrain::default(), Seed(1), 3.0, 2.0).unwrap();
+        let scene = city::walls(&plans);
         let mut node = ExportBuildings::init();
         node.process(&scene, text, 3).unwrap();
         assert!(!folder.exists());

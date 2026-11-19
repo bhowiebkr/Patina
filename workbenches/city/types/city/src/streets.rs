@@ -2,7 +2,7 @@
 
 use geometry::Seed;
 
-use crate::{Edge, Streets};
+use crate::{ARTERIAL, Edge, LOCAL, Streets};
 
 /// The most cells on one side of the grid, so that a small spacing cannot fill the memory.
 pub const MAX_CELLS: usize = 200;
@@ -62,7 +62,9 @@ pub fn grid(seed: Seed, g: &Grid) -> Result<Streets, String> {
         }
     }
     let at = |i: usize, j: usize| j * (nx + 1) + i;
-    let width = |on_avenue: bool| if on_avenue { g.avenue_width } else { g.street };
+    let edge = |a: usize, b: usize, on_avenue: bool| {
+        if on_avenue { Edge { a, b, width: g.avenue_width, class: ARTERIAL } } else { Edge { a, b, width: g.street, class: LOCAL } }
+    };
     let mut edges = Vec::with_capacity(2 * (nx + 1) * (ny + 1));
     // An inner street is not on the outer ring, so it can drop out.
     let mut inner = Vec::new();
@@ -70,11 +72,11 @@ pub fn grid(seed: Seed, g: &Grid) -> Result<Streets, String> {
         for i in 0..=nx {
             if i < nx {
                 inner.push(j > 0 && j < ny && !avenue(j));
-                edges.push(Edge { a: at(i, j), b: at(i + 1, j), width: width(avenue(j)) });
+                edges.push(edge(at(i, j), at(i + 1, j), avenue(j)));
             }
             if j < ny {
                 inner.push(i > 0 && i < nx && !avenue(i));
-                edges.push(Edge { a: at(i, j), b: at(i, j + 1), width: width(avenue(i)) });
+                edges.push(edge(at(i, j), at(i, j + 1), avenue(i)));
             }
         }
     }

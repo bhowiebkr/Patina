@@ -1,24 +1,51 @@
-//! The types of the city workbench: a street graph and plots. The algorithms are here, so the
+//! The types of the city workbench: a terrain, a street graph and plots. The algorithms are here, so the
 //! nodes stay thin. Units are meters, X is east, Y is north and Z is up.
 
 mod buildings;
+mod density;
+mod facades;
+mod grow;
+mod highways;
 mod plots;
+mod props;
+mod ribbons;
+mod roofs;
+mod shapes;
 mod streets;
+mod terrain;
+mod walls;
+mod zoning;
 
 use std::fmt::{self, Write};
 
 use patina_sdk::{Text, Viewer};
 
-pub use buildings::{MAX_PLACES, color, facades, heights, masses, roads, scatter};
+pub use buildings::{Building, Buildings, Kind, Roof, Style, Tier, buildings};
+pub use density::{Density, MAX_CENTERS, density};
+pub use facades::facades;
+pub use grow::{MAX_ROADS, grow, prune};
+pub use highways::{MAX_GATES, highways};
 pub use plots::{blocks, inset, lots};
+pub use props::{MAX_PLACES, color, scatter};
+pub use ribbons::roads;
+pub use roofs::roofs;
 pub use streets::{Grid, MAX_CELLS, grid};
+pub use terrain::{Land, MAX_SAMPLES, Terrain, ground, river, terrain};
+pub use walls::walls;
+pub use zoning::{MAX_FLOORS, heights, zoning};
 
-/// A street from point `a` to point `b`, with its full width.
+/// The road classes of `Edge::class`.
+pub const HIGHWAY: u8 = 0;
+pub const ARTERIAL: u8 = 1;
+pub const LOCAL: u8 = 2;
+
+/// A street from point `a` to point `b`, with its full width and its road class.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Edge {
     pub a: usize,
     pub b: usize,
     pub width: f64,
+    pub class: u8,
 }
 
 /// A street graph on the ground.
@@ -28,15 +55,32 @@ pub struct Streets {
     pub edges: Vec<Edge>,
 }
 
-/// A polygon on the ground with its corners counterclockwise. `fronts[i]` is true when the edge
-/// from corner `i` to the next corner is on a street. A park has no floors.
+/// The use of a plot (task E11).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Zone {
+    #[default]
+    Residential,
+    Commercial,
+    Industrial,
+    Park,
+}
+
+/// A polygon on the ground with its corners counterclockwise. `fronts[i]` is the road class of
+/// the street at the edge from corner `i` to the next corner, or `None` when no street is there.
+/// A park has no floors.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Plot {
     pub corners: Vec<[f64; 2]>,
-    pub fronts: Vec<bool>,
-    pub park: bool,
+    pub fronts: Vec<Option<u8>>,
+    pub zone: Zone,
     pub floors: u32,
-    pub height: f64,
+}
+
+impl Plot {
+    /// The road class of the largest street at the plot, or `None` when no street is there.
+    pub fn front(&self) -> Option<u8> {
+        self.fronts.iter().flatten().min().copied()
+    }
 }
 
 /// A list of plots: blocks, lots or the footprints of buildings.
@@ -50,12 +94,13 @@ impl fmt::Debug for Streets {
     }
 }
 
-/// Shows "400 plots, 30 parks, 2100 floors".
+/// Shows "400 plots: 300 residential, 50 commercial, 20 industrial, 30 parks, 2100 floors".
 impl fmt::Debug for Plots {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let parks = self.0.iter().filter(|p| p.park).count();
+        let count = |z: Zone| self.0.iter().filter(|p| p.zone == z).count();
         let floors: u64 = self.0.iter().map(|p| u64::from(p.floors)).sum();
-        write!(f, "{} plots, {parks} parks, {floors} floors", self.0.len())
+        let (r, c, i, p) = (count(Zone::Residential), count(Zone::Commercial), count(Zone::Industrial), count(Zone::Park));
+        write!(f, "{} plots: {r} residential, {c} commercial, {i} industrial, {p} parks, {floors} floors", self.0.len())
     }
 }
 
@@ -128,5 +173,7 @@ pub(crate) fn extent(corners: &[[f64; 2]], axis: [f64; 2]) -> (f64, f64) {
     corners.iter().map(|&p| dot(p, axis)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| (lo.min(v), hi.max(v)))
 }
 
+#[cfg(test)]
+mod road_tests;
 #[cfg(test)]
 mod tests;

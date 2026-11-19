@@ -1,201 +1,332 @@
-//! Buildings, roads and props as scenes (tasks E4 and E5). A part that repeats is one mesh with
-//! many places, so the build makes no boolean for it.
+//! The plan of each building (task E12): its kind, its tiers, its ground level and its style.
+//! The `walls`, `facades` and `roofs` steps make the meshes from the plan.
 
-use geometry::{Frame, IDENTITY, Item, Mesh, Place, Scene, Seed, Sketch, Solid};
+use std::fmt::{self, Write};
 
-use crate::{Plots, Streets, add, axes, centroid, dot, extent, length, scale, sub};
+use geometry::{Random, Seed};
+use patina_sdk::{Text, Viewer};
 
-/// The most places in one scene, so that a wrong value cannot fill the memory.
-pub const MAX_PLACES: usize = 1_000_000;
+use crate::plots::offset;
+use crate::shapes::contains;
+use crate::{Plot, Plots, Terrain, Zone, add, area, dot, length, scale, sub};
 
-const WALLS: [u32; 6] = [0xb8a48c, 0x9c8f84, 0xc9c1b4, 0x8a6f5c, 0xa7a9ad, 0x6e7378];
-const ROOFS: [u32; 3] = [0x5b4a42, 0x4a4f55, 0x7a4b3a];
-const LAWN: u32 = 0x4f7a3a;
-const ASPHALT: u32 = 0x3a3c40;
-const SIDEWALK: u32 = 0x9a978f;
-const GLASS: u32 = 0x2e4152;
-const DOOR: u32 = 0x5a3b28;
-
-/// Gives each plot that is not a park a height from a density map: high at the center and low
-/// at `radius` and farther, with a random part. The height is in full floors of `floor`.
-pub fn heights(plots: &Plots, seed: Seed, low: f64, high: f64, radius: f64, floor: f64) -> Result<Plots, String> {
-    if !(0.0..=high).contains(&low) || high > 1000.0 {
-        return Err("low and high must be from 0 to 1000, and low not more than high".into());
-    }
-    if !(radius.is_finite() && radius > 0.0 && floor.is_finite() && floor >= 1.0) {
-        return Err("the radius must be more than 0 and the floor 1 or more".into());
-    }
-    let mut out = plots.clone();
-    for (i, plot) in out.0.iter_mut().enumerate() {
-        if plot.park {
-            (plot.floors, plot.height) = (0, 0.0);
-            continue;
-        }
-        let r = seed.child(&format!("height {i}")).random().unit();
-        let d = length(centroid(&plot.corners));
-        let h = low + (high - low) * (-(d / radius).powi(2)).exp() * (0.5 + 0.5 * r);
-        plot.floors = ((h / floor).round() as u32).max(1);
-        plot.height = f64::from(plot.floors) * floor;
-    }
-    Ok(out)
+/// The kind of a building, from the zone and the floors of its lot.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Kind {
+    #[default]
+    House,
+    Apartment,
+    Shop,
+    Tower,
+    Warehouse,
 }
 
-/// The extruded footprint of each building with a flat, gable or hip roof, and a lawn for each
-/// park. `pitched` is the part of the roofs with a slope, and `rise` the height of the slope.
-/// The group of a building is its plot number plus 1.
-pub fn masses(plots: &Plots, seed: Seed, pitched: f64, rise: f64) -> Result<Scene, String> {
-    if !(0.0..=1.0).contains(&pitched) || !(rise.is_finite() && rise > 0.0) {
-        return Err("pitched must be from 0 to 1 and rise more than 0".into());
+/// The form of the roof of a tier.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Roof {
+    #[default]
+    Flat,
+    Gable,
+    Hip,
+    Sawtooth,
+}
+
+/// One block of a building: a footprint with its corners counterclockwise, from `bottom` to
+/// `top` over the ground level. A gable, hip or sawtooth tier is a rectangle, and its roof is
+/// `rise` high.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Tier {
+    pub corners: Vec<[f64; 2]>,
+    /// True for an edge that faces a street.
+    pub fronts: Vec<bool>,
+    pub bottom: f64,
+    pub top: f64,
+    pub roof: Roof,
+    pub rise: f64,
+}
+
+impl Tier {
+    /// The first long edge of a rectangle, 0 or 1. A gable or a hip has its ridge along it.
+    pub fn ridge(&self) -> usize {
+        let c = &self.corners;
+        usize::from(c.len() == 4 && length(sub(c[2], c[1])) > length(sub(c[1], c[0])))
     }
-    let mut items = Vec::new();
-    let mut lawn = Mesh::default();
+}
+
+/// The colors of a building as sRGB 0xRRGGBB, the width of its bays and its window kind:
+/// 0 tall, 1 wide or 2 band.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Style {
+    pub wall: u32,
+    pub trim: u32,
+    pub roof: u32,
+    pub accent: u32,
+    pub bay: f64,
+    pub window: usize,
+}
+
+/// The plan of one building.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Building {
+    /// The number of its lot plus 1: the group of its places in a scene.
+    pub group: u32,
+    pub kind: Kind,
+    /// The first tier stands on the ground.
+    pub tiers: Vec<Tier>,
+    /// The ground level: a little over the highest ground under the footprint. The plinth goes
+    /// down to `low`, the lowest ground.
+    pub ground: f64,
+    pub low: f64,
+    /// The height of the ground floor and of each floor over it.
+    pub first: f64,
+    pub floor: f64,
+    pub style: Style,
+}
+
+impl Building {
+    /// The height of the base of floor `k` over the ground level.
+    pub fn level(&self, k: u32) -> f64 {
+        if k == 0 { 0.0 } else { self.first + f64::from(k - 1) * self.floor }
+    }
+
+    /// The floors from the bottom to the top of a tier: (floor, base over the ground level).
+    pub fn floors(&self, tier: &Tier) -> impl Iterator<Item = (u32, f64)> + '_ {
+        let (bottom, top) = (tier.bottom, tier.top);
+        (0..crate::MAX_FLOORS + 1).map(|k| (k, self.level(k))).skip_while(move |&(_, z)| z < bottom - 0.01).take_while(move |&(_, z)| z < top - 1.0)
+    }
+
+    /// True when the point at height `z` over the ground level is in a tier other than `skip`.
+    pub fn covers(&self, skip: usize, p: [f64; 2], z: f64) -> bool {
+        self.tiers.iter().enumerate().any(|(i, t)| i != skip && z >= t.bottom && z < t.top && crate::shapes::inside(&t.corners, p))
+    }
+}
+
+/// A list of building plans.
+#[derive(Clone, Default, PartialEq)]
+pub struct Buildings(pub Vec<Building>);
+
+/// Shows "300 buildings: 200 houses, 50 apartments, 30 shops, 10 towers, 10 warehouses".
+impl fmt::Debug for Buildings {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let count = |k: Kind| self.0.iter().filter(|b| b.kind == k).count();
+        let (h, a, s, t, w) = (count(Kind::House), count(Kind::Apartment), count(Kind::Shop), count(Kind::Tower), count(Kind::Warehouse));
+        write!(f, "{} buildings: {h} houses, {a} apartments, {s} shops, {t} towers, {w} warehouses", self.0.len())
+    }
+}
+
+impl Viewer for Buildings {
+    fn text(&self, out: &mut Text<'_>) -> fmt::Result {
+        write!(out, "{self:?}")
+    }
+}
+
+const HOUSE_WALLS: [u32; 6] = [0xe8dcc4, 0xd9c7a8, 0xf1ece2, 0xc9a98c, 0xb7c2b0, 0xd8c08a];
+const BRICK_WALLS: [u32; 5] = [0x9a5b46, 0x7d4a3a, 0xb59a7a, 0x8f8a82, 0xa78b6f];
+const SHOP_WALLS: [u32; 6] = [0xc7b299, 0x8e6f5a, 0xd6cbb8, 0x6f7f86, 0xa4675a, 0xbfa36f];
+const TOWER_WALLS: [u32; 4] = [0x7f8c95, 0x5d6b78, 0xa9aaa6, 0x4a5560];
+const SHED_WALLS: [u32; 4] = [0x9aa0a3, 0x7c8b96, 0xb3a98f, 0x8a8f86];
+const TRIMS: [u32; 4] = [0xf2efe8, 0x4a4a48, 0xc8bfae, 0x6b5444];
+const TILES: [u32; 4] = [0xa0523a, 0x4f555c, 0x5b4636, 0x6e6a64];
+const ACCENTS: [u32; 6] = [0xa8322d, 0x2f6b4f, 0x2c4f7c, 0xc28b2c, 0x2c7a7b, 0x7a3b62];
+const GRAVEL: u32 = 0x5f5d58;
+const SHEET: u32 = 0x55595c;
+
+/// A plan for each lot that is not a park. The zone and the floors give the kind: a house, an
+/// apartment, a shop, a tower or a warehouse. A house stands `setback` back from its street.
+/// Each floor over the ground floor is `floor` high. The ground level comes from the terrain.
+pub fn buildings(plots: &Plots, terrain: &Terrain, seed: Seed, floor: f64, setback: f64) -> Result<Buildings, String> {
+    if !(2.0..=10.0).contains(&floor) || !(0.0..=30.0).contains(&setback) {
+        return Err(format!("the floor must be from 2 to 10 and the setback from 0 to 30, not {floor} and {setback}"));
+    }
+    let mut out = Vec::new();
     for (i, plot) in plots.0.iter().enumerate() {
-        let footprint = Sketch::polygon(&plot.corners);
-        if plot.park {
-            append(&mut lawn, &Solid::extrude(&footprint, 0.2, 0.0, [1.0; 2], 0).mesh());
+        if plot.zone == Zone::Park || plot.floors == 0 || plot.corners.len() < 3 {
             continue;
         }
-        if plot.floors == 0 {
+        let mut random = seed.child(&format!("building {i}")).random();
+        let kind = match (plot.zone, plot.floors) {
+            (Zone::Industrial, _) => Kind::Warehouse,
+            (Zone::Residential, 0..=3) => Kind::House,
+            (Zone::Residential, _) => Kind::Apartment,
+            (_, 0..=6) => Kind::Shop,
+            _ => Kind::Tower,
+        };
+        let (first, storey) = match kind {
+            Kind::House => (floor, floor),
+            Kind::Apartment => (floor + 0.4, floor),
+            Kind::Shop => (floor + 1.3, floor),
+            Kind::Tower => (floor + 2.0, floor + 0.3),
+            Kind::Warehouse => (random.range(6.0, 9.0), 4.5),
+        };
+        let mut building = Building { group: i as u32 + 1, kind, first, floor: storey, style: style(kind, &mut random), ..Building::default() };
+        let top = building.level(plot.floors);
+        building.tiers = match kind {
+            Kind::House => house(plot, setback, top, storey, &mut random),
+            Kind::Warehouse => shed(plot, top, &mut random),
+            Kind::Apartment => block(plot, 2.0, 0.5, top).into_iter().collect(),
+            Kind::Shop => block(plot, 0.0, 0.0, top).into_iter().collect(),
+            Kind::Tower => tower(plot, &building, &mut random),
+        };
+        if building.tiers.is_empty() {
             continue;
         }
-        let group = i as u32 + 1;
-        let mut random = seed.child(&format!("mass {i}")).random();
-        let color = WALLS[random.index(WALLS.len())];
-        let roof_color = ROOFS[random.index(ROOFS.len())];
-        let kind = if random.unit() < pitched { 1 + random.index(2) } else { 0 };
-        let body = Solid::extrude(&footprint, plot.height, 0.0, [1.0; 2], 0);
-        let places = vec![Place { matrix: IDENTITY, group }];
-        items.push(Item { name: format!("building {group}"), mesh: body.mesh(), color, places: places.clone() });
-        if kind > 0 {
-            let mesh = roof(&plot.corners, kind == 1, rise).translate([0.0, 0.0, plot.height]).mesh();
-            items.push(Item { name: format!("roof {group}"), mesh, color: roof_color, places });
-        }
+        let heights: Vec<f64> = building.tiers.iter().flat_map(|t| &t.corners).map(|&p| terrain.height(p)).collect();
+        building.low = heights.iter().copied().fold(f64::INFINITY, f64::min);
+        building.ground = heights.iter().copied().fold(f64::NEG_INFINITY, f64::max) + 0.15;
+        out.push(building);
     }
-    items.push(Item { name: "lawns".into(), mesh: lawn, color: LAWN, places: vec![Place { matrix: IDENTITY, group: 0 }] });
-    Ok(Scene::new(items))
+    Ok(Buildings(out))
 }
 
-/// A gable or a hip roof on the footprint, from z = 0 to `rise`. The ridge is on the long axis.
-fn roof(corners: &[[f64; 2]], gable: bool, rise: f64) -> Solid {
-    let (u, v) = axes(corners);
-    let ((u0, u1), (v0, v1)) = (extent(corners, u), extent(corners, v));
-    let center = add(scale(u, (u0 + u1) / 2.0), scale(v, (v0 + v1) / 2.0));
-    let local: Vec<[f64; 2]> = corners.iter().map(|&p| [dot(sub(p, center), u), dot(sub(p, center), v)]).collect();
-    let (long, wide) = (u1 - u0, v1 - v0);
-    let footprint = Sketch::polygon(&local);
-    let shape = if gable {
-        let triangle = Sketch::polygon(&[[-wide / 2.0, 0.0], [wide / 2.0, 0.0], [0.0, rise]]);
-        // The prism goes along X, across Y and up Z after the two turns.
-        let prism = Solid::extrude(&triangle, long + 2.0, 0.0, [1.0; 2], 0).translate([0.0, 0.0, -long / 2.0 - 1.0]);
-        prism.rotate([90.0, 0.0, 0.0]).rotate([0.0, 0.0, 90.0]).intersection(&Solid::extrude(&footprint, rise, 0.0, [1.0; 2], 0))
-    } else {
-        let ridge = ((long - wide) / long.max(1e-9)).max(0.02);
-        Solid::extrude(&footprint, rise, 0.0, [ridge, 0.02], 0)
+fn style(kind: Kind, random: &mut Random) -> Style {
+    let mut pick = |list: &[u32]| list[random.index(list.len())];
+    let (wall, trim, roof) = match kind {
+        Kind::House => (pick(&HOUSE_WALLS), pick(&TRIMS), pick(&TILES)),
+        Kind::Apartment => (pick(&BRICK_WALLS), pick(&TRIMS[..3]), GRAVEL),
+        Kind::Shop => (pick(&SHOP_WALLS), pick(&TRIMS), GRAVEL),
+        Kind::Tower => (pick(&TOWER_WALLS), TRIMS[1], GRAVEL),
+        Kind::Warehouse => (pick(&SHED_WALLS), TRIMS[1], SHEET),
     };
-    shape.rotate([0.0, 0.0, u[1].atan2(u[0]).to_degrees()]).translate([center[0], center[1], 0.0])
+    let accent = pick(&ACCENTS);
+    let (bay, window) = match kind {
+        Kind::House => (3.0, 0),
+        Kind::Apartment => (3.4, random.index(2)),
+        Kind::Shop => (4.0, 1),
+        Kind::Tower => (3.0, 2),
+        Kind::Warehouse => (6.0, 1),
+    };
+    Style { wall, trim, roof, accent, bay, window }
 }
 
-/// Windows on each floor and bay of each wall, and a door on the longest street edge. The
-/// window and the door are solids with the wall along X, the outside at +Y and the base at
-/// z = 0.
-pub fn facades(plots: &Plots, window: &Solid, door: &Solid, bay: f64) -> Result<Scene, String> {
-    if !(bay.is_finite() && bay >= 1.0) {
-        return Err(format!("the bay must be 1 or more, not {bay}"));
+/// The plot moved in by `front` at the streets and by `side` at the other edges, with the
+/// street edges of the new polygon.
+fn setback(plot: &Plot, front: f64, side: f64) -> Option<(Vec<[f64; 2]>, Vec<bool>)> {
+    let distances: Vec<f64> = (0..plot.corners.len()).map(|e| if plot.fronts.get(e).copied().flatten().is_some() { front } else { side }).collect();
+    let (corners, kept) = offset(&plot.corners, &distances)?;
+    let fronts = kept.iter().map(|&e| plot.fronts.get(e).copied().flatten().is_some()).collect();
+    Some((corners, fronts))
+}
+
+/// One tier on the whole lot, for an apartment or a shop.
+fn block(plot: &Plot, front: f64, side: f64, top: f64) -> Option<Tier> {
+    let (corners, fronts) = setback(plot, front, side)?;
+    (area(&corners) > 30.0).then(|| Tier { corners, fronts, top, ..Tier::default() })
+}
+
+/// A rectangle on the street edge `edge` of a polygon: `s` along the edge from its first
+/// corner, and `t` in from it.
+struct Rect {
+    origin: [f64; 2],
+    u: [f64; 2],
+    s: (f64, f64),
+    t: (f64, f64),
+}
+
+impl Rect {
+    fn corners(&self) -> Vec<[f64; 2]> {
+        let v = [-self.u[1], self.u[0]];
+        let at = |s: f64, t: f64| add(self.origin, add(scale(self.u, s), scale(v, t)));
+        vec![at(self.s.0, self.t.0), at(self.s.1, self.t.0), at(self.s.1, self.t.1), at(self.s.0, self.t.1)]
     }
-    let (mut windows, mut doors) = (Vec::new(), Vec::new());
-    for (i, plot) in plots.0.iter().enumerate().filter(|(_, p)| !p.park && p.floors > 0) {
-        let (corners, group, floor) = (&plot.corners, i as u32 + 1, plot.height / f64::from(plot.floors));
-        let n = corners.len();
-        let wall = |e: usize| sub(corners[(e + 1) % n], corners[e]);
-        let door_edge = (0..n).filter(|&e| plot.fronts.get(e) == Some(&true)).max_by(|&a, &b| length(wall(a)).total_cmp(&length(wall(b))));
-        for (e, &start) in corners.iter().enumerate() {
-            let l = length(wall(e));
-            let bays = (l / bay).floor() as usize;
-            if bays == 0 {
-                continue;
-            }
-            if windows.len() + bays * plot.floors as usize > MAX_PLACES {
-                return Err(format!("the facades have more than {MAX_PLACES} windows"));
-            }
-            let t = scale(wall(e), 1.0 / l);
-            for f in 0..plot.floors {
-                for k in 0..bays {
-                    let p = add(start, scale(t, (k as f64 + 0.5) * l / bays as f64));
-                    let is_door = f == 0 && door_edge == Some(e) && k == bays / 2;
-                    let z = if is_door { 0.0 } else { f64::from(f) * floor + 0.9 };
-                    let frame = Frame { x: [t[0], t[1], 0.0], y: [t[1], -t[0], 0.0], z: [0.0, 0.0, 1.0], origin: [p[0], p[1], z] };
-                    (if is_door { &mut doors } else { &mut windows }).push(Place::new(&frame, group));
-                }
-            }
+}
+
+/// The largest rectangle on the middle of edge `edge` of the polygon, at most `long` along the
+/// edge and `deep` in from it, that is in the polygon.
+fn fit(polygon: &[[f64; 2]], edge: usize, long: f64, deep: f64) -> Option<Rect> {
+    let n = polygon.len();
+    let (a, b) = (polygon[edge], polygon[(edge + 1) % n]);
+    let l = length(sub(b, a));
+    if l < 1e-6 {
+        return None;
+    }
+    let u = scale(sub(b, a), 1.0 / l);
+    let reach = polygon.iter().map(|&p| dot(sub(p, a), [-u[1], u[0]])).fold(0.0, f64::max);
+    let (mut w, mut h) = (l.min(long), reach.min(deep));
+    for _ in 0..24 {
+        let s0 = (l - w) / 2.0;
+        let rect = Rect { origin: a, u, s: (s0, s0 + w), t: (0.0, h) };
+        if w < 3.0 || h < 3.0 {
+            return None;
+        }
+        if contains(polygon, &rect.corners()) {
+            return Some(rect);
+        }
+        (w, h) = (w * 0.9, h * 0.9);
+    }
+    None
+}
+
+/// The street edge of the polygon to build on: the longest one, or the longest edge.
+pub(crate) fn main_edge(corners: &[[f64; 2]], fronts: &[bool]) -> usize {
+    let n = corners.len();
+    let long = |e: usize| length(sub(corners[(e + 1) % n], corners[e]));
+    let best = |edges: &mut dyn Iterator<Item = usize>| edges.max_by(|&a, &b| long(a).total_cmp(&long(b)));
+    best(&mut (0..n).filter(|&e| fronts.get(e) == Some(&true))).or_else(|| best(&mut (0..n))).unwrap_or(0)
+}
+
+/// A house of a rectangle and, sometimes, a wing at the back for an L shape. Both have a gable
+/// or a hip roof.
+fn house(plot: &Plot, setback_front: f64, top: f64, storey: f64, random: &mut Random) -> Vec<Tier> {
+    let Some((corners, fronts)) = setback(plot, setback_front, 1.5) else { return Vec::new() };
+    let edge = main_edge(&corners, &fronts);
+    let Some(rect) = fit(&corners, edge, random.range(9.0, 15.0), random.range(7.0, 11.0)) else { return Vec::new() };
+    let roof = if random.unit() < 0.6 { Roof::Gable } else { Roof::Hip };
+    let (w, h) = (rect.s.1 - rect.s.0, rect.t.1 - rect.t.0);
+    let pitch = random.range(0.45, 0.75);
+    let main = Tier { corners: rect.corners(), fronts: vec![true, false, false, false], top, roof, rise: pitch * w.min(h) / 2.0, ..Tier::default() };
+    let mut tiers = vec![main];
+    if random.unit() < 0.45 {
+        let width = w * random.range(0.35, 0.5);
+        let s0 = if random.unit() < 0.5 { rect.s.0 } else { rect.s.1 - width };
+        let wing = Rect { origin: rect.origin, u: rect.u, s: (s0, s0 + width), t: (rect.t.1 - 0.5, rect.t.1 + random.range(3.5, 6.0)) };
+        let wing_top = if top > storey + 0.1 && random.unit() < 0.5 { top - storey } else { top };
+        if contains(&corners, &wing.corners()) {
+            let (ww, wd) = (wing.s.1 - wing.s.0, wing.t.1 - wing.t.0);
+            tiers.push(Tier { corners: wing.corners(), fronts: vec![false; 4], top: wing_top, roof, rise: pitch * ww.min(wd) / 2.0, ..Tier::default() });
         }
     }
-    Ok(Scene::new([
-        Item { name: "windows".into(), mesh: window.mesh(), color: GLASS, places: windows },
-        Item { name: "doors".into(), mesh: door.mesh(), color: DOOR, places: doors },
-    ]))
+    tiers
 }
 
-/// The asphalt under the streets, with the top at z = 0, and a sidewalk slab on each block.
-pub fn roads(streets: &Streets, blocks: &Plots) -> Scene {
-    let ([x0, y0], [x1, y1]) = streets.points.iter().fold(([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]), |(lo, hi), p| {
-        ([lo[0].min(p[0]), lo[1].min(p[1])], [hi[0].max(p[0]), hi[1].max(p[1])])
-    });
-    let margin = streets.edges.iter().map(|e| e.width).fold(0.0, f64::max);
-    let mut asphalt = Mesh::default();
-    if x0 <= x1 && y0 <= y1 {
-        let ground = Solid::cube(x1 - x0 + margin, y1 - y0 + margin, 0.1).translate([(x0 + x1) / 2.0, (y0 + y1) / 2.0, -0.05]);
-        asphalt = ground.mesh();
-    }
-    let mut sidewalks = Mesh::default();
-    for block in &blocks.0 {
-        append(&mut sidewalks, &Solid::extrude(&Sketch::polygon(&block.corners), 0.15, 0.0, [1.0; 2], 0).mesh());
-    }
-    let places = vec![Place { matrix: IDENTITY, group: 0 }];
-    Scene::new([
-        Item { name: "asphalt".into(), mesh: asphalt, color: ASPHALT, places: places.clone() },
-        Item { name: "sidewalks".into(), mesh: sidewalks, color: SIDEWALK, places },
-    ])
+/// A warehouse: a large rectangle back from the street with a flat or a sawtooth roof.
+fn shed(plot: &Plot, top: f64, random: &mut Random) -> Vec<Tier> {
+    let Some((corners, fronts)) = setback(plot, 5.0, 2.0) else { return Vec::new() };
+    let edge = main_edge(&corners, &fronts);
+    let Some(rect) = fit(&corners, edge, 70.0, 45.0) else { return Vec::new() };
+    let sawtooth = random.unit() < 0.5 && rect.t.1 - rect.t.0 >= 12.0;
+    let (roof, rise) = if sawtooth { (Roof::Sawtooth, random.range(2.0, 3.0)) } else { (Roof::Flat, 0.0) };
+    vec![Tier { corners: rect.corners(), fronts: vec![true, false, false, false], top, roof, rise, ..Tier::default() }]
 }
 
-/// Copies of the solid along the edges of each plot, `inset` in from the edges and `spacing`
-/// apart, each with a random turn and a random size from 0.8 to 1.2.
-pub fn scatter(plots: &Plots, solid: &Solid, seed: Seed, spacing: f64, inset: f64, color: u32) -> Result<Scene, String> {
-    if !(spacing.is_finite() && spacing >= 0.5 && inset.is_finite() && inset >= 0.0) {
-        return Err("the spacing must be 0.5 or more and the inset 0 or more".into());
+/// A tower: a podium on the whole lot, a shaft back from its edges, and a step-back near the top
+/// of a tall tower.
+fn tower(plot: &Plot, building: &Building, random: &mut Random) -> Vec<Tier> {
+    let Some(podium) = block(plot, 0.0, 0.0, 0.0) else { return Vec::new() };
+    let floors = plot.floors;
+    let base = (2 + random.index(3) as u32).min(floors - 1);
+    let mut tiers = vec![Tier { top: building.level(base), ..podium.clone() }];
+    let Some((inner, kept)) = offset(&podium.corners, &vec![3.0; podium.corners.len()]) else { return tiers };
+    let fronts: Vec<bool> = kept.iter().map(|&e| podium.fronts[e]).collect();
+    let edge = main_edge(&inner, &fronts);
+    let shaft = match fit(&inner, edge, 45.0, 32.0) {
+        Some(rect) => rect.corners(),
+        None => inner,
+    };
+    if area(&shaft) < 60.0 {
+        tiers[0].top = building.level(floors);
+        return tiers;
     }
-    let mut places = Vec::new();
-    for (i, plot) in plots.0.iter().enumerate() {
-        let Some(corners) = crate::plots::offset(&plot.corners, &vec![inset; plot.corners.len()]) else { continue };
-        let mut random = seed.child(&format!("scatter {i}")).random();
-        let n = corners.len();
-        for e in 0..n {
-            let wall = sub(corners[(e + 1) % n], corners[e]);
-            let count = (length(wall) / spacing).floor() as usize;
-            if places.len() + count > MAX_PLACES {
-                return Err(format!("scatter makes more than {MAX_PLACES} copies"));
-            }
-            for k in 0..count {
-                let p = add(corners[e], scale(wall, (k as f64 + 0.5) / count as f64));
-                let (angle, size) = (random.range(0.0, 360.0), random.range(0.8, 1.2));
-                let turned = Frame::turned([p[0], p[1], 0.0], [0.0, 0.0, angle]);
-                let frame = Frame { x: turned.x.map(|c| c * size), y: turned.y.map(|c| c * size), z: [0.0, 0.0, size], ..turned };
-                places.push(Place::new(&frame, 0));
-            }
-        }
+    let step = if floors > 20 && random.unit() < 0.6 { (f64::from(floors) * random.range(0.65, 0.8)) as u32 } else { floors };
+    let n = shaft.len();
+    tiers.push(Tier { corners: shaft.clone(), fronts: vec![false; n], bottom: building.level(base), top: building.level(step), ..Tier::default() });
+    if step < floors
+        && let Some((upper, _)) = offset(&shaft, &vec![2.0; n])
+        && area(&upper) > 40.0
+    {
+        let m = upper.len();
+        tiers.push(Tier { corners: upper, fronts: vec![false; m], bottom: building.level(step), top: building.level(floors), ..Tier::default() });
+    } else if let Some(last) = tiers.last_mut() {
+        last.top = building.level(floors);
     }
-    Ok(Scene::new([Item { name: "scatter".into(), mesh: solid.mesh(), color, places }]))
-}
-
-/// The color of a text such as "#4f7a3a" or "4f7a3a", as sRGB 0xRRGGBB.
-pub fn color(text: &str) -> Result<u32, String> {
-    let hex = text.trim().trim_start_matches('#');
-    u32::from_str_radix(hex, 16).ok().filter(|_| hex.len() == 6 && hex.bytes().all(|b| b.is_ascii_hexdigit())).ok_or_else(|| format!("write the color as #rrggbb, not {text:?}"))
-}
-
-/// Adds the triangles of `mesh` to `to`, all in part 0.
-fn append(to: &mut Mesh, mesh: &Mesh) {
-    to.positions.extend_from_slice(&mesh.positions);
-    to.normals.extend_from_slice(&mesh.normals);
-    to.uvs.extend_from_slice(&mesh.uvs);
-    to.parts.resize(to.parts.len() + mesh.triangles(), 0);
+    tiers
 }

@@ -4,7 +4,7 @@ format = 1
 id = "7e7e000000000001"
 pos = [0.0, -340.0]
 width = 1100.0
-text = "# SEEDED CITY\nThe `streets` node makes a grid of streets from the seed. `blocks`, `lots` and `heights` make the lots, and `masses` and `facades` make the buildings.\n`scatter` puts model solids on the plots: trees on the parks and lamps on the sidewalks. Change **seed** in the `seed` node to get a new city.\nClick **Run**, open **Views** and select **model-view**. Then click `report` to see the full city.\nIn `export-buildings`, click **Export** to write one `.glb` file for each building into the **buildings** folder."
+text = "# ORGANIC CITY\n`terrain` and `river` make the land. `density` puts the people on it. `highways`, `grow` and `prune` make the roads, which follow the hills.\n`blocks`, `lots`, `zoning` and `heights` make the lots. `buildings` plans a house, an apartment, a shop, a tower or a warehouse on each lot. `walls`, `facades` and `roofs` build it.\nChange **seed** in the `seed` node to get a new city. Click **Run**, open **Views** and select **model-view**. Then click `report` to see the full city.\nIn `export-buildings`, click **Export** to write one `.glb` file for each building into the **buildings** folder."
 
 [[node]]
 id = "c170000000000001"
@@ -15,29 +15,73 @@ pos = [0.0, 0.0]
 seed = "11"
 
 [[node]]
-id = "c170000000000002"
-folder = "nodes/streets"
-pos = [260.0, 0.0]
+id = "c170000000000020"
+folder = "nodes/terrain"
+pos = [260.0, -160.0]
 
 [node.params]
 width = "600"
 depth = "450"
-spacing = "60"
-jitter = "0.15"
-drop = "0.25"
-avenue = "3"
+cell = "5"
+relief = "25"
+hills = "200"
+coast = "80"
+sea = "0"
+
+[[node]]
+id = "c170000000000021"
+folder = "nodes/river"
+pos = [520.0, -160.0]
+
+[node.params]
+width = "18"
+depth = "2"
+
+[[node]]
+id = "c170000000000022"
+folder = "nodes/density"
+pos = [780.0, -160.0]
+
+[node.params]
+centers = "3"
+radius = "280"
+
+[[node]]
+id = "c170000000000023"
+folder = "nodes/highways"
+pos = [1040.0, -160.0]
+
+[node.params]
+gates = "4"
+width = "20"
+bridge = "6"
+
+[[node]]
+id = "c170000000000024"
+folder = "nodes/grow"
+pos = [1300.0, -160.0]
+
+[node.params]
+block = "60"
+arterial = "16"
 street = "10"
-avenue_width = "16"
+branch = "0.9"
+threshold = "0.08"
+
+[[node]]
+id = "c170000000000025"
+folder = "nodes/prune"
+pos = [1560.0, -160.0]
 
 [[node]]
 id = "c170000000000003"
 folder = "nodes/blocks"
-pos = [520.0, 0.0]
+pos = [1820.0, 0.0]
 
 [[node]]
 id = "c170000000000004"
 folder = "nodes/inset"
-pos = [780.0, 0.0]
+pos = [2080.0, 0.0]
 
 [node.params]
 distance = "3"
@@ -45,104 +89,93 @@ distance = "3"
 [[node]]
 id = "c170000000000005"
 folder = "nodes/lots"
-pos = [1040.0, 0.0]
+pos = [2340.0, 0.0]
 
 [node.params]
-area = "450"
+area = "350"
 width = "8"
+
+[[node]]
+id = "c170000000000026"
+folder = "nodes/zoning"
+pos = [2600.0, 0.0]
+
+[node.params]
 parks = "0.06"
+industry = "0.15"
 
 [[node]]
 id = "c170000000000006"
 folder = "nodes/heights"
-pos = [1300.0, 0.0]
+pos = [2860.0, 0.0]
 
 [node.params]
-low = "6"
-high = "54"
-radius = "220"
-floor = "3.2"
+high = "40"
 
 [[node]]
-id = "c170000000000007"
-folder = "nodes/masses"
-pos = [1560.0, 0.0]
+id = "c170000000000027"
+folder = "nodes/buildings"
+pos = [3120.0, 0.0]
 
 [node.params]
-pitched = "0.4"
-rise = "3"
+floor = "3.2"
+setback = "4"
+
+[[node]]
+id = "c170000000000028"
+folder = "nodes/walls"
+pos = [3380.0, -160.0]
 
 [[node]]
 id = "c170000000000008"
 folder = "nodes/facades"
-pos = [1560.0, 240.0]
-
-[node.params]
-bay = "3.5"
+pos = [3380.0, 0.0]
 
 [[node]]
-id = "c17000000000001a"
-folder = "nodes/cuboid"
-pos = [1040.0, 180.0]
-
-[node.params]
-x = "1.2"
-y = "0.2"
-z = "1.4"
-
-[[node]]
-id = "c17000000000001b"
-folder = "nodes/translate"
-pos = [1300.0, 180.0]
-
-[node.params]
-z = "0.7"
-
-[[node]]
-id = "c17000000000001c"
-folder = "nodes/cuboid"
-pos = [1040.0, 380.0]
-
-[node.params]
-x = "1.4"
-y = "0.3"
-z = "2.4"
-
-[[node]]
-id = "c17000000000001d"
-folder = "nodes/translate"
-pos = [1300.0, 380.0]
-
-[node.params]
-z = "1.2"
+id = "c170000000000029"
+folder = "nodes/roofs"
+pos = [3380.0, 160.0]
 
 [[node]]
 id = "c170000000000009"
 folder = "nodes/merge"
-pos = [1820.0, 100.0]
+pos = [3640.0, -80.0]
+
+[[node]]
+id = "c17000000000002a"
+folder = "nodes/merge"
+pos = [3900.0, 0.0]
 
 [[node]]
 id = "c170000000000019"
 folder = "nodes/export-buildings"
-pos = [2080.0, -120.0]
+pos = [4160.0, -200.0]
 
 [node.params]
 folder = "buildings"
 
 [[node]]
+id = "c17000000000002b"
+folder = "nodes/ground"
+pos = [1820.0, 600.0]
+
+[[node]]
 id = "c17000000000000a"
 folder = "nodes/roads"
-pos = [780.0, 600.0]
+pos = [2080.0, 600.0]
+
+[node.params]
+sidewalk = "3"
 
 [[node]]
 id = "c17000000000000b"
 folder = "nodes/parks"
-pos = [1300.0, 600.0]
+pos = [2860.0, 760.0]
 
 [[node]]
 id = "c17000000000000c"
 folder = "nodes/cylinder"
-pos = [780.0, 780.0]
+pos = [2340.0, 900.0]
 
 [node.params]
 height = "3"
@@ -152,7 +185,7 @@ segments = "8"
 [[node]]
 id = "c17000000000000d"
 folder = "nodes/translate"
-pos = [1040.0, 780.0]
+pos = [2600.0, 900.0]
 
 [node.params]
 z = "1.5"
@@ -160,7 +193,7 @@ z = "1.5"
 [[node]]
 id = "c17000000000000e"
 folder = "nodes/sphere"
-pos = [780.0, 940.0]
+pos = [2340.0, 1060.0]
 
 [node.params]
 radius = "1.8"
@@ -169,7 +202,7 @@ segments = "12"
 [[node]]
 id = "c17000000000000f"
 folder = "nodes/translate"
-pos = [1040.0, 940.0]
+pos = [2600.0, 1060.0]
 
 [node.params]
 z = "4.4"
@@ -177,12 +210,12 @@ z = "4.4"
 [[node]]
 id = "c170000000000010"
 folder = "nodes/union"
-pos = [1300.0, 840.0]
+pos = [2860.0, 960.0]
 
 [[node]]
 id = "c170000000000011"
 folder = "nodes/scatter"
-pos = [1560.0, 660.0]
+pos = [3120.0, 800.0]
 
 [node.params]
 spacing = "7"
@@ -192,7 +225,7 @@ color = "#3f6b35"
 [[node]]
 id = "c170000000000012"
 folder = "nodes/cylinder"
-pos = [1040.0, 1100.0]
+pos = [2600.0, 1220.0]
 
 [node.params]
 height = "5"
@@ -202,7 +235,7 @@ segments = "6"
 [[node]]
 id = "c170000000000013"
 folder = "nodes/translate"
-pos = [1300.0, 1100.0]
+pos = [2860.0, 1220.0]
 
 [node.params]
 z = "2.5"
@@ -210,7 +243,7 @@ z = "2.5"
 [[node]]
 id = "c170000000000014"
 folder = "nodes/scatter"
-pos = [1560.0, 1000.0]
+pos = [3120.0, 1120.0]
 
 [node.params]
 spacing = "24"
@@ -218,31 +251,84 @@ inset = "0.8"
 color = "#30343a"
 
 [[node]]
+id = "c17000000000002c"
+folder = "nodes/merge"
+pos = [3380.0, 640.0]
+
+[[node]]
 id = "c170000000000015"
 folder = "nodes/merge"
-pos = [1820.0, 620.0]
+pos = [3640.0, 720.0]
 
 [[node]]
 id = "c170000000000016"
 folder = "nodes/merge"
-pos = [2080.0, 780.0]
+pos = [3900.0, 880.0]
 
 [[node]]
 id = "c170000000000017"
 folder = "nodes/merge"
-pos = [2340.0, 200.0]
+pos = [4420.0, 200.0]
 
 [[node]]
 id = "c170000000000018"
 folder = "nodes/report"
-pos = [2600.0, 200.0]
+pos = [4680.0, 200.0]
 
 [[wire]]
 from = "c170000000000001.out"
-to = "c170000000000002.seed"
+to = "c170000000000020.seed"
 
 [[wire]]
-from = "c170000000000002.out"
+from = "c170000000000020.out"
+to = "c170000000000021.terrain"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000021.seed"
+
+[[wire]]
+from = "c170000000000021.out"
+to = "c170000000000022.terrain"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000022.seed"
+
+[[wire]]
+from = "c170000000000021.out"
+to = "c170000000000023.terrain"
+
+[[wire]]
+from = "c170000000000022.out"
+to = "c170000000000023.density"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000023.seed"
+
+[[wire]]
+from = "c170000000000023.out"
+to = "c170000000000024.highways"
+
+[[wire]]
+from = "c170000000000021.out"
+to = "c170000000000024.terrain"
+
+[[wire]]
+from = "c170000000000022.out"
+to = "c170000000000024.density"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000024.seed"
+
+[[wire]]
+from = "c170000000000024.out"
+to = "c170000000000025.streets"
+
+[[wire]]
+from = "c170000000000025.out"
 to = "c170000000000003.streets"
 
 [[wire]]
@@ -259,7 +345,27 @@ to = "c170000000000005.seed"
 
 [[wire]]
 from = "c170000000000005.out"
+to = "c170000000000026.plots"
+
+[[wire]]
+from = "c170000000000021.out"
+to = "c170000000000026.terrain"
+
+[[wire]]
+from = "c170000000000022.out"
+to = "c170000000000026.density"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000026.seed"
+
+[[wire]]
+from = "c170000000000026.out"
 to = "c170000000000006.plots"
+
+[[wire]]
+from = "c170000000000022.out"
+to = "c170000000000006.density"
 
 [[wire]]
 from = "c170000000000001.out"
@@ -267,34 +373,34 @@ to = "c170000000000006.seed"
 
 [[wire]]
 from = "c170000000000006.out"
-to = "c170000000000007.plots"
+to = "c170000000000027.plots"
+
+[[wire]]
+from = "c170000000000021.out"
+to = "c170000000000027.terrain"
 
 [[wire]]
 from = "c170000000000001.out"
-to = "c170000000000007.seed"
+to = "c170000000000027.seed"
 
 [[wire]]
-from = "c170000000000006.out"
-to = "c170000000000008.plots"
+from = "c170000000000027.out"
+to = "c170000000000028.buildings"
 
 [[wire]]
-from = "c17000000000001a.out"
-to = "c17000000000001b.solid"
+from = "c170000000000027.out"
+to = "c170000000000008.buildings"
 
 [[wire]]
-from = "c17000000000001b.out"
-to = "c170000000000008.window"
+from = "c170000000000027.out"
+to = "c170000000000029.buildings"
 
 [[wire]]
-from = "c17000000000001c.out"
-to = "c17000000000001d.solid"
+from = "c170000000000001.out"
+to = "c170000000000029.seed"
 
 [[wire]]
-from = "c17000000000001d.out"
-to = "c170000000000008.door"
-
-[[wire]]
-from = "c170000000000007.out"
+from = "c170000000000028.out"
 to = "c170000000000009.a"
 
 [[wire]]
@@ -303,10 +409,22 @@ to = "c170000000000009.b"
 
 [[wire]]
 from = "c170000000000009.out"
+to = "c17000000000002a.a"
+
+[[wire]]
+from = "c170000000000029.out"
+to = "c17000000000002a.b"
+
+[[wire]]
+from = "c17000000000002a.out"
 to = "c170000000000019.scene"
 
 [[wire]]
-from = "c170000000000002.out"
+from = "c170000000000021.out"
+to = "c17000000000002b.terrain"
+
+[[wire]]
+from = "c170000000000025.out"
 to = "c17000000000000a.streets"
 
 [[wire]]
@@ -314,7 +432,11 @@ from = "c170000000000003.out"
 to = "c17000000000000a.blocks"
 
 [[wire]]
-from = "c170000000000005.out"
+from = "c170000000000021.out"
+to = "c17000000000000a.terrain"
+
+[[wire]]
+from = "c170000000000026.out"
 to = "c17000000000000b.plots"
 
 [[wire]]
@@ -338,6 +460,10 @@ from = "c17000000000000b.out"
 to = "c170000000000011.plots"
 
 [[wire]]
+from = "c170000000000021.out"
+to = "c170000000000011.terrain"
+
+[[wire]]
 from = "c170000000000010.out"
 to = "c170000000000011.solid"
 
@@ -354,6 +480,10 @@ from = "c170000000000003.out"
 to = "c170000000000014.plots"
 
 [[wire]]
+from = "c170000000000021.out"
+to = "c170000000000014.terrain"
+
+[[wire]]
 from = "c170000000000013.out"
 to = "c170000000000014.solid"
 
@@ -362,7 +492,15 @@ from = "c170000000000001.out"
 to = "c170000000000014.seed"
 
 [[wire]]
+from = "c17000000000002b.out"
+to = "c17000000000002c.a"
+
+[[wire]]
 from = "c17000000000000a.out"
+to = "c17000000000002c.b"
+
+[[wire]]
+from = "c17000000000002c.out"
 to = "c170000000000015.a"
 
 [[wire]]
@@ -378,7 +516,7 @@ from = "c170000000000014.out"
 to = "c170000000000016.b"
 
 [[wire]]
-from = "c170000000000009.out"
+from = "c17000000000002a.out"
 to = "c170000000000017.a"
 
 [[wire]]

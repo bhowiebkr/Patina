@@ -263,6 +263,60 @@ Agent decisions of 2026-11-19 for E, the owner can change them:
 - `.gitattributes` keeps LF in `workbenches/model` and `workbenches/city`. The import hash
   reads the bytes of each file, so a copy with CRLF does not agree with its import record.
 
+Agent decisions of 2026-11-19 for the second version of E, after the owner asked for four
+detailed stages: the terrain, the road plan, the density and zoning, and the buildings. The
+owner can change them. All the logic stays in `workbenches/city`. The tool does not change.
+
+- **E9. Terrain.**
+  - `terrain`: a height map from layers of value noise, with a slope down to the coast on one
+    side. Sea level sets the water.
+  - `river`: a winding river from one edge to the opposite edge, cut below the sea level.
+  - `ground`: the terrain as a scene: grass, sand near the water, rock on steep slopes, and the
+    water surface.
+- **E10. Road plan.** The roads grow as in the method of Parish and Mueller: a road proposes a
+  segment, and local rules accept, change or refuse it.
+  - `density`: a population map from the terrain: a main center, sub-centers, less on steep
+    slopes and none on the water. The road growth reads it, so it runs before the roads.
+  - `highways`: the paths of least cost from gates on the edge to the center. A steep slope
+    costs more, and water costs a bridge.
+  - `grow`: arterial roads from the highways, then local streets from all the roads. A segment
+    follows the contour lines. It turns along the edge, the water and steep slopes. It joins a
+    near crossing, or stops at a street that it crosses. A high density gives more branches.
+  - `prune`: removes the dead ends, so that each street is on a block.
+  - `roads`: the road ribbons on the terrain with a width for each class, the sidewalks, the
+    center lines, and bridges with piers.
+  - The `streets` grid stays, for a planned city.
+- **E11. Density and zoning.**
+  - `blocks`, `inset` and `lots` stay. Each edge of a plot keeps the class of its road.
+  - `zoning`: a zone for each lot: residential, commercial, industrial or park. The zone comes
+    from the density, the road class of the front, the slope and a noise for districts.
+  - `heights`: the floors of each lot from the density and the zone.
+- **E12. Buildings.** Each step is a node, and the steps share the `Buildings` type.
+  - `buildings`: the plan of each building. The type comes from the zone and the density:
+    house, apartment, shop, tower or warehouse. The plan has the footprint with a setback for
+    each edge, wings for an L shape, a podium and step-backs for a tower, the floor heights,
+    the ground level from the terrain, the roof form and a style.
+  - `walls`: the plinth on a slope, the body of each tier, the floor bands, the cornice and the
+    parapet.
+  - `facades`: the bays of each wall on each floor. A window has glass, a frame, a sill and a
+    lintel. The ground floor has an entrance with a canopy, shop fronts with awnings and a sign
+    band, or loading doors. Apartments have balconies with railings, and pilasters between
+    the bays.
+  - `roofs`: a gable or hip roof with an overhang and a chimney, a flat roof with rooftop units,
+    a water tank and a stair house, a sawtooth roof on a warehouse, and an antenna on a tall
+    tower.
+  - The old `masses` node goes. `facades` reads the plans. `scatter` gets the terrain, so that
+    trees and lamps stand on the ground.
+- Agent decisions made during the work (2026-11-19):
+  - The kind of a building comes from the zone and the floors. A tower has a podium, a shaft
+    and step-backs. An apartment or a shop can have an L wing.
+  - Each building gives 3 items (walls, trim and roof). The windows, doors and roof parts are
+    shared items at many places.
+  - The park lawns come from `ground`, so the park lots have no mesh of their own.
+  - A street that meets water, a steep slope or the edge turns up to 90 degrees, along the
+    bank. Without this rule, most streets near the river ended in dead ends.
+  - `main` is the organic city. The grid city is the `planned` graph.
+
 ## F. Gun workbench
 
 The gun workbench also uses the model workbench as a library. Use original part styles and
@@ -353,6 +407,9 @@ were too simple. The owner can change them:
   places and runs in about 0.3 s after a bake build. A district of 1 km x 1 km runs in less than
   0.5 s. The CLI test runs the district, the 1 km check and the export of each building. Next
   is F.
+- 2026-11-19: E9 to E12 are done on Windows. The organic city has 197 buildings, 52068 places
+  and 1605650 triangles. A city of 1 km x 1 km ran in 0.13 s after the build in the CLI test.
+  The CLI test runs `main`, `planned`, the 1 km check and the export of each building.
 - 2026-11-19: F1 to F7 are done on Windows. The CLI test runs `main` and the export with a
   trigger. The unit tests check the seeds, the sockets, the stats, the rarity weights, the side
   view and the gun wall. The editor shot shows the gun wall and the Toon look. The near-black

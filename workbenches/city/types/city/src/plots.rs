@@ -8,7 +8,8 @@ use crate::{Plot, Plots, Streets, add, area, axes, cross, dot, extent, length, s
 const MAX_DEPTH: u32 = 24;
 
 /// The closed faces of the street graph, each inset by half the width of its streets. All the
-/// edges of a block are on a street. A block that the inset closes is not in the list.
+/// edges of a block are on a street and keep its road class. A block that the inset closes is
+/// not in the list.
 pub fn blocks(streets: &Streets) -> Plots {
     let (points, edges) = (&streets.points, &streets.edges);
     // The half-edges out of each point, sorted by angle: (angle, other point, edge).
@@ -28,13 +29,14 @@ pub fn blocks(streets: &Streets) -> Plots {
     let mut plots = Vec::new();
     for start in 0..points.len() {
         for slot in 0..out[start].len() {
-            let (mut corners, mut widths) = (Vec::new(), Vec::new());
+            let (mut corners, mut widths, mut classes) = (Vec::new(), Vec::new(), Vec::new());
             let (mut u, mut s) = (start, slot);
             while !seen[u][s] && corners.len() <= edges.len() {
                 seen[u][s] = true;
                 let (_, v, k) = out[u][s];
                 corners.push(points[u]);
                 widths.push(edges[k].width / 2.0);
+                classes.push(edges[k].class);
                 // The face turns to the next half-edge clockwise from the way back.
                 let Some(back) = out[v].iter().position(|&(_, w, e)| e == k && w == u) else { break };
                 s = (back + out[v].len() - 1) % out[v].len();
@@ -42,9 +44,9 @@ pub fn blocks(streets: &Streets) -> Plots {
             }
             // The outer face is clockwise, so its area is negative.
             if area(&corners) > 1e-9
-                && let Some(corners) = offset(&corners, &widths)
+                && let Some((corners, kept)) = offset(&corners, &widths)
             {
-                let fronts = vec![true; corners.len()];
+                let fronts = kept.iter().map(|&i| Some(classes[i])).collect();
                 plots.push(Plot { corners, fronts, ..Plot::default() });
             }
         }
@@ -59,31 +61,23 @@ pub fn inset(plots: &Plots, distance: f64) -> Result<Plots, String> {
         return Err(format!("the distance must be 0 or more, not {distance}"));
     }
     let moved = plots.0.iter().filter_map(|plot| {
-        let corners = offset(&plot.corners, &vec![distance; plot.corners.len()])?;
-        Some(Plot { corners, ..plot.clone() })
+        let (corners, kept) = offset(&plot.corners, &vec![distance; plot.corners.len()])?;
+        let fronts = kept.iter().map(|&i| plot.fronts.get(i).copied().flatten()).collect();
+        Some(Plot { corners, fronts, ..plot.clone() })
     });
     Ok(Plots(moved.collect()))
 }
 
 /// Splits each block across its long axis again and again, until a lot has `area` or less, or
-/// is narrower than two times `width`. A lot with no street edge, and a random part `parks` of
-/// the other lots, become parks.
-pub fn lots(blocks: &Plots, seed: Seed, area_limit: f64, width: f64, parks: f64) -> Result<Plots, String> {
+/// is narrower than two times `width`. An edge on a cut is not on a street.
+pub fn lots(blocks: &Plots, seed: Seed, area_limit: f64, width: f64) -> Result<Plots, String> {
     if !(area_limit.is_finite() && area_limit > 0.0 && width.is_finite() && width > 0.0) {
         return Err("the lot area and the width must be more than 0".into());
-    }
-    if !(0.0..=1.0).contains(&parks) {
-        return Err(format!("parks must be from 0 to 1, not {parks}"));
     }
     let mut lots = Vec::new();
     for (i, block) in blocks.0.iter().enumerate() {
         let mut random = seed.child(&format!("lots {i}")).random();
-        let start = lots.len();
         split(block.clone(), area_limit, width, &mut random, 0, &mut lots);
-        for lot in &mut lots[start..] {
-            let chance = random.unit();
-            lot.park = !lot.fronts.contains(&true) || chance < parks;
-        }
     }
     Ok(Plots(lots))
 }
@@ -111,7 +105,7 @@ fn clip(plot: &Plot, axis: [f64; 2], at: f64, side: f64) -> Option<Plot> {
     let (mut corners, mut fronts) = (Vec::with_capacity(n + 2), Vec::with_capacity(n + 2));
     for i in 0..n {
         let (a, b) = (plot.corners[i], plot.corners[(i + 1) % n]);
-        let front = plot.fronts.get(i).copied().unwrap_or(false);
+        let front = plot.fronts.get(i).copied().flatten();
         let (fa, fb) = (f(a), f(b));
         if fa <= 0.0 {
             corners.push(a);
@@ -120,7 +114,7 @@ fn clip(plot: &Plot, axis: [f64; 2], at: f64, side: f64) -> Option<Plot> {
         if (fa <= 0.0) != (fb <= 0.0) {
             corners.push(add(a, scale(sub(b, a), fa / (fa - fb))));
             // The edge from a point where the polygon goes out follows the cut.
-            fronts.push(fa > 0.0 && front);
+            fronts.push(if fa > 0.0 { front } else { None });
         }
     }
     // A corner on the cut can come two times. The edge out of the second copy stays.
@@ -131,33 +125,44 @@ fn clip(plot: &Plot, axis: [f64; 2], at: f64, side: f64) -> Option<Plot> {
 }
 
 /// Moves edge `i` of a counterclockwise polygon in by `distances[i]`. Each new corner is where
-/// the two moved edges meet. It gives `None` when an edge turns around or the area goes away.
-pub(crate) fn offset(corners: &[[f64; 2]], distances: &[f64]) -> Option<Vec<[f64; 2]>> {
+/// two moved edges meet. An edge that the move turns around goes, the worst first, and its
+/// neighbors meet again. It gives the corners and, for each new edge, the index of its old edge,
+/// or `None` when fewer than three edges stay or the area goes away.
+pub(crate) fn offset(corners: &[[f64; 2]], distances: &[f64]) -> Option<(Vec<[f64; 2]>, Vec<usize>)> {
     let n = corners.len();
     if n < 3 || distances.len() != n {
         return None;
     }
-    let mut dirs = Vec::with_capacity(n);
-    for i in 0..n {
-        let d = sub(corners[(i + 1) % n], corners[i]);
-        let l = length(d);
-        if l < 1e-9 {
+    let left = |t: [f64; 2]| [-t[1], t[0]];
+    let dirs: Vec<[f64; 2]> = (0..n).map(|i| sub(corners[(i + 1) % n], corners[i])).map(|d| scale(d, 1.0 / length(d).max(1e-300))).collect();
+    // An edge with no length has no direction, so it is not used.
+    let mut kept: Vec<usize> = (0..n).filter(|&i| length(sub(corners[(i + 1) % n], corners[i])) > 1e-9).collect();
+    // The corner where moved edge `j` meets the moved edge `k` after it.
+    let meet = |j: usize, k: usize| {
+        let (t0, t1) = (dirs[j], dirs[k]);
+        let p1 = add(corners[k], scale(left(t1), distances[k]));
+        let p0 = add(corners[j], scale(left(t0), distances[j]));
+        let c = cross(t0, t1);
+        // Two edges on nearly one line have no clear meeting point.
+        if c.abs() < 1e-6 {
+            let foot = add(p0, scale(t0, dot(sub(p1, p0), t0)));
+            scale(add(foot, p1), 0.5)
+        } else {
+            add(p0, scale(t0, cross(sub(p1, p0), t1) / c))
+        }
+    };
+    loop {
+        let m = kept.len();
+        if m < 3 {
             return None;
         }
-        dirs.push(scale(d, 1.0 / l));
+        let moved: Vec<[f64; 2]> = (0..m).map(|t| meet(kept[(t + m - 1) % m], kept[t])).collect();
+        let worst = (0..m).map(|t| (t, dot(sub(moved[(t + 1) % m], moved[t]), dirs[kept[t]]))).min_by(|a, b| a.1.total_cmp(&b.1));
+        match worst {
+            Some((t, run)) if run <= 1e-6 => {
+                kept.remove(t);
+            }
+            _ => return (area(&moved) > 1e-6).then_some((moved, kept)),
+        }
     }
-    let left = |t: [f64; 2]| [-t[1], t[0]];
-    let moved: Vec<[f64; 2]> = (0..n)
-        .map(|i| {
-            let prev = (i + n - 1) % n;
-            let (t0, t1) = (dirs[prev], dirs[i]);
-            let p0 = add(corners[i], scale(left(t0), distances[prev]));
-            let p1 = add(corners[i], scale(left(t1), distances[i]));
-            let c = cross(t0, t1);
-            // Two edges on nearly one line have no clear meeting point.
-            if c.abs() < 1e-6 { scale(add(p0, p1), 0.5) } else { add(p0, scale(t0, cross(sub(p1, p0), t1) / c)) }
-        })
-        .collect();
-    let kept = (0..n).all(|i| dot(sub(moved[(i + 1) % n], moved[i]), dirs[i]) > 1e-6);
-    (kept && area(&moved) > 1e-6).then_some(moved)
 }

@@ -54,8 +54,9 @@ The records of the ended milestones and of the finished work are in [docs/histor
   click on **Export** or at a trigger fire. The sockets go into the glTF extras (task D6).
 - Model workbench guide: a note and an `export` node in `main`, and the guide graphs
   **solids**, **sketches**, **seeds** and **sockets** (tasks D7 and D8).
-- City workbench: seeded streets, blocks, lots and buildings with roofs, windows and doors,
-  roads, trees and lamps as instances, and an export of each building to a `.glb` file (task E).
+- City workbench: a seeded organic city on hills with a river and a coast, grown roads, zones
+  and five kinds of detailed buildings, a planned grid city, trees and lamps as instances, and
+  an export of each building to a `.glb` file (task E).
 - Gun workbench: seeded guns from seven kinds of parts, six classes, four original makers with
   their own shape language, five rarities and five elements, with generated names, stats, a
   **Toon** look in `model-view`, the `gun-wall` view and an export to `.glb` and `.txt` (task F).
@@ -333,7 +334,17 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     trigger.
   - The editor shot on a hidden desktop opens `main`, shows the `merge` node in `model-view` in
     the second center pane, and checks that seed 8 and undo change the mesh.
-- Measurements on the computer of the owner, with a game open at the same time:
+- The second version (E9 to E12, 2026-11-19): `main` is an organic city. `terrain`, `river`
+  and `ground` make the land. `density`, `highways`, `grow` and `prune` make the roads.
+  `zoning` and `heights` make the zones. `buildings`, `walls`, `facades` and `roofs` make
+  houses, apartments, shops, towers and warehouses. The grid city is the `planned` graph.
+  - Checked on Windows: 16 unit tests of `types/city` and the other city crate tests, and the
+    CLI test with `main`, `planned`, the 1 km check and the export of 197 buildings.
+  - `main`: 647 items, 52068 places and 1605650 triangles. `planned`: 1269 items and 4580018
+    triangles. A city of 1 km x 1 km: 2284204 triangles, 0.13 s after the build in the CLI
+    test.
+- Measurements of the first version, on the computer of the owner, with a game open at the
+  same time:
   - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build
     takes 9.2 s the first time. The result has 559 items, 53244 places and 664546 triangles.
   - A district of 1 km x 1 km: 2163 items, 105482 places and 1352998 triangles. The run after the
