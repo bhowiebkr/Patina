@@ -118,4 +118,6 @@ impl fmt::Display for Summary {
 }
 
 #[cfg(test)]
+mod measure;
+#[cfg(test)]
 mod tests;

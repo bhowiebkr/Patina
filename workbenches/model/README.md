@@ -5,8 +5,8 @@ the output. The city and the gun workbenches use it as a library. The plan is in
 [the workbenches plan](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches-plan.md),
 task D.
 
-This workbench is at task D3. It has the types and the base nodes. The 3D view and the export
-come in tasks D4 to D8.
+This workbench is at task D4. It has the types, the base nodes and the run model. The 3D view
+and the export come in tasks D5 to D8.
 
 ## Run the workbench
 
@@ -21,6 +21,16 @@ door. The `report` node writes
 `144 triangles, bounds -1.2 -1.2 0 to 1.2 1.2 2.933, mesh hash 8049817992ebb0d7`.
 The first build compiles the C++ kernel in about 5 to 10 s. With the Patina toolchain, the first
 C++ build on a computer also makes the C++ runtime. This adds 10 to 20 s one time.
+
+A model builds at **Run** and after each change, not at each frame. The model nodes are in the
+batch domain (spec 9.1): a node with no wires in, and each node after it, runs in that domain.
+A wire from a node in the frame domain puts the model in the frame domain.
+
+To measure the build times, run this command from `workbenches/model`:
+
+```
+cargo test --release -p geometry measure -- --ignored --nocapture
+```
 
 ## The parts
 
@@ -53,7 +63,8 @@ C++ build on a computer also makes the C++ runtime. This adds 10 to 20 s one tim
 
 ## Known limits
 
-- A model builds again at each frame. Task D4 makes it build only after a change.
+- In the editor, a build stops the frames, the node GUIs and the views until it ends. A block
+  of 500 houses takes about 0.13 s.
 - The C++ kernel stops the program when it has no memory. It does not give an error. A shape
   has 1024 segments at most, and an array has 1000 copies at most.
 - The kernel has no loft, no fillet and no bevel.

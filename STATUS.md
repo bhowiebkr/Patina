@@ -46,6 +46,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Geometry kernel prototype: Manifold cuts a seeded gun of 30 parts in 2.7 ms on Windows. The model workbench will use it (task D0).
 - Model workbench base nodes: primitives, sketches, extrude, revolve, moves, arrays, booleans,
   attach at a socket, and seeded random values and picks (task D3).
+- Model workbench run model: a model builds at **Run** and after each change, not at each frame
+  (task D4).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -266,8 +268,25 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     runtime. Their hashes were not compared across platforms.
   - The kernel has no loft, no fillet and no bevel.
   - `pick` chooses one of two inputs. Chain picks for more choices.
-  - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. It was not measured
-    on large meshes.
+  - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
+
+### Model workbench run model, 2026-11-19
+
+- Task D4: the model nodes run in the batch domain by the domain rule of spec 9.1. A model
+  builds at **Run** and after each change, not at each frame. The agent decisions are in
+  [the workbenches plan](docs/workbenches-plan.md), task D4.
+- Checked on 2026-11-19, on Windows only:
+  - The CLI test adds a `delay` in the frame domain to the tower and runs 30 frames. The tower
+    builds one time. 120 frames took 2.2 s, so the frames ran.
+  - `measure_builds` in the `geometry` crate, a release build, 3 rounds: the tower took 0.6 to
+    0.8 ms. A block of 500 houses with 3 windows each took 122 to 124 ms. Its mesh of 36000
+    triangles took 5.2 to 5.6 ms with the sort. A game ran on the computer at the same time.
+- Known limits:
+  - In the editor, a batch run stops the frames, the node GUIs and the views until it ends. The
+    view keeps its last picture. A model of 500 houses stops them for about 0.13 s.
+  - The cluster libraries are not `Send`, so the batch domain cannot move to another thread
+    without new `unsafe` code. Views that go on during a long batch run are a tool task before
+    task E8.
 
 ### Model workbench types and seeds, 2026-11-19
 

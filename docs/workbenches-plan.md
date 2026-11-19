@@ -156,6 +156,20 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
     sample tower changed between runs.
 - **D4. Run model.** A model builds only when an input changes, not at each frame. Use the batch
   domain or the event domain (spec 9). A long build must not stop the frames. Measure it.
+- Agent decisions of 2026-11-19 for D4, the owner can change them:
+  - The model nodes use the batch domain. They declare no domain: a node with no wires in, and
+    each node after it, is in the batch domain (spec 9.1). A user can still feed a frame value
+    into a model for an animation.
+  - The event domain does not fit. A wire out of it is a graph error, a view cannot read its
+    outputs while it runs, and in the editor no trigger fires at a change.
+  - In the editor, a batch run stops the frames, the node GUIs and the views until it ends.
+    `measure_builds` gave 0.6 ms for the tower and 122 ms for 500 houses. Thus the model
+    workbench keeps the batch domain as it is.
+  - The cluster libraries are not `Send`, so the batch domain cannot move to another thread
+    without new `unsafe` code. Task D4b does the generic part.
+- **D4b. Views during a batch run (tool).** The views and the node GUIs go on during a long
+  batch run, with the values of the last run. Do it before E8, or when a build of the model
+  workbench takes more than 0.2 s.
 - **D5. 3D view.** The `model-view` view of the workbench: orbit, pan and zoom, its own depth
   texture, a grid, a light, part colors and a wireframe. It shows the mesh of the selected node.
   It sets `dock = "split"`, so it opens next to the graph (task A). When it needs a generic GPU
@@ -213,6 +227,8 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
 - 2026-11-19: D3 is done on Windows. The sample tower gave one mesh hash in 14 runs: 4 with
   MSVC and 10 with a toolchain run. Round shapes and turns that are not multiples of 90 degrees
   are not compared across platforms. Next is D4.
+- 2026-11-19: D4 is done on Windows. The tower builds one time while 30 frames run. The views
+  wait during a batch run, so D4b is open. Next is D5.
 
 ## Order
 
