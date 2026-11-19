@@ -18,7 +18,7 @@ pub fn run(editor: State<'_, Editor>) -> Result<View, String> {
         if !session.trusted {
             return Err("Trust the project before you run it (11).".to_owned());
         }
-        session.project.check().map_err(|e| e.to_string())?;
+        session.check().map_err(|e| e.to_string())?;
         editor.engine.go();
         session.live = true;
         Ok(session.view(&editor.engine, Some(true), None))

@@ -12,6 +12,8 @@ export function GraphPath({ view, path, testing, act, onTest, onOpen, onGo }: {
   onOpen: (name: string) => void;
   onGo: (name: string, next: (trail: Crumb[]) => Crumb[]) => void;
 }) {
+  // A subgraph that the top graph does not use always runs alone (15.9).
+  const alone = view.uses.length === 0;
   return (
     <nav className="graph-path" aria-label="Graph path">
       <button className="btn" onClick={() => onOpen(view.top)}>
@@ -34,9 +36,9 @@ export function GraphPath({ view, path, testing, act, onTest, onOpen, onGo }: {
       <button
         className={testing ? 'btn primary' : 'btn'}
         aria-pressed={testing}
-        disabled={!view.trusted}
+        disabled={!view.trusted || (testing && alone)}
         onClick={() => (testing ? act(api.test(null)) : onTest())}
-        title={testing ? 'End the test. The top graph runs again.' : 'Run this subgraph alone. Click an input switch to change it.'}
+        title={alone ? 'The top graph does not use this subgraph, so it runs alone.' : testing ? 'End the test. The top graph runs again.' : 'Run this subgraph alone. Click an input switch to change it.'}
       >
         {testing ? 'End test' : 'Test'}
       </button>

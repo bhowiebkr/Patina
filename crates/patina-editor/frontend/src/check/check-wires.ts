@@ -2,6 +2,7 @@
 // conflict mark, the cross-domain dash and the switch of a bool input (15.1, 15.3, 15.9).
 
 import { api, type View } from '../api';
+import { benchGraph } from './benchGraph';
 import { A, B, BUILD_MS, RUN_MS, SWITCH_NODE, amber, anyPixel, gray, icon, undoCode, wireColumn, type CheckContext } from './check-fixtures';
 
 /** The select of an Inspector field, by its label. */
@@ -342,6 +343,18 @@ async function checkSwitch({ step, until, steps }: CheckContext, v: View): Promi
     throw new Error(`${e.message} (values ${values().join()}, problems ${v.problems.join(' | ')})`);
   });
   steps.push('a subgraph run alone in the Test mode, with a click on the switch of its bool input');
+  // An open subgraph that the top graph does not use runs alone, so its nodes build and run (15.9).
+  v = await step('make a subgraph that no graph uses', () => api.newGraph('alone_check'));
+  v = await step('open the unused subgraph', () => api.openGraph('alone_check'));
+  if (v.test == null) throw new Error('the unused subgraph does not run alone');
+  v = await step('add two wired nodes to the unused subgraph', () => api.edit(benchGraph(2)));
+  v = await step('set the number in the unused subgraph', () => api.edit({ kind: 'SetParam', id: 'a000000000000000', key: 'value', text: '1.5' }));
+  await until('the value in the unused subgraph', BUILD_MS, () => values().join() === '1.5' && pathButton('End test')?.disabled === true).catch((e: Error) => {
+    throw new Error(`${e.message} (values ${values().join()}, problems ${v.problems.join(' | ')})`);
+  });
+  v = await step('delete the unused subgraph', () => api.deleteFolder('graphs/alone_check'));
+  await until('the main run after the unused subgraph', BUILD_MS, () => document.querySelector('.graph-path') === null && values().join() === '2.5');
+  steps.push('an open subgraph that no graph uses runs alone');
   v = await step('undo the switch node', undoCode);
   steps.push('a bool input set with the switch in the node and the Inspector check box');
   return v;

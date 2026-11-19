@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use patina_engine::project::{GraphFile, NodeEntry, PublicInput, PublicOutput, Wire};
-use patina_engine::{CodeText, Edit, Error, KindInfo, NodeInfo, Project, Stamps, Toolchain};
+use patina_engine::{Checked, CodeText, Edit, Error, KindInfo, NodeInfo, Project, Stamps, Toolchain};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tauri::{AppHandle, State};
@@ -284,10 +284,10 @@ impl Session {
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
     /// `slot` is the node folder of a code change, for the slot (7.1).
     fn view(&mut self, engine: &Host, build: Option<bool>, slot: Option<String>) -> View {
-        let checked = match &self.test {
-            Some(inputs) => self.project.check_test(inputs),
-            None => self.project.check(),
-        };
+        let tested = self.test.is_some();
+        let checked = self.check();
+        // A test that starts here is a new use, so it needs a build.
+        let build = if self.test.is_some() && !tested { Some(true) } else { build };
         let (checked, problems) = match checked {
             Ok(checked) => (Some(checked), Vec::new()),
             Err(Error::Graph(_, problems)) => (None, problems),
@@ -300,6 +300,22 @@ impl Session {
         self.checked = Some((domains, problems));
         self.stamps = self.project.stamps();
         self.show()
+    }
+
+    /// Checks the graph that runs: the open subgraph alone in a test, else the top graph. An open
+    /// subgraph that the top graph does not use starts a test, so its nodes build and run (15.9).
+    fn check(&mut self) -> Result<Checked, Error> {
+        let project = &self.project;
+        if self.trusted && self.test.is_none() && project.graph_name() != project.top() && project.use_paths().is_empty() {
+            let name = project.graph_name();
+            let info = project.graphs().1.into_iter().find(|n| n.subgraph && n.name == name);
+            let off = info.iter().flat_map(|n| &n.inputs).filter(|p| p.ty == "bool").map(|p| (p.key.clone(), "false".to_owned()));
+            self.test = Some(off.collect());
+        }
+        match &self.test {
+            Some(inputs) => self.project.check_test(inputs),
+            None => self.project.check(),
+        }
     }
 
     /// The view with the domains and the problems of the last check.
