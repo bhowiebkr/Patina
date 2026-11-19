@@ -1,0 +1,134 @@
+format = 1
+top = true
+
+[[note]]
+id = "5ce7c00000000001"
+pos = [0.0, -260.0]
+width = 760.0
+text = "# 2 SKETCHES\nA sketch is a flat shape on the XY plane. `extrude` makes it thick along Z, with a **twist** in degrees and a **taper**: 0 keeps the top size and 1 makes a point.\n`revolve` turns the part of a sketch at x > 0 around the Y axis, which becomes Z. A **gap** in degrees leaves the turn open.\nA `polygon` is a text of points, for example `0 0, 2 0, 1 1.5`."
+
+[[node]]
+id = "5ce7c00000000002"
+folder = "nodes/rectangle"
+pos = [0.0, 0.0]
+
+[node.params]
+width = "1"
+height = "1"
+
+[[node]]
+id = "5ce7c00000000003"
+folder = "nodes/extrude"
+pos = [260.0, 0.0]
+
+[node.params]
+height = "3"
+twist = "90"
+taper = "0.5"
+
+[[node]]
+id = "5ce7c00000000004"
+folder = "nodes/translate"
+pos = [520.0, 0.0]
+
+[node.params]
+x = "-2"
+
+[[node]]
+id = "5ce7c00000000005"
+folder = "nodes/circle"
+pos = [0.0, 220.0]
+
+[node.params]
+radius = "0.3"
+x = "1"
+segments = "24"
+
+[[node]]
+id = "5ce7c00000000006"
+folder = "nodes/revolve"
+pos = [260.0, 220.0]
+
+[node.params]
+gap = "90"
+segments = "48"
+
+[[node]]
+id = "5ce7c00000000007"
+folder = "nodes/polygon"
+pos = [0.0, 420.0]
+
+[node.params]
+points = "0 0, 1 0, 0.5 0.9"
+
+[[node]]
+id = "5ce7c00000000008"
+folder = "nodes/extrude"
+pos = [260.0, 420.0]
+
+[node.params]
+height = "0.4"
+
+[[node]]
+id = "5ce7c00000000009"
+folder = "nodes/translate"
+pos = [520.0, 420.0]
+
+[node.params]
+x = "1.5"
+y = "-1.5"
+
+[[node]]
+id = "5ce7c0000000000a"
+folder = "nodes/union"
+pos = [780.0, 120.0]
+
+[[node]]
+id = "5ce7c0000000000b"
+folder = "nodes/union"
+pos = [1040.0, 220.0]
+
+[[node]]
+id = "5ce7c0000000000c"
+folder = "nodes/report"
+pos = [1300.0, 220.0]
+
+[[wire]]
+from = "5ce7c00000000002.out"
+to = "5ce7c00000000003.sketch"
+
+[[wire]]
+from = "5ce7c00000000003.out"
+to = "5ce7c00000000004.solid"
+
+[[wire]]
+from = "5ce7c00000000005.out"
+to = "5ce7c00000000006.sketch"
+
+[[wire]]
+from = "5ce7c00000000007.out"
+to = "5ce7c00000000008.sketch"
+
+[[wire]]
+from = "5ce7c00000000008.out"
+to = "5ce7c00000000009.solid"
+
+[[wire]]
+from = "5ce7c00000000004.out"
+to = "5ce7c0000000000a.a"
+
+[[wire]]
+from = "5ce7c00000000006.out"
+to = "5ce7c0000000000a.b"
+
+[[wire]]
+from = "5ce7c0000000000a.out"
+to = "5ce7c0000000000b.a"
+
+[[wire]]
+from = "5ce7c00000000009.out"
+to = "5ce7c0000000000b.b"
+
+[[wire]]
+from = "5ce7c0000000000b.out"
+to = "5ce7c0000000000c.solid"

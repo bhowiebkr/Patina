@@ -253,6 +253,10 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   changes the seed and sees a new mesh. Next is D6.
 - 2026-11-19: D6 is done on Windows. The CLI test runs the export with a trigger and reads the
   `.glb` file. A run with no fire writes no file. Next is D7.
+- 2026-11-19: D7 and D8 are done on Windows. The `main` graph has a note and an `export` node.
+  The guide graphs are **solids**, **sketches**, **seeds** and **sockets**. The CLI test runs
+  each guide graph. The seed and mesh tests are the unit tests of D2 and D3. The hidden model
+  shot is the selfcheck step of D8. Next is E.
 
 ## Order
 

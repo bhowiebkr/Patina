@@ -1,5 +1,11 @@
 format = 1
 
+[[note]]
+id = "7e7e000000000001"
+pos = [0.0, -300.0]
+width = 900.0
+text = "# SEEDED TOWER\nThe `random` node gives the tower a height from the seed. Change **seed** in the `seed` node to get a new tower.\nClick **Run**, open **Views** and select **model-view**. Then click a node to see its solid.\nIn `export`, click **Export** to write `tower.glb`. The graphs **solids**, **sketches**, **seeds** and **sockets** in the **Project** panel teach the nodes."
+
 [[node]]
 id = "5eed000000000001"
 folder = "nodes/seed"
@@ -147,3 +153,16 @@ to = "c07000000000000c.b"
 [[wire]]
 from = "c07000000000000c.out"
 to = "a471ed5641679ecc.solid"
+
+[[node]]
+id = "e8a000000000000d"
+folder = "nodes/export"
+pos = [1560.0, 100.0]
+
+[node.params]
+path = "tower.glb"
+sockets = "base 0 0 0"
+
+[[wire]]
+from = "c07000000000000c.out"
+to = "e8a000000000000d.solid"

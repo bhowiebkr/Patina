@@ -459,7 +459,7 @@ function openFit(where: string) {
 }
 
 /** Selects each node, and throws on an Inspector that scrolls to the side, a widget out of it, a label that cuts its text, a GUI that cannot draw or a node with an error (15.7). */
-async function inspectNodes(where: string, ids = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => n.dataset.id ?? '')) {
+async function inspectNodes(where: string, ids = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map((n) => n.dataset.id ?? '').filter((id) => !/^(note|group):/.test(id))) {
   changeLayout((l) => openPanel(l, 'inspector'));
   const aside = () => document.querySelector<HTMLElement>('aside[aria-label="Inspector"]');
   const bad: string[] = [];

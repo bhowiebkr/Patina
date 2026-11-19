@@ -1,0 +1,112 @@
+format = 1
+top = true
+
+[[note]]
+id = "50c4e00000000001"
+pos = [0.0, -260.0]
+width = 760.0
+text = "# 4 SOCKETS AND EXPORT\nA socket is a named frame: a name, a position and three optional turns in degrees, for example `muzzle 1.5 0 0 0 90 0`.\n`attach` moves a solid to a socket, with the Z axis of the solid on the Z axis of the socket.\nIn `export`, click **File**, choose a `.glb`, `.obj` or `.stl` name and click **Export**. The `.glb` file keeps the sockets."
+
+[[node]]
+id = "50c4e00000000002"
+folder = "nodes/cuboid"
+pos = [0.0, 0.0]
+
+[node.params]
+x = "3"
+y = "0.8"
+z = "1.2"
+
+[[node]]
+id = "50c4e00000000003"
+folder = "nodes/cylinder"
+pos = [0.0, 180.0]
+
+[node.params]
+height = "2"
+radius = "0.25"
+segments = "24"
+
+[[node]]
+id = "50c4e00000000004"
+folder = "nodes/attach"
+pos = [260.0, 180.0]
+
+[node.params]
+sockets = "muzzle 1.5 0 0.2 0 90 0; grip -1 0 -0.6"
+socket = "muzzle"
+
+[[node]]
+id = "50c4e00000000005"
+folder = "nodes/cuboid"
+pos = [0.0, 360.0]
+
+[node.params]
+x = "0.6"
+y = "0.6"
+z = "1.6"
+
+[[node]]
+id = "50c4e00000000006"
+folder = "nodes/attach"
+pos = [260.0, 360.0]
+
+[node.params]
+sockets = "muzzle 1.5 0 0.2 0 90 0; grip -1 0 -0.6"
+socket = "grip"
+
+[[node]]
+id = "50c4e00000000007"
+folder = "nodes/union"
+pos = [520.0, 60.0]
+
+[[node]]
+id = "50c4e00000000008"
+folder = "nodes/union"
+pos = [780.0, 180.0]
+
+[[node]]
+id = "50c4e00000000009"
+folder = "nodes/report"
+pos = [1040.0, 60.0]
+
+[[node]]
+id = "50c4e0000000000a"
+folder = "nodes/export"
+pos = [1040.0, 260.0]
+
+[node.params]
+path = "blaster.glb"
+sockets = "muzzle 1.5 0 0.2 0 90 0; grip -1 0 -0.6"
+
+[[wire]]
+from = "50c4e00000000003.out"
+to = "50c4e00000000004.solid"
+
+[[wire]]
+from = "50c4e00000000005.out"
+to = "50c4e00000000006.solid"
+
+[[wire]]
+from = "50c4e00000000002.out"
+to = "50c4e00000000007.a"
+
+[[wire]]
+from = "50c4e00000000004.out"
+to = "50c4e00000000007.b"
+
+[[wire]]
+from = "50c4e00000000007.out"
+to = "50c4e00000000008.a"
+
+[[wire]]
+from = "50c4e00000000006.out"
+to = "50c4e00000000008.b"
+
+[[wire]]
+from = "50c4e00000000008.out"
+to = "50c4e00000000009.solid"
+
+[[wire]]
+from = "50c4e00000000008.out"
+to = "50c4e0000000000a.solid"

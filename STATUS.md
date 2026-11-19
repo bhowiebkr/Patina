@@ -52,6 +52,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
   selected node, with orbit, pan, zoom, a grid, part colors and a wireframe (task D5).
 - Model workbench export: the `export` node writes `.glb`, `.obj` and `.stl` files after a
   click on **Export** or at a trigger fire. The sockets go into the glTF extras (task D6).
+- Model workbench guide: a note and an `export` node in `main`, and the guide graphs
+  **solids**, **sketches**, **seeds** and **sockets** (tasks D7 and D8).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -273,6 +275,20 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The kernel has no loft, no fillet and no bevel.
   - `pick` chooses one of two inputs. Chain picks for more choices.
   - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
+
+### Model workbench guide graphs and checks, 2026-11-19
+
+- Tasks D7 and D8: the `main` graph of [workbenches/model](workbenches/model/README.md) has a
+  note and an `export` node. Four guide graphs teach the nodes, each with a note.
+- The D8 checks:
+  - The seed and mesh tests are the unit tests of `geometry` (tasks D2 and D3).
+  - The CLI test runs `main`, the export with a trigger, and each guide graph.
+  - The hidden model shot opens the view in the second pane, changes the seed and sees a new
+    mesh (task D5). It is the selfcheck step of D8.
+- Known limits:
+  - The CLI test of the guide graphs checks the triangle count and the bounds, not the hash.
+    Round shapes can give another hash on another platform.
+  - The shot checks the layout of `main` only, not the layout of the guide graphs.
 
 ### Model workbench export, 2026-11-19
 

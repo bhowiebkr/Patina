@@ -1,0 +1,84 @@
+format = 1
+top = true
+
+[[note]]
+id = "5011d00000000001"
+pos = [0.0, -260.0]
+width = 760.0
+text = "# 1 SOLIDS AND BOOLEANS\nA primitive node makes a solid with its center at the origin. Z is up.\n`cut` removes **b** from **a**, `union` joins them, `intersect` keeps the common part and `hull` wraps both.\nClick **Run**, open **Views** and select **model-view**. Then click a node to see its solid."
+
+[[node]]
+id = "5011d00000000002"
+folder = "nodes/cuboid"
+pos = [0.0, 0.0]
+
+[node.params]
+x = "2"
+y = "2"
+z = "1"
+
+[[node]]
+id = "5011d00000000003"
+folder = "nodes/cylinder"
+pos = [0.0, 180.0]
+
+[node.params]
+height = "3"
+radius = "0.5"
+segments = "32"
+
+[[node]]
+id = "5011d00000000004"
+folder = "nodes/cut"
+pos = [260.0, 60.0]
+
+[[node]]
+id = "5011d00000000005"
+folder = "nodes/sphere"
+pos = [260.0, 260.0]
+
+[node.params]
+radius = "0.7"
+segments = "32"
+
+[[node]]
+id = "5011d00000000006"
+folder = "nodes/translate"
+pos = [520.0, 260.0]
+
+[node.params]
+z = "0.5"
+
+[[node]]
+id = "5011d00000000007"
+folder = "nodes/union"
+pos = [780.0, 120.0]
+
+[[node]]
+id = "5011d00000000008"
+folder = "nodes/report"
+pos = [1040.0, 120.0]
+
+[[wire]]
+from = "5011d00000000002.out"
+to = "5011d00000000004.a"
+
+[[wire]]
+from = "5011d00000000003.out"
+to = "5011d00000000004.b"
+
+[[wire]]
+from = "5011d00000000005.out"
+to = "5011d00000000006.solid"
+
+[[wire]]
+from = "5011d00000000004.out"
+to = "5011d00000000007.a"
+
+[[wire]]
+from = "5011d00000000006.out"
+to = "5011d00000000007.b"
+
+[[wire]]
+from = "5011d00000000007.out"
+to = "5011d00000000008.solid"

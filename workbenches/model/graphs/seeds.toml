@@ -1,0 +1,145 @@
+format = 1
+top = true
+
+[[note]]
+id = "5eedd00000000001"
+pos = [0.0, -260.0]
+width = 760.0
+text = "# 3 SEEDS\nThe `seed` node makes a sub-seed from its **name**. `random` gives a number in a range, and `pick` chooses one of two solids by **weights**.\nEach random value has its own name, so a new name changes only that value. The same seed gives the same house at each run.\nChange **seed** of the `seed` node to get a new house."
+
+[[node]]
+id = "5eedd00000000002"
+folder = "nodes/seed"
+pos = [0.0, 120.0]
+
+[node.params]
+seed = "3"
+name = "house"
+
+[[node]]
+id = "5eedd00000000003"
+folder = "nodes/random"
+pos = [260.0, 0.0]
+
+[node.params]
+name = "width"
+low = "1"
+high = "3"
+
+[[node]]
+id = "5eedd00000000004"
+folder = "nodes/random"
+pos = [260.0, 180.0]
+
+[node.params]
+name = "height"
+low = "1"
+high = "4"
+
+[[node]]
+id = "5eedd00000000005"
+folder = "nodes/rectangle"
+pos = [520.0, 0.0]
+
+[node.params]
+height = "2"
+
+[[node]]
+id = "5eedd00000000006"
+folder = "nodes/extrude"
+pos = [780.0, 0.0]
+
+[[node]]
+id = "5eedd00000000007"
+folder = "nodes/cone"
+pos = [260.0, 360.0]
+
+[node.params]
+height = "1"
+radius_bottom = "1.6"
+segments = "4"
+
+[[node]]
+id = "5eedd00000000008"
+folder = "nodes/sphere"
+pos = [260.0, 520.0]
+
+[node.params]
+radius = "1"
+segments = "32"
+
+[[node]]
+id = "5eedd00000000009"
+folder = "nodes/pick"
+pos = [520.0, 360.0]
+
+[node.params]
+name = "roof"
+weights = "1 1"
+
+[[node]]
+id = "5eedd0000000000a"
+folder = "nodes/translate"
+pos = [780.0, 240.0]
+
+[[node]]
+id = "5eedd0000000000b"
+folder = "nodes/union"
+pos = [1040.0, 120.0]
+
+[[node]]
+id = "5eedd0000000000c"
+folder = "nodes/report"
+pos = [1300.0, 120.0]
+
+[[wire]]
+from = "5eedd00000000002.out"
+to = "5eedd00000000003.seed"
+
+[[wire]]
+from = "5eedd00000000002.out"
+to = "5eedd00000000004.seed"
+
+[[wire]]
+from = "5eedd00000000002.out"
+to = "5eedd00000000009.seed"
+
+[[wire]]
+from = "5eedd00000000003.out"
+to = "5eedd00000000005.width"
+
+[[wire]]
+from = "5eedd00000000005.out"
+to = "5eedd00000000006.sketch"
+
+[[wire]]
+from = "5eedd00000000004.out"
+to = "5eedd00000000006.height"
+
+[[wire]]
+from = "5eedd00000000007.out"
+to = "5eedd00000000009.a"
+
+[[wire]]
+from = "5eedd00000000008.out"
+to = "5eedd00000000009.b"
+
+[[wire]]
+from = "5eedd00000000009.out"
+to = "5eedd0000000000a.solid"
+
+[[wire]]
+from = "5eedd00000000004.out"
+to = "5eedd0000000000a.z"
+
+[[wire]]
+from = "5eedd00000000006.out"
+to = "5eedd0000000000b.a"
+
+[[wire]]
+from = "5eedd0000000000a.out"
+to = "5eedd0000000000b.b"
+
+[[wire]]
+from = "5eedd0000000000b.out"
+to = "5eedd0000000000c.solid"

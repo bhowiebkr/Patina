@@ -5,8 +5,8 @@ the output. The city and the gun workbenches use it as a library. The plan is in
 [the workbenches plan](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches-plan.md),
 task D.
 
-This workbench is at task D6. It has the types, the base nodes, the run model, the 3D view and
-the export. The guide graphs and the checks come in tasks D7 and D8.
+This workbench has the types, the base nodes, the run model, the 3D view, the export, the guide
+graphs and the checks (tasks D1 to D8).
 
 ## Run the workbench
 
@@ -21,6 +21,23 @@ door. The `report` node writes
 `144 triangles, bounds -1.2 -1.2 0 to 1.2 1.2 2.933, mesh hash 8049817992ebb0d7`.
 The first build compiles the C++ kernel in about 5 to 10 s. With the Patina toolchain, the first
 C++ build on a computer also makes the C++ runtime. This adds 10 to 20 s one time.
+
+## The guide graphs
+
+Open a graph in the **Project** panel. Each graph has a note that tells what it shows.
+
+| Graph | What it shows |
+|---|---|
+| **main** | A seeded tower and the `export` node. Change **seed** to get a new tower. |
+| **solids** | Primitives, `cut`, `translate` and `union`. |
+| **sketches** | `rectangle`, `circle` and `polygon`, with `extrude` (twist and taper) and `revolve` (gap). |
+| **seeds** | A house from a seed: `seed`, `random` and `pick`. |
+| **sockets** | `attach` at named sockets, and `export` with the sockets in the `.glb` file. |
+
+To run a guide graph without the editor, use `--graph`, for example
+`cargo run -p patina-cli -- run workbenches/model --graph seeds --frames 1`.
+
+## The run model
 
 A model builds at **Run** and after each change, not at each frame. The model nodes are in the
 batch domain (spec 9.1): a node with no wires in, and each node after it, runs in that domain.
