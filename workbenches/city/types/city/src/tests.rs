@@ -112,6 +112,8 @@ fn zoning_and_heights_follow_the_density() {
     assert_eq!(zones(0.3, 0.0, 1.0), [Zone::Industrial, Zone::Park]);
     assert_eq!(zones(0.3, 1.0, 0.0), [Zone::Park, Zone::Park]);
     assert!(zoning(&plots, &t, &even(0.1), Seed(4), 1.5, 0.0).is_err());
+    let strip = Plot { corners: vec![[0.0, 0.0], [40.0, 0.0], [40.0, 3.0], [0.0, 3.0]], ..square(30.0) };
+    assert_eq!(zoning(&Plots(vec![strip]), &t, &even(0.1), Seed(4), 0.0, 0.0).unwrap().0[0].zone, Zone::Park, "a thin lot");
     let zoned = |zone: Zone| Plots(vec![Plot { zone, ..square(30.0) }]);
     let floors = |zone: Zone, d: f32| heights(&zoned(zone), &even(d), Seed(4), 40).unwrap().0[0].floors;
     assert_eq!(floors(Zone::Park, 1.0), 0);

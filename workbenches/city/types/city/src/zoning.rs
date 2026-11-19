@@ -3,7 +3,7 @@
 use geometry::Seed;
 
 use crate::terrain::fbm;
-use crate::{ARTERIAL, Density, HIGHWAY, Plots, Terrain, Zone, centroid};
+use crate::{ARTERIAL, Density, HIGHWAY, Plots, Terrain, Zone, area, centroid, length, sub};
 
 /// The most floors of a building.
 pub const MAX_FLOORS: u32 = 120;
@@ -11,11 +11,15 @@ pub const MAX_FLOORS: u32 = 120;
 /// The size of the districts of the noise, in meters.
 const DISTRICT: f64 = 160.0;
 
-/// Gives each lot a zone. A lot with no street, on a steep slope or in the water, and a random
-/// part `parks` of the other lots, become parks. A high density, or a lot on an arterial or a
-/// highway in a mid density, is commercial. An industrial district of the noise, which covers
-/// about the part `industry` of the land, is industrial where the land is flat and the density
-/// is not high. A lot on a highway in a low density is also industrial. All other lots are
+/// A lot with 2 x area / perimeter below this value, in meters, is too thin for a building. A
+/// strip of width w gives about w, and a square of side s gives s / 2.
+const THIN: f64 = 4.0;
+
+/// Gives each lot a zone. A lot with no street, a thin lot, a lot on a steep slope or in the water,
+/// and a random part `parks` of the other lots, become parks. A high density, or a lot on an
+/// arterial or a highway in a mid density, is commercial. An industrial district of the noise,
+/// which covers about the part `industry` of the land, is industrial where the land is flat and the
+/// density is not high. A lot on a highway in a low density is also industrial. All other lots are
 /// residential.
 pub fn zoning(plots: &Plots, terrain: &Terrain, density: &Density, seed: Seed, parks: f64, industry: f64) -> Result<Plots, String> {
     if !(0.0..=1.0).contains(&parks) || !(0.0..=1.0).contains(&industry) {
@@ -31,6 +35,7 @@ pub fn zoning(plots: &Plots, terrain: &Terrain, density: &Density, seed: Seed, p
         let chance = seed.child(&format!("zone {i}")).random().unit();
         plot.zone = match front {
             None => Zone::Park,
+            _ if thin(&plot.corners) => Zone::Park,
             _ if slope > 0.3 || terrain.water(c) || chance < parks => Zone::Park,
             _ if d > 0.62 || (front <= Some(ARTERIAL) && d > 0.35) => Zone::Commercial,
             _ if slope < 0.12 && d < 0.55 && (district < industry || (front == Some(HIGHWAY) && d < 0.3)) => Zone::Industrial,
@@ -38,6 +43,12 @@ pub fn zoning(plots: &Plots, terrain: &Terrain, density: &Density, seed: Seed, p
         };
     }
     Ok(out)
+}
+
+fn thin(corners: &[[f64; 2]]) -> bool {
+    let n = corners.len();
+    let perimeter: f64 = (0..n).map(|i| length(sub(corners[(i + 1) % n], corners[i]))).sum();
+    2.0 * area(corners).abs() < THIN * perimeter
 }
 
 /// Gives each lot its floors from the density and the zone, up to `high`. A residential lot
