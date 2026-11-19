@@ -359,6 +359,8 @@ export type EngineEvent =
 let gesture = 0;
 /** The number of the last input of a node GUI. The moves and the up of a canvas drag keep the number of its down (4.3). */
 export const guiGesture = () => gesture;
+/** Starts one undo step for a view control. */
+export const beginGuiGesture = () => ++gesture;
 
 /** A parameter write of a node GUI (4.3), from `Ui::set_param`. */
 export interface ParamWrite {
@@ -528,8 +530,8 @@ export const api = {
    * Gives the user input `events` to view `name` and gets its widget lines (15.8). The first call
    * builds the view. `view` is the new project when the view wrote to the graph.
    */
-  viewUi: (name: string, instance: string, events: string, selected: string[]) =>
-    invoke<{ tree: string; view: View | null; select: string[] | null }>('view_ui', { name, instance, events, selected }),
+  viewUi: (name: string, instance: string, events: string, selected: string[], gesture?: number) =>
+    invoke<{ tree: string; view: View | null; select: string[] | null }>('view_ui', { name, instance, events, selected, gesture }),
   /** Drops the view instance of a dock slot. */
   closeView: (instance: string) => invoke<void>('close_view', { instance }),
   /** Opens a window for each float view slot and closes the other float windows (15.8). */

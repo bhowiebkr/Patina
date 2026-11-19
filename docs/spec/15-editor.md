@@ -446,12 +446,16 @@ change it.)
   and the panel shows the error. (Agent decision, 2026-11-16. The owner can change it.)
 - The editor applies the writes of one `ui` call as one `Group` edit, so one undo removes them.
   When one write is not valid, no write applies, and the panel shows the error.
+- A canvas drag in a view shares one undo step across calls. Separate clicks keep separate steps.
+- `Ui::available_size` gives the view area in logical pixels. Older hosts can return `None`.
+- `Ui::columns` wraps columns at their minimum width. `Ui::column` groups controls vertically.
+  These controls support the owner's dock tools, requested on 2026-11-18.
 - `add_node` makes a random ID of 16 hex digits (6.4) and returns it. Thus the same call can
   connect the new node.
 - `selected` reads the selected nodes of the graph view. `select` selects nodes in the graph
   view. A selection is not an edit, so undo does not remove it.
-- The editor has one **View** panel. The **Views** menu lists the views of the project and opens
-  one in the panel. The panel asks for the widget lines at the display rate while it shows.
+- The **Views** menu lists the project views. It opens each instance in a free view panel.
+  The panel asks for the widget lines at the display rate while it shows.
 - A save of the code of a view drops the loaded view and does not build the clusters. The next
   `ui` call builds the view again. After a panic, the next call makes a new state.
 - `Ui::viewport` shows a viewport and returns its place and input: the window handle, the
@@ -472,18 +476,17 @@ change it.)
   to the view as the physical key name, for example `KeyW`. Tab moves the focus out, and then
   each held key comes up. A held key does not repeat.
 - A node GUI shows a note in place of a viewport. On Linux and macOS, a view shows the note too.
-- The editor has four view panels. Each click on a view in the **Views** menu opens a new
+- The editor has twelve view panels. Each click on a view in the **Views** menu opens a new
   instance in a closed view panel. The tab shows the view name, and a number from the second
   instance, for example **scene 2**. The layout file keeps the view of each open panel.
 - A close of the panel drops its instance, so the next instance starts with `init`. A hidden
   tab keeps its instance but does not call `ui`.
-- Reason: four panels keep the dock layout a fixed list of panels. Four instances cover the
-  usual cases, for example a 3D view from two sides. (Agent decision, 2026-11-15. The owner can
-  change it.)
+- Twelve panels let domain tools keep separate browser, inspector, and bottom tabs beside the graph.
+  This supports the owner's synth dock request of 2026-11-18.
 
 The limits of version 1:
 
-- Up to four view instances at a time, each in a dock panel or a float window.
+- Up to twelve view instances at a time, each in a dock panel or a float window.
 - A view reads the typed value only of an output with a wire. A rebuild of the cluster
   stops the copies until the next read.
 - No subgraph edits and no reads of node states. `fire` finds a `trigger` node in a use with
