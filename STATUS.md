@@ -391,6 +391,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     outline starts where a line from its center to +X leaves it, so the sides do not twist.
   - The Manifold triangulator closes the two ends, and the kernel checks the closed mesh.
   - The `sketches` guide graph lofts a square to a circle.
+  - Holes (2026-11-19): each sketch has one outer outline, and the two sketches have the same
+    number of holes. Each hole of the bottom joins the hole of the top with the nearest center.
+    A unit test lofts a frame to a round tube, and two holes where one hole moves.
 - The fillet trial, measured in a release build while the computer ran a game:
   - A Minkowski opening with a ball took 1.5 to 7.3 s for a cylinder and box of 324
     triangles, and 3.9 to 23 s for a sphere and box of 2112 triangles. This is too slow for
@@ -401,7 +404,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Checked on 2026-11-19, on Windows only: the `geometry` unit test of the loft, the unit
   tests of the city and gun copies, and the CLI test of the guide graphs.
 - Known limits:
-  - Each sketch must have one outline and no hole.
+  - Each sketch must have one outer outline. A loft cannot join one hole to two holes.
   - Very different outlines, for example a thin L to a circle, can give sides that cross. The
     kernel then gives an error or a solid that is not correct.
 

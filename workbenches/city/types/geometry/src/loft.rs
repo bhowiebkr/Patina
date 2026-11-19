@@ -6,46 +6,79 @@ use crate::{Sketch, Solid};
 /// Two parts of the length of an outline that are nearer than this are one point of the loft.
 const SAME: f64 = 1e-9;
 
+type Ring = Vec<[f64; 2]>;
+
 impl Solid {
-    /// The solid from the outline of `bottom` at z = 0 to the outline of `top` at z = `height`.
-    /// Each sketch must have one outline and no hole. A straight line joins the points at the same
-    /// part of the length of the two outlines. Each outline starts where a line from its center
-    /// to +X leaves it, so the sides do not twist. Very different outlines can give sides that
-    /// cross.
+    /// The solid from the outlines of `bottom` at z = 0 to the outlines of `top` at z = `height`.
+    /// Each sketch must have one outer outline, and the two sketches must have the same number of
+    /// holes. Each hole of `bottom` joins the hole of `top` with the nearest center. A straight
+    /// line joins the points at the same part of the length of two joined outlines. Each outline
+    /// starts where a line from its center to +X leaves it, so the sides do not twist. Very
+    /// different outlines can give sides that cross.
     pub fn loft(bottom: &Sketch, top: &Sketch, height: f64) -> Result<Solid, String> {
         if !(height.is_finite() && height > 0.0) {
             return Err(format!("the height must be more than 0, not {height}"));
         }
-        let (a, b) = (start(outline(bottom, "bottom")?), start(outline(top, "top")?));
-        let (ta, tb) = (parts(&a), parts(&b));
-        // Each corner of each outline is a point of both rings, so the loft keeps all corners.
-        let mut ts: Vec<f64> = ta.iter().chain(&tb).copied().collect();
-        ts.sort_by(f64::total_cmp);
-        ts.dedup_by(|t, kept| *t - *kept < SAME);
-        let ring_a: Vec<[f64; 2]> = ts.iter().map(|&t| at(&a, &ta, t)).collect();
-        let ring_b: Vec<[f64; 2]> = ts.iter().map(|&t| at(&b, &tb, t)).collect();
-        let level = |ring: &[[f64; 2]], z: f64| ring.iter().map(|&[x, y]| [x as f32, y as f32, z as f32]).collect::<Vec<_>>();
-        let corners = [level(&ring_a, 0.0), level(&ring_b, height)].concat();
-        let n = ts.len() as u32;
-        let mut triangles = Vec::with_capacity(ts.len() * 4);
-        for i in 0..n {
-            let j = (i + 1) % n;
-            triangles.extend([[i, j, n + j], [i, n + j, n + i]]);
+        let (mut a, mut b) = (rings(bottom, "bottom")?, rings(top, "top")?);
+        if a.len() != b.len() {
+            return Err(format!("the two sketches must have the same number of holes, not {} and {}", a.len() - 1, b.len() - 1));
+        }
+        let mut joined = vec![join(a.remove(0), b.remove(0))];
+        for hole in a {
+            let c = center(&hole);
+            let far = |ring: &Ring| center(ring).iter().zip(c).map(|(p, q)| (p - q).powi(2)).sum::<f64>();
+            if let Some(k) = (0..b.len()).min_by(|&i, &j| far(&b[i]).total_cmp(&far(&b[j]))) {
+                joined.push(join(hole, b.swap_remove(k)));
+            }
+        }
+        let (bottoms, tops): (Vec<Ring>, Vec<Ring>) = joined.into_iter().unzip();
+        let level = |rings: &[Ring], z: f64| rings.iter().flatten().map(|&[x, y]| [x as f32, y as f32, z as f32]).collect::<Vec<_>>();
+        let corners = [level(&bottoms, 0.0), level(&tops, height)].concat();
+        let n = (corners.len() / 2) as u32;
+        let mut triangles = Vec::with_capacity(corners.len() * 4);
+        let mut first = 0;
+        for ring in &bottoms {
+            let m = ring.len() as u32;
+            for i in 0..m {
+                let (i, j) = (first + i, first + (i + 1) % m);
+                triangles.extend([[i, j, n + j], [i, n + j, n + i]]);
+            }
+            first += m;
         }
         // The bottom faces down, so its triangles turn the other way.
-        triangles.extend(triangulate(&ring_a).into_iter().map(|[x, y, z]| [x, z, y]));
-        triangles.extend(triangulate(&ring_b).into_iter().map(|t| t.map(|i| i + n)));
+        triangles.extend(triangulate(&bottoms).into_iter().map(|[x, y, z]| [x, z, y]));
+        triangles.extend(triangulate(&tops).into_iter().map(|t| t.map(|i| i + n)));
         Solid::of_triangles(&corners, &triangles).checked()
     }
 }
 
-/// The one outline of a sketch, counterclockwise.
-fn outline(sketch: &Sketch, name: &str) -> Result<Vec<[f64; 2]>, String> {
-    let mut outlines = sketch.outlines();
-    match (outlines.pop(), outlines.is_empty()) {
-        (Some(outline), true) if outline.len() >= 3 => Ok(outline),
-        _ => Err(format!("the {name} sketch must have one outline and no hole")),
+/// The outlines of a sketch: the one outer outline, counterclockwise, and then the holes,
+/// clockwise.
+fn rings(sketch: &Sketch, name: &str) -> Result<Vec<Ring>, String> {
+    let (mut outer, holes): (Vec<Ring>, Vec<Ring>) = sketch.outlines().into_iter().partition(|ring| area(ring) > 0.0);
+    if outer.len() != 1 || outer[0].len() < 3 {
+        return Err(format!("the {name} sketch must have one outer outline"));
     }
+    outer.extend(holes);
+    Ok(outer)
+}
+
+/// The two rings with the same number of points. The points at the same index are at the same
+/// part of the length of the two outlines.
+fn join(a: Ring, b: Ring) -> (Ring, Ring) {
+    let (a, b) = (start(a), start(b));
+    let (ta, tb) = (parts(&a), parts(&b));
+    // Each corner of each outline is a point of both rings, so the loft keeps all corners.
+    let mut ts: Vec<f64> = ta.iter().chain(&tb).copied().collect();
+    ts.sort_by(f64::total_cmp);
+    ts.dedup_by(|t, kept| *t - *kept < SAME);
+    (ts.iter().map(|&t| at(&a, &ta, t)).collect(), ts.iter().map(|&t| at(&b, &tb, t)).collect())
+}
+
+/// The area of a ring, more than 0 when it turns counterclockwise.
+fn area(ring: &[[f64; 2]]) -> f64 {
+    let n = ring.len();
+    (0..n).map(|i| ring[i][0] * ring[(i + 1) % n][1] - ring[(i + 1) % n][0] * ring[i][1]).sum::<f64>() / 2.0
 }
 
 /// The outline from the point where a line from its center to +X leaves it.

@@ -296,8 +296,22 @@ fn a_loft_joins_two_outlines() {
     let l = |s: f64| Sketch::polygon(&[[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]].map(|[x, y]| [x * s, y * s]));
     let bent = Solid::loft(&l(1.0), &Sketch::circle(0.5, 7).translate([0.6, 0.6]), 1.0).unwrap();
     assert!(volume(&bent) > 0.0 && bent.project().area() > 2.9, "{bent:?}");
+    // A hole joins the hole of the other sketch with the nearest center. A hole that moves gives
+    // the same area at each height, so the volume does not change.
+    let holes = |x: f64| {
+        let hole = |at: f64| Solid::cube(1.0, 1.0, 3.0).translate([at, 0.0, 0.0]);
+        Solid::cube(4.0, 2.0, 2.0).difference(&hole(-1.0)).difference(&hole(x)).project()
+    };
+    let moved = Solid::loft(&holes(1.0), &holes(0.8), 2.0).unwrap();
+    assert!(near(volume(&moved), 12.0), "{}", volume(&moved));
     let frame = Solid::cube(2.0, 2.0, 2.0).difference(&Solid::cube(1.0, 1.0, 3.0)).project();
-    assert_eq!(Solid::loft(&frame, &rect, 1.0).unwrap_err(), "the bottom sketch must have one outline and no hole");
-    assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch must have one outline and no hole");
+    let ring = Solid::cylinder(2.0, 1.2, 1.2, 32).difference(&Solid::cylinder(3.0, 0.4, 0.4, 16)).project();
+    let tube = Solid::loft(&frame, &ring, 1.0).unwrap();
+    assert!(volume(&tube) > 3.0 && volume(&tube) < 4.1, "{}", volume(&tube));
+    let solid = Solid::loft(&frame, &Sketch::circle(1.2, 32), 1.0);
+    assert_eq!(solid.unwrap_err(), "the two sketches must have the same number of holes, not 1 and 0");
+    let pair = Solid::cube(1.0, 1.0, 1.0).union(&Solid::cube(1.0, 1.0, 1.0).translate([3.0, 0.0, 0.0])).project();
+    assert_eq!(Solid::loft(&pair, &rect, 1.0).unwrap_err(), "the bottom sketch must have one outer outline");
+    assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch must have one outer outline");
     assert!(Solid::loft(&rect, &rect, 0.0).is_err() && Solid::loft(&rect, &rect, f64::NAN).is_err());
 }
