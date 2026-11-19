@@ -1,5 +1,50 @@
 use super::*;
 
+#[allow(dead_code)]
+#[path = "../build.rs"]
+mod build_script;
+
+#[test]
+fn atl_search_uses_the_newest_installed_library() {
+    let root = std::env::temp_dir().join(format!("patina-atl-{}", std::process::id()));
+    for version in ["14.38", "14.44", "14.50"] {
+        let lib = root.join(version).join("atlmfc/lib/x64");
+        std::fs::create_dir_all(&lib).unwrap();
+        if version != "14.50" {
+            std::fs::write(lib.join("atls.lib"), b"test").unwrap();
+        }
+    }
+    assert_eq!(
+        build_script::atl_dir(&root),
+        Some(root.join("14.44/atlmfc/lib/x64"))
+    );
+    assert_eq!(build_script::atl_dir(&root.join("absent")), None);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn optional_material_capabilities_respect_the_adapter() {
+    let low = device_descriptor(wgpu::Features::empty(), wgpu::Limits::default());
+    assert!(low.required_features.is_empty());
+    assert_eq!(
+        low.required_limits.max_sampled_textures_per_shader_stage,
+        16
+    );
+    let limits = wgpu::Limits {
+        max_sampled_textures_per_shader_stage: 32,
+        ..Default::default()
+    };
+    let high = device_descriptor(wgpu::Features::FLOAT32_FILTERABLE, limits);
+    assert!(
+        high.required_features
+            .contains(wgpu::Features::FLOAT32_FILTERABLE)
+    );
+    assert_eq!(
+        high.required_limits.max_sampled_textures_per_shader_stage,
+        20
+    );
+}
+
 /// The shared context, or `None` on a computer with no adapter, for example a Linux CI runner.
 fn try_gpu() -> Option<&'static Gpu> {
     gpu().inspect_err(|e| eprintln!("skipped: {e}")).ok()

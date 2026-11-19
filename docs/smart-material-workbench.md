@@ -1,11 +1,62 @@
 # Smart material workbench
 
-Status: source study and implementation plan, 2026-11-18.
+Status: native PBR material prototype verified on Windows, 2026-11-19.
 
 The owner asked to bring the smart material side of Millwright Surface into Patina.
 The owner selected the existing GPU example and a second top-level graph during this study.
 This document records the source findings and the proposed workbench.
-The integration is not implemented yet.
+The first implementation adds native core nodes and a separate material graph.
+The acceptance records below distinguish implemented code from verified behavior.
+
+## First implementation
+
+- Eleven node types expose the ten core kernels and a material output.
+- The copper example has 28 native nodes, 42 wires, and six groups.
+- Each operation uses Patina's scheduler and explicit GPU inputs.
+- Outputs keep three float32 planes for materials, or float32 masks.
+- Node thumbnails use asynchronous readback. Unchanged inputs reuse the previous output.
+- The PBR view uses Surface's renderer, mesh, studio light, and baked maps.
+- Kernel body files can change without a Rust build. The adapter checks their declarations.
+- The imported source revision is `2f47ff8160c2bd8362dee42b6bd4f11e460e06c8`.
+
+The initial Windows test exposed FXC compiler errors on an RTX 4090.
+Some dynamic array writes failed inside the DirectX shader compiler.
+The implementation enables statically linked DXC on Windows x64.
+This avoids a runtime DLL installation. See the [wgpu compiler documentation](https://docs.rs/wgpu/30.0.2/wgpu/enum.Dx12Compiler.html).
+The vendored GPU helper also captures internal compiler errors, not only validation errors.
+
+The GPU integration check passed on Windows MSVC with an RTX 4090 and DX12.
+All three material planes matched Surface's evaluator exactly at 512 x 512.
+The maximum absolute float difference was 0. All 640 x 640 shaded preview pixels also matched Surface's render path.
+Initial evaluation took 0.533 seconds, including first shader compiles and readback.
+Context creation took 1.620 seconds. Cached evaluation averaged 0.138 milliseconds across 100 runs.
+These debug measurements exclude allocation counts and do not establish general performance.
+Metallic and roughness tests changed shading while keeping base color identical.
+Shader edits changed GPU output. Invalid declarations failed validation.
+Hidden editor checks passed narrow previews, channel selection, parameter edits, undo, save, and top-graph switching.
+Windows workspace Clippy, workspace tests, frontend builds, and frontend tests passed in an isolated snapshot.
+Two regression tests cover shared GPU hash state across libraries and typed view reads after cluster replacement.
+
+Static DXC needs ATL when linked with MSVC. The build finds an existing ATL installation.
+The portable Windows GNU material path remains unverified; `wgpu` currently gates static DXC to MSVC.
+
+Remaining work includes general recipe import, texture export, another preview mesh, and a full material library.
+The current example preserves the original copper container and its pinned shaders.
+It does not expose the Paint workspace.
+
+## Owner corrections, 2026-11-19
+
+- Keep the renderer, shaders, mesh baker, and texture export in the example.
+- Material node previews must show the full PBR response, not only lit base color.
+- Reuse Millwright's render path and compare its rendered result.
+- Add an Object node for loading the mesh.
+- Add object mesh-map baking and finished PBR texture passes.
+
+The first node implementation used Surface's cheap thumbnail shader for material previews.
+That shader ignores roughness and metallic. This was a gap in the first implementation.
+Material previews now use Surface's complete PBR renderer. Mask previews still show scalar coverage.
+GPU tests confirm that roughness and metallic change shading without changing base color.
+Object loading, explicit baking, and export remain required work for this task.
 
 ## Scope
 

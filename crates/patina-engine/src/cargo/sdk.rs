@@ -3,7 +3,7 @@
 /// The SDK crates that a project builds with. The engine carries their source.
 /// A node crate that uses the GPU depends on `patina-gpu` or `patina-cuda` (10), so other
 /// projects do not build `wgpu` or `cudarc`.
-pub(super) const SDK_FILES: [(&str, &str); 37] = [
+pub(super) const SDK_FILES: [(&str, &str); 47] = [
     (
         "build/sdk/patina-sdk/Cargo.toml",
         "[package]\nname = \"patina-sdk\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
@@ -44,9 +44,22 @@ pub(super) const SDK_FILES: [(&str, &str); 37] = [
         "[package]\nname = \"patina-gpu\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\
          rust-version = \"1.100\"\n\n[dependencies]\npatina-sdk = { path = \"../patina-sdk\" }\n\
          wgpu = { version = \"30\", default-features = false, features = [\"std\", \"parking_lot\", \"dx12\", \"metal\", \"vulkan\", \"wgsl\"] }\n\
-         wesl = { version = \"0.6\", optional = true }\n\n[features]\ndefault = [\"wesl\"]\n",
+         wesl = { version = \"0.6\", optional = true }\n\n\
+         [target.'cfg(all(windows, target_arch = \"x86_64\"))'.dependencies]\n\
+         wgpu = { version = \"30\", default-features = false, features = [\"static-dxc\"] }\n\n\
+         [features]\ndefault = [\"wesl\"]\n",
     ),
     ("build/sdk/patina-gpu/src/lib.rs", include_str!("../../../patina-gpu/src/lib.rs")),
+    ("build/sdk/patina-gpu/build.rs", include_str!("../../../patina-gpu/build.rs")),
+    ("build/sdk/patina-gpu/vendor/foldhash/Cargo.toml", include_str!("../../../patina-gpu/vendor/foldhash/Cargo.toml")),
+    ("build/sdk/patina-gpu/vendor/foldhash/LICENSE", include_str!("../../../patina-gpu/vendor/foldhash/LICENSE")),
+    ("build/sdk/patina-gpu/vendor/foldhash/README.md", include_str!("../../../patina-gpu/vendor/foldhash/README.md")),
+    ("build/sdk/patina-gpu/vendor/foldhash/PATINA.md", include_str!("../../../patina-gpu/vendor/foldhash/PATINA.md")),
+    ("build/sdk/patina-gpu/vendor/foldhash/src/lib.rs", include_str!("../../../patina-gpu/vendor/foldhash/src/lib.rs")),
+    ("build/sdk/patina-gpu/vendor/foldhash/src/fast.rs", include_str!("../../../patina-gpu/vendor/foldhash/src/fast.rs")),
+    ("build/sdk/patina-gpu/vendor/foldhash/src/quality.rs", include_str!("../../../patina-gpu/vendor/foldhash/src/quality.rs")),
+    ("build/sdk/patina-gpu/vendor/foldhash/src/seed.rs", include_str!("../../../patina-gpu/vendor/foldhash/src/seed.rs")),
+    ("build/sdk/patina-gpu/vendor/foldhash/src/convenience.rs", include_str!("../../../patina-gpu/vendor/foldhash/src/convenience.rs")),
     ("build/sdk/patina-gpu/src/image.rs", include_str!("../../../patina-gpu/src/image.rs")),
     ("build/sdk/patina-gpu/src/link.rs", include_str!("../../../patina-gpu/src/link.rs")),
     ("build/sdk/patina-gpu/src/viewport.rs", include_str!("../../../patina-gpu/src/viewport.rs")),

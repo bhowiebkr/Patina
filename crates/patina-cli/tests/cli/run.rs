@@ -605,6 +605,13 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     };
     assert!(sum().contains("clicks, None"));
     assert!(sum().contains("clicks, Some(6.5)"));
+    // Run rebuilds the cluster. A batch view must keep its requests through that rebuild.
+    let mut rebuilt = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
+    rebuilt.adopt(&mut cluster);
+    rebuilt.set_params(opened.graph());
+    assert!(rebuilt.run(&Control::default()).ok);
+    let tree = view.ui(0, "", &graph, Some(&mut rebuilt.frame_part())).unwrap().tree;
+    assert!(tree.contains("clicks, Some(6.5)"), "{tree}");
 }
 
 #[test]

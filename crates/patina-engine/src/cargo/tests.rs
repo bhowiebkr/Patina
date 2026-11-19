@@ -38,6 +38,13 @@ fn the_sdk_manifests_have_the_dependencies_of_the_crates() {
 }
 
 #[test]
+fn project_workspaces_use_the_hash_seed_patch() {
+    let manifest = workspace(Path::new("unused-test-project"));
+    assert!(manifest.contains("foldhash = { path = \"build/sdk/patina-gpu/vendor/foldhash\" }"));
+    assert!(SDK_FILES.iter().any(|(path, _)| *path == "build/sdk/patina-gpu/vendor/foldhash/src/fast.rs"));
+}
+
+#[test]
 fn a_feature_change_gives_a_new_state_key() {
     let unit = |features: &[&str], opt: u32, debug: bool| {
         let profile = json!({ "opt_level": opt.to_string(), "debug_assertions": debug });

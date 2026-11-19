@@ -124,6 +124,7 @@ Installed edition:
 | Platform | Dependency | Reason |
 |---|---|---|
 | Windows | WebView2 Runtime | Tauri draws the editor with it. Windows 11 includes it, and most Windows 10 computers get it with Microsoft Edge. It can still be missing, so Patina checks for it (13.1). |
+| Windows, MSVC source builds | Visual C++ ATL | Statically linked DXC needs ATL. The GPU build locates an installed ATL library without a PATH change. Runtime packages need neither ATL nor a compiler DLL. |
 | Windows | Code signing certificate (for the release) | Signing of the `.msi` and the executable. Without it, SmartScreen shows a warning. |
 | Linux | WebKitGTK | Tauri uses the system web engine. Most desktop distributions include it. |
 | Linux | ALSA library (`libasound2`) | Patina plays the audio domain through ALSA (9.3). Most desktop distributions include it. A build from source needs `libasound2-dev`. |

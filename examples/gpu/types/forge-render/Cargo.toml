@@ -1,0 +1,23 @@
+[package]
+name = "forge-render"
+description = "Orbit camera, PBR scene renderer and UV-space mesh-map baker"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/bhowiebkr/millwright-surface"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+forge-core = { path = "../forge-core" }
+forge-gpu = { path = "../forge-gpu" }
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "vulkan", "wgsl"] }
+bytemuck = { version = "1.25", features = ["derive", "extern_crate_alloc"] }
+glam = { version = "0.30", features = ["bytemuck"] }
+pollster = "0.4"
+
+[dev-dependencies]
+png = "0.18"
+
+[lints.rust]
+unsafe_code = "deny"

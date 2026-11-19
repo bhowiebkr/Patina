@@ -1,0 +1,78 @@
+{
+  "id": "material-ball",
+  "name": "Material ball",
+  "source": "models/material-ball/material-ball.py",
+  "footprint": [
+    1.0,
+    1.0
+  ],
+  "bounds": {
+    "min": [
+      -0.44995,
+      0.0,
+      -0.44995
+    ],
+    "max": [
+      0.44997,
+      0.76905,
+      0.44995
+    ]
+  },
+  "parts": [
+    {
+      "name": "ball",
+      "kind": "Paint",
+      "group": null,
+      "lod": 0,
+      "first_index": 0,
+      "index_count": 246684,
+      "material": {
+        "base_color": [
+          0.6,
+          0.6,
+          0.6,
+          1.0
+        ],
+        "metallic": 0.0,
+        "roughness": 0.5,
+        "emissive": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "groups": {},
+  "anim": null,
+  "atlas_size": 2048,
+  "charts": 31,
+  "view": {
+    "target": [
+      0.0,
+      0.45,
+      -0.0
+    ],
+    "direction": [
+      0.7485855,
+      0.66303825,
+      -0.0
+    ],
+    "up": [
+      -0.41070104,
+      0.46369097,
+      0.78505754
+    ],
+    "distance": 12.072484,
+    "fov_y": 5.0,
+    "sun": [
+      0.012806247,
+      0.8886172,
+      0.45847073
+    ],
+    "sun_strength": 3.946,
+    "sun_angle": 78.5,
+    "sky": 1.15,
+    "ground": 0.0
+  }
+}

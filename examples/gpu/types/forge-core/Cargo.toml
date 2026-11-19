@@ -1,0 +1,19 @@
+[package]
+name = "forge-core"
+description = "Millwright project data: manifest, assets, binary meshes, animation clips"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/bhowiebkr/millwright-surface"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+bytemuck = { version = "1.25", features = ["derive", "extern_crate_alloc"] }
+glam = { version = "0.30", features = ["bytemuck"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+[lints.rust]
+unsafe_code = "deny"

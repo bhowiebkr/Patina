@@ -87,11 +87,13 @@ impl Cluster {
         let slot = slot.map(|path| slot_library(path, root)).transpose()?;
         let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
         let slots: Vec<(usize, String)> = plan.slots.iter().map(|s| (s.step, s.key.clone())).collect();
-        let probes = plan
+        let probes: Vec<String> = plan
             .held()
             .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
             .collect();
         let has_gui = |n: &usize| plan.nodes[plan.steps[*n].node].1.ui && plan.nodes[plan.steps[*n].node].1.state.is_some();
+        let mut gui_calls = Gui::default();
+        gui_calls.reads = vec![false; probes.len()];
         let gui_nodes: Vec<usize> = (0..plan.steps.len()).filter(has_gui).collect();
         let guis = gui_nodes.iter().map(|&n| (plan.steps[n].id.clone(), plan.steps[n].domain != Domain::Batch)).collect();
         let mut links = Vec::new();
@@ -124,10 +126,10 @@ impl Cluster {
             gui_nodes,
             has_text: vec![false; slots.len()],
             slots,
+            gui_calls,
             probes,
             calls: Calls { sink, ..Calls::default() },
             block_calls: Calls::default(),
-            gui_calls: Gui::default(),
             mix: glue::shared_in(&root.to_string_lossy(), Mix::default),
             sound: [0.0; BLOCK],
             triggers: (0..plan.steps.len())
@@ -371,6 +373,12 @@ impl Cluster {
     /// Moves the state of each node from `old`, when the node ID and the state key did not change
     /// (7.2). Returns the number of states that moved. A node of `old` with no state yet gives none.
     pub fn adopt(&mut self, old: &mut Cluster) -> usize {
+        // Copy requests by output name because a new plan can change the probe order.
+        for (probe, requested) in old.probes.iter().zip(&old.gui_calls.reads) {
+            if *requested && let Some((id, key)) = probe.split_once('.') {
+                self.read(id, key);
+            }
+        }
         let pairs: Vec<(usize, usize)> = (self.keys.iter().zip(&self.names).enumerate())
             .filter_map(|(n, (key, (id, _)))| {
                 let from = old.keys.iter().zip(&old.names).position(|(k, (i, _))| key.is_some() && k == key && i == id)?;

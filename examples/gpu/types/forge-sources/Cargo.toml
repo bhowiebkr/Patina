@@ -1,0 +1,20 @@
+[package]
+name = "forge-sources"
+description = "CPU rasterisers for image-source nodes: bitmaps, text and SVG"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/bhowiebkr/millwright-surface"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+thiserror = "2.0"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tga", "bmp", "hdr", "exr", "tiff"] }
+ab_glyph = "0.2"
+epaint_default_fonts = "0.37"
+# No text elements or embedded raster images: keeps fontdb and extra codecs out of the build.
+resvg = { version = "0.45", default-features = false }
+
+[lints.rust]
+unsafe_code = "deny"

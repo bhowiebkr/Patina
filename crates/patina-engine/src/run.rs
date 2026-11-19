@@ -40,6 +40,8 @@ const MAX_WAITING: usize = 64 * 1024;
 #[derive(Default)]
 pub(crate) struct Gui {
     calls: Calls,
+    /// The requested typed outputs, by probe index. A rebuild transfers these requests.
+    pub(crate) reads: Vec<bool>,
     /// The node index, the mode and the event lines of each input that came while a run held the
     /// node.
     waiting: Vec<(usize, u32, String)>,
@@ -225,6 +227,7 @@ impl Frames<'_> {
             return std::ptr::null();
         };
         let (Some(library), Ok(index)) = (self.nodes.library(n, false), u32::try_from(index)) else { return std::ptr::null() };
+        self.gui.reads[index as usize] = true;
         // A sink of its own, so the outcome of the last run stays.
         let mut sink = Sink::default();
         let rep = Reporter { ctx: (&raw mut sink).cast(), report: collect, control: std::ptr::null() };

@@ -180,6 +180,18 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
 
 ### 10.2 GPU data
 
+- Project workspaces patch foldhash 0.2.0 with the SDK's source copy.
+  Its random state stores its seed pointer, so shared hash tables keep valid lookups across loaded libraries.
+  The upstream state reads a library-local seed. This caused mismatched GPU error scopes after a graph switch.
+  The original hash algorithm and license stay unchanged. Agent decision of 2026-11-19. The owner can change it.
+
+- The shared `wgpu` device enables float32 filtering when the adapter supports it. It requests up to 20 sampled textures per shader stage.
+  It uses the adapter's buffer limits. Nodes that need these optional capabilities must check the device and report unsupported hardware.
+  Basic GPU nodes still work without float32 filtering. Agent decision of 2026-11-18. The owner can change it.
+- Windows x64 builds link DXC statically. FXC cannot compile some material kernels with dynamic array writes.
+  The compiled project needs no extra compiler DLL. The first build downloads the compiler through `wgpu`'s `static-dxc` dependency.
+  Other targets use `wgpu`'s compiler selection. Agent decision of 2026-11-18. The owner can change it.
+
 - `patina-sdk` gives one shared GPU context for each backend. All GPU nodes use the same device, so they can share buffers.
 - A type crate can define GPU types, for example `GpuImage`. A GPU value stays on the GPU between GPU nodes.
 - Data goes to the CPU only when a CPU node or a viewer needs it.

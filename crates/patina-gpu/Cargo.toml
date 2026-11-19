@@ -18,5 +18,9 @@ wgpu = { version = "30", default-features = false, features = ["std", "parking_l
 # The WESL linker. A crate that compiles only WGSL can turn off the default features (10.1).
 wesl = { version = "0.6", optional = true }
 
+# FXC rejects dynamic array writes in material kernels. Static DXC keeps packages portable.
+[target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
+wgpu = { version = "30", default-features = false, features = ["static-dxc"] }
+
 [features]
 default = ["wesl"]

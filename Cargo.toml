@@ -20,9 +20,13 @@ members = [
 # The user projects of the prototypes build alone, with their own flags and toolchains.
 exclude = [
     "examples",
+    "crates/patina-gpu/vendor/foldhash",
     "prototypes/types-across-clusters/project",
     "prototypes/toolchain/fixture",
 ]
+
+[patch.crates-io]
+foldhash = { path = "crates/patina-gpu/vendor/foldhash" }
 
 [workspace.package]
 edition = "2024"

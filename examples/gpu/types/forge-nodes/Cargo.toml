@@ -1,0 +1,28 @@
+[package]
+name = "forge-nodes"
+description = "Smart-material node graph and its GPU evaluator (one compute kernel per node kind)"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/bhowiebkr/millwright-surface"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+forge-core = { path = "../forge-core" }
+forge-gpu = { path = "../forge-gpu" }
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "vulkan", "wgsl"] }
+bytemuck = { version = "1.25", features = ["derive", "extern_crate_alloc"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+forge-sources = { path = "../forge-sources" }
+wesl = "0.6.0"
+wgsl-parse = "0.6.0"
+web-time = "1.1"
+
+[dev-dependencies]
+pollster = "0.4"
+
+[lints.rust]
+unsafe_code = "deny"

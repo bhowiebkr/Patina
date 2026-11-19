@@ -1,0 +1,522 @@
+format = 1
+top = true
+style = "curved"
+
+[[node]]
+id = "c0ffee0000000001"
+folder = "nodes/material-noise"
+pos = [66.0, 157.5]
+[node.params]
+title = "broad variation"
+style = "0"
+scale = "6.0"
+octaves = "5"
+gain = "0.6"
+stretch = "1"
+axis = "1"
+warp = "0.6"
+seed = "11"
+
+[[node]]
+id = "c0ffee0000000002"
+folder = "nodes/material-noise"
+pos = [478.5, 157.5]
+[node.params]
+title = "surface grain"
+style = "0"
+scale = "110.0"
+octaves = "4"
+gain = "0.65"
+stretch = "1"
+axis = "1"
+warp = "0.3"
+seed = "29"
+
+[[node]]
+id = "c0ffee0000000003"
+folder = "nodes/material-noise"
+pos = [891.0, 157.5]
+[node.params]
+title = "fine grain"
+style = "0"
+scale = "220.0"
+octaves = "3"
+gain = "0.5"
+stretch = "1"
+axis = "1"
+warp = "0"
+seed = "47"
+
+[[node]]
+id = "c0ffee0000000004"
+folder = "nodes/material-surface"
+pos = [66.0, 1642.5]
+[node.params]
+title = "shelter"
+fact = "0"
+axis = "1"
+gain = "1"
+
+[[node]]
+id = "c0ffee0000000005"
+folder = "nodes/material-surface"
+pos = [478.5, 1642.5]
+[node.params]
+title = "creases"
+fact = "1"
+axis = "1"
+gain = "4.0"
+
+[[node]]
+id = "c0ffee0000000006"
+folder = "nodes/material-surface"
+pos = [66.0, 1057.5]
+[node.params]
+title = "edges"
+fact = "2"
+axis = "1"
+gain = "4.0"
+
+[[node]]
+id = "c0ffee0000000007"
+folder = "nodes/material-surface"
+pos = [478.5, 1057.5]
+[node.params]
+title = "upward exposure"
+fact = "3"
+axis = "1"
+gain = "1"
+
+[[node]]
+id = "c0ffee0000000008"
+folder = "nodes/material-spread"
+pos = [1551.0, 157.5]
+[node.params]
+title = "edge band"
+radius = "0.01"
+
+[[node]]
+id = "c0ffee0000000009"
+folder = "nodes/material-combine"
+pos = [1963.5, 157.5]
+[node.params]
+title = "wear driver"
+mode = "3"
+amount = "0.8"
+
+[[node]]
+id = "c0ffee000000000a"
+folder = "nodes/material-mask"
+pos = [2376.0, 157.5]
+[node.params]
+title = "worn copper mask"
+amount = "0.08"
+from = "0.035"
+to = "0.18"
+low = "0"
+high = "1"
+
+[[node]]
+id = "c0ffee000000000b"
+folder = "nodes/material-mask"
+pos = [2788.5, 157.5]
+[node.params]
+title = "unworn"
+amount = "0"
+from = "1.0"
+to = "0.0"
+low = "0"
+high = "1"
+
+[[node]]
+id = "c0ffee000000000c"
+folder = "nodes/material-mask"
+pos = [1551.0, 1057.5]
+[node.params]
+title = "oxide patches"
+amount = "0.4"
+from = "0.58"
+to = "0.88"
+low = "0"
+high = "0.9"
+
+[[node]]
+id = "c0ffee000000000d"
+folder = "nodes/material-combine"
+pos = [1963.5, 1057.5]
+[node.params]
+title = "tarnish mask"
+mode = "2"
+amount = "1"
+
+[[node]]
+id = "c0ffee000000000e"
+folder = "nodes/material-mask"
+pos = [2376.0, 1057.5]
+[node.params]
+title = "oxide tone"
+amount = "0.4"
+from = "0.0"
+to = "1.0"
+low = "0.15"
+high = "0.85"
+
+[[node]]
+id = "c0ffee000000000f"
+folder = "nodes/material-combine"
+pos = [1551.0, 2587.5]
+[node.params]
+title = "deposit driver"
+mode = "0"
+amount = "0.7"
+
+[[node]]
+id = "c0ffee0000000010"
+folder = "nodes/material-spread"
+pos = [1963.5, 2587.5]
+[node.params]
+title = "deposit spread"
+radius = "0.004"
+
+[[node]]
+id = "c0ffee0000000011"
+folder = "nodes/material-combine"
+pos = [2376.0, 2587.5]
+[node.params]
+title = "soft deposit driver"
+mode = "3"
+amount = "0.4"
+
+[[node]]
+id = "c0ffee0000000012"
+folder = "nodes/material-mask"
+pos = [2788.5, 2587.5]
+[node.params]
+title = "deposit patches"
+amount = "0.4"
+from = "0.15"
+to = "0.55"
+low = "0"
+high = "1"
+
+[[node]]
+id = "c0ffee0000000013"
+folder = "nodes/material-mask"
+pos = [1551.0, 1722.5]
+[node.params]
+title = "aged patches"
+amount = "0.25"
+from = "0.62"
+to = "0.86"
+low = "0"
+high = "0.4"
+
+[[node]]
+id = "c0ffee0000000014"
+folder = "nodes/material-combine"
+pos = [1963.5, 1722.5]
+[node.params]
+title = "exposed aged patches"
+mode = "2"
+amount = "1"
+
+[[node]]
+id = "c0ffee0000000015"
+folder = "nodes/material-combine"
+pos = [3201.0, 2587.5]
+[node.params]
+title = "deposit coverage"
+mode = "0"
+amount = "1"
+
+[[node]]
+id = "c0ffee0000000016"
+folder = "nodes/material-combine"
+pos = [3590.9514299999996, 2578.9592249999996]
+[node.params]
+title = "patina mask"
+mode = "2"
+amount = "1"
+
+[[node]]
+id = "c0ffee0000000017"
+folder = "nodes/material-layer"
+pos = [4273.5, 1057.5]
+[node.params]
+title = "copper substrate"
+color = "[2.0,0.2,0.6745098,0.3019608,0.15686275,1.0,0.8,0.84705883,0.4627451,0.27058825,1.0]"
+rough_low = "0.55"
+rough_high = "0.42"
+metallic = "1.0"
+thickness = "0"
+relief_amount = "0.06"
+
+[[node]]
+id = "c0ffee0000000018"
+folder = "nodes/material-layer"
+pos = [4686.0, 1057.5]
+[node.params]
+title = "dark oxide"
+color = "[3.0,0.15,0.14901961,0.22352941,0.23529412,1.0,0.5,0.22352941,0.20784314,0.20784314,1.0,0.85,0.34509805,0.22352941,0.19215687,1.0]"
+rough_low = "0.68"
+rough_high = "0.54"
+metallic = "0.0"
+thickness = "0.004"
+relief_amount = "0.025"
+
+[[node]]
+id = "c0ffee0000000019"
+folder = "nodes/material-layer"
+pos = [5098.5, 1057.5]
+[node.params]
+title = "mineral deposit"
+color = "[2.0,0.2,0.08235294,0.38431373,0.34117648,1.0,0.8,0.12941177,0.4745098,0.41960785,1.0]"
+rough_low = "0.72"
+rough_high = "0.66"
+metallic = "0.0"
+thickness = "0.012"
+relief_amount = "0.01"
+
+[[node]]
+id = "c0ffee000000001a"
+folder = "nodes/material-layer"
+pos = [5511.0, 1057.5]
+[node.params]
+title = "worn conductor"
+color = "[2.0,0.2,0.67058825,0.37254903,0.22352941,1.0,0.8,0.92941177,0.6627451,0.44705883,1.0]"
+rough_low = "0.48"
+rough_high = "0.32"
+metallic = "1.0"
+thickness = "0"
+relief_amount = "0"
+
+[[node]]
+id = "c0ffee000000001b"
+folder = "nodes/material-finish"
+pos = [5923.5, 1057.5]
+[node.params]
+title = "finish"
+depth = "0.012"
+occlusion = "0.65"
+
+[[node]]
+id = "c0ffee000000001c"
+folder = "nodes/material-output"
+pos = [6336.0, 1057.5]
+[node.params]
+
+[[wire]]
+from = "c0ffee0000000006.out"
+to = "c0ffee0000000008.input"
+
+[[wire]]
+from = "c0ffee0000000006.out"
+to = "c0ffee0000000009.a"
+
+[[wire]]
+from = "c0ffee0000000008.out"
+to = "c0ffee0000000009.b"
+
+[[wire]]
+from = "c0ffee0000000009.out"
+to = "c0ffee000000000a.driver"
+
+[[wire]]
+from = "c0ffee0000000002.out"
+to = "c0ffee000000000a.breakup"
+
+[[wire]]
+from = "c0ffee000000000a.out"
+to = "c0ffee000000000b.driver"
+
+[[wire]]
+from = "c0ffee0000000007.out"
+to = "c0ffee000000000c.driver"
+
+[[wire]]
+from = "c0ffee0000000001.out"
+to = "c0ffee000000000c.breakup"
+
+[[wire]]
+from = "c0ffee000000000c.out"
+to = "c0ffee000000000d.a"
+
+[[wire]]
+from = "c0ffee000000000b.out"
+to = "c0ffee000000000d.b"
+
+[[wire]]
+from = "c0ffee0000000002.out"
+to = "c0ffee000000000e.driver"
+
+[[wire]]
+from = "c0ffee0000000001.out"
+to = "c0ffee000000000e.breakup"
+
+[[wire]]
+from = "c0ffee0000000004.out"
+to = "c0ffee000000000f.a"
+
+[[wire]]
+from = "c0ffee0000000005.out"
+to = "c0ffee000000000f.b"
+
+[[wire]]
+from = "c0ffee000000000f.out"
+to = "c0ffee0000000010.input"
+
+[[wire]]
+from = "c0ffee000000000f.out"
+to = "c0ffee0000000011.a"
+
+[[wire]]
+from = "c0ffee0000000010.out"
+to = "c0ffee0000000011.b"
+
+[[wire]]
+from = "c0ffee0000000011.out"
+to = "c0ffee0000000012.driver"
+
+[[wire]]
+from = "c0ffee0000000001.out"
+to = "c0ffee0000000012.breakup"
+
+[[wire]]
+from = "c0ffee0000000001.out"
+to = "c0ffee0000000013.driver"
+
+[[wire]]
+from = "c0ffee0000000002.out"
+to = "c0ffee0000000013.breakup"
+
+[[wire]]
+from = "c0ffee0000000013.out"
+to = "c0ffee0000000014.a"
+
+[[wire]]
+from = "c0ffee000000000d.out"
+to = "c0ffee0000000014.b"
+
+[[wire]]
+from = "c0ffee0000000012.out"
+to = "c0ffee0000000015.a"
+
+[[wire]]
+from = "c0ffee0000000014.out"
+to = "c0ffee0000000015.b"
+
+[[wire]]
+from = "c0ffee0000000015.out"
+to = "c0ffee0000000016.a"
+
+[[wire]]
+from = "c0ffee000000000b.out"
+to = "c0ffee0000000016.b"
+
+[[wire]]
+from = "c0ffee0000000002.out"
+to = "c0ffee0000000017.tone"
+
+[[wire]]
+from = "c0ffee0000000002.out"
+to = "c0ffee0000000017.relief"
+
+[[wire]]
+from = "c0ffee0000000017.out"
+to = "c0ffee0000000018.base"
+
+[[wire]]
+from = "c0ffee000000000d.out"
+to = "c0ffee0000000018.mask"
+
+[[wire]]
+from = "c0ffee000000000e.out"
+to = "c0ffee0000000018.tone"
+
+[[wire]]
+from = "c0ffee0000000002.out"
+to = "c0ffee0000000018.relief"
+
+[[wire]]
+from = "c0ffee0000000018.out"
+to = "c0ffee0000000019.base"
+
+[[wire]]
+from = "c0ffee0000000016.out"
+to = "c0ffee0000000019.mask"
+
+[[wire]]
+from = "c0ffee0000000003.out"
+to = "c0ffee0000000019.tone"
+
+[[wire]]
+from = "c0ffee0000000003.out"
+to = "c0ffee0000000019.relief"
+
+[[wire]]
+from = "c0ffee0000000019.out"
+to = "c0ffee000000001a.base"
+
+[[wire]]
+from = "c0ffee000000000a.out"
+to = "c0ffee000000001a.mask"
+
+[[wire]]
+from = "c0ffee0000000002.out"
+to = "c0ffee000000001a.tone"
+
+[[wire]]
+from = "c0ffee000000001a.out"
+to = "c0ffee000000001b.material"
+
+[[wire]]
+from = "c0ffee000000001b.out"
+to = "c0ffee000000001c.material"
+
+[[group]]
+id = "cafe000000000001"
+title = "01 Shared variation"
+color = "teal"
+pos = [0.0, 0.0]
+size = [1320.0, 742.5]
+
+[[group]]
+id = "cafe000000000002"
+title = "02 Mesh drivers"
+color = "gray"
+pos = [0.0, 900.0]
+size = [1320.0, 1372.5]
+
+[[group]]
+id = "cafe000000000003"
+title = "03 Wear coverage"
+color = "amber"
+pos = [1485.0, 0.0]
+size = [1732.5, 742.5]
+
+[[group]]
+id = "cafe000000000004"
+title = "04 Tarnish"
+color = "copper"
+pos = [1485.0, 900.0]
+size = [1732.5, 1500.0]
+
+[[group]]
+id = "cafe000000000005"
+title = "05 Mineral coverage"
+color = "green"
+pos = [1485.0, 2430.0]
+size = [2557.5, 742.5]
+
+[[group]]
+id = "cafe000000000006"
+title = "06 Material and output"
+color = "violet"
+pos = [4207.5, 900.0]
+size = [2557.5, 1000.0]
+
+[[note]]
+id = "cafe100000000001"
+pos = [-50.0, -220.0]
+width = 680.0
+text = "# OXIDIZED COPPER\nSurface variation, exposed edges, mineral deposits, and four physical coats.\nOpen Material Preview before Run. Drag its view to orbit. Use the channel selector to inspect the material."

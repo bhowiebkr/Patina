@@ -46,6 +46,7 @@ fn open() -> Result<Gpu, String> {
     // The viewport surface under the web view needs DX12 on Windows (15.8).
     if cfg!(windows) {
         desc.backends = wgpu::Backends::DX12;
+        desc.backend_options.dx12.shader_compiler = wgpu::Dx12Compiler::Auto;
     }
     let instance = wgpu::Instance::new(desc.with_env());
     let fast = wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() };
@@ -53,10 +54,32 @@ fn open() -> Result<Gpu, String> {
     let adapter = block_on(instance.request_adapter(&fast))
         .or_else(|_| block_on(instance.request_adapter(&soft)))
         .map_err(|e| format!("Patina found no GPU adapter: {e}"))?;
-    let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).map_err(|e| e.to_string())?;
+    let desc = device_descriptor(adapter.features(), adapter.limits());
+    let (device, queue) = block_on(adapter.request_device(&desc)).map_err(|e| e.to_string())?;
     // The default handler stops the process. Each call that can fail uses an error scope.
     device.on_uncaptured_error(Arc::new(|error| eprintln!("Patina: GPU error: {error}")));
     Ok(Gpu { instance, adapter, device, queue, shrink: OnceLock::new(), spares: Mutex::default() })
+}
+
+/// Enable supported material operations without excluding adapters that lack them.
+fn device_descriptor(
+    features: wgpu::Features,
+    limits: wgpu::Limits,
+) -> wgpu::DeviceDescriptor<'static> {
+    let base = wgpu::Limits::default();
+    wgpu::DeviceDescriptor {
+        required_features: features & wgpu::Features::FLOAT32_FILTERABLE,
+        required_limits: wgpu::Limits {
+            max_sampled_textures_per_shader_stage: limits
+                .max_sampled_textures_per_shader_stage
+                .min(20)
+                .max(base.max_sampled_textures_per_shader_stage),
+            max_buffer_size: limits.max_buffer_size,
+            max_storage_buffer_binding_size: limits.max_storage_buffer_binding_size,
+            ..base
+        },
+        ..Default::default()
+    }
 }
 
 impl Gpu {

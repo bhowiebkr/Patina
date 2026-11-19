@@ -14,6 +14,7 @@ import { skippedShape } from '../controls/gui';
 import { frameStats } from './benchGraph';
 import { busPinFaults } from './busPins';
 import { synthDocks } from './shot-synth';
+import { materialWorkbench } from './shot-material';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -155,7 +156,7 @@ function guiFit(where: string) {
       if (w instanceof HTMLElement && w.scrollWidth > w.clientWidth + 1 && !(w instanceof HTMLInputElement || w instanceof HTMLTextAreaElement)) bad.push(`cut ${box.getAttribute('data-id') ?? 'inspector'} ${name(w)}`);
     }
   }
-  const nodes = [...document.querySelectorAll('.react-flow__node')].map((n) => [n.getAttribute('data-id'), n.getBoundingClientRect()] as const);
+  const nodes = [...document.querySelectorAll('.react-flow__node')].filter((n) => !n.getAttribute('data-id')?.startsWith('group:')).map((n) => [n.getAttribute('data-id'), n.getBoundingClientRect()] as const);
   for (const e of document.querySelectorAll('.node-gui [role=alert]')) bad.push(`a GUI cannot draw: ${e.textContent}`);
   bad.push(...textsClear(document));
   // A pin shows on hover, so it must not cover the text of the title (15.3).
@@ -728,6 +729,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     if (await echo()) steps.push('main-echo');
     for (const name of v.views) steps.push(...(await openView(name)));
     steps.push(...(await synthDocks(v, show)));
+    steps.push(...(await materialWorkbench(v, show, () => guiFit('materials'))));
     // A subgraph inspects the first node of each kind that the shot did not inspect yet.
     const kinds = new Set((v.graph.node ?? []).map((n) => n.folder ?? n.subgraph ?? n.builtin));
     // Depth first: open each subgraph one time, through its first use, then go back.

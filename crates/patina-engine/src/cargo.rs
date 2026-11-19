@@ -74,7 +74,8 @@ fn workspace(root: &Path) -> String {
         "# Made by Patina. Patina writes this file again at each build.\n[workspace]\nresolver = \"3\"\n\
          members = [{}]\n\n[workspace.dependencies]\npatina-sdk = {{ path = \"build/sdk/patina-sdk\" }}\n\
          patina-gpu = {{ path = \"build/sdk/patina-gpu\" }}\npatina-cuda = {{ path = \"build/sdk/patina-cuda\" }}\n\
-         patina-event = {{ path = \"build/sdk/patina-event\" }}\n{PROFILES}{}",
+         patina-event = {{ path = \"build/sdk/patina-event\" }}\n\n\
+         [patch.crates-io]\nfoldhash = {{ path = \"build/sdk/patina-gpu/vendor/foldhash\" }}\n{PROFILES}{}",
         members.join(", "),
         clusters.concat()
     )

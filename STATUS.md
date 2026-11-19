@@ -19,6 +19,13 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- Smart material prototype: the GPU example adds 11 node types and a second top graph with 28 native copper nodes.
+  On Windows MSVC and RTX 4090 DX12, all material channels matched Surface exactly at 512 x 512.
+  The 640 x 640 shaded preview matched Surface's renderer. Independent roughness and metallic tests passed.
+  Hidden editor checks, workspace Clippy, workspace tests, and frontend checks passed on Windows.
+  Object loading, explicit mesh-map baking, and texture export are the next required work.
+  General recipe import and non-MSVC material workflows remain open. GPU allocation counts were not measured.
+
 - View layout: twelve dock instances, responsive columns, dock size reads, and one undo step per canvas drag.
   Windows frontend checks, workspace Clippy, and workspace tests passed on 2026-11-18.
   View metadata selects the initial dock. A tab menu keeps crowded docks usable.

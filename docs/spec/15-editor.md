@@ -503,7 +503,8 @@ The limits of version 1:
 
 - Up to twelve view instances at a time, each in a dock panel or a float window.
 - A view reads the typed value only of an output with a wire. A rebuild of the cluster
-  stops the copies until the next read.
+  transfers its copy requests by node ID and output key.
+  (Agent decision, 2026-11-19. Reason: a batch view must receive a value after **Run** rebuilds the cluster. The owner can change it.)
 - No subgraph edits and no reads of node states. `fire` finds a `trigger` node in a use with
   the ID `<use ID>/<node ID>`.
 - One viewport in a window, drawn on the engine thread, only on Windows. No viewport in node

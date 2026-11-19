@@ -1,0 +1,14 @@
+[package]
+name = "material-preview"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.patina]
+dock = "right"
+
+[dependencies]
+patina-sdk = { workspace = true }
+material-lab = { path = "../../types/material-lab" }
