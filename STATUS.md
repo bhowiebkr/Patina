@@ -223,9 +223,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   manifolds. monstertruck failed the gun union. csgrs does not resolve.
 - Agent decision: Manifold behind the type crate of the model workbench.
 - Known limits:
-  - The trials ran only on Windows with the MSVC target, in throwaway crates. The build with
-    the Patina toolchain (Zig, gnu target) is task D0b.
+  - The trials ran only on Windows, in throwaway crates.
   - The default Manifold crate build needs CMake and git. Spec 13.4 does not allow them.
+- Task D0b: the `cc` crate built Manifold with no CMake. With the Patina toolchain (gnu target,
+  Zig, `rust-lld`), the cold build took 8 s, and a gun took 3.1 ms.
+  - The toolchain has no C++ setup. The trial set `CXX`, libc++ and a shim for 8 UCRT imports
+    by hand. Task D0c adds this to the toolchain.
+  - C++ exceptions across the link are not checked.
 
 ### Groups, notes and the error display, 2026-11-18
 

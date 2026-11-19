@@ -26,7 +26,8 @@ cargo run -p geometry --release
 
 All runs were on Windows 11, in release, with Rust 1.100.0 and the MSVC target. A game ran in
 the background, so the times are high. The kernel trials were throwaway crates outside the
-repository. Nobody ran them in a type crate of a workbench or with the Patina toolchain.
+repository. Nobody ran them in a type crate of a workbench. The run with the Patina toolchain is
+in the D0b section.
 
 | Candidate | Gun of 30 parts | Block of 500 | 2500 buildings | Build | License |
 | --- | --- | --- | --- | --- | --- |
@@ -62,16 +63,45 @@ This is an agent decision of 2026-11-19. The owner can change it.
 - Use Manifold for the booleans of the model workbench. It was the only candidate that cut the
   gun, and it is fast enough for the city target of task E8 (2 s).
 - Keep the kernel behind the type crate of the workbench. The tool gets no kernel code.
-- The type crate must not need CMake or git (spec 13.4). Next, build the Manifold and Clipper2
-  sources with the `cc` crate and the C++ compiler of the toolchain. Spec 13.2 makes Zig that
-  compiler for `x86_64-pc-windows-gnu`.
+- The type crate must not need CMake or git (spec 13.4). It builds the Manifold and Clipper2
+  sources with the `cc` crate and Zig as the C++ compiler. The D0b section has the result.
 - Keep the pure Rust mesh of this crate for the primitives, the previews and the tests.
 - Do not use monstertruck now. Look at it again for fillets when it is more stable.
 
+## D0b: Manifold with the Patina toolchain
+
+The second trial built Manifold 3.5.5 with no CMake and no git, on 2026-11-19. It was also a
+throwaway crate outside the repository.
+
+- The `build.rs` compiles 19 Manifold sources, the 5 sources of its C bindings and 4 Clipper2
+  sources with the `cc` crate. It defines `MANIFOLD_PAR=-1` and `MANIFOLD_CROSS_SECTION`.
+- The sources need about 1.1 MB for Manifold (`src`, `include`, `bindings/c`) and 325 KB for
+  Clipper2 (`include`, `src`).
+- MSVC target: the cold build took 5 s, and a gun took 3.6 ms.
+- Patina toolchain of a toolchain run (Rust 1.100.0, `x86_64-pc-windows-gnu`, Zig 0.17.1 as the
+  C++ compiler, `rust-lld`, a clean environment):
+  - The cold build took 8 s with an empty Zig cache, and a rebuild 1 s.
+  - A gun of 30 parts with the bore cut took 3.1 ms, with 754 triangles. All 200 guns were valid.
+  - The executable is 1.9 MB. It needs only system DLLs, with `msvcrt.dll` as the C runtime.
+
+The toolchain has no C++ setup now. The trial added these parts by hand:
+
+- `CXX` for the target: a Zig wrapper that runs `zig c++ -target x86_64-windows-gnu`. Without
+  it, the `cc` crate looks for `g++`.
+- `cpp_link_stdlib(None)`, and `libc++.a` and `libc++abi.a` from the Zig cache. Zig builds them
+  when it links a C++ program. The `cc` crate links `stdc++` by default, and the toolchain has no
+  libstdc++ for Zig.
+- `-Cdlltool` with the Zig dlltool, as the engine does. `getrandom` needs it, through the
+  `parallel` feature of `cc`.
+- A shim of 12 lines. libc++ of Zig imports 8 functions from the UCRT: `mbrtowc`, `mbrlen`,
+  `mbsrtowcs`, `wcrtomb`, `wctob`, `btowc`, `_strftime_l` and `__sys_nerr`. The Rust gnu target
+  links msvcrt, so `rust-lld` cannot find these imports. The shim points each import at the
+  msvcrt function. `_strftime_l` ignores the locale.
+
 ## Not checked
 
-- The build and the link with the Patina toolchain: the gnu target, Zig and `rust-lld`. This
-  computer has only the MSVC target, and no Zig outside a toolchain run.
+- C++ exceptions across the link: libc++abi of Zig with the unwinder of the Rust gnu target.
+  The trial threw no exception.
 - A build in a type crate of a workbench, and a build in a node cluster.
 - Linux and macOS. The hash can change on another platform, because `sin` and `cos` come from
   the platform math library.

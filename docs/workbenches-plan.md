@@ -108,6 +108,19 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
 - Agent decision of 2026-11-19, the owner can change it: use Manifold behind the type crate.
 - **D0b. Build Manifold with no CMake.** Compile the Manifold and Clipper2 sources with the `cc`
   crate in the type crate. Prove it with the Patina toolchain (Zig and the gnu target).
+- Result of 2026-11-19: the gnu build with Zig and `rust-lld` took 8 s cold, and a gun took
+  3.1 ms. The toolchain needed a C++ setup by hand. The details are in
+  [prototypes/geometry](../prototypes/geometry/README.md).
+- **D0c. C++ crates in the toolchain (tool).** This is generic: each C++ crate needs it, not
+  only the model workbench. Agent decision of 2026-11-19, the owner can change it.
+  - Add a `zig-cxx` wrapper, and set `CXX` and `CXXSTDLIB=c++` for the target in the clean
+    environment.
+  - On Windows, make the C++ runtime one time: link a small C++ program with Zig, then put its
+    libc++, libc++abi and the msvcrt shim of D0b into `libc++.a` in the Zig folder. Give rustc
+    that folder as a link search path.
+  - Check: a `patina-cli` test builds a crate with a C++ file and a C++ exception, and runs it.
+- **D1 to D8** vendor the Manifold and Clipper2 sources into the type crate, with their license
+  files. A build then needs no download of C++ sources.
 - **D1. Types.** `Solid`, `Mesh` (positions, normals, UV and a part ID), `Sockets` (named frames,
   for example `muzzle` and `grip`) and `Seed`. The viewer gives a thumbnail and a text with the
   triangle count and the bounds.
@@ -173,6 +186,7 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
 - 2026-11-19: A and B1 to B5 are done. [STATUS.md](../STATUS.md) has the checks.
 - 2026-11-19: D0 is done on Windows with the MSVC target. The Patina toolchain build is task
   D0b.
+- 2026-11-19: D0b is done on Windows with a toolchain run and a C++ setup by hand. Next is D0c.
 
 ## Order
 
@@ -187,6 +201,7 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
 
 - The name of the model workbench.
 - The kernel. The agent decision after D0 is Manifold, built from source with Zig (task D0b).
+- C++ support in the toolchain (task D0c), or a C++ setup in each workbench that needs it.
 - City and gun as two workbenches that use the model workbench as a library (recommended), or
   as graphs of one workbench.
 - When the workbenches move out of the Patina repository.
