@@ -40,7 +40,7 @@ fn the_model_workbench_builds_the_kernel_and_runs_its_graphs() {
     // check stops before the hash.
     for (graph, line) in [
         ("solids", "576 triangles, bounds -1 -1 -0.5 to 1 1 1.2"),
-        ("sketches", "2368 triangles, bounds -2.5 -1.5 -0.3 to 2.5 1.3 3"),
+        ("sketches", "2460 triangles, bounds -2.5 -1.5 -0.3 to 2.5 1.3 3"),
         ("seeds", "302 triangles, bounds -1.378 -1 0 to 1.378 1 2.127"),
         ("sockets", "124 triangles, bounds -1.5 -0.4 -1.4 to 2.5 0.4 0.6"),
     ] {

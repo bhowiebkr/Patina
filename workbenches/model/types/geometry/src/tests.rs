@@ -269,3 +269,35 @@ fn a_scene_places_meshes_and_bakes_each_group() {
     assert_eq!(b.hash(), b.clone().hash());
     assert_ne!(b.hash(), moved.hash());
 }
+
+#[test]
+fn a_loft_joins_two_outlines() {
+    let volume = |solid: &Solid| -> f64 {
+        let mesh = solid.mesh();
+        let corner = |i: usize| mesh.positions[i].map(f64::from);
+        (0..mesh.triangles()).map(|t| {
+            let [a, b, c] = [corner(3 * t), corner(3 * t + 1), corner(3 * t + 2)];
+            a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
+        }).sum::<f64>() / 6.0
+    };
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-4;
+    let rect = Sketch::rectangle(2.0, 1.0);
+    let block = Solid::loft(&rect, &rect, 3.0).unwrap();
+    assert_eq!(block.bounds(), [[-1.0, -0.5, 0.0], [1.0, 0.5, 3.0]]);
+    assert!(near(volume(&block), 6.0), "{}", volume(&block));
+    // The corners of the two squares meet, so the loft is a frustum: 3 / 3 x (4 + 1 + 2).
+    let frustum = Solid::loft(&Sketch::rectangle(2.0, 2.0), &Sketch::rectangle(1.0, 1.0), 3.0).unwrap();
+    assert!(near(volume(&frustum), 7.0), "{}", volume(&frustum));
+    let round = Solid::loft(&Sketch::rectangle(2.0, 2.0), &Sketch::circle(1.0, 16), 2.0).unwrap();
+    let [low, high] = round.bounds();
+    assert!(near(low[0], -1.0) && near(high[1], 1.0) && high[2] == 2.0, "{round:?}");
+    assert!(volume(&round) > 2.0 * 3.0 && volume(&round) < 2.0 * 4.0, "{}", volume(&round));
+    // A concave outline gets new corners on its edges from the other outline.
+    let l = |s: f64| Sketch::polygon(&[[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]].map(|[x, y]| [x * s, y * s]));
+    let bent = Solid::loft(&l(1.0), &Sketch::circle(0.5, 7).translate([0.6, 0.6]), 1.0).unwrap();
+    assert!(volume(&bent) > 0.0 && bent.project().area() > 2.9, "{bent:?}");
+    let frame = Solid::cube(2.0, 2.0, 2.0).difference(&Solid::cube(1.0, 1.0, 3.0)).project();
+    assert_eq!(Solid::loft(&frame, &rect, 1.0).unwrap_err(), "the bottom sketch must have one outline and no hole");
+    assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch must have one outline and no hole");
+    assert!(Solid::loft(&rect, &rect, 0.0).is_err() && Solid::loft(&rect, &rect, f64::NAN).is_err());
+}

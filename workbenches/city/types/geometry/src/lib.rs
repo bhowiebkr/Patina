@@ -2,6 +2,7 @@
 //! meshes, sockets and seeds. The kernel is C++ in `vendor/`, and `build.rs` compiles it.
 
 pub mod export;
+mod loft;
 mod mesh;
 mod scene;
 mod seed;

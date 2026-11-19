@@ -46,6 +46,12 @@ unsafe extern "C" {
     fn manifold_cross_section_bounds(mem: *mut c_void, cs: *mut RawSketch) -> *mut c_void;
     fn manifold_rect_min(r: *mut c_void) -> Vec2;
     fn manifold_rect_max(r: *mut c_void) -> Vec2;
+    fn manifold_polygons(mem: *mut c_void, ps: *const *mut c_void, length: usize) -> *mut c_void;
+    fn manifold_alloc_triangulation() -> *mut c_void;
+    fn manifold_delete_triangulation(t: *mut c_void);
+    fn manifold_triangulate(mem: *mut c_void, ps: *mut c_void, epsilon: f64) -> *mut c_void;
+    fn manifold_triangulation_num_tri(t: *mut c_void) -> usize;
+    fn manifold_triangulation_tri_verts(mem: *mut c_int, t: *mut c_void) -> *mut c_int;
 }
 
 /// A flat shape on the XY plane, with holes. `Solid::extrude` and `Solid::revolve` make solids
@@ -156,6 +162,27 @@ impl Sketch {
             result
         }
     }
+}
+
+/// The triangles that fill the closed line through `ring`, as indices into `ring`. They turn
+/// counterclockwise for a counterclockwise ring.
+pub(crate) fn triangulate(ring: &[[f64; 2]]) -> Vec<[u32; 3]> {
+    let points: Vec<Vec2> = ring.iter().map(|&[x, y]| Vec2 { x, y }).collect();
+    // SAFETY: each constructor fills new memory of its type. The polygons copy the simple
+    // polygon, the buffer has the length that the kernel gives, and all is deleted after the copy.
+    // The tolerance -1 lets the kernel choose.
+    let corners = unsafe {
+        let simple = manifold_simple_polygon(manifold_alloc_simple_polygon(), points.as_ptr(), points.len());
+        let polygons = manifold_polygons(manifold_alloc_polygons(), &simple, 1);
+        let triangles = manifold_triangulate(manifold_alloc_triangulation(), polygons, -1.0);
+        let mut corners: Vec<c_int> = vec![0; manifold_triangulation_num_tri(triangles) * 3];
+        manifold_triangulation_tri_verts(corners.as_mut_ptr(), triangles);
+        manifold_delete_triangulation(triangles);
+        manifold_delete_polygons(polygons);
+        manifold_delete_simple_polygon(simple);
+        corners
+    };
+    corners.as_chunks::<3>().0.iter().map(|t| t.map(|i| i as u32)).collect()
 }
 
 impl Clone for Sketch {

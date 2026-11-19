@@ -45,6 +45,8 @@ unsafe extern "C" {
         x4: f64, y4: f64, z4: f64,
     ) -> *mut Raw;
     fn manifold_hull(mem: *mut Raw, m: *mut Raw) -> *mut Raw;
+    fn manifold_meshgl(mem: *mut c_void, props: *const f32, n_verts: usize, n_props: usize, tris: *const u32, n_tris: usize) -> *mut c_void;
+    fn manifold_of_meshgl(mem: *mut Raw, mesh: *mut c_void) -> *mut Raw;
     fn manifold_project(mem: *mut c_void, m: *mut Raw) -> *mut c_void;
     fn manifold_alloc_polygons() -> *mut c_void;
     fn manifold_delete_polygons(p: *mut c_void);
@@ -234,6 +236,20 @@ impl Solid {
     pub fn hull(&self) -> Solid {
         // SAFETY: `mem` is new Manifold memory, and the input is a valid solid.
         Solid::make(|mem| unsafe { manifold_hull(mem, self.0) })
+    }
+
+    /// The solid that the triangles close, with their corners counterclockwise from the outside.
+    /// The solid has the kernel error of a mesh that is not closed or of an index that is too large.
+    pub fn of_triangles(corners: &[[f32; 3]], triangles: &[[u32; 3]]) -> Solid {
+        // SAFETY: the MeshGL copies the two arrays of the given lengths into new MeshGL memory,
+        // the solid copies the mesh into new Manifold memory, and the mesh is deleted after the copy.
+        Solid::make(|mem| unsafe {
+            let (props, tris) = (corners.as_flattened(), triangles.as_flattened());
+            let mesh = manifold_meshgl(manifold_alloc_meshgl(), props.as_ptr(), corners.len(), 3, tris.as_ptr(), triangles.len());
+            let solid = manifold_of_meshgl(mem, mesh);
+            manifold_delete_meshgl(mesh);
+            solid
+        })
     }
 
     /// The solid, or the kernel error as a text for the node.

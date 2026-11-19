@@ -288,7 +288,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - Round shapes and turns that are not multiples of 90 degrees use the sine of the C++
     runtime. Their hashes were not compared across platforms.
-  - The kernel has no loft, no fillet and no bevel.
+  - The kernel has no fillet and no bevel. The loft came later, see the loft section.
   - `pick` chooses one of two inputs. Chain picks for more choices.
   - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
 
@@ -373,6 +373,28 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
     about 0.3 s after each change.
   - Linux and macOS did not run the workbench.
+
+### Model workbench loft and the fillet trial, 2026-11-19
+
+- `Solid::loft` and the `loft` node of [workbenches/model](workbenches/model/README.md) make a
+  solid from the outline of a bottom sketch at z = 0 to the outline of a top sketch.
+  - Each outline gets the corners of the other outline at the same part of its length. Each
+    outline starts where a line from its center to +X leaves it, so the sides do not twist.
+  - The Manifold triangulator closes the two ends, and the kernel checks the closed mesh.
+  - The `sketches` guide graph lofts a square to a circle.
+- The fillet trial, measured in a release build while the computer ran a game:
+  - A Minkowski opening with a ball took 1.5 to 7.3 s for a cylinder and box of 324
+    triangles, and 3.9 to 23 s for a sphere and box of 2112 triangles. This is too slow for
+    a live node.
+  - `SmoothOut` with `Refine` took less than 8 ms, but the faces bulge out. A cube of 2 grew
+    to +-1.169 at a smoothness of 0.3 and to +-1.337 at 0.6.
+  - Thus the model workbench has no fillet node and no bevel node.
+- Checked on 2026-11-19, on Windows only: the `geometry` unit test of the loft, the unit
+  tests of the city and gun copies, and the CLI test of the guide graphs.
+- Known limits:
+  - Each sketch must have one outline and no hole.
+  - Very different outlines, for example a thin L to a circle, can give sides that cross. The
+    kernel then gives an error or a solid that is not correct.
 
 ### Model workbench guide graphs and checks, 2026-11-19
 

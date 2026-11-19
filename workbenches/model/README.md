@@ -30,7 +30,7 @@ Open a graph in the **Project** panel. Each graph has a note that tells what it 
 |---|---|
 | **main** | A seeded tower and the `export` node. Change **seed** to get a new tower. |
 | **solids** | Primitives, `cut`, `translate` and `union`. |
-| **sketches** | `rectangle`, `circle` and `polygon`, with `extrude` (twist and taper) and `revolve` (gap). |
+| **sketches** | `rectangle`, `circle` and `polygon`, with `extrude` (twist and taper), `revolve` (gap) and `loft`. |
 | **seeds** | A house from a seed: `seed`, `random` and `pick`. |
 | **sockets** | `attach` at named sockets, and `export` with the sockets in the `.glb` file. |
 
@@ -98,7 +98,8 @@ cargo test --release -p geometry measure -- --ignored --nocapture
     It has the primitives, the booleans and the moves. Z is up.
   - `Mesh` has the triangles of a solid: positions, normals, UV and a part index.
   - `Sockets` has named frames, for example `muzzle` and `grip`.
-  - `Sketch` is a flat shape on the XY plane, with holes. Extrude and revolve make solids from it.
+  - `Sketch` is a flat shape on the XY plane, with holes. Extrude, revolve and loft make solids
+    from it.
   - `Seed` gives random values. `seed.child("barrel")` gives a sub-seed for one part, so a
     change to one part does not change the other parts. The same seed gives the same mesh at
     each run.
@@ -108,7 +109,8 @@ cargo test --release -p geometry measure -- --ignored --nocapture
   - Solids: `cuboid`, `cylinder`, `cone`, `sphere` and `torus`.
   - Sketches: `rectangle`, `circle` and `polygon`. A polygon is a text of points, for example
     `0 0, 2 0, 1 1.5`.
-  - Sketch to solid: `extrude` (with twist and taper) and `revolve` (with a gap in degrees).
+  - Sketch to solid: `extrude` (with twist and taper), `revolve` (with a gap in degrees) and
+    `loft` (from a bottom outline to a top outline, each with no hole).
   - Moves: `translate`, `rotate`, `scale`, `mirror`, `linear-array` and `polar-array`.
   - Booleans: `union`, `cut`, `intersect` and `hull`.
   - Sockets: `attach` moves a solid to a socket. A sockets input is a text, for example
@@ -127,7 +129,9 @@ cargo test --release -p geometry measure -- --ignored --nocapture
   of 500 houses takes about 0.13 s.
 - The C++ kernel stops the program when it has no memory. It does not give an error. A shape
   has 1024 segments at most, and an array has 1000 copies at most.
-- The kernel has no loft, no fillet and no bevel.
+- The kernel has no fillet and no bevel. A Minkowski opening was too slow, and `SmoothOut`
+  makes the faces bulge (see STATUS.md).
+- A loft of very different outlines can give sides that cross.
 - The same graph gives the same mesh on MSVC and on the Patina toolchain for boxes, polygons,
   moves and turns by multiples of 90 degrees. Round shapes and other turns use the sine of the
   C++ runtime, so the last bit can be different on another platform. This is not checked.
