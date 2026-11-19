@@ -284,6 +284,36 @@ fn a_river_follows_the_valley() {
 }
 
 #[test]
+fn a_river_follows_a_valley_that_turns() {
+    // A valley from the high y edge at x = -60 down to y = 0, along y = 0 to x = 60 and down to
+    // the low y edge. The floor goes down along the valley.
+    let (nx, ny, cell) = (61, 41, 5.0);
+    let (valley, lengths) = ([[-60.0, 100.0], [-60.0, 0.0], [60.0, 0.0], [60.0, -100.0]], [100.0, 120.0, 100.0]);
+    let mut t = Terrain { nx, ny, cell, heights: vec![0.0; nx * ny], sea: 0.0 };
+    for j in 0..ny {
+        for i in 0..nx {
+            let p = t.point(i, j);
+            // The distance to the valley, and the length of the valley after the nearest point.
+            let (dist, after) = (0..3)
+                .map(|k| {
+                    let (a, b): ([f64; 2], [f64; 2]) = (valley[k], valley[k + 1]);
+                    let u = (((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / (lengths[k] * lengths[k])).clamp(0.0, 1.0);
+                    let dist = (p[0] - a[0] - u * (b[0] - a[0])).hypot(p[1] - a[1] - u * (b[1] - a[1]));
+                    (dist, (1.0 - u) * lengths[k] + lengths[k + 1..].iter().sum::<f64>())
+                })
+                .fold((f64::INFINITY, 0.0), |m, x| if x.0 < m.0 { x } else { m });
+            t.heights[j * nx + i] = (10.0 + 0.1 * dist + 0.02 * after) as f32;
+        }
+    }
+    for seed in 1..4 {
+        let r = river(&t, Seed(seed), 10.0, 2.0, 0.0).unwrap();
+        let wet = [[-60.0, 50.0], [0.0, 0.0], [60.0, -50.0]].map(|p| r.water(p));
+        let dry = [[0.0, 50.0], [0.0, -50.0]].map(|p| r.water(p));
+        assert!(wet == [true; 3] && dry == [false; 2], "seed {seed}: {wet:?} {dry:?}");
+    }
+}
+
+#[test]
 fn the_ground_covers_each_cell_with_two_triangles_and_adds_water() {
     let t = river(&terrain(Seed(3), &land()).unwrap(), Seed(3), 20.0, 2.0, 40.0).unwrap();
     let scene = ground(&t);

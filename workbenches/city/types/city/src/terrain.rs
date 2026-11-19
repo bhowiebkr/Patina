@@ -5,6 +5,8 @@ use std::fmt;
 
 use geometry::{IDENTITY, Item, Mesh, Place, Scene, Seed};
 
+use crate::erosion::{drain, steepest};
+
 /// The most samples of a height map, so that a small cell cannot fill the memory.
 pub const MAX_SAMPLES: usize = 1_000_000;
 
@@ -154,20 +156,23 @@ pub fn terrain(seed: Seed, land: &Land) -> Result<Terrain, String> {
     Ok(t)
 }
 
-/// Cuts a river from the highest edge to the lowest edge. It follows the valleys. The bed is
-/// `depth` below the sea level, so the river is water. The banks slope up over one river width.
-/// The river also cuts a valley with sides of `sides` meters. The floor of the valley goes down
-/// from the high edge to the low edge, and it stays at the sea level or above.
+/// Cuts a river from the edge that is opposite the lowest edge to the sea or the lowest edge. It
+/// follows the routes of the water, as the streams of the erosion do, so the streams join it. A
+/// pull to a line that the seed picks keeps it off the side edges. The bed is `depth` below the
+/// sea level, so the river is water. The banks slope up over one river width. The river also cuts
+/// a valley with sides of `sides` meters. The floor of the valley goes down along the river, and
+/// it stays at the sea level or above.
 pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64, sides: f64) -> Result<Terrain, String> {
     let wide = |x: f64| x.is_finite() && x >= 0.0;
     if !(wide(width) && wide(sides) && depth.is_finite() && depth > 0.0) {
         return Err("the width and the valley must be 0 or more, and the depth more than 0".into());
     }
     let mut out = terrain.clone();
-    if width == 0.0 || terrain.nx < 2 || terrain.ny < 2 || terrain.heights.len() != terrain.nx * terrain.ny {
+    let (t, nx, ny) = (terrain, terrain.nx, terrain.ny);
+    if width == 0.0 || nx < 2 || ny < 2 || t.heights.len() != nx * ny {
         return Ok(out);
     }
-    let (w, d) = (terrain.width(), terrain.depth());
+    let (w, d) = (t.width(), t.depth());
     // The mean height of each edge, in the order of the coast sides: low Y, high X, high Y, low X.
     let edge = |k: usize| -> f64 {
         let points: Vec<[f64; 2]> = (0..=16)
@@ -176,50 +181,70 @@ pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64, sides: f64) 
                 [[a * w, -d / 2.0], [w / 2.0, a * d], [a * w, d / 2.0], [-w / 2.0, a * d]][k]
             })
             .collect();
-        points.iter().map(|&p| terrain.height(p)).sum::<f64>() / points.len() as f64
+        points.iter().map(|&p| t.height(p)).sum::<f64>() / points.len() as f64
     };
     let to = (0..4).min_by(|&a, &b| edge(a).total_cmp(&edge(b))).unwrap_or(0);
-    // The river runs along `along` from the high edge to the low edge, and winds along `across`.
-    let (along, across, length, span) = match to {
-        0 => ([0.0, -1.0], [1.0, 0.0], d, w),
-        1 => ([1.0, 0.0], [0.0, 1.0], w, d),
-        2 => ([0.0, 1.0], [1.0, 0.0], d, w),
-        _ => ([-1.0, 0.0], [0.0, 1.0], w, d),
-    };
+    let on = |c: usize, k: usize| [c / nx == 0, c % nx == nx - 1, c / nx == ny - 1, c.is_multiple_of(nx)][k];
+    let ground: Vec<f64> = t.heights.iter().map(|&h| f64::from(h)).collect();
+    // The water routes of the river have a pull to a line across the terrain that the seed picks,
+    // and a soft wall in the last quarter of the span before each side edge. Without the wall,
+    // the river runs along a side edge when the land falls to that edge.
+    let (across, span) = if to % 2 == 0 { (0, w) } else { (1, d) };
     let center = seed.child("river").random().range(-0.2, 0.2) * span;
-    let step = terrain.cell.max(length / 4000.0);
-    let count = (length / step).ceil() as usize + 1;
-    let at = |k: usize, v: f64| {
-        let u = (k as f64 * step).min(length) - length / 2.0;
-        [along[0] * u + across[0] * v, along[1] * u + across[1] * v]
-    };
-    let across_of = valley(count, ((0.6 * span / step) as usize).max(1), step, center, span, terrain, at);
-    let line: Vec<[f64; 2]> = across_of.iter().enumerate().map(|(k, &v)| at(k, v)).collect();
+    let (low, high) = ground.iter().fold((f64::MAX, f64::MIN), |(l, h), &x| (l.min(x), h.max(x)));
+    let wall = |a: f64| (4.0 * a.abs() / span - 1.0).max(0.0).powi(2);
+    let pull = |a: f64| ((a - center) / span).powi(2) + wall(a);
+    let pulled: Vec<f64> = (0..nx * ny).map(|c| ground[c] + (high - low).max(1.0) * pull(t.point(c % nx, c / nx)[across])).collect();
+    let (down, level, _) = drain(nx, ny, &pulled, |c| ground[c] < t.sea || on(c, to));
+    // The river starts at the lowest pulled point of the opposite edge and follows the steepest
+    // route of the water down to the sea or the lowest edge.
+    let start = (0..nx * ny).filter(|&c| on(c, (to + 2) % 4)).min_by(|&a, &b| pulled[a].total_cmp(&pulled[b])).unwrap_or(0);
+    let mut path = vec![t.point(start % nx, start / nx)];
+    let mut c = start;
+    while down[c] != c {
+        c = steepest(nx, ny, &level, c, down[c]);
+        path.push(t.point(c % nx, c / nx));
+    }
+    // A moving mean over about 5 % of the span takes out the steps of the samples. The ends stay.
+    let r = ((0.05 * span / t.cell) as usize).max(1);
+    let line: Vec<[f64; 2]> = (0..path.len())
+        .map(|k| {
+            let m = r.min(k).min(path.len() - 1 - k);
+            let near = &path[k - m..=k + m];
+            let sum = near.iter().fold([0.0, 0.0], |s, p| [s[0] + p[0], s[1] + p[1]]);
+            sum.map(|v| v / near.len() as f64)
+        })
+        .collect();
     let mut low = f64::INFINITY;
-    let floors: Vec<f64> = line.iter().map(|&p| { low = low.min(terrain.height(p)).max(terrain.sea); low }).collect();
-    let (half, bank) = (width / 2.0, width.max(3.0 * terrain.cell));
+    let floors: Vec<f64> = line.iter().map(|&p| { low = low.min(t.height(p)).max(t.sea); low }).collect();
+    let (half, bank) = (width / 2.0, width.max(3.0 * t.cell));
     let reach = half + bank.max(sides);
-    let bed = terrain.sea - depth;
-    for j in 0..terrain.ny {
-        for i in 0..terrain.nx {
-            let p = terrain.point(i, j);
-            // The line goes one way along `along`, so only the points near `a` can be in reach.
-            let a = p[0] * along[0] + p[1] * along[1] + length / 2.0;
-            let first = ((a - reach) / step).floor().max(0.0) as usize;
-            let last = (((a + reach) / step).ceil().max(0.0) as usize + 1).min(line.len() - 1);
-            let near = (first..last).map(|k| (segment_distance(p, line[k], line[k + 1]), k));
-            let (dist, k) = near.fold((f64::INFINITY, 0), |m, x| if x.0 < m.0 { x } else { m });
-            if dist >= reach {
-                continue;
+    let bed = t.sea - depth;
+    // The distance from each sample to the nearest segment of the line, and that segment.
+    let mut near = vec![(f64::INFINITY, 0); nx * ny];
+    let index = |v: f64, size: f64, n: usize| ((v + size / 2.0) / t.cell).clamp(0.0, (n - 1) as f64);
+    for (k, s) in line.windows(2).enumerate() {
+        let (i0, i1) = (index(s[0][0].min(s[1][0]) - reach, w, nx).floor() as usize, index(s[0][0].max(s[1][0]) + reach, w, nx).ceil() as usize);
+        let (j0, j1) = (index(s[0][1].min(s[1][1]) - reach, d, ny).floor() as usize, index(s[0][1].max(s[1][1]) + reach, d, ny).ceil() as usize);
+        for j in j0..=j1 {
+            for i in i0..=i1 {
+                let dist = segment_distance(t.point(i, j), s[0], s[1]);
+                if dist < near[j * nx + i].0 {
+                    near[j * nx + i] = (dist, k);
+                }
             }
-            let h = &mut out.heights[j * terrain.nx + i];
-            let mut z = f64::from(*h);
-            if sides > 0.0 {
-                let floor = floors[k + 1];
-                z = z.min(floor + (z - floor) * smooth(((dist - half) / sides).clamp(0.0, 1.0)));
-            }
-            *h = z.min(bed + (z - bed) * smooth(((dist - half) / bank).clamp(0.0, 1.0))) as f32;
         }
+    }
+    for (h, &(dist, k)) in out.heights.iter_mut().zip(&near) {
+        if dist >= reach {
+            continue;
+        }
+        let mut z = f64::from(*h);
+        if sides > 0.0 {
+            let floor = floors[k + 1];
+            z = z.min(floor + (z - floor) * smooth(((dist - half) / sides).clamp(0.0, 1.0)));
+        }
+        *h = z.min(bed + (z - bed) * smooth(((dist - half) / bank).clamp(0.0, 1.0))) as f32;
     }
     Ok(out)
 }
@@ -312,43 +337,6 @@ pub(crate) fn face_normal([a, b, c]: [[f32; 3]; 3]) -> [f32; 3] {
     let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
     let length = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
     if length > 0.0 { n.map(|c| c / length) } else { [0.0, 0.0, 1.0] }
-}
-
-/// The across place of the river at each of `count` rows: the path of least height that moves at
-/// most one of `lanes` lanes for each row, with a pull to `center`, smoothed.
-fn valley(count: usize, lanes: usize, step: f64, center: f64, span: f64, terrain: &Terrain, at: impl Fn(usize, f64) -> [f64; 2]) -> Vec<f64> {
-    let lane = |c: usize| (c as f64 - (lanes - 1) as f64 / 2.0) * step;
-    let (low, high) = terrain.heights.iter().fold((f32::MAX, f32::MIN), |(l, h), &x| (l.min(x), h.max(x)));
-    let range = f64::from(high - low).max(1.0);
-    let cost = |k: usize, c: usize| terrain.height(at(k, lane(c))) + range * ((lane(c) - center) / span).powi(2);
-    // A turn costs a little, so the river runs straight where the ground is flat.
-    let turn = 0.01 * range;
-    let mut total: Vec<f64> = (0..lanes).map(|c| cost(0, c)).collect();
-    let mut next = vec![0.0; lanes];
-    let mut from = vec![0u32; count * lanes];
-    for k in 1..count {
-        for (c, t) in next.iter_mut().enumerate() {
-            let options = (c.saturating_sub(1)..(c + 2).min(lanes)).map(|b| (total[b] + if b == c { 0.0 } else { turn }, b));
-            let (best, prev) = options.fold((f64::INFINITY, c), |m, x| if x.0 < m.0 { x } else { m });
-            *t = best + cost(k, c);
-            from[k * lanes + c] = prev as u32;
-        }
-        std::mem::swap(&mut total, &mut next);
-    }
-    let mut c = (0..lanes).min_by(|&a, &b| total[a].total_cmp(&total[b])).unwrap_or(0);
-    let mut path = vec![0.0; count];
-    for k in (0..count).rev() {
-        path[k] = lane(c);
-        c = from[k * lanes + c] as usize;
-    }
-    // A moving mean over about 5 % of the span takes out the steps of the lanes.
-    let w = ((0.05 * span / step) as usize).max(1);
-    (0..count)
-        .map(|k| {
-            let near = &path[k.saturating_sub(w)..(k + w + 1).min(count)];
-            near.iter().sum::<f64>() / near.len() as f64
-        })
-        .collect()
 }
 
 /// The distance from `p` to the segment from `a` to `b`.

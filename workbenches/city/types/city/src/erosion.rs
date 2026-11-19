@@ -104,39 +104,10 @@ fn streams(t: &mut Terrain, cut: f64) {
     let (nx, ny, sea) = (t.nx, t.ny, t.sea);
     let n = nx * ny;
     let ground: Vec<f64> = t.heights.iter().map(|&h| f64::from(h)).collect();
-    // A priority flood from the sea and the edge gives each sample a neighbor that its water runs
-    // to. Where the flood goes down into a pit, it cuts a path out: `level` is the ground with
-    // these paths, and it goes down along the water.
-    let mut down = vec![usize::MAX; n];
-    let mut level = ground.clone();
-    let mut heap = BinaryHeap::new();
-    for (c, &h) in ground.iter().enumerate() {
+    let (mut down, level, order) = drain(nx, ny, &ground, |c| {
         let (i, j) = (c % nx, c / nx);
-        if h < sea || i == 0 || j == 0 || i == nx - 1 || j == ny - 1 {
-            down[c] = c;
-            heap.push(Reverse((key(h), c)));
-        }
-    }
-    let mut order = Vec::with_capacity(n);
-    while let Some(Reverse((_, c))) = heap.pop() {
-        order.push(c);
-        for (m, _) in neighbors(nx, ny, c) {
-            if down[m] == usize::MAX {
-                down[m] = c;
-                let (mut z, mut p) = (ground[m], c);
-                while level[p] >= z - 1e-6 {
-                    z -= 1e-6;
-                    level[p] = z;
-                    if down[p] == p {
-                        break;
-                    }
-                    p = down[p];
-                }
-                heap.push(Reverse((key(ground[m]), m)));
-            }
-        }
-    }
-    order.sort_by(|&a, &b| level[a].total_cmp(&level[b]));
+        ground[c] < sea || i == 0 || j == 0 || i == nx - 1 || j == ny - 1
+    });
     // On a slope, the water of a sample spreads to its lower neighbors by their slope, so that a
     // plain slope gets no lines of water. In a stream, all the water runs to the steepest neighbor.
     // The order goes down, so all water comes in before it goes on.
@@ -146,7 +117,7 @@ fn streams(t: &mut Terrain, cut: f64) {
             continue;
         }
         let slope = |(m, dist): (usize, f64)| (m, ((level[c] - level[m]) / dist).max(0.0));
-        down[c] = neighbors(nx, ny, c).map(slope).fold((down[c], 0.0), |a, x| if x.1 > a.1 { x } else { a }).0;
+        down[c] = steepest(nx, ny, &level, c, down[c]);
         if area[c] > STREAM_START {
             area[down[c]] += area[c];
             continue;
@@ -188,6 +159,52 @@ fn streams(t: &mut Terrain, cut: f64) {
             }
         }
     }
+}
+
+/// The water routes of a grid of `nx` x `ny` samples. A priority flood from the samples where
+/// `outlet` is true gives each other sample a neighbor that its water runs to. An outlet runs to
+/// itself. Where the flood goes down into a pit, it cuts a path out: the level is the ground with
+/// these paths, and it goes down along each route. The order has the samples from the lowest level
+/// up.
+pub(crate) fn drain(nx: usize, ny: usize, ground: &[f64], outlet: impl Fn(usize) -> bool) -> (Vec<usize>, Vec<f64>, Vec<usize>) {
+    let n = nx * ny;
+    let mut down = vec![usize::MAX; n];
+    let mut level = ground.to_vec();
+    let mut heap = BinaryHeap::new();
+    for (c, &h) in ground.iter().enumerate() {
+        if outlet(c) {
+            down[c] = c;
+            heap.push(Reverse((key(h), c)));
+        }
+    }
+    let mut order = Vec::with_capacity(n);
+    while let Some(Reverse((_, c))) = heap.pop() {
+        order.push(c);
+        for (m, _) in neighbors(nx, ny, c) {
+            if down[m] == usize::MAX {
+                down[m] = c;
+                let (mut z, mut p) = (ground[m], c);
+                while level[p] >= z - 1e-6 {
+                    z -= 1e-6;
+                    level[p] = z;
+                    if down[p] == p {
+                        break;
+                    }
+                    p = down[p];
+                }
+                heap.push(Reverse((key(ground[m]), m)));
+            }
+        }
+    }
+    order.sort_by(|&a, &b| level[a].total_cmp(&level[b]));
+    (down, level, order)
+}
+
+/// The neighbor of the sample `c` with the steepest fall of `level`, or `flood` when no neighbor
+/// is lower.
+pub(crate) fn steepest(nx: usize, ny: usize, level: &[f64], c: usize, flood: usize) -> usize {
+    let fall = |(m, dist): (usize, f64)| (m, (level[c] - level[m]) / dist);
+    neighbors(nx, ny, c).map(fall).fold((flood, 0.0), |a, x| if x.1 > a.1 { x } else { a }).0
 }
 
 /// The neighbors of the sample `c` in a grid of `nx` x `ny` samples, with their distances.

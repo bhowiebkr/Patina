@@ -388,6 +388,16 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     - Checked on Windows: 21 unit tests of `types/city`, with a test that a stream cuts down
       along a valley and out of a pit, and the city CLI test. A shaded preview of the terrain
       showed streams with branches.
+  - The river follows the routes of the water (2026-11-19). It starts at a low point of the
+    edge opposite the lowest edge and runs down the steepest route to the sea, as the streams
+    do. Thus the streams join it.
+    - A pull to a line that the seed picks and a soft wall near the side edges keep the river
+      off the side edges. Without the wall, the `main` river ran along the north edge.
+    - `main`: 539 items, 39364 places and 1223578 triangles. `planned` has no change. A city of
+      1 km x 1 km: 92954 places and 2917617 triangles, 0.34 s after the build in the CLI test.
+    - Checked on Windows: 22 unit tests of `types/city`, with a test that the river follows a
+      valley that turns, and the city CLI test. A shaded preview showed the river in the north
+      of `main` and of the 1 km area, with curves and off the side edges.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
   - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build
@@ -397,8 +407,6 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
-  - The `river` node finds its own path after the erosion. It follows the valleys, but it is
-    not one of the streams of the erosion.
   - A cut across a concave block gives separate lots. A thin part of a block is a park, not
     a part of the next lot.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
