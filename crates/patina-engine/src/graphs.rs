@@ -286,7 +286,10 @@ impl Project {
         let parked = self.parked.iter_mut().map(|(name, h)| (name.as_str(), h));
         for (name, history) in std::iter::once((self.name.as_str(), &mut self.history)).chain(parked) {
             if history.dirty() && !unused.contains(name) {
-                project::write(&graph_path(&self.root, name), &history.graph)?;
+                // The open graph keeps the order of the edits, which is the draw order on the canvas.
+                let mut file = history.graph.clone();
+                file.sort();
+                project::write(&graph_path(&self.root, name), &file)?;
                 history.mark_saved();
             }
         }

@@ -128,7 +128,10 @@ fn check_performance_view(project: &Path, toolchain: &Toolchain) {
         );
         opened.save().unwrap();
         let saved = Project::open(project).unwrap();
-        assert_eq!(snapshot(saved.graph(), &[], &[], &[]), graph);
+        // Save sorts the tables (5), and the open graph keeps the order of the edits.
+        let mut sorted = opened.graph().clone();
+        sorted.sort();
+        assert_eq!(snapshot(saved.graph(), &[], &[], &[]), snapshot(&sorted, &[], &[], &[]));
         opened.undo(&mut Default::default()).unwrap();
         let restored = view
             .ui(0, "", &snapshot(opened.graph(), &[], &[], &[]), None)

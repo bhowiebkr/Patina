@@ -75,6 +75,18 @@ pub struct GraphFile {
     pub output: Vec<PublicOutput>,
 }
 
+impl GraphFile {
+    /// Puts the tables in the order of the file (5): the nodes by ID, the wires by their `to` end,
+    /// and the order, collar and cable tables by their first value. Groups and notes keep their order.
+    pub fn sort(&mut self) {
+        self.node.sort_by(|a, b| a.id.cmp(&b.id));
+        self.wire.sort_by(|a, b| a.to.cmp(&b.to).then_with(|| a.from.cmp(&b.from)));
+        self.order.sort_by(|a, b| a.before.cmp(&b.before).then_with(|| a.after.cmp(&b.after)));
+        self.collar.sort_by(|a, b| a.pos[0].total_cmp(&b.pos[0]).then(a.pos[1].total_cmp(&b.pos[1])));
+        self.cable.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct NodeEntry {
@@ -374,6 +386,47 @@ pub(crate) fn read_crate(root: &Path, group: &str, name: &str) -> Result<String,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_graph_sorts_its_tables_for_the_file() {
+        let text = "format = 1
+[[node]]
+id = \"b\"
+[[node]]
+id = \"a\"
+[[wire]]
+from = \"a.out\"
+to = \"b.y\"
+[[wire]]
+from = \"b.out\"
+to = \"a.x\"
+            [[order]]
+before = \"b\"
+after = \"a\"
+[[order]]
+before = \"a\"
+after = \"b\"
+[[collar]]
+pos = [5.0, 0.0]
+wires = []
+[[collar]]
+pos = [1.0, 9.0]
+wires = []
+            [[cable]]
+name = \"z\"
+wires = []
+[[cable]]
+name = \"m\"
+wires = []
+";
+        let mut graph: GraphFile = toml::from_str(text).unwrap();
+        graph.sort();
+        assert_eq!(graph.node.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["a", "b"]);
+        assert_eq!(graph.wire.iter().map(|w| w.to.as_str()).collect::<Vec<_>>(), ["a.x", "b.y"]);
+        assert_eq!(graph.order.iter().map(|o| o.before.as_str()).collect::<Vec<_>>(), ["a", "b"]);
+        assert_eq!(graph.collar.iter().map(|c| c.pos[0]).collect::<Vec<_>>(), [1.0, 5.0]);
+        assert_eq!(graph.cable.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["m", "z"]);
+    }
 
     #[test]
     fn a_changed_node_folder_reads_again() {

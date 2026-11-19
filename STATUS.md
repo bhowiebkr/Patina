@@ -531,9 +531,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     (mockup 3). Monaco needs a fixed height.
   - The group check of the selfcheck waits 400 ms before its undo, so that the move edit arrives
     first (`shortcut:` in `check-groups.ts`).
-  - Spec 5 says that the nodes of a graph file sort by ID and the wires by their `to` end.
-    `project::write` keeps the order of the edits, also for the groups and the notes. The file
-    is still valid, but a diff can show moved tables.
+  - Spec 5 says that the nodes of a graph file sort by ID and the wires by their `to` end
+    (fixed 2026-11-19). **Save** now sorts the nodes, the wires and the order, collar and cable
+    tables. The groups and the notes keep their order. The open graph keeps the order of the
+    edits, which is the draw order, until it opens again. A unit test checks the sort.
   - A link in a note does not open. An image in a note shows its alt text only.
 
 ### Ember sound workbench, 2026-11-18
