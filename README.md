@@ -722,6 +722,7 @@ questions.
   [computer](workbenches/computer/README.md), an 8-bit computer of NAND gates.
   [gpu](workbenches/gpu/README.md), WESL shaders on the GPU.
   [synth](workbenches/synth/README.md), the Ember sound workbench.
+  [model](workbenches/model/README.md), the procedural 3D models.
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
 - [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free

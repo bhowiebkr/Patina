@@ -193,6 +193,8 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   D0b.
 - 2026-11-19: D0b is done on Windows with a toolchain run and a C++ setup by hand. Next is D0c.
 - 2026-11-19: D0c is done on Windows with a toolchain run. Next is D1.
+- 2026-11-19: D1 and D2 are done on Windows. The MSVC build and the Patina toolchain gave the
+  same mesh hash for a seeded model. Next is D3.
 
 ## Order
 

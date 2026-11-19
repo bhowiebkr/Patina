@@ -4,6 +4,7 @@ mod common;
 mod computer;
 mod events;
 mod imports;
+mod model;
 mod nodes;
 mod render;
 mod run;

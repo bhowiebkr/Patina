@@ -1,0 +1,20 @@
+format = 1
+
+[[node]]
+id = "1bdb3c87ed8ea238"
+folder = "nodes/cuboid"
+pos = [0.0, 0.0]
+
+[node.params]
+x = "2"
+y = "4"
+z = "1"
+
+[[node]]
+id = "a471ed5641679ecc"
+folder = "nodes/report"
+pos = [280.0, 0.0]
+
+[[wire]]
+from = "1bdb3c87ed8ea238.out"
+to = "a471ed5641679ecc.solid"

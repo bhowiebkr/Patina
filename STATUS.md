@@ -243,6 +243,27 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     unless the build script prints `rerun-if-changed`. Only Windows: the Linux toolchain sets
     no `CXX`, and Linux and macOS did not run.
 
+### Model workbench types and seeds, 2026-11-19
+
+- Tasks D1 and D2: [workbenches/model](workbenches/model/README.md) has the `geometry` type
+  crate with `Solid`, `Mesh`, `Sockets` and `Seed`, and the nodes `cuboid` and `report`. The
+  crate compiles the vendored Manifold and Clipper2 sources with `cc`.
+- The **Inspector** shows a solid or a mesh as a small isometric picture, from a software raster.
+- `Mesh::parts` gives a dense part index in run order, because the kernel IDs come from a global
+  counter.
+- Checked on 2026-11-19, on Windows only:
+  - The CLI test runs the workbench and compares the mesh hash of the box.
+  - 7 unit tests of the type crate passed with the MSVC toolchain. CI does not run them.
+  - The MSVC build and a toolchain run (Zig, gnu target) gave the same mesh hashes: the box and a
+    seeded model of 5 boxes. A cold build took 5.3 s with MSVC and 8.8 s with the own toolchain.
+- Known limits:
+  - A model builds again at each frame. Task D4 makes it build only after a change.
+  - A C++ `bad_alloc` in the kernel stops the program. It does not give an error.
+  - The part index can change when two nodes build primitives in parallel, because the kernel
+    IDs set the run order.
+  - The `parallel` feature of `cc` adds `jobserver` and `libc` to the crate downloads.
+  - Linux and macOS did not run.
+
 ### Groups, notes and the error display, 2026-11-18
 
 - A group is a colored transparent frame with a title bar. A drag on the title bar moves the
