@@ -735,6 +735,8 @@ questions.
   and the plan to make it faster.
 - [Performance audit](docs/performance-audit.md): execution and display costs, measured checks,
   and proposed improvements for complex graphs.
+- [Smart material workbench plan](docs/smart-material-workbench.md): the Surface source study,
+  material contracts, node design and integration milestones.
 - [Laser measurement design](docs/laser-measurement-design.md): nodes and views for a laser
   measurement tool.
 - [Before building](docs/before-building.md): the setup, prototypes and decisions that are still
