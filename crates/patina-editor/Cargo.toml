@@ -16,6 +16,7 @@ patina-engine = { path = "../patina-engine" }
 tauri = { version = "2.12", default-features = false, features = ["wry", "common-controls-v6", "dynamic-acl", "x11", "dbus"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
+toml = "1"
 dirs = "7"
 # The folder dialog and the fatal error message of the platform. gtk3 uses the GTK of Tauri on Linux.
 rfd = { version = "0.17", default-features = false, features = ["gtk3", "common-controls-v6"] }
@@ -35,4 +36,3 @@ workspace = true
 
 [dev-dependencies]
 patina-sdk = { path = "../patina-sdk" }
-toml = "1"

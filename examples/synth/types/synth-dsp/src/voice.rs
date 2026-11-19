@@ -75,6 +75,7 @@ pub fn wave(t: f32, dt: f32, shape: u8) -> f32 {
 #[derive(Default)]
 pub struct Envelope {
     level: f32,
+    velocity: f32,
     stage: u8,
     released: f32,
 }
@@ -87,6 +88,7 @@ impl Envelope {
         AudioBlock::from_fn(|i| {
             if notes.trigger[i] {
                 self.stage = 1;
+                self.velocity = notes.gate[i].clamp(0.0, 1.0);
             }
             if notes.gate[i] == 0.0 && self.stage != 4 {
                 self.stage = 4;
@@ -111,7 +113,7 @@ impl Envelope {
                 4 => self.level = (self.level - self.released / release).max(0.0),
                 _ => {}
             }
-            input[i] * self.level * 0.65
+            input[i] * self.level * self.velocity * 0.65
         })
     }
 }
@@ -124,6 +126,7 @@ pub(crate) struct WaveShape {
     blend: f32,
     ready: bool,
 }
+
 impl WaveShape {
     pub(crate) fn next(&mut self, phase: f32, step: f32, shape: u8) -> f32 {
         let shape = shape.min(3);
@@ -145,5 +148,30 @@ impl WaveShape {
         } else {
             wave(phase, step, self.previous) * (1.0 - self.blend) + current * self.blend
         }
+    }
+}
+
+#[cfg(test)]
+mod velocity_tests {
+    use super::*;
+    #[test]
+    fn velocity_scales_the_note_and_its_release() {
+        let mut full = Envelope::default();
+        let mut soft = Envelope::default();
+        let input = AudioBlock::from_fn(|_| 1.0);
+        let mut notes = Notes::default();
+        notes.gate.fill(1.0);
+        notes.trigger[0] = true;
+        let loud = full.process(&input, &notes, &Contour::default());
+        notes.gate.fill(0.25);
+        let quiet = soft.process(&input, &notes, &Contour::default());
+        assert!(loud[255] > 0.0);
+        assert!((quiet[255] - loud[255] * 0.25).abs() < 1e-6);
+        notes.gate.fill(0.0);
+        notes.trigger.fill(false);
+        let loud = full.process(&input, &notes, &Contour::default());
+        let quiet = soft.process(&input, &notes, &Contour::default());
+        assert!(loud[0] > 0.0);
+        assert!((quiet[0] - loud[0] * 0.25).abs() < 1e-6);
     }
 }

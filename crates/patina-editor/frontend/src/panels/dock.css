@@ -26,6 +26,19 @@
   margin-right: 4px;
 }
 
+.dock-tab-strip {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dock-tab-strip .tab {
+  flex: none;
+  white-space: nowrap;
+}
+
 .area-body {
   flex: 1;
   display: flex;

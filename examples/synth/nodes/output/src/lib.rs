@@ -3,12 +3,16 @@ use patina_sdk::{AudioBlock, audio};
 /// Crossfades the workbench patches, limits peaks, and plays the result. Audible controls the device output.
 #[patina_sdk::node(domain = audio, color = "#59366f")]
 pub struct Output {
+    capture: synth_dsp::capture::Capture,
+    audition: synth_dsp::audition::Audition,
     gain: f32,
     scene: [f32; 3],
 }
 impl Output {
     pub fn init() -> Self {
         Self {
+            capture: synth_dsp::capture::Capture::new("Output"),
+            audition: Default::default(),
             gain: 0.0,
             scene: [1.0, 0.0, 0.0],
         }
@@ -36,7 +40,7 @@ impl Output {
             0.0
         };
         let selected = usize::from(scene.min(2));
-        let block = AudioBlock::from_fn(|i| {
+        let mut block = AudioBlock::from_fn(|i| {
             self.gain += (level - self.gain) * 0.002;
             for (n, amount) in self.scene.iter_mut().enumerate() {
                 *amount += (f32::from(n == selected) - *amount) * 0.002;
@@ -50,6 +54,8 @@ impl Output {
                 0.0
             }
         });
+        self.audition.mix(&mut block);
+        self.capture.push(&block);
         if audible {
             audio::play(&block);
         }

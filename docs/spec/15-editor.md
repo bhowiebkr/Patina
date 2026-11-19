@@ -460,6 +460,9 @@ change it.)
 - `Ui::available_size` gives the view area in logical pixels. Older hosts can return `None`.
 - `Ui::columns` wraps columns at their minimum width. `Ui::column` groups controls vertically.
   These controls support the owner's dock tools, requested on 2026-11-18.
+- A view can set `package.metadata.patina.dock` in its `Cargo.toml` to `left`, `right`, `bottom`, or `center`.
+  New instances open there. Saved placements remain unchanged. An absent or invalid value uses `center`.
+  This implements the owner's request for domain tools beside the graph, dated 2026-11-18.
 - `add_node` makes a random ID of 16 hex digits (6.4) and returns it. Thus the same call can
   connect the new node.
 - `selected` reads the selected nodes of the graph view. `select` selects nodes in the graph

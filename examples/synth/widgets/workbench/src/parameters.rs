@@ -1,3 +1,4 @@
+//! Bindings shared by Ember's performance surface and dock tools.
 use panel::{AMBER, PINK, TEAL, VIOLET};
 use patina_sdk::Graph;
 

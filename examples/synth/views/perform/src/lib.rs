@@ -1,8 +1,7 @@
 use panel::{AMBER, DARK, Dial, EDGE, INK, Knob, MUTED, PINK, TEAL, XyPad, rounded, screen};
 use patina_sdk::{Graph, Ui, view};
 
-mod parameters;
-use parameters::*;
+use workbench::parameters::*;
 #[cfg(test)]
 mod tests;
 

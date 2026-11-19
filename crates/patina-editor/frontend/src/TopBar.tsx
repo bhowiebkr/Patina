@@ -94,7 +94,7 @@ export function TopBar(p: {
         <Field w={{ kind: 'number', index: 0, text: 'FPS', value: view.frameRate, step: 0, unit: '' }} send={(rate) => act(api.frameRate(Math.round(Number(rate))))} disabled={false} />
       </span>
       <span className="sep" />
-      <ViewsMenu views={view.views} />
+      <ViewsMenu views={view.views} docks={view.viewDocks} />
       <HelpMenu />
     </header>
   );

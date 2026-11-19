@@ -95,7 +95,7 @@ export function ViewPanel({ name, instance, revision, trusted, onView, selected,
   else if (tree === null) body = <div className="item empty">Building the view</div>;
   else body = <GuiWidgets tree={tree} disabled={false} label="View controls" send={(line) => events.current.push(line, beginGuiGesture)} window={handle} />;
   return (
-    <aside className="panel" aria-label="View">
+    <aside className="panel" aria-label="View" data-view={name}>
       <div ref={area} className="view-controls">{body}</div>
     </aside>
   );

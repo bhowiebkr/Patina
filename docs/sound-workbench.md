@@ -17,7 +17,14 @@ Keep sound presets, performance controls, musical editing, and audio analysis in
 
 Owner direction, 2026-11-18: keep the canvas central. Add workbench tools as tabs in the left, right, and bottom docks.
 The [dock design study](synth-dock-design.md) applies this direction to the owner's screenshot and defines resize behavior.
-Its controls and measurements are proposed designs, not working features.
+It contains the original concept and the current implementation record.
+
+## Current dock tools
+
+Ember now supplies nine dock tools: **sounds**, **learn**, **modulation**, **controls**, **audio**, **analysis**, **patterns**, **keyboard**, and **export**.
+The [Ember guide](../examples/synth/README.md#use-the-dock-tools) describes their workflows and limits.
+Patina supplies responsive columns, available dock size, preferred dock metadata, tab overflow, and gesture undo.
+The existing canvas nodes and performance view remain available.
 
 ## GUI research, 2026-11-18
 
@@ -39,7 +46,7 @@ A synthesizer needs precise parameter controls, sound selection, modulation edit
 A standalone synthesizer also needs device setup and a way to play notes.
 Arrangement, sample editing, and multitrack recording belong to a larger sound workbench. They can follow the core instrument workflow.
 
-### Missing work surfaces
+### Initial gaps before the dock implementation
 
 Priority 1 completes the basic sound-design workflow. Priority 2 adds deeper editing. Priority 3 adds production workflows.
 
@@ -147,7 +154,7 @@ The view binds the main patch's stable node IDs and checks their folders.
 It cannot control a node that was removed, replaced, or given a connected parameter input.
 The phrase controls remain phrase controls when another scene plays. The view states that limit.
 The envelope display previews settings with a fixed 0.4-second sustain hold. It is not a live measurement.
-An XY input groups both parameter edits. A continuous drag can still create several undo steps, one for each view call.
+An XY input groups both parameter edits. The shared view input path now keeps a continuous drag in one undo step.
 
 Windows validation passed: workspace clippy and tests, three frontend builds, frontend tests, and the standalone example checks.
 The integration check builds the view in Edit and Bake. It changes both XY parameters, saves, reopens, and undoes the edit.
@@ -156,7 +163,9 @@ It also checks a 1280 x 720 window and access to the controls through vertical s
 The GUI check uses synthetic page events on a hidden desktop. It does not test physical controllers or listening quality.
 Linux and macOS were not run.
 
-The implementation does not yet provide presets, live analysis, device setup, MIDI, recording, or a GUI export command.
+The original performance view did not provide presets, live analysis, device setup, MIDI, recording, or GUI export.
+The dock tools now add presets, live analysis, output controls, pattern editing, a keyboard, and GUI export.
+Device selection, MIDI input, and live recording remain open.
 
 Then add the preset browser, output monitoring, and export panel.
 These complete the loop: choose a sound, change it, compare it, save it, and export it.

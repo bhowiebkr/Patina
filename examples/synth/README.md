@@ -43,7 +43,49 @@ The tone, envelope, echo, and filter controls affect **PHRASE**. Edit the other 
 
 The view requires the original main patch's node IDs and folders. It reports missing or connected controls instead of writing hidden overrides.
 The envelope display is a settings preview. It shows a 0.4-second sustain hold, followed by release.
-The view has no live audio analyzer or device-status display yet.
+Open the separate **analysis** tab for live audio measurements.
+
+## Use the dock tools
+
+![The Ember dock tools in a hidden test window](images/docks.png)
+
+Open a tool from **Views**. Each tool opens in its preferred dock.
+Drag its tab to another dock when needed. The tab menu lists tabs that do not fit.
+The node canvas and the **EMBER / SOUND WORKBENCH** console remain available.
+
+| Dock | Tool | Use |
+| --- | --- | --- |
+| Left | **sounds** | Search six factory sounds and saved user sounds. Preview, load, or save a phrase sound. |
+| Left | **learn** | Follow six listening experiments and locate their nodes. |
+| Right | **modulation** | Inspect, connect, or remove compatible modulation routes. Edit supported depth and rate parameters. |
+| Right | **controls** | Pin useful phrase parameters, enter exact values, and locate their nodes. |
+| Right | **audio** | Read the mono output meter, reset clipping, and control device output. |
+| Bottom | **analysis** | Compare captured signals as waveforms or spectra. Freeze the display and change its analysis window. |
+| Bottom | **patterns** | Edit the selected sequencer's 16 steps, pitch, drum hits, and tempo. |
+| Bottom | **keyboard** | Play chromatic notes with the computer keys or pointer. Set octave and velocity. |
+| Bottom | **export** | Render the saved main patch to WAV, with progress and cancellation. |
+
+The side tools stack controls when narrow. The bottom tools use the available width.
+**Pitch editor** opens a larger note grid. Enlarge the bottom dock for that grid.
+**Analysis settings** contains the trigger, window size, and peak reset.
+
+Sound presets contain the original main patch's phrase controls and pattern. They do not store graph topology or the other scenes.
+Select **PHRASE** on the console to hear a loaded sound.
+**Preview sound** uses an independent phrase voice and its own level. It leaves graph parameters unchanged.
+Run the engine and enable device output to hear preview. Switching away stops preview within 0.5 seconds.
+Loading protects changed sound settings with save, discard, and cancel actions. **Undo** restores a loaded sound.
+**Save sound as new** writes `sounds/<name>.ember`. It does not replace an existing file.
+Favorites, recent entries, and pinned controls last for the current tab instance.
+
+The keyboard is monophonic. The last pressed note wins. Focus loss releases computer keys.
+Hidden or closed keyboard views release held input within 0.5 seconds. **All notes off** releases it immediately.
+Pause the phrase to play without the sequencer resuming between notes. MIDI input is not connected.
+
+Analysis captures up to 8192 continuous samples from the oscillator, envelope, filter, echo, drums, and output.
+The longest window covers 171 ms and resolves lower frequencies than the existing scope node.
+The teal trace is the source. The violet trace is the comparison. Captures can differ by one audio block.
+**Freeze** holds samples. Stale data stays marked when processing stops.
+The audio meter reads samples before device mute. Device connection status is not available to these views.
 
 ## Explore the patches
 
@@ -141,13 +183,18 @@ Use `--edit` for a faster build. The default uses **Bake**.
 The render uses the saved parameters and starts the patch from its initial state.
 It does not record live knob movements. The duration includes no extra effect tail or end fade.
 Import the WAV file into a sound editor to trim it or add a fade.
-Audio export currently uses the CLI. The editor has no export button.
+For GUI export, open **Views**, then **export**. Choose a destination and duration, then click **Export saved patch**.
+Enable **Device output enabled** in **audio** before saving. A muted saved output renders silence.
+The export tool uses `patina-cli` beside the editor. Select its path under **Renderer executable** when necessary.
+Cancellation stops the render and removes its partial files. An existing destination stays unchanged.
 
 ## Code and checks
 
 - `nodes/` contains the graph modules and their instrument panels.
 - `types/synth-dsp/` contains the DSP and shared control types.
 - `widgets/panel/` contains the reusable knobs and drawing parts.
+- `widgets/workbench/` contains the dock tools and their shared parameter bindings.
+- `views/` contains the dock entry points and the performance view.
 - `graphs/main.toml` contains the saved patch and its parameter values.
 
 The controls run on the frame thread. The sound processors run on the audio thread.
@@ -176,6 +223,6 @@ Ember uses its own code and panel drawings.
 
 The [workbench notes](../../docs/sound-workbench.md) record the wider node and GUI needs.
 
-Current limits: mono output, monophonic note input, and a fixed C minor keyboard.
+Current limits: mono output, monophonic note input, and a fixed C minor phrase grid.
 MIDI, sample import, and song arrangement are not implemented.
 The tests check samples and controls. Speaker playback and listening quality have not been checked.

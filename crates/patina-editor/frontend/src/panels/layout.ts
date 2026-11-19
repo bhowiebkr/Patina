@@ -116,9 +116,9 @@ export function moveFloat(layout: Layout, slot: ViewSlot, rect: Rect): Layout {
 }
 
 /** Opens a new instance of view `name` in the first closed view slot. All slots open: no change. */
-export function openView(layout: Layout, name: string): Layout {
+export function openView(layout: Layout, name: string, area: AreaId = 'center'): Layout {
   const slot = VIEW_SLOTS.find((s) => !isOpen(layout, s));
-  return slot ? openPanel({ ...layout, views: { ...layout.views, [slot]: name } }, slot) : layout;
+  return slot ? movePanel({ ...layout, views: { ...layout.views, [slot]: name } }, slot, area) : layout;
 }
 
 /** The tab title of a view slot: the view name, with the number of the instance from the second. */

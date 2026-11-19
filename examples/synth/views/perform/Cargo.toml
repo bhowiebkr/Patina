@@ -9,3 +9,4 @@ crate-type = ["cdylib"]
 [dependencies]
 patina-sdk = { workspace = true }
 panel = { path = "../../widgets/panel" }
+workbench = { path = "../../widgets/workbench" }

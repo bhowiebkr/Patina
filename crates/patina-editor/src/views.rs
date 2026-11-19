@@ -12,6 +12,31 @@ use serde::{Deserialize, Serialize};
 use crate::engine::{BUILDING, Shared, find_toolchain, lock, stop_fuse};
 use crate::node_process::Out;
 
+/// Project views can choose a first dock without adding domain names to the editor.
+pub fn preferred_docks(root: &Path, names: &[String]) -> std::collections::BTreeMap<String, String> {
+    names.iter().filter_map(|name| {
+        let text = std::fs::read_to_string(root.join("views").join(name).join("Cargo.toml")).ok()?;
+        Some((name.clone(), preferred_dock(&text)?))
+    }).collect()
+}
+
+fn preferred_dock(text: &str) -> Option<String> {
+    let manifest: toml::Value = toml::from_str(text).ok()?;
+    let dock = manifest.get("package")?.get("metadata")?.get("patina")?.get("dock")?.as_str()?;
+    matches!(dock, "left" | "right" | "bottom" | "center").then(|| dock.to_owned())
+}
+
+#[cfg(test)]
+mod dock_tests {
+    use super::preferred_dock;
+    #[test]
+    fn only_known_docks_are_accepted() {
+        assert_eq!(preferred_dock("[package.metadata.patina]\ndock = 'bottom'"), Some("bottom".into()));
+        assert_eq!(preferred_dock("[package.metadata.patina]\ndock = 'unknown'"), None);
+        assert_eq!(preferred_dock("invalid toml"), None);
+    }
+}
+
 /// User input to view `name`, or a request for its widget lines when `events` is empty.
 #[derive(Serialize, Deserialize)]
 pub struct ViewInput {

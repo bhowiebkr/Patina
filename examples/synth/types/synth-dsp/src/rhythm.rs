@@ -8,6 +8,7 @@ pub struct Clock {
     strike: u64,
     hz: f32,
     pitches: [f32; 8],
+    keys: super::keyboard::KeyLease,
 }
 impl Default for Clock {
     fn default() -> Self {
@@ -18,12 +19,15 @@ impl Default for Clock {
             strike: 0,
             hz: frequency(48),
             pitches: SCALE.map(frequency),
+            keys: Default::default(),
         }
     }
 }
 impl Clock {
     pub fn process(&mut self, settings: &Sequence) -> Notes {
         let mut out = Notes::default();
+        let live = self.keys.read(&settings.live_keys);
+        let live_hz = live.map(|(note, _, _)| frequency(note));
         let bpm = f64::from(finite(settings.bpm, 112.0, 40.0, 220.0));
         let swing = f64::from(finite(settings.swing, 0.0, 0.0, 0.45));
         let gate = f64::from(finite(settings.gate, 0.58, 0.05, 0.95));
@@ -56,13 +60,21 @@ impl Clock {
             if let Some(note) = note {
                 self.hz = self.pitches[note];
             }
+            if let Some(hz) = live_hz {
+                self.hz = hz;
+            }
             out.hz[i] = self.hz;
             let current_length = lengths[self.step % 2];
             out.gate[i] = f32::from(
                 manual.is_some()
                     || (settings.playing && note.is_some() && self.phase < current_length * gate),
             );
-            out.trigger[i] = if manual.is_some() {
+            if let Some((_, velocity, _)) = live {
+                out.gate[i] = velocity;
+            }
+            out.trigger[i] = if let Some((_, _, strike)) = live {
+                i == 0 && strike
+            } else if manual.is_some() {
                 i == 0 && settings.strike != self.strike
             } else {
                 tick && note.is_some()

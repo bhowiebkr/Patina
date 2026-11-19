@@ -21,13 +21,14 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 - View layout: twelve dock instances, responsive columns, dock size reads, and one undo step per canvas drag.
   Windows frontend checks, workspace Clippy, and workspace tests passed on 2026-11-18.
-  The synth dock tools are in progress. Their GUI resize checks are not complete.
+  View metadata selects the initial dock. A tab menu keeps crowded docks usable.
+  The hidden Windows GUI check passed the nine synth workflows at narrow side widths and a shallow bottom height.
 
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
 
-- Ember sound workbench: 34 node types, three playable patches, instrument panels, live waveform cables, and offline WAV export through the CLI.
+- Ember sound workbench: 34 node types, three playable patches, instrument panels, live waveform cables, and nine domain-specific dock tools.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
 - Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.
@@ -204,15 +205,22 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - The CLI renders saved patches to mono, 32-bit float WAV files at 48 kHz, without opening a sound device.
 - Export checks cover exact sample counts, frame timing, Edit/Bake equality, graph selection, invalid audio, and existing file protection.
 - Three 16-second renders contain finite audio. Speaker playback, listening quality, external sound-editor import, Linux, and macOS were not checked.
-- MIDI, sample import, stereo processing, polyphonic note input, live recording, an export button, and song arrangement remain open.
+- MIDI, sample import, stereo processing, polyphonic note input, live recording, and song arrangement remain open.
 - The [workbench notes](docs/sound-workbench.md) and [Ember guide](examples/synth/README.md) describe the modules, controls, and learning exercises.
 - The **perform** view adds scene selection, phrase transport, sound controls, a filter XY pad, exact values, reset, and five learning experiments.
 - The view uses the same parameters as the main patch. The shared rotary widget now works in both nodes and views.
 - Windows workspace, frontend, and example checks passed. The view integration test covers Edit, Bake, saving, reopening, and grouped XY undo.
 - A hidden GUI check operated the view's scenes, transport, XY pad, exact values, reset, and all five pages.
 - Known limits: the view needs the original main patch's node IDs. Its sound controls shape **PHRASE**. Short docks need vertical scrolling.
-- Each view call groups its edits. A continuous drag can still need several undo steps. Live analysis and audio device setup remain open.
-- The [GUI research](docs/sound-workbench.md#gui-research-2026-11-18) records the missing sound browser, modulation view, export panel, MIDI setup, and production views.
+- The shared view input path now groups a continuous canvas drag in one undo step.
+- Nine dock tools add sound presets, lessons, modulation routes, pinned controls, output meters, continuous analysis, patterns, a chromatic keyboard, and WAV export.
+- Preset preview uses a separate voice. Preset loading protects changed settings and uses graph undo.
+- Analysis captures up to 8192 continuous samples. The existing scope node retains its short-block display path.
+- Keyboard input is monophonic, with velocity and release protection. The phrase grid stays in C minor.
+- Export reads the saved main patch through the CLI. It supports progress, cancellation, and existing-file protection.
+- Presets require the original main patch's parameter nodes. Favorites, recent entries, and pinned controls last for one tab instance.
+- Device selection, device connection status, modulation history, and spectrograms remain open.
+- See the [dock implementation record](docs/synth-dock-design.md) for checks and remaining limits.
 
 ### Performance audit, 2026-11-18
 

@@ -85,6 +85,7 @@ const FILLS = new Set(['image', 'number', 'text', 'path', 'dropdown']);
 function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas' }>; send: (value: string) => void; disabled: boolean }) {
   const pending = useRef<string | null>(null);
   const held = useRef(false);
+  const lastPoint = useRef('0 0');
   const press = useRef<{ x: number; y: number; at: string; node: Element; timer: number } | null>(null);
   useEffect(() => () => clearTimeout(press.current?.timer), []);
   const keys = useKeys(send);
@@ -108,11 +109,14 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
     send(`down ${p.at}`);
   };
   const drop = () => {
+    pending.current = null;
+    if (held.current) send(`up ${lastPoint.current}`);
     clearTimeout(press.current?.timer);
     press.current = null;
     held.current = false;
   };
   const down = (e: PointerEvent<SVGSVGElement>) => {
+    lastPoint.current = at(e);
     e.currentTarget.setPointerCapture(e.pointerId);
     if (live) e.currentTarget.focus();
     const node = w.grab || e.button !== 0 ? null : e.currentTarget.closest('.react-flow__node');
@@ -124,6 +128,7 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
     send(`down ${at(e)}`);
   };
   const move = (e: PointerEvent<SVGSVGElement>) => {
+    lastPoint.current = at(e);
     const p = press.current;
     if (p) {
       if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_PX) return;
@@ -162,6 +167,7 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
         aria-label={w.text || 'Canvas'}
         tabIndex={live ? 0 : undefined}
         {...(live ? keys : w.keys ? { onBlur: keys.onBlur } : {})}
+        onBlur={() => { keys.onBlur(); drop(); }}
         onPointerDown={disabled ? undefined : down}
         onPointerMove={disabled ? undefined : move}
         onPointerUp={disabled ? undefined : up}

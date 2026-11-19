@@ -1,6 +1,73 @@
 # Synthesizer dock design
 
-Research and concept, 2026-11-18. This document records a proposed design, not implemented controls.
+Research, concept, and implementation record, 2026-11-18.
+
+## Implemented tools
+
+The nine tabs now run as Ember views. The canvas and existing instrument nodes remain the main workspace.
+The [user guide](../examples/synth/README.md#use-the-dock-tools) gives the operating steps.
+
+![Implemented dock tools in a hidden test window](../examples/synth/images/docks.png)
+
+| Dock | Implemented behavior |
+| --- | --- |
+| Left | **sounds** searches factory and user presets, protects changes, saves new files, and previews an independent phrase voice. |
+| Left | **learn** follows selection, provides listening experiments, and selects the related node. |
+| Right | **modulation** reads real routes, edits supported depth controls, connects compatible pins, and removes selected routes. |
+| Right | **controls** pins exact parameter editors with node selection. **audio** shows measured mono levels and output controls. |
+| Bottom | **analysis** provides continuous waveform and spectrum capture, comparison, freeze, trigger, window selection, and peak hold. |
+| Bottom | **patterns** edits the selected 16-step sequencer and its three drum lanes. |
+| Bottom | **keyboard** plays chromatic notes with octave, velocity, last-note priority, and release protection. |
+| Bottom | **export** runs the saved-patch renderer, shows progress, cancels its process tree, and protects existing files. |
+
+Views use the real graph for saved parameters and connections. Transient preview and keyboard input do not change saved parameters.
+Each view declares its initial dock in `[package.metadata.patina]`. Saved dock placements take precedence after opening.
+The tab menu keeps each tab reachable at narrow widths. Side controls stack, and bottom controls wrap.
+
+The design sections below record the original proposal. Their diagrams contain illustrative values.
+The implementation has these explicit limits:
+
+- Presets target the original main patch's phrase controls and score. They do not store arbitrary graph topology or the other scenes.
+- Favorites, recent entries, and pinned controls last for one tab instance.
+- Analysis captures six processor types. The existing scope node still uses its separate, short-block display path.
+- Comparison captures can differ by one block. Modulation history and spectrogram modes remain open.
+- Modulation shows the available real controls. It does not invent generic depth, polarity, or bypass parameters.
+- Audio uses mono, 48 kHz, 256-sample blocks, and the system default device. Device selection and connection status need host support.
+- MIDI, samples, polyphony, stereo buses, live recording, and arrangement remain open.
+- Export reads saved files and includes saved mute state. It adds no effect tail or end fade.
+- File publication can briefly block the view on volumes without hard-link support. The fallback preserves existing files.
+
+No claim of listening quality or device playback comes from a GUI test.
+
+## Verification on Windows
+
+The checks used an isolated source copy. They preserved the owner's working graphs and the other agent's uncommitted files.
+Workspace Clippy, workspace tests, editor frontend checks, both prototype frontend builds, and the standalone synth checks passed.
+
+The hidden editor test passed these workflows:
+
+- Open all nine tabs and resize side docks to 220 and 360 logical pixels.
+- Use a 190-pixel bottom dock in a 1280 x 720 logical window without sideways control overflow.
+- Change pattern tempo and restore the graph parameter with **Undo**.
+- Save a sound and reject a second save with the same name.
+- Preview a sound without changing the graph parameters.
+- Protect modified sound settings during loading and undo a loaded preset.
+- Hold a keyboard note and release it through the focus-loss handler.
+- Capture live analysis, freeze it, and mark paused samples as stale.
+- Export a WAV, protect an existing destination, and cancel a long export.
+- Inspect all three graphs, their node controls, cable routes, contrast, and focus styles.
+
+The keyboard test supplies a focus-loss event when the hidden desktop does not emit one.
+It does not prove physical keyboard operation in a visible window.
+The exported test file contains 4800 finite samples and nonzero audio. Cancellation left no destination or render folder.
+
+One release-mode capture writer averaged 1.35 microseconds per 256-sample block over 2000 calls.
+The allocation counter measured zero allocations after initialization. The writer takes no mutex and performs no retry loop.
+This measures one capture writer, not the complete graph, audio device, or GUI.
+Preview processing also passed its allocation and expiry checks. FFT tests resolved a low-frequency test tone.
+
+Speaker playback, subjective sound quality, physical MIDI, Linux, and macOS were not checked.
+The original 150-pixel dock target and every proposed accessibility workflow were not verified.
 
 ## Owner direction
 
@@ -190,5 +257,5 @@ The built-in imagegen tool edited the screenshot supplied by the owner.
 The final asset is [dock-concept.png](mockups/synth-docks/dock-concept.png).
 The exact request is [prompt.txt](mockups/synth-docks/prompt.txt).
 
-This task changes documentation and a concept image only. It does not change the running GUI.
-The resize rules were reviewed as design requirements. They have not been tested as implemented controls.
+The image above remains the original concept. It is not a screenshot of the implemented controls.
+The implementation record separates measured checks from the original resize targets.

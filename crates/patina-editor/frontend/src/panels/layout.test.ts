@@ -68,6 +68,13 @@ test('a tab moves before another tab and becomes active', () => {
   assert.deepEqual(movePanel(l, 'logs', 'right').areas.right.tabs, ['inspector', 'logs']);
 });
 
+test('a view opens in its preferred dock and leaves the graph visible', () => {
+  const l = openView(defaultLayout(), 'patterns', 'bottom');
+  assert.equal(l.areas.center.active, null);
+  assert.equal(l.areas.bottom.active, 'view');
+  assert.deepEqual(parseLayout(layoutText(l)), l);
+});
+
 test('a closed tab gives the next tab and opens again in its default area', () => {
   let l = closePanel(closePanel(defaultLayout(), 'debug'), 'output');
   assert.deepEqual(l.areas.bottom, { tabs: ['logs'], active: 'logs', size: 200 });

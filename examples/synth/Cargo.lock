@@ -11,11 +11,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "analysis"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
+]
+
+[[package]]
 name = "attenuverter"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",
  "synth-dsp",
+]
+
+[[package]]
+name = "audio"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
 ]
 
 [[package]]
@@ -87,6 +103,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "controls"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
+]
+
+[[package]]
 name = "crusher"
 version = "0.1.0"
 dependencies = [
@@ -127,11 +151,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "export"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
+]
+
+[[package]]
 name = "filter"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",
  "synth-dsp",
+]
+
+[[package]]
+name = "keyboard"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
+]
+
+[[package]]
+name = "learn"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
 ]
 
 [[package]]
@@ -148,6 +196,14 @@ version = "0.1.0"
 dependencies = [
  "patina-sdk",
  "synth-dsp",
+]
+
+[[package]]
+name = "modulation"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
 ]
 
 [[package]]
@@ -179,6 +235,7 @@ name = "output"
 version = "0.1.0"
 dependencies = [
  "patina-sdk",
+ "synth-dsp",
 ]
 
 [[package]]
@@ -200,11 +257,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "patterns"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
+]
+
+[[package]]
 name = "perform"
 version = "0.1.0"
 dependencies = [
  "panel",
  "patina-sdk",
+ "workbench",
 ]
 
 [[package]]
@@ -254,6 +320,14 @@ version = "0.1.0"
 dependencies = [
  "patina-sdk",
  "synth-dsp",
+]
+
+[[package]]
+name = "sounds"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "workbench",
 ]
 
 [[package]]
@@ -309,6 +383,15 @@ dependencies = [
 name = "vco"
 version = "0.1.0"
 dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "workbench"
+version = "0.1.0"
+dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]

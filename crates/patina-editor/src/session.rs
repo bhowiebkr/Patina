@@ -90,6 +90,8 @@ pub struct View {
     widgets: Vec<String>,
     /// The view folders (15.8).
     views: Vec<String>,
+    /// The preferred dock from each view's package metadata.
+    view_docks: BTreeMap<String, String>,
     /// The connection folders (6.3).
     connections: Vec<String>,
     /// The type folders (5.1).
@@ -325,6 +327,7 @@ impl Session {
             kinds: project.kinds(),
             widgets: project.widgets(),
             views: project.views(),
+            view_docks: crate::views::preferred_docks(project.root(), &project.views()),
             connections: project.connections(),
             types: project.types(),
             imports: project.imports(),

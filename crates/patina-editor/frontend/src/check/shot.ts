@@ -13,6 +13,7 @@ import { GAP } from '../wires/route';
 import { skippedShape } from '../controls/gui';
 import { frameStats } from './benchGraph';
 import { busPinFaults } from './busPins';
+import { synthDocks } from './shot-synth';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -570,7 +571,7 @@ const VIEWS: Record<string, { input?: () => Event; shows: RegExp }> = {
 
 /** Opens view `name` from the Views menu, gives it its input of `VIEWS`, and throws on a view that does not build, a side scroll, a widget out of the panel or a label that cuts its text (15.8). Captures `view-<name>`. */
 async function openView(name: string) {
-  const panel = () => document.querySelector<HTMLElement>('aside[aria-label="View"]');
+  const panel = () => document.querySelector<HTMLElement>(`aside[data-view="${CSS.escape(name)}"]`);
   const text = () => {
     const failed = panel()?.querySelector('.error-text')?.textContent;
     if (failed) throw new Error(`the view ${name} failed: ${failed}`);
@@ -726,6 +727,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     steps.push(full.text);
     if (await echo()) steps.push('main-echo');
     for (const name of v.views) steps.push(...(await openView(name)));
+    steps.push(...(await synthDocks(v, show)));
     // A subgraph inspects the first node of each kind that the shot did not inspect yet.
     const kinds = new Set((v.graph.node ?? []).map((n) => n.folder ?? n.subgraph ?? n.builtin));
     // Depth first: open each subgraph one time, through its first use, then go back.

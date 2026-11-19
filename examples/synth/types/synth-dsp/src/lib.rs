@@ -7,7 +7,11 @@ use std::sync::{
     atomic::{AtomicU32, Ordering::Relaxed},
 };
 
+pub mod audition;
+pub mod capture;
 mod effects;
+mod keyboard;
+pub use keyboard::LiveKeys;
 mod modulation;
 mod processors;
 mod rhythm;
@@ -52,6 +56,7 @@ pub struct Sequence {
     pub keyboard: i8,
     pub strike: u64,
     pub position: Arc<Position>,
+    pub live_keys: Arc<LiveKeys>,
 }
 
 impl Default for Sequence {
@@ -66,6 +71,7 @@ impl Default for Sequence {
             keyboard: -1,
             strike: 0,
             position: Arc::new(Position::default()),
+            live_keys: Arc::new(LiveKeys::default()),
         }
     }
 }

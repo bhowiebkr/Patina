@@ -187,7 +187,7 @@ export const below = (el: HTMLElement) => {
 
 /** The Views menu of the top bar: show or hide each panel, and Reset layout (15.2). */
 /** The Views menu (15.2, 15.8): the panels, the views of the project and Reset layout. */
-export function ViewsMenu({ views }: { views: string[] }) {
+export function ViewsMenu({ views, docks = {} }: { views: string[]; docks?: Record<string, AreaId> }) {
   const layout = useSyncExternalStore(subscribe, getLayout);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const full = VIEW_SLOTS.every((s) => isOpen(layout, s));
@@ -200,7 +200,7 @@ export function ViewsMenu({ views }: { views: string[] }) {
   for (const name of views) {
     // Each click opens a new instance (15.8).
     const open = VIEW_SLOTS.some((s) => layout.views[s] === name && isOpen(layout, s));
-    items.push({ label: name, checked: open, disabled: full, run: () => changeLayout((l) => openView(l, name)) });
+    items.push({ label: name, checked: open, disabled: full, run: () => changeLayout((l) => openView(l, name, docks[name])) });
   }
   items.push('line', { label: 'Reset layout', run: () => changeLayout(resetLayout) });
   return (
@@ -275,7 +275,14 @@ interface AreaProps {
  */
 function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps) {
   const [menu, setMenu] = useState<{ panel: PanelId; x: number; y: number } | null>(null);
+  const [tabMenu, setTabMenu] = useState<{ x: number; y: number } | null>(null);
+  const strip = useRef<HTMLDivElement>(null);
   const { tabs, active, size } = layout.areas[id];
+  useLayoutEffect(() => {
+    const row = strip.current;
+    const tab = row?.querySelector<HTMLElement>('[aria-selected=true]');
+    if (row && tab) row.scrollLeft += tab.getBoundingClientRect().left - row.getBoundingClientRect().left;
+  }, [active, size]);
   const center = id === 'center';
   const over = (e: DragEvent) => {
     if (!e.dataTransfer.types.includes(TAB_MIME) || (center && !isSlot(dragging))) return;
@@ -319,6 +326,7 @@ function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps)
   return (
     <section className={`area ${id}`} style={center ? undefined : id === 'bottom' ? { height: size } : { width: size }} onDragOver={over} onDrop={(e) => drop(e)}>
       <div className="tabs" role="tablist" aria-label={`The ${id} area`}>
+        <div className="dock-tab-strip" ref={strip}>
         {center && (
           <button role="tab" aria-selected={active === null} className={active === null ? 'tab active' : 'tab'} onClick={() => changeLayout(showGraph)}>
             Graph
@@ -356,7 +364,10 @@ function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps)
             {panels[t].title ?? TITLES[t]}
           </button>
         ))}
-        <span className="spacer" />
+        </div>
+        {tabs.length > 1 && <button className="icon-btn" aria-label={`Tabs in the ${id} area`} title="All tabs" aria-haspopup="menu" aria-expanded={tabMenu !== null} onClick={(e) => setTabMenu(below(e.currentTarget))}>
+          <Icon d="m4 6 4 4 4-4" />
+        </button>}
         {active && panels[active].actions}
         {active && (
           <button className="icon-btn" aria-label={`Close ${TITLES[active]}`} title="Close" onClick={() => changeLayout((l) => closePanel(l, active))}>
@@ -379,6 +390,10 @@ function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps)
         </div>
       )}
       {menu && <Menu x={menu.x} y={menu.y} label={TITLES[menu.panel]} items={moveItems(menu.panel)} onClose={() => setMenu(null)} />}
+      {tabMenu && <Menu {...tabMenu} label={`Tabs in the ${id} area`} items={[
+        ...(center ? [{ label: 'Graph', checked: active === null, run: () => changeLayout(showGraph) }] : []),
+        ...tabs.map((t) => ({ label: panels[t].title ?? TITLES[t], checked: t === active, run: () => changeLayout((l) => openPanel(l, t)) })),
+      ]} onClose={() => setTabMenu(null)} />}
     </section>
   );
 }

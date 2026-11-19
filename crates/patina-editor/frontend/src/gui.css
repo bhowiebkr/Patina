@@ -93,7 +93,8 @@
   margin: 16px 24px;
 }
 
-.node-gui.placed .gui-canvas-row > .label {
+.node-gui.placed .gui-canvas-row > .label,
+.view-controls .gui-canvas-row > .label {
   display: none;
 }
 
