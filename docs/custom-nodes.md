@@ -61,7 +61,8 @@ pub fn switch(on: bool) -> bool {
 ### A stateful node
 
 A struct node keeps data between runs. It has `init` and `process`. The pins come from the
-arguments of `process`.
+arguments of `process`. For `#[param]` on an argument of `process`, put `#[node]` on the `impl`
+block too (spec 4.8).
 
 ```rust
 #[node]

@@ -333,8 +333,9 @@ pub fn exposure(
 - In the Parameters panel, a number with `min` and `max` gets a slider and a field with the
   exact text. A number with no range gets the field only. The field shows the default as its
   placeholder. (Agent decision, 2026-11-19. The owner can change it.)
-- Limit: only the inputs of a node function can have `#[param]`. The inputs of `process` of a
-  stateful node cannot have it yet. (Agent decision, 2026-11-19. The owner can change it.)
+- An input of `process` of a stateful node can have `#[param]` too. Then a bare `#[node]` also
+  goes on the `impl` block with `process`, and the macro removes `#[param]` there. Without it,
+  the engine gives a node error. (Agent decision, 2026-11-19. The owner can change it.)
 
 - During editing, parameters are data at run time. A parameter change does not need a compile.
 - When a parameter loses its text, for example after an undo, it gets the default value of its type again. The states of the nodes stay. The engine gives a null text to `patina_cluster_set` (C ABI version 18). (Agent decision, 2026-11-16. The owner can change it.)

@@ -457,7 +457,6 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The MSVC build and a toolchain run (Zig, gnu target) gave the same mesh hashes: the box and a
     seeded model of 5 boxes. A cold build took 5.3 s with MSVC and 8.8 s with the own toolchain.
 - Known limits:
-  - A model builds again at each frame. Task D4 makes it build only after a change.
   - A C++ `bad_alloc` in the kernel stops the program. It does not give an error.
   - The `parallel` feature of `cc` adds `jobserver` and `libc` to the crate downloads.
   - Linux and macOS did not run.
@@ -851,8 +850,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   (2026-11-19). The engine sends the default when the parameter has no text. A number out of
   the range gives a parameter error on the node. The **Inspector** shows a slider next to the
   field of an input with `min` and `max`. Engine unit tests and a CLI test cover it.
-- Known limits: an input of `process` of a stateful node cannot have `#[param]`. No shot
-  checked the slider.
+- An input of `process` of a stateful node can have `#[param]` too (2026-11-19). A bare
+  `#[node]` on the `impl` block removes it. An engine unit test and the CLI test cover it.
+- Known limits: no shot checked the slider.
 - The model nodes have `#[param]` defaults and ranges (2026-11-19). A new `cuboid` is a box of
   1 x 1 x 1, `taper` has a slider from 0 to 1 and `gap` has a slider from 0 to 360. The city
   has the new copies of `cuboid`, `cylinder` and `sphere`. The model and city CLI tests pass.

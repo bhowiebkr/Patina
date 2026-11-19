@@ -147,6 +147,7 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
     a sockets text, for example `muzzle 0 0 2; grip 1 2 3 0 0 90`.
   - The plan of spec 4.8 for `#[param]` defaults is not in the code. An input with no wire
     starts at 0, so the nodes use inputs where 0 is useful: `taper`, `gap` and `segments`.
+    Later on 2026-11-19, the code got `#[param]`, and the model nodes got defaults and ranges.
   - A shape has 1024 segments at most, and an array has 1000 copies at most. A larger value
     from a wire could use all the memory, and the kernel stops the program then.
   - Each boolean runs at once. The kernel collapses a lazy boolean tree by reference counts at

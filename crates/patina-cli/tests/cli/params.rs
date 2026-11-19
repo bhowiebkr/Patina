@@ -16,7 +16,11 @@ fn a_param_attribute_gives_the_default_and_refuses_a_value_out_of_its_range() {
     let manifest = fs::read_to_string(project.join("nodes/add/Cargo.toml")).unwrap();
     fs::write(folder.join("Cargo.toml"), manifest.replace("\"add\"", "\"scale\"")).unwrap();
     fs::write(folder.join("src/lib.rs"), SCALE).unwrap();
-    // The number 2.5 goes to `x`. The input `k` has no wire and no text.
+    let folder = project.join("nodes/scaled");
+    fs::create_dir_all(folder.join("src")).unwrap();
+    fs::write(folder.join("Cargo.toml"), manifest.replace("\"add\"", "\"scaled\"")).unwrap();
+    fs::write(folder.join("src/lib.rs"), SCALED).unwrap();
+    // The number 2.5 goes to `x` of both nodes. The inputs `k` have no wire and no text.
     let graph = project.join("graphs/main.toml");
     // A run gives the value of a wired output only, so `show` takes the result.
     let more = "
@@ -35,6 +39,22 @@ to = \"00000000000000c1.x\"
 [[wire]]
 from = \"00000000000000c1.out\"
 to = \"00000000000000c2.value\"
+
+[[node]]
+id = \"00000000000000c3\"
+folder = \"nodes/scaled\"
+
+[[node]]
+id = \"00000000000000c4\"
+folder = \"nodes/show\"
+
+[[wire]]
+from = \"9bc1790966687030.out\"
+to = \"00000000000000c3.x\"
+
+[[wire]]
+from = \"00000000000000c3.out\"
+to = \"00000000000000c4.value\"
 ";
     fs::write(&graph, fs::read_to_string(&graph).unwrap() + more).unwrap();
 
@@ -42,16 +62,20 @@ to = \"00000000000000c2.value\"
     let nodes = opened.nodes().unwrap();
     let k = &nodes.iter().find(|n| n.name == "scale").unwrap().inputs[1];
     assert_eq!((k.param.default.as_deref(), k.param.min, k.param.max), (Some("2.5"), Some(0.0), Some(10.0)));
+    let k = &nodes.iter().find(|n| n.name == "scaled").unwrap().inputs[1];
+    assert_eq!((k.param.default.as_deref(), k.param.min), (Some("3"), Some(0.0)));
     let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
     let control = Control::default();
-    let scaled = |cluster: &mut Cluster| {
+    let value = |cluster: &mut Cluster, from: &str| {
         let out = cluster.run(&control);
         assert!(out.ok, "{:?}", out.reports);
-        out.values.into_iter().find(|v| v.from == "00000000000000c1.out").map(|v| v.text)
+        out.values.into_iter().find(|v| v.from == from).map(|v| v.text)
     };
+    let scaled = |cluster: &mut Cluster| value(cluster, "00000000000000c1.out");
     let mut graph = opened.graph().clone();
     assert!(cluster.set_params(&graph).ok);
     assert_eq!(scaled(&mut cluster).as_deref(), Some("6.25"), "the default of #[param]");
+    assert_eq!(value(&mut cluster, "00000000000000c3.out").as_deref(), Some("7.5"), "#[param] on `process`");
     let mut set = |cluster: &mut Cluster, text: Option<&str>| {
         let params = &mut graph.node.iter_mut().find(|n| n.id == "00000000000000c1").unwrap().params;
         match text {
@@ -67,3 +91,19 @@ to = \"00000000000000c2.value\"
     assert!(set(&mut cluster, None).ok);
     assert_eq!(scaled(&mut cluster).as_deref(), Some("6.25"), "a lost text gives the default again");
 }
+
+/// A stateful node with `#[param]` on an input of `process`. `#[node]` on the `impl` removes it.
+const SCALED: &str = "#[patina_sdk::node]
+pub struct Scaled;
+
+#[patina_sdk::node]
+impl Scaled {
+    pub fn init() -> Self {
+        Scaled
+    }
+
+    pub fn process(&mut self, x: f64, #[param(default = 3, min = 0)] k: f64) -> f64 {
+        x * k
+    }
+}
+";

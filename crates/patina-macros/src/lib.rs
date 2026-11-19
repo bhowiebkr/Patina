@@ -8,7 +8,8 @@ use proc_macro::{Delimiter, Group, TokenStream, TokenTree};
 /// `#[node(domain = frame)]` sets the clock domain (9.1), `#[node(full_gui)]` gives the GUI a
 /// full size, `#[node(free_layout)]` makes the GUI the whole node, `#[node(symbol = "nand")]` shows a circuit symbol (4.3), `#[node(heavy)]` keeps the node in a task of its own (9.2), and
 /// `#[node(color = "#175c59")]` sets the header color (15.3). The engine reads these arguments
-/// and `#[param(default, min, max)]` on the inputs (4.8). The macro removes each `#[param]`.
+/// and `#[param(default, min, max)]` on the inputs (4.8). The macro removes each `#[param]`. A
+/// bare `#[node]` on the `impl` block of a stateful node removes it from `process`.
 #[proc_macro_attribute]
 pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args: Vec<String> = attr.into_iter().map(|t| t.to_string()).collect();
@@ -18,6 +19,8 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     match keyword(&item).as_deref() {
         Some("fn") => {}
         Some("struct") => return item,
+        Some("impl") if args.is_empty() => return strip_methods(item),
+        Some("impl") => return error("#[node] on an `impl` block takes no arguments (spec 4.8)"),
         _ => return error("put #[node] on a function (spec 4.1) or a struct (spec 4.2)"),
     }
     let mut out: TokenStream = "#[inline]".parse().expect("valid attribute");
@@ -25,19 +28,32 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     out
 }
 
-/// The function without `#[param(...)]` on its inputs. Rust knows no such attribute there.
+/// The `impl` block with `strip_params` on the functions of its body.
+fn strip_methods(item: TokenStream) -> TokenStream {
+    let body = |tree| match tree {
+        TokenTree::Group(g) if g.delimiter() == Delimiter::Brace => {
+            let mut body = Group::new(Delimiter::Brace, strip_params(g.stream()));
+            body.set_span(g.span());
+            TokenTree::Group(body)
+        }
+        tree => tree,
+    };
+    item.into_iter().map(body).collect()
+}
+
+/// The functions without `#[param(...)]` on their inputs. Rust knows no such attribute there.
 fn strip_params(item: TokenStream) -> TokenStream {
-    // The inputs are the first `(...)` after `fn` and out of the `<...>` of the generics.
-    let (mut seen_fn, mut depth, mut dash, mut done) = (false, 0, false, false);
+    // The inputs are the first `(...)` after each `fn` and out of the `<...>` of the generics.
+    let (mut seen_fn, mut depth, mut dash) = (false, 0, false);
     let mut out = Vec::new();
     for tree in item {
         let was_dash = std::mem::replace(&mut dash, matches!(&tree, TokenTree::Punct(p) if p.as_char() == '-'));
         match tree {
-            TokenTree::Ident(ref i) if i.to_string() == "fn" => seen_fn = true,
+            TokenTree::Ident(ref i) if i.to_string() == "fn" => (seen_fn, depth) = (true, 0),
             TokenTree::Punct(ref p) if p.as_char() == '<' => depth += 1,
             TokenTree::Punct(ref p) if p.as_char() == '>' && !was_dash => depth -= 1,
-            TokenTree::Group(g) if seen_fn && !done && depth == 0 && g.delimiter() == Delimiter::Parenthesis => {
-                done = true;
+            TokenTree::Group(g) if seen_fn && depth == 0 && g.delimiter() == Delimiter::Parenthesis => {
+                seen_fn = false;
                 let mut inputs = Group::new(Delimiter::Parenthesis, without_param(g.stream()));
                 inputs.set_span(g.span());
                 out.push(TokenTree::Group(inputs));

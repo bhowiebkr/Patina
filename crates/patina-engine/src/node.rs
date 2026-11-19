@@ -170,7 +170,7 @@ fn parse_node(source: &str) -> Result<Node, String> {
             Item::Fn(f) => &f.attrs,
             Item::Struct(s) => &s.attrs,
             Item::Enum(e) => &e.attrs,
-            Item::Impl(i) => &i.attrs,
+            // `#[node]` on the `impl` block of a stateful node only removes `#[param]` (4.8).
             _ => continue,
         };
         if let Some(attr) = attrs.iter().find(|a| named(a, "node"))
@@ -228,9 +228,6 @@ fn parse_node(source: &str) -> Result<Node, String> {
         };
         if pass == Pass::Mut && is_out_key(&key) {
             return Err(format!("rename the input `{key}`: its output key is used by the return value"));
-        }
-        if state.is_some() && arg.attrs.iter().any(|a| named(a, "param")) {
-            return Err(format!("remove #[param] from the input `{key}`: it works only on a node function (spec 4.8)"));
         }
         let param = read_param(&arg.attrs).map_err(|e| format!("input `{key}`: {e}"))?;
         inputs.push(Input { key, pass, is_str, ty, value, param });
@@ -346,7 +343,7 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
     let name = &node.ident;
     let this = if generics.is_empty() { name.to_string() } else { format!("{name}<{}>", generics.join(", ")) };
     let head = if generics.is_empty() { format!("impl {this}") } else { format!("impl<{}> {this}", generics.join(", ")) };
-    let (mut init, mut process, mut ui) = (None, None, None);
+    let (mut init, mut process, mut ui, mut marked) = (None, None, None, false);
     for item in &file.items {
         let Item::Impl(block) = item else { continue };
         if block.trait_.is_some() || type_text(&block.self_ty) != this {
@@ -361,6 +358,9 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
             };
             if !matches!(func.vis, Visibility::Public(_)) {
                 return Err(format!("make `{name}::{}` pub", func.sig.ident));
+            }
+            if func.sig.ident == "process" {
+                marked = block.attrs.iter().any(|a| named(a, "node"));
             }
             *slot = Some(&func.sig);
         }
@@ -380,6 +380,10 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
         }
     }
     let process = process.ok_or(format!("add `pub fn process(&mut self, ...)` to `{head}`"))?;
+    let has_param = |arg: &FnArg| matches!(arg, FnArg::Typed(t) if t.attrs.iter().any(|a| named(a, "param")));
+    if !marked && process.inputs.iter().any(has_param) {
+        return Err(format!("put #[node] on the `{head}` block with `process` too: it removes #[param] (spec 4.8)"));
+    }
     Ok((process, ui.is_some()))
 }
 
@@ -641,6 +645,8 @@ mod tests {
         for source in fails {
             assert!(parse(source).is_err(), "{source}");
         }
+        let stateful = parse("#[node] pub struct S; #[node] impl S { pub fn init() -> Self { S } pub fn process(&mut self, #[param(default = 2, min = 0)] a: f64) {} }").unwrap();
+        assert_eq!((stateful.inputs[0].param.default.as_deref(), stateful.inputs[0].param.min), (Some("2"), Some(0.0)));
     }
 
     #[test]
