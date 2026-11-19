@@ -132,8 +132,8 @@ cargo test --release -p geometry measure -- --ignored --nocapture
   moves and turns by multiples of 90 degrees. Round shapes and other turns use the sine of the
   C++ runtime, so the last bit can be different on another platform. This is not checked.
 - The `.obj` and the `.stl` files have no sockets. A solid has no colors, so the `export` node
-  writes no materials. The `export-buildings` node of the city writes one material for each
-  color.
+  writes no materials. The `export-buildings` node of the city and the `export-gun` node of the
+  gun write one material for each color.
 - A number input with no wire, no text and no `#[param]` default starts at 0. Thus `taper` 0
   keeps the top size, `gap` 0 makes a full turn and `segments` 0 lets the kernel choose. The
   sizes, the scales and the counts have a default, for example 1 for the sides of `cuboid`.

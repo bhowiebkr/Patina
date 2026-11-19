@@ -1,9 +1,10 @@
 use geometry::export;
-use guns::Gun;
+use guns::{Gun, look};
 use patina_sdk::{PathKind, Ui, node, project_path};
 
 /// Writes the gun to `<name>.glb` in the folder, with the `muzzle` and `grip` sockets, and its
-/// stats to `<name>.txt`. It writes only after a click on **Export**, or at each fire of a
+/// stats to `<name>.txt`. The `.glb` file has the look of the 3D view: one primitive for each
+/// material of each part, with a glTF material for each color. It writes only after a click on **Export**, or at each fire of a
 /// trigger with an order wire to this node (9.4). A run after a change does not write.
 #[node(color = "#3a3c40")]
 pub struct ExportGun {
@@ -60,16 +61,16 @@ fn write(gun: &Gun, folder: &str, name: &str) -> Result<String, String> {
     if name.contains(['/', '\\', ':', '.']) {
         return Err(format!("{name:?} is not a file name: write letters, digits, - and _"));
     }
-    let solid = gun.solid();
-    if solid.triangles() == 0 {
+    let (mesh, colors) = look(gun).bake(None);
+    if mesh.triangles() == 0 {
         return Err("The gun has no parts".into());
     }
     let root = project_path(folder);
     std::fs::create_dir_all(&root).map_err(|e| format!("{}: {e}", root.display()))?;
-    export::write(&root.join(format!("{name}.glb")), &solid.mesh(), &gun.sockets, &[])?;
+    export::write(&root.join(format!("{name}.glb")), &mesh, &gun.sockets, &colors)?;
     let text = root.join(format!("{name}.txt"));
     std::fs::write(&text, gun.report()).map_err(|e| format!("{}: {e}", text.display()))?;
-    Ok(format!("Wrote {name}.glb and {name}.txt to {folder}, {} triangles", solid.triangles()))
+    Ok(format!("Wrote {name}.glb and {name}.txt to {folder}, {} triangles", mesh.triangles()))
 }
 
 #[cfg(test)]
@@ -90,7 +91,8 @@ mod tests {
         node.armed = Some(4);
         node.process(&gun, text, "", 4).unwrap();
         assert!(node.status.starts_with("Wrote gun.glb"), "{}", node.status);
-        assert!(folder.join("gun.glb").exists());
+        let glb = std::fs::read(folder.join("gun.glb")).unwrap();
+        assert!(glb.windows(12).any(|w| w == b"\"materials\":"), "the material colors give glTF materials");
         assert_eq!(std::fs::read_to_string(folder.join("gun.txt")).unwrap(), gun.report());
         node.armed = Some(5);
         assert!(node.process(&gun, text, "../up", 5).is_err());

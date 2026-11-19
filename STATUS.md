@@ -309,6 +309,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     tests of `model-view` with the crease test, and the clippy of the gun crates, with the MSVC
     toolchain. CI does not run them.
   - The CLI test runs `main`, checks the two stats reports, and runs the export with a trigger.
+  - The gun `.glb` file has the look of the 3D view (2026-11-19): one primitive for each
+    material of each part, and one glTF material for each color. The parts are not joined, so
+    the file has the faces inside the overlaps. The CLI export gave 27 primitives and 6
+    materials, and the JSON parsed.
   - The editor shot of `gun` opens `gun-wall` and `model-view`, turns **Toon** on and off, and
     changes the seed. The captures show the gun wall in the maker colors and the toon bands.
   - A click on a tile of `gun-wall` sets the seed and selects the `look` node, so the 3D view
@@ -398,7 +402,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The `.obj` and the `.stl` files have no sockets. A solid has no colors, so the `export`
     node writes no materials. The `.glb` writer gives each part with a color a material
-    (2026-11-19), and the city building export uses it.
+    (2026-11-19), and the city and the gun exports use it.
   - No other program opened the files. The tests read the bytes only.
   - The **Export** click in the editor is not checked. The unit test checks its rule.
 

@@ -117,7 +117,9 @@ Do these steps:
 ## Export a gun
 
 The `export-gun` node writes the gun to `<name>.glb` with the `muzzle` and `grip` sockets in the
-glTF extras. It also writes the stats to `<name>.txt`. Do these steps:
+glTF extras. It also writes the stats to `<name>.txt`. The `.glb` file has the look of the 3D
+view: one primitive for each material of each part, and one glTF material for each color. Do
+these steps:
 
 1. Click **Folder** in the node and choose a folder. A relative path starts at the project
    folder.
