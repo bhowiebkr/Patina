@@ -3,7 +3,7 @@
 // package as its original project (14.1).
 
 import { api } from '../api';
-import { BUILD_MS, RUN_MS, button, leftTab, startAction, topButton, type CheckContext } from './check-fixtures';
+import { BUILD_MS, RUN_MS, button, graphKey, leftTab, startAction, topButton, type CheckContext } from './check-fixtures';
 
 /** Saves the project, clicks Package and opens the package. The check gives a folder of `dir` in place of the folder dialog. */
 export async function checkPackage({ step, until, steps }: CheckContext, dir: string) {
@@ -38,7 +38,7 @@ export async function checkPackage({ step, until, steps }: CheckContext, dir: st
   }
   // Open graph of the same graph changes nothing and gives the view of the open project.
   const v = await api.openGraph(saved.graphName);
-  if (!/[\\/]project$/.test(v.root) || JSON.stringify(v.graph) !== JSON.stringify(saved.graph)) {
+  if (!/[\\/]project$/.test(v.root) || graphKey(v.graph) !== graphKey(saved.graph)) {
     throw new Error(`Open project on the package did not open its original project: ${v.root}`);
   }
   steps.push('Open project on the package opens its original project');

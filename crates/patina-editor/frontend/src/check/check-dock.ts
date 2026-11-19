@@ -5,13 +5,13 @@ import { api, type EngineEvent, type View } from '../api';
 import { flushLayout, savedViewport } from '../panels/Dock';
 import { layoutText, parseLayout } from '../panels/layout';
 import { FAR_ZOOM } from '../wires/gl';
-import { A, B, BUILD_MS, RUN_MS, badge, button, entry, mouseWheel, scale, startAction, tab, topButton, transform, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, badge, button, entry, graphKey, mouseWheel, scale, startAction, tab, topButton, transform, type CheckContext } from './check-fixtures';
 
 /** Saves, closes and opens the project again. It returns the last view and the middle of the canvas. */
 export async function checkDock({ step, until, result, mark, events, steps }: CheckContext, v: View) {
   v = await step('save', () => api.save());
   if (v.dirty) throw new Error('the project is still dirty after a save');
-  const saved = JSON.stringify(v.graph);
+  const saved = graphKey(v.graph);
   await step('pause', () => api.pause());
 
   // The dock (15.2): a drag and the menu of a tab move it, the keys and a drag move a splitter, and
@@ -130,7 +130,7 @@ export async function checkDock({ step, until, result, mark, events, steps }: Ch
 
   let from = mark();
   v = await step('open again', () => api.openProject(v.root));
-  if (JSON.stringify(v.graph) !== saved) throw new Error('the graph after open is not the saved graph');
+  if (graphKey(v.graph) !== saved) throw new Error('the graph after open is not the saved graph');
   if (!v.trusted || v.live) throw new Error('an open project is trusted and paused');
   // An open loads the last build, so the node GUIs show while the graph is paused (15.10).
   const opened = (state: EngineEvent['state']) => events.slice(from).some((e) => e.serial === v.serial && e.state === state);

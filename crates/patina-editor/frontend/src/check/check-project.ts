@@ -3,7 +3,7 @@
 
 import { api, type EngineEvent, type View } from '../api';
 import { bufferOf, flushCode, monaco, openFile, unsavedFiles } from '../code/code';
-import { A, B, BUILD_MS, RUN_MS, button, enterText, helloNodes, leftTab, startAction, statusText, tab, topButton, type CheckContext } from './check-fixtures';
+import { A, B, BUILD_MS, RUN_MS, button, enterText, graphKey, helloNodes, leftTab, startAction, statusText, tab, topButton, type CheckContext } from './check-fixtures';
 
 /** Makes the projects and runs the first steps. It returns the last view, and the code file of node A with its first code. */
 export async function checkProject({ step, until, result, mark, events, steps, fresh }: CheckContext, dir: string) {
@@ -309,7 +309,7 @@ export async function checkRecovery({ step, until, steps }: CheckContext, v: Vie
   // The recovery file (15.10): an open after a stop of Patina restores the unsaved graph and code.
   const [bx, by] = v.graph.node!.find((n) => n.id === B)!.pos!;
   v = await step('change without a save', () => api.edit({ kind: 'MoveNode', id: B, pos: [bx, by + 40] }));
-  const changedGraph = JSON.stringify(v.graph);
+  const changedGraph = graphKey(v.graph);
   const changedCode = `${original}// recovered\n`;
   (await openFile(lib)).setValue(changedCode);
   await flushCode();
@@ -324,7 +324,7 @@ export async function checkRecovery({ step, until, steps }: CheckContext, v: Vie
   await until('the save of the restored changes', RUN_MS, () => !dirtyDot());
   if ((await api.readCode(lib)) !== changedCode) throw new Error('the save did not write the restored code');
   v = await step('open after the save', () => api.openProject(v.root));
-  if (v.recovery || JSON.stringify(v.graph) !== changedGraph) throw new Error('the save did not keep the restored graph or remove the recovery file');
+  if (v.recovery || graphKey(v.graph) !== changedGraph) throw new Error('the save did not keep the restored graph or remove the recovery file');
   steps.push('recovery file restored');
   // Discard removes the recovery file and keeps the saved project.
   v = await step('change again without a save', () => api.edit({ kind: 'MoveNode', id: B, pos: [bx, by + 80] }));
@@ -335,7 +335,7 @@ export async function checkRecovery({ step, until, steps }: CheckContext, v: Vie
   discard()!.click();
   await until('no recovery dialog after Discard', RUN_MS, () => !discard() && !dirtyDot());
   v = await step('open after the discard', () => api.openProject(v.root));
-  if (v.recovery || JSON.stringify(v.graph) !== changedGraph) throw new Error('the discard did not keep the saved graph or remove the recovery file');
+  if (v.recovery || graphKey(v.graph) !== changedGraph) throw new Error('the discard did not keep the saved graph or remove the recovery file');
   steps.push('recovery file discarded');
   return { v, changedCode };
 }

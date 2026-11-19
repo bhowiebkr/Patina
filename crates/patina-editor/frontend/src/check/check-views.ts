@@ -230,7 +230,8 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   second()!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
   await until('Move to the split pane in the tab menu', RUN_MS, () => !!menuOf('Move to the split pane'));
   menuOf('Move to the split pane')!.click();
-  const width = (sel: string) => document.querySelector(sel)?.getBoundingClientRect().width ?? 0;
+  // The display scale can give a width such as 480.00003, so the width is rounded.
+  const width = (sel: string) => Math.round(document.querySelector(sel)?.getBoundingClientRect().width ?? 0);
   await until('the view in the split pane next to the graph', RUN_MS, () => !!second()?.closest('.panes > .area.split') && !document.querySelector('.center-view') && width('.react-flow__pane') > 200 && width('.area.split') === 480);
   const paneSplitter = () => document.querySelector<HTMLElement>('[aria-label="Size of the split area"]')!;
   paneSplitter().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));

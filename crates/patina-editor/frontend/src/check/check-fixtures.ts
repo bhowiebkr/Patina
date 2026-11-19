@@ -1,11 +1,14 @@
 // The fixtures of the self-check (check.ts): its node IDs, the code that it writes, and the pixel
 // reads of the wire layer.
 
-import { api, type EngineEvent, type View } from '../api';
+import { api, type EngineEvent, type GraphFile, type View } from '../api';
 import { saveCode, undoRedo } from '../code/codeState';
 
 export const BUILD_MS = 150_000;
 export const RUN_MS = 20_000;
+/** The graph as JSON with no regard to the order of its tables: Save sorts them, and the open graph keeps the edit order (5). */
+export const graphKey = (g: GraphFile) =>
+  JSON.stringify(Object.entries(g).map(([k, t]: [string, unknown]) => [k, Array.isArray(t) ? t.map((e) => JSON.stringify(e)).sort() : t]).sort(([a], [b]) => String(a).localeCompare(String(b))));
 export const A = 'a000000000000001';
 export const B = 'b000000000000002';
 export const T = 'c000000000000003';
