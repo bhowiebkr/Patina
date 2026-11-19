@@ -224,6 +224,27 @@ fn a_river_cuts_water_across_and_never_raises_the_ground() {
 }
 
 #[test]
+fn a_river_follows_the_valley() {
+    // A valley at x = 60 on ground that slopes down to the low y edge.
+    let (nx, ny, cell) = (61, 41, 5.0);
+    let mut t = Terrain { nx, ny, cell, heights: vec![0.0; nx * ny], sea: 0.0 };
+    for j in 0..ny {
+        for i in 0..nx {
+            let p = t.point(i, j);
+            t.heights[j * nx + i] = (10.0 + 0.1 * (p[0] - 60.0).abs() + 0.02 * p[1]) as f32;
+        }
+    }
+    for seed in 1..6 {
+        let r = river(&t, Seed(seed), 10.0, 2.0).unwrap();
+        for j in [5, 20, 35] {
+            let wet: Vec<f64> = (0..nx).map(|i| r.point(i, j)).filter(|&p| r.water(p)).map(|p| p[0]).collect();
+            let mean = wet.iter().sum::<f64>() / wet.len() as f64;
+            assert!(!wet.is_empty() && (mean - 60.0).abs() < 10.0, "seed {seed}, row {j}: {wet:?}");
+        }
+    }
+}
+
+#[test]
 fn the_ground_covers_each_cell_with_two_triangles_and_adds_water() {
     let t = river(&terrain(Seed(3), &land()).unwrap(), Seed(3), 20.0, 2.0).unwrap();
     let scene = ground(&t);

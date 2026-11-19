@@ -15,7 +15,7 @@ cargo run -p patina-cli -- run workbenches/city --frames 1
 
 The `main` graph makes an organic city of 600 m x 450 m on hills, with a river and a coast.
 The `report` node writes
-`545 items, 43281 places, 1337422 triangles, bounds -300 -225 -6.5 to 300 225 173.134, scene hash ...`.
+`554 items, 56098 places, 1727477 triangles, bounds -300 -225 -6.5 to 300 225 173.652, scene hash ...`.
 The first build compiles the C++ kernel of the model workbench in about 5 to 10 s.
 
 The `planned` graph puts the same buildings on a grid of streets on flat land. Run it with
@@ -26,7 +26,8 @@ The `planned` graph puts the same buildings on a grid of streets on flat land. R
 Each step is a node, so you can change or replace one step. The `main` graph has these steps:
 
 1. `terrain` makes the hills from the seed, with a slope down to the coast. `river` cuts a
-   winding river across the land. `ground` shows the grass, the sand, the rock and the water.
+   river along the valleys, from the highest edge to the lowest edge. `ground` shows the
+   grass, the sand, the rock and the water.
 2. `density` puts the people on the land: a main center and sub-centers, less on steep slopes
    and none on the water.
 3. `highways` joins gates on the edge to the center. A steep slope costs more, and the water
@@ -89,12 +90,13 @@ wire to the node. A run after a change does not write.
 
 On 2026-11-19, on the Windows computer of the owner, with a bake build:
 
-- The `main` graph runs in about 0.4 s after the build. It has 163 buildings.
-- A city of 1 km x 1 km has 75523 places and 2404503 triangles. It runs in less than 0.5 s
+- The `main` graph runs in about 0.4 s after the build. It has 166 buildings.
+- A city of 1 km x 1 km has 90460 places and 2829453 triangles. It runs in less than 0.5 s
   after the build. The target of task E8 is 2 s.
 
 ## Known limits
 
-- The terrain is value noise. It has no erosion, and the river does not follow the valleys.
+- The terrain is value noise with no erosion. The river follows the valleys, but it does not
+  cut them.
 - A block is one face of the street graph, so a very concave block can give thin lots.
 - A street at the edge of the land turns along the edge. The roads stop at the edge.

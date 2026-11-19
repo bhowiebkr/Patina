@@ -339,10 +339,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   `zoning` and `heights` make the zones. `buildings`, `walls`, `facades` and `roofs` make
   houses, apartments, shops, towers and warehouses. The grid city is the `planned` graph.
   - The roads, the road lines and the streets stay in the area of the terrain.
-  - Checked on Windows: 17 unit tests of `types/city` and the other city crate tests, and the
-    CLI test with `main`, `planned`, the 1 km check and the export of 163 buildings.
-  - `main`: 545 items, 43281 places and 1337422 triangles. `planned`: 1269 items and 4579762
-    triangles. A city of 1 km x 1 km: 2404503 triangles, 0.14 s after the build in the CLI
+  - The river follows the valleys: the path of least height from the highest edge to the
+    lowest edge, with a pull to the middle.
+  - Checked on Windows: 18 unit tests of `types/city` and the other city crate tests, and the
+    CLI test with `main`, `planned`, the 1 km check and the export of 166 buildings.
+  - `main`: 554 items, 56098 places and 1727477 triangles. `planned`: 1269 items and 4579762
+    triangles. A city of 1 km x 1 km: 2829453 triangles, 0.21 s after the build in the CLI
     test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
@@ -353,8 +355,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
-  - The streets are a grid with jitter. There are no curved streets, no tensor field and no
-    terrain.
+  - The terrain is value noise with no erosion. The river does not cut the valleys.
+  - A block is one face of the street graph, so a very concave block can give thin lots.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
     about 0.3 s after each change.
   - Linux and macOS did not run the workbench.

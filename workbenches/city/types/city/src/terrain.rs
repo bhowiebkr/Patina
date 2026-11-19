@@ -154,8 +154,8 @@ pub fn terrain(seed: Seed, land: &Land) -> Result<Terrain, String> {
     Ok(t)
 }
 
-/// Cuts a winding river from the highest edge to the lowest edge. The bed is `depth` below the
-/// sea level, so the river is water. The banks slope up over one river width.
+/// Cuts a river from the highest edge to the lowest edge. It follows the valleys. The bed is
+/// `depth` below the sea level, so the river is water. The banks slope up over one river width.
 pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64) -> Result<Terrain, String> {
     if !(width.is_finite() && width >= 0.0 && depth.is_finite() && depth > 0.0) {
         return Err("the width must be 0 or more and the depth more than 0".into());
@@ -183,19 +183,15 @@ pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64) -> Result<Te
         2 => ([0.0, 1.0], [1.0, 0.0], d, w),
         _ => ([-1.0, 0.0], [0.0, 1.0], w, d),
     };
-    let mut random = seed.child("river").random();
-    let center = random.range(-0.2, 0.2) * span;
-    let waves = [(0.12 * span, random.range(1.0, 1.8), random.range(0.0, 6.3)), (0.05 * span, random.range(2.5, 4.0), random.range(0.0, 6.3))];
-    let offset = |s: f64| center + waves.iter().map(|&(a, f, phase)| a * (std::f64::consts::TAU * f * s + phase).sin()).sum::<f64>();
+    let center = seed.child("river").random().range(-0.2, 0.2) * span;
     let step = terrain.cell.max(length / 4000.0);
     let count = (length / step).ceil() as usize + 1;
-    let line: Vec<[f64; 2]> = (0..count)
-        .map(|k| {
-            let a = (k as f64 * step).min(length);
-            let (u, v) = (a - length / 2.0, offset(a / length));
-            [along[0] * u + across[0] * v, along[1] * u + across[1] * v]
-        })
-        .collect();
+    let at = |k: usize, v: f64| {
+        let u = (k as f64 * step).min(length) - length / 2.0;
+        [along[0] * u + across[0] * v, along[1] * u + across[1] * v]
+    };
+    let across_of = valley(count, ((0.6 * span / step) as usize).max(1), step, center, span, terrain, at);
+    let line: Vec<[f64; 2]> = across_of.iter().enumerate().map(|(k, &v)| at(k, v)).collect();
     let (half, bank) = (width / 2.0, width.max(3.0 * terrain.cell));
     let reach = half + bank;
     let bed = terrain.sea - depth;
@@ -309,6 +305,43 @@ pub(crate) fn face_normal([a, b, c]: [[f32; 3]; 3]) -> [f32; 3] {
 }
 
 /// The distance from `p` to the segment from `a` to `b`.
+/// The across place of the river at each of `count` rows: the path of least height that moves at
+/// most one of `lanes` lanes for each row, with a pull to `center`, smoothed.
+fn valley(count: usize, lanes: usize, step: f64, center: f64, span: f64, terrain: &Terrain, at: impl Fn(usize, f64) -> [f64; 2]) -> Vec<f64> {
+    let lane = |c: usize| (c as f64 - (lanes - 1) as f64 / 2.0) * step;
+    let (low, high) = terrain.heights.iter().fold((f32::MAX, f32::MIN), |(l, h), &x| (l.min(x), h.max(x)));
+    let range = f64::from(high - low).max(1.0);
+    let cost = |k: usize, c: usize| terrain.height(at(k, lane(c))) + range * ((lane(c) - center) / span).powi(2);
+    // A turn costs a little, so the river runs straight where the ground is flat.
+    let turn = 0.01 * range;
+    let mut total: Vec<f64> = (0..lanes).map(|c| cost(0, c)).collect();
+    let mut next = vec![0.0; lanes];
+    let mut from = vec![0u32; count * lanes];
+    for k in 1..count {
+        for (c, t) in next.iter_mut().enumerate() {
+            let options = (c.saturating_sub(1)..(c + 2).min(lanes)).map(|b| (total[b] + if b == c { 0.0 } else { turn }, b));
+            let (best, prev) = options.fold((f64::INFINITY, c), |m, x| if x.0 < m.0 { x } else { m });
+            *t = best + cost(k, c);
+            from[k * lanes + c] = prev as u32;
+        }
+        std::mem::swap(&mut total, &mut next);
+    }
+    let mut c = (0..lanes).min_by(|&a, &b| total[a].total_cmp(&total[b])).unwrap_or(0);
+    let mut path = vec![0.0; count];
+    for k in (0..count).rev() {
+        path[k] = lane(c);
+        c = from[k * lanes + c] as usize;
+    }
+    // A moving mean over about 5 % of the span takes out the steps of the lanes.
+    let w = ((0.05 * span / step) as usize).max(1);
+    (0..count)
+        .map(|k| {
+            let near = &path[k.saturating_sub(w)..(k + w + 1).min(count)];
+            near.iter().sum::<f64>() / near.len() as f64
+        })
+        .collect()
+}
+
 pub(crate) fn segment_distance(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
     let (ab, ap) = ([b[0] - a[0], b[1] - a[1]], [p[0] - a[0], p[1] - a[1]]);
     let l2 = ab[0] * ab[0] + ab[1] * ab[1];
