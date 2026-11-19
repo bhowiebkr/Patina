@@ -50,6 +50,7 @@ pub use events::{EventRun, Events, Inbox, Remote, remote};
 pub use run::{Audio, Frames};
 pub use library::{in_unnamed_call, thread_node};
 pub use load::Cluster;
+pub use node::ParamAttr;
 pub use outcome::{Lanes, NodeLog, NodeTime, Outcome, Report, ReportKind, Value};
 pub use patina_sdk::glue::Control;
 use project::GraphFile;
@@ -124,7 +125,7 @@ pub struct CodeText {
 }
 
 /// An input or an output of a node (spec 4.1).
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Debug, PartialEq, Default)]
 pub struct Pin {
     pub key: String,
     /// The Rust type as the code writes it. An output has the type of its value.
@@ -132,6 +133,9 @@ pub struct Pin {
     /// The name of a public pin of a subgraph. Its key is random (6.4).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// The default and the range of `#[param]` on an input (4.8).
+    #[serde(flatten)]
+    pub param: ParamAttr,
 }
 
 /// A node folder of the project or a built-in node, for the node list of the editor (15.2).
@@ -177,8 +181,8 @@ pub struct KindInfo {
 impl NodeInfo {
     fn new(name: String, node: node::Node, builtin: bool) -> NodeInfo {
         let keys = node.output_keys().into_iter();
-        let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty, name: None }).collect();
-        let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty, name: None }).collect();
+        let outputs = keys.zip(node.output_types).map(|(key, ty)| Pin { key, ty, ..Pin::default() }).collect();
+        let inputs = node.inputs.into_iter().map(|i| Pin { key: i.key, ty: i.ty, name: None, param: i.param }).collect();
         let kind = if node.is_async {
             "async"
         } else if node.state.is_some() {
@@ -542,7 +546,7 @@ mod tests {
         let nodes = project.nodes().unwrap();
         let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, ["number", "show"]);
-        let pin = |key: &str, ty: &str| Pin { key: key.to_owned(), ty: ty.to_owned(), name: None };
+        let pin = |key: &str, ty: &str| Pin { key: key.to_owned(), ty: ty.to_owned(), ..Pin::default() };
         assert_eq!((&nodes[0].inputs[..], &nodes[0].outputs[..]), (&[pin("value", "f64")][..], &[pin("out", "f64")][..]));
         assert_eq!(nodes[1].inputs, [pin("value", "&f64")]);
         assert_eq!(project.folder_files("nodes/show").unwrap(), ["nodes/show/Cargo.toml", "nodes/show/src/lib.rs"]);

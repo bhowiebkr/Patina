@@ -114,6 +114,10 @@ export interface Pin {
   ty: string;
   /** The name of a public pin of a subgraph, whose key is random (6.4). */
   name?: string;
+  /** The default text and the range of `#[param]` on the input (4.8). */
+  default?: string;
+  min?: number;
+  max?: number;
 }
 
 /** The node kind for the node icon (15.3). */

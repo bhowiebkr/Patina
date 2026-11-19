@@ -1,7 +1,7 @@
 // The Inspector (spec 15.5): the parameters, the code and the logs of the selected node, in a
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
-import { lazy, Suspense, useContext, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useContext, useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent } from 'react';
 import { KIND_NAMES, KindIcon } from '../controls/icons';
 import { api, atTop, docParts, errorLine, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
@@ -351,8 +351,20 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         <>
           <div className="section">
             {(info?.inputs ?? []).length === 0 && <div className="label">No inputs</div>}
-            {(info?.inputs ?? []).map(({ key, ty, name }) => {
+            {(info?.inputs ?? []).map(({ key, ty, name, default: initial, min, max }) => {
               const before = entry.params?.[key] ?? '';
+              const field = (
+                <input
+                  key={`${entry.id}.${key}=${before}`}
+                  className="field"
+                  defaultValue={before}
+                  placeholder={initial ?? 'Default'}
+                  disabled={!view.trusted}
+                  onBlur={commit(key, before)}
+                  onKeyDown={keys(before)}
+                  spellCheck={false}
+                />
+              );
               return (
                 <label key={key} className="param">
                   <span className="label">{name ?? key}</span>
@@ -365,17 +377,21 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
                       disabled={!view.trusted}
                       onChange={(e) => onEdit({ kind: 'SetParam', id: entry.id, key, text: String(e.currentTarget.checked) })}
                     />
+                  ) : min !== undefined && max !== undefined ? (
+                    <div className="param-range">
+                      <RangeSlider
+                        label={name ?? key}
+                        min={min}
+                        max={max}
+                        whole={/^[iu](8|16|32|64|128|size)$/.test(ty)}
+                        value={Number(before.trim() || initial || min)}
+                        disabled={!view.trusted}
+                        send={(text) => text !== before && onEdit({ kind: 'SetParam', id: entry.id, key, text })}
+                      />
+                      {field}
+                    </div>
                   ) : (
-                    <input
-                      key={`${entry.id}.${key}=${before}`}
-                      className="field"
-                      defaultValue={before}
-                      placeholder="Default"
-                      disabled={!view.trusted}
-                      onBlur={commit(key, before)}
-                      onKeyDown={keys(before)}
-                      spellCheck={false}
-                    />
+                    field
                   )}
                 </label>
               );
@@ -431,5 +447,34 @@ function LookSection({ graph, use }: { graph: string; use: string }) {
         Edit look
       </button>
     </div>
+  );
+}
+
+/** The slider of an input with `#[param(min, max)]` (4.8), next to the field with the exact text. */
+function RangeSlider({ label, min, max, whole, value, disabled, send }: { label: string; min: number; max: number; whole: boolean; value: number; disabled: boolean; send: (text: string) => void }) {
+  // A drag shows its own value and sends it at the end, so a drag runs the graph one time (9.1).
+  const [draft, setDraft] = useState<number | null>(null);
+  const shown = draft ?? (Number.isFinite(value) ? value : min);
+  const fill = max > min ? Math.min(100, Math.max(0, ((shown - min) / (max - min)) * 100)) : 0;
+  const commit = () => {
+    if (draft !== null) send(String(whole ? Math.round(draft) : Number(draft.toPrecision(4))));
+    setDraft(null);
+  };
+  return (
+    <input
+      type="range"
+      className="gui-slider"
+      aria-label={label}
+      min={min}
+      max={max}
+      step={whole ? 1 : 'any'}
+      value={shown}
+      style={{ '--fill': `${fill}%` } as CSSProperties}
+      disabled={disabled}
+      onChange={(e) => setDraft(Number(e.currentTarget.value))}
+      onPointerUp={commit}
+      onKeyUp={commit}
+      onBlur={commit}
+    />
   );
 }

@@ -301,6 +301,19 @@ html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas .r
   justify-self: start;
 }
 
+/* An input with `#[param(min, max)]` (4.8): the slider and a narrow field with the exact text. */
+.param-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.param-range .field {
+  flex: none;
+  width: 64px;
+}
+
 /* The Subgraph interface (mockup 11): one row for each public pin, and the preview of the use. */
 .pin-row {
   display: grid;

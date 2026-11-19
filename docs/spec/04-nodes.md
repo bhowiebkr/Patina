@@ -323,6 +323,19 @@ pub fn exposure(
 ) -> Image { ... }
 ```
 
+- The engine reads `#[param]` from the source, and the `node` macro removes it. The keys are
+  `default`, `min` and `max`. Each value is a literal. `min` and `max` are numbers, and
+  `min <= default <= max`. Another form is a node error. (Agent decision, 2026-11-19. The owner
+  can change it.)
+- A parameter with no text gets the `default` text of `#[param]`, or else the default value of
+  its type. A number text out of `min` to `max` gives a parameter error, and the node keeps
+  its last value. (Agent decision, 2026-11-19. The owner can change it.)
+- In the Parameters panel, a number with `min` and `max` gets a slider and a field with the
+  exact text. A number with no range gets the field only. The field shows the default as its
+  placeholder. (Agent decision, 2026-11-19. The owner can change it.)
+- Limit: only the inputs of a node function can have `#[param]`. The inputs of `process` of a
+  stateful node cannot have it yet. (Agent decision, 2026-11-19. The owner can change it.)
+
 - During editing, parameters are data at run time. A parameter change does not need a compile.
 - When a parameter loses its text, for example after an undo, it gets the default value of its type again. The states of the nodes stay. The engine gives a null text to `patina_cluster_set` (C ABI version 18). (Agent decision, 2026-11-16. The owner can change it.)
 - In a package (14), the compiler can make parameters constants. The base (7) keeps them as run-time data, so a parameter change never needs a compile.

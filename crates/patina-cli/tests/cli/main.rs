@@ -8,6 +8,7 @@ mod gun;
 mod imports;
 mod model;
 mod nodes;
+mod params;
 mod render;
 mod run;
 mod slot;

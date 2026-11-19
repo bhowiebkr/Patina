@@ -35,6 +35,13 @@ impl<T: Copy + Into<f64>> Tick<T> {
 }
 ";
 
+/// A generic node with `#[param]` on an input (4.8). The generics come before the inputs.
+pub const SCALE: &str = "#[patina_sdk::node]
+pub fn scale<T: Into<f64>>(x: T, #[param(default = 2.5, min = 0, max = 10)] k: f64) -> f64 {
+    x.into() * k
+}
+";
+
 /// A generic node of the test (4.5).
 pub const MIX: &str = "#[patina_sdk::node]
 pub fn mix<T: std::ops::Add<Output = T> + Copy>(a: &T, b: T) -> T {

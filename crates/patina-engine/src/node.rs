@@ -3,9 +3,10 @@
 //! `#[connection]` function (6.3).
 
 use quote::ToTokens;
+use serde::Serialize;
 use syn::{
-    Attribute, FnArg, GenericArgument, GenericParam, Generics, Ident, ImplItem, Item, ItemStruct, LitStr, Meta, Pat, PathArguments, ReturnType, Signature,
-    Type, Visibility,
+    Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, Ident, ImplItem, Item, ItemStruct, Lit, LitStr, Meta, Pat, PathArguments, ReturnType,
+    Signature, Type, UnOp, Visibility,
 };
 
 use crate::project::Shape;
@@ -37,6 +38,19 @@ pub struct Input {
     pub ty: String,
     /// The type of the value that the wire brings: `ty` without `&` or `&mut`.
     pub value: String,
+    pub param: ParamAttr,
+}
+
+/// The default text and the range of `#[param(default = 0.0, min = -4.0, max = 4.0)]` on an
+/// input of a node function (4.8).
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ParamAttr {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max: Option<f64>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -215,7 +229,11 @@ fn parse_node(source: &str) -> Result<Node, String> {
         if pass == Pass::Mut && is_out_key(&key) {
             return Err(format!("rename the input `{key}`: its output key is used by the return value"));
         }
-        inputs.push(Input { key, pass, is_str, ty, value });
+        if state.is_some() && arg.attrs.iter().any(|a| named(a, "param")) {
+            return Err(format!("remove #[param] from the input `{key}`: it works only on a node function (spec 4.8)"));
+        }
+        let param = read_param(&arg.attrs).map_err(|e| format!("input `{key}`: {e}"))?;
+        inputs.push(Input { key, pass, is_str, ty, value, param });
     }
     let (value, fallible) = match &sig.output {
         ReturnType::Default => (None, false),
@@ -283,7 +301,7 @@ impl Builtin {
         let input = |key: &str, ty: &str| {
             let (is_str, value) = (ty == "&str", ty.trim_start_matches('&').to_owned());
             let pass = if is_str { Pass::Ref } else { Pass::Take };
-            Input { key: key.to_owned(), pass, is_str, ty: ty.to_owned(), value }
+            Input { key: key.to_owned(), pass, is_str, ty: ty.to_owned(), value, param: ParamAttr::default() }
         };
         let (inputs, out, domain) = match self {
             // The plan gives the delay the domain of its input (9.2).
@@ -412,6 +430,60 @@ fn read_attr(attr: &Attribute) -> Result<Args, String> {
     })
     .map_err(|e| e.to_string())?;
     Ok(args)
+}
+
+/// Reads `#[param(default = <literal>, min = <number>, max = <number>)]` (4.8).
+fn read_param(attrs: &[Attribute]) -> Result<ParamAttr, String> {
+    let mut param = ParamAttr::default();
+    let Some(attr) = attrs.iter().find(|a| named(a, "param")) else { return Ok(param) };
+    attr.parse_nested_meta(|meta| {
+        let (text, number) = literal(&meta.value()?.parse()?).ok_or_else(|| meta.error("write a literal, for example `0.5`, `true` or `\"text\"`"))?;
+        let number = || number.ok_or_else(|| meta.error("write a number for `min` and `max`"));
+        if meta.path.is_ident("default") {
+            param.default = Some(text);
+        } else if meta.path.is_ident("min") {
+            param.min = Some(number()?);
+        } else if meta.path.is_ident("max") {
+            param.max = Some(number()?);
+        } else {
+            return Err(meta.error("#[param] takes only `default`, `min` and `max` (spec 4.8)"));
+        }
+        Ok(())
+    })
+    .map_err(|e| e.to_string())?;
+    let default = param.default.as_deref().and_then(|d| d.parse::<f64>().ok());
+    if param.min.zip(param.max).is_some_and(|(min, max)| min > max) || default.is_some_and(|d| out_of_range(&param, d)) {
+        return Err("#[param] needs `min` <= `default` <= `max` (spec 4.8)".to_owned());
+    }
+    Ok(param)
+}
+
+/// True when `value` is under `min` or over `max` of the attribute.
+pub fn out_of_range(param: &ParamAttr, value: f64) -> bool {
+    param.min.is_some_and(|min| value < min) || param.max.is_some_and(|max| value > max)
+}
+
+/// The text form of a literal, with its number for an integer or a float. A number can have a
+/// minus sign. None for another expression.
+fn literal(expr: &Expr) -> Option<(String, Option<f64>)> {
+    let (sign, lit) = match expr {
+        Expr::Lit(l) => ("", &l.lit),
+        Expr::Unary(u) if matches!(u.op, UnOp::Neg(_)) => match &*u.expr {
+            Expr::Lit(l) if matches!(l.lit, Lit::Int(_) | Lit::Float(_)) => ("-", &l.lit),
+            _ => return None,
+        },
+        _ => return None,
+    };
+    let text = match lit {
+        Lit::Int(i) => format!("{sign}{}", i.base10_digits()),
+        Lit::Float(f) => format!("{sign}{}", f.base10_digits()),
+        Lit::Bool(b) => b.value.to_string(),
+        Lit::Str(s) => s.value(),
+        Lit::Char(c) => c.value().to_string(),
+        _ => return None,
+    };
+    let number = matches!(lit, Lit::Int(_) | Lit::Float(_)).then(|| text.parse().ok()).flatten();
+    Some((text, number))
 }
 
 /// Joins the lines of the doc comment as Markdown does: a blank line starts a paragraph, a list
@@ -546,6 +618,29 @@ mod tests {
         let args = |count: usize| (0..count).map(|i| format!("a{i}: u8")).collect::<Vec<_>>().join(", ");
         assert!(parse(&format!("#[node] pub fn f({}) {{}}", args(MAX_ARGS))).is_ok());
         assert!(parse(&format!("#[node] pub fn f({}) {{}}", args(MAX_ARGS + 1))).is_err());
+    }
+
+    #[test]
+    fn reads_param_attributes_and_refuses_bad_ones() {
+        let node = parse(
+            "#[node] pub fn f(#[param(default = -1.5, min = -4, max = 4.0)] a: f64,              #[param(default = \"hi\")] b: String, #[param(min = 0)] c: u8, d: bool) {}",
+        )
+        .unwrap();
+        let params: Vec<_> = node.inputs.iter().map(|i| (i.param.default.as_deref(), i.param.min, i.param.max)).collect();
+        assert_eq!(params, [(Some("-1.5"), Some(-4.0), Some(4.0)), (Some("hi"), None, None), (None, Some(0.0), None), (None, None, None)]);
+        assert!(out_of_range(&node.inputs[0].param, 4.5) && !out_of_range(&node.inputs[0].param, -4.0));
+        let fails = [
+            "#[node] pub fn f(#[param(step = 1)] a: f64) {}",
+            "#[node] pub fn f(#[param(min = 2, max = 1)] a: f64) {}",
+            "#[node] pub fn f(#[param(default = 5, max = 1)] a: f64) {}",
+            "#[node] pub fn f(#[param(default = 1 + 1)] a: f64) {}",
+            "#[node] pub fn f(#[param(min = \"a\")] a: f64) {}",
+            "#[node] pub fn f(#[param(default = -true)] a: bool) {}",
+            "#[node] pub struct S; impl S { pub fn init() -> Self { S } pub fn process(&mut self, #[param(min = 0)] a: f64) {} }",
+        ];
+        for source in fails {
+            assert!(parse(source).is_err(), "{source}");
+        }
     }
 
     #[test]

@@ -286,8 +286,6 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     does not run them.
   - The tower gave one mesh hash in 14 runs: 4 with MSVC and 10 with a toolchain run.
 - Known limits:
-  - The `#[param(default, min, max)]` attribute of spec 4.8 is not in the code. An unwired number
-    starts at 0.
   - Round shapes and turns that are not multiples of 90 degrees use the sine of the C++
     runtime. Their hashes were not compared across platforms.
   - The kernel has no loft, no fillet and no bevel.
@@ -848,6 +846,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - An unwired generic input gets the same check with the type that its wires give (2026-11-18).
   The engine test checks it.
 - Known limits: the check does not find an `impl Param` that a macro makes.
+- An input of a node function can have `#[param(default = 2.5, min = 0, max = 10)]`
+  (2026-11-19). The engine sends the default when the parameter has no text. A number out of
+  the range gives a parameter error on the node. The **Inspector** shows a slider next to the
+  field of an input with `min` and `max`. Engine unit tests and a CLI test cover it.
+- Known limits: an input of `process` of a stateful node cannot have `#[param]`. No shot
+  checked the slider. The model nodes do not use `#[param]` yet, so an unwired number starts
+  at 0.
 - The hello example has a pocket calculator (2026-11-18): two **keypad** nodes, an
   **operation** with four keys, two paper **tape** nodes and an `average` subgraph with the
   **AVG** chip. The unit tests of the nodes and the CLI tests pass. A hidden shot showed 36

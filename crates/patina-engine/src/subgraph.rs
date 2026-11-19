@@ -244,7 +244,7 @@ pub(crate) fn infos(root: &Path, edits: Edits) -> (Vec<String>, Vec<NodeInfo>) {
                     if of_node.contains(&ty) && !generics.contains(&ty) {
                         generics.push(ty.clone());
                     }
-                    Pin { key: key.to_owned(), ty, name: Some(pin.to_owned()) }
+                    Pin { key: key.to_owned(), ty, name: Some(pin.to_owned()), ..Pin::default() }
                 };
                 info.inputs = graph.input.iter().map(|p| pin(&p.key, &p.name, p.to.first(), true)).collect();
                 info.outputs = graph.output.iter().map(|p| pin(&p.key, &p.name, Some(&p.from), false)).collect();

@@ -1,13 +1,14 @@
 //! The `#[node]`, `#[connection]` and `#[view]` attributes (spec 4.1, 6.3, 15.8). The engine reads the signatures
 //! with `syn`, so these macros only check the item and prepare it for the cluster.
 
-use proc_macro::{Delimiter, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Group, TokenStream, TokenTree};
 
 /// Marks the function of a node, or the state struct of a stateful node (spec 4.2). A function
 /// gets `#[inline]`, so small nodes inline into each other inside one cluster (8.3).
 /// `#[node(domain = frame)]` sets the clock domain (9.1), `#[node(full_gui)]` gives the GUI a
 /// full size, `#[node(free_layout)]` makes the GUI the whole node, `#[node(symbol = "nand")]` shows a circuit symbol (4.3), `#[node(heavy)]` keeps the node in a task of its own (9.2), and
-/// `#[node(color = "#175c59")]` sets the header color (15.3). The engine reads these arguments.
+/// `#[node(color = "#175c59")]` sets the header color (15.3). The engine reads these arguments
+/// and `#[param(default, min, max)]` on the inputs (4.8). The macro removes each `#[param]`.
 #[proc_macro_attribute]
 pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args: Vec<String> = attr.into_iter().map(|t| t.to_string()).collect();
@@ -20,8 +21,55 @@ pub fn node(attr: TokenStream, item: TokenStream) -> TokenStream {
         _ => return error("put #[node] on a function (spec 4.1) or a struct (spec 4.2)"),
     }
     let mut out: TokenStream = "#[inline]".parse().expect("valid attribute");
-    out.extend(item);
+    out.extend(strip_params(item));
     out
+}
+
+/// The function without `#[param(...)]` on its inputs. Rust knows no such attribute there.
+fn strip_params(item: TokenStream) -> TokenStream {
+    // The inputs are the first `(...)` after `fn` and out of the `<...>` of the generics.
+    let (mut seen_fn, mut depth, mut dash, mut done) = (false, 0, false, false);
+    let mut out = Vec::new();
+    for tree in item {
+        let was_dash = std::mem::replace(&mut dash, matches!(&tree, TokenTree::Punct(p) if p.as_char() == '-'));
+        match tree {
+            TokenTree::Ident(ref i) if i.to_string() == "fn" => seen_fn = true,
+            TokenTree::Punct(ref p) if p.as_char() == '<' => depth += 1,
+            TokenTree::Punct(ref p) if p.as_char() == '>' && !was_dash => depth -= 1,
+            TokenTree::Group(g) if seen_fn && !done && depth == 0 && g.delimiter() == Delimiter::Parenthesis => {
+                done = true;
+                let mut inputs = Group::new(Delimiter::Parenthesis, without_param(g.stream()));
+                inputs.set_span(g.span());
+                out.push(TokenTree::Group(inputs));
+                continue;
+            }
+            _ => {}
+        }
+        out.push(tree);
+    }
+    out.into_iter().collect()
+}
+
+/// The tokens without each `#[param...]`.
+fn without_param(stream: TokenStream) -> TokenStream {
+    let trees: Vec<TokenTree> = stream.into_iter().collect();
+    let is_param = |i: usize| match (&trees[i], trees.get(i + 1)) {
+        (TokenTree::Punct(p), Some(TokenTree::Group(g))) => {
+            p.as_char() == '#' && g.delimiter() == Delimiter::Bracket && g.stream().into_iter().next().is_some_and(|t| t.to_string() == "param")
+        }
+        _ => false,
+    };
+    let mut out = Vec::with_capacity(trees.len());
+    let mut i = 0;
+    while i < trees.len() {
+        if is_param(i) {
+            i += 2;
+            continue;
+        }
+        out.push(trees[i].clone());
+        i += 1;
+    }
+    out.into_iter().collect()
 }
 
 /// True when the tokens of `#[node(...)]` are a list of `domain = <name>`, `full_gui`, `free_layout`, `symbol = "<shape>"`, `heavy` and `color = "#rrggbb"`.

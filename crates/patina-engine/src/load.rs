@@ -9,7 +9,7 @@ use patina_sdk::glue::{self, Control, Reporter, SlotRef};
 
 use crate::events::{EventRun, Events, Trigger};
 use crate::library::{Library, Sink, collect};
-use crate::node::Domain;
+use crate::node::{Domain, ParamAttr, out_of_range};
 use crate::outcome::{Outcome, Report, ReportKind};
 use crate::plan::Plan;
 use crate::pool;
@@ -48,8 +48,8 @@ pub struct Cluster {
     guis: Vec<(String, bool)>,
     /// The node index of each node of `guis`, in the same order.
     gui_nodes: Vec<usize>,
-    /// The node index and the input key of each parameter slot.
-    slots: Vec<(usize, String)>,
+    /// The node index, the input key and the `#[param]` of each parameter slot (4.8).
+    slots: Vec<(usize, String, ParamAttr)>,
     /// The output of each held value, as "<node id>.<output key>" (`Plan::held`).
     probes: Vec<String>,
     /// True for each slot that got a text at the last `set_params`.
@@ -86,7 +86,8 @@ impl Cluster {
         }
         let slot = slot.map(|path| slot_library(path, root)).transpose()?;
         let names = plan.steps.iter().map(|s| (s.id.clone(), plan.nodes[s.node].0.clone())).collect();
-        let slots: Vec<(usize, String)> = plan.slots.iter().map(|s| (s.step, s.key.clone())).collect();
+        let param = |s: &crate::plan::Slot| plan.nodes[plan.steps[s.step].node].1.inputs.iter().find(|i| i.key == s.key).map(|i| i.param.clone());
+        let slots: Vec<(usize, String, ParamAttr)> = plan.slots.iter().map(|s| (s.step, s.key.clone(), param(s).unwrap_or_default())).collect();
         let probes: Vec<String> = plan
             .held()
             .map(|(n, k)| format!("{}.{}", plan.steps[n].id, plan.nodes[plan.steps[n].node].1.output_keys()[k]))
@@ -187,36 +188,44 @@ impl Cluster {
     }
 
     /// Sets each parameter from its text in the graph (4.8). An input that lost its text gets its
-    /// default value again. The states of the nodes stay.
+    /// default value again: the default of `#[param]` or of its type. The states of the nodes stay.
     pub fn set_params(&mut self, graph: &GraphFile) -> Outcome {
         let params: HashMap<&str, &BTreeMap<String, String>> =
             graph.node.iter().map(|n| (n.id.as_str(), &n.params)).collect();
-        let texts: Vec<Option<&String>> =
-            self.slots.iter().map(|(n, key)| params.get(self.names[*n].0.as_str()).and_then(|p| p.get(key))).collect();
+        let texts: Vec<Option<&String>> = self
+            .slots
+            .iter()
+            .map(|(n, key, param)| params.get(self.names[*n].0.as_str()).and_then(|p| p.get(key)).or(param.default.as_ref()))
+            .collect();
         let mut all = Outcome { ok: true, ..Outcome::default() };
         self.triggers.iter_mut().for_each(Trigger::reset);
         for (slot, text) in (0u32..).zip(&texts) {
             if text.is_none() && !self.has_text[slot as usize] {
                 continue;
             }
-            let (n, key) = &self.slots[slot as usize];
+            let (n, key, param) = &self.slots[slot as usize];
+            let bad = |text: String| Report { id: self.names[*n].0.clone(), folder: self.names[*n].1.clone(), kind: ReportKind::BadParam, text: format!("input `{key}`: {text}") };
             // The engine reads the settings of a trigger (9.4). `reset` gave the defaults.
             if let Some(trigger) = self.triggers.iter_mut().find(|t| t.node == *n) {
                 if let Some(Err(text)) = text.map(|text| trigger.set(key, text)) {
-                    let (id, folder) = self.names[*n].clone();
-                    all.reports.push(Report { id, folder, kind: ReportKind::BadParam, text: format!("input `{key}`: {text}") });
+                    all.reports.push(bad(text));
                     all.ok = false;
                 }
                 continue;
             }
-            let Some(library) = self.library(self.slots[slot as usize].0) else { continue };
+            if let Some(value) = text.and_then(|t| t.trim().parse::<f64>().ok()).filter(|&v| out_of_range(param, v)) {
+                let (min, max) = (param.min.map_or("-".to_owned(), |m| m.to_string()), param.max.map_or("-".to_owned(), |m| m.to_string()));
+                all.reports.push(bad(format!("{value} is out of the range {min} to {max} of #[param] (spec 4.8)")));
+                all.ok = false;
+                continue;
+            }
+            let Some(library) = self.library(*n) else { continue };
             let (state, set) = (library.state, library.set);
             self.calls.sink.clear();
             // A null text gives the default value.
             let (ptr, len) = text.map_or((std::ptr::null(), 0), |text| (text.as_ptr(), text.len()));
             // SAFETY: `state` is live, `ptr` is null or valid during the call, and so is the reporter.
-            self.call(std::ptr::null(), |rep| unsafe { set(state, slot, ptr, len, rep) });
-            let key = &self.slots[slot as usize].1;
+            self.calls.call(&self.names, &self.probes, std::ptr::null(), None, |rep| unsafe { set(state, slot, ptr, len, rep) });
             all.ok &= self.calls.out.ok;
             all.reports.extend(self.calls.out.reports.drain(..).map(|r| Report { text: format!("input `{key}`: {}", r.text), ..r }));
         }
