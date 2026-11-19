@@ -225,5 +225,27 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   await until('the graph under the views', RUN_MS, () => !document.querySelector('.center-view') && graphTab()?.getAttribute('aria-selected') === 'true');
   changeLayout(showGraph);
   steps.push('Float in a window and a drop out of the window float a view, and the tab menu moves it to the right area and the center');
+  // Move to the split pane shows the view next to the graph. The keys move its splitter, Stack the
+  // panes puts it under the graph, and Split center moves it back (15.2).
+  second()!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+  await until('Move to the split pane in the tab menu', RUN_MS, () => !!menuOf('Move to the split pane'));
+  menuOf('Move to the split pane')!.click();
+  const width = (sel: string) => document.querySelector(sel)?.getBoundingClientRect().width ?? 0;
+  await until('the view in the split pane next to the graph', RUN_MS, () => !!second()?.closest('.panes > .area.split') && !document.querySelector('.center-view') && width('.react-flow__pane') > 200 && width('.area.split') === 480);
+  const paneSplitter = () => document.querySelector<HTMLElement>('[aria-label="Size of the split area"]')!;
+  paneSplitter().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
+  await until('a wider split pane', RUN_MS, () => width('.area.split') === 544);
+  const fromViews = async (label: string) => {
+    button('Views')!.click();
+    await until(`${label} in the Views menu`, RUN_MS, () => !!menuOf(label));
+    menuOf(label)!.click();
+  };
+  await fromViews('Stack the panes');
+  await until('the split pane under the graph', RUN_MS, () => !!document.querySelector('.panes.stacked > .area.split') && paneSplitter().getAttribute('aria-orientation') === 'horizontal');
+  await fromViews('Stack the panes');
+  await fromViews('Split center');
+  await until('the view back in the center', RUN_MS, () => !!second()?.closest('.area.center') && !document.querySelector('.area.split') && !document.querySelector('.panes.stacked'));
+  changeLayout(showGraph);
+  steps.push('Move to the split pane, the split splitter, Stack the panes and Split center');
   return v;
 }

@@ -171,7 +171,7 @@ export interface View {
   /** The view folders (15.8), for example `map` for `views/map`. */
   views: string[];
   /** Preferred dock of each view. Existing saved placements stay unchanged. */
-  viewDocks?: Record<string, 'left' | 'right' | 'bottom' | 'center'>;
+  viewDocks?: Record<string, 'left' | 'right' | 'bottom' | 'center' | 'split'>;
   /** The connection folders (6.3), for example `byte` for `connections/byte`. */
   connections: string[];
   /** The type folders (5.1), for example `segments` for `types/segments`. */

@@ -25,6 +25,8 @@ import {
   resizeArea,
   setViewport,
   showGraph,
+  splitCenter,
+  takesOnlyViews,
   TITLES,
   VIEW_SLOTS,
   viewTitle,
@@ -185,8 +187,7 @@ export const below = (el: HTMLElement) => {
   return { x: Math.min(r.left, window.innerWidth - 200), y: r.bottom };
 };
 
-/** The Views menu of the top bar: show or hide each panel, and Reset layout (15.2). */
-/** The Views menu (15.2, 15.8): the panels, the views of the project and Reset layout. */
+/** The Views menu (15.2, 15.8): the panels, the views of the project, the split and Reset layout. */
 export function ViewsMenu({ views, docks = {} }: { views: string[]; docks?: Record<string, AreaId> }) {
   const layout = useSyncExternalStore(subscribe, getLayout);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
@@ -202,7 +203,14 @@ export function ViewsMenu({ views, docks = {} }: { views: string[]; docks?: Reco
     const open = VIEW_SLOTS.some((s) => layout.views[s] === name && isOpen(layout, s));
     items.push({ label: name, checked: open, disabled: full, run: () => changeLayout((l) => openView(l, name, docks[name])) });
   }
-  items.push('line', { label: 'Reset layout', run: () => changeLayout(resetLayout) });
+  const { center, split } = layout.areas;
+  items.push(
+    'line',
+    { label: 'Split center', checked: split.tabs.length > 0, disabled: split.tabs.length + center.tabs.length === 0, run: () => changeLayout(splitCenter) },
+    { label: 'Stack the panes', checked: layout.stacked, run: () => changeLayout((l) => ({ ...l, stacked: !l.stacked })) },
+    'line',
+    { label: 'Reset layout', run: () => changeLayout(resetLayout) },
+  );
   return (
     <>
       <button className="btn" aria-haspopup="menu" aria-expanded={at !== null} onClick={(e) => setAt(below(e.currentTarget))}>
@@ -215,9 +223,9 @@ export function ViewsMenu({ views, docks = {} }: { views: string[]; docks?: Reco
 }
 
 /** A splitter changes the size of an area with the mouse or the arrow keys. */
-function Splitter({ area, size }: { area: AreaId; size: number }) {
+function Splitter({ area, size, stacked }: { area: AreaId; size: number; stacked: boolean }) {
   const start = useRef<{ at: number; size: number } | null>(null);
-  const vertical = area !== 'bottom';
+  const vertical = area === 'split' ? !stacked : area !== 'bottom';
   // The left area grows to the right. The right and bottom areas grow to the left and up.
   const sign = area === 'left' ? 1 : -1;
   const pos = (e: PointerEvent) => (vertical ? e.clientX : e.clientY);
@@ -284,8 +292,9 @@ function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps)
     if (row && tab) row.scrollLeft += tab.getBoundingClientRect().left - row.getBoundingClientRect().left;
   }, [active, size]);
   const center = id === 'center';
+  const viewsOnly = takesOnlyViews(id);
   const over = (e: DragEvent) => {
-    if (!e.dataTransfer.types.includes(TAB_MIME) || (center && !isSlot(dragging))) return;
+    if (!e.dataTransfer.types.includes(TAB_MIME) || (viewsOnly && !isSlot(dragging))) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
@@ -299,7 +308,7 @@ function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps)
   };
   if (tabs.length === 0 || (id === 'left' && layout.folded)) {
     // An empty or folded area takes no space. It shows only as a place to drop a tab.
-    const zone = dragging && (!center || isSlot(dragging)) && (
+    const zone = dragging && (!viewsOnly || isSlot(dragging)) && (
       <div className={`drop-zone ${id}`} aria-label={`Drop a tab in the ${id} area`} onDragOver={over} onDrop={(e) => drop(e)} />
     );
     return center ? (
@@ -312,10 +321,10 @@ function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps)
     );
   }
   const moveItems = (panel: PanelId): Item[] => [
-    ...(['left', 'right', 'bottom', 'center'] as const)
-      .filter((to) => to !== 'center' || isSlot(panel))
+    ...(['left', 'right', 'bottom', 'center', 'split'] as const)
+      .filter((to) => !takesOnlyViews(to) || isSlot(panel))
       .map((to) => ({
-        label: to === 'center' ? 'Move to the center' : `Move to the ${to} area`,
+        label: to === 'center' ? 'Move to the center' : to === 'split' ? 'Move to the split pane' : `Move to the ${to} area`,
         disabled: to === id,
         run: () => changeLayout((l) => movePanel(l, panel, to)),
       })),
@@ -324,7 +333,7 @@ function DockArea({ id, layout, panels, dragging, onDrag, children }: AreaProps)
     { label: 'Close', run: () => changeLayout((l) => closePanel(l, panel)) },
   ];
   return (
-    <section className={`area ${id}`} style={center ? undefined : id === 'bottom' ? { height: size } : { width: size }} onDragOver={over} onDrop={(e) => drop(e)}>
+    <section className={`area ${id}`} style={center ? undefined : id === 'bottom' || (id === 'split' && layout.stacked) ? { height: size } : { width: size }} onDragOver={over} onDrop={(e) => drop(e)}>
       <div className="tabs" role="tablist" aria-label={`The ${id} area`}>
         <div className="dock-tab-strip" ref={strip}>
         {center && (
@@ -423,7 +432,7 @@ export function Dock({ panels: fixed, view, children }: DockProps) {
   const slots = Object.fromEntries(VIEW_SLOTS.map((s) => [s, { title: viewTitle(layout, s), body: view(s, layout.views[s] ?? null) }]));
   const panels = { ...fixed, ...slots } as Record<PanelId, Panel>;
   const area = (id: AreaId) => <DockArea id={id} layout={layout} panels={panels} dragging={dragging} onDrag={setDragging} />;
-  const split = (id: AreaId) => layout.areas[id].tabs.length > 0 && !(id === 'left' && layout.folded) && <Splitter area={id} size={layout.areas[id].size} />;
+  const split = (id: AreaId) => layout.areas[id].tabs.length > 0 && !(id === 'left' && layout.folded) && <Splitter area={id} size={layout.areas[id].size} stacked={layout.stacked} />;
   const left = layout.areas.left;
   return (
     <div className="middle">
@@ -448,9 +457,13 @@ export function Dock({ panels: fixed, view, children }: DockProps) {
       {area('left')}
       {split('left')}
       <div className="work">
-        <DockArea id="center" layout={layout} panels={panels} dragging={dragging} onDrag={setDragging}>
-          {children}
-        </DockArea>
+        <div className={layout.stacked ? 'panes stacked' : 'panes'}>
+          <DockArea id="center" layout={layout} panels={panels} dragging={dragging} onDrag={setDragging}>
+            {children}
+          </DockArea>
+          {split('split')}
+          {area('split')}
+        </div>
         {split('bottom')}
         {area('bottom')}
       </div>

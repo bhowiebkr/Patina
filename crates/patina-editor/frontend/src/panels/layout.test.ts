@@ -23,6 +23,7 @@ import {
   resizeArea,
   setViewport,
   showGraph,
+  splitCenter,
   viewTitle,
   VIEW_SLOTS,
 } from './layout.ts';
@@ -176,4 +177,22 @@ test('the rail folds and unfolds the left area', () => {
   assert.deepEqual(railPanels(l), ['layers', 'library', 'project'], 'a closed Project panel keeps its icon');
   assert.equal(railClick(l, 'project').areas.left.active, 'project');
   assert.equal(parseLayout(JSON.stringify({ version: 1, areas: {}, folded: 'yes' })).folded, false);
+});
+
+test('split center moves a view next to the graph, and the file keeps the split', () => {
+  const empty = defaultLayout();
+  assert.equal(splitCenter(empty), empty);
+  let l = openView(openView(defaultLayout(), 'views/a'), 'views/b');
+  l = splitCenter(l);
+  assert.deepEqual(l.areas.split, { tabs: ['view2'], active: 'view2', size: 480 });
+  assert.deepEqual(l.areas.center, { tabs: ['view'], active: null, size: 0 });
+  assert.equal(movePanel(l, 'inspector', 'split'), l);
+  l = resizeArea({ ...l, stacked: true }, 'split', 5000);
+  const back = parseLayout(layoutText(l));
+  assert.deepEqual([back.areas.split, back.stacked], [{ tabs: ['view2'], active: 'view2', size: MAX_SIZE }, true]);
+  // A file from an editor before the split has no split pane.
+  assert.deepEqual(parseLayout(JSON.stringify({ version: 1, areas: {} })).areas.split, defaultLayout().areas.split);
+  assert.deepEqual(parseLayout(JSON.stringify({ version: 1, areas: { split: { tabs: ['logs'] } } })).areas.split.tabs, []);
+  assert.deepEqual(splitCenter(l).areas.center.tabs, ['view', 'view2']);
+  assert.deepEqual([resetLayout(l).areas.split.tabs, resetLayout(l).stacked], [[], false]);
 });

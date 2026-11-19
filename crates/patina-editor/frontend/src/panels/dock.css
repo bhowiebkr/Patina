@@ -117,6 +117,34 @@
   flex: 1;
 }
 
+/* The center and the split pane, side by side or one above the other (15.2). Each keeps 120 px. */
+.panes {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panes.stacked {
+  flex-direction: column;
+}
+
+.panes:not(.stacked) > .area.split {
+  max-width: calc(100% - 125px);
+}
+
+.panes.stacked > .area.split {
+  max-height: calc(100% - 125px);
+}
+
+.panes:not(.stacked) > .drop-zone.split {
+  width: 48px;
+}
+
+.panes.stacked > .drop-zone.split {
+  height: 40px;
+}
+
 .center-body {
   flex: 1;
   position: relative;

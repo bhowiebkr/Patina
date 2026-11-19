@@ -23,7 +23,7 @@ pub fn preferred_docks(root: &Path, names: &[String]) -> std::collections::BTree
 fn preferred_dock(text: &str) -> Option<String> {
     let manifest: toml::Value = toml::from_str(text).ok()?;
     let dock = manifest.get("package")?.get("metadata")?.get("patina")?.get("dock")?.as_str()?;
-    matches!(dock, "left" | "right" | "bottom" | "center").then(|| dock.to_owned())
+    matches!(dock, "left" | "right" | "bottom" | "center" | "split").then(|| dock.to_owned())
 }
 
 #[cfg(test)]
@@ -32,6 +32,7 @@ mod dock_tests {
     #[test]
     fn only_known_docks_are_accepted() {
         assert_eq!(preferred_dock("[package.metadata.patina]\ndock = 'bottom'"), Some("bottom".into()));
+        assert_eq!(preferred_dock("[package.metadata.patina]\ndock = 'split'"), Some("split".into()));
         assert_eq!(preferred_dock("[package.metadata.patina]\ndock = 'unknown'"), None);
         assert_eq!(preferred_dock("invalid toml"), None);
     }

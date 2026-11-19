@@ -59,7 +59,13 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - The panels are **Layers**, **Project**, **Library**, **Inspector**, **Logs**, **Output** and **Debug**. The left area has the **Layers**, **Project** and **Library** tabs, and **Project** is active at the start.
 - A view panel can float in its own window: with **Float in a window** in its right-click menu, or with a drag out of the window. The built-in panels stay in the dock. The **Dock** button of a float window moves the view back to its default area. A close of a float window closes the view instance. (Agent decision, 2026-11-15. The owner can change it.)
 - Dock starts the view instance again with `init`, because the surface of a float window must not outlive its window. A float from the dock keeps the instance. (Agent decision, 2026-11-15. The owner can change it.)
-- A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area**, **Move to the center** (only for a view tab) and **Close**. The menu is the method for the keyboard and for screen readers.
+- A tab moves with a drag and drop, or with its right-click menu: **Move to the left area**, **Move to the right area**, **Move to the bottom area**, **Move to the center** and **Move to the split pane** (only for a view tab), and **Close**. The menu is the method for the keyboard and for screen readers.
+- The center can split into two panes, so a view shows next to the graph, for example a 3D viewport. The first pane has the **Graph** tab and its view tabs. The second pane, the split pane, takes only view tabs. (Owner request and agent decision of 2026-11-19. The owner can change it.)
+  - **Split center** in the **Views** menu moves the active view of the center, or its last view, to the split pane, and shows the graph. When the center is split, **Split center** moves the views of the split pane back to the center.
+  - **Stack the panes** in the **Views** menu puts the split pane under the graph. A second click puts it at the right of the graph again.
+  - The split pane is a dock area. With no tabs, it takes no space, and during a drag of a view tab, it shows as a drop zone at the edge of the center.
+  - The splitter between the panes works as the other splitters. Each pane keeps at least 120 px, so either pane can be the small one.
+  - A view with `dock = "split"` (15.8) opens in the split pane.
 - An area with no tabs takes no space. During a drag, it shows as a drop zone.
 - The navigation rail at the left edge has an icon for each tab of the left area, and an icon for **Project** when it is closed. A click on the icon of the active left panel folds the left area, so the graph gets its width (mockup 6). A click on another icon, or a second click, unfolds the area and shows that panel. A move or an open of a panel in the left area also unfolds it. The **Views** menu shows a folded panel without a check mark. The layout file keeps the fold. (Agent decision, 2026-11-16. The owner can change it.)
 - A splitter between an area and the center changes the size of the area. An arrow key moves a focused splitter by 16 px, and Shift and an arrow key move it by 64 px. A size is 120 px to 1600 px.
@@ -75,7 +81,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 This is an agent decision of 2026-11-15 for question 8 (18). The owner can change it.
 
 - Each user keeps their own layout for each project. Patina saves it in `data/layouts/<project id>.json` of the data folder (13.3), not in the project folder.
-- The layout file holds the dock areas and their tabs, the size of each area, the float windows with their screen positions, the open views, and the pan and zoom of each graph.
+- The layout file holds the dock areas and their tabs, the size of each area, the float windows with their screen positions, the open views, and the pan and zoom of each graph. The split pane is a dock area of the file, and `stacked` keeps its direction. A file from an editor before the split opens with no split, and **Reset layout** removes the split.
 - A project with no layout file opens with the default layout. A project that moves to another folder keeps its layout, because the file name is the project ID (6.2).
 - The layout file lists the panels that the editor knew when it saved the file. A panel that is not in the list is newer than the file, so it opens in its area of the default layout. A closed panel stays closed. (Agent decision, 2026-11-16. The owner can change it.)
 - The state of a view instance (15.8), for example the camera of a 3D viewport, is not saved in version 1. Each view instance starts with `init`.
@@ -462,7 +468,7 @@ change it.)
 - `Ui::available_size` gives the view area in logical pixels. Older hosts can return `None`.
 - `Ui::columns` wraps columns at their minimum width. `Ui::column` groups controls vertically.
   These controls support the owner's dock tools, requested on 2026-11-18.
-- A view can set `package.metadata.patina.dock` in its `Cargo.toml` to `left`, `right`, `bottom`, or `center`.
+- A view can set `package.metadata.patina.dock` in its `Cargo.toml` to `left`, `right`, `bottom`, `center` or `split` (15.2).
   New instances open there. Saved placements remain unchanged. An absent or invalid value uses `center`.
   This implements the owner's request for domain tools beside the graph, dated 2026-11-18.
 - `add_node` makes a random ID of 16 hex digits (6.4) and returns it. Thus the same call can

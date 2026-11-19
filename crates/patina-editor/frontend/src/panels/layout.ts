@@ -6,7 +6,8 @@ export const VIEW_SLOTS = ['view', 'view2', 'view3', 'view4', 'view5', 'view6', 
 export type ViewSlot = (typeof VIEW_SLOTS)[number];
 export const PANELS = ['layers', 'project', 'library', 'inspector', 'logs', 'output', 'debug', ...VIEW_SLOTS] as const;
 export type PanelId = (typeof PANELS)[number];
-export const AREAS = ['left', 'right', 'bottom', 'center'] as const;
+/** `split` is the second pane of the center, next to the graph or under it. */
+export const AREAS = ['left', 'right', 'bottom', 'center', 'split'] as const;
 export type AreaId = (typeof AREAS)[number];
 
 export const TITLES = { layers: 'Layers', project: 'Project', library: 'Library', inspector: 'Inspector', logs: 'Logs', output: 'Output', debug: 'Debug', ...Object.fromEntries(VIEW_SLOTS.map((slot, i) => [slot, i ? `View ${i + 1}` : 'View'])) } as Record<PanelId, string>;
@@ -52,6 +53,8 @@ export interface Layout {
   views: Partial<Record<ViewSlot, string>>;
   /** True when the left area folds to the icons of the navigation rail. */
   folded: boolean;
+  /** True when the split pane is under the graph, not at its right. */
+  stacked: boolean;
 }
 
 /** The layout of the table of spec 15.2. */
@@ -62,11 +65,13 @@ export function defaultLayout(): Layout {
       right: { tabs: ['inspector'], active: 'inspector', size: 360 },
       bottom: { tabs: ['logs', 'output', 'debug'], active: 'output', size: 200 },
       center: { tabs: [], active: null, size: 0 },
+      split: { tabs: [], active: null, size: 480 },
     },
     floats: {},
     viewports: {},
     views: {},
     folded: false,
+    stacked: false,
   };
 }
 
@@ -78,6 +83,8 @@ const withArea = (layout: Layout, id: AreaId, area: Area): Layout => ({ ...layou
 const unfold = (layout: Layout): Layout => (layout.folded ? { ...layout, folded: false } : layout);
 
 export const isSlot = (v: unknown): v is ViewSlot => VIEW_SLOTS.includes(v as ViewSlot);
+/** The center and the split pane take only views. */
+export const takesOnlyViews = (id: AreaId) => id === 'center' || id === 'split';
 
 /** True when the panel shows: in a dock area or in a float window. */
 export const isOpen = (layout: Layout, panel: PanelId) => areaOf(layout, panel) !== null || (isSlot(panel) && panel in layout.floats);
@@ -143,7 +150,7 @@ function removeTab(layout: Layout, panel: PanelId): Layout {
 
 /** Moves the tab of the panel before the tab `before`, or to the end of the area. The center takes only views. */
 export function movePanel(layout: Layout, panel: PanelId, to: AreaId, before?: PanelId): Layout {
-  if (before === panel || (to === 'center' && !isSlot(panel))) return layout;
+  if (before === panel || (takesOnlyViews(to) && !isSlot(panel))) return layout;
   const out = removeTab(layout, panel);
   const area = out.areas[to];
   const tabs = [...area.tabs];
@@ -165,6 +172,17 @@ export function openPanel(layout: Layout, panel: PanelId): Layout {
 export function showGraph(layout: Layout): Layout {
   const center = layout.areas.center;
   return center.active === null ? layout : withArea(layout, 'center', { ...center, active: null });
+}
+
+/**
+ * Split center (15.2). Without a split, the active view of the center, or its last view, moves to
+ * the split pane. With a split, the views of the split pane go back to the center.
+ */
+export function splitCenter(layout: Layout): Layout {
+  const { center, split } = layout.areas;
+  if (split.tabs.length > 0) return split.tabs.reduce((l, t) => movePanel(l, t, 'center'), layout);
+  const view = center.active ?? center.tabs.at(-1);
+  return view ? showGraph(movePanel(layout, view, 'split')) : layout;
 }
 
 /** True when the panel has a tab in a dock area that shows: a folded left area does not show. */
@@ -228,7 +246,7 @@ export function parseLayout(text: string | null): Layout {
   for (const id of AREAS) {
     const area = isRaw(raw.areas[id]) ? raw.areas[id] : {};
     const center = id === 'center';
-    const tabs = (Array.isArray(area.tabs) ? area.tabs : []).filter((t): t is PanelId => isPanel(t) && (!center || isSlot(t)) && !seen.has(t) && !!seen.add(t));
+    const tabs = (Array.isArray(area.tabs) ? area.tabs : []).filter((t): t is PanelId => isPanel(t) && (!takesOnlyViews(id) || isSlot(t)) && !seen.has(t) && !!seen.add(t));
     const active = isPanel(area.active) && tabs.includes(area.active) ? area.active : center ? null : (tabs[0] ?? null);
     layout.areas[id] = { tabs, active, size: center ? 0 : finite(area.size) ? clampSize(area.size) : layout.areas[id].size };
   }
@@ -258,6 +276,7 @@ export function parseLayout(text: string | null): Layout {
     if (isSlot(slot) && typeof name === 'string' && seen.has(slot)) layout.views[slot] = name;
   }
   layout.folded = raw.folded === true;
+  layout.stacked = raw.stacked === true;
   // A float window without a view has nothing to show.
   for (const slot of VIEW_SLOTS) if (!layout.views[slot]) delete layout.floats[slot];
   return layout;

@@ -39,10 +39,12 @@ These rules are owner decisions of 2026-11-19.
 - **A1.** Write the owner decision into spec 15.2. The center area can split into two panes. The
   **Graph** tab stays in the first pane. The second pane takes view tabs. The panes are side by
   side, or one above the other.
-- **A2.** Add **Split center** to the **Views** menu, and **Move to the other pane** to the menu of
-  a view tab. A tab drag to the edge of the center shows a drop zone for the second pane.
+- **A2.** Add **Split center** and **Stack the panes** to the **Views** menu, and **Move to the
+  split pane** to the menu of a view tab. A tab drag to the edge of the center shows a drop zone
+  for the second pane.
 - **A3.** Add a splitter between the panes. It works as the splitters of the areas: a drag, the
-  arrow keys for 16 px, and Shift with the arrow keys for 64 px.
+  arrow keys for 16 px, and Shift with the arrow keys for 64 px. Each pane keeps at least 120 px,
+  so either pane can be the small one (owner request of 2026-11-19).
 - **A4.** The layout file keeps the split, the direction and the size. An old layout file opens
   with no split. **Reset layout** removes the split. The default layout still fits 1280 x 720.
 - **A5.** A window has one viewport surface (spec 15.8). Check that a viewport in the second pane
@@ -117,7 +119,7 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
   domain or the event domain (spec 9). A long build must not stop the frames. Measure it.
 - **D5. 3D view.** The `model-view` view of the workbench: orbit, pan and zoom, its own depth
   texture, a grid, a light, part colors and a wireframe. It shows the mesh of the selected node.
-  It sets `dock = "center"`, so it opens next to the graph (task A). When it needs a generic GPU
+  It sets `dock = "split"`, so it opens next to the graph (task A). When it needs a generic GPU
   function that `patina-gpu` does not have, add only the generic part to the tool.
 - **D6. Export.** A node writes `.glb`, `.obj` and `.stl` with a small writer in the workbench.
   The sockets go into the glTF extras. The node writes only after a button or a trigger.
