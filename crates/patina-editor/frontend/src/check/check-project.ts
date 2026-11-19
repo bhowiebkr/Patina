@@ -90,8 +90,8 @@ fn broken() -> u32 {
   if (old.length > 0) throw new Error('a run showed the errors of an older save');
   const error = broken.errors.find((e) => e.file === lib);
   if (!error) throw new Error(`no compile error in ${lib}: ${JSON.stringify(broken.errors)}`);
-  // The compile error link of the status bar opens the first error in the Code tab.
-  const errorLink = () => [...document.querySelectorAll<HTMLButtonElement>('.status-link')].find((b) => b.textContent === '1 compile error');
+  // The error count of the status bar opens the first error in the Code tab.
+  const errorLink = () => [...document.querySelectorAll<HTMLButtonElement>('.status-link')].find((b) => b.textContent === 'Errors: 1');
   await until('the error on the node and in the status bar', RUN_MS, () => document.querySelector('.patina-node.compile-error') !== null && !!errorLink());
   errorLink()!.click();
   await until('the file in the Code tab', RUN_MS, () => bufferOf(lib) !== undefined && document.querySelector('.monaco-editor') !== null);

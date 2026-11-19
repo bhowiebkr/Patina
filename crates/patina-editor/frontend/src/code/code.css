@@ -80,6 +80,9 @@
 }
 
 .code-errors-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 4px;
   color: var(--error);
   font-weight: 600;
@@ -110,6 +113,25 @@
 
 .status-link {
   width: auto;
+}
+
+/* The red dot before the error count of the status bar (mockup 3). */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--error);
+}
+
+/* The time of a Logs line and the compiler text under an error line (mockup 3). */
+.lines .line-time {
+  color: var(--subtle);
+}
+
+.lines .line-body {
+  padding-left: 9ch;
 }
 
 .status-error {
@@ -146,15 +168,15 @@
 }
 
 .lines .hl-code {
-  color: #9cdcfe;
+  color: var(--code-name);
 }
 
 .lines .hl-str {
-  color: #ce9178;
+  color: var(--code-string);
 }
 
 .lines .hl-num {
-  color: #b5cea8;
+  color: var(--code-number);
 }
 
 .code-error:hover,

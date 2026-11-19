@@ -277,6 +277,19 @@ wires = ["a01d77c3e5b9f210.image", "c7e2f0918b3d4a65.image"]
 name = "control"
 wires = ["a01d77c3e5b9f210.gain", "c7e2f0918b3d4a65.gain"]
 
+[[group]]                        # a colored frame around nodes on the canvas (15.12)
+id = "9a3f0c2d7e1b4865"
+title = "Color Grade"            # 64 characters at most
+color = "amber"                  # gray, amber, green, teal, violet, pink or copper
+pos = [80.0, -120.0]
+size = [640.0, 360.0]
+
+[[note]]                         # a Markdown text on the canvas (15.12)
+id = "e47b1d09c3a2f586"
+pos = [80.0, 280.0]
+width = 320.0
+text = "## Color grade\n- Exposure before contrast"
+
 [[input]]                        # a public input pin of a subgraph
 key = "4f2a9c1e"
 name = "carry_in"
@@ -300,6 +313,7 @@ from = "e1d4c2b7a9f03856.out"
 - A wire has 12 route points at most. A route edit with more points fails with a message. The editor draws each wire in one row of 64 points on the GPU, and 12 rounded corners fit in this row. A path with more corners, for example an orthogonal path, gets fewer points for each corner. (Agent decision, 2026-11-15. The owner can change it.)
 - The `[symbol]` table changes only the look, so the build does not read it. (Agent decision of 2026-11-18. The owner can change it.)
 - A wire name has 32 bytes at most. It changes only the look, so the build does not read it. (Agent decision, 2026-11-16. The owner can change it.)
+- A group or a note has an ID of the same form as a node ID. Two items of the nodes, groups and notes of one graph never have the same ID. A group title has 64 characters at most and no control characters. A note text has 20000 characters at most, and its only control characters are the line feed and the tab. A group has a size of 120 x 60 at least, and a note a width from 80 to 2000. An edit out of these limits fails with a message. The groups and the notes change only the look, so the build does not read them. (Agent decision of 2026-11-18, for the owner request of 15.12. The owner can change it.)
 - The route points, collars and cables are in the graph file, so the project owns them. The dock layout, the camera of the graph and the selection are not in the graph file. Each user keeps them (15.2).
 - A wire to a pin that no longer exists stays in the file. The node shows an error until the user removes the wire or the pin comes back (15.5). Patina never deletes a wire without a user action.
 
@@ -314,7 +328,7 @@ These rules are an agent decision of 2026-11-15. The owner can change them.
 - A public output with no `from` is not connected. A wire from it gives no value, so its input gets its default value.
 - A parameter of a use, with the key of a public input, goes to each `to` end of the pin. It replaces the parameter of the inner node.
 - An order wire to a use orders all the nodes of the use.
-- The route points, collars and cables of a subgraph file are visual only, so the build does not read them.
+- The route points, collars, cables, groups and notes of a subgraph file are visual only, so the build does not read them.
 
 **Writing**
 

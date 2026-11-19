@@ -67,6 +67,29 @@ export interface GraphFile {
   order?: Order[];
   input?: PublicInput[];
   output?: PublicOutput[];
+  group?: Group[];
+  note?: Note[];
+}
+
+/** The color of a group (15.12). */
+export type GroupColor = 'gray' | 'amber' | 'green' | 'teal' | 'violet' | 'pink' | 'copper';
+export const GROUP_COLORS: readonly GroupColor[] = ['gray', 'amber', 'green', 'teal', 'violet', 'pink', 'copper'];
+
+/** A colored frame with a title on the canvas (15.12). The build does not read it. */
+export interface Group {
+  id: string;
+  title: string;
+  color: GroupColor;
+  pos: Point;
+  size: Point;
+}
+
+/** A Markdown text on the canvas (15.12). Its height fits its text. */
+export interface Note {
+  id: string;
+  pos: Point;
+  width: number;
+  text: string;
 }
 
 /** The shape of a circuit symbol (4.3). */
@@ -417,6 +440,10 @@ export type Edit =
   | { kind: 'OrderPin'; key: string; index: number }
   | { kind: 'ConnectPin'; key: string; end: string }
   | { kind: 'DisconnectPin'; key: string; end: string }
+  | { kind: 'SetGroup'; group: Group }
+  | { kind: 'RemoveGroup'; id: string }
+  | { kind: 'SetNote'; note: Note }
+  | { kind: 'RemoveNote'; id: string }
   | { kind: 'Group'; edits: Edit[] };
 
 /** A folder that an import copies, with its state in this project (6.2). */
@@ -684,6 +711,17 @@ export const plainDoc = (doc: string | null | undefined) => (doc ? docParts(doc)
 /** One line for a compile error, for example `mismatched types: expected f32, found &str`. */
 export function errorText(e: Diagnostic): string {
   return e.label ? `${e.message}: ${e.label}` : e.message;
+}
+
+/** The short form of a compile error on a node and in the Code tab: `line N: message` (15.5). */
+export function errorHead(e: Diagnostic): string {
+  return e.file ? `line ${e.start[0]}: ${errorText(e)}` : errorText(e);
+}
+
+/** The long form of a compile error in Logs: `Error in node 'name': line N: message` (15.5). */
+export function errorLine(e: Diagnostic): string {
+  const node = e.file?.match(/^nodes\/([^/]+)\//)?.[1];
+  return node ? `Error in node '${node}': ${errorHead(e)}` : `Error: ${errorHead(e)}`;
 }
 
 /** The text of a run report as patina-cli shows it. The text of a panic starts with "panic:". */

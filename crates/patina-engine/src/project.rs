@@ -63,6 +63,12 @@ pub struct GraphFile {
     pub collar: Vec<Collar>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cable: Vec<Cable>,
+    /// The colored frames on the canvas (15.12). The build does not read them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group: Vec<Group>,
+    /// The Markdown texts on the canvas (15.12). The build does not read them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub note: Vec<Note>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub input: Vec<PublicInput>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -189,6 +195,39 @@ pub struct Collar {
 pub struct Cable {
     pub name: String,
     pub wires: Vec<String>,
+}
+
+/// A colored frame with a title around nodes on the canvas (15.12).
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Group {
+    pub id: String,
+    pub title: String,
+    pub color: GroupColor,
+    pub pos: [f64; 2],
+    pub size: [f64; 2],
+}
+
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum GroupColor {
+    Gray,
+    Amber,
+    Green,
+    Teal,
+    Violet,
+    Pink,
+    Copper,
+}
+
+/// A Markdown text on the canvas (15.12). Its height fits the text.
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Note {
+    pub id: String,
+    pub pos: [f64; 2],
+    pub width: f64,
+    pub text: String,
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]

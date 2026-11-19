@@ -2,6 +2,7 @@
 
 import type { Corners, Edit, GraphFile, NodeEntry, Path, Point } from '../api';
 import { pathOf } from '../wires/wires.ts';
+import { GROUP_MIN } from './groups.ts';
 
 /** The space of the frame at the left of the inner nodes, for the input names. */
 export const FRAME_LEFT = 90;
@@ -171,6 +172,13 @@ export function graphEdit(edit: Edit, rooms: readonly Room[]): Edit {
         return { ...e, pos: at(e.pos) };
       case 'SetRoute':
         return { ...e, points: e.points.map(at) };
+      case 'SetGroup': {
+        const { pos, size } = e.group;
+        const [[l, t], [r, b]] = [at(pos), at([pos[0] + size[0], pos[1] + size[1]])];
+        return { ...e, group: { ...e.group, pos: [l, t], size: [Math.max(GROUP_MIN[0], r - l), Math.max(GROUP_MIN[1], b - t)] } };
+      }
+      case 'SetNote':
+        return { ...e, note: { ...e.note, pos: at(e.note.pos) } };
       default:
         return e;
     }

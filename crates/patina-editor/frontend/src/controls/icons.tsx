@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Domain, NodeKind } from '../api';
 
-/** The names of the node kinds, for the icon tooltips (15.3). */
-const KIND_NAMES: Record<NodeKind, string> = {
+/** The names of the node kinds, for the icon tooltips and the Inspector header (15.3). */
+export const KIND_NAMES: Record<NodeKind, string> = {
   function: 'Function node',
   stateful: 'Stateful node',
   generic: 'Generic node',

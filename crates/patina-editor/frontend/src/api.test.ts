@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { docParts, duration, firstSentence, logKind, nodeProblems, openType, paramEdit, parseThumb, plainDoc, scopeDomains } from './api.ts';
+import { docParts, duration, errorHead, errorLine, firstSentence, logKind, nodeProblems, openType, paramEdit, parseThumb, plainDoc, scopeDomains } from './api.ts';
 
 test('a thumbnail has a size of 1 to 64 pixels and 4 bytes for each pixel', () => {
   assert.deepEqual(parseThumb('2 1 AQIDBAUGBwg='), { width: 2, height: 1, pixels: Uint8ClampedArray.from([1, 2, 3, 4, 5, 6, 7, 8]) });
@@ -68,4 +68,11 @@ test('a node doc shows bold and code spans, and a tooltip drops the marks', () =
   ]);
   assert.equal(plainDoc('a ** b and `c'), 'a ** b and `c');
   assert.equal(plainDoc(null), undefined);
+});
+
+test('a compile error has a short form on the node and a long form with the node name in Logs', () => {
+  const e = { message: 'mismatched types', label: 'expected u32', rendered: '', file: 'nodes/number/src/lib.rs', start: [10, 5] as [number, number], end: [10, 9] as [number, number] };
+  assert.equal(errorHead(e), 'line 10: mismatched types: expected u32');
+  assert.equal(errorLine(e), "Error in node 'number': line 10: mismatched types: expected u32");
+  assert.equal(errorLine({ ...e, file: null, label: null }), 'Error: mismatched types');
 });

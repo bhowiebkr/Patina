@@ -25,7 +25,7 @@ export function useEditKeys(open: boolean, save: () => void, undo: () => void, r
   }, [open, save, undo, redo]);
 }
 
-/** The keys of the canvas (15.2). They act on the selection, and Shift+A opens the Add node palette. */
+/** The keys of the canvas (15.2). They act on the selection. Shift+A opens the Add node palette, and Shift+G and Shift+N add a group and a note (15.12). */
 export function useCanvasKeys(act: CanvasActions, trusted: boolean, pointer: RefObject<At | null>, addAt: (at: At) => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -48,6 +48,8 @@ export function useCanvasKeys(act: CanvasActions, trusted: boolean, pointer: Ref
       else if (key === 'f') act.fit();
       else if (e.shiftKey && key === 'l' && trusted) act.arrange();
       else if (e.shiftKey && key === 'a' && trusted) addAt(act.middle());
+      else if (e.shiftKey && key === 'g' && trusted) act.addGroup(act.middle(), act.selected.length > 0);
+      else if (e.shiftKey && key === 'n' && trusted) act.addNote(act.middle());
       else if (e.key === 'Escape') act.clear();
       else return;
       e.preventDefault();

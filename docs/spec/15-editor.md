@@ -174,6 +174,8 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 | Ctrl+G | Collapse the selected nodes into a new subgraph |
 | Ctrl+Shift+G | Expand the selected uses of subgraphs |
 | Shift+L | Arrange the selected nodes, or all nodes, in columns (15.9) |
+| Shift+G | Put the selected items in a new group, or add an empty group at the pointer (15.12) |
+| Shift+N | Add a note at the pointer (15.12) |
 | Drag from a pin into an empty area | Open the **Add node** palette for that pin |
 | Right-click | Open the menu of the empty canvas, the node or the connection |
 
@@ -183,9 +185,11 @@ The owner asked for right-click menus that change with the target (2026-11-16). 
 
 | Target | Entries |
 |---|---|
-| Empty canvas | **Add node...**, **Paste**, **Select all**, **Fit view**, **Arrange** |
-| Node | **Open subgraph** (one use of a subgraph), **Rename pin...** (one public pin), **Collapse into subgraph...**, **Expand subgraph**, **Arrange** (two or more nodes), **Fit node** or **Fit selection**, **Copy**, **Cut**, **Paste**, **Delete node** or **Delete selection** |
+| Empty canvas | **Add node...**, **Add group**, **Add note**, **Paste**, **Select all**, **Fit view**, **Arrange** |
+| Node | **Open subgraph** (one use of a subgraph), **Rename pin...** (one public pin), **Collapse into subgraph...**, **Group selection**, **Expand subgraph**, **Arrange** (two or more nodes), **Fit node** or **Fit selection**, **Copy**, **Cut**, **Paste**, **Delete node** or **Delete selection** |
 | Connection | **Delete connection** |
+| Group | **Rename group...**, the seven colors, **Copy**, **Cut**, **Paste**, **Delete group** (15.12) |
+| Note | **Edit note**, **Copy**, **Cut**, **Paste**, **Delete note** (15.12) |
 
 - A right-click on a node or a connection out of the selection selects only that item, as a click does. A right-click in the selection keeps the selection, and the entries act on all of it.
 - **Add node...** and **Paste** act at the point of the right-click.
@@ -306,7 +310,13 @@ A crate of crates.io is a dependency of one code folder, in its `Cargo.toml` (8.
   - A red line in Logs.
   - The error count in the status bar.
 - A click on an error in Logs or the status bar selects the node and shows the line.
-- A failed build opens the **Logs** panel. The **Logs** panel shows the full text of each compile error, each graph problem and each long error. The status bar shows only the first line of an error, and a click on it or on the problem count opens the **Logs** panel. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
+- The status bar shows one count, **Errors: N**, with a red dot. N is the number of compile errors and graph problems. When N is 0, the status bar shows **Ready**. A click on the count shows the first compile error with a place in the code. When no error has a place, the click opens the **Logs** panel. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
+- One error has the same words in each place. The node and the error well of the **Code** tab show `line N: message`. The **Logs** panel and the **Logs** tab of the **Inspector** show `Error in node 'name': line N: message`. The tooltip shows the path of the file. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
+- Each **Logs** line starts with its local time, `HH:MM:SS`. The **Output** lines have no time. Only the error line is red. The text of the compiler is under it, indented, and "The build failed" is an info line. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
+- The error well has the red state icon of the node before its heading. The **Inspector** header shows the kind of the node under its name, and the state icon before the state. With no selection, the heading is **Graph** or **Subgraph**, not **Inspector**. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
+- The **Logs** panel has no "Compiling node" line for each node. A build compiles all nodes of the cluster in one cargo call, so the engine has no build event for each node. The error line names the node. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
+- The **Code** tab does not show the parameters under the code, as mockup 3 does. The parameters stay in the **Parameters** tab. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
+- A failed build opens the **Logs** panel. The **Logs** panel shows the full text of each compile error, each graph problem and each long error. The status bar shows only the first line of an error, and a click on it opens the **Logs** panel. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The **Logs** and **Output** panels highlight their text as a terminal does: the severity (`error[E0308]`, `warning`, `note`, `help`, `ERROR`, `WARN`), the paths with line numbers, the code in backticks, the strings, the numbers and the gutter of a compiler message get colors. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - After an error line that a rule of the list of common errors matches, the **Logs** panel shows a **Fix:** line with a fix in plain words. The list is in `frontend/src/run/hints.ts`, and it has rules for missing names and crates, wrong types, moves and borrows, missing traits, wrong argument counts, missing delimiters, lost parameters and lost pins. A contributor adds a rule for each error that users often meet. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 
@@ -756,6 +766,7 @@ The owner asked for a copy and a paste of nodes and networks, also between two r
 - The clipboard of the system carries the clip, so a paste works in a second editor and in another project.
 - A clip is TOML text that starts with `patina-clip = 1`. It holds the ID and the folder name of the source project, the copied nodes, and each subgraph that they use, also through other subgraphs. It holds no code.
 - A wire, an order wire, a collar or a cable goes into the clip only when all of its nodes do.
+- The clip also holds the selected groups and notes (15.12), with new IDs at the paste. A clip with only groups or notes is valid.
 - Each pasted node gets a new ID. The top left node goes to the point of the paste, and the other nodes keep their distance to it. The wires keep their bend points.
 - A pasted cable with the name of a cable of the graph gets a free name: `<name>-2`, `<name>-3` and so on.
 - A subgraph of the clip with the same name and the same graph as a subgraph of the project is used again. A different graph gets a free name: `<name>-2`, `<name>-3` and so on. A new subgraph stays in memory until Save (15.10).
@@ -764,3 +775,39 @@ The owner asked for a copy and a paste of nodes and networks, also between two r
 - The clip comes from the clipboard, so Patina does not trust it. A folder must be a folder in `nodes/`, each ID and each name must be valid, each wire must name a node of the clip, and a clip has 256 subgraphs at most. A subgraph that uses itself is an error.
 - An untrusted project can copy, but it can not cut or paste.
 - Reason: the clipboard of the system needs no server and no new file, and the text also goes into a chat or an issue. The code stays in the project folders, so a clip is small and Patina builds only trusted code (11).
+
+### 15.12 Groups and notes
+
+The owner asked for groups with a color and transparency, and for text on the canvas with Markdown (2026-11-18). A group is not a subgraph: it only holds nodes together on the canvas, and the build does not read it. The rules below are an agent decision of 2026-11-18. The owner can change it.
+
+**Groups:**
+
+- A group is a frame with a title bar and a transparent fill of its color. It is behind the nodes, and the wires show through it. [mockup-3-error-view.png](../mockups/mockup-3-error-view.png) shows a group, **Color Grade**, around three nodes.
+- The colors are **Gray**, **Amber**, **Green**, **Teal**, **Violet**, **Pink** and **Copper**. A new group is amber, as in mockup 3. The fill has 10% of the color, the title bar 22% and the edge 45%.
+- A drag on the title bar moves the group and each item in it: the nodes, the uses of subgraphs, the public pins, the notes and the smaller groups. An item is in the group when its full box is in the group when the drag starts. The move is one undo step.
+- A drag of a selection with a group in it also moves the items of the group.
+- A click on the title bar selects the group. A selected group has a lighter edge of its color, and handles at its corners and edges. A drag on a handle changes the size, to 120 x 60 at least.
+- A click on the fill of a group goes to the canvas, so a box selection can start in a group.
+- A double-click on the title, or **Rename group...** in its menu, edits the title in place. Enter keeps the title and Esc cancels. A title has 64 characters at most.
+- A smaller group draws above a larger group, so a group in a group stays visible.
+- **Group selection** (Shift+G) adds a group around the selected items, with a margin of 24 px and room for the title bar. With no selection, Shift+G adds an empty group of 320 x 200 at the pointer.
+- The delete of a group does not delete its items.
+
+**Notes:**
+
+- A note is text on the canvas, with no box and no fill. Its text is Markdown. It has a width, and its height fits its text.
+- The note shows headings, paragraphs, bold, italic, code, code blocks, bullet and numbered lists, tables, quotes and rules.
+- A link shows its text, with its URL as a tooltip. A click does not open it. An image shows its alt text, and an HTML tag shows as text. Thus a note never loads a file or a page, also in an untrusted project.
+- **Add note** (Shift+N) adds a note at the pointer and starts its edit.
+- A double-click on a note, or **Edit note** in its menu, edits the Markdown text in place. Ctrl+Enter or a click out of the note keeps the text, and Esc cancels. A note has 20000 characters at most.
+- A selected note has a dashed edge of the accent and a handle at its right edge. A drag on the handle changes the width, from 80 px to 2000 px.
+- A note with no text shows **Empty note**, dim.
+
+**Both:**
+
+- Groups and notes are in the graph file (6.4), so the project owns them. They have IDs as nodes have.
+- Copy, cut, paste, delete, undo and redo apply to groups and notes as to nodes (15.11).
+- **Collapse into subgraph** leaves the groups and the notes in the graph. **Expand subgraph** adds the groups and the notes of the subgraph, at the place of its nodes.
+- The inner nodes of a use (**Show inner nodes**) show no groups and no notes.
+- An untrusted project shows the groups and the notes, and it can not edit them.
+- Reason: a group shows the parts of a graph without a change of the build, as a comment box does in other node editors. Markdown gives rich text with plain text in the file, so a change shows as a small diff in Git.

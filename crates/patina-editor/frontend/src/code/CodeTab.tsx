@@ -2,11 +2,11 @@
 // Monaco, the build state of the saved code and the compile errors of the folder (15.5).
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { api, errorText, seconds } from '../api';
+import { api, errorHead, seconds } from '../api';
 import { monaco, openFile, subscribe, unsavedFiles } from './code';
 import { revealOf, type Reveal } from './reveal';
 import { NameField } from '../controls/NameField';
-import type { RunState } from '../canvas/NodeView';
+import { StateIcon, type RunState } from '../canvas/NodeView';
 
 /** The build state of the saved code, and true when it is an error. */
 export function buildState(run: RunState): [string, boolean] {
@@ -174,10 +174,16 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
       {error && <div className="code-state error-text">{error}</div>}
       {mine.length > 0 && (
         <div className="code-errors" role="alert">
-          <div className="code-errors-title">Compile error</div>
+          <div className="code-errors-title">
+            <span aria-hidden="true">
+              <StateIcon state="compile-error" />
+            </span>
+            {mine.length === 1 ? 'Compile error' : `${mine.length} compile errors`}
+          </div>
           {mine.map((e, i) => (
-            <button key={i} className="code-error" onClick={() => go(revealOf(e, Date.now()))}>
-              {e.file!.slice(folder.length)} line {e.start[0]}: {errorText(e)}
+            <button key={i} className="code-error" title={e.file ?? undefined} onClick={() => go(revealOf(e, Date.now()))}>
+              {new Set(mine.map((m) => m.file)).size > 1 && `${e.file!.slice(folder.length)} `}
+              {errorHead(e)}
             </button>
           ))}
         </div>

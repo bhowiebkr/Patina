@@ -1,6 +1,6 @@
 // The engine events of a run (15.2): the run state after each event, and its Logs lines.
 
-import { errorText, logKind, millis, reportText, seconds, type Diagnostic, type EngineEvent, type NodeLog, type Report } from '../api';
+import { errorLine, logKind, millis, reportText, seconds, type Diagnostic, type EngineEvent, type NodeLog, type Report } from '../api';
 import { revealOf } from '../code/reveal';
 import type { Line } from './Lines';
 import { NO_RUN, type RunState } from '../canvas/NodeView';
@@ -15,8 +15,8 @@ function errorLines(errors: Diagnostic[]): Line[] {
     const at = revealOf(e, 0);
     const body = e.rendered.trimEnd();
     if (!at) return [{ text: body, kind: 'err' }];
-    const head: Line = { text: `${e.file}:${e.start[0]}:${e.start[1]}: ${errorText(e)}`, kind: 'err', at };
-    return body ? [head, { text: body, kind: 'out' }] : [head];
+    const head: Line = { text: errorLine(e), kind: 'err', at };
+    return body ? [head, { text: body, kind: 'out', body: true }] : [head];
   });
 }
 
@@ -148,7 +148,7 @@ export function eventLines(e: RunEvent): Line[] {
       return [{ text: e.base ? 'Building the graph' : `Building the slot ${e.slot}`, kind: 'info' }];
     case 'ran': {
       const lines: Line[] = [];
-      if (e.errors.length > 0) lines.push({ text: 'The build failed. Running the last build that compiled.', kind: 'err' }, ...errorLines(e.errors));
+      if (e.errors.length > 0) lines.push({ text: 'The build failed. Running the last build that compiled.', kind: 'info' }, ...errorLines(e.errors));
       else if (e.builtMs !== null) lines.push({ text: `Built in ${seconds(e.builtMs)}`, kind: 'info' });
       lines.push({ text: `Ran in ${millis(e.runMs)}`, kind: 'info' });
       if (e.stopped.length > 0) lines.push({ text: 'Stop ended the run before all nodes ran.', kind: 'info' });
@@ -156,13 +156,13 @@ export function eventLines(e: RunEvent): Line[] {
     }
     case 'loaded': {
       const failed = e.errors.length > 0;
-      const lines: Line[] = failed ? [{ text: 'The build failed. The last build that compiled is loaded.', kind: 'err' }, ...errorLines(e.errors)] : [];
+      const lines: Line[] = failed ? [{ text: 'The build failed. The last build that compiled is loaded.', kind: 'info' }, ...errorLines(e.errors)] : [];
       if (!failed && e.builtMs !== null) lines.push({ text: `Built in ${seconds(e.builtMs)}`, kind: 'info' });
       return [...lines, { text: 'The nodes of the last build loaded. Click Run to run the graph.', kind: 'info' }];
     }
     case 'lost':
       return [{ text: e.text, kind: 'err' }];
     case 'failed':
-      return e.errors.length > 0 ? [{ text: 'The build failed.', kind: 'err' }, ...errorLines(e.errors)] : [{ text: e.text, kind: 'err' }];
+      return e.errors.length > 0 ? [{ text: 'The build failed.', kind: 'info' }, ...errorLines(e.errors)] : [{ text: e.text, kind: 'err' }];
   }
 }

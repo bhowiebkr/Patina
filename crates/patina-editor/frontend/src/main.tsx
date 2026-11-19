@@ -7,6 +7,8 @@ import './code/code.css';
 import './dialogs/start.css';
 import './panels/dock.css';
 import './canvas/canvas.css';
+import './canvas/groups.css';
+import './canvas/markdown.css';
 import './gui.css';
 import './controls/controls.css';
 import './canvas/bus.css';

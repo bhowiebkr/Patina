@@ -7,6 +7,7 @@ import { checkBus } from './check-bus';
 import { checkCanvas } from './check-canvas';
 import { checkDock } from './check-dock';
 import { checkDomains } from './check-domains';
+import { checkGroups } from './check-groups';
 import { checkFree } from './check-free';
 import { checkSymbol } from './check-symbol';
 import { checkThreads } from './check-threads';
@@ -97,6 +98,7 @@ export async function runCheck(dir: string, show: (v: View) => void, edited: (v:
     const dock = await checkDock(c, await checkIsolation(c, made.v));
     let v = await checkWires(c, dock.v);
     v = await checkCanvas(c, v);
+    v = await checkGroups(c, v);
     v = await checkPalette(c, v, dock.at, edited);
     const recovered = await checkRecovery(c, v, lib, original);
     v = await checkDomains(c, recovered.v, lib, recovered.changedCode);

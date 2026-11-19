@@ -23,6 +23,9 @@ The records of the ended milestones and of the finished work are in [docs/histor
   Windows frontend checks, workspace Clippy, and workspace tests passed on 2026-11-18.
   The synth dock tools are in progress. Their GUI resize checks are not complete.
 
+- Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
+- Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
+
 - Ember sound workbench: 34 node types, three playable patches, instrument panels, live waveform cables, and offline WAV export through the CLI.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
@@ -162,6 +165,29 @@ editor with the built page, on the Windows 11 computer of the owner.
 ## Known limits
 
 The open items of each section. Items that the text marks as fixed are in [docs/history.md](docs/history.md).
+
+### Groups, notes and the error display, 2026-11-18
+
+- A group is a colored transparent frame with a title bar. A drag on the title bar moves the
+  items in it. A note shows Markdown: headings, lists, tables, code, quotes and rules. Both are
+  in the graph file as `[[group]]` and `[[note]]` (spec 5 and 15.12).
+- The status bar shows **Errors: N** with a red dot, and **Ready** only with no error. The node
+  and the error well show `line N: message`. The **Logs** show `Error in node 'name': line N:
+  message`, with a time on each line (spec 15.5).
+- Checked on 2026-11-18, on Windows only: the CI clippy and `cargo test --workspace` (256 Rust tests),
+  the frontend check and tests (195), the selfcheck (325 steps, with the group and note
+  step) and the shots of `computer`, `hello` and `gpu`. No person used the new GUI.
+- Known limits:
+  - The **Logs** have no "Compiling node" line for each node. The engine has no build event for
+    each node (spec 15.5).
+  - The error well of the **Code** tab is at the bottom of the panel, not directly under the code
+    (mockup 3). Monaco needs a fixed height.
+  - The group check of the selfcheck waits 400 ms before its undo, so that the move edit arrives
+    first (`shortcut:` in `check-groups.ts`).
+  - Spec 5 says that the nodes of a graph file sort by ID and the wires by their `to` end.
+    `project::write` keeps the order of the edits, also for the groups and the notes. The file
+    is still valid, but a diff can show moved tables.
+  - A link in a note does not open. An image in a note shows its alt text only.
 
 ### Ember sound workbench, 2026-11-18
 

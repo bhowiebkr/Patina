@@ -86,6 +86,15 @@ Log entries must link back to the node and source location. Match the compact
 timestamp/message structure. Keep prose and code locations readable, and avoid
 giving the entire log the same error color.
 
+The status bar shows one count, **Errors: N**, with a red dot (spec 15.5). Each
+**Logs** line starts with its time. Only the error line is red, and it names the
+node: `Error in node 'name': line N: message`. The node and the error well show
+the short form `line N: message`.
+
+The amber frame **Color Grade** is a group (spec 15.12): a title bar and a
+transparent fill of its color around the nodes. A drag on its title bar moves
+the nodes in it. It is not the border of a subgraph.
+
 **Correct these details:** the failing node needs an error border/icon, not a
 green ready dot. The subgraph border stays neutral and needs a collapse control.
 Remove **Compare**, **Layer Edit** and the orphan edit warning. Do not copy the

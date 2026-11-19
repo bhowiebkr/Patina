@@ -15,6 +15,7 @@ import {
   type NodeChange,
   type OnSelectionChangeParams,
   type Viewport,
+  type XYPosition,
 } from '@xyflow/react';
 import { NameField } from '../controls/NameField';
 import type { Domain, Edit, LibraryNode, DragLink, View } from '../api';
@@ -34,11 +35,13 @@ import { buildEdges, buildNodes, portKey, type GraphNode } from './graphData';
 import { withValues } from './liveValues';
 import { FIT, useCanvasActions, type At } from './canvasActions';
 import { useFrames, useObstacles, useVisibleGuis } from './canvasLayout';
-import { connectEdit, disconnectEdit, dragKey, moveEdit, orderMatch } from './graphEdits';
+import { bodyBox, connectEdit, disconnectEdit, dragKey, moveEdit, orderMatch } from './graphEdits';
+import { GroupBox, ItemContext, NoteBox } from './GroupView';
+import { itemEdit, itemOf, itemsIn } from './groups';
 import { useAddNode } from './useAddNode';
 import { useCanvasMenu } from './useCanvasMenu';
 
-const NODE_TYPES = { patina: NodeView, port: PortView };
+const NODE_TYPES = { patina: NodeView, port: PortView, groupBox: GroupBox, note: NoteBox };
 const EDGE_TYPES = { wire: WireEdge, order: OrderEdge };
 const PAN_BUTTONS = [1];
 const MULTI_KEYS = ['Shift', 'Control'];
@@ -123,7 +126,8 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const dragLine = useMemo(() => {
     if (!from) return undefined;
     const [side, node, key] = JSON.parse(from) as ['source' | 'target', string, string];
-    const n = dragLanes(flow.getNode(node), side, key);
+    const target = flow.getNode(node);
+    const n = target?.type === 'groupBox' || target?.type === 'note' ? 0 : dragLanes(target, side, key);
     return n > 1 ? { strokeWidth: n * PITCH } : undefined;
   }, [from, flow]);
   const [collapsing, setCollapsing] = useState<{ ids: string[]; x: number; y: number } | null>(null);
@@ -143,6 +147,19 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
 
   // The nodes of the last drag keep their place until the view of their move comes back.
   const moved = useRef<{ view: View; ids: ReadonlySet<string> } | null>(null);
+  // The edit shows its view before it ends. After a failed edit, the next build puts the nodes back.
+  const send = useCallback(
+    (e: Edit, ids: Iterable<string>) => {
+      const hold = { view, ids: new Set(ids) };
+      moved.current = hold;
+      void edit(e).then(() => {
+        if (moved.current === hold) moved.current = null;
+      });
+    },
+    [edit, view],
+  );
+  // The group or the note with a text field in place (15.12).
+  const [editing, setEditing] = useState<string | null>(null);
   useEffect(() => {
     const held = moved.current?.view === view ? moved.current.ids : NO_IDS;
     setNodes((prev) => buildNodes(view, run, guis, domains, frames, rooms, prev, held));
@@ -172,24 +189,52 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   const onSelectionChange = useCallback(
     ({ nodes: selected, edges: wires }: OnSelectionChangeParams) =>
       onSelect(
-        selected.map((n) => n.id),
+        selected.flatMap((n) => (itemOf(n.id) ? [] : [n.id])),
         wires.flatMap((e) => (e.data ? [e.data as WireData] : [])),
       ),
     [onSelect],
   );
 
-  const onNodeDragStop = useCallback(
-    (_: unknown, __: GraphNode, dragged: GraphNode[]) => {
-      const moves = dragged.map((n) => moveEdit(n.id, [Math.round(n.position.x + gutter(n)), Math.round(n.position.y)]));
-      if (moves.length === 0) return;
-      const hold = { view, ids: new Set(dragged.map((n) => n.id)) };
-      moved.current = hold;
-      // The edit shows its view before it ends. After a failed move, the next build puts the nodes back.
-      void edit(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves }).then(() => {
-        if (moved.current === hold) moved.current = null;
-      });
+  // A dragged group carries the nodes, the groups and the notes that are fully in it (15.12).
+  const carried = useRef<{ from: XYPosition; items: Map<string, XYPosition> } | null>(null);
+  const onNodeDragStart = useCallback(
+    (_: unknown, grab: GraphNode, dragged: GraphNode[]) => {
+      const ids = new Set(dragged.map((n) => n.id));
+      const boxes = dragged.filter((n) => n.type === 'groupBox').map(bodyBox);
+      const free = flow.getNodes().filter((n) => !n.parentId && !ids.has(n.id));
+      const inGroups = new Set(boxes.length > 0 ? itemsIn(boxes, free.map((n) => ({ id: n.id, ...bodyBox(n) }))) : []);
+      const items = new Map(free.filter((n) => inGroups.has(n.id)).map((n) => [n.id, n.position]));
+      carried.current = { from: grab.position, items };
+      if (items.size > 0) moved.current = { view, ids: new Set([...ids, ...items.keys()]) };
     },
-    [edit, view],
+    [flow, view],
+  );
+  const onNodeDrag = useCallback((_: unknown, grab: GraphNode) => {
+    const c = carried.current;
+    if (!c || c.items.size === 0) return;
+    const [dx, dy] = [grab.position.x - c.from.x, grab.position.y - c.from.y];
+    setNodes((list) => list.map((n) => {
+      const p = c.items.get(n.id);
+      return p ? { ...n, position: { x: p.x + dx, y: p.y + dy } } : n;
+    }));
+  }, []);
+  const onNodeDragStop = useCallback(
+    (_: unknown, grab: GraphNode, dragged: GraphNode[]) => {
+      const c = carried.current;
+      carried.current = null;
+      const place = (n: GraphNode, p: XYPosition): Edit =>
+        n.type === 'groupBox' || n.type === 'note' ? itemEdit(n, { pos: [p.x, p.y] }) : moveEdit(n.id, [Math.round(p.x + gutter(n)), Math.round(p.y)]);
+      const moves = dragged.map((n) => place(n, n.position));
+      const ids = new Set(dragged.map((n) => n.id));
+      for (const [id, p] of c?.items ?? []) {
+        const n = flow.getNode(id);
+        if (!n) continue;
+        moves.push(place(n, { x: p.x + grab.position.x - c!.from.x, y: p.y + grab.position.y - c!.from.y }));
+        ids.add(id);
+      }
+      if (moves.length > 0) send(moves.length === 1 ? moves[0] : { kind: 'Group', edits: moves }, ids);
+    },
+    [send, flow],
   );
 
   // A wire from a public input or to a public output connects the pin. A wire between two pins is refused.
@@ -222,7 +267,8 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
   );
 
   const collapse = useCallback((ids: string[], at: At) => setCollapsing({ ids, ...at }), []);
-  const act = useCanvasActions({ view, run, nodes, edges, setNodes, setEdges, flow, pointer, edit, onCollapse: collapse, onExpand, onCopy, onPaste });
+  const act = useCanvasActions({ view, run, nodes, edges, setNodes, setEdges, flow, pointer, edit, send, setEditing, onCollapse: collapse, onExpand, onCopy, onPaste });
+  const items = useMemo(() => ({ editing, setEditing, change: act.change }), [editing, act.change]);
   const adding = useAddNode({ view, flow, act, edit });
   useEffect(() => {
     addRef.current = (n) => act.paste(act.middle(), n);
@@ -235,6 +281,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
       <HoverContext.Provider value={hover}>
       <NodeEdit.Provider value={edit}>
       <FrameToggle.Provider value={toggle}>
+      <ItemContext.Provider value={items}>
         <ReactFlow
           ref={pane}
           className={glOk ? undefined : 'svg-wires'}
@@ -245,6 +292,8 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onSelectionChange={onSelectionChange}
+          onNodeDragStart={onNodeDragStart}
+          onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
           onConnect={onConnect}
           onReconnect={onReconnect}
@@ -258,6 +307,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           onNodeDoubleClick={(e, n) => {
             if (n.type === 'patina' && n.data.entry.subgraph && !n.data.inner) onOpen(n.data.entry.subgraph, n.id);
             else if (n.type === 'port' && view.trusted) setRenaming({ key: portKey(n.id)!, name: n.data.name, x: e.clientX, y: e.clientY });
+            else if ((n.type === 'groupBox' || n.type === 'note') && view.trusted) setEditing(n.id);
           }}
           onPaneContextMenu={menu.onPane}
           onSelectionContextMenu={menu.onSelection}
@@ -304,6 +354,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
             <NameField label="Pin name" initial={renaming.name} onMake={(name) => edit({ kind: 'RenamePin', key: renaming.key, name })} onClose={() => setRenaming(null)} />
           </NameDialog>
         )}
+      </ItemContext.Provider>
       </FrameToggle.Provider>
       </NodeEdit.Provider>
       </HoverContext.Provider>

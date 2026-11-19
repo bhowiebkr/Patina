@@ -25,6 +25,9 @@ The editor has these mockup features. They are not gaps.
   (mockup 3).
 - A failed build keeps the last build that compiled. The node, the code, the log and the status
   bar show the same error (mockup 3).
+- The status bar count **Errors: N** with a red dot, a time on each **Logs** line, one red line
+  for each error, the state icon on the error well, and the kind line and the state icon in the
+  **Inspector** header (mockup 3).
 - Compact node GUIs in the node body, and **Full** GUIs in the graph area with **Back** and Esc.
 - Custom views in dock panels, with no pins (mockups 5, 8, 9 and 10).
 - The automatic route around the nodes, route points, orthogonal segment bars, **Reset route**,
@@ -36,6 +39,8 @@ The editor has these mockup features. They are not gaps.
   (mockups 10 and 11).
 - **Show inner nodes** on each use: the nodes of the subgraph in place, in a neutral frame,
   read-only and with live values. **Hide inner nodes** collapses it (mockups 3 and 11).
+- Groups: colored transparent frames with a title bar, which move the nodes in them, and
+  Markdown notes on the canvas (mockup 3, spec 15.12).
 - A drag on the end of a wire moves it to another socket (connections guide).
 - **Lock bends** in the **Inspector**: the bends of the automatic route become route points
   (connections guide).
@@ -52,7 +57,9 @@ The editor has these mockup features. They are not gaps.
 
 ## Editor gaps
 
-None.
+- Low: the error well of the **Code** tab is at the bottom of the panel, not directly under
+  the code (mockup 3). Monaco needs a fixed height, so the code area must first measure the
+  height of its text.
 
 ## Shared widget gaps
 
@@ -60,5 +67,5 @@ None.
 
 ## Next steps
 
-No gap is open. When a new mockup comes, compare it with the program and add each gap here. Each
+One low gap is open. When a new mockup comes, compare it with the program and add each gap here. Each
 gap needs a spec decision before the build.

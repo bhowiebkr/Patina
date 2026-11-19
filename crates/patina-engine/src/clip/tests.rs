@@ -203,3 +203,34 @@ fn a_bad_clip_is_refused() {
     assert!(parse(&looped).and_then(|clip| leaves_first(&clip)).unwrap_err().contains("uses itself"));
     fs::remove_dir_all(&root).unwrap();
 }
+
+#[test]
+fn groups_and_notes_go_in_a_clip_and_get_new_ids() {
+    let (root, mut project) = project("groups", HALF);
+    let [g, n] = [ids(&["e1"]).remove(0), ids(&["e2"]).remove(0)];
+    let group = Group { id: g.clone(), title: "Grade".to_owned(), color: crate::project::GroupColor::Pink, pos: [0.0, 0.0], size: [200.0, 100.0] };
+    let note = Note { id: n.clone(), pos: [20.0, 120.0], width: 160.0, text: "# Hi".to_owned() };
+    project.apply(&Edit::Group { edits: vec![Edit::SetGroup { group }, Edit::SetNote { note }] }).unwrap();
+    assert!(project.apply(&Edit::SetNote { note: Note { id: ids(&["a"]).remove(0), pos: [0.0, 0.0], width: 90.0, text: String::new() } }).is_err(), "a node has the ID");
+
+    // A clip with only a group and a note is valid. The paste keeps their places to each other.
+    let text = project.copy(&[g.clone(), n.clone()]).unwrap();
+    let pasted = project.paste(&text, [500.0, 500.0], None, |_| None, None).unwrap();
+    let graph = project.graph();
+    assert_eq!((pasted.ids.len(), graph.group.len(), graph.note.len(), graph.node.len()), (2, 2, 2, 4));
+    assert!(!pasted.ids.contains(&g) && !pasted.ids.contains(&n), "new IDs");
+    assert_eq!((graph.group[1].pos, graph.note[1].pos, graph.note[1].text.as_str()), ([500.0, 500.0], [520.0, 620.0], "# Hi"));
+
+    // A clip with a node and a group gives the node ID first.
+    let text = project.copy(&[ids(&["a"]).remove(0), g.clone()]).unwrap();
+    let pasted = project.paste(&text, [0.0, 0.0], None, |_| None, None).unwrap();
+    assert!(project.graph().node.iter().any(|e| e.id == pasted.ids[0]) && project.graph().group.iter().any(|e| e.id == pasted.ids[1]));
+
+    // A bad group, a repeated ID or a long title fails the parse.
+    let only = project.copy(std::slice::from_ref(&g)).unwrap();
+    assert!(parse(&only.replace("size = [200.0, 100.0]", "size = [20.0, 100.0]")).err().unwrap().contains("at least"));
+    assert!(parse(&only.replace("Grade", &"x".repeat(65))).err().unwrap().contains("title"));
+    let twice = format!("{only}\n[[nodes.note]]\nid = \"{g}\"\npos = [0.0, 0.0]\nwidth = 100.0\ntext = \"\"\n");
+    assert!(parse(&twice).err().unwrap().contains("repeated"));
+    fs::remove_dir_all(&root).unwrap();
+}

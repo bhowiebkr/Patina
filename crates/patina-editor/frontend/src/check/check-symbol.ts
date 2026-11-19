@@ -38,7 +38,7 @@ export async function checkSymbol({ step, until, steps }: CheckContext, v: View)
   const shown = () => (logs()?.getBoundingClientRect().width ?? 0) > 0;
   changeLayout((l) => openPanel(l, 'output'));
   await until('the Output tab over Logs', RUN_MS, () => !shown());
-  const link = () => [...document.querySelectorAll<HTMLButtonElement>('.status-link')].find((b) => b.textContent === '1 problem');
+  const link = () => [...document.querySelectorAll<HTMLButtonElement>('.status-link')].find((b) => b.textContent === 'Errors: 1');
   await until('the problem link of the status bar', RUN_MS, () => !!link());
   link()!.click();
   await until('the problem in Logs from the status link', RUN_MS, () => shown() && logs()!.textContent!.includes('connect a wire to the input `bytes`'));

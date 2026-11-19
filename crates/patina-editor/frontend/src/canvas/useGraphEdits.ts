@@ -8,7 +8,8 @@ import { useEvent } from '../useEvent';
 
 /** True when the edit changes only the drawing, so the result of the run stays current. */
 function onlyGeometry(edit: Edit): boolean {
-  return edit.kind === 'MoveNode' || edit.kind === 'MovePin' || edit.kind === 'SetRoute' || (edit.kind === 'Group' && edit.edits.every(onlyGeometry));
+  const visual = ['MoveNode', 'MovePin', 'SetRoute', 'SetGroup', 'RemoveGroup', 'SetNote', 'RemoveNote'];
+  return visual.includes(edit.kind) || (edit.kind === 'Group' && edit.edits.every(onlyGeometry));
 }
 
 export function useGraphEdits(p: {
@@ -127,7 +128,9 @@ export function useGraphEdits(p: {
         const p = await (library ? api.pasteLibrary(library, at, link) : api.pasteClip(await clipboard.read(), at));
         show(p.view);
         markStale(p.view);
-        setFocus({ ids: p.ids, n: 0 });
+        // The canvas IDs of the groups and the notes have their kind in front (15.12).
+        const marks = new Map([...(p.view.graph.group ?? []).map((g): [string, string] => [g.id, `group:${g.id}`]), ...(p.view.graph.note ?? []).map((n): [string, string] => [n.id, `note:${n.id}`])]);
+        setFocus({ ids: p.ids.map((id) => marks.get(id) ?? id), n: 0 });
         if (p.warnings.length > 0) log(p.warnings.map((text): Line => ({ text, kind: 'warn' })));
       } catch (e) {
         setError(String(e));

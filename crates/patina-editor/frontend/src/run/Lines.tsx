@@ -10,6 +10,10 @@ export interface Line {
   kind: 'out' | 'err' | 'warn' | 'info';
   /** The place in the code of a compile error. A click shows it. */
   at?: Reveal;
+  /** The time of a Logs line, in ms since 1970. Output lines have no time. */
+  time?: number;
+  /** The text of the compiler under an error line: indented, with no time. */
+  body?: boolean;
 }
 
 /** A panel keeps the newest lines only. */
@@ -40,6 +44,13 @@ function Text({ line }: { line: Line }) {
   return p.map(([text, kind], i) => (kind ? <span key={i} className={`hl-${kind}`}>{text}</span> : text));
 }
 
+/** The local time of a line, HH:MM:SS. */
+const clock = (time: number) => new Date(time).toTimeString().slice(0, 8);
+
+function Time({ line }: { line: Line }) {
+  return line.time !== undefined && !line.body ? <span className="line-time">{clock(line.time)} </span> : null;
+}
+
 export function Lines({ lines, label, onPick }: { lines: Line[]; label: string; onPick: (at: Reveal) => void }) {
   const box = useRef<HTMLPreElement>(null);
   useEffect(() => {
@@ -50,10 +61,12 @@ export function Lines({ lines, label, onPick }: { lines: Line[]; label: string; 
       {lines.map((line, i) =>
         line.at ? (
           <button key={i} className={`line-link ${line.kind}`} onClick={() => onPick({ ...line.at!, n: Date.now() })}>
+            <Time line={line} />
             <Text line={line} />
           </button>
         ) : (
-          <div key={i} className={line.kind}>
+          <div key={i} className={line.body ? `${line.kind} line-body` : line.kind}>
+            <Time line={line} />
             <Text line={line} />
           </div>
         ),

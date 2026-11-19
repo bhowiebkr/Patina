@@ -2,10 +2,10 @@
 // stable tab group (docs/gui-visual-guide/editor-mockups.md).
 
 import { lazy, Suspense, useContext, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { KindIcon } from '../controls/icons';
-import { api, atTop, docParts, errorText, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
+import { KIND_NAMES, KindIcon } from '../controls/icons';
+import { api, atTop, docParts, errorLine, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
-import { OpenButton, STATE_NAMES, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
+import { OpenButton, STATE_NAMES, StateIcon, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
 import { valueStale } from '../canvas/liveValues';
 import { busText, kindOf } from '../canvas/bus';
 import { wireName } from '../canvas/graphData';
@@ -285,7 +285,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   if (!entry) {
     return (
       <aside className="panel" aria-label="Inspector">
-        <div className="panel-title">Inspector</div>
+        <div className="panel-title">{atTop(view) ? 'Graph' : 'Subgraph'}</div>
         <div className="section label">Select a node to see its parameters and code, or a wire to see its value. Select two or more nodes to collapse them into a subgraph.</div>
         <div className="section">
           <h3>Look</h3>
@@ -334,8 +334,14 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         <span className="spacer" />
         {info?.full && <ExpandButton id={entry.id} />}
         {entry.subgraph !== undefined && <OpenButton graph={entry.subgraph} use={entry.id} />}
-        <span className={state === 'compile-error' || state === 'run-error' ? 'error-text' : 'label'}>{STATE_NAMES[state]}</span>
+        <span className={state === 'compile-error' || state === 'run-error' ? 'error-text state-mark' : 'label state-mark'}>
+          <span aria-hidden="true">
+            <StateIcon state={state} />
+          </span>
+          {STATE_NAMES[state]}
+        </span>
       </div>
+      {info && <div className="kind-line">{KIND_NAMES[info.kind]}</div>}
       {info?.doc && <div className="section label doc">{docParts(info.doc).map((p, i) => (p.kind === 'bold' ? <b key={i}>{p.text}</b> : p.kind === 'code' ? <code key={i}>{p.text}</code> : <span key={i}>{p.text}</span>))}</div>}
       <Tabs tab={shown} only={hasCode ? undefined : 'parameters'} onTab={onTab} />
       {shown === 'parameters' && (
@@ -396,8 +402,8 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
             </div>
           ))}
           {errors.map((e, i) => (
-            <button key={`e${i}`} className="line-link err" onClick={() => onPick(revealOf(e, Date.now())!)}>
-              {e.file}:{e.start[0]}:{e.start[1]}: {errorText(e)}
+            <button key={`e${i}`} className="line-link err" title={e.file ?? undefined} onClick={() => onPick(revealOf(e, Date.now())!)}>
+              {errorLine(e)}
             </button>
           ))}
           {reports.map((r, i) => (

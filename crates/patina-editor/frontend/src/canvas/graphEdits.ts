@@ -7,6 +7,13 @@ import { socketKey } from './palette';
 import type { WireData } from '../wires/WireLayer';
 import { portKey, portTypes, type GraphNode } from './graphData';
 
+/** The box of the body of a node in the view, with no pin gutter. */
+export function bodyBox(n: GraphNode): { l: number; t: number; r: number; b: number } {
+  const l = n.position.x + gutter(n);
+  const [w, h] = [(n.measured?.width ?? n.width ?? 0) - 2 * gutter(n), n.measured?.height ?? n.height ?? 0];
+  return { l, t: n.position.y, r: l + w, b: n.position.y + h };
+}
+
 /** What an AddNode edit names: a built-in node, a subgraph or a node folder. */
 export function nodeSource(n: NodeInfo): string {
   return n.builtin ? n.name : `${n.subgraph ? 'graphs' : 'nodes'}/${n.name}`;
@@ -37,8 +44,10 @@ export function arrangeEdits(
   flow: ReactFlowInstance<GraphNode, Edge<WireData>>,
   widthOf: (data: WireData) => number,
 ): Edit[] {
-  const picked = nodes.filter((n) => n.selected);
-  const chosen = picked.length > 1 ? picked : nodes.filter((n) => !n.parentId);
+  // The groups and the notes do not arrange (15.12).
+  const graph = nodes.filter((n) => n.type === 'patina' || n.type === 'port');
+  const picked = graph.filter((n) => n.selected);
+  const chosen = picked.length > 1 ? picked : graph.filter((n) => !n.parentId);
   if (chosen.length === 0) return [];
   const ids = new Set(chosen.map((n) => n.id));
   // The boxes are the node bodies, with no pin gutter.

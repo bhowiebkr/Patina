@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
-use crate::edit::{cycle, node_of};
-use crate::project::{self, Collar, GraphFile, NodeEntry, Order, PublicInput, PublicOutput, Style, Wire};
+use crate::edit::{cycle, node_of, used};
+use crate::project::{self, Collar, GraphFile, Group, NodeEntry, Note, Order, PublicInput, PublicOutput, Style, Wire};
 
 /// Moves the nodes `ids` of `graph` into a new subgraph `name` (6.1). Gives the outer graph, with
 /// the use `use_id` in place of the nodes, and the subgraph. `key` gives each new pin key. Each
@@ -15,7 +15,7 @@ pub(crate) fn collapse(graph: &GraphFile, ids: &[String], use_id: &str, name: &s
     if let Some(id) = ids.iter().find(|id| !graph.node.iter().any(|n| &n.id == *id)) {
         return Err(format!("the graph has no node {id}"));
     }
-    if !project::is_id(use_id) || graph.node.iter().any(|n| n.id == use_id) {
+    if !project::is_id(use_id) || used(graph, use_id) {
         return Err(format!("{use_id:?} is not a new node ID"));
     }
     let inside = |end: &str| ids.iter().any(|id| id == node_of(end));
@@ -112,21 +112,23 @@ pub(crate) fn collapse(graph: &GraphFile, ids: &[String], use_id: &str, name: &s
 }
 
 /// Puts the nodes of the subgraph `inner` in place of the use `use_id` of `graph` (6.1), the
-/// reverse of a collapse. An inner node keeps its ID, unless the graph has the ID: then `new_id`
-/// gives one. The wires of the public pins go to their inner ends, and a parameter of the use goes
+/// reverse of a collapse. An inner node, group or note keeps its ID, unless the graph has the ID:
+/// then `new_id` gives one. The wires of the public pins go to their inner ends, and a parameter of the use goes
 /// to the inner inputs of its pin.
 pub(crate) fn expand_use(graph: &GraphFile, use_id: &str, inner: &GraphFile, mut new_id: impl FnMut() -> String) -> Result<GraphFile, String> {
     let Some(entry) = graph.node.iter().find(|n| n.id == use_id && n.subgraph.is_some()) else {
         return Err(format!("the graph has no subgraph use {use_id}"));
     };
-    let mut ids = HashMap::new();
-    for node in &inner.node {
-        let mut id = node.id.clone();
-        while graph.node.iter().any(|n| n.id == id && n.id != use_id) || ids.values().any(|v| *v == id) {
+    let mut given: Vec<String> = Vec::new();
+    let mut fresh = |old: &str| {
+        let mut id = old.to_owned();
+        while (id != use_id && used(graph, &id)) || given.contains(&id) {
             id = new_id();
         }
-        ids.insert(node.id.as_str(), id);
-    }
+        given.push(id.clone());
+        id
+    };
+    let ids: HashMap<&str, String> = inner.node.iter().map(|n| (n.id.as_str(), fresh(&n.id))).collect();
     let end = |e: &str| match e.split_once('.') {
         Some((id, key)) => format!("{}.{key}", ids.get(id).map_or(id, |v| v.as_str())),
         None => ids.get(e).cloned().unwrap_or_else(|| e.to_owned()),
@@ -137,15 +139,22 @@ pub(crate) fn expand_use(graph: &GraphFile, use_id: &str, inner: &GraphFile, mut
 
     // The inner nodes move with the use: their top left corner goes to the position of the use.
     let at = entry.pos.unwrap_or_default();
-    let corner = inner.node.iter().map(|n| n.pos.unwrap_or_default()).fold([f64::MAX, f64::MAX], |c, p| [c[0].min(p[0]), c[1].min(p[1])]);
+    let corner = match inner.node.is_empty() {
+        true => at,
+        false => inner.node.iter().map(|n| n.pos.unwrap_or_default()).fold([f64::MAX, f64::MAX], |c, p| [c[0].min(p[0]), c[1].min(p[1])]),
+    };
+    let shift = |p: [f64; 2]| [p[0] - corner[0] + at[0], p[1] - corner[1] + at[1]];
     let mut out = GraphFile { node: Vec::new(), wire: Vec::new(), order: Vec::new(), ..graph.clone() };
+    // The groups and the notes of the subgraph keep their places at its nodes (15.12).
+    out.group.extend(inner.group.iter().map(|g| Group { id: fresh(&g.id), pos: shift(g.pos), ..g.clone() }));
+    out.note.extend(inner.note.iter().map(|n| Note { id: fresh(&n.id), pos: shift(n.pos), ..n.clone() }));
     for node in &graph.node {
         if node.id != use_id {
             out.node.push(node.clone());
             continue;
         }
         for n in &inner.node {
-            let pos = n.pos.map(|p| [p[0] - corner[0] + at[0], p[1] - corner[1] + at[1]]);
+            let pos = n.pos.map(shift);
             let mut params = n.params.clone();
             let id = &ids[n.id.as_str()];
             for (key, text) in &entry.params {
@@ -303,5 +312,19 @@ after = "00000000000000b2"
         let e1 = back.node.iter().find(|n| n.id == "00000000000000e1").unwrap();
         assert_eq!((e1.params["a"].as_str(), e1.params["b"].as_str()), ("5", "5"));
         assert!(expand_use(&outer, "00000000000000a1", &inner, String::new).is_err(), "a1 is not a use");
+
+        // A collapse keeps the groups in the outer graph. An expand adds the groups and the notes of
+        // the subgraph at the place of its nodes, with a new ID for an ID that the graph has.
+        let group = Group { id: "00000000000000f1".to_owned(), title: "Grade".to_owned(), color: project::GroupColor::Teal, pos: [90.0, -10.0], size: [320.0, 200.0] };
+        let mut with = main.clone();
+        with.group.push(group.clone());
+        let (outer, mut inner) = collapse(&with, &ids, "00000000000000d1", "part", || "00000001".to_owned()).unwrap();
+        assert_eq!((outer.group.len(), inner.group.len()), (1, 0));
+        inner.group.push(group);
+        inner.note.push(Note { id: "00000000000000f2".to_owned(), pos: [100.0, 300.0], width: 200.0, text: "hi".to_owned() });
+        let back = expand_use(&outer, "00000000000000d1", &inner, || "00000000000000e2".to_owned()).unwrap();
+        let groups: Vec<(&str, [f64; 2])> = back.group.iter().map(|g| (g.id.as_str(), g.pos)).collect();
+        assert_eq!(groups, [("00000000000000f1", [90.0, -10.0]), ("00000000000000e2", [90.0, -10.0])]);
+        assert_eq!((back.note[0].id.as_str(), back.note[0].pos), ("00000000000000f2", [100.0, 300.0]));
     }
 }

@@ -41,7 +41,8 @@ export function useObstacles(nodes: GraphNode[], router: Router, labels: Labels)
     const at = new Map(nodes.map((n) => [n.id, n.position]));
     const body = (n: GraphNode): Rect[] => {
       const { width, height } = n.measured ?? {};
-      if (!width || !height) return [];
+      // The wires go over the groups and the notes (15.12).
+      if (!width || !height || n.type === 'groupBox' || n.type === 'note') return [];
       const p = n.parentId ? at.get(n.parentId) : undefined;
       const [l, t] = [n.position.x + (p?.x ?? 0) + gutter(n), n.position.y + (p?.y ?? 0)];
       const [r, b] = [l + width - 2 * gutter(n), t + height];

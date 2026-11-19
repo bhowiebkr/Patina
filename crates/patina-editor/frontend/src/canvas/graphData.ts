@@ -1,7 +1,7 @@
 // The nodes and the edges of the graph canvas, made from the view of the engine (spec 15.2, 15.3).
 
 import type { Edge, XYPosition } from '@xyflow/react';
-import type { Domain, KindInfo, NodeEntry, NodeInfo, Pin, Point, View } from '../api';
+import type { Domain, Group, KindInfo, NodeEntry, NodeInfo, Pin, Point, View } from '../api';
 import { kindOf, socketOf, type Socket } from './bus';
 import { GUTTER, ORDER, infoOf, nodeState, outputType, type NodeData, type PatinaNode, type PortNode, type RunState } from './NodeView';
 import { place, type Frame, type Room } from './frames';
@@ -11,6 +11,7 @@ import { pathOf } from '../wires/wires';
 import { same } from './same';
 import { valueStale } from './liveValues';
 import { lostParams, lostPins, wireEnds, wiredKeys, type Lost } from './lostPins';
+import { GROUP_Z, type GroupBoxNode, type ItemNode, type NoteNode } from './groups';
 
 const NO_POINTS: readonly Point[] = [];
 
@@ -30,7 +31,7 @@ export function splitPin(pin: string): [string, string] {
   return dot < 0 ? [pin, ''] : [pin.slice(0, dot), pin.slice(dot + 1)];
 }
 
-export type GraphNode = PatinaNode | PortNode;
+export type GraphNode = PatinaNode | PortNode | ItemNode;
 
 /** The type of each public pin of the open subgraph, by "in:<key>" and "out:<key>". */
 export function portTypes(view: View): Map<string, string> {
@@ -165,6 +166,34 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
 
 const NONE: ReadonlySet<string> = new Set();
 
+/** The group or the note `before` when it did not change. In a drag, a resize or `held`, it keeps its place and size. */
+function keptItem<T extends ItemNode>(before: GraphNode | undefined, next: T, held: ReadonlySet<string>): T {
+  if (before?.type !== next.type) return next;
+  const b = before as T;
+  const data = same(b.data, next.data, 3) ? b.data : next.data;
+  if (b.dragging || b.resizing || held.has(b.id)) return data === b.data && b.zIndex === next.zIndex ? b : { ...b, data, zIndex: next.zIndex };
+  const unchanged = b.position.x === next.position.x && b.position.y === next.position.y && b.width === next.width && b.height === next.height && b.zIndex === next.zIndex;
+  return unchanged && data === b.data ? b : { ...b, ...next, data };
+}
+
+/** The groups, the larger first so a smaller group draws above, and the notes (15.12). */
+function buildItems(view: View, rooms: readonly Room[], old: Map<string, GraphNode>, held: ReadonlySet<string>): ItemNode[] {
+  const editable = view.trusted;
+  const area = (g: Group) => g.size[0] * g.size[1];
+  const groups = [...(view.graph.group ?? [])].sort((a, b) => area(b) - area(a)).map((group, i): GroupBoxNode => {
+    const id = `group:${group.id}`;
+    const [x, y] = place(rooms, group.pos);
+    const [r, b] = place(rooms, [group.pos[0] + group.size[0], group.pos[1] + group.size[1]]);
+    return keptItem(old.get(id), { id, type: 'groupBox', position: { x, y }, width: r - x, height: b - y, zIndex: GROUP_Z + i, dragHandle: '.group-title', data: { group, editable } }, held);
+  });
+  const notes = (view.graph.note ?? []).map((note): NoteNode => {
+    const id = `note:${note.id}`;
+    const [x, y] = place(rooms, note.pos);
+    return keptItem(old.get(id), { id, type: 'note', position: { x, y }, width: note.width, data: { note, editable } }, held);
+  });
+  return [...groups, ...notes];
+}
+
 /** Keeps the selection and the measured size of the nodes that stay. The nodes of `held` keep their place. */
 export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], rooms: readonly Room[], prev: GraphNode[], held: ReadonlySet<string>): GraphNode[] {
   const old = new Map(prev.map((n) => [n.id, n]));
@@ -187,7 +216,7 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     return before?.type === 'patina' ? kept(before, position, data, held) : { id: entry.id, type: 'patina' as const, position, data };
   });
   // A parent comes before its children in the list.
-  const next = [...nodes, ...buildPorts(view, run, rooms, old, held), ...innerNodes(view, run, guis, domains, frames, old)];
+  const next = [...buildItems(view, rooms, old, held), ...nodes, ...buildPorts(view, run, rooms, old, held), ...innerNodes(view, run, guis, domains, frames, old)];
   return next.length === prev.length && next.every((n, i) => n === prev[i]) ? prev : next;
 }
 

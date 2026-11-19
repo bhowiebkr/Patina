@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::import::{self, Choice, State};
 use crate::project::check_name;
-use crate::project::{FORMAT, GraphFile, NodeEntry, Style, Wire, is_id};
+use crate::project::{FORMAT, GraphFile, Group, NodeEntry, Note, Style, Wire, is_id};
 use crate::{Edit, MAIN, Project, Toolchain};
 
 /// The version of the clip text.
@@ -41,7 +41,8 @@ type Placed = (HashMap<String, String>, Vec<(String, GraphFile)>);
 /// The result of a paste.
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Pasted {
-    /// The IDs of the new nodes in the open graph, in the order of the clip.
+    /// The IDs of the new nodes in the open graph, in the order of the clip, then the IDs of the
+    /// new groups and notes (15.12).
     pub ids: Vec<String>,
     pub warnings: Vec<String>,
 }
@@ -81,14 +82,16 @@ pub enum NeedState {
 }
 
 impl Project {
-    /// The clip text of the nodes `ids` of the open graph (15.11). A wire, an order, a collar or a
-    /// cable goes into the clip only when all of its nodes do.
+    /// The clip text of the nodes, groups and notes `ids` of the open graph (15.11, 15.12). A wire,
+    /// an order, a collar or a cable goes into the clip only when all of its nodes do.
     pub fn copy(&self, ids: &[String]) -> Result<String, String> {
         let graph = &self.history.graph;
         let has = |end: &str| end.split_once('.').is_some_and(|(id, _)| ids.iter().any(|i| i == id));
         let node: Vec<NodeEntry> = graph.node.iter().filter(|n| ids.contains(&n.id)).cloned().collect();
-        if node.is_empty() {
-            return Err("select the nodes to copy".to_owned());
+        let group: Vec<Group> = graph.group.iter().filter(|g| ids.contains(&g.id)).cloned().collect();
+        let note: Vec<Note> = graph.note.iter().filter(|n| ids.contains(&n.id)).cloned().collect();
+        if node.is_empty() && group.is_empty() && note.is_empty() {
+            return Err("select the nodes, groups or notes to copy".to_owned());
         }
         let wire: Vec<Wire> = graph.wire.iter().filter(|w| has(&w.from) && has(&w.to)).cloned().collect();
         let copied = |ends: &[String]| !ends.is_empty() && ends.iter().all(|to| wire.iter().any(|w| &w.to == to));
@@ -101,6 +104,8 @@ impl Project {
             order: graph.order.iter().filter(|o| ids.contains(&o.before) && ids.contains(&o.after)).cloned().collect(),
             collar: graph.collar.iter().filter(|c| copied(&c.wires)).cloned().collect(),
             cable: graph.cable.iter().filter(|c| copied(&c.wires)).cloned().collect(),
+            group,
+            note,
             wire,
             input: Vec::new(),
             output: Vec::new(),
@@ -276,25 +281,23 @@ impl Project {
     /// Adds the nodes of the clip to the open graph with new IDs, moved to `at`.
     fn paste_nodes(&mut self, clip: GraphFile, renames: &HashMap<String, String>, at: [f64; 2], link: Option<&Link>, warnings: &mut Vec<String>) -> Vec<String> {
         let mut graph = self.history.graph.clone();
-        let mut taken: HashSet<String> = graph.node.iter().map(|n| n.id.clone()).collect();
+        let mut taken: HashSet<String> = graph.node.iter().map(|n| n.id.clone()).chain(graph.group.iter().map(|g| g.id.clone())).chain(graph.note.iter().map(|n| n.id.clone())).collect();
         let state = RandomState::new();
         let mut count = 0u64;
-        let mut ids: HashMap<String, String> = HashMap::new();
-        for entry in &clip.node {
-            let id = loop {
-                count += 1;
-                let id = format!("{:016x}", state.hash_one(count));
-                if taken.insert(id.clone()) {
-                    break id;
-                }
-            };
-            ids.insert(entry.id.clone(), id);
-        }
-        let corner = clip.node.iter().filter_map(|n| n.pos).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1])]).unwrap_or(at);
+        let mut fresh = || loop {
+            count += 1;
+            let id = format!("{:016x}", state.hash_one(count));
+            if taken.insert(id.clone()) {
+                break id;
+            }
+        };
+        let ids: HashMap<String, String> = clip.node.iter().map(|n| (n.id.clone(), fresh())).collect();
+        let places = clip.node.iter().filter_map(|n| n.pos).chain(clip.group.iter().map(|g| g.pos)).chain(clip.note.iter().map(|n| n.pos));
+        let corner = places.reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1])]).unwrap_or(at);
         let shift = |p: [f64; 2]| [p[0] + at[0] - corner[0], p[1] + at[1] - corner[1]];
         // The parse checked that each end names a node of the clip.
         let end = |end: &String| end.split_once('.').map_or_else(String::new, |(id, key)| format!("{}.{key}", ids[id]));
-        let new: Vec<String> = clip.node.iter().map(|n| ids[&n.id].clone()).collect();
+        let mut new: Vec<String> = clip.node.iter().map(|n| ids[&n.id].clone()).collect();
         for mut entry in clip.node {
             entry.id = ids[&entry.id].clone();
             entry.pos = entry.pos.map(shift);
@@ -326,7 +329,18 @@ impl Project {
             }
             graph.cable.push(cable);
         }
-        if let (Some(link), Some(first)) = (link, new.first()) {
+        for mut group in clip.group {
+            (group.id, group.pos) = (fresh(), shift(group.pos));
+            new.push(group.id.clone());
+            graph.group.push(group);
+        }
+        for mut note in clip.note {
+            (note.id, note.pos) = (fresh(), shift(note.pos));
+            new.push(note.id.clone());
+            graph.note.push(note);
+        }
+        let first = graph.node.iter().find(|n| new.first() == Some(&n.id)).map(|n| n.id.clone());
+        if let (Some(link), Some(first)) = (link, first) {
             let pin = format!("{first}.{}", link.key);
             let (from, to) = if link.output { (link.end.clone(), pin) } else { (pin, link.end.clone()) };
             // The folders are already in, so a wire that fails is a warning and not an error.
@@ -376,6 +390,12 @@ fn parse(text: &str) -> Result<Clip, String> {
         if graph.format != FORMAT {
             return Err(format!("the clip has graph format {}, but this Patina reads format {FORMAT}", graph.format));
         }
+        for group in &graph.group {
+            crate::edit::check_group(group)?;
+        }
+        for note in &graph.note {
+            crate::edit::check_note(note)?;
+        }
         for entry in &graph.node {
             if let Some(folder) = &entry.folder {
                 let name = folder.strip_prefix("nodes/").ok_or_else(|| format!("the folder {folder:?} is not in nodes/"))?;
@@ -388,13 +408,18 @@ fn parse(text: &str) -> Result<Clip, String> {
     }
     let nodes = &clip.nodes;
     let mut ids = HashSet::new();
-    if nodes.node.is_empty() || !nodes.input.is_empty() || !nodes.output.is_empty() {
-        return Err("the clip has no nodes, or it has public pins".to_owned());
+    let empty = nodes.node.is_empty() && nodes.group.is_empty() && nodes.note.is_empty();
+    if empty || !nodes.input.is_empty() || !nodes.output.is_empty() {
+        return Err("the clip has no nodes, groups or notes, or it has public pins".to_owned());
     }
     for entry in &nodes.node {
         if !is_id(&entry.id) || !ids.insert(entry.id.as_str()) {
             return Err(format!("the clip has a bad or repeated node ID {:?}", entry.id));
         }
+    }
+    let mut marks = HashSet::new();
+    if let Some(id) = nodes.group.iter().map(|g| &g.id).chain(nodes.note.iter().map(|n| &n.id)).find(|id| ids.contains(id.as_str()) || !marks.insert(id.as_str())) {
+        return Err(format!("the clip has a repeated ID {id:?}"));
     }
     let known = |end: &str| end.split_once('.').is_some_and(|(id, _)| ids.contains(id));
     let wired = |to: &String| nodes.wire.iter().any(|w| &w.to == to);

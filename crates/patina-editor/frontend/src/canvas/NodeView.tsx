@@ -2,7 +2,7 @@
 
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
-import { duration, errorText, folderName, nodeProblems, openType, plainDoc, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type TickStages, type Value, type View } from '../api';
+import { duration, errorHead, folderName, nodeProblems, openType, plainDoc, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type TickStages, type Value, type View } from '../api';
 import { socketBar, type Socket } from './bus';
 import { BusSocket, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from '../wires/gl';
@@ -185,7 +185,7 @@ export function nodeState(entry: NodeEntry, info: NodeInfo | null, view: View, r
     return nodeState(entry, info, view, { ...run, phase: run.last });
   }
   const errors = info.subgraph ? [] : nodeErrors(run, info.name);
-  if (errors.length > 0) return ['compile-error', errors.map((e) => `line ${e.start[0]}: ${errorText(e)}`).join('\n')];
+  if (errors.length > 0) return ['compile-error', errors.map(errorHead).join('\n')];
   if (run.phase === 'failed' || run.phase === 'lost') return ['stale', ''];
   if (run.phase !== 'ran') return ['none', ''];
   // A node of a subgraph use has the ID `<use ID>/<node ID>` (6.4).
@@ -228,7 +228,8 @@ function FreeCaption({ entry, info, inner, domain, state }: { entry: NodeEntry; 
   );
 }
 
-function StateIcon({ state }: { state: NodeState }) {
+/** The icon of a node state, on the node, in the Inspector header and over the error well. */
+export function StateIcon({ state }: { state: NodeState }) {
   const name = STATE_NAMES[state];
   let icon;
   switch (state) {

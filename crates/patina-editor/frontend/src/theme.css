@@ -23,6 +23,9 @@
   --warning: #e6d35c;
   --error: #ed7b78;
   --info: #c5c5bf;
+  --code-name: #9cdcfe;
+  --code-string: #ce9178;
+  --code-number: #b5cea8;
   --xy-background-color: var(--canvas);
   --xy-selection-background-color: rgba(223, 166, 75, 0.08);
   --xy-selection-border: 1px dotted var(--accent);
@@ -347,6 +350,21 @@ select {
 .panel-title .error-text {
   font-weight: 400;
   font-size: 12px;
+}
+
+.state-mark {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* The kind of the node under its name in the Inspector header (mockup 3). */
+.kind-line {
+  padding: 6px 12px 0;
+  color: var(--subtle);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .group {
