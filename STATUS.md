@@ -341,10 +341,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The roads, the road lines and the streets stay in the area of the terrain.
   - The river follows the valleys: the path of least height from the highest edge to the
     lowest edge, with a pull to the middle.
-  - Checked on Windows: 18 unit tests of `types/city` and the other city crate tests, and the
-    CLI test with `main`, `planned`, the 1 km check and the export of 166 buildings.
-  - `main`: 554 items, 56098 places and 1727477 triangles. `planned`: 1269 items and 4579762
-    triangles. A city of 1 km x 1 km: 2829453 triangles, 0.21 s after the build in the CLI
+  - A cut across a concave block gives one lot for each part, not one lot with a bridge of no
+    width over the street.
+  - Checked on Windows: 19 unit tests of `types/city` and the other city crate tests, and the
+    CLI test with `main`, `planned`, the 1 km check and the export of 171 buildings.
+  - `main`: 569 items, 56331 places and 1730977 triangles. `planned`: 1269 items and 4580506
+    triangles. A city of 1 km x 1 km: 2796843 triangles, 0.23 s after the build in the CLI
     test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
@@ -356,7 +358,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
   - The terrain is value noise with no erosion. The river does not cut the valleys.
-  - A block is one face of the street graph, so a very concave block can give thin lots.
+  - A cut across a concave block gives separate lots. A narrow part of a block still gives a
+    thin lot.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
     about 0.3 s after each change.
   - Linux and macOS did not run the workbench.

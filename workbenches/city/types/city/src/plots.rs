@@ -91,18 +91,20 @@ fn split(plot: Plot, area_limit: f64, width: f64, random: &mut Random, depth: u3
     }
     let at = lo + (hi - lo) * random.range(0.4, 0.6);
     for side in [1.0, -1.0] {
-        if let Some(half) = clip(&plot, u, at, side) {
-            split(half, area_limit, width, random, depth + 1, out);
+        for part in clip(&plot, u, at, side) {
+            split(part, area_limit, width, random, depth + 1, out);
         }
     }
 }
 
-/// The part of the plot where `side * (p . axis - at) <= 0`. An edge on the cut is not on a
-/// street.
-fn clip(plot: &Plot, axis: [f64; 2], at: f64, side: f64) -> Option<Plot> {
+/// The parts of the plot where `side * (p . axis - at) <= 0`. A concave plot can give more than
+/// one part. An edge on the cut is not on a street.
+fn clip(plot: &Plot, axis: [f64; 2], at: f64, side: f64) -> Vec<Plot> {
     let f = |p: [f64; 2]| side * (dot(p, axis) - at);
     let n = plot.corners.len();
     let (mut corners, mut fronts) = (Vec::with_capacity(n + 2), Vec::with_capacity(n + 2));
+    // Each corner where the outline crosses the cut, and true where the outline goes out.
+    let mut crossings = Vec::new();
     for i in 0..n {
         let (a, b) = (plot.corners[i], plot.corners[(i + 1) % n]);
         let front = plot.fronts.get(i).copied().flatten();
@@ -112,16 +114,49 @@ fn clip(plot: &Plot, axis: [f64; 2], at: f64, side: f64) -> Option<Plot> {
             fronts.push(front);
         }
         if (fa <= 0.0) != (fb <= 0.0) {
+            crossings.push((corners.len(), fa <= 0.0));
             corners.push(add(a, scale(sub(b, a), fa / (fa - fb))));
             // The edge from a point where the polygon goes out follows the cut.
             fronts.push(if fa > 0.0 { front } else { None });
         }
     }
-    // A corner on the cut can come two times. The edge out of the second copy stays.
+    // Along the cut, the plot is inside between crossings 0 and 1, 2 and 3, and so on. The edge
+    // on the cut goes from the out crossing of a pair to its in crossing.
+    let along = [-axis[1], axis[0]];
+    crossings.sort_by(|x, y| dot(corners[x.0], along).total_cmp(&dot(corners[y.0], along)));
     let m = corners.len();
-    let keep: Vec<bool> = (0..m).map(|k| length(sub(corners[(k + 1) % m], corners[k])) > 1e-9).collect();
-    let (corners, fronts): (Vec<_>, Vec<_>) = corners.into_iter().zip(fronts).zip(keep).filter_map(|(c, k)| k.then_some(c)).unzip();
-    (corners.len() >= 3 && area(&corners) > 1e-6).then(|| Plot { corners, fronts, ..Plot::default() })
+    let mut next = vec![None; m];
+    for pair in crossings.chunks(2) {
+        if let [(o, true), (i, false)] | [(i, false), (o, true)] = *pair {
+            next[o] = Some(i);
+        }
+    }
+    // Without a clear pair for each crossing, the parts stay one plot.
+    let paired = next.iter().flatten().count() * 2 == crossings.len();
+    let loops: Vec<Vec<usize>> = if paired && !crossings.is_empty() {
+        let mut done = vec![false; m];
+        let mut loops = Vec::new();
+        for &(start, _) in crossings.iter().filter(|c| !c.1) {
+            let (mut k, mut part) = (start, Vec::new());
+            while !done[k] {
+                done[k] = true;
+                part.push(k);
+                k = next[k].unwrap_or((k + 1) % m);
+            }
+            loops.push(part);
+        }
+        loops
+    } else {
+        vec![(0..m).collect()]
+    };
+    let part = |l: Vec<usize>| {
+        // A corner on the cut can come two times. The edge out of the second copy stays.
+        let len = l.len();
+        let keep = |t: &usize| length(sub(corners[l[(t + 1) % len]], corners[l[*t]])) > 1e-9;
+        let (corners, fronts): (Vec<_>, Vec<_>) = (0..len).filter(keep).map(|t| (corners[l[t]], fronts[l[t]])).unzip();
+        (corners.len() >= 3 && area(&corners) > 1e-6).then(|| Plot { corners, fronts, ..Plot::default() })
+    };
+    loops.into_iter().filter_map(part).collect()
 }
 
 /// Moves edge `i` of a counterclockwise polygon in by `distances[i]`. Each new corner is where

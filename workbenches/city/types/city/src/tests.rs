@@ -72,6 +72,20 @@ fn lots_split_to_the_area_and_keep_the_street_edges() {
 }
 
 #[test]
+fn a_cut_across_a_concave_block_gives_separate_lots() {
+    // A U of two arms of 10 m x 30 m on a base of 30 m x 10 m. One cut across the arms gives
+    // three lots, not one lot for the two arms.
+    let u = [[0.0, 0.0], [30.0, 0.0], [30.0, 40.0], [20.0, 40.0], [20.0, 10.0], [10.0, 10.0], [10.0, 40.0], [0.0, 40.0]];
+    let block = Plot { corners: u.to_vec(), fronts: vec![Some(LOCAL); 8], ..Plot::default() };
+    let lots = lots(&Plots(vec![block]), Seed(4), 600.0, 2.0).unwrap();
+    let total: f64 = lots.0.iter().map(|l| area(&l.corners)).sum();
+    assert!((total - 900.0).abs() < 1e-6, "{total}");
+    assert_eq!(lots.0.len(), 3, "{lots:?}");
+    let width = |l: &&Plot| extent(&l.corners, [1.0, 0.0]);
+    assert_eq!(lots.0.iter().map(|l| width(&l)).filter(|(lo, hi)| (hi - lo - 10.0).abs() < 1e-9).count(), 2, "{lots:?}");
+}
+
+#[test]
 fn inset_moves_the_edges_in_or_drops_the_plot() {
     let plots = Plots(vec![square(10.0), square(3.0)]);
     let moved = inset(&plots, 2.0).unwrap();
