@@ -374,6 +374,16 @@ The open items of each section. Items that the text marks as fixed are in [docs/
       places and 2927971 triangles, 0.32 s after the build in the CLI test.
     - Checked on Windows: the unit tests of `types/city`, with a test that the valley cuts the
       slopes beside the bank and not the far edge, and the city CLI test.
+  - The erosion cuts streams (2026-11-19). The water of each sample runs down to the sea or the
+    edge, also out of the pits. Where enough water collects, a stream cuts a bed with smooth
+    valley sides. More drops cut deeper, and flat land stays flat.
+    - `river` now follows a stream valley in the north of a 1 km area.
+    - `main`: 533 items, 42244 places and 1308703 triangles. `planned` has no change. A city of
+      1 km x 1 km: 87263 places and 2751225 triangles, 0.24 s after the build in the CLI test.
+    - The erosion takes 19 ms for `main` and 81 ms for 1 km x 1 km in a release build.
+    - Checked on Windows: 21 unit tests of `types/city`, with a test that a stream cuts down
+      along a valley and out of a pit, and the city CLI test. A shaded preview of the terrain
+      showed streams with branches.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
   - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build
@@ -383,8 +393,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
-  - The erosion has no rivers of its own. The `river` node cuts its valley after the erosion,
-    so the erosion does not move the river.
+  - The `river` node finds its own path after the erosion. It follows the valleys, but it is
+    not one of the streams of the erosion.
   - A cut across a concave block gives separate lots. A thin part of a block is a park, not
     a part of the next lot.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for

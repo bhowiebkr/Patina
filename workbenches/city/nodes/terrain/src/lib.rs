@@ -5,7 +5,7 @@ use patina_sdk::node;
 /// A height map of the area, with the center at the origin. Hills of size `hills` rise up to
 /// `relief` meters. On one side, which the seed picks, the land goes down into the sea over the
 /// `coast` distance. The ground below `sea` is water. Then `erosion` drops of rain for each sample
-/// run down the slopes and cut the valleys.
+/// run down the slopes and cut the valleys, and the water that collects cuts streams.
 #[node(color = "#3f4a3a")]
 #[allow(clippy::too_many_arguments)]
 pub fn terrain(
