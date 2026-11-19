@@ -1,5 +1,47 @@
 /* The node GUIs (4.3) and their value widgets. The colors are in theme.css. */
 
+.gui-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--column-min)), 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.gui-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.view-controls {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
+  container-type: inline-size;
+}
+
+.view-controls .node-gui {
+  border-top: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.view-controls .gui-label {
+  white-space: normal;
+  line-height: 1.5;
+}
+
+@container (max-width: 280px) {
+  .view-controls .gui-row:has(.gui-field) {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    gap: 2px;
+  }
+}
+
 /* A node GUI (4.3): rows of the node row height with the shared controls. */
 .node-gui {
   display: flex;

@@ -24,7 +24,9 @@ import {
   setViewport,
   showGraph,
   viewTitle,
+  VIEW_SLOTS,
 } from './layout.ts';
+import { ViewInput } from './viewInput.ts';
 
 test('each view instance opens in a free slot and a close drops it', () => {
   let l = openView(openView(defaultLayout(), 'views/scene'), 'views/scene');
@@ -36,9 +38,26 @@ test('each view instance opens in a free slot and a close drops it', () => {
   assert.deepEqual(l.views, { view2: 'views/scene' });
   assert.deepEqual(parseLayout(layoutText(l)).views, { view2: 'views/scene' });
   assert.deepEqual(parseLayout(JSON.stringify({ version: 1, areas: {}, views: { view: 'views/a', bad: 'x' } })).views, {});
-  l = openView(openView(openView(openView(l, 'a'), 'b'), 'c'), 'd');
-  assert.deepEqual(Object.keys(l.views).sort(), ['view', 'view2', 'view3', 'view4']);
+  for (const slot of VIEW_SLOTS) l = openView(l, slot);
+  assert.deepEqual(Object.keys(l.views).sort(), [...VIEW_SLOTS].sort());
+  assert.equal(openView(l, 'overflow'), l);
   assert.equal(l.views.view2, 'views/scene');
+});
+
+test('view drags share undo while separate actions stay separate', () => {
+  const input = new ViewInput();
+  let id = 0;
+  const next = () => ++id;
+  input.push('3 down 10 20', next);
+  input.push('3 move 20 20', next);
+  assert.deepEqual(input.take(), { gesture: 1, events: '3 down 10 20\n3 move 20 20' });
+  input.push('3 up 30 20', next);
+  input.push('5 1', next);
+  input.push('5 0', next);
+  assert.deepEqual(input.take(), { gesture: 1, events: '3 up 30 20' });
+  assert.deepEqual(input.take(), { gesture: 2, events: '5 1' });
+  assert.deepEqual(input.take(), { gesture: 3, events: '5 0' });
+  assert.deepEqual(input.take(), { gesture: undefined, events: '' });
 });
 
 test('a tab moves before another tab and becomes active', () => {

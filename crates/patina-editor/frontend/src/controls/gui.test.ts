@@ -15,6 +15,17 @@ test('each widget line gives a widget, and a bad line keeps its index', () => {
   assert.equal(eventLine(4, 0.5), '4 0.5');
 });
 
+test('responsive columns nest without changing control indices', () => {
+  const tree = 'group\t\t240\ngroup\t\t0\nbutton\tPlay\nend\t\nend\t\nbutton\tStop';
+  assert.deepEqual(nest(parseTree(tree)), [
+    { kind: 'group', index: 0, text: '', minWidth: 240, items: [
+      { kind: 'group', index: 1, text: '', minWidth: 0, items: [{ kind: 'button', index: 2, text: 'Play' }] },
+    ] },
+    { kind: 'button', index: 5, text: 'Stop' },
+  ]);
+  assert.deepEqual(parseTree('group\t\tNaN\ngroup\t\t-1\ngroup\t\t99999'), []);
+});
+
 test('fields and dropdowns keep their values, and an event text stays on one line', () => {
   const tree = 'number\tCount\t3\ntext\tName\ta b\ndropdown\tWave\t1\tSine\tSaw\nnumber\tBad\tx';
   assert.deepEqual(parseTree(tree), [

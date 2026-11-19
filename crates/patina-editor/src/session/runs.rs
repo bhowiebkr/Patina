@@ -148,7 +148,8 @@ pub struct ViewFrame {
 /// Gives user input to view `name`, or asks for its widget lines when `events` is empty (15.8).
 /// The first input builds the view. Its writes go through the edit path, so undo works.
 #[tauri::command(async)]
-pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, instance: String, events: String, selected: Vec<String>) -> Result<ViewFrame, String> {
+#[allow(clippy::too_many_arguments)] // The command keeps the node GUI event fields.
+pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, instance: String, events: String, selected: Vec<String>, gesture: Option<u64>) -> Result<ViewFrame, String> {
     let (root, graph) = editor.with(|session| match session.trusted {
         true => Ok((session.project.root().to_owned(), session.project.graph().clone())),
         false => Err("Trust the project before you open a view.".to_owned()),
@@ -157,8 +158,13 @@ pub fn view_ui(window: WebviewWindow, editor: State<'_, Editor>, name: String, i
     let reply: ViewReply = editor.window_ask(window.label(), input)?;
     let view = match reply.edits.is_empty() {
         true => None,
-        // The writes of one call are one step of undo.
-        false => Some(editor.change(|project, _| project.apply(&Edit::Group { edits: reply.edits }))?),
+        false => Some(editor.change(|project, _| {
+            let edit = Edit::Group { edits: reply.edits };
+            match gesture {
+                Some(gesture) => project.apply_gesture(&edit, gesture),
+                None => project.apply(&edit),
+            }
+        })?),
     };
     Ok(ViewFrame { tree: reply.tree, view, select: reply.select })
 }

@@ -2,16 +2,16 @@
 // area and the pan and zoom of each graph. These are pure functions, so `npm test` runs them.
 
 /** The panels of the view instances (15.8). Each slot shows one instance of a view. */
-export const VIEW_SLOTS = ['view', 'view2', 'view3', 'view4'] as const;
+export const VIEW_SLOTS = ['view', 'view2', 'view3', 'view4', 'view5', 'view6', 'view7', 'view8', 'view9', 'view10', 'view11', 'view12'] as const;
 export type ViewSlot = (typeof VIEW_SLOTS)[number];
 export const PANELS = ['layers', 'project', 'library', 'inspector', 'logs', 'output', 'debug', ...VIEW_SLOTS] as const;
 export type PanelId = (typeof PANELS)[number];
 export const AREAS = ['left', 'right', 'bottom', 'center'] as const;
 export type AreaId = (typeof AREAS)[number];
 
-export const TITLES: Record<PanelId, string> = { layers: 'Layers', project: 'Project', library: 'Library', inspector: 'Inspector', logs: 'Logs', output: 'Output', debug: 'Debug', view: 'View', view2: 'View 2', view3: 'View 3', view4: 'View 4' };
+export const TITLES = { layers: 'Layers', project: 'Project', library: 'Library', inspector: 'Inspector', logs: 'Logs', output: 'Output', debug: 'Debug', ...Object.fromEntries(VIEW_SLOTS.map((slot, i) => [slot, i ? `View ${i + 1}` : 'View'])) } as Record<PanelId, string>;
 /** The area of each panel in the default layout. A closed panel opens there again. */
-const HOME: Record<PanelId, AreaId> = { layers: 'left', project: 'left', library: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', debug: 'bottom', view: 'center', view2: 'center', view3: 'center', view4: 'center' };
+const HOME = { layers: 'left', project: 'left', library: 'left', inspector: 'right', logs: 'bottom', output: 'bottom', debug: 'bottom', ...Object.fromEntries(VIEW_SLOTS.map((slot) => [slot, 'center'])) } as Record<PanelId, AreaId>;
 
 export const MIN_SIZE = 120;
 export const MAX_SIZE = 1600;

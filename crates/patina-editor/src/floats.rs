@@ -39,7 +39,7 @@ struct Moved<'a> {
 /// Opens a window for each float, and closes each other float window.
 #[tauri::command(async)]
 pub fn set_floats(app: AppHandle, editor: State<'_, Editor>, floats: Vec<Float>) -> Result<(), String> {
-    if let Some(bad) = floats.iter().find(|f| !matches!(f.slot.as_str(), "view" | "view2" | "view3" | "view4")) {
+    if let Some(bad) = floats.iter().find(|f| !matches!(f.slot.as_str(), "view" | "view2" | "view3" | "view4" | "view5" | "view6" | "view7" | "view8" | "view9" | "view10" | "view11" | "view12")) {
         return Err(format!("{} is not a view slot.", bad.slot));
     }
     for (label, window) in app.webview_windows() {

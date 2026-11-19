@@ -19,6 +19,7 @@ export type Widget =
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'tabs'; index: number; text: string; selected: number; options: string[] }
   | { kind: 'section'; index: number; text: string; open: boolean }
+  | { kind: 'group'; index: number; text: string; minWidth: number }
   | { kind: 'end'; index: number; text: string }
   | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[]; keys: boolean; grab: boolean }
   | { kind: 'viewport'; index: number; text: string; height: number }
@@ -265,6 +266,7 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'asset') widgets.push({ kind, index, text, extensions: (rest[0] ?? '').split(' ').filter(Boolean), value: rest[1] ?? '' });
     else if ((kind === 'dropdown' || kind === 'tabs') && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });
     else if (kind === 'section' && Number.isFinite(value)) widgets.push({ kind, index, text, open: value !== 0 });
+    else if (kind === 'group' && Number.isFinite(value) && value >= 0 && value <= MAX_SIDE) widgets.push({ kind, index, text, minWidth: value });
     else if (kind === 'end') widgets.push({ kind, index, text });
     else if (kind === 'canvas' && value > 0 && low > 0) {
       const shapes: Shape[] = [];
@@ -289,8 +291,8 @@ type IconButton = Extract<Widget, { kind: 'icon' }>;
 
 /** A widget, a section with the widgets up to its end line, or a row of icon buttons. */
 export type Block =
-  | Exclude<Widget, { kind: 'section' | 'end' | 'icon' }>
-  | (Extract<Widget, { kind: 'section' }> & { items: Block[] })
+  | Exclude<Widget, { kind: 'section' | 'group' | 'end' | 'icon' }>
+  | (Extract<Widget, { kind: 'section' | 'group' }> & { items: Block[] })
   | { kind: 'icons'; index: number; items: IconButton[] };
 
 /** Puts the widgets of each section into it, and icon buttons on adjacent lines into one row.
@@ -306,7 +308,7 @@ export function nest(widgets: Widget[]): Block[] {
     } else if (w.kind === 'icon') {
       if (last?.kind === 'icons' && last.items[last.items.length - 1].index === w.index - 1) last.items.push(w);
       else top.push({ kind: 'icons', index: w.index, items: [w] });
-    } else if (w.kind !== 'section') top.push(w);
+    } else if (w.kind !== 'section' && w.kind !== 'group') top.push(w);
     else if (stack.length > MAX_DEPTH) stack.push(top);
     else {
       const section = { ...w, items: [] };

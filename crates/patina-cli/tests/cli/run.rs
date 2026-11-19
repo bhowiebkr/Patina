@@ -564,6 +564,9 @@ impl Panel {
             graph.set_param(\"9bc1790966687030\", \"value\", 5.0);
             graph.select([\"9bc1790966687030\"]);
         }
+        if let Some([width, height]) = ui.available_size() {
+            ui.label(&format!(\"Area {width} x {height}\"));
+        }
     }
 }
 ";
@@ -583,8 +586,9 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     assert!(frame.edits.is_empty() && frame.select.is_none());
 
     // A click writes the parameter as an edit, and the view draws again with its new state.
-    let frame = view.ui(0, "1 1", &graph, None).unwrap();
+    let frame = view.ui(0, "@size 260 190\n1 1", &graph, None).unwrap();
     assert!(frame.tree.contains("1 clicks"), "{}", frame.tree);
+    assert!(frame.tree.contains("Area 260 x 190"), "{}", frame.tree);
     let [patina_engine::Edit::SetParam { id, key, text: Some(text) }] = &frame.edits[..] else { panic!("{:?}", frame.edits) };
     assert_eq!((id.as_str(), key.as_str(), text.as_str()), ("9bc1790966687030", "value", "5"));
     assert_eq!(frame.select, Some(vec!["9bc1790966687030".to_owned()]));

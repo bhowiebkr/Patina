@@ -6,6 +6,7 @@ use std::ops::RangeInclusive;
 
 mod code;
 mod layers;
+mod layout;
 mod path;
 mod ramp;
 mod timeline;
@@ -210,6 +211,7 @@ number!(f32, f64, i32, i64, u32);
 /// ```
 pub struct Ui {
     mode: Mode,
+    pub(crate) available_size: Option<[f32; 2]>,
     /// The events from the editor: the index of the widget and the new value.
     events: Vec<(u32, String)>,
     /// One line for each widget: the kind, the text and the value, with tabs between them.
@@ -223,6 +225,7 @@ impl Ui {
     /// A GUI in mode `mode` (0 compact, 1 large, 2 full), with the events of `events`. Each line of
     /// `events` is the index of a widget and its new value. The editor makes this text.
     pub fn new(mode: u32, events: &str) -> Ui {
+        let available_size = layout::size(events);
         let mode = match mode {
             1 => Mode::Large,
             2 => Mode::Full,
@@ -235,7 +238,7 @@ impl Ui {
                 Some((index.parse().ok()?, value.to_owned()))
             })
             .collect();
-        Ui { mode, events, tree: String::new(), next: 0, params: Vec::new() }
+        Ui { mode, available_size, events, tree: String::new(), next: 0, params: Vec::new() }
     }
 
     /// The size to draw (4.3).
@@ -550,7 +553,7 @@ impl Ui {
     /// to the buffer `tree`.
     pub(crate) fn viewer(mut tree: String) -> Ui {
         tree.clear();
-        Ui { mode: Mode::Large, events: Vec::new(), tree, next: 0, params: Vec::new() }
+        Ui { mode: Mode::Large, available_size: None, events: Vec::new(), tree, next: 0, params: Vec::new() }
     }
 
     /// The buffer of the widget lines, for the next viewer.

@@ -317,6 +317,8 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
             return <AssetPicker key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
           case 'tabs':
             return <Tabs key={w.index} w={w} send={send(w.index)} disabled={disabled} />;
+          case 'group':
+            return <div key={w.index} className={w.minWidth ? 'gui-columns' : 'gui-column'} style={{ '--column-min': `${w.minWidth}px` } as CSSProperties}>{w.items.map(draw)}</div>;
           case 'section':
             return (
               <Section key={w.index} w={w} send={send(w.index)} disabled={disabled}>

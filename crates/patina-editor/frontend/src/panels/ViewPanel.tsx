@@ -2,8 +2,9 @@
 // lines at the display rate while it shows, and sends the user input with the next ask.
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { api, type View } from '../api';
+import { api, beginGuiGesture, type View } from '../api';
 import { GuiWidgets } from '../controls/NodeGui';
+import { ViewInput } from './viewInput';
 
 interface Props {
   /** The view folder `views/<name>`, or null when no view is open. */
@@ -26,7 +27,9 @@ export function ViewPanel({ name, instance, revision, trusted, onView, selected,
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [handle, setHandle] = useState(0);
-  const events = useRef<string[]>([]);
+  const events = useRef(new ViewInput());
+  const area = useRef<HTMLDivElement>(null);
+  const size = useRef([260, 200]);
   const show = useRef(onView);
   show.current = onView;
   const pick = useRef(onSelect);
@@ -38,14 +41,25 @@ export function ViewPanel({ name, instance, revision, trusted, onView, selected,
   }, []);
 
   useEffect(() => {
+    if (!area.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      size.current = [Math.max(1, Math.floor(entry.contentRect.width)), Math.max(1, Math.floor(entry.contentRect.height))];
+    });
+    observer.observe(area.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!name || !trusted) return;
+    events.current = new ViewInput();
     let live = true;
     let frame = 0;
     setTree(null);
     setError(null);
     const ask = () => {
-      const lines = events.current.splice(0).join('\n');
-      api.viewUi(name, instance, lines, selected.current).then(
+      const input = events.current.take();
+      const lines = `@size ${size.current.join(' ')}\n${input.events}`;
+      api.viewUi(name, instance, lines, selected.current, input.gesture).then(
         (f) => {
           if (!live) return;
           setTree(f.tree);
@@ -79,11 +93,10 @@ export function ViewPanel({ name, instance, revision, trusted, onView, selected,
       </>
     );
   else if (tree === null) body = <div className="item empty">Building the view</div>;
-  else body = <GuiWidgets tree={tree} disabled={false} label="View controls" send={(line) => events.current.push(line)} window={handle} />;
+  else body = <GuiWidgets tree={tree} disabled={false} label="View controls" send={(line) => events.current.push(line, beginGuiGesture)} window={handle} />;
   return (
     <aside className="panel" aria-label="View">
-      {name && <div className="panel-title">{name}</div>}
-      {body}
+      <div ref={area} className="view-controls">{body}</div>
     </aside>
   );
 }

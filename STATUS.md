@@ -19,6 +19,10 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- View layout: twelve dock instances, responsive columns, dock size reads, and one undo step per canvas drag.
+  Windows frontend checks, workspace Clippy, and workspace tests passed on 2026-11-18.
+  The synth dock tools are in progress. Their GUI resize checks are not complete.
+
 - Ember sound workbench: 34 node types, three playable patches, instrument panels, live waveform cables, and offline WAV export through the CLI.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.

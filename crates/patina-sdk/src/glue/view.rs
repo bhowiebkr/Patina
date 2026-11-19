@@ -41,8 +41,10 @@ pub unsafe fn view_ui<T>(
     let caught = catch_quiet(AssertUnwindSafe(|| {
         ui(view, &mut gui, &mut graph);
         // A widget writes its value before it applies its event, so draw again with the new state.
-        if !events.is_empty() {
+        if events.lines().any(|line| line.split_once(' ').is_some_and(|(index, _)| index.parse::<u32>().is_ok())) {
+            let size = gui.available_size();
             gui = Ui::new(mode, "");
+            gui.available_size = size;
             ui(view, &mut gui, &mut graph);
         }
         Ok(())
