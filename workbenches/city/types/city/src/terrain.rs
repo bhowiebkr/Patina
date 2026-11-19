@@ -304,7 +304,6 @@ pub(crate) fn face_normal([a, b, c]: [[f32; 3]; 3]) -> [f32; 3] {
     if length > 0.0 { n.map(|c| c / length) } else { [0.0, 0.0, 1.0] }
 }
 
-/// The distance from `p` to the segment from `a` to `b`.
 /// The across place of the river at each of `count` rows: the path of least height that moves at
 /// most one of `lanes` lanes for each row, with a pull to `center`, smoothed.
 fn valley(count: usize, lanes: usize, step: f64, center: f64, span: f64, terrain: &Terrain, at: impl Fn(usize, f64) -> [f64; 2]) -> Vec<f64> {
@@ -342,6 +341,7 @@ fn valley(count: usize, lanes: usize, step: f64, center: f64, span: f64, terrain
         .collect()
 }
 
+/// The distance from `p` to the segment from `a` to `b`.
 pub(crate) fn segment_distance(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
     let (ab, ap) = ([b[0] - a[0], b[1] - a[1]], [p[0] - a[0], p[1] - a[1]]);
     let l2 = ab[0] * ab[0] + ab[1] * ab[1];

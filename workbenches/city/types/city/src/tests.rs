@@ -225,6 +225,22 @@ fn a_terrain_has_hills_inland_and_sea_on_one_side() {
 }
 
 #[test]
+fn erosion_cuts_the_slopes_and_keeps_or_loses_soil() {
+    let t = terrain(Seed(3), &land()).unwrap();
+    let e = erode(&t, Seed(4), 1.0).unwrap();
+    assert_eq!(e, erode(&t, Seed(4), 1.0).unwrap());
+    assert_eq!(erode(&t, Seed(4), 0.0).unwrap(), t);
+    assert!(erode(&t, Seed(4), MAX_DROPS + 1.0).is_err() && erode(&t, Seed(4), f64::NAN).is_err());
+    assert!(e.heights.iter().all(|h| h.is_finite()), "{e:?}");
+    let sum = |t: &Terrain| t.heights.iter().map(|&h| f64::from(h)).sum::<f64>();
+    let peak = |t: &Terrain| t.heights.iter().fold(f32::MIN, |a, &b| a.max(b));
+    // A drop can take soil out of the area at the edge, but it never makes soil.
+    assert!(sum(&e) <= sum(&t) + 1e-3 && peak(&e) < peak(&t), "{t:?} to {e:?}");
+    let cut = t.heights.iter().zip(&e.heights).map(|(a, b)| a - b).fold(0.0, f32::max);
+    assert!(cut > 0.5, "the deepest cut is {cut} m");
+}
+
+#[test]
 fn a_river_cuts_water_across_and_never_raises_the_ground() {
     let t = terrain(Seed(5), &Land { coast: 0.0, ..land() }).unwrap();
     let r = river(&t, Seed(5), 20.0, 2.0).unwrap();

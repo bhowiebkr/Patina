@@ -3,6 +3,7 @@
 
 mod buildings;
 mod density;
+mod erosion;
 mod facades;
 mod grow;
 mod highways;
@@ -22,6 +23,7 @@ use patina_sdk::{Text, Viewer};
 
 pub use buildings::{Building, Buildings, Kind, Roof, Style, Tier, buildings};
 pub use density::{Density, MAX_CENTERS, density};
+pub use erosion::{MAX_DROPS, erode};
 pub use facades::facades;
 pub use grow::{MAX_ROADS, grow, prune};
 pub use highways::{MAX_GATES, highways};

@@ -270,7 +270,7 @@ owner can change them. All the logic stays in `workbenches/city`. The tool does 
 
 - **E9. Terrain.**
   - `terrain`: a height map from layers of value noise, with a slope down to the coast on one
-    side. Sea level sets the water.
+    side. Sea level sets the water. Hydraulic erosion cuts the valleys (added 2026-11-19).
   - `river`: a river along the valleys from the highest edge to the lowest edge, cut below the
     sea level.
   - `ground`: the terrain as a scene: grass, sand near the water, rock on steep slopes, and the

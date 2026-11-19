@@ -342,10 +342,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - A cut across a concave block gives one lot for each part, not one lot with a bridge of no
     width over the street.
   - A thin lot becomes a park (2 x area / perimeter below 4 m), so it gets no thin building.
-  - Checked on Windows: 19 unit tests of `types/city` and the other city crate tests, and the
-    CLI test with `main`, `planned`, the 1 km check and the export of 162 buildings.
-  - `main`: 542 items, 53468 places and 1646995 triangles. `planned`: 1269 items and 4580506
-    triangles. A city of 1 km x 1 km: 2750463 triangles, 0.16 s after the build in the CLI
+  - `terrain` has hydraulic erosion (2026-11-19): drops of rain cut the valleys and sharpen the
+    ridges. The sea takes their soil, so the coast stays. **erosion** sets the drops for each
+    sample (default 1, 0 to 8). A unit test checks the seed, 0 drops, the range and the soil.
+    The hidden editor shot of `city` showed the eroded city in `model-view`, and seed 8 passed.
+  - Checked on Windows: 20 unit tests of `types/city` and the other city crate tests, and the
+    CLI test with `main`, `planned`, the 1 km check and the export of 173 buildings.
+  - `main`: 574 items, 42651 places and 1329526 triangles. `planned`: 1269 items and 4580506
+    triangles. A city of 1 km x 1 km: 3128723 triangles, 0.34 s after the build in the CLI
     test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
@@ -356,7 +360,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
-  - The terrain is value noise with no erosion. The river does not cut the valleys.
+  - The erosion has no rivers of its own. The `river` node does not cut the valleys.
   - A cut across a concave block gives separate lots. A thin part of a block is a park, not
     a part of the next lot.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
