@@ -292,13 +292,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### Gate cycles, 2026-11-18
 
-- A cycle of light gates with no state runs with no delay. It runs again in the frame until its
-  values settle (spec 9.2). The `latch` graph of `examples/computer` is a D latch of two NOR
+- A cycle of light gates with no state runs with no delay. Each gate runs one time in each frame,
+  as in Digital Logic Sim 2, so a latch settles over some frames (spec 9.2). The `latch` graph of `examples/computer` is a D latch of two NOR
   gates. The CLI test runs it for 16 frames and checks that it keeps its value. It also checks
-  the **WARN** line of a NAND gate that reads its own output.
+  that a NAND gate that reads its own output changes at each frame, with no **WARN** line.
 - Known limits: a rebuild of the cluster, for example after a graph edit, sets the values of a
-  cycle back to the default, so a latch forgets its value. A cycle that does not settle stops
-  after 64 passes. No check ran the latch in the editor.
+  cycle back to the default, so a latch forgets its value. No check ran the latch in the editor.
 
 ### Touchpad pan
 

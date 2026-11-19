@@ -302,8 +302,8 @@ of the CUDA Toolkit 12.
 A graph can be a digital circuit. The `examples/computer` project has one node for the gate,
 `nand`. The other gates, the adders and a 4-bit counter are subgraphs of NAND gates. Each frame
 is one clock step. A `delay` node keeps a bit for one step, as a flip-flop does. A loop of gates
-with no state needs no delay: it runs again in the frame until its values settle. So two NOR
-gates make a latch, as in a logic simulator. Run the example and the latch:
+with no state needs no delay: each gate of the loop runs one time in each frame, and a wire back
+gives the value of the frame before. So two NOR gates make a latch, as in a logic simulator. Run the example and the latch:
 
 ```
 cargo run -p patina-cli -- run examples/computer --frames 16

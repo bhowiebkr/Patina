@@ -92,16 +92,19 @@ fn the_d_latch_of_two_nor_gates_keeps_its_value() {
     let (output, stdout, stderr) = run(&project, &["--graph", "latch", "--frames", "16"]);
     assert!(output.status.success(), "{stderr}");
     // The bits 0 to 3 are Q, STORE, DATA and not Q. With STORE on, Q follows DATA. With STORE off,
-    // Q keeps its value: 1 after 7, and 0 after 10 (9.2).
+    // Q keeps its value: 1 after 7, and 0 after 10. Each gate runs one time in each frame, so at
+    // the second set, Q reads the not Q of the frame before and comes one frame later (6, 9.2).
     let lines: Vec<&str> = stdout.lines().collect();
-    assert_eq!(lines, ["00000111 7", "00000001 1", "00001010 10", "00001000 8", "00000111 7", "00000001 1", "00001010 10", "00001000 8"]);
-    assert!(!stderr.contains("did not settle"), "{stderr}");
-    // A NAND gate that reads its own output never settles, so the run warns (9.2).
+    assert_eq!(lines, ["00000111 7", "00000001 1", "00001010 10", "00001000 8", "00000110 6", "00000001 1", "00001010 10", "00001000 8"]);
+    // A NAND gate that reads its own output runs one time in each frame, so it changes at each frame (9.2).
     let osc = "format = 1\ntop = true\n[[node]]\nid = \"5a0c3e7b9d1f2468\"\nfolder = \"nodes/nand\"\ndomain = \"frame\"\n[node.params]\nb = \"true\"\n\
-               [[wire]]\nfrom = \"5a0c3e7b9d1f2468.out\"\nto = \"5a0c3e7b9d1f2468.a\"\n";
+               [[node]]\nid = \"2d9b5f1c7e3a0846\"\nfolder = \"nodes/join\"\n[[node]]\nid = \"a8e4c0b6d2f19573\"\nfolder = \"nodes/readout\"\n\
+               [[wire]]\nfrom = \"5a0c3e7b9d1f2468.out\"\nto = \"5a0c3e7b9d1f2468.a\"\n[[wire]]\nfrom = \"5a0c3e7b9d1f2468.out\"\nto = \"2d9b5f1c7e3a0846.b0\"\n\
+               [[wire]]\nfrom = \"2d9b5f1c7e3a0846.out\"\nto = \"a8e4c0b6d2f19573.value\"\n";
     fs::write(project.join("graphs/osc.toml"), osc).unwrap();
-    let (output, _, stderr) = run(&project, &["--graph", "osc", "--frames", "2"]);
-    assert!(output.status.success() && stderr.contains("did not settle in 64 passes"), "{stderr}");
+    let (output, stdout, stderr) = run(&project, &["--graph", "osc", "--frames", "4"]);
+    assert!(output.status.success() && !stderr.contains("WARN"), "{stderr}");
+    assert_eq!(stdout.lines().collect::<Vec<_>>(), ["00000001 1", "00000000 0", "00000001 1", "00000000 0"]);
 }
 
 #[test]

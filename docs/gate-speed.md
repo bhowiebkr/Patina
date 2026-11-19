@@ -31,10 +31,11 @@ The download in `reference_logic_sim/` is not DLS2. Its code has `AndGate` and `
 NAND, ROM or RAM chips. Its files are from 2024-01-05, before DLS2. It is the older version 1.
 Patina did not run it.
 
-Patina has one frame for each clock step (spec 9.2), so a gate cycle must settle in the frame. It
-runs the cycle again in the frame until no back value changes. This does the work of the DLS2
-steps between two clock edges. The pass order is fixed, so a race always ends in the same state.
-The cap of 64 passes is an agent decision. DLS2 has 250 steps between two clock edges.
+Patina runs a gate cycle as DLS2 does (spec 9.2): each gate of the cycle runs one time in each
+frame, and a wire back gives the value of the frame before. There is no pass limit and no
+warning, so a latch settles over some frames. The order is fixed, with no random changes, so a
+race always ends in the same state. DLS2 has 250 steps between two clock edges. In Patina, a
+`clock` node gives a tick each N frames, so a latch has N frames to settle.
 
 ## How Patina runs a circuit
 

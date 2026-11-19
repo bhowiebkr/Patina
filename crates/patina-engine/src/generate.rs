@@ -17,9 +17,6 @@ use exports::{EXPORTS, LOGGER};
 
 const HEADER: &str = "# Made by Patina. Patina writes this file again at each build.\n";
 
-/// The most passes of a cycle of gates in one run (9.2). A cycle that settles needs few passes.
-const PASSES: u32 = 64;
-
 /// The domains that get a cluster: each domain with a step, or batch for a graph with no step.
 /// shortcut: one cluster for each domain, with no boundary at large nodes (8.2). Split at large nodes and subgraphs when milestone 6 measures the need.
 pub fn domains(plan: &Plan) -> Vec<Domain> {
@@ -280,17 +277,15 @@ fn tasks(s: &mut String, plan: &Plan, domain: Domain) {
                 "            let mut n{n}_{k} = if false {{ ::std::option::Option::Some(::patina_sdk::glue::like(&w{n}).{k}) }} else {{ ::std::option::Option::None }};"
             );
         }
+        // A net ends at the edge of a cycle, so the values of the cycle are in scope for `save_backs`.
         for run in task.steps.chunk_by(|&a, &b| gates[a] && gates[b] && plan.loop_of(a) == plan.loop_of(b)) {
-            if plan.loops.iter().any(|&(first, _)| first == run[0]) {
-                let _ = writeln!(s, "            let mut pass{} = 0u32;\n            loop {{", run[0]);
-            }
             if gates[run[0]] {
                 net(s, plan, run, &probes);
             } else {
                 step(s, plan, run[0], probes[run[0]]);
             }
             if let Some(&(first, last)) = plan.loops.iter().find(|&&(_, last)| last == run[run.len() - 1]) {
-                settle(s, plan, first, last);
+                save_backs(s, plan, first, last);
             }
         }
         for (n, k) in &local {
@@ -311,21 +306,16 @@ fn backs(plan: &Plan, first: usize, last: usize) -> BTreeSet<(usize, usize)> {
     (first..=last).flat_map(back).collect()
 }
 
-/// Ends a pass of the cycle of gates from step `first` to step `last` (9.2). Each wire back gets
-/// the newest value. The passes stop when no value changes, or after `PASSES` with a warning.
-fn settle(s: &mut String, plan: &Plan, first: usize, last: usize) {
-    s.push_str("            let mut moved = false;\n");
+/// Ends the run of the cycle of gates from step `first` to step `last` (9.2). Each wire back keeps
+/// the newest value for the next frame or block, as a pin of Digital Logic Sim 2 does.
+fn save_backs(s: &mut String, plan: &Plan, first: usize, last: usize) {
     for (from, k) in backs(plan, first, last) {
         let _ = writeln!(
             s,
-            "            if let ::std::option::Option::Some(v) = {}.as_ref() {{ if *b{from}_{k}.read() != *v {{ *b{from}_{k}.write() = *v; moved = true; }} }}",
+            "            if let ::std::option::Option::Some(v) = {}.as_ref() {{ *b{from}_{k}.write() = *v; }}",
             held(plan, from, k)[0]
         );
     }
-    let _ = writeln!(
-        s,
-        "            pass{first} += 1;\n            if !moved {{ break; }}\n            if pass{first} == {PASSES} {{ ::patina_sdk::glue::unsettled({first}, pass{first}); break; }}\n            }}"
-    );
 }
 
 /// Writes the arms that move the states (7.2) and the links between domains (8.2), and the start

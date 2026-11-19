@@ -32,8 +32,8 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 - **Segment buses.** A `segment-bus` wire has the 7 lanes a to g of a 7-segment display. It
   is copper.
 - **A D latch.** The `latch` graph has a `d-latch` of two NOR gates that read each other, with
-  no delay. The loop runs again in the frame until its values settle. **STORE** copies **DATA**
-  to **Q**, and the latch keeps **Q** when **STORE** is false.
+  no delay. Each gate runs one time in each frame, so the latch settles over some frames.
+  **STORE** copies **DATA** to **Q**, and the latch keeps **Q** when **STORE** is false.
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
 - **Node GUIs.** The `program`, `ram`, `readout`, `display`, `lcd`, `clock`, `analyzer`,
