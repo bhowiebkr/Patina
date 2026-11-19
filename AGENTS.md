@@ -65,8 +65,11 @@ These are the work rules for AI agents in this repository.
 - A milestone 0 prototype is proven on a platform only when it ran on that platform. A
   cross-target `cargo clippy` does not link, so it does not prove a prototype. Write which
   platforms ran and which did not.
-- Before a commit, run the commands of
-  [.github/workflows/ci.yml](.github/workflows/ci.yml), as GitHub Actions does:
+- Do not use GitHub Actions, unless the owner builds a release. A push to `main` and a pull
+  request start a workflow run. Thus, outside a release, commit locally and do not push. Do not
+  open a pull request. Do not start, run again or watch a workflow run.
+- Do all builds and checks locally. Before a commit, run the commands of
+  [.github/workflows/ci.yml](.github/workflows/ci.yml) on this computer:
   `cargo clippy --workspace --all-targets --locked -- -D warnings` and
   `cargo test --workspace --locked`.
 - When the editor frontend exists, add its lint and tests to the workflow. Run them before each
@@ -150,7 +153,7 @@ a report about the spec helps as much as a report about code.
 
 - Draft an issue for a bug, a gap or a contradiction in the spec. Also draft an issue for a
   change that you will not finish in this task. Offer to file each draft.
-- When a fix or an improvement is ready, offer a pull request.
+- When a fix or an improvement is ready, commit it locally. Offer a pull request only for a release.
 - Filing publishes under the GitHub account of the person. Show them the draft and the account.
   File only with their approval or standing permission. Never switch `gh` accounts.
 - First, read the known limits in STATUS.md. These items are feature requests. Then search the
