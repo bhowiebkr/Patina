@@ -28,6 +28,8 @@ The editor has these mockup features. They are not gaps.
 - The status bar count **Errors: N** with a red dot, a time on each **Logs** line, one red line
   for each error, the state icon on the error well, and the kind line and the state icon in the
   **Inspector** header (mockup 3).
+- With an error, the code area of the **Code** tab has the height of its text, so the error
+  well is directly under the code (mockup 3, 2026-11-19).
 - Compact node GUIs in the node body, and **Full** GUIs in the graph area with **Back** and Esc.
 - Custom views in dock panels, with no pins (mockups 5, 8, 9 and 10).
 - The automatic route around the nodes, route points, orthogonal segment bars, **Reset route**,
@@ -57,9 +59,7 @@ The editor has these mockup features. They are not gaps.
 
 ## Editor gaps
 
-- Low: the error well of the **Code** tab is at the bottom of the panel, not directly under
-  the code (mockup 3). Monaco needs a fixed height, so the code area must first measure the
-  height of its text.
+None.
 
 ## Shared widget gaps
 
@@ -67,5 +67,5 @@ None.
 
 ## Next steps
 
-One low gap is open. When a new mockup comes, compare it with the program and add each gap here. Each
+No gap is open. When a new mockup comes, compare it with the program and add each gap here. Each
 gap needs a spec decision before the build.
