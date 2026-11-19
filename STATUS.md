@@ -421,10 +421,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The CLI test runs `main`, the export with a trigger, and each guide graph.
   - The hidden model shot opens the view in the second pane, changes the seed and sees a new
     mesh (task D5). It is the selfcheck step of D8.
+  - The shot opens each guide graph and checks its layout (2026-11-19). The rows of the guide
+    graphs are now 420 units apart, so the nodes with a 3D preview do not overlap.
 - Known limits:
   - The CLI test of the guide graphs checks the triangle count and the bounds, not the hash.
     Round shapes can give another hash on another platform.
-  - The shot checks the layout of `main` only, not the layout of the guide graphs.
 
 ### Model workbench export, 2026-11-19
 
@@ -850,6 +851,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   main graph, and the first node of each new kind in a subgraph. Its **Inspector** must not
   scroll to the side, cut a label, show an error or show a GUI that cannot draw (added
   2026-11-18).
+- Since 2026-11-19, the shot also opens each top graph of the project and does the same checks.
+  A wire with a manual route (curved, orthogonal or polyline) keeps its path, so the shot does
+  not check it for node bodies. A graph with a saved pan and zoom does not get the fit test.
 - The order pins of a free node covered the first letters of its name, for example
   **Gradient** in gpu (fixed 2026-11-18). The name now starts after the left pin. The shot checks
   that no pin covers the title of a node.
