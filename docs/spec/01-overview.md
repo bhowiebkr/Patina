@@ -18,6 +18,7 @@ Example uses (not limits): sound effect editors, image and shader editors, autom
 4. **Fast iteration.** A change to one node recompiles only that node. The target is a few seconds. Milestone 0 measures it (19). The rest of the graph stays optimized (7).
 5. **Portable or installed.** The user unzips a release and runs it. Or the user installs it with the installer of the platform (13.1). macOS has only the installed edition. The portable edition makes no changes to the system. Patina downloads extra components with one button. Exceptions: see 13.4.
 6. **Windows first.** Windows is the main platform. Linux and macOS get basic builds, and contributors who use them improve them (13.5).
+7. **Small core.** Domain logic goes into workbenches, not into the tool. A workbench is a Patina project for one domain, for example sound or digital logic. Patina ships the included workbenches, and users make their own. The engine, the editor, the CLI and the SDK get only the features that each domain can use. A person who builds a digital logic computer does not need a 3D model generator. Later, the workbenches can move out of the Patina repository, so a workbench uses only the SDK and its own folders. Owner decision of 2026-11-19. See [the workbench plan](../workbenches-plan.md).
 
 ## 3. Architecture
 

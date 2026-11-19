@@ -49,8 +49,8 @@ The UI cannot show an unknown type by itself.
 - Each node has a stable random ID. The ID does not change when the node moves to another subgraph or file.
 - A subgraph is a group of nodes that shows as one node. The user can collapse and expand it, and reuse it in other graphs.
 - A subgraph is a candidate for one cluster (see 8.2).
-- A project has one or more top graphs. `main` is the first top graph. Each top graph is a
-  workbench: an empty canvas or a different build that uses the same folders and subgraphs.
+- A project has one or more top graphs. `main` is the first top graph. A top graph can be an
+  empty canvas, or a different build that uses the same folders and subgraphs.
 - Only a top graph runs, and only one at a time. When the user opens a top graph, it runs in
   place of the last top graph. When a subgraph is open, the last top graph runs on.
 - A subgraph use cannot name a top graph, and a clip cannot bring one (15.11).

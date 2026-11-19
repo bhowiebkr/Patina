@@ -114,7 +114,7 @@ in the **Project** panel and click **Delete**. The folder goes to the Recycle Bi
 delete the open graph or the graph that runs, `main` or the graph that runs opens in its place.
 The `main` graph cannot go.
 
-A project can have more than one top graph, for example an empty workbench next to a finished
+A project can have more than one top graph, for example an empty canvas next to a finished
 build. To make one, click **New graph** in the **Graphs** group of the **Project** panel and type
 a name. The new graph uses the same nodes and subgraphs. Only one top graph runs: the last top
 graph that you opened. The hint **runs** shows it. To run another top graph from the command
@@ -737,6 +737,8 @@ questions.
   and the plan to make it faster.
 - [Performance audit](docs/performance-audit.md): execution and display costs, measured checks,
   and proposed improvements for complex graphs.
+- [Workbench plan](docs/workbenches-plan.md): the split center area, the name "workbench" for
+  the included projects, and the 3D model, city and gun workbenches.
 - [Smart material workbench plan](docs/smart-material-workbench.md): the Surface source study,
   material contracts, node design and integration milestones.
 - [Laser measurement design](docs/laser-measurement-design.md): nodes and views for a laser
