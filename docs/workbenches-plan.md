@@ -186,6 +186,16 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
     fix: a slow view drew at an old place.
 - **D6. Export.** A node writes `.glb`, `.obj` and `.stl` with a small writer in the workbench.
   The sockets go into the glTF extras. The node writes only after a button or a trigger.
+- Agent decisions of 2026-11-19 for D6, the owner can change them:
+  - The node writes after a click on **Export**, or when `patina_sdk::fired()` is true. An
+    order wire from a `trigger` node puts the node in the event domain (spec 9.4).
+  - `patina_sdk::fired()` is a generic tool addition of about 15 lines. It is true while a node
+    runs for a fire of a trigger.
+  - The `.glb` and the `.obj` files have Y up. The `.stl` file keeps Z up.
+  - The `.glb` file has one primitive for each part, with no indices. The sockets go into the
+    `extras.sockets` of the model node, with Y up.
+  - The node replaces the file through a temporary file. The `.obj` and the `.stl` files have
+    no sockets.
 - **D7. Graphs and guide.** A `main` graph with a seeded sample model, learning graphs and a
   README.
 - **D8. Checks.** The seed test, a mesh test, a headless CLI run, a selfcheck step (open the
@@ -241,6 +251,8 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   wait during a batch run, so D4b is open. Next is D5.
 - 2026-11-19: D5 is done on Windows. The hidden shot check opens the view next to the graph,
   changes the seed and sees a new mesh. Next is D6.
+- 2026-11-19: D6 is done on Windows. The CLI test runs the export with a trigger and reads the
+  `.glb` file. A run with no fire writes no file. Next is D7.
 
 ## Order
 

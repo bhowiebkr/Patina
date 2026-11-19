@@ -50,6 +50,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
   (task D4).
 - Model workbench 3D view: `model-view` opens next to the graph and shows the solid of the
   selected node, with orbit, pan, zoom, a grid, part colors and a wireframe (task D5).
+- Model workbench export: the `export` node writes `.glb`, `.obj` and `.stl` files after a
+  click on **Export** or at a trigger fire. The sockets go into the glTF extras (task D6).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -271,6 +273,22 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The kernel has no loft, no fillet and no bevel.
   - `pick` chooses one of two inputs. Chain picks for more choices.
   - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
+
+### Model workbench export, 2026-11-19
+
+- Task D6: the `export` node of [workbenches/model](workbenches/model/README.md) writes the
+  solid with a small writer in the `geometry` crate. The agent decisions are in
+  [the workbenches plan](docs/workbenches-plan.md), task D6.
+- Tool change: `patina_sdk::fired()` is true while a node runs for a trigger fire (9.4).
+- Checked on 2026-11-19, on Windows only:
+  - The CI clippy and `cargo test --workspace`. The CLI test runs the tower with no fire and
+    sees no file. Then it adds a `trigger` and an order wire, and reads the `.glb` file.
+  - The unit tests of `geometry` and `export` and their clippy, with the MSVC toolchain. They
+    check the three formats, the sockets in the extras, the replace and the click rule.
+- Known limits:
+  - The `.obj` and the `.stl` files have no sockets. The export writes no materials.
+  - No other program opened the files. The tests read the bytes only.
+  - The **Export** click in the editor is not checked. The unit test checks its rule.
 
 ### Model workbench 3D view, 2026-11-19
 

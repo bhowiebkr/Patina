@@ -1,6 +1,7 @@
 //! The geometry types of the model workbench: solids and sketches from the Manifold kernel,
 //! meshes, sockets and seeds. The kernel is C++ in `vendor/`, and `build.rs` compiles it.
 
+pub mod export;
 mod mesh;
 mod seed;
 mod sketch;

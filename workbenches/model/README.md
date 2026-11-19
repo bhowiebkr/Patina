@@ -5,8 +5,8 @@ the output. The city and the gun workbenches use it as a library. The plan is in
 [the workbenches plan](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches-plan.md),
 task D.
 
-This workbench is at task D5. It has the types, the base nodes, the run model and the 3D view.
-The export, the guide graphs and the checks come in tasks D6 to D8.
+This workbench is at task D6. It has the types, the base nodes, the run model, the 3D view and
+the export. The guide graphs and the checks come in tasks D7 and D8.
 
 ## Run the workbench
 
@@ -45,6 +45,26 @@ has no solid, the view keeps the last solid.
   and **Part colors** gives each part its own color.
 - Each new value of the node, for example after a seed change, shows at once. The camera stays.
 
+## Export a model
+
+The `export` node writes its solid to a `.glb`, `.obj` or `.stl` file. The file extension
+selects the format. A relative path starts at the project folder. Do these steps:
+
+1. Connect a solid to the `solid` input of an `export` node.
+2. Click **File** in the node and choose a file name.
+3. Click **Export**.
+
+The node writes only after a click on **Export**. A run after a change does not write. To write
+at each fire of a trigger, connect an order wire from a `trigger` node to the `export` node.
+`patina-cli run workbenches/model --events 1` fires each trigger one time.
+
+- The `.glb` file has one primitive for each part. The `sockets` input goes into the glTF
+  extras of the model node, as `extras.sockets`.
+- The `.glb` and the `.obj` files have Y up, as glTF and most game tools expect. The `.stl`
+  file keeps Z up.
+- The node writes a temporary file first and then replaces the old file. A failed write keeps
+  the old file.
+
 ## Measure the builds
 
 To measure the build times, run this command from `workbenches/model`:
@@ -78,6 +98,7 @@ cargo test --release -p geometry measure -- --ignored --nocapture
   - Random: `seed` makes a sub-seed, `random` gives a number in a range and `pick` chooses one
     of two solids by weights.
   - `report` writes the solid as text.
+  - `export` writes the solid to a `.glb`, `.obj` or `.stl` file.
 - `types/geometry/vendor` has the C++ sources of Manifold and Clipper2, with their licenses.
   The build needs no download of C++ sources and no CMake. See
   [the vendor notes](types/geometry/vendor/README.md).
@@ -92,5 +113,6 @@ cargo test --release -p geometry measure -- --ignored --nocapture
 - The same graph gives the same mesh on MSVC and on the Patina toolchain for boxes, polygons,
   moves and turns by multiples of 90 degrees. Round shapes and other turns use the sine of the
   C++ runtime, so the last bit can be different on another platform. This is not checked.
+- The `.obj` and the `.stl` files have no sockets. The export writes no materials.
 - A number input with no wire starts at 0. Thus `taper` 0 keeps the top size, `gap` 0 makes a
   full turn and `segments` 0 lets the kernel choose.

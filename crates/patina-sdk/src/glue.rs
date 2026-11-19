@@ -186,6 +186,8 @@ thread_local! {
     static RUN: Cell<*const Reporter> = const { Cell::new(std::ptr::null()) };
     /// The node that runs on this thread, for `log_line`.
     static NODE: Cell<u32> = const { Cell::new(IDLE) };
+    /// True during a fire of a trigger on this thread (9.4), for `fired`.
+    static FIRING: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Calls `f` with the reporter of the run on this thread. Gives None outside a run.
@@ -199,6 +201,10 @@ fn with_run<R>(f: impl FnOnce(&Reporter) -> R) -> Option<R> {
 /// for the crash handler of the engine (16.1). It never allocates and never waits.
 pub fn thread_node() -> u32 {
     NODE.try_with(Cell::get).unwrap_or(IDLE)
+}
+
+pub(crate) fn fired() -> bool {
+    FIRING.get()
 }
 
 pub(crate) fn stop_requested() -> bool {

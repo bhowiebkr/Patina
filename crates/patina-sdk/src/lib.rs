@@ -42,6 +42,12 @@ pub fn stop_requested() -> bool {
     glue::stop_requested()
 }
 
+/// True while the node runs for a fire of a trigger (9.4). A node that writes a file can thus
+/// write at a fire, and not at each batch run. It is false outside a fire and on other threads.
+pub fn fired() -> bool {
+    glue::fired()
+}
+
 /// A type that can be a parameter: an input pin with no wire (spec 4.8).
 ///
 /// The text form is for save and undo (6.4). Parse errors give a message for the person.

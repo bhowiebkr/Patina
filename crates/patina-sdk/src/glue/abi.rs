@@ -5,7 +5,7 @@ use std::ffi::c_void;
 use std::panic::AssertUnwindSafe;
 use std::sync::atomic::Ordering::Relaxed;
 
-use super::{Cluster, Cmd, IDLE, Moved, NODE, RUN, Reporter, catch_unwind};
+use super::{Cluster, Cmd, FIRING, IDLE, Moved, NODE, RUN, Reporter, catch_unwind};
 
 /// The body of `patina_cluster_new`. Returns null when the parameter defaults panic.
 pub fn new_cluster(make: fn() -> Cluster) -> *mut Cluster {
@@ -95,7 +95,9 @@ pub unsafe fn fire(cluster: *const Cluster, task: u32, text: *const u8, len: usi
     let Ok(text) = std::str::from_utf8(bytes) else {
         return false;
     };
+    FIRING.set(true);
     let ok = in_run(rep, || (cluster.f)(Cmd::Fire(task, text), rep));
+    FIRING.set(false);
     rep.set_node(IDLE);
     NODE.set(IDLE);
     if let Some(control) = rep.control() {

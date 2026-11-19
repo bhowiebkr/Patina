@@ -178,3 +178,43 @@ fn seeds_and_sockets_have_a_text_form() {
         }
     }
 }
+
+#[test]
+fn the_export_writes_glb_obj_and_stl() {
+    use export::{Format, bytes};
+    let (a, b) = (Solid::cube(2.0, 2.0, 2.0).as_part(), Solid::cube(1.0, 1.0, 1.0).translate([1.5, 0.0, 0.0]).as_part());
+    let mesh = a.union(&b).mesh();
+    let sockets = Sockets::from_text("muzzle 0 0 2; grip\"x 1 2 3").unwrap();
+    let glb = bytes(&mesh, &sockets, Format::Glb).unwrap();
+    let word = |at: usize| u32::from_le_bytes(glb[at..at + 4].try_into().unwrap());
+    assert_eq!((&glb[..4], word(4), word(8) as usize), (&b"glTF"[..], 2, glb.len()));
+    let json = std::str::from_utf8(&glb[20..20 + word(12) as usize]).unwrap();
+    // Z up goes to Y up: the muzzle at z = 2 is at y = 2.
+    assert!(json.contains(r#""sockets":{"muzzle":{"origin":[0,2,0]"#), "{json}");
+    assert!(json.contains(r#""grip\"x":{"origin":[1,3,-2]"#), "{json}");
+    assert_eq!(json.matches("POSITION").count(), 2, "one primitive for each part");
+    assert_eq!(word(20 + word(12) as usize) as usize, mesh.triangles() * 3 * 32);
+    let obj = String::from_utf8(bytes(&mesh, &sockets, Format::Obj).unwrap()).unwrap();
+    assert_eq!(obj.lines().filter(|l| l.starts_with("v ")).count(), mesh.triangles() * 3);
+    assert_eq!(obj.lines().filter(|l| l.starts_with("f ")).count(), mesh.triangles());
+    assert_eq!(obj.lines().filter(|l| l.starts_with("g part")).count(), 2);
+    let stl = bytes(&mesh, &sockets, Format::Stl).unwrap();
+    assert_eq!(stl.len(), 84 + 50 * mesh.triangles());
+    assert!(bytes(&Solid::empty().mesh(), &sockets, Format::Stl).is_err());
+    assert!(Format::of(std::path::Path::new("gun.fbx")).is_err());
+    assert_eq!(Format::of(std::path::Path::new("Gun.GLB")), Ok(Format::Glb));
+}
+
+#[test]
+fn the_export_replaces_a_file_and_keeps_no_temporary_file() {
+    let folder = std::env::temp_dir().join(format!("patina-export-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("box.stl");
+    let sockets = Sockets::default();
+    export::write(&path, &Solid::cube(1.0, 1.0, 1.0).mesh(), &sockets).unwrap();
+    export::write(&path, &Solid::cube(1.0, 1.0, 1.0).union(&Solid::cube(1.0, 1.0, 1.0).translate([2.0, 0.0, 0.0])).mesh(), &sockets).unwrap();
+    assert_eq!(std::fs::metadata(&path).unwrap().len(), 84 + 50 * 24);
+    assert!(export::write(&folder.join("box.txt"), &Solid::cube(1.0, 1.0, 1.0).mesh(), &sockets).is_err());
+    assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
+    std::fs::remove_dir_all(&folder).unwrap();
+}
