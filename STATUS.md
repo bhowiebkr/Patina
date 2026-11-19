@@ -300,10 +300,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   node can have a text parameter. The new `d-flip-flop` subgraph is two D latches. A CLI test runs a
   4-bit counter of these flip-flops with no delay node, a ROM and a RAM that read their own output,
   and the new `pulse` and `bus` nodes. See [docs/dls2-parity.md](docs/dls2-parity.md).
+- The new `led`, `dot-display` and `rgb-display` nodes of `examples/computer` are the LED and the
+  16 x 16 displays of Digital Logic Sim 2, with the same pins. The CLI test writes a pixel at a
+  clock tick on each display. A hidden `--shot` drew the three nodes.
 - Known limits: a rebuild of the cluster, for example after a graph edit, sets the values of a
   cycle back to the default, so a latch forgets its value. No check ran the latch in the editor.
 - Known limits for the parts of Digital Logic Sim 2: no wire with many drivers (use `bus`), no
-  RGB or dot display, no buzzer, no Key chip, and no random order in a race. The `rom`, `pulse`
+  buzzer, no Key chip, and no random order in a race. The `rom`, `pulse`
   and `bus` nodes have no custom GUI, and no check ran them in the editor.
 
 ### Touchpad pan

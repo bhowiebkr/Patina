@@ -17,6 +17,8 @@ The CLI test `the_parts_of_digital_logic_sim_2_work_in_cycles_with_no_delay` in
 - A `rom` node that reads its own output as the next address.
 - A `ram` node that reads its own output.
 - A `clock`, a `pulse` and a `bus` node with three drivers.
+- A `dot-display` and an `rgb-display` that write a pixel at a clock tick. The dot lights an
+  `led`.
 
 A cycle can hold a node with state, for example `ram` or `rom`, because each node of the cycle
 runs one time in each frame. Each node of the cycle must be a light node (spec 4.1).
@@ -33,8 +35,8 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
 | Tri-state buffer and Bus | `bus` | Gives the OR of the drivers that are on, and 0 when no driver is on. |
 | Split and Merge, 8 bits | `split` and `join` | 8 bits only. For 4 bits, do not connect the high bits. |
 | 7-segment display | `display`, `seg-join`, `hex-7seg` | |
-| LED | `readout`, or the lit lanes of a wire | Gap: no LED node. |
-| Dot display and RGB display | `screen` and `gpu` | Gap: no 16 x 16 display that reads pins. |
+| LED | `led` | Lit when its input is true. It has one color. |
+| Dot display and RGB display | `dot-display` and `rgb-display` | The same pins and the same rule: at a rising edge of **clock**, **reset** or **write** changes the back buffer, then **refresh** shows it. The address is the row x 16 + the column, with row 0 at the bottom. The color inputs are bytes, and only the low 4 bits count. |
 | ROM 256 x 16 | `rom` | Type the 256 words in the **words** text. Decimal, `0x` hex and `0b` binary are OK. |
 | RAM | `ram` | 256 bytes. |
 | Buzzer | None | Gap. |
@@ -48,8 +50,8 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
 - **No Key chip.** A node canvas gets the keys only while it has the focus. Thus one node for
   each key can not read the keyboard at the same time. Use `button` nodes, the `joystick` or the
   `keyboard` node.
-- **No buzzer, no LED node, no dot or RGB display.** Use `readout`, `display`, `lcd`, `screen`
-  or `gpu`, or write a custom node (see [Write a custom node](custom-nodes.md)).
+- **No buzzer.** Write a custom node (see [Write a custom node](custom-nodes.md)). The `led`
+  has one color, not a color input.
 - **The ROM editor is a text.** Select the `rom` node and edit **words** in the **Inspector**.
   There is no grid editor.
 - **A ripple shows for one frame.** A counter of flip-flops can show a wrong value for one frame
@@ -60,4 +62,6 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
 ## Not checked
 
 - The `rom`, `pulse` and `bus` nodes have no custom GUI. No check ran them in the editor.
+- A hidden `--shot` drew the `led`, `dot-display` and `rgb-display` nodes. No person used them in
+  the editor.
 - No check ran these circuits on Linux or macOS.

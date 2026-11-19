@@ -169,6 +169,23 @@ fn the_parts_of_digital_logic_sim_2_work_in_cycles_with_no_delay() {
     let wires = [w("c0c0c0c0c0c0c001.out", "e000000000000004.input"), w("e000000000000004.out", "d000000000000001.b0"), w("d000000000000001.out", "e000000000000005.d0"), w("e000000000000005.out", &format!("{out}.value"))];
     fs::write(project.join("graphs/parts.toml"), graph(&parts, &wires)).unwrap();
     assert_eq!(values(&project, "parts", "9"), [65, 64, 65, 64, 65]);
+    // At a clock tick, the displays write a pixel and show it. The dot of the screen lights an LED.
+    let (dots, rgb, lamp) = ("e000000000000006", "e000000000000007", "e000000000000008");
+    let shows = [
+        ("c0c0c0c0c0c0c001", "folder = \"nodes/clock\"\n[node.params]\nevery = \"4\""),
+        (dots, "folder = \"nodes/dot-display\"\n[node.params]\naddress = \"17\"\npixel = \"true\"\nwrite = \"true\"\nrefresh = \"true\""),
+        (rgb, "folder = \"nodes/rgb-display\"\n[node.params]\naddress = \"1\"\nred = \"15\"\nblue = \"5\"\nwrite = \"true\"\nrefresh = \"true\""),
+        (lamp, "folder = \"nodes/led\""),
+    ];
+    let wires = [w("c0c0c0c0c0c0c001.out", &format!("{dots}.clock")), w("c0c0c0c0c0c0c001.out", &format!("{rgb}.clock")), w(&format!("{dots}.out"), &format!("{lamp}.on"))];
+    fs::write(project.join("graphs/shows.toml"), graph(&shows, &wires)).unwrap();
+    let (output, stdout, stderr) = run(&project, &["--graph", "shows", "--frames", "6"]);
+    assert!(output.status.success() && !stderr.contains("WARN"), "{stderr}");
+    let line = |name: &str| stdout.lines().filter(|l| l.starts_with(name)).collect::<Vec<_>>();
+    assert_eq!(line("led"), ["led on"], "{stdout}");
+    let row = |l: &str, n: usize| l.split(' ').nth(16 - n).unwrap().to_owned();
+    assert_eq!(line("dots").iter().map(|l| row(l, 1)).collect::<Vec<_>>(), ["4000"], "{stdout}");
+    assert_eq!(line("rgb").iter().map(|l| row(l, 0)[3..6].to_owned()).collect::<Vec<_>>(), ["f05"], "{stdout}");
 }
 
 #[test]

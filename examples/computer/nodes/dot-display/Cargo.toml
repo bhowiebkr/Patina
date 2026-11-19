@@ -1,0 +1,8 @@
+[package]
+name = "dot-display"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+patina-sdk = { workspace = true }
+parts = { path = "../../widgets/parts" }
