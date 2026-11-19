@@ -1,6 +1,7 @@
 //! Shared material node panels. All edits use Patina parameters and normal graph undo.
 use material_lab::{Operator, ParamType, catalog};
 use patina_sdk::{Mode, Pointer, Ui};
+pub mod workflow;
 
 pub const INK: [u8; 3] = [225; 3];
 pub const MUTED: [u8; 3] = [166; 3];
@@ -35,11 +36,12 @@ impl Panel {
             }
             return;
         }
-        if op.revision != 0 {
-            if let Ok(gpu) = patina_gpu::gpu() {
-                op.thumbnail.poll(gpu);
-            }
+        if op.revision != 0
+            && let Ok(gpu) = patina_gpu::gpu()
+        {
+            op.thumbnail.poll(gpu);
         }
+        ui.pin("target", [0.0, 46.0]);
         let mask = op.node.kind == "mask";
         let width = if layer { 352.0 } else { 304.0 };
         let accent = if layer || op.node.kind == "finish" {
@@ -74,7 +76,7 @@ impl Panel {
             c.text(
                 [23.0, 46.0],
                 MUTED,
-                &format!("{} / SURFACE", def.name.to_uppercase()),
+                &format!("{} / BAKE TARGET", def.name.to_uppercase()),
             );
             c.line([16.0, 57.0], [width - 16.0, 57.0], [67; 3]);
             c.rect(
@@ -146,15 +148,54 @@ impl Panel {
         }
         ui.place([width * 0.5 + 10.0, 64.0]);
         {
-            let mut c = ui.canvas("Material preview tones", [width * 0.5 - 26.0, preview_height]);
-            c.text([0.0, 23.0], accent, if layer { "PBR MATERIAL" } else { "PREVIEW TONES" });
-            c.text([0.0, 45.0], INK, if op.revision == 0 { "Run to evaluate" } else { "512 x 512" });
-            c.text([0.0, 63.0], MUTED, if layer { "3 float planes" } else { "Full float precision" });
-            let max = op.thumbnail.histogram.iter().copied().max().unwrap_or(1).max(1) as f32;
+            let mut c = ui.canvas(
+                "Material preview tones",
+                [width * 0.5 - 26.0, preview_height],
+            );
+            c.text(
+                [0.0, 23.0],
+                accent,
+                if layer {
+                    "PBR MATERIAL"
+                } else {
+                    "PREVIEW TONES"
+                },
+            );
+            c.text(
+                [0.0, 45.0],
+                INK,
+                &if op.revision == 0 {
+                    "Run to evaluate".to_string()
+                } else {
+                    format!("{} x {}", op.size, op.size)
+                },
+            );
+            c.text(
+                [0.0, 63.0],
+                MUTED,
+                if layer {
+                    "3 float planes"
+                } else {
+                    "Full float precision"
+                },
+            );
+            let max = op
+                .thumbnail
+                .histogram
+                .iter()
+                .copied()
+                .max()
+                .unwrap_or(1)
+                .max(1) as f32;
             let dx = (width * 0.5 - 28.0) / 32.0;
             for (i, count) in op.thumbnail.histogram.iter().enumerate() {
                 let h = *count as f32 / max * 34.0;
-                c.rect([i as f32 * dx, 114.0 - h], [dx.max(1.0) - 0.5, h], accent, true);
+                c.rect(
+                    [i as f32 * dx, 114.0 - h],
+                    [dx.max(1.0) - 0.5, h],
+                    accent,
+                    true,
+                );
             }
         }
         if layer {
@@ -191,7 +232,9 @@ impl Panel {
             controls_y += 32.0;
         }
         ui.pin("title", [0.0, 28.0]);
-        if layer { ui.pin("color", [0.0, chart_y + 12.0]); }
+        if layer {
+            ui.pin("color", [0.0, chart_y + 12.0]);
+        }
         for (i, input) in def.inputs.iter().enumerate() {
             ui.pin(&input.id, [0.0, pins_y + i as f32 * 22.0]);
         }
@@ -315,15 +358,12 @@ fn save_ramp(ui: &mut Ui, op: &mut Operator, values: Vec<f32>) {
 }
 fn ramp_color(values: &[f32], t: f32) -> [f32; 3] {
     let count = values[0] as usize;
-    let stops = &values[1..1 + count * 5];
-    let a = stops
-        .chunks_exact(5)
-        .rfind(|s| s[0] <= t)
-        .unwrap_or(&stops[..5]);
+    let stops = values[1..1 + count * 5].as_chunks::<5>().0;
+    let a = stops.iter().rfind(|s| s[0] <= t).unwrap_or(&stops[0]);
     let b = stops
-        .chunks_exact(5)
+        .iter()
         .find(|s| s[0] >= t)
-        .unwrap_or(&stops[stops.len() - 5..]);
+        .unwrap_or(&stops[stops.len() - 1]);
     let f = if b[0] > a[0] {
         (t - a[0]) / (b[0] - a[0])
     } else {

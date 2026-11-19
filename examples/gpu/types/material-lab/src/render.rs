@@ -9,6 +9,7 @@ use patina_sdk::Viewport;
 mod tests;
 
 pub struct Look {
+    world: std::sync::Arc<crate::World>,
     asset: GpuAsset,
     pub camera: OrbitCamera,
     pub light: Light,
@@ -27,7 +28,8 @@ struct Blit {
 impl Look {
     pub fn new(size: [u32; 2]) -> Result<Self, String> {
         let gpu = gpu()?;
-        let world = &world()?.0;
+        let target = world()?;
+        let world = &target.0;
         Ok(Self {
             asset: world.ball.preview_copy(&gpu.device, &world.scene),
             camera: world.camera,
@@ -37,11 +39,11 @@ impl Look {
             blit: None,
             surface: ViewportSurface::default(),
             dirty: true,
+            world: target,
         })
     }
     pub fn render(&mut self, material: &Material, size: [u32; 2]) -> Result<(), String> {
         let gpu = gpu()?;
-        let world = &world()?.0;
         let image = material
             .0
             .as_ref()
@@ -49,6 +51,24 @@ impl Look {
         if image.socket != forge_nodes::Socket::Material {
             return Err("Preview needs a material".into());
         }
+        if !std::sync::Arc::ptr_eq(&self.world, &image.target) {
+            self.world = std::sync::Arc::clone(&image.target);
+            self.asset = self
+                .world
+                .0
+                .ball
+                .preview_copy(&gpu.device, &self.world.0.scene);
+            self.camera = self.world.0.camera;
+            self.target = View::new(
+                &gpu.device,
+                &self.world.0.scene,
+                size.map(|v| v.clamp(1, 2048)),
+            );
+            self.blit = None;
+            self.revision = 0;
+            self.dirty = true;
+        }
+        let world = &self.world.0;
         let size = size.map(|v| v.clamp(1, 2048));
         if size != self.target.size {
             self.target = View::new(&gpu.device, &world.scene, size);

@@ -15,10 +15,18 @@ impl MaterialSpread {
             panel: Panel::default(),
         }
     }
-    pub fn process(&mut self, input: &Mask, radius: f32, title: &str) -> Result<Mask, String> {
+    pub fn process(
+        &mut self,
+        target: &material_lab::BakeTarget,
+        input: &Mask,
+        radius: f32,
+        title: &str,
+    ) -> Result<Mask, String> {
         self.op.node.title = title.to_owned();
         self.op.source_path = Some(patina_sdk::asset!("kernel.wesl"));
-        let image = self.op.run(&[("radius", radius)], &[input.0.as_ref()])?;
+        let image = self
+            .op
+            .run_in(target, &[("radius", radius)], &[input.0.as_ref()])?;
         Ok(Mask(Some(image)))
     }
     pub fn ui(&mut self, ui: &mut Ui) {

@@ -520,3 +520,63 @@ id = "cafe100000000001"
 pos = [-50.0, -220.0]
 width = 680.0
 text = "# OXIDIZED COPPER\nSurface variation, exposed edges, mineral deposits, and four physical coats.\nOpen Material Preview before Run. Drag its view to orbit. Use the channel selector to inspect the material."
+
+[[node]]
+id = "d00d000000000001"
+folder = "nodes/material-object"
+pos = [66, -650]
+[node.params]
+path = "types/forge-runtime/assets/ball/asset.json"
+reload = "0"
+
+[[node]]
+id = "d00d000000000002"
+folder = "nodes/material-bake"
+pos = [500, -650]
+[node.params]
+size = "512"
+rebake = "0"
+
+[[node]]
+id = "d00d000000000003"
+folder = "nodes/material-export"
+pos = [950, -650]
+[node.params]
+path = "material-passes.zip"
+request = "0"
+
+[[wire]]
+from = "d00d000000000001.out"
+to = "d00d000000000002.object"
+
+[[wire]]
+from = "c0ffee000000001b.out"
+to = "d00d000000000003.material"
+
+[[wire]]
+from = "d00d000000000002.out"
+to = "c0ffee0000000001.target"
+
+[[wire]]
+from = "d00d000000000002.out"
+to = "c0ffee0000000002.target"
+
+[[wire]]
+from = "d00d000000000002.out"
+to = "c0ffee0000000003.target"
+
+[[wire]]
+from = "d00d000000000002.out"
+to = "c0ffee0000000004.target"
+
+[[wire]]
+from = "d00d000000000002.out"
+to = "c0ffee0000000005.target"
+
+[[wire]]
+from = "d00d000000000002.out"
+to = "c0ffee0000000006.target"
+
+[[wire]]
+from = "d00d000000000002.out"
+to = "c0ffee0000000007.target"

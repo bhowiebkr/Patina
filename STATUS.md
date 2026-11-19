@@ -19,12 +19,16 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
-- Smart material prototype: the GPU example adds 11 node types and a second top graph with 28 native copper nodes.
+- Smart material prototype: the GPU example adds 14 node types and a second top graph with 28 material nodes and three workflow nodes.
   On Windows MSVC and RTX 4090 DX12, all material channels matched Surface exactly at 512 x 512.
   The 640 x 640 shaded preview matched Surface's renderer. Independent roughness and metallic tests passed.
   Hidden editor checks, workspace Clippy, workspace tests, and frontend checks passed on Windows.
-  Object loading, explicit mesh-map baking, and texture export are the next required work.
-  General recipe import and non-MSVC material workflows remain open. GPU allocation counts were not measured.
+  Object loading, traced mesh maps, target replacement, and eight PBR PNG exports passed GPU and hidden editor checks.
+  The renderer, mesh baker, object loader, and export stay inside `examples/gpu`.
+  General recipe import, UV unwrapping, overlapping UV detection, other object formats, and non-MSVC workflows remain open.
+  The graph uses Millwright's original sphere, UV atlas, and saved 2048 maps. Loaded maps match the reference exactly.
+  Explicit 2048 rebaking matched Millwright's direct baker. The corrected sphere workflow passed hidden editor and both CLI build modes.
+  Existing bake files load from disk. Newly traced bake files are not saved. GPU allocation counts were not measured.
 
 - View layout: twelve dock instances, responsive columns, dock size reads, and one undo step per canvas drag.
   Windows frontend checks, workspace Clippy, and workspace tests passed on 2026-11-18.
@@ -465,6 +469,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   color and reads it on the use. Known limit: no hand test of the mouse drags of the editor.
 - An open subgraph that no graph uses runs alone as a test (2026-11-19), so its switches and
   LEDs work. The self-check sets a number in such a subgraph and reads its value.
+- A node GUI in the open subgraph writes its parameters (2026-11-19): through a use, in the
+  **Test** mode and when the subgraph runs alone. The self-check clicks a switch that drives a
+  NAND gate and an LED in each of the three modes. Without the fix, the same check fails.
 - A node canvas can grab only some rectangles (`grab_rect`, 2026-11-19). The button and the
   joystick of computer grab their caps, and a drag on the board moves the node. The self-check
   drags a free knob below its grab area and the node moves.

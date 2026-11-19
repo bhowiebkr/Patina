@@ -1,7 +1,13 @@
 //! Native material values and kernel state for the GPU workbench.
+pub mod export;
+pub mod object;
 mod preview;
+mod world;
+pub use world::{World, bake, world};
+mod value;
+pub use value::{BakeTarget, Image};
 pub mod render;
-use forge_nodes::{NativeImage, NativePass, Node, NodeId, Registry};
+use forge_nodes::{NativePass, Node, NodeId, Registry};
 pub use forge_nodes::{ParamType, Socket};
 use patina_gpu::gpu;
 use patina_sdk::{Param, Text, Viewer};
@@ -9,7 +15,7 @@ pub use preview::Thumbnail;
 use std::{
     collections::BTreeMap,
     fmt::{self, Write},
-    sync::OnceLock,
+    sync::{Arc, OnceLock},
 };
 
 pub const SIZE: u32 = 512;
@@ -43,62 +49,10 @@ pub fn catalog() -> &'static Registry {
     CATALOG.get_or_init(registry)
 }
 
-pub struct World(pub forge_runtime::Session);
-pub fn world() -> Result<&'static World, String> {
-    struct Shared(Result<World, String>);
-    static WORLD: OnceLock<&'static Shared> = OnceLock::new();
-    WORLD
-        .get_or_init(|| patina_sdk::shared(|| Shared(open_world())))
-        .0
-        .as_ref()
-        .map_err(Clone::clone)
-}
-
-fn open_world() -> Result<World, String> {
-    let gpu = gpu()?;
-    if !gpu
-        .device
-        .features()
-        .contains(patina_gpu::wgpu::Features::FLOAT32_FILTERABLE)
-        || gpu.device.limits().max_sampled_textures_per_shader_stage < 20
-    {
-        return Err(
-            "Materials need float32 texture filtering and 20 sampled textures per shader stage"
-                .into(),
-        );
-    }
-    let mut session = forge_runtime::Session::new(&gpu.device, &gpu.queue)?;
-    let mut engine = forge_nodes::Engine::with_registry(&gpu.device, registry())?;
-    let maps = session.mesh_maps();
-    engine.set_mesh_maps(
-        &maps.position.view,
-        &maps.normal.view,
-        &maps.extras.view,
-        &maps.view.view,
-        maps.size,
-        &session.info.bounds,
-    );
-    let rows: Vec<[f32; 4]> = session
-        .info
-        .parts
-        .iter()
-        .map(|p| {
-            let [r, g, b, _] = p.material.base_color;
-            [r, g, b, 0.0]
-        })
-        .collect();
-    engine.set_part_table(&gpu.device, &rows);
-    session.engine = engine;
-    session.exposure = recipe().manifest.exposure;
-    session.rotation = recipe().manifest.rotation;
-    session.tilt = recipe().manifest.tilt;
-    Ok(World(session))
-}
-
 #[derive(Clone, Default)]
-pub struct Mask(pub Option<NativeImage>);
+pub struct Mask(pub Option<Image>);
 #[derive(Clone, Default)]
-pub struct Material(pub Option<NativeImage>);
+pub struct Material(pub Option<Image>);
 
 // An unwired input selects the original kernel's default, without allocating a GPU texture.
 impl Param for Mask {
@@ -132,7 +86,7 @@ impl Param for Material {
     }
 }
 
-fn describe(image: Option<&NativeImage>, name: &str, out: &mut Text) -> fmt::Result {
+fn describe(image: Option<&Image>, name: &str, out: &mut Text) -> fmt::Result {
     match image {
         Some(image) => write!(
             out,
@@ -162,6 +116,8 @@ pub struct Operator {
     pub source_path: Option<std::path::PathBuf>,
     source: String,
     material_preview: Option<render::Look>,
+    target: Option<Arc<World>>,
+    pub size: u32,
 }
 
 impl Operator {
@@ -185,6 +141,8 @@ impl Operator {
             source_path: None,
             source: String::new(),
             material_preview: None,
+            target: None,
+            size: SIZE,
         }
     }
     pub fn value(&self, key: &str) -> f32 {
@@ -198,11 +156,52 @@ impl Operator {
                 .unwrap_or(0.0)
         })
     }
+    pub fn run_in(
+        &mut self,
+        target: &BakeTarget,
+        params: &[(&str, f32)],
+        inputs: &[Option<&Image>],
+    ) -> Result<Image, String> {
+        let world = target
+            .0
+            .as_ref()
+            .or_else(|| inputs.iter().flatten().next().map(|i| &i.target));
+        let world = match world {
+            Some(w) => Arc::clone(w),
+            None => crate::world()?,
+        };
+        if inputs
+            .iter()
+            .flatten()
+            .any(|i| !Arc::ptr_eq(&i.target, &world))
+        {
+            return Err("Connect inputs baked for the same object and resolution".into());
+        }
+        if self
+            .target
+            .as_ref()
+            .is_none_or(|old| !Arc::ptr_eq(old, &world))
+        {
+            self.pass = None;
+            self.material_preview = None;
+            self.revision = 0;
+            self.size = world.1;
+            self.target = Some(world);
+        }
+        self.run_values(params, inputs)
+    }
     pub fn run(
         &mut self,
         params: &[(&str, f32)],
-        inputs: &[Option<&NativeImage>],
-    ) -> Result<NativeImage, String> {
+        inputs: &[Option<&Image>],
+    ) -> Result<Image, String> {
+        self.run_in(&BakeTarget::default(), params, inputs)
+    }
+    fn run_values(
+        &mut self,
+        params: &[(&str, f32)],
+        inputs: &[Option<&Image>],
+    ) -> Result<Image, String> {
         for &(key, value) in params {
             if !value.is_finite() {
                 return Err(format!("{key} must be finite"));
@@ -225,9 +224,10 @@ impl Operator {
         self.error = result.as_ref().err().cloned().unwrap_or_default();
         result
     }
-    fn evaluate(&mut self, inputs: &[Option<&NativeImage>]) -> Result<NativeImage, String> {
+    fn evaluate(&mut self, inputs: &[Option<&Image>]) -> Result<Image, String> {
         let gpu = gpu()?;
-        let engine = &world()?.0.engine;
+        let target = Arc::clone(self.target.as_ref().ok_or("No bake target")?);
+        let engine = &target.0.engine;
         let source = self
             .source_path
             .as_ref()
@@ -239,14 +239,30 @@ impl Operator {
                 engine,
                 &gpu.device,
                 &self.node.kind,
-                SIZE,
+                self.size,
                 source.as_deref(),
             )?;
             self.pass = Some(candidate);
             self.source = source.unwrap_or_default();
         }
         let pass = self.pass.as_mut().ok_or("No material kernel")?;
-        let result = pass.run(engine, &gpu.device, &gpu.queue, &self.node, inputs)?;
+        let mut raw = [None; 8];
+        if inputs.len() > raw.len() {
+            return Err("Too many kernel inputs".into());
+        }
+        for (out, input) in raw.iter_mut().zip(inputs) {
+            *out = input.map(|i| &i.raw);
+        }
+        let result = Image {
+            raw: pass.run(
+                engine,
+                &gpu.device,
+                &gpu.queue,
+                &self.node,
+                &raw[..inputs.len()],
+            )?,
+            target,
+        };
         if result.revision != self.revision {
             if result.socket == Socket::Material {
                 if self.material_preview.is_none() {
@@ -284,7 +300,7 @@ pub fn parse_gradient(text: &str) -> Result<Vec<f32>, String> {
         );
     }
     let mut last = -1.0;
-    for stop in values[1..].chunks_exact(5) {
+    for stop in values[1..].as_chunks::<5>().0.iter() {
         if !(0.0..=1.0).contains(&stop[0]) || stop[0] < last {
             return Err("Color ramp positions must increase from 0 to 1".into());
         }

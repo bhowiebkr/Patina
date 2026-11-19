@@ -75,6 +75,38 @@ export async function materialWorkbench(view: View, show: (view: View) => void, 
       await sleep(180);
     }
     steps.push('seven material display channels accept GUI selection');
+    stage = 'object bake and export';
+    const objectId = 'd00d000000000001';
+    const bakeId = 'd00d000000000002';
+    const exportId = 'd00d000000000003';
+    for (const id of [objectId, bakeId, exportId]) {
+      const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`)!;
+      rightClick(node);
+      await until(() => !!entry('Node', 'Fit node'), 'No workflow Fit node command', () => failure);
+      entry('Node', 'Fit node')!.click();
+      await sleep(400);
+      steps.push(fit());
+    }
+    const bakeNode = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${bakeId}"]`)!;
+    if (!bakeNode.textContent?.includes('2048 maps / saved bake')) throw new Error('The graph did not use the original 2048 sphere bake');
+    show(await api.edit({ kind: 'SetParam', id: exportId, key: 'path', text: `build/check-material-passes-${Date.now()}.zip` }));
+    await sleep(500);
+    const exportNode = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${exportId}"]`)!;
+    const exportButton = [...exportNode.querySelectorAll('button')].find((b) => b.textContent === 'Export passes');
+    if (!exportButton) throw new Error('No Export passes button');
+    exportButton.click();
+    await until(() => exportNode.textContent?.includes('Saved 8 PBR passes.') ?? false, 'The export button did not write PBR passes', () => failure);
+    await capture('materials-object-export');
+    const bakeButton = [...bakeNode.querySelectorAll('button')].find((b) => b.textContent === 'Bake maps again');
+    if (!bakeButton) throw new Error('No Bake maps again button');
+    bakeButton.click();
+    await until(() => bakeNode.textContent?.includes('2048 maps / ray traced') ?? false, 'The sphere did not rebake at its original atlas resolution', () => failure);
+    await capture('materials-sphere-bake');
+    show(await api.edit({ kind: 'SetParam', id: bakeId, key: 'rebake', text: '0' }));
+    const beforeRestore = runs;
+    show(await api.run());
+    await until(() => runs > beforeRestore, 'The reference object did not restore', () => failure);
+    steps.push('the original sphere loads its 2048 maps, rebakes at 2048, restores its saved bake, and exports eight PBR passes');
     stage = 'node controls';
     for (const suffix of ['01', '0b', '18', '1b']) {
       const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="c0ffee00000000${suffix}"]`)!;

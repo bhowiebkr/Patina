@@ -17,6 +17,7 @@ impl MaterialSurface {
     }
     pub fn process(
         &mut self,
+        target: &material_lab::BakeTarget,
         fact: u32,
         axis: u32,
         gain: f32,
@@ -24,7 +25,8 @@ impl MaterialSurface {
     ) -> Result<Mask, String> {
         self.op.node.title = title.to_owned();
         self.op.source_path = Some(patina_sdk::asset!("kernel.wesl"));
-        let image = self.op.run(
+        let image = self.op.run_in(
+            target,
             &[("fact", fact as f32), ("axis", axis as f32), ("gain", gain)],
             &[],
         )?;

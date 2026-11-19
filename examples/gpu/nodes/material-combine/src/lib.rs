@@ -17,6 +17,7 @@ impl MaterialCombine {
     }
     pub fn process(
         &mut self,
+        target: &material_lab::BakeTarget,
         a: &Mask,
         b: &Mask,
         mode: u32,
@@ -25,7 +26,8 @@ impl MaterialCombine {
     ) -> Result<Mask, String> {
         self.op.node.title = title.to_owned();
         self.op.source_path = Some(patina_sdk::asset!("kernel.wesl"));
-        let image = self.op.run(
+        let image = self.op.run_in(
+            target,
             &[("mode", mode as f32), ("amount", amount)],
             &[a.0.as_ref(), b.0.as_ref()],
         )?;

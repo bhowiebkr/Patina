@@ -924,6 +924,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "material-bake"
+version = "0.1.0"
+dependencies = [
+ "material-lab",
+ "material-panel",
+ "patina-sdk",
+]
+
+[[package]]
 name = "material-cells"
 version = "0.1.0"
 dependencies = [
@@ -934,6 +943,15 @@ dependencies = [
 
 [[package]]
 name = "material-combine"
+version = "0.1.0"
+dependencies = [
+ "material-lab",
+ "material-panel",
+ "patina-sdk",
+]
+
+[[package]]
+name = "material-export"
 version = "0.1.0"
 dependencies = [
  "material-lab",
@@ -963,11 +981,16 @@ dependencies = [
 name = "material-lab"
 version = "0.1.0"
 dependencies = [
+ "crc32fast",
+ "flate2",
+ "forge-core",
  "forge-gpu",
  "forge-nodes",
  "forge-png",
  "forge-render",
  "forge-runtime",
+ "forge-sources",
+ "glam",
  "patina-gpu",
  "patina-sdk",
  "png 0.18.1",
@@ -994,6 +1017,15 @@ dependencies = [
 
 [[package]]
 name = "material-noise"
+version = "0.1.0"
+dependencies = [
+ "material-lab",
+ "material-panel",
+ "patina-sdk",
+]
+
+[[package]]
+name = "material-object"
 version = "0.1.0"
 dependencies = [
  "material-lab",

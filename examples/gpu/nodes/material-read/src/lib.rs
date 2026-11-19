@@ -17,15 +17,18 @@ impl MaterialRead {
     }
     pub fn process(
         &mut self,
+        target: &material_lab::BakeTarget,
         material: &Material,
         channel: u32,
         title: &str,
     ) -> Result<Mask, String> {
         self.op.node.title = title.to_owned();
         self.op.source_path = Some(patina_sdk::asset!("kernel.wesl"));
-        let image = self
-            .op
-            .run(&[("channel", channel as f32)], &[material.0.as_ref()])?;
+        let image = self.op.run_in(
+            target,
+            &[("channel", channel as f32)],
+            &[material.0.as_ref()],
+        )?;
         Ok(Mask(Some(image)))
     }
     pub fn ui(&mut self, ui: &mut Ui) {

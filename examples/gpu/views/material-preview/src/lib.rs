@@ -95,16 +95,15 @@ impl MaterialPreview {
                 .zoom((viewport.wheel * 0.001).clamp(-1.0, 1.0).exp());
             look.dirty = true;
         }
-        if reset
+        if (reset
             || viewport
                 .keys
                 .iter()
-                .any(|key| matches!(key, Key::Down(name) if name == "Home"))
+                .any(|key| matches!(key, Key::Down(name) if name == "Home")))
+            && let Some(image) = &material.0
         {
-            if let Ok(world) = material_lab::world() {
-                look.camera = world.0.camera;
-                look.dirty = true;
-            }
+            look.camera = image.target.0.camera;
+            look.dirty = true;
         }
         if changed || look.light.channel != self.channel as u32 {
             look.light.channel = self.channel as u32;

@@ -17,6 +17,7 @@ impl MaterialFinish {
     }
     pub fn process(
         &mut self,
+        target: &material_lab::BakeTarget,
         material: &Material,
         depth: f32,
         occlusion: f32,
@@ -24,7 +25,8 @@ impl MaterialFinish {
     ) -> Result<Material, String> {
         self.op.node.title = title.to_owned();
         self.op.source_path = Some(patina_sdk::asset!("kernel.wesl"));
-        let image = self.op.run(
+        let image = self.op.run_in(
+            target,
             &[("depth", depth), ("occlusion", occlusion)],
             &[material.0.as_ref()],
         )?;

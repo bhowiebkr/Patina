@@ -15,8 +15,13 @@ impl MaterialNoise {
             panel: Panel::default(),
         }
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Each argument defines an editable node input"
+    )]
     pub fn process(
         &mut self,
+        target: &material_lab::BakeTarget,
         style: u32,
         scale: f32,
         octaves: u32,
@@ -29,7 +34,8 @@ impl MaterialNoise {
     ) -> Result<Mask, String> {
         self.op.node.title = title.to_owned();
         self.op.source_path = Some(patina_sdk::asset!("kernel.wesl"));
-        let image = self.op.run(
+        let image = self.op.run_in(
+            target,
             &[
                 ("style", style as f32),
                 ("scale", scale),

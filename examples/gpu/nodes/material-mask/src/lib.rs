@@ -15,8 +15,13 @@ impl MaterialMask {
             panel: Panel::default(),
         }
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Each argument defines an editable node input"
+    )]
     pub fn process(
         &mut self,
+        target: &material_lab::BakeTarget,
         driver: &Mask,
         breakup: &Mask,
         amount: f32,
@@ -28,7 +33,8 @@ impl MaterialMask {
     ) -> Result<Mask, String> {
         self.op.node.title = title.to_owned();
         self.op.source_path = Some(patina_sdk::asset!("kernel.wesl"));
-        let image = self.op.run(
+        let image = self.op.run_in(
+            target,
             &[
                 ("amount", amount),
                 ("from", from),

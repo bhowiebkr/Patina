@@ -10,7 +10,7 @@ Open **material-preview** from **Views**. Click **Run** again to capture the fin
 Drag the preview to orbit. Use the wheel to zoom. **Frame material** restores the camera.
 The **Channel** list shows shading, base color, roughness, metallic, height, occlusion, and normal.
 
-The graph has 28 nodes and six labeled groups:
+The graph has 28 material nodes, three workflow nodes, and six labeled groups:
 
 1. Shared noise gives each coat its surface variation.
 2. Mesh maps identify exposed edges, creases, and enclosed areas.
@@ -40,7 +40,29 @@ Run the second graph without the editor:
 cargo +1.100.0 run -p patina-cli -- run examples/gpu --graph materials
 ```
 
-The workbench uses 512 x 512 float32 output textures and the reference mesh's 2048 x 2048 baked maps.
+**Object** loads a Millwright `asset.json` with its adjacent `mesh.bin`, or a triangulated OBJ.
+The OBJ needs a non-overlapping UV atlas from 0 to 1. Import does not unwrap UVs or load material files.
+The graph loads Millwright's original material sphere, with its original mesh and UV atlas.
+
+The **Bake / Object maps** node bakes position, normal, curvature, occlusion, thickness, part, and contact data.
+It loads the object's saved maps after Millwright validates their mesh and resolution key.
+The sphere uses its original 2048 x 2048 bake. No replacement mesh or UV atlas is generated.
+Missing maps use Millwright's UV rasterizer and ray tracer at the object's atlas resolution.
+Click **Bake maps again** to run that same baker on the sphere or a loaded object.
+**Material resolution** controls downstream material textures, independently of the object's maps.
+Connect its output to each source node's **Bake target** input.
+Other nodes receive the target through their mask and material inputs.
+Inputs from different bake targets produce an error.
+
+**Export** writes eight PNG passes in a ZIP file when you click **Export passes**.
+Choose a new filename. Export does not replace existing files or run when you reopen the graph.
+The passes are base color, roughness, metallic, occlusion, normal, height, opacity, and packed ORM.
+Base color uses sRGB. Other passes use linear data. Height uses 16 bits; the other passes use 8 bits.
+Normal uses tangent space with OpenGL +Y. ORM stores occlusion, roughness, and metallic in RGB.
+The first image row is UV v=0, as in Millwright's export.
+
+The default graph uses 512 x 512 float32 material textures and the sphere's original 2048 x 2048 maps.
+An unconnected bake target also uses this original reference sphere and bake.
 Unchanged node inputs reuse their GPU outputs. Thumbnail readback does not block GUI frames.
 The PBR view redraws when its material, camera, light, or size changes.
 
@@ -51,8 +73,11 @@ The compiled project needs no extra compiler DLL.
 
 ![Native PBR material nodes and preview](images/materials.png)
 
-This first version has one preview mesh and the copper recipe.
-It does not provide general recipe import, texture export, arbitrary mesh loading, or the Paint workspace.
+![Millwright's original material sphere and PBR export](images/material-object.png)
+
+The renderer, shaders, object loader, mesh baker, and export code all stay inside this example.
+This version includes the copper recipe. It does not provide general recipe import or the Paint workspace.
+UV unwrapping, overlapping UV detection, OBJ material import, and glTF import remain open.
 Windows GNU, Linux, and macOS material workflows are not verified.
 See [source notices](NOTICE.md) and the [implementation record](../../docs/smart-material-workbench.md).
 

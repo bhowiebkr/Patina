@@ -194,6 +194,8 @@ The engine does not know about GPUs. Type crates and `patina-sdk` give GPU suppo
 
 - `patina-sdk` gives one shared GPU context for each backend. All GPU nodes use the same device, so they can share buffers.
 - A type crate can define GPU types, for example `GpuImage`. A GPU value stays on the GPU between GPU nodes.
+- Domain renderers belong to their workbench. The smart material renderer, mesh-map baker, shaders, and PBR export stay in `examples/gpu`.
+  Patina supplies general GPU access, graph execution, values, and viewport display. (Owner decision, 2026-11-19.)
 - Data goes to the CPU only when a CPU node or a viewer needs it.
 - Viewers of GPU images get a smaller copy at the display rate. To show GPU data at full size, use a viewport in a view (15.8).
 - The `patina-gpu` crate gives the shared `wgpu` context and the `GpuImage` type. Patina copies the crate into `build/sdk/` of each project, as it does `patina-sdk`. A node adds `patina-gpu = { workspace = true }`. Agent decision of 2026-11-15, the owner can change it.

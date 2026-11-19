@@ -125,3 +125,5 @@ abbe80fc6db914e12ffa71d5dcc4f73dd8e3ab79e345658ac1d1706142305ec3  crates/forge-r
 4247d3900e9b7c687b0af1cd56ba65ed8a5a94ed69d79be71624849ee30a9535  assets/ball/maps.bin.zlib
 f6109218e9225ea3c8a593e791e1cc3523e85cf981efbf95d23f8bb93986943a  assets/studio.hdr
 456fe6c0827147745a315c4d1b8e113b2bf8156f33d8f7f3388998886c1c21ba  materials/Oxidized Copper.png
+
+c5324a7d976ff4604ffd3d981ddb84aff3c9d1afad973c781306f426bbc1c892  crates/forge-ui/src/export_archive.rs (material-lab/src/export/archive.rs)

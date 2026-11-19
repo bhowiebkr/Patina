@@ -15,8 +15,13 @@ impl MaterialLayer {
             panel: Panel::default(),
         }
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Each argument defines an editable node input"
+    )]
     pub fn process(
         &mut self,
+        target: &material_lab::BakeTarget,
         base: &Material,
         mask: &Mask,
         tone: &Mask,
@@ -36,7 +41,8 @@ impl MaterialLayer {
         } else {
             color
         })?;
-        let image = self.op.run(
+        let image = self.op.run_in(
+            target,
             &[
                 ("rough_low", rough_low),
                 ("rough_high", rough_high),

@@ -66,7 +66,7 @@ impl Thumbnail {
                 for y in 0..128 {
                     self.pixels[y * 1024..y * 1024 + 512]
                         .copy_from_slice(&bytes[y * 512..(y + 1) * 512]);
-                    for pixel in bytes[y * 512..(y + 1) * 512].chunks_exact(4) {
+                    for pixel in bytes[y * 512..(y + 1) * 512].as_chunks::<4>().0.iter() {
                         if pixel[0] != 28 || pixel[1] != 28 || pixel[2] != 28 {
                             self.histogram[(usize::from(pixel[0])
                                 + usize::from(pixel[1])

@@ -40,7 +40,7 @@ Two regression tests cover shared GPU hash state across libraries and typed view
 Static DXC needs ATL when linked with MSVC. The build finds an existing ATL installation.
 The portable Windows GNU material path remains unverified; `wgpu` currently gates static DXC to MSVC.
 
-Remaining work includes general recipe import, texture export, another preview mesh, and a full material library.
+Remaining work includes general recipe import and a full material library.
 The current example preserves the original copper container and its pinned shaders.
 It does not expose the Paint workspace.
 
@@ -51,12 +51,42 @@ It does not expose the Paint workspace.
 - Reuse Millwright's render path and compare its rendered result.
 - Add an Object node for loading the mesh.
 - Add object mesh-map baking and finished PBR texture passes.
+- Use Millwright's original material sphere, UV atlas, and saved 2048 x 2048 mesh maps.
 
 The first node implementation used Surface's cheap thumbnail shader for material previews.
 That shader ignores roughness and metallic. This was a gap in the first implementation.
 Material previews now use Surface's complete PBR renderer. Mask previews still show scalar coverage.
 GPU tests confirm that roughness and metallic change shading without changing base color.
-Object loading, explicit baking, and export remain required work for this task.
+Object loading, explicit baking, and PBR export now have an implementation inside the example.
+The previous demonstration used an invented bracket. This did not meet the owner's request.
+The default graph also recomputed sphere maps at 512 instead of loading the original 2048 bake.
+The bracket is removed. Object now loads the original sphere, and Bake loads its original saved maps.
+The sphere mesh, asset metadata, and compressed maps match the current Millwright files byte for byte.
+The current source has one extra cache-header query method; its rendering and bake algorithms are unchanged.
+GPU checks passed for Object and Bake against the independent reference session.
+Loaded position, normal, curvature, occlusion, thickness, part, and contact maps matched exactly at 2048 x 2048.
+All three material planes matched at 512 x 512. All 640 x 640 shaded preview pixels matched.
+An explicit 2048 bake also matched Millwright's direct baker byte for byte.
+The sphere has 82,228 triangles. Its bake, comparison, render, and export check took 13.551 seconds on the RTX 4090.
+Hidden editor checks passed the original-map load, explicit rebake, saved-map restore, and eight-pass export.
+The editor also passed narrow docks, channel selection, parameter edits, undo, save, and graph switching.
+The graph passed CLI edit and fused builds. Workspace Clippy, workspace tests, and frontend checks passed on Windows.
+Checks used an isolated snapshot of committed sources plus the material changes, excluding concurrent edits.
+Unit tests confirm that saved export requests do not arm a write and existing files remain unchanged.
+
+The graph now uses explicit Object and Bake nodes before its original 28 material operations.
+Each output carries its bake context. Objects do not share a mutable selected-mesh global.
+The loader calls Surface's `MeshMaps::from_bytes`, which validates the mesh and resolution key.
+An explicit bake calls Surface's `MeshMaps::bake` with tracing enabled at the object's atlas resolution.
+Material output resolution does not change mesh-map resolution.
+The export uses Surface's PBR channel order, +Y normal convention, and 16-bit height conversion.
+The ZIP adds opacity and a channel description. Existing files are never replaced.
+The export button arms one write; opening or running a saved graph does not arm another write.
+
+OBJ import requires triangles and a prepared UV atlas. It does not unwrap or detect overlapping charts.
+Millwright asset import validates mesh indices, parts, finite attributes, UV range, normals, and the fitted camera.
+Saved Millwright maps load from `maps.bin` or `maps.bin.zlib` beside the asset metadata.
+Saving newly traced bake files, other object formats, and export above 2048 remain open.
 
 ## Scope
 
