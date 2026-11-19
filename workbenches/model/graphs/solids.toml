@@ -20,7 +20,7 @@ z = "1"
 [[node]]
 id = "5011d00000000003"
 folder = "nodes/cylinder"
-pos = [0.0, 180.0]
+pos = [0.0, 420.0]
 
 [node.params]
 height = "3"
@@ -30,12 +30,12 @@ segments = "32"
 [[node]]
 id = "5011d00000000004"
 folder = "nodes/cut"
-pos = [260.0, 60.0]
+pos = [260.0, 200.0]
 
 [[node]]
 id = "5011d00000000005"
 folder = "nodes/sphere"
-pos = [260.0, 260.0]
+pos = [260.0, 600.0]
 
 [node.params]
 radius = "0.7"
@@ -44,7 +44,7 @@ segments = "32"
 [[node]]
 id = "5011d00000000006"
 folder = "nodes/translate"
-pos = [520.0, 260.0]
+pos = [520.0, 600.0]
 
 [node.params]
 z = "0.5"
@@ -52,12 +52,12 @@ z = "0.5"
 [[node]]
 id = "5011d00000000007"
 folder = "nodes/union"
-pos = [780.0, 120.0]
+pos = [780.0, 380.0]
 
 [[node]]
 id = "5011d00000000008"
 folder = "nodes/report"
-pos = [1040.0, 120.0]
+pos = [1040.0, 380.0]
 
 [[wire]]
 from = "5011d00000000002.out"

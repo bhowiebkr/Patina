@@ -20,7 +20,7 @@ z = "1.2"
 [[node]]
 id = "50c4e00000000003"
 folder = "nodes/cylinder"
-pos = [0.0, 180.0]
+pos = [0.0, 420.0]
 
 [node.params]
 height = "2"
@@ -30,7 +30,7 @@ segments = "24"
 [[node]]
 id = "50c4e00000000004"
 folder = "nodes/attach"
-pos = [260.0, 180.0]
+pos = [260.0, 420.0]
 
 [node.params]
 sockets = "muzzle 1.5 0 0.2 0 90 0; grip -1 0 -0.6"
@@ -39,7 +39,7 @@ socket = "muzzle"
 [[node]]
 id = "50c4e00000000005"
 folder = "nodes/cuboid"
-pos = [0.0, 360.0]
+pos = [0.0, 880.0]
 
 [node.params]
 x = "0.6"
@@ -49,7 +49,7 @@ z = "1.6"
 [[node]]
 id = "50c4e00000000006"
 folder = "nodes/attach"
-pos = [260.0, 360.0]
+pos = [260.0, 880.0]
 
 [node.params]
 sockets = "muzzle 1.5 0 0.2 0 90 0; grip -1 0 -0.6"
@@ -58,22 +58,22 @@ socket = "grip"
 [[node]]
 id = "50c4e00000000007"
 folder = "nodes/union"
-pos = [520.0, 60.0]
+pos = [520.0, 200.0]
 
 [[node]]
 id = "50c4e00000000008"
 folder = "nodes/union"
-pos = [780.0, 180.0]
+pos = [780.0, 560.0]
 
 [[node]]
 id = "50c4e00000000009"
 folder = "nodes/report"
-pos = [1040.0, 60.0]
+pos = [1040.0, 440.0]
 
 [[node]]
 id = "50c4e0000000000a"
 folder = "nodes/export"
-pos = [1040.0, 260.0]
+pos = [1040.0, 720.0]
 
 [node.params]
 path = "blaster.glb"

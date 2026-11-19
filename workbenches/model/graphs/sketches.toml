@@ -37,7 +37,7 @@ x = "-2"
 [[node]]
 id = "5ce7c00000000005"
 folder = "nodes/circle"
-pos = [0.0, 220.0]
+pos = [0.0, 420.0]
 
 [node.params]
 radius = "0.3"
@@ -47,7 +47,7 @@ segments = "24"
 [[node]]
 id = "5ce7c00000000006"
 folder = "nodes/revolve"
-pos = [260.0, 220.0]
+pos = [260.0, 420.0]
 
 [node.params]
 gap = "90"
@@ -56,7 +56,7 @@ segments = "48"
 [[node]]
 id = "5ce7c00000000007"
 folder = "nodes/polygon"
-pos = [0.0, 420.0]
+pos = [0.0, 820.0]
 
 [node.params]
 points = "0 0, 1 0, 0.5 0.9"
@@ -64,7 +64,7 @@ points = "0 0, 1 0, 0.5 0.9"
 [[node]]
 id = "5ce7c00000000008"
 folder = "nodes/extrude"
-pos = [260.0, 420.0]
+pos = [260.0, 820.0]
 
 [node.params]
 height = "0.4"
@@ -72,7 +72,7 @@ height = "0.4"
 [[node]]
 id = "5ce7c00000000009"
 folder = "nodes/translate"
-pos = [520.0, 420.0]
+pos = [520.0, 820.0]
 
 [node.params]
 x = "1.5"
@@ -81,22 +81,22 @@ y = "-1.5"
 [[node]]
 id = "5ce7c0000000000a"
 folder = "nodes/union"
-pos = [780.0, 120.0]
+pos = [780.0, 200.0]
 
 [[node]]
 id = "5ce7c0000000000b"
 folder = "nodes/union"
-pos = [1040.0, 220.0]
+pos = [1040.0, 500.0]
 
 [[node]]
 id = "5ce7c0000000000c"
 folder = "nodes/report"
-pos = [1560.0, 220.0]
+pos = [1560.0, 900.0]
 
 [[node]]
 id = "5ce7c0000000000d"
 folder = "nodes/rectangle"
-pos = [0.0, 620.0]
+pos = [0.0, 1240.0]
 
 [node.params]
 width = "1"
@@ -107,7 +107,7 @@ y = "0.5"
 [[node]]
 id = "5ce7c0000000000e"
 folder = "nodes/circle"
-pos = [0.0, 820.0]
+pos = [0.0, 1680.0]
 
 [node.params]
 radius = "0.3"
@@ -118,7 +118,7 @@ segments = "24"
 [[node]]
 id = "5ce7c0000000000f"
 folder = "nodes/loft"
-pos = [260.0, 720.0]
+pos = [260.0, 1460.0]
 
 [node.params]
 height = "1.5"
@@ -126,7 +126,7 @@ height = "1.5"
 [[node]]
 id = "5ce7c00000000010"
 folder = "nodes/union"
-pos = [1300.0, 320.0]
+pos = [1300.0, 900.0]
 
 [[wire]]
 from = "5ce7c00000000002.out"
