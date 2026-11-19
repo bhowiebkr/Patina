@@ -63,7 +63,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
 
-- Ember sound workbench: 42 node types, three learning patches, a six-track song, instrument panels, and dock editors for sound design and arrangement.
+- Ember sound workbench: 44 node types, three learning patches, a six-track song, instrument panels, and dock editors for sound design and arrangement.
   The **sandstorm** graph adds a short hook study with a pulse lead, bit reduction, and six editable tracks.
   Its revised voices add oversampled lead shaping, filter envelopes, aligned bass phases, stereo unison, and separate drum bodies and transients.
   The **Sound** page exposes these controls, stereo room, low cut, and beat-synchronized volume reduction.
@@ -74,7 +74,12 @@ The records of the ended milestones and of the finished work are in [docs/histor
   The source follows a published remake. It does not claim to reproduce the original processed sample.
   The corrected mix peaks at 0.765722 without limiter hits. Its solo render and comparison are available locally.
   Optimized track processing measured 0.161 ms mean and 0.191 ms p95 per 256 frames, with zero allocations after warmup.
-  Listening fidelity, visual inspection of the new **Sound** page, and other operating systems remain unchecked.
+  The synth workspace uses its copied SDK. Its tracked manifest no longer points outside the workbench.
+  The **audio-capture** and **spectrogram** nodes add continuous frequency history on the canvas.
+  The **sandstorm** graph connects the viewer to its melody track. It has freeze, clear, frequency, level, and time controls.
+  FFT history updates measured 0.032 ms mean and 0.042 ms p95, with zero allocations after initialization.
+  The viewer passed fused Edit, slot, and Bake checks. A headless browser displayed its actual GUI and dispatched freeze and clear events.
+  Listening fidelity, full-editor visual inspection of these changes, and other operating systems remain unchecked.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
 - Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.

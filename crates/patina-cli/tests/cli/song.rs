@@ -119,18 +119,23 @@ fn the_sandstorm_excerpt_renders_and_its_lead_controls_save_and_undo() {
     );
     let mut project = Project::open_top(&path, "sandstorm").unwrap();
     let toolchain = Toolchain::detect().unwrap();
-    let checked = project.check().unwrap();
+    let mut checked = project.check().unwrap();
     let control = Control::default();
     let mut reference = Vec::new();
-    for mode in [Mode::Edit, Mode::Bake] {
+    for (mode, slot) in [(Mode::Edit, false), (Mode::Edit, true), (Mode::Bake, false)] {
+        checked.set_slot(slot.then_some("spectrogram")).unwrap();
         let mut cluster = checked.build(&toolchain, mode).unwrap();
         assert!(cluster.set_params(checked.graph()).ok);
         assert!(cluster.run(&control).ok && cluster.frame(&control).ok);
         let mut samples = Vec::new();
-        for _ in 0..1875 {
+        for block in 0..1875 {
             assert!(cluster.block(&control).ok);
             samples.extend_from_slice(cluster.sound().unwrap());
+            if block % 3 == 2 {
+                assert!(cluster.frame(&control).ok);
+            }
         }
+        check_spectrogram(&mut cluster, &control);
         assert!(samples.iter().all(|v| v.is_finite() && v.abs() <= 0.95));
         let peak = samples.iter().fold(0.0_f32, |peak, v| peak.max(v.abs()));
         assert!(peak > 0.2 && peak < 0.94, "peak {peak}");
@@ -194,4 +199,35 @@ fn the_sandstorm_excerpt_renders_and_its_lead_controls_save_and_undo() {
     assert!(snapshot(saved.graph(), &[], &[], &[]).contains("\"edge\":7.5"));
     project.undo(&mut Default::default()).unwrap();
     assert_eq!(snapshot(project.graph(), &[], &[], &[]), before);
+}
+
+fn check_spectrogram(cluster: &mut patina_engine::Cluster, control: &Control) {
+    let id = "e6c0000000000022";
+    let tree = cluster.ui(control, id, 0, "").0.unwrap();
+    assert!(tree.contains("LIVE / continuous audio capture"));
+    let image = |tree: &str| {
+        tree.lines()
+            .find(|line| line.starts_with("image\t"))
+            .unwrap()
+            .to_owned()
+    };
+    let live_image = image(&tree);
+    let freeze = tree
+        .lines()
+        .position(|line| line.starts_with("toggle\tFreeze"))
+        .unwrap();
+    let clear = tree
+        .lines()
+        .position(|line| line.starts_with("button\tClear"))
+        .unwrap();
+    cluster.ui(control, id, 0, &format!("{freeze} 1"));
+    for _ in 0..48 {
+        assert!(cluster.block(control).ok);
+        assert!(cluster.frame(control).ok);
+    }
+    let tree = cluster.ui(control, id, 0, "").0.unwrap();
+    assert!(tree.contains("FROZEN /"));
+    assert_eq!(image(&tree), live_image);
+    let tree = cluster.ui(control, id, 0, &format!("{clear} 1")).0.unwrap();
+    assert_ne!(image(&tree), live_image);
 }

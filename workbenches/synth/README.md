@@ -58,6 +58,37 @@ The CLI can render the same saved graph:
 cargo run -p patina-cli -- render workbenches/synth sandstorm-hook.wav --graph sandstorm --seconds 10
 ```
 
+## Spectrogram node
+
+The **sandstorm** graph includes a **Spectrogram** connected to its melody track.
+It shows frequency vertically, recent time horizontally, and signal level through colour.
+
+![Spectrogram node with captured melody audio](images/spectrogram.png)
+
+For another signal:
+
+1. Add an **audio-capture** node from **Project**.
+2. Connect a mono audio output to its **sound** input.
+3. Add a **spectrogram** node.
+4. Connect the capture output to its **source** input.
+5. Click **Run**.
+
+For stereo audio, use **stereo-channel** before the capture node.
+Select channel 0 for left, 1 for right, or 2 for their mean.
+The capture connection runs beside the audio output. It does not change the sound.
+
+Use **Frequency range** to inspect bass, melody harmonics, or the full audio band.
+Use **Time span** for 5.5 or 10.9 seconds of history.
+Use **Level floor** to reveal quiet harmonics.
+**Freeze** holds the display. Resuming starts a new history. **Clear** removes the captured history.
+The output pin reports the latest captured peak amplitude.
+
+The analyzer uses a 2048-sample Hann window with 50 percent overlap at 48 kHz.
+Its frequency spacing is 23.4 Hz. It uses peak levels when several bins share a display pixel.
+FFT work runs in the frame domain. Audio capture uses the existing bounded buffer without locks or allocations.
+A frame stall longer than the 171 ms capture buffer can lose samples. The display resets and reports that gap.
+The illustration shows the actual widget renderer. It is not a screenshot of the complete editor.
+
 ## Arrange a song
 
 The **song** graph adds a 32-bar trance study at 136 BPM.
@@ -348,3 +379,11 @@ Hardware MIDI and microphone capture are not implemented. Use **song** for sampl
 The tests check samples and controls. Speaker playback and listening quality have not been checked.
 
 The [arrangement design](https://github.com/bhowiebkr/Patina/blob/main/docs/synth-arranger.md) records research and the song workbench checks.
+
+## Check the Rust nodes
+
+Build this workbench through Patina before you run its Cargo tests.
+Patina copies the SDK into **build/sdk** and regenerates the workspace manifest.
+The tracked manifest uses that local SDK path. It does not depend on the repository's directory layout.
+Run `cargo test --workspace --exclude patina-sdk --exclude patina-macros --locked` from this workbench after its first build.
+The copied SDK omits its unit tests. The main Patina workspace tests the SDK separately.

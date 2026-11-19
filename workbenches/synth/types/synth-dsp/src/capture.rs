@@ -6,6 +6,7 @@ use std::sync::{
 
 pub const CAPACITY: usize = 8192;
 
+#[derive(Debug)]
 pub struct Signal {
     pub name: String,
     samples: Box<[AtomicU32]>,
@@ -17,27 +18,55 @@ pub struct Signal {
 impl Signal {
     /// Copies a coherent recent window. None means no samples or a concurrent overwrite.
     pub fn read(&self, out: &mut [f32]) -> Option<u64> {
+        self.read_window(out, false).map(|(written, _)| written)
+    }
+
+    fn read_window(&self, out: &mut [f32], partial: bool) -> Option<(u64, usize)> {
         if out.len() > CAPACITY || !self.alive.load(SeqCst) {
             return None;
         }
-        let length = out.len();
         for _ in 0..2 {
             let before = self.sequence.load(SeqCst);
             let written = self.written.load(SeqCst);
-            if before & 1 != 0 || written < out.len() as u64 {
+            if before & 1 != 0 || written == 0 || (!partial && written < out.len() as u64) {
                 return None;
             }
-            for (i, value) in out.iter_mut().enumerate() {
+            let length = out.len().min(written as usize);
+            for (i, value) in out[..length].iter_mut().enumerate() {
                 *value = f32::from_bits(
                     self.samples[(written as usize + CAPACITY - length + i) % CAPACITY]
                         .load(SeqCst),
                 );
             }
             if before == self.sequence.load(SeqCst) {
-                return Some(written);
+                return Some((written, length));
             }
         }
         None
+    }
+}
+
+/// A wire carries this handle; the audio thread retains the sample storage.
+#[derive(Clone, Debug, Default)]
+pub struct Stream(pub Option<Arc<Signal>>);
+
+impl Stream {
+    pub fn read_available(&self, out: &mut [f32]) -> Option<(u64, usize)> {
+        self.0.as_ref()?.read_window(out, true)
+    }
+    pub fn same_source(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+}
+
+impl patina_sdk::Viewer for Stream {
+    fn text(&self, out: &mut patina_sdk::Text) -> std::fmt::Result {
+        use std::fmt::Write;
+        out.write_str(self.0.as_ref().map_or("No capture", |s| s.name.as_str()))
     }
 }
 
@@ -78,6 +107,10 @@ impl Capture {
             .unwrap_or_else(|e| e.into_inner())
             .push(Arc::downgrade(&signal));
         Self { signal, written: 0 }
+    }
+
+    pub fn stream(&self) -> Stream {
+        Stream(Some(self.signal.clone()))
     }
 
     /// No locks, allocations, or retries on the audio thread.

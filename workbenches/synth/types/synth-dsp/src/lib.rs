@@ -9,6 +9,8 @@ use std::sync::{
 
 pub mod audition;
 pub mod capture;
+pub mod spectrogram;
+pub mod spectrum;
 mod effects;
 mod keyboard;
 pub use keyboard::LiveKeys;

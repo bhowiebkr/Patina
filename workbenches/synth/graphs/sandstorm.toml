@@ -765,3 +765,33 @@ to = "e6c0000000000019.b"
 [[wire]]
 from = "e6c0000000000019.out"
 to = "e6c000000000001e.sound"
+
+
+[[node]]
+id = "e6c0000000000020"
+folder = "nodes/stereo-channel"
+pos = [1180.0, 1000.0]
+[node.params]
+channel = "2"
+
+[[node]]
+id = "e6c0000000000021"
+folder = "nodes/audio-capture"
+pos = [1470.0, 1000.0]
+
+[[node]]
+id = "e6c0000000000022"
+folder = "nodes/spectrogram"
+pos = [1760.0, 950.0]
+
+[[wire]]
+from = "e6c000000000000b.out"
+to = "e6c0000000000020.sound"
+
+[[wire]]
+from = "e6c0000000000020.out"
+to = "e6c0000000000021.sound"
+
+[[wire]]
+from = "e6c0000000000021.out"
+to = "e6c0000000000022.source"

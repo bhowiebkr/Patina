@@ -2,6 +2,7 @@
 [workspace]
 resolver = "3"
 members = ["nodes/*", "types/*", "widgets/*", "views/*"]
+exclude = ["build/sdk/patina-sdk", "build/sdk/patina-macros"]
 
 [workspace.dependencies]
-patina-sdk = { path = "../../crates/patina-sdk" }
+patina-sdk = { path = "build/sdk/patina-sdk" }

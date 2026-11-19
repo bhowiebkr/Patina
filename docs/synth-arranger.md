@@ -188,3 +188,19 @@ A 60 ms B4 segment gave these relative spectral levels. The pulse fundamental is
 | Third pulse harmonic near 1482 Hz | -10.2 dB | -16.0 dB | -9.7 dB |
 
 These measurements describe one note segment. They do not establish a listening match to the original recording.
+
+## Spectrogram node of 2026-11-19
+
+The owner requested a frequency-over-time viewer on the node canvas.
+**audio-capture** writes each block into the existing capture buffer and returns a shared stream handle.
+**spectrogram** reads that handle in the frame domain. It shares the FFT implementation with the dock analyzer.
+Each FFT uses 2048 samples and a 1024-sample hop. A ring stores 512 spectrum columns without shifting them.
+The GUI uses the existing image widget, axes, tabs, and buttons. No host renderer changes are necessary.
+
+The **sandstorm** graph connects the viewer to the melody track through the existing stereo-channel node.
+The stereo channel uses the mean by default. Phase cancellation can hide content in that mode; select left or right when necessary.
+**Freeze**, **Clear**, frequency range, level floor, and time span operate on the local display state.
+Display settings and history reset when the node is rebuilt. They do not alter the score.
+
+A capture overrun resets the history and shows a notice. The display does not invent samples across a missed interval.
+This viewer has a fixed 23.4 Hz FFT spacing. Longer windows and saved spectrogram export remain open.

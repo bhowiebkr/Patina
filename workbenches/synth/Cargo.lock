@@ -52,6 +52,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-capture"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
 name = "chorus"
 version = "0.1.0"
 dependencies = [
@@ -446,6 +454,15 @@ dependencies = [
 
 [[package]]
 name = "space"
+version = "0.1.0"
+dependencies = [
+ "panel",
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
+name = "spectrogram"
 version = "0.1.0"
 dependencies = [
  "panel",
