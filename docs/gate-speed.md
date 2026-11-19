@@ -18,11 +18,23 @@ has the simulator.
 - ROM, RAM, split, merge, clock, key and display are built-in chips.
 - The simulation runs on its own thread. The default is 1000 steps each second, and a clock edge
   each 250 steps. A flip-flop is a loop of NAND gates, so it needs some steps to settle.
+- A loop does not repeat in a step. When no chip is ready, the first step runs a random waiting
+  chip with the value that its input pin kept from the step before. A pin keeps its value from
+  step to step, so a latch keeps its state. Each 100 steps, two waiting chips can change places
+  at random, so a race, for example in an SR latch, can end in each state. There is no pass limit
+  and no warning: a NOT gate that reads itself changes at each step. (Read on 2026-11-18 in
+  `Simulator.cs` and `SimPin.cs` of the `main` branch.)
 - The source has these open optimizations: lookup tables for combinational chips, a skip of a
   chip with the same inputs, and a network of only the built-in chips.
 
 The download in `reference_logic_sim/` is not DLS2. Its code has `AndGate` and `NotGate`, and no
-NAND, ROM or RAM chips. It is the older version 1. Patina did not run it.
+NAND, ROM or RAM chips. Its files are from 2024-01-05, before DLS2. It is the older version 1.
+Patina did not run it.
+
+Patina has one frame for each clock step (spec 9.2), so a gate cycle must settle in the frame. It
+runs the cycle again in the frame until no back value changes. This does the work of the DLS2
+steps between two clock edges. The pass order is fixed, so a race always ends in the same state.
+The cap of 64 passes is an agent decision. DLS2 has 250 steps between two clock edges.
 
 ## How Patina runs a circuit
 
