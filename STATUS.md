@@ -64,14 +64,16 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
 
 - Ember sound workbench: 42 node types, three learning patches, a six-track song, instrument panels, and dock editors for sound design and arrangement.
-  The **sandstorm** graph adds a short hook study with a root-and-fifth lead, bit reduction, and six editable tracks.
+  The **sandstorm** graph adds a short hook study with a pulse lead, bit reduction, and six editable tracks.
   Its revised voices add oversampled lead shaping, filter envelopes, aligned bass phases, stereo unison, and separate drum bodies and transients.
   The **Sound** page exposes these controls, stereo room, low cut, and beat-synchronized volume reduction.
   Drums play one shot. Closed hats choke open hats. Track validation accepts the minimum release value.
   The study approximates the sound and accompaniment. It does not contain the full song arrangement.
   Windows example tests, workspace checks, and stereo rendering passed. Its dock controls passed save and undo checks.
-  The revised render peaks at 0.829138 without reaching the limiter. Six solo renders and an RMS-matched comparison are available locally.
-  Optimized track processing measured 0.159 ms mean and 0.182 ms p95 per 256 frames, with zero allocations after warmup.
+  The owner rejected the previous lead. Its correction uses a dominant pulse and a saw 31 semitones below it.
+  The source follows a published remake. It does not claim to reproduce the original processed sample.
+  The corrected mix peaks at 0.765722 without limiter hits. Its solo render and comparison are available locally.
+  Optimized track processing measured 0.161 ms mean and 0.191 ms p95 per 256 frames, with zero allocations after warmup.
   Listening fidelity, visual inspection of the new **Sound** page, and other operating systems remain unchecked.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.

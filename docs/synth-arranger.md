@@ -49,7 +49,8 @@ The [piano note guide](https://pianoletternotes.blogspot.com/2018/03/sandstorm-b
 informed the short hook's pitches and repeated-note pattern.
 The octave, gates, mix, accompaniment, and synthesis settings are approximations.
 
-The **Rave lead** instrument filters a root-and-fifth source before bit reduction and source distortion.
+The **Rave lead** instrument filters a low saw and a pulse 31 semitones above it.
+The note pitch sets the pulse frequency. Bit reduction and source distortion follow the source filter.
 Distortion precedes the amplitude envelope so short notes retain their shape.
 The source runs at 192 kHz. A 96-tap FIR reduces ultrasonic content before decimation to 48 kHz.
 Its source, amplitude, filter, and effect controls save with the score.
@@ -163,3 +164,27 @@ The musical ruler currently uses four quarter-note beats per bar.
 
 Microphone capture, hardware MIDI, time stretching, compressed codecs, VST hosting, and stem export remain open.
 Speaker listening and other operating systems remain unchecked.
+
+## Lead correction of 2026-11-19
+
+The owner rejected the previous melody instrument. That source used a saw and a pulse only seven semitones apart.
+[Syntorial's remake recipe](https://www.syntorial.com/preset-recipe/darude-sandstorm-lead/) uses a 31-semitone separation.
+Its public audio example has a dominant pulse and a much lower saw component.
+The revised source follows that relationship and uses less drive. The low cut, envelope, and effect balance also changed.
+The other five instruments keep their previous settings.
+
+The reference is a published remake, not Darude's original isolated lead.
+The first Apple preview contained the intro. Its spectrogram was not a valid lead comparison.
+The remake spectrum guided the source balance. Regression tests check its pitch relationship and odd harmonics.
+No downloaded audio enters the instrument or the repository. Listening comparison with the original lead remains necessary.
+
+A 60 ms B4 segment gave these relative spectral levels. The pulse fundamental is the 0 dB reference.
+
+| Component | Published remake | Previous lead | Revised lead |
+| --- | --- | --- | --- |
+| Low saw near 82 Hz | -14.1 dB | -64.5 dB | -14.2 dB |
+| Unwanted upper fifth near 741 Hz | -36.7 dB | -5.2 dB | -33.5 dB |
+| Second pulse harmonic near 988 Hz | -35.0 dB | -6.4 dB | -34.6 dB |
+| Third pulse harmonic near 1482 Hz | -10.2 dB | -16.0 dB | -9.7 dB |
+
+These measurements describe one note segment. They do not establish a listening match to the original recording.

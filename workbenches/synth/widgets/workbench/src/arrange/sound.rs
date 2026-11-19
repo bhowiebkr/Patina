@@ -75,7 +75,7 @@ impl Arrange {
                                 ],
                             );
                             changed |= number8(ui, "Source bits", &mut track.rave.bits, [4, 16]);
-                            ui.label("4x source shaping precedes the filter and volume envelope.");
+                            ui.label("Pulse melody above a saw 31 semitones lower. Fifth level sets the pulse.");
                         }
                         Instrument::Bass => {
                             changed |= ui

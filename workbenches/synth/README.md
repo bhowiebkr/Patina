@@ -20,14 +20,16 @@ The accompaniment and sound are approximations. This is a short synthesis study,
 7. Use **Piano roll** to inspect the hook's notes and timing.
 8. Click **Save** to keep the changes.
 
-The **Rave lead** instrument mixes the root and a fifth before source filtering and bit reduction.
+The **Rave lead** instrument plays a pulse at the note pitch, with a saw 31 semitones below it.
 Source distortion runs at four times the sample rate, before the voice filter and amplitude envelope.
-The starting settings use a fifth level of 0.42, a 3200 Hz source filter, 8 bits, and **Source edge** at 10.
+The starting settings use **Fifth level** at 1, a 4600 Hz source filter, 8 bits, and **Source edge** at 1.05.
+**Fifth level** controls the high pulse. The low saw supplies the rough undertone.
+The source interval follows [Syntorial's published remake](https://www.syntorial.com/preset-recipe/darude-sandstorm-lead/).
 These are approximate synthesis settings. Darude's original lead used a processed sample.
 
 The **rave-oscillator** node supplies the same source and distortion for custom modular patches.
 Connect **Notes** to it, then connect its output to **Filter** and **Envelope**.
-Set **fifth** to 0.42, **body** to 3200, **bits** to 8, and **edge** to 10.
+Set **fifth** to 1, **body** to 4600, **bits** to 8, and **edge** to 1.05.
 This source has no amplitude envelope. The downstream envelope controls note length.
 
 The **Sound** page edits the selected track. Use **Track** below the page to select another instrument.
@@ -37,7 +39,7 @@ Its columns wrap when the dock becomes narrow.
 | --- | --- |
 | Lead and pad | Seven band-limited oscillators, detune, stereo width, and separate amplitude and filter envelopes. |
 | Bass | An aligned sine body and shaped saw feed a resonant filter. |
-| Rave lead | Root and fifth, source filtering, bit reduction, oversampled distortion, and note envelopes. |
+| Rave lead | Pulse melody, low saw, source filtering, bit reduction, oversampled distortion, and note envelopes. |
 | Kick | A falling pitch, saturated body, and short noise transient. |
 | Snare | Two body resonances, filtered wire noise, and a short bright transient. |
 | Hats | Metallic oscillators and filtered noise. Note 46 opens the hat; note 42 closes it. |

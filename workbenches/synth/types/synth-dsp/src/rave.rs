@@ -1,4 +1,4 @@
-//! A rough root-and-fifth source for distorted, short rave leads.
+//! A pulse lead above a low saw, with source filtering and oversampled drive.
 use crate::{RATE, finite, voice::wave};
 use serde::{Deserialize, Serialize};
 mod decimator;
@@ -40,13 +40,14 @@ pub struct RaveOscillator {
     decimator: decimator::Decimator,
 }
 
-const FIFTH: f64 = 1.498_307_076_876_681_5;
+// Two octaves and a fifth separate the low saw from the played pulse pitch.
+const INTERVAL: f64 = 5.993_228_307_506_726;
 
 impl RaveOscillator {
     pub fn reset(&mut self, hz: f32, elapsed: u64) {
         let hz = finite(hz, 440.0, 10.0, 12000.0);
         let cycles = elapsed as f64 * f64::from(hz) / f64::from(RATE);
-        self.phase = [cycles.fract(), (cycles * FIFTH).fract()];
+        self.phase = [(cycles / INTERVAL).fract(), cycles.fract()];
         self.low = [0.0; 2];
         self.decimator = Default::default();
     }
@@ -66,12 +67,12 @@ impl RaveOscillator {
         }
         let levels = ((1_u32 << (tone.bits.clamp(4, 16) - 1)) - 1) as f32;
         for _ in 0..4 {
-            let root = wave(self.phase[0] as f32, dt as f32, 1);
-            let upper = wave(self.phase[1] as f32, (dt * FIFTH) as f32, 2);
-            let source = (root + upper * fifth) / (1.0 + fifth);
+            let low = wave(self.phase[0] as f32, (dt / INTERVAL) as f32, 1);
+            let pulse = wave(self.phase[1] as f32, dt as f32, 2);
+            let source = (low * 0.5 + pulse * fifth) / (0.5 + fifth);
             self.low[0] += self.alpha * (source - self.low[0]);
             self.low[1] += self.alpha * (self.low[0] - self.low[1]);
-            for (phase, ratio) in self.phase.iter_mut().zip([1.0, FIFTH]) {
+            for (phase, ratio) in self.phase.iter_mut().zip([1.0 / INTERVAL, 1.0]) {
                 *phase = (*phase + dt * ratio).fract();
             }
             let source = (self.low[1] * levels).round() / levels;
@@ -94,19 +95,21 @@ mod tests {
     #[test]
     fn oversampled_drive_reduces_the_folded_fifth_harmonic() {
         let tone = RaveTone {
-            fifth: 0.0,
+            fifth: 1.0,
             body: 8000.0,
             bits: 16,
         };
         let mut source = RaveOscillator::default();
-        let mut phase = 0.0_f32;
+        let mut phase = [0.0_f32; 2];
         let mut low = [0.0; 2];
         let alpha = 1.0 - (-std::f32::consts::TAU * tone.body / RATE).exp();
         let mut projections = [[0.0_f64; 4]; 2];
         for i in 0..9600 {
             let oversampled = source.next_driven(7000.0, tone, 16.0);
-            let raw = wave(phase, 7000.0 / RATE, 1);
-            phase = (phase + 7000.0 / RATE).fract();
+            let dt = 7000.0 / RATE;
+            let raw = (wave(phase[0], dt / INTERVAL as f32, 1) * 0.5 + wave(phase[1], dt, 2)) / 1.5;
+            phase[0] = (phase[0] + dt / INTERVAL as f32).fract();
+            phase[1] = (phase[1] + dt).fract();
             low[0] += alpha * (raw - low[0]);
             low[1] += alpha * (low[0] - low[1]);
             let x = (low[1] * 16.0).clamp(-3.0, 3.0);
@@ -125,6 +128,49 @@ mod tests {
         assert!(
             ratios[0] < ratios[1] * 0.2,
             "folded/fundamental: {ratios:?}"
+        );
+    }
+
+    #[test]
+    fn played_pitch_is_the_pulse_with_a_low_saw_31_semitones_below() {
+        let mut source = RaveOscillator::default();
+        let hz = crate::frequency(71);
+        let tone = RaveTone {
+            fifth: 1.0,
+            body: 4600.0,
+            bits: 8,
+        };
+        let frequencies = [hz / INTERVAL as f32, hz, hz * 1.5, hz * 2.0, hz * 3.0];
+        let mut bins = [[0.0_f64; 2]; 5];
+        for i in 0..24000 {
+            let value = source.next_driven(hz, tone, 1.05);
+            if i < 4800 {
+                continue;
+            }
+            let window = 0.5 - 0.5 * (std::f64::consts::TAU * (i - 4800) as f64 / 19200.0).cos();
+            for (bin, frequency) in bins.iter_mut().zip(frequencies) {
+                let angle = std::f64::consts::TAU * f64::from(frequency) * i as f64 / 48000.0;
+                bin[0] += f64::from(value) * window * angle.cos();
+                bin[1] += f64::from(value) * window * angle.sin();
+            }
+        }
+        let levels = bins.map(|[re, im]| re.hypot(im));
+        assert!(
+            levels[1] > levels[0] * 2.5,
+            "pulse must dominate: {levels:?}"
+        );
+        assert!(levels[0] > levels[1] * 0.1, "keep the low saw: {levels:?}");
+        assert!(
+            levels[3] < levels[1] * 0.08,
+            "suppress even harmonics: {levels:?}"
+        );
+        assert!(
+            levels[4] > levels[1] * 0.2,
+            "keep the pulse third: {levels:?}"
+        );
+        assert!(
+            levels[2] < levels[1] * 0.06,
+            "remove the old upper fifth: {levels:?}"
         );
     }
 

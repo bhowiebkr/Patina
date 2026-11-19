@@ -1,8 +1,8 @@
 use patina_sdk::AudioBlock;
 use synth_dsp::{Notes, RaveOscillator, RaveTone};
 
-/// A root-and-fifth source with four-times oversampled distortion.
-/// Start with fifth 0.42, body 3200 Hz, 8 bits, and edge 10. Follow with Filter and Envelope.
+/// A pulse at the played pitch and a low saw 31 semitones below it.
+/// Start with fifth 1, body 4600 Hz, 8 bits, and edge 1.05. Follow with Filter and Envelope.
 #[patina_sdk::node(domain = audio, color = "#175c59")]
 pub struct Rave {
     source: RaveOscillator,

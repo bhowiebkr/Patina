@@ -20,19 +20,19 @@ score = '''
   "tracks": [
     {
       "id": 1,
-      "name": "Sandstorm hook / driven fifth",
+      "name": "Sandstorm hook / pulse and low saw",
       "instrument": "Rave",
       "sample": "",
       "root_note": 60,
-      "gain": 0.85,
+      "gain": 1.05,
       "pan": 0.0,
       "mute": false,
       "solo": false,
-      "attack": 0.002,
-      "release": 0.014,
+      "attack": 0.001,
+      "release": 0.02,
       "cutoff": 15500.0,
       "drive": 1.0,
-      "delay_mix": 0.14,
+      "delay_mix": 0.08,
       "delay_beats": 0.75,
       "clips": [
         {
@@ -221,21 +221,21 @@ score = '''
       ],
       "automation": [],
       "rave": {
-        "fifth": 0.42,
-        "body": 3200.0,
+        "fifth": 1.0,
+        "body": 4600.0,
         "bits": 8
       },
       "sound": {
-        "decay": 0.065,
-        "sustain": 0.82,
-        "brightness": 6200.0,
-        "resonance": 0.18,
-        "sweep": 0.8,
+        "decay": 4.0,
+        "sustain": 0.98,
+        "brightness": 12500.0,
+        "resonance": 0.0,
+        "sweep": 0.0,
         "sweep_decay": 0.055,
-        "edge": 10.0,
-        "highpass": 170.0,
-        "room": 0.09,
-        "duck": 0.13
+        "edge": 1.05,
+        "highpass": 50.0,
+        "room": 0.1,
+        "duck": 0.05
       }
     },
     {
