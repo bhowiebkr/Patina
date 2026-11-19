@@ -3,7 +3,10 @@ use patina_sdk::node;
 
 /// `count` copies of the solid around the Z axis, at equal angles.
 #[node]
-pub fn polar_array(solid: &Solid, count: u32) -> Result<Solid, String> {
+pub fn polar_array(
+    solid: &Solid,
+    #[param(default = 4, max = 1000)] count: u32,
+) -> Result<Solid, String> {
     if count > MAX_COPIES {
         return Err(format!("make {MAX_COPIES} copies or fewer, not {count}"));
     }

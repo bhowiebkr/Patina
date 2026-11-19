@@ -851,8 +851,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   the range gives a parameter error on the node. The **Inspector** shows a slider next to the
   field of an input with `min` and `max`. Engine unit tests and a CLI test cover it.
 - Known limits: an input of `process` of a stateful node cannot have `#[param]`. No shot
-  checked the slider. The model nodes do not use `#[param]` yet, so an unwired number starts
-  at 0.
+  checked the slider.
+- The model nodes have `#[param]` defaults and ranges (2026-11-19). A new `cuboid` is a box of
+  1 x 1 x 1, `taper` has a slider from 0 to 1 and `gap` has a slider from 0 to 360. The city
+  has the new copies of `cuboid`, `cylinder` and `sphere`. The model and city CLI tests pass.
 - The hello example has a pocket calculator (2026-11-18): two **keypad** nodes, an
   **operation** with four keys, two paper **tape** nodes and an `average` subgraph with the
   **AVG** chip. The unit tests of the nodes and the CLI tests pass. A hidden shot showed 36
