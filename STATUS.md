@@ -305,7 +305,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   faces, ink lines on sharp edges and a lighter background. The city workbench has the new
   imports.
 - Checked on 2026-11-19, on Windows only:
-  - 12 unit tests of `types/guns`, 1 test of `export-gun`, 2 tests of `gun-wall` and the 5
+  - 14 unit tests of `types/guns`, 1 test of `export-gun`, 2 tests of `gun-wall` and the 5
     tests of `model-view` with the crease test, and the clippy of the gun crates, with the MSVC
     toolchain. CI does not run them.
   - The CLI test runs `main`, checks the two stats reports, and runs the export with a trigger.
@@ -317,9 +317,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     changes the seed. The captures show the gun wall in the maker colors and the toon bands.
   - A click on a tile of `gun-wall` sets the seed and selects the `look` node, so the 3D view
     shows that gun. The shot clicks the first tile and checks the selection and the new mesh.
+  - Maker marks (2026-11-19): each receiver has the logo and the name of its maker on its two
+    sides, in raised letters of the trim color. Two unit tests check the letters, the logos and
+    the strokes. A preview of the meshes of the 24 guns of all classes and makers showed each
+    mark readable on the receiver, from left to right on the two sides.
 - Known limits:
   - The parts are extrusions, turned profiles and booleans, with no sculpted shapes.
-  - The guns have no decals, logos or text.
+  - The maker mark is the only text. The other parts have no decals, logos or text.
   - Linux and macOS did not run the workbench.
 
 ### City workbench, 2026-11-19

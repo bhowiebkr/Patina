@@ -71,6 +71,10 @@ glow color.
 
 The `gun` node uses the maker of the gun for most parts. Some parts come from another maker.
 
+Each receiver has the maker mark on its two sides: the logo of the maker and its name in raised
+letters of the trim color. The logos are three blocks (Blockwerk), a crescent (Vesper), two
+jaws (Scrapjaw) and a ring (Halo).
+
 Each part has six materials, each with its own color: paint, trim, metal, grip, rarity and
 glow. The rarity accents use the color of the rarity. The glow parts use the color of the
 element, or the glow color of the maker when the gun has no element.
@@ -142,4 +146,4 @@ wire to the node. A run after a change does not write.
 - The parts are made from extrusions, turned profiles and booleans. There are no sculpted
   shapes.
 - The gun wall draws flat side views with paths, not 3D images.
-- The guns have no decals, logos or text on the parts.
+- The maker mark is the only text. The other parts have no decals, logos or text.

@@ -10,6 +10,7 @@ mod accessory;
 mod barrel;
 mod grip;
 mod magazine;
+mod mark;
 mod receiver;
 mod sight;
 mod stock;
