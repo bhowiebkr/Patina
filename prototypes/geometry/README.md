@@ -100,8 +100,8 @@ The toolchain has no C++ setup now. The trial added these parts by hand:
 
 ## Not checked
 
-- C++ exceptions across the link: libc++abi of Zig with the unwinder of the Rust gnu target.
-  The trial threw no exception.
+- C++ exceptions across the link in this trial. Task D0c later threw and caught an exception in
+  a node cluster with the same runtime (see [STATUS.md](../../STATUS.md)).
 - A build in a type crate of a workbench, and a build in a node cluster.
 - Linux and macOS. The hash can change on another platform, because `sin` and `cos` come from
   the platform math library.

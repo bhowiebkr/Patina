@@ -2,7 +2,7 @@
 //! unpacks Zig. Windows has both in System32, and a firewall that allows only known programs
 //! allows them. Rustup installs from a local copy of the server, so it needs no network.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io::Read;
@@ -26,7 +26,7 @@ const PACKAGES: &[&str] = &["rustc", "cargo", "rust-std", "rust-mingw", "rust-an
 /// The Zig target for the C code of the Rust target `x86_64-pc-windows-gnu`.
 const ZIG_TARGET: &str = "x86_64-windows-gnu";
 /// The copies of the editor or the CLI that start Zig (see [`run_wrapper`]).
-const WRAPPERS: [&str; 3] = ["zig-cc.exe", "zig-ar.exe", "zig-dlltool.exe"];
+const WRAPPERS: [&str; 4] = ["zig-cc.exe", "zig-cxx.exe", "zig-ar.exe", "zig-dlltool.exe"];
 
 /// Installs the toolchain into `folder` and returns its Rust version. The steps work in the
 /// folder `<folder>-install`, and the last step renames it, so Patina never uses a part install.
@@ -161,13 +161,20 @@ pub fn run_wrapper() -> Option<i32> {
     let exe = std::env::current_exe().ok()?;
     let tool = match exe.file_stem()?.to_str()? {
         "zig-cc" => "cc",
+        "zig-cxx" => "c++",
         "zig-ar" => "ar",
         "zig-dlltool" => "dlltool",
         _ => return None,
     };
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
-    let args = if tool == "cc" { cc_args(args) } else { args };
+    let args = if tool == "cc" || tool == "c++" { cc_args(args) } else { args };
     let dir = exe.parent().unwrap_or(Path::new("."));
+    if tool == "c++"
+        && let Err(e) = cxx_runtime(dir)
+    {
+        eprintln!("zig-c++: cannot make the C++ runtime: {e}");
+        return Some(1);
+    }
     let cache = dir.join("cache");
     let status = command(&dir.join("zig.exe"))
         .arg(tool)
@@ -201,6 +208,70 @@ fn cc_args(args: Vec<OsString>) -> Vec<OsString> {
         }
     }
     out
+}
+
+/// A program that makes Zig build libc++ and libc++abi.
+const CXX_PROBE: &str = "#include <string>\nint main() { return (int)std::string(\"a\").size() - 1; }\n";
+
+/// libc++ of Zig imports these functions from the UCRT. The Rust gnu target links msvcrt, so each
+/// import points at the msvcrt function. `_strftime_l` ignores the locale.
+const CXX_SHIM: &str = r#"extern "C" {
+#define FWD(name) extern char name##_crt __asm__(#name); void *__imp_##name = &name##_crt;
+FWD(mbrtowc) FWD(mbrlen) FWD(mbsrtowcs) FWD(wcrtomb) FWD(wctob) FWD(btowc)
+struct tm;
+unsigned long long strftime_crt(char *, unsigned long long, const char *, const tm *) __asm__("strftime");
+static unsigned long long strftime_l(char *s, unsigned long long n, const char *f, const tm *t, void *) { return strftime_crt(s, n, f, t); }
+void *__imp__strftime_l = (void *)&strftime_l;
+extern int *__imp__sys_nerr;
+static int *sys_nerr() { return __imp__sys_nerr; }
+void *__imp___sys_nerr = (void *)&sys_nerr;
+}
+"#;
+
+/// Makes `cxx/libc++.a` in the Zig folder `zig` one time: libc++, libc++abi and [`CXX_SHIM`].
+/// cc-rs links it with `CXXSTDLIB=c++`, and the rustc flags have the folder (13.2).
+fn cxx_runtime(zig: &Path) -> Result<(), Error> {
+    let out = zig.join("cxx");
+    let lib = out.join("libc++.a");
+    if lib.is_file() {
+        return Ok(());
+    }
+    make_dir(&out)?;
+    let lock_path = out.join("lock");
+    let lock = fs::File::create(&lock_path).map_err(|e| Error::Io(lock_path.clone(), e))?;
+    // cc-rs compiles the C++ files of a crate at the same time.
+    lock.lock().map_err(|e| Error::Io(lock_path, e))?;
+    if lib.is_file() {
+        return Ok(());
+    }
+    let work = out.join("work");
+    if work.exists() {
+        fs::remove_dir_all(&work).map_err(|e| Error::Io(work.clone(), e))?;
+    }
+    make_dir(&work)?;
+    for (name, text) in [("probe.cpp", CXX_PROBE), ("shim.cpp", CXX_SHIM)] {
+        fs::write(work.join(name), text).map_err(|e| Error::Io(work.join(name), e))?;
+    }
+    let cache = work.join("cache");
+    let zig_run = |args: &[&OsStr]| {
+        let mut command = command(&zig.join("zig.exe"));
+        command.current_dir(&work).args(args).env("ZIG_GLOBAL_CACHE_DIR", &cache).env("ZIG_LOCAL_CACHE_DIR", &cache);
+        run_text(&mut command)
+    };
+    // Zig builds libc++ with the optimize mode of the link.
+    let cxx = |rest: &[&'static str]| [&["c++", "-target", ZIG_TARGET, "-O2"][..], rest].concat();
+    zig_run(&cxx(&["probe.cpp", "-o", "probe.exe"]).iter().map(OsStr::new).collect::<Vec<_>>())?;
+    zig_run(&cxx(&["-c", "shim.cpp", "-o", "shim.o"]).iter().map(OsStr::new).collect::<Vec<_>>())?;
+    let built = |name: &str| -> Result<PathBuf, Error> {
+        let o = cache.join("o");
+        let entries = fs::read_dir(&o).map_err(|e| Error::Io(o.clone(), e))?;
+        let found = entries.filter_map(Result::ok).map(|entry| entry.path().join(name)).find(|path| path.is_file());
+        found.ok_or_else(|| Error::Build(format!("Zig made no {name} in {}", o.display())))
+    };
+    let (libcxx, libcxxabi) = (built("c++.lib")?, built("c++abi.lib")?);
+    zig_run(&["ar".as_ref(), "qcL".as_ref(), "libc++.a".as_ref(), libcxx.as_os_str(), libcxxabi.as_os_str(), "shim.o".as_ref()])?;
+    rename(&work.join("libc++.a"), &lib)?;
+    fs::remove_dir_all(&work).map_err(|e| Error::Io(work, e))
 }
 
 /// Installs Rust with rustup: the minimal profile of the stable channel, rust-analyzer and the
@@ -482,7 +553,8 @@ mod tests {
         fs::write(zig.join("zig-cc.exe"), "old").unwrap();
         add_wrappers(&folder, &wrapper).unwrap();
         let text = |name: &str| fs::read_to_string(zig.join(name)).unwrap();
-        assert_eq!([text("zig-cc.exe"), text("zig-ar.exe"), text("zig-dlltool.exe")], ["old", "new", "new"]);
+        let all = [text("zig-cc.exe"), text("zig-cxx.exe"), text("zig-ar.exe"), text("zig-dlltool.exe")];
+        assert_eq!(all, ["old", "new", "new", "new"]);
         fs::remove_dir_all(&folder).unwrap();
     }
 

@@ -227,9 +227,21 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The default Manifold crate build needs CMake and git. Spec 13.4 does not allow them.
 - Task D0b: the `cc` crate built Manifold with no CMake. With the Patina toolchain (gnu target,
   Zig, `rust-lld`), the cold build took 8 s, and a gun took 3.1 ms.
-  - The toolchain has no C++ setup. The trial set `CXX`, libc++ and a shim for 8 UCRT imports
-    by hand. Task D0c adds this to the toolchain.
-  - C++ exceptions across the link are not checked.
+  - The trial set `CXX`, libc++ and a shim for 8 UCRT imports by hand. Task D0c adds this to
+    the toolchain.
+- Task D0c: the toolchain compiles C++ crates (spec 13.2). The `zig-cxx.exe` wrapper makes
+  `toolchain/zig/cxx/libc++.a` at the first C++ compile: libc++, libc++abi and the shim.
+  - Checked on Windows with a toolchain run at a Unicode path: a node crate with a C++ file
+    threw and caught an exception in its cluster, and the graph showed 40. The cluster imports
+    no UCRT function. The first build took 12.7 s with the runtime, and a rebuild took 0.05 s.
+  - Fixed with it: build scripts did not start with the own toolchain. They link the shared
+    `std`, which needs libgcc_s from the `bin` folder of the target. `PATH` now has it.
+  - Unit tests check the environment, the flags and `PATH`. No automated test builds C++ with
+    the own toolchain, because the CLI tests use the system toolchain.
+  - Known limits: libc++ goes into each cluster DLL (480 KB in the check). The first C++
+    compile waits 10 to 20 s for the runtime. `cc` does not build again after a `.cpp` edit,
+    unless the build script prints `rerun-if-changed`. Only Windows: the Linux toolchain sets
+    no `CXX`, and Linux and macOS did not run.
 
 ### Groups, notes and the error display, 2026-11-18
 

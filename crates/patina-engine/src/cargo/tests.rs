@@ -116,10 +116,27 @@ fn the_own_toolchain_has_a_clean_environment() {
         std::fs::create_dir_all(folder.join("zig")).unwrap();
         std::fs::write(folder.join("zig").join("zig-cc.exe"), "").unwrap();
         assert!(names(&folder).contains(&"CC_x86_64_pc_windows_gnu".to_owned()));
+        assert!(!names(&folder).contains(&"CXXSTDLIB_x86_64_pc_windows_gnu".to_owned()));
+        std::fs::write(folder.join("zig").join("zig-cxx.exe"), "").unwrap();
+        let cxx = names(&folder);
+        assert!(cxx.contains(&"CXX_x86_64_pc_windows_gnu".to_owned()) && cxx.contains(&"CXXSTDLIB_x86_64_pc_windows_gnu".to_owned()));
         std::fs::remove_dir_all(&folder).unwrap();
     }
     // A folder with no cargo gives the Rust of the system.
     assert_eq!(Toolchain::find(&folder).unwrap().own, None);
+}
+
+#[test]
+fn build_scripts_of_the_own_toolchain_find_the_runtime() {
+    let folder = std::env::temp_dir().join(format!("patina-runtime-{}", std::process::id()));
+    let target = folder.join("rustlib").join("x");
+    std::fs::create_dir_all(target.join("bin")).unwrap();
+    let (cargo, rustc, release, host) = (PathBuf::new(), PathBuf::new(), String::new(), String::new());
+    let toolchain = Toolchain { cargo, rustc, release, host, libdir: target.join("lib"), own: Some(folder.clone()) };
+    let command = toolchain.command(Path::new("x")).unwrap();
+    let path = command.get_envs().find(|(name, _)| *name == "PATH").and_then(|(_, value)| value).unwrap();
+    assert_eq!(std::env::split_paths(path).last(), Some(target.join("bin")));
+    std::fs::remove_dir_all(folder).unwrap();
 }
 
 #[test]
@@ -131,7 +148,8 @@ fn each_host_gets_its_link_flags() {
     assert_eq!(flags("x86_64-pc-windows-msvc", None), "-Cprefer-dynamic\x1f-Clink-arg=/Brepro");
     assert_eq!(flags("x86_64-pc-windows-gnu", None), "-Cprefer-dynamic");
     let own = flags("x86_64-pc-windows-gnu", Some("t"));
-    assert!(own.contains("\x1f-Clink-arg=--no-insert-timestamp\x1f-Cdlltool=t") && own.ends_with("zig-dlltool.exe"), "{own}");
+    assert!(own.contains("\x1f-Clink-arg=--no-insert-timestamp\x1f-Cdlltool=t") && own.contains("zig-dlltool.exe\x1f"), "{own}");
+    assert!(own.ends_with(&format!("\x1f-Lnative={}", Path::new("t").join("zig").join("cxx").display())), "{own}");
     assert!(flags("x86_64-unknown-linux-gnu", None).ends_with("\x1f-Clink-arg=-Wl,-rpath,$ORIGIN"));
     assert!(flags("aarch64-apple-darwin", None).ends_with("\x1f-Clink-arg=-Wl,-rpath,@loader_path"));
 }

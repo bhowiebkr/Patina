@@ -119,6 +119,11 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
     libc++, libc++abi and the msvcrt shim of D0b into `libc++.a` in the Zig folder. Give rustc
     that folder as a link search path.
   - Check: a `patina-cli` test builds a crate with a C++ file and a C++ exception, and runs it.
+- Result of 2026-11-19, on Windows with a toolchain run: a node crate compiled C++ with `cc`.
+  The cluster threw and caught a C++ exception, and the graph ran. The first build took 12.7 s
+  with the runtime, and a rebuild took 0.05 s. The CLI tests use the system toolchain, so the
+  check is the toolchain run and unit tests. A fix came with it: build scripts did not start
+  with the own toolchain, because they need libgcc_s. Details are in [STATUS.md](../STATUS.md).
 - **D1 to D8** vendor the Manifold and Clipper2 sources into the type crate, with their license
   files. A build then needs no download of C++ sources.
 - **D1. Types.** `Solid`, `Mesh` (positions, normals, UV and a part ID), `Sockets` (named frames,
@@ -187,6 +192,7 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
 - 2026-11-19: D0 is done on Windows with the MSVC target. The Patina toolchain build is task
   D0b.
 - 2026-11-19: D0b is done on Windows with a toolchain run and a C++ setup by hand. Next is D0c.
+- 2026-11-19: D0c is done on Windows with a toolchain run. Next is D1.
 
 ## Order
 

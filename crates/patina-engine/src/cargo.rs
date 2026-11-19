@@ -216,7 +216,16 @@ impl Toolchain {
                 }
             }
             Some(folder) => {
-                command.env_clear().envs(own_env(folder, |name| std::env::var_os(name))?);
+                let mut env = own_env(folder, |name| std::env::var_os(name))?;
+                // Build scripts link `std` as a shared library. On the gnu target of Windows it needs libgcc_s of `bin` (8.5).
+                if let Some(bin) = self.libdir.parent().map(|lib| lib.join("bin")).filter(|bin| bin.is_dir())
+                    && let Some((_, path)) = env.iter_mut().find(|(name, _)| name == "PATH")
+                {
+                    let paths: Vec<PathBuf> = std::env::split_paths(path).chain([bin]).collect();
+                    *path = std::env::join_paths(paths)
+                        .map_err(|e| Error::Build(format!("the toolchain folder {} cannot go in PATH: {e}", folder.display())))?;
+                }
+                command.env_clear().envs(env);
             }
         }
         Ok(command)
@@ -234,6 +243,8 @@ impl Toolchain {
             flags.push("-Clink-arg=--no-insert-timestamp".to_owned());
             // rustc makes the import libraries of `std` with dlltool. The binutils dlltool reads ANSI arguments.
             flags.push(format!("-Cdlltool={}", folder.join("zig").join("zig-dlltool.exe").display()));
+            // The C++ runtime that `zig-cxx` makes. rustc accepts the folder before it exists.
+            flags.push(format!("-Lnative={}", folder.join("zig").join("cxx").display()));
         } else if self.host.contains("apple") {
             flags.push("-Clink-arg=-Wl,-rpath,@loader_path".to_owned());
         } else if !self.host.contains("windows") {
@@ -261,10 +272,14 @@ pub(crate) fn own_env(folder: &Path, var: impl Fn(&str) -> Option<OsString>) -> 
     env.push(("CARGO_HOME".to_owned(), cargo_home.into()));
     if cfg!(windows) {
         let zig = folder.join("zig");
-        for (name, file) in [("CC", "zig-cc.exe"), ("AR", "zig-ar.exe")] {
+        for (name, file) in [("CC", "zig-cc.exe"), ("CXX", "zig-cxx.exe"), ("AR", "zig-ar.exe")] {
             if zig.join(file).is_file() {
                 env.push((format!("{name}_x86_64_pc_windows_gnu"), zig.join(file).into()));
             }
+        }
+        // The toolchain has libc++ of Zig, not libstdc++, the default of cc-rs on the gnu target.
+        if zig.join("zig-cxx.exe").is_file() {
+            env.push(("CXXSTDLIB_x86_64_pc_windows_gnu".to_owned(), "c++".into()));
         }
         // GNU ld reads ANSI arguments, so it cannot open a path with CJK letters. rust-lld can.
         env.push(("CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER".to_owned(), "rust-lld".into()));
