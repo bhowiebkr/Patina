@@ -305,7 +305,9 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
     [...document.querySelectorAll<HTMLButtonElement>('.graph-path button')].find((b) => b.textContent === 'main')!.click();
     await until(what, BUILD_MS, () => document.querySelector('.graph-path') === null && !!useNode());
   };
-  await openUse('the subgraph for its Shape');
+  // Edit look in the Inspector of a use opens the subgraph at its Look section (4.3).
+  [...document.querySelectorAll<HTMLButtonElement>(`${inspector} .btn`)].find((b) => b.textContent === 'Edit look')!.click();
+  await until('the subgraph from Edit look', BUILD_MS, () => document.querySelector('.graph-path [aria-current="page"]')?.textContent === '/ fire_check');
   await until('the Shape list of the subgraph', RUN_MS, () => !!shape());
   shape()!.value = 'chip';
   shape()!.dispatchEvent(new Event('change', { bubbles: true }));
@@ -317,6 +319,25 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the Open subgraph entry', RUN_MS, () => !!entry('Node', 'Open subgraph'));
   entry('Node', 'Open subgraph')!.click();
   await until('the subgraph from the node menu', BUILD_MS, () => document.querySelector('.graph-path [aria-current="page"]')?.textContent === '/ fire_check');
+  // A custom outline starts as a rectangle. A corner moves with an arrow key, and the color fills the body.
+  shape()!.value = 'custom';
+  shape()!.dispatchEvent(new Event('change', { bubbles: true }));
+  const corners = () => [...document.querySelectorAll<SVGRectElement>(`${inspector} .look-editor .look-corner`)];
+  await until('the four corners of a new custom outline', RUN_MS, () => corners().length === 4);
+  const [x, y] = corners()[1].getAttribute('aria-label')!.replace(/^Corner 2 at /, '').split(', ').map(Number);
+  corners()[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  await until('the corner after an arrow key', RUN_MS, () => corners()[1]?.getAttribute('aria-label') === `Corner 2 at ${x + 2}, ${y}`);
+  const color = document.querySelector<HTMLInputElement>(`${inspector} input[aria-label="Body color"]`)!;
+  color.value = '#d0a040';
+  color.dispatchEvent(new Event('change'));
+  const body = (root: Element | null | undefined) => root?.querySelector(`svg.symbol path[fill="#d0a040"]`)?.getAttribute('d') ?? '';
+  await until('the color of the custom outline', RUN_MS, () => body(document.querySelector(inspector)).startsWith('M14 '));
+  await toMain('the main graph with the custom outline');
+  await until('the use with the custom outline', BUILD_MS, () => /^M14 \d+L/.test(body(useNode())));
+  await openUse('the subgraph to undo its look');
+  for (const what of ['color', 'corner', 'outline']) v = await step(`undo the ${what} of the custom look`, () => api.undo());
+  if (v.graph.symbol?.shape !== 'chip') throw new Error(`the undo of the custom look gave ${JSON.stringify(v.graph.symbol)}`);
+  steps.push('draw a custom outline with a color for the uses of a subgraph');
   v = await step('undo the Shape of the subgraph', () => api.undo());
   if (v.graph.symbol) throw new Error(`the undo kept the symbol ${JSON.stringify(v.graph.symbol)}`);
   await toMain('the main graph after the undo of the Shape');

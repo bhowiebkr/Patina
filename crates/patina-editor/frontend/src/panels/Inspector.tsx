@@ -5,7 +5,7 @@ import { lazy, Suspense, useContext, useEffect, useRef, useState, type FocusEven
 import { KIND_NAMES, KindIcon } from '../controls/icons';
 import { api, atTop, docParts, errorLine, folderName, laneLabel, logKind, reportError, reportText, type Corners, type Edit, type Style, type Value, type View } from '../api';
 import { revealOf, type Reveal } from '../code/reveal';
-import { OpenButton, STATE_NAMES, StateIcon, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
+import { OpenButton, OpenUse, STATE_NAMES, StateIcon, infoOf, nodeErrors, nodeState, outputType, type RunState } from '../canvas/NodeView';
 import { valueStale } from '../canvas/liveValues';
 import { busText, kindOf } from '../canvas/bus';
 import { wireName } from '../canvas/graphData';
@@ -342,6 +342,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         </span>
       </div>
       {info && <div className="kind-line">{KIND_NAMES[info.kind]}</div>}
+      {entry.subgraph !== undefined && <LookSection graph={entry.subgraph} use={entry.id} />}
       {info?.doc && <div className="section label doc">{docParts(info.doc).map((p, i) => (p.kind === 'bold' ? <b key={i}>{p.text}</b> : p.kind === 'code' ? <code key={i}>{p.text}</code> : <span key={i}>{p.text}</span>))}</div>}
       <Tabs tab={shown} only={hasCode ? undefined : 'parameters'} onTab={onTab} />
       {shown === 'parameters' && (
@@ -414,5 +415,19 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
         </div>
       )}
     </aside>
+  );
+}
+
+/** **Edit look** of a subgraph use opens the subgraph. Its **Look** section edits the symbol of each use (4.3). */
+function LookSection({ graph, use }: { graph: string; use: string }) {
+  const open = useContext(OpenUse);
+  return (
+    <div className="section">
+      <h3>Look</h3>
+      <p className="label">Each use of {graph} has the same look.</p>
+      <button className="btn" disabled={!open} onClick={() => open?.(graph, use)}>
+        Edit look
+      </button>
+    </div>
   );
 }

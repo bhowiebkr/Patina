@@ -269,8 +269,10 @@ pub fn nand(a: &bool, b: &bool) -> bool {
 
 - The gates: `and`, `nand`, `or`, `nor`, `xor`, `xnor`, `not` and `buffer`.
 - The blocks: `mux`, `alu`, `adder`, `chip` and `bus`.
-- A subgraph gets a symbol too. Select a use of it, then set **Shape** and **Label** in the
-  **Look** section of the **Inspector**.
+- A subgraph gets a symbol too. Select a use of it, then click **Edit look** in the
+  **Inspector**. Set **Shape**, **Label** and **Color** in the **Look** section.
+- Only a subgraph can have **Custom outline**. Drag the corners of the outline in the
+  **Inspector**. A node cannot have `symbol = "custom"`.
 - On a `mux` and an `alu`, an input with the name `sel`, `s`, `op`, or `s` or `f` and one digit
   goes to the bottom edge.
 

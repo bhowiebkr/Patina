@@ -223,13 +223,18 @@ A node or a subgraph can show a circuit symbol in place of the box, for example 
 pub fn nand(a: &bool, b: &bool) -> bool { !(*a && *b) }
 ```
 
-- A subgraph sets the symbol of each use in the `[symbol]` table of its file (6.4). The **Shape** list and the **Label** field in the **Look** section of the **Inspector** edit it, with undo.
+- A subgraph sets the symbol of each use in the `[symbol]` table of its file (6.4). The **Shape** list, the **Label** field, the **Color** and the look editor in the **Look** section of the **Inspector** edit it, with undo. The **Inspector** of a use has an **Edit look** button that opens the subgraph.
 - The shapes:
   - `and`, `nand`, `or`, `nor`, `xor`, `xnor`, `not` and `buffer`: the logic gates, with the distinctive shapes of IEEE 91.
   - `mux`: a trapezoid. `alu`: a chevron with a notch. `adder`: a block with a sigma sign.
   - `chip`: a DIP package with a notch, a pin 1 mark, metal legs and the pin names.
   - `bus`: a bus bar, for the nodes that split a bus into lines or join lines into a bus.
-- Another shape is an error on the node. A subgraph file with another shape does not open.
+  - `custom`: only for a subgraph. The `outline` is a polygon of 3 to 32 corners, in symbol pixels from 0 to 480. The user draws it in the look editor.
+- A subgraph can also set a body `color` as `#rrggbb`. Without it, the symbol has the theme color. The label text is dark on a light color.
+- The look editor shows the symbol with a handle on each corner and on the middle of each edge. A drag moves a corner on a grid of 2 pixels. A drag on a middle handle adds a corner. A double-click or Delete removes a corner, but 3 stay. The arrow keys move the selected corner by 2 pixels, or by 10 with Shift. Each release or key is one edit, with undo.
+- A custom symbol has its inputs on the left and its outputs on the right, as a chip. Each lead goes straight to the outline. A bad outline shows a chip, and a bad color shows the theme color.
+- (Agent decision of 2026-11-19, for the owner request to draw the look of a subgraph in the GUI. The owner can change it.)
+- Another shape is an error on the node. A node cannot have `custom`, because a node has no outline. A subgraph file with another shape does not open.
 - A chip, a block and a bus bar show a label: the `label` text, or the node name in upper case. A gate shows no label.
 - The inputs are on the left edge and the outputs are on the right edge, in their order. A gate with one input has it at the middle.
 - On a `mux` and an `alu`, a control input goes to the bottom edge. A control input has the key or the name `sel`, `s`, `op`, or `s` or `f` and one digit. A wire still goes into an input from the left.

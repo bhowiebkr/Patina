@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Pin, Shape } from '../api.ts';
 import { socketBar } from './bus.ts';
-import { laneOffsets, lanePath, roomOf, symbolLayout, type SymbolLayout } from './symbols.ts';
+import { laneOffsets, lanePath, roomOf, startOutline, symbolLayout, type SymbolLayout } from './symbols.ts';
 
 const pin = (key: string, ty = 'u8'): Pin => ({ key, ty });
 const bit = (key: string): Pin => pin(key, 'bool');
@@ -61,4 +61,28 @@ test('each lane of a lead keeps its offset, also where the lead turns', () => {
   const straight = { key: 'i:a', end: [0, 30] as [number, number], body: [14, 30] as [number, number], bus: true, leg: false, lanes: 8 };
   assert.equal(lanePath(straight, -17.5), 'M0 12.5L14 12.5');
   assert.equal(lanePath({ ...straight, bend: [40, 30] }, 5), 'M0 35L45 35L19 30');
+});
+
+test('a custom outline takes its color, and each lead goes to its edge', () => {
+  const [inputs, outputs] = [[bit('a'), bit('b')], [bit('out')]];
+  // A triangle that points to the right: the inputs meet its left edge, the output meets its tip.
+  const symbol = { shape: 'custom' as const, color: '#E0D0A0', outline: [[0, 0], [60, 30], [0, 60]] as [number, number][] };
+  const layout = symbolLayout(symbol, 'or2', inputs, outputs);
+  assert.equal(layout.color, '#E0D0A0');
+  assert.deepEqual(layout.origin, [14, 0]);
+  assert.deepEqual(layout.leads.map((l) => [l.key, l.end, l.body]), [
+    ['i:a', [0, 20], [14, 20]],
+    ['i:b', [0, 40], [14, 40]],
+    ['o:out', [88, 30], [74, 30]],
+  ]);
+  assert.equal(layout.texts.at(-1)?.text, 'OR2');
+  // Pins taller than the outline move it down, so that each pin stays in the node.
+  const tall = symbolLayout({ ...symbol, outline: [[0, 0], [40, 0], [40, 10], [0, 10]] }, 'x', [bit('a'), bit('b'), bit('c')], []);
+  assert.deepEqual([tall.origin, tall.height], [[14, 25], 60]);
+  assertApart(tall, 'a short custom outline');
+  // A bad outline from a file draws a chip, and a bad color is the theme color.
+  const bad = symbolLayout({ shape: 'custom', color: 'red', outline: [[0, 0], [1, 1]] }, 'x', inputs, outputs);
+  assert.equal(bad.parts[0].fill, 'chip');
+  assert.equal(bad.color, undefined);
+  assert.deepEqual(startOutline({ shape: 'custom' }, 'or2', inputs, outputs), [[0, 0], [69, 0], [69, 56], [0, 56]]);
 });

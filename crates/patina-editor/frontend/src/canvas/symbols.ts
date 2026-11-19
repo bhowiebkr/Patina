@@ -1,5 +1,6 @@
-// The layouts of the circuit symbols (spec 4.3): the logic gates, the blocks, a DIP chip and a bus
-// bar. A bus pin is a bar with one line for each lane (15.9), and its room keeps the bars apart.
+// The layouts of the circuit symbols (spec 4.3): the logic gates, the blocks, a DIP chip, a bus
+// bar and a custom outline. A bus pin is a bar with one line for each lane (15.9), and its room
+// keeps the bars apart.
 
 import type { Pin, Shape, Symbol } from '../api.ts';
 import { PITCH as LANE, socketBar } from './bus.ts';
@@ -49,6 +50,10 @@ export interface SymbolLayout {
   texts: Text[];
   /** The output whose high level tints the body of a gate. */
   lit?: string;
+  /** The fill of the body as "#rrggbb", in place of the theme color. */
+  color?: string;
+  /** The place of the point (0, 0) of a custom outline in the layout. */
+  origin?: Point;
 }
 
 /** The lane count of the pin of a lead key "i:<key>" or "o:<key>", 0 for a pin with no lanes. */
@@ -92,8 +97,30 @@ export function lanePath(l: Lead, d: number): string {
   return l.bend ? `M${ex} ${ey + d}L${l.bend[0] + d} ${l.bend[1] + d}L${bx + d} ${by}` : `M${ex} ${ey + d}L${bx} ${by + d}`;
 }
 
+const HEX = /^#[0-9a-f]{6}$/i;
+/** The largest coordinate of a corner of a custom outline, as the engine checks it. */
+export const OUTLINE_MAX = 480;
+
+/** True for an outline that draws a custom shape: 3 to 32 corners in 0 to 480. A file can hold a bad one. */
+export const isOutline = (o: readonly Point[] | undefined): o is Point[] =>
+  !!o && o.length >= 3 && o.length <= 32 && o.every((p) => p.length === 2 && p.every((v) => Number.isFinite(v) && v >= 0 && v <= OUTLINE_MAX));
+
 /** The layout of a symbol. The pin places are the `end` of the leads, by "i:<key>" and "o:<key>". */
 export function symbolLayout(symbol: Symbol, name: string, inputs: readonly Pin[], outputs: readonly Pin[], lanes: Lanes = () => 0): SymbolLayout {
+  const layout = shapeLayout(symbol, name, inputs, outputs, lanes);
+  return symbol.color && HEX.test(symbol.color) ? { ...layout, color: symbol.color } : layout;
+}
+
+/** A rectangle for a new custom outline, with room for the pin names and the label. */
+export function startOutline(symbol: Symbol, name: string, inputs: readonly Pin[], outputs: readonly Pin[], lanes: Lanes = () => 0): Point[] {
+  const label = symbol.label || name.toUpperCase();
+  const [inRooms, outRooms] = [inputs.map((p) => roomOf(lanes(`i:${p.key}`))), outputs.map((p) => roomOf(lanes(`o:${p.key}`)))];
+  const w = Math.min(OUTLINE_MAX, Math.max(60, widest(inputs.map(nameOf)) + widest(outputs.map(nameOf)) + label.length * LABEL_CHAR + 24));
+  const h = Math.min(OUTLINE_MAX, Math.max(sum(inRooms), sum(outRooms), 2 * PITCH) + 16);
+  return [[0, 0], [w, 0], [w, h], [0, h]];
+}
+
+function shapeLayout(symbol: Symbol, name: string, inputs: readonly Pin[], outputs: readonly Pin[], lanes: Lanes): SymbolLayout {
   const label = symbol.label || name.toUpperCase();
   const n: Count = (side, p) => lanes(`${side}:${p.key}`);
   switch (symbol.shape) {
@@ -106,6 +133,8 @@ export function symbolLayout(symbol: Symbol, name: string, inputs: readonly Pin[
       return chip(label, inputs, outputs, n);
     case 'bus':
       return bus(label, inputs, outputs, n);
+    case 'custom':
+      return isOutline(symbol.outline) ? custom(label, symbol.outline, inputs, outputs, n) : chip(label, inputs, outputs, n);
     default:
       return gate(symbol.shape, inputs, outputs, n);
   }
@@ -289,4 +318,45 @@ function bus(label: string, inputs: readonly Pin[], outputs: readonly Pin[], n: 
   const leads = [...many.map((p, i) => lead(manySide, p, [manyX, ys[i]], [bar, ys[i]], manyN[i])), ...stack(fewN.map(roomOf), mid).map((y, i) => lead(fewSide, few[i], [fewX, y], [bar, y], fewN[i]))];
   const texts = [...many.map((_, i) => ({ at: [split ? bar + 6 : bar - 6, ys[i] - halfOf(manyN[i]) - 3] as Point, text: names[i], anchor: split ? ('start' as const) : ('end' as const), kind: 'pin' as const })), { at: [bar, top - 6] as Point, text: label, anchor: 'middle' as const, kind: 'label' as const }];
   return { width, height, leads, parts, texts };
+}
+
+/**
+ * A custom outline (4.3) at (LEAD, top). The inputs come from the left and the outputs from the
+ * right, and each lead goes to the outline. The pins are on the middle of the outline, and `top`
+ * gives them room when they are taller than it.
+ */
+function custom(label: string, outline: readonly Point[], inputs: readonly Pin[], outputs: readonly Pin[], n: Count): SymbolLayout {
+  const [xs, ys] = [outline.map((p) => p[0]), outline.map((p) => p[1])];
+  const [minY, maxX, maxY] = [Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  const [inRooms, outRooms] = [inputs.map((p) => roomOf(n('i', p))), outputs.map((p) => roomOf(n('o', p)))];
+  const half = Math.max(sum(inRooms), sum(outRooms)) / 2;
+  const center = (minY + maxY) / 2;
+  const top = Math.max(0, half - center);
+  const mid = top + center;
+  const pts = outline.map(([x, y]): Point => [LEAD + x, top + y]);
+  // The x of each crossing of the outline and the horizontal line at y.
+  const cross = (y: number) =>
+    pts.flatMap(([ax, ay], i) => {
+      const [bx, by] = pts[(i + 1) % pts.length];
+      return ay <= y !== by <= y ? [ax + ((y - ay) * (bx - ax)) / (by - ay)] : [];
+    });
+  const x1 = LEAD + maxX;
+  const leads: Lead[] = [];
+  const texts: Text[] = [];
+  stack(inRooms, mid).forEach((y, i) => {
+    const hits = cross(y);
+    const x = hits.length > 0 ? Math.min(...hits) : LEAD;
+    leads.push(lead('i', inputs[i], [0, y], [x, y], n('i', inputs[i])));
+    texts.push(pinText([x + 5, y], nameOf(inputs[i]), 'start'));
+  });
+  stack(outRooms, mid).forEach((y, i) => {
+    const hits = cross(y);
+    const x = hits.length > 0 ? Math.max(...hits) : x1;
+    leads.push(lead('o', outputs[i], [x1 + LEAD, y], [x, y], n('o', outputs[i])));
+    texts.push(pinText([x - 5, y], nameOf(outputs[i]), 'end'));
+  });
+  const xMid = (LEAD + Math.min(...xs) + x1) / 2;
+  texts.push({ at: [xMid, mid + 4], text: label, anchor: 'middle', kind: 'label' });
+  const parts: Part[] = [{ d: `M${pts.map((p) => p.join(' ')).join('L')}Z`, fill: 'body' }];
+  return { width: x1 + LEAD, height: Math.max(top + maxY, mid + half), leads, parts, texts, origin: [LEAD, top] };
 }

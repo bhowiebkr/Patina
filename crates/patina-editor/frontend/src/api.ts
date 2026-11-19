@@ -93,13 +93,17 @@ export interface Note {
 }
 
 /** The shape of a circuit symbol (4.3). */
-export type Shape = 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not' | 'buffer' | 'mux' | 'alu' | 'adder' | 'chip' | 'bus';
-export const SHAPES: readonly Shape[] = ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not', 'buffer', 'mux', 'alu', 'adder', 'chip', 'bus'];
+export type Shape = 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not' | 'buffer' | 'mux' | 'alu' | 'adder' | 'chip' | 'bus' | 'custom';
+export const SHAPES: readonly Shape[] = ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not', 'buffer', 'mux', 'alu', 'adder', 'chip', 'bus', 'custom'];
 
 /** A circuit symbol in place of the box of a node (4.3). No label shows the name in upper case. */
 export interface Symbol {
   shape: Shape;
   label?: string | null;
+  /** The fill of the body as "#rrggbb". No color uses the color of the theme. */
+  color?: string | null;
+  /** The corners of the body of the custom shape, in symbol pixels from the top left. */
+  outline?: Point[];
 }
 
 /** An input or an output of a node, with its Rust type (spec 4.1). */

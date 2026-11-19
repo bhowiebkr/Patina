@@ -179,10 +179,19 @@ corners = \"sharp\""), "{text}");
 
     history.apply(&serde_json::from_str(r#"{"kind":"SetSymbol","symbol":{"shape":"chip","label":" CPU "}}"#).unwrap()).unwrap();
     assert_eq!(history.graph.symbol.as_ref().and_then(|s| s.label.as_deref()), Some("CPU"));
-    let or = |label: &str| Edit::SetSymbol { symbol: Some(Symbol { shape: Shape::Or, label: Some(label.to_owned()) }) };
+    let or = |label: &str| Edit::SetSymbol { symbol: Some(Symbol { shape: Shape::Or, label: Some(label.to_owned()), color: None, outline: Vec::new() }) };
     history.apply(&or(" ")).unwrap();
-    assert_eq!(history.graph.symbol, Some(Symbol { shape: Shape::Or, label: None }), "a blank label shows the name");
+    assert_eq!(history.graph.symbol, Some(Symbol { shape: Shape::Or, label: None, color: None, outline: Vec::new() }), "a blank label shows the name");
     assert!(history.apply(&or(&"x".repeat(33))).is_err());
+    // A custom shape has an outline of 3 to 32 corners in 0..=480, and only it has one (4.3).
+    let custom = |color: &str, outline: &str| serde_json::from_str::<Edit>(&format!(r#"{{"kind":"SetSymbol","symbol":{{"shape":"custom","color":"{color}","outline":{outline}}}}}"#)).unwrap();
+    history.apply(&custom("#AABBCC", "[[0,0],[60,0],[60,40],[0,40]]")).unwrap();
+    assert_eq!(history.graph.symbol.as_ref().and_then(|s| s.color.as_deref()), Some("#aabbcc"));
+    for (color, outline) in [("red", "[[0,0],[1,0],[0,1]]"), ("#000000", "[[0,0],[1,0]]"), ("#000000", "[[0,0],[1,0],[0,481]]")] {
+        assert!(history.apply(&custom(color, outline)).is_err(), "{color} {outline}");
+    }
+    assert!(history.apply(&serde_json::from_str(r#"{"kind":"SetSymbol","symbol":{"shape":"or","outline":[[0,0],[1,0],[0,1]]}}"#).unwrap()).is_err());
+    assert!(history.undo(no_code).unwrap());
     assert!(history.undo(no_code).unwrap());
     assert_eq!(history.graph.symbol.as_ref().map(|s| s.shape), Some(Shape::Chip));
     history.apply(&Edit::SetSymbol { symbol: None }).unwrap();

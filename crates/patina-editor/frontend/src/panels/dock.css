@@ -398,6 +398,57 @@ html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas .r
   overflow-x: auto;
 }
 
+/* The outline editor of a custom symbol (4.3): the handles are on top of the symbol. */
+.look-editor {
+  position: relative;
+  flex: none;
+}
+
+.look-editor > svg {
+  display: block;
+  overflow: visible;
+}
+
+.look-handles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  touch-action: none;
+}
+
+.look-corner {
+  fill: var(--panel);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  cursor: move;
+}
+
+.look-corner:focus-visible {
+  outline: none;
+  fill: var(--accent);
+  stroke: var(--text);
+}
+
+.look-add {
+  fill: var(--muted);
+  opacity: 0.6;
+  cursor: copy;
+}
+
+.look-add:hover {
+  fill: var(--accent);
+  opacity: 1;
+}
+
+.look-color {
+  grid-template-columns: 90px auto auto;
+  justify-content: start;
+}
+
+.look-hint {
+  margin: 6px 0;
+}
+
 /* The Library panel (15.2): the list scrolls, and the preview keeps its place at the bottom. */
 .panel.library {
   overflow: hidden;

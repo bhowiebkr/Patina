@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
-use crate::project::{Corners, GraphFile, Group, NodeEntry, Note, Order, PublicInput, PublicOutput, Style, Symbol, Wire, is_id, is_key};
+use crate::project::{Corners, GraphFile, Group, NodeEntry, Note, Order, PublicInput, PublicOutput, Shape, Style, Symbol, Wire, is_id, is_key};
 
 mod groups;
 pub(crate) use groups::{check_group, check_note, used};
@@ -353,6 +353,19 @@ fn symbol_of(symbol: &Option<Symbol>) -> Result<Option<Symbol>, String> {
         s.label = s.label.as_deref().map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned);
         if s.label.as_deref().is_some_and(|l| l.len() > 32 || l.chars().any(char::is_control)) {
             return Err("a symbol label has 32 bytes at most and no control characters".to_owned());
+        }
+        if let Some(c) = &mut s.color {
+            if !c.strip_prefix('#').is_some_and(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit())) {
+                return Err(format!("the symbol color {c:?} is not \"#rrggbb\""));
+            }
+            c.make_ascii_lowercase();
+        }
+        let custom = s.shape == Shape::Custom;
+        if custom != !s.outline.is_empty() || (custom && !(3..=32).contains(&s.outline.len())) {
+            return Err("only the custom shape has an outline, of 3 to 32 corners".to_owned());
+        }
+        if s.outline.iter().flatten().any(|v| !(0.0..=480.0).contains(v)) {
+            return Err("each corner of a symbol outline is from 0 to 480 pixels".to_owned());
         }
     }
     Ok(symbol)

@@ -41,6 +41,12 @@ function Legs({ lead, high, socket }: { lead: Lead; high: boolean; socket: Socke
   return laneOffsets(lead.lanes).map((d, i) => <rect key={i} x={x} y={lead.body[1] + d - 1.5} width={6} height={3} fill={socket?.bits[i] === '1' ? COLOR.high : COLOR.leg} />);
 }
 
+/** The brightness of a color "#rrggbb", from 0 to 255. */
+const luma = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+};
+
 /** The drawing of a symbol. A lead is amber when its level is high, dark amber when low, and gray with no live value. */
 export function SymbolBody({ layout, levels, sockets, far }: { layout: SymbolLayout; levels?: Readonly<Record<string, boolean>>; sockets?: Readonly<Record<string, Socket>>; far: boolean }) {
   const color = (l: Lead) => {
@@ -49,7 +55,9 @@ export function SymbolBody({ layout, levels, sockets, far }: { layout: SymbolLay
     return level ? COLOR.high : COLOR.low;
   };
   const lit = layout.lit !== undefined && levels?.[layout.lit] === true;
-  const fills = { body: lit ? COLOR.lit : COLOR.body, chip: COLOR.chip, mark: COLOR.chipEdge, none: 'none' };
+  const fills = { body: lit ? COLOR.lit : (layout.color ?? COLOR.body), chip: layout.color ?? COLOR.chip, mark: COLOR.chipEdge, none: 'none' };
+  // The text on a light body color is dark, so that it keeps its contrast.
+  const ink = layout.color && luma(layout.color) > 140 && layout.parts.some((p) => p.fill === 'body' || p.fill === 'chip') ? '#1c1c1b' : undefined;
   return (
     <svg className="symbol" width={layout.width} height={layout.height} viewBox={`0 0 ${layout.width} ${layout.height}`} aria-hidden="true">
       {layout.leads.map((l) =>
@@ -65,7 +73,7 @@ export function SymbolBody({ layout, levels, sockets, far }: { layout: SymbolLay
       {layout.leads.map((l) => l.leg && <Legs key={`leg ${l.key}`} lead={l} high={levels?.[l.key] === true} socket={sockets?.[l.key]} />)}
       {!far &&
         layout.texts.map((t, i) => (
-          <text key={`t${i}`} x={t.at[0]} y={t.at[1]} textAnchor={t.anchor} className={t.kind === 'label' ? 'symbol-label' : 'symbol-pin'}>
+          <text key={`t${i}`} x={t.at[0]} y={t.at[1]} textAnchor={t.anchor} className={t.kind === 'label' ? 'symbol-label' : 'symbol-pin'} style={ink ? { fill: ink } : undefined}>
             {t.text}
           </text>
         ))}

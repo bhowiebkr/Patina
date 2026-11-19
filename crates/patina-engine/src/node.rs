@@ -399,7 +399,8 @@ fn read_attr(attr: &Attribute) -> Result<Args, String> {
         }
         if meta.path.is_ident("symbol") {
             let text = meta.value()?.parse::<LitStr>()?.value();
-            args.symbol = Some(Shape::parse(&text).ok_or_else(|| meta.error(format!("`{text}` is not a node symbol (spec 4.3)")))?);
+            // A custom outline belongs to a subgraph, so a node takes only the drawn shapes.
+            args.symbol = Some(Shape::parse(&text).filter(|s| *s != Shape::Custom).ok_or_else(|| meta.error(format!("`{text}` is not a node symbol (spec 4.3)")))?);
             return Ok(());
         }
         if !meta.path.is_ident("domain") {
@@ -572,6 +573,7 @@ mod tests {
         let gate = parse(&counter.replace("domain = frame", "symbol = \"nand\"")).unwrap();
         assert_eq!((gate.symbol, node.symbol), (Some(Shape::Nand), None));
         assert!(parse(&counter.replace("domain = frame", "symbol = \"star\"")).is_err());
+        assert!(parse(&counter.replace("domain = frame", "symbol = \"custom\"")).is_err());
         assert!(parse(&counter.replace("#[node(domain = frame)]", "#[node(full_gui)]")).is_err());
         let hold = "#[node] pub struct Hold<T, U> { v: Option<(T, U)> }\n\
                     impl<T: Clone, U> Hold<T, U> { pub fn init() -> Hold<T, U> { todo!() } }\n\

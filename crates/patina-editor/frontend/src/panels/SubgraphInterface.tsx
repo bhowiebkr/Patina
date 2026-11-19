@@ -2,11 +2,13 @@
 // (6.4), and a preview of the node that each use shows.
 
 import type { FocusEvent, KeyboardEvent } from 'react';
-import { newId, SHAPES, type Edit, type NodeInfo, type Point, type PublicInput, type PublicOutput, type Shape, type View } from '../api';
+import { newId, SHAPES, type Edit, type NodeInfo, type Point, type PublicInput, type PublicOutput, type Shape, type Symbol, type View } from '../api';
 import { kindOf } from '../canvas/bus';
 import { outputType } from '../canvas/NodeView';
 import { SymbolBody } from '../canvas/SymbolView';
-import { symbolLayout } from '../canvas/symbols';
+import { isOutline, startOutline, symbolLayout } from '../canvas/symbols';
+import { ColorInput } from '../controls/ValueWidgets';
+import { LookEditor } from './LookEditor';
 
 type Pin = PublicInput | PublicOutput;
 
@@ -38,14 +40,27 @@ const SHAPE_NAMES: Record<Shape, string> = {
   adder: 'Adder',
   chip: 'Chip',
   bus: 'Bus bar',
+  custom: 'Custom outline',
 };
 
-/** The **Shape** and the **Label** of each use of the open subgraph, in the **Look** section (4.3). */
+/** The subgraph node of the open subgraph, with its pin types. */
+const infoOf = (view: View) => view.nodes.find((n) => n.subgraph && n.name === view.graphName);
+
+/** The **Shape**, the **Color** and the **Label** of each use of the open subgraph, in the **Look** section (4.3). */
 export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit) => void }) {
   const symbol = view.graph.symbol;
+  const set = (next: Symbol) => onEdit({ kind: 'SetSymbol', symbol: next });
   const commit = (e: FocusEvent<HTMLInputElement>) => {
     const label = e.currentTarget.value.trim();
-    if (symbol && label !== (symbol.label ?? '')) onEdit({ kind: 'SetSymbol', symbol: { shape: symbol.shape, label: label || null } });
+    if (symbol && label !== (symbol.label ?? '')) set({ ...symbol, label: label || null });
+  };
+  // Only the custom shape keeps an outline. A new custom shape starts as a rectangle with room for the pins.
+  const shapeOf = (shape: Shape): Symbol => {
+    const next: Symbol = { shape, label: symbol?.label ?? null, color: symbol?.color ?? null };
+    const info = infoOf(view);
+    if (shape !== 'custom') return next;
+    if (isOutline(symbol?.outline)) return { ...next, outline: symbol.outline };
+    return { ...next, outline: startOutline(next, view.graphName, info?.inputs ?? [], info?.outputs ?? [], (key) => (info ? lanesOf(view, key, info) : 0)) };
   };
   const keys = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') e.currentTarget.value = symbol?.label ?? '';
@@ -61,7 +76,7 @@ export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit
           disabled={!view.trusted}
           onChange={(e) => {
             const shape = e.currentTarget.value;
-            onEdit({ kind: 'SetSymbol', symbol: shape === 'box' ? null : { shape: shape as Shape, label: symbol?.label ?? null } });
+            onEdit({ kind: 'SetSymbol', symbol: shape === 'box' ? null : shapeOf(shape as Shape) });
           }}
         >
           <option value="box">Box</option>
@@ -78,12 +93,24 @@ export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit
           <input key={symbol.label ?? ''} className="field" defaultValue={symbol.label ?? ''} placeholder={view.graphName.toUpperCase()} maxLength={32} disabled={!view.trusted} onBlur={commit} onKeyDown={keys} />
         </label>
       )}
+      {symbol && symbol.shape !== 'bus' && (
+        <div className="param look-color">
+          <span className="label">Color</span>
+          <ColorInput value={symbol.color ?? (symbol.shape === 'chip' ? '#1c1c1b' : '#262626')} label="Body color" send={(color) => set({ ...symbol, color })} disabled={!view.trusted} />
+          {symbol.color && (
+            <button className="btn" disabled={!view.trusted} onClick={() => set({ ...symbol, color: null })}>
+              Theme color
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }
 
 export function SubgraphInterface({ view, onEdit }: { view: View; onEdit: (edit: Edit) => void }) {
-  const info = view.nodes.find((n) => n.subgraph && n.name === view.graphName);
+  const info = infoOf(view);
+  const symbol = view.graph.symbol;
   const inputs = view.graph.input ?? [];
   const outputs = view.graph.output ?? [];
   const xs = (view.graph.node ?? []).map((n) => n.pos?.[0] ?? 0);
@@ -138,9 +165,28 @@ export function SubgraphInterface({ view, onEdit }: { view: View; onEdit: (edit:
       {list(false, outputs)}
       <div className="section">
         <h3>Public node preview</h3>
-        {view.graph.symbol && info ? (
+        {symbol && info && symbol.shape === 'custom' && isOutline(symbol.outline) ? (
+          <>
+            <div className="symbol-preview" aria-label="Public node preview">
+              <LookEditor
+                outline={symbol.outline}
+                layoutOf={(outline) => symbolLayout({ ...symbol, outline }, view.graphName, info.inputs, info.outputs, (key) => lanesOf(view, key, info))}
+                disabled={!view.trusted}
+                onChange={(outline) => onEdit({ kind: 'SetSymbol', symbol: { ...symbol, outline } })}
+              />
+            </div>
+            <p className="label look-hint">Drag a corner to move it. Drag a dot on an edge to add a corner. Double-click a corner, or select it and press Delete, to remove it.</p>
+            <button
+              className="btn"
+              disabled={!view.trusted}
+              onClick={() => onEdit({ kind: 'SetSymbol', symbol: { ...symbol, outline: startOutline(symbol, view.graphName, info.inputs, info.outputs, (key) => lanesOf(view, key, info)) } })}
+            >
+              Reset outline
+            </button>
+          </>
+        ) : symbol && info ? (
           <div className="symbol-preview" aria-label="Public node preview">
-            <SymbolBody layout={symbolLayout(view.graph.symbol, view.graphName, info.inputs, info.outputs, (key) => lanesOf(view, key, info))} far={false} />
+            <SymbolBody layout={symbolLayout(symbol, view.graphName, info.inputs, info.outputs, (key) => lanesOf(view, key, info))} far={false} />
           </div>
         ) : (
           <div className="pin-preview" aria-label="Public node preview">

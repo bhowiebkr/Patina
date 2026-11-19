@@ -245,6 +245,8 @@ style = "curved"                 # the path of the wires with no style; only to 
 [symbol]                         # only in a subgraph file: the symbol of each use (4.3)
 shape = "chip"                   # and, nand, or, nor, xor, xnor, not, buffer, mux, alu, adder, chip or bus
 label = "CPU"                    # optional: the text on a chip, a block or a bus bar; 32 bytes at most
+color = "#335577"                # optional: the body color
+# outline = [[0.0, 0.0], [60.0, 20.0], [0.0, 40.0]]  # only for shape = "custom": 3 to 32 corners in 0..480
 
 [[node]]
 id = "5c0e9b2a7f13d846"         # the stable random ID of this use (6.1)

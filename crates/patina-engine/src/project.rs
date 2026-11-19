@@ -140,9 +140,15 @@ pub struct Symbol {
     /// The text on a chip or a block. `None` shows the name in upper case.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// The fill of the body as "#rrggbb". `None` uses the color of the theme.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    /// The corners of the body of the custom shape, in symbol pixels from the top left.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub outline: Vec<[f64; 2]>,
 }
 
-/// The shape of a symbol (4.3): the logic gates, the blocks and the chip.
+/// The shape of a symbol (4.3): the logic gates, the blocks, the chip and a custom outline.
 #[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Shape {
@@ -159,6 +165,7 @@ pub enum Shape {
     Adder,
     Chip,
     Bus,
+    Custom,
 }
 
 impl Shape {
@@ -431,7 +438,17 @@ name = \"n\"
     fn symbol_reads_and_writes() {
         let text = "format = 1\n\n[symbol]\nshape = \"chip\"\nlabel = \"CPU\"\n";
         let graph: GraphFile = toml::from_str(text).unwrap();
-        assert_eq!(graph.symbol, Some(Symbol { shape: Shape::Chip, label: Some("CPU".to_owned()) }));
+        assert_eq!(graph.symbol, Some(Symbol { shape: Shape::Chip, label: Some("CPU".to_owned()), color: None, outline: Vec::new() }));
+        assert_eq!(toml::to_string(&graph).unwrap(), text);
+        let text = "format = 1
+
+[symbol]
+shape = \"custom\"
+color = \"#335577\"
+outline = [[0.0, 0.0], [40.0, 10.0], [0.0, 20.0]]
+";
+        let graph: GraphFile = toml::from_str(text).unwrap();
+        assert_eq!(graph.symbol.as_ref().map(|s| (s.shape, s.outline.len())), Some((Shape::Custom, 3)));
         assert_eq!(toml::to_string(&graph).unwrap(), text);
         assert!(toml::from_str::<GraphFile>("format = 1\n[symbol]\nshape = \"star\"\n").is_err());
         assert!(toml::from_str::<GraphFile>("format = 1\n[symbol]\nshape = \"or\"\ncolor = 1\n").is_err());

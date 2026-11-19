@@ -459,6 +459,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   A subgraph sets **Shape** and **Label** in the **Look** section, with undo. The engine, CLI
   and frontend tests read it. The self-check gives a subgraph the chip shape and undoes it. It
   also adds a node with the AND symbol.
+- A subgraph can have a **Custom outline** and a body **Color** (2026-11-19). The look editor in
+  the **Inspector** moves, adds and removes corners, with undo. **Edit look** on a use opens the
+  subgraph. Engine and frontend unit tests cover it. The self-check draws an outline with a
+  color and reads it on the use. Known limit: no hand test of the mouse drags of the editor.
+- An open subgraph that no graph uses runs alone as a test (2026-11-19), so its switches and
+  LEDs work. The self-check sets a number in such a subgraph and reads its value.
+- A node canvas can grab only some rectangles (`grab_rect`, 2026-11-19). The button and the
+  joystick of computer grab their caps, and a drag on the board moves the node. The self-check
+  drags a free knob below its grab area and the node moves.
 - Each example has a style crate (2026-11-18): `widgets/parts` (a circuit board) in computer,
   `widgets/calc` (a pocket calculator) in hello and `widgets/scope` (a lab instrument) in gpu.
   A placed image or field fills the width to the same right margin. A free node shows no canvas
