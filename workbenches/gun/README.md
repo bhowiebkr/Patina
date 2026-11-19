@@ -97,4 +97,5 @@ wire to the node. A run after a change does not write.
 
 - The parts are boxes, cylinders and simple booleans. There are no curved or sculpted shapes.
 - The gun wall draws flat side views with paths, not 3D images.
+- The toon outline is near black. It shows between parts, but not on the dark background.
 - The toon outline can have small gaps at sharp corners.

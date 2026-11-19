@@ -338,7 +338,8 @@ Agent decisions of 2026-11-19 for F, the owner can change them:
   is F.
 - 2026-11-19: F1 to F7 are done on Windows. The CLI test runs `main` and the export with a
   trigger. The unit tests check the seeds, the sockets, the stats, the rarity weights, the side
-  view and the gun wall. The Toon look and the gun wall did not get a visual check.
+  view and the gun wall. The editor shot shows the gun wall and the Toon look. The near-black
+  outline does not show on the dark background of the view.
 
 ## Order
 

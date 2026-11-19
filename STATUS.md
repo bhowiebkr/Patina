@@ -294,8 +294,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     test of `model-view`, and the clippy of the gun crates, with the MSVC toolchain. CI does not
     run them.
   - The CLI test runs `main`, checks the two stats reports, and runs the export with a trigger.
+  - The editor shot of `gun` opens `gun-wall` and `model-view`, turns **Toon** on and off, and
+    changes the seed. The captures show the gun wall in the maker colors and the toon bands.
 - Known limits:
-  - The Toon look and the gun wall did not get a visual check in the editor.
+  - The toon outline is near black, so it shows between parts but not on the dark background.
   - The toon outline can have small gaps at sharp corners.
   - The parts are boxes, cylinders and simple booleans.
   - Linux and macOS did not run the workbench.
