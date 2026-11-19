@@ -247,6 +247,7 @@ shape = "chip"                   # and, nand, or, nor, xor, xnor, not, buffer, m
 label = "CPU"                    # optional: the text on a chip, a block or a bus bar; 32 bytes at most
 color = "#335577"                # optional: the body color
 # outline = [[0.0, 0.0], [60.0, 20.0], [0.0, 40.0]]  # only for shape = "custom": 3 to 32 corners in 0..480
+# face = "9a3c0e5b2d7f1486"      # only for shape = "code": the ID of the node whose GUI draws each use
 
 [[node]]
 id = "5c0e9b2a7f13d846"         # the stable random ID of this use (6.1)

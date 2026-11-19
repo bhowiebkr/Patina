@@ -2,7 +2,7 @@
 // right-click menus of the empty canvas, a node and a connection, and copy and paste (15.2, 15.4, 15.11).
 
 import { api, type View } from '../api';
-import { RUN_MS, button, entry, leftTab, rightClick, topButton, type CheckContext } from './check-fixtures';
+import { RUN_MS, button, entry, leftTab, rightClick, statusText, topButton, type CheckContext } from './check-fixtures';
 import { clipboard } from '../canvas/clip';
 import { LIBRARY_MIME, NODE_MIME } from '../canvas/useAddNode';
 
@@ -84,6 +84,13 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
   await until('the node after the undo', RUN_MS, () => count(NODES) === nodes);
   // Fit node of the node menu puts the node in the middle of the canvas.
   const fitted = document.querySelector(`${NODES}-patina`)!;
+  // The node of the undo grows when its GUI comes, so Fit node waits for a stable size.
+  let [size, since] = ['', Date.now()];
+  await until('a stable size of the node after the undo', RUN_MS, () => {
+    const b = fitted.getBoundingClientRect();
+    if (`${b.width} ${b.height}` !== size) [size, since] = [`${b.width} ${b.height}`, Date.now()];
+    return Date.now() - since > 1000;
+  });
   const middle = (e: Element) => {
     const b = e.getBoundingClientRect();
     return [b.left + b.width / 2, b.top + b.height / 2];
@@ -97,7 +104,10 @@ export async function checkCanvas({ step, until, steps }: CheckContext, v: View)
     rightClick(fitted.querySelector('.title') ?? fitted);
     await until('the Fit node entry', RUN_MS, () => !!entry('Node', 'Fit node'));
     entry('Node', 'Fit node')!.click();
-    await until('the node in the middle after Fit node', RUN_MS, centered);
+    await until('the node in the middle after Fit node', RUN_MS, centered).catch((e: Error) => {
+      const [b, p] = [fitted, pane].map((el) => el.getBoundingClientRect()).map((r) => [r.left, r.top, r.width, r.height].map(Math.round).join(' '));
+      throw new Error(`${e.message} (node ${fitted.getAttribute('data-id')} ${b}, in page ${fitted.isConnected}, pane ${p}, status ${statusText()})`);
+    });
   };
   const inside = (b: DOMRect, p = pane.getBoundingClientRect()) => b.left >= p.left && b.right <= p.right && b.top >= p.top && b.bottom <= p.bottom;
   const allFitted = () => !centered() && [...document.querySelectorAll(NODES)].every((n) => inside(n.getBoundingClientRect()));

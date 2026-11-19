@@ -136,6 +136,12 @@ function structureOf(view: View): Structure {
 }
 
 /** The inner nodes of each frame, as children of their use. They have no edits (15.3). */
+/** The GUI of the face node of a use with the code shape (4.3). The engine knows the face as "<use>/<face>". */
+function faceOf(id: string, info: NodeInfo | null, guis: ReadonlyMap<string, string>): string | undefined {
+  const face = info?.symbol?.shape === 'code' ? info.symbol.face : undefined;
+  return face ? guis.get(`0 ${id}/${face}`) : undefined;
+}
+
 function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>, domains: ReadonlyMap<string, Domain>, frames: readonly Frame[], old: Map<string, GraphNode>): PatinaNode[] {
   const outer = structureOf(view).sources;
   const lock = { draggable: false, selectable: false, connectable: false, deletable: false, focusable: false };
@@ -156,7 +162,7 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
       const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
       const sockets = socketsOf(entry.id, info, view.kinds, run, sources, tyOf);
       const keys = wired.get(entry.id) ?? NO_KEYS;
-      const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
+      const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), face: faceOf(entry.id, info, guis), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
       const position = { x, y };
       const before = old.get(entry.id);
       return before?.type === 'patina' ? kept(before, position, data, NONE) : { id: entry.id, type: 'patina', parentId: f.use, position, data, ...lock };
@@ -211,7 +217,7 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const sockets = socketsOf(entry.id, info, view.kinds, run, sources, (from) => outputType(view, from), lost);
     const domain = domains.get(entry.id);
     const lostKeys = lostParams(info, entry.params);
-    const data = { entry, info, wired, lost, lostParams: lostKeys, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
+    const data = { entry, info, wired, lost, lostParams: lostKeys, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), face: faceOf(entry.id, info, guis), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
     const before = old.get(entry.id);
     return before?.type === 'patina' ? kept(before, position, data, held) : { id: entry.id, type: 'patina' as const, position, data };
   });

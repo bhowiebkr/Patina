@@ -146,9 +146,13 @@ pub struct Symbol {
     /// The corners of the body of the custom shape, in symbol pixels from the top left.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outline: Vec<[f64; 2]>,
+    /// The ID of the node of the subgraph whose GUI is the body of each use, for the code shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub face: Option<String>,
 }
 
-/// The shape of a symbol (4.3): the logic gates, the blocks, the chip and a custom outline.
+/// The shape of a symbol (4.3): the logic gates, the blocks, the chip, a custom outline and the
+/// code of a face node.
 #[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Shape {
@@ -166,6 +170,7 @@ pub enum Shape {
     Chip,
     Bus,
     Custom,
+    Code,
 }
 
 impl Shape {
@@ -438,7 +443,7 @@ name = \"n\"
     fn symbol_reads_and_writes() {
         let text = "format = 1\n\n[symbol]\nshape = \"chip\"\nlabel = \"CPU\"\n";
         let graph: GraphFile = toml::from_str(text).unwrap();
-        assert_eq!(graph.symbol, Some(Symbol { shape: Shape::Chip, label: Some("CPU".to_owned()), color: None, outline: Vec::new() }));
+        assert_eq!(graph.symbol, Some(Symbol { shape: Shape::Chip, label: Some("CPU".to_owned()), color: None, outline: Vec::new(), face: None }));
         assert_eq!(toml::to_string(&graph).unwrap(), text);
         let text = "format = 1
 

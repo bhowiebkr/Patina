@@ -93,8 +93,8 @@ export interface Note {
 }
 
 /** The shape of a circuit symbol (4.3). */
-export type Shape = 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not' | 'buffer' | 'mux' | 'alu' | 'adder' | 'chip' | 'bus' | 'custom';
-export const SHAPES: readonly Shape[] = ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not', 'buffer', 'mux', 'alu', 'adder', 'chip', 'bus', 'custom'];
+export type Shape = 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not' | 'buffer' | 'mux' | 'alu' | 'adder' | 'chip' | 'bus' | 'custom' | 'code';
+export const SHAPES: readonly Shape[] = ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not', 'buffer', 'mux', 'alu', 'adder', 'chip', 'bus', 'custom', 'code'];
 
 /** A circuit symbol in place of the box of a node (4.3). No label shows the name in upper case. */
 export interface Symbol {
@@ -104,6 +104,8 @@ export interface Symbol {
   color?: string | null;
   /** The corners of the body of the custom shape, in symbol pixels from the top left. */
   outline?: Point[];
+  /** The ID of the node of the subgraph whose GUI draws each use, for the code shape. */
+  face?: string | null;
 }
 
 /** An input or an output of a node, with its Rust type (spec 4.1). */
@@ -398,10 +400,17 @@ export interface ParamWrite {
   text: string;
 }
 
+/** The ID in the open graph of engine node `id`, with the use path `scope` of the open graph (6.4), or '' for a node outside it. */
+export function localId(scope: string, id: string): string {
+  if (!scope) return id;
+  return id.startsWith(`${scope}/`) ? id.slice(scope.length + 1) : '';
+}
+
 /** The edit of the parameter writes of a node GUI (4.3), or null when no write changes the open
- * graph. A later write of the same parameter wins, and a node that is not in the open graph is skipped. */
-export function paramEdit(graph: GraphFile, params: readonly ParamWrite[]): Edit | null {
-  const last = new Map(params.map((p) => [`${p.id} ${p.key}`, p] as const));
+ * graph. `scope` is the use path of the open graph. A later write of the same parameter wins, and a
+ * node that is not in the open graph is skipped. */
+export function paramEdit(graph: GraphFile, params: readonly ParamWrite[], scope = ''): Edit | null {
+  const last = new Map(params.map((p) => [`${p.id} ${p.key}`, { ...p, id: localId(scope, p.id) }] as const));
   const edits: Edit[] = [...last.values()]
     .filter((p) => {
       const node = graph.node?.find((n) => n.id === p.id);

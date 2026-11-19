@@ -48,6 +48,7 @@ export function App() {
   const serial = useRef(-1);
   const revision = useRef(0);
   const current = useRef<View | null>(null);
+  const scope = useRef('');
   const lockBends = useRef<(to: string) => void>(() => {});
   const addFromLibrary = useRef<(n: LibraryNode) => void>(() => {});
   const unsaved = useSyncExternalStore(subscribe, unsavedFiles);
@@ -89,8 +90,11 @@ export function App() {
     [reset, setError],
   );
 
-  const { act, edit, undo, redo, saveAll, startTest, switchInput, collapse, expandUses, copyNodes, paste } = useGraphEdits({ serial, current, show, markStale, log, setError, setFocus });
+  const { act, edit, undo, redo, saveAll, startTest, switchInput, collapse, expandUses, copyNodes, paste } = useGraphEdits({ serial, scope, current, show, markStale, log, setError, setFocus });
   const { path, testing, usePath, scoped, scopedGuis, domains, goTo, openGraph } = useTrail(view, current, run, guis, act);
+  useEffect(() => {
+    scope.current = usePath;
+  }, [usePath]);
   // A change of the open graph shows the Graph tab (15.2).
   const graphName = view?.graphName;
   const shownGraph = useRef(graphName);
@@ -215,6 +219,7 @@ export function App() {
           reveal={reveal}
           onTab={setTab}
           onEdit={edit}
+          onJob={(job) => act(job, markStale)}
           onSave={saveAll}
           onAddCrate={actions.addCrate}
           onPick={pick}

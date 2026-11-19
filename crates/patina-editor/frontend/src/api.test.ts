@@ -55,6 +55,8 @@ test('a node GUI writes only the parameters that change, of the nodes in the ope
   assert.deepEqual(paramEdit(graph, [set('a', 'file', 'y.asm'), set('a', 'file', 'z.asm')]), { kind: 'SetParam', id: 'a', key: 'file', text: 'z.asm' });
   const both = paramEdit(graph, [set('a', 'file', 'y.asm'), set('b', 'file', 'y.asm')]);
   assert.equal(both?.kind === 'Group' && both.edits.length, 2);
+  // In a subgraph open through use u, a write of node u/a changes node a, and a deeper node is skipped.
+  assert.deepEqual(paramEdit(graph, [set('u/a', 'file', 'y.asm'), set('u/v/b', 'file', 'y.asm'), set('a', 'file', 'q.asm')], 'u'), { kind: 'SetParam', id: 'a', key: 'file', text: 'y.asm' });
 });
 
 test('a node doc shows bold and code spans, and a tooltip drops the marks', () => {

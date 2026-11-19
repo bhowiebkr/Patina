@@ -188,7 +188,7 @@ impl NodeInfo {
         } else {
             "function"
         };
-        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, free: node.free, color: node.color, symbol: node.symbol.map(|shape| project::Symbol { shape, label: None, color: None, outline: Vec::new() }), subgraph: false, kind, doc: node.doc }
+        NodeInfo { name, inputs, outputs, error: None, builtin, generics: node.generics, full: node.full, free: node.free, color: node.color, symbol: node.symbol.map(|shape| project::Symbol { shape, label: None, color: None, outline: Vec::new(), face: None }), subgraph: false, kind, doc: node.doc }
     }
 }
 

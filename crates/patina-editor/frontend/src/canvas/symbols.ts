@@ -130,6 +130,7 @@ function shapeLayout(symbol: Symbol, name: string, inputs: readonly Pin[], outpu
     case 'adder':
       return adder(label, inputs, outputs, n);
     case 'chip':
+    case 'code':
       return chip(label, inputs, outputs, n);
     case 'bus':
       return bus(label, inputs, outputs, n);

@@ -108,6 +108,8 @@ export interface NodeData extends Record<string, unknown> {
   time?: number;
   /** The widget lines of the node GUI in the node body size (4.3). */
   gui?: string;
+  /** The widget lines of the face node of a use with the code shape (4.3). They draw the use. */
+  face?: string;
   /** True when the node runs in the slot library (7.3). */
   slot?: boolean;
   /** The clock domain of the node use (9.1). */
@@ -216,12 +218,15 @@ export function outputType(view: View, from: string): string | undefined {
   return outputTypeOf(from, pins, (to) => view.graph.wire?.find((w) => w.to === to)?.from);
 }
 
-/** The name and the icons above a node with a free layout (4.3). */
-function FreeCaption({ entry, info, inner, domain, state }: { entry: NodeEntry; info: NodeInfo; inner?: boolean; domain?: Domain; state: NodeState }) {
+/** The name and the icons above a node with a free layout or a symbol (4.3). A subgraph use has its open buttons. */
+function FreeCaption({ entry, info, inner, domain, state, use }: { entry: NodeEntry; info: NodeInfo; inner?: boolean; domain?: Domain; state: NodeState; use?: boolean }) {
+  const toggle = useContext(FrameToggle);
   return (
     <div className="free-caption" title={plainDoc(info.doc)}>
       <span className="title">{folderName(entry)}</span>
       {info.full && !inner && <ExpandButton id={entry.id} />}
+      {use && <OpenButton graph={entry.subgraph!} use={entry.id} />}
+      {use && toggle && <FrameButton open={false} onClick={() => toggle(entry.id)} />}
       {domain && <DomainIcon domain={domain} />}
       <StateIcon state={state} />
     </div>
@@ -320,7 +325,9 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   if (far) classes.push('far');
   if (info?.color) classes.push('colored');
   const use = entry.subgraph !== undefined && !inner;
-  if (info?.symbol && !open) {
+  // A use with the code shape shows the GUI of its face node, once the engine drew it (4.3).
+  const face = info?.symbol?.shape === 'code' && !open ? data.face : undefined;
+  if (info?.symbol && !open && face === undefined) {
     // A circuit symbol (4.3): the shape is the whole node, with the caption of a free layout above it.
     // A bus pin is a bar with its lanes, as on a box node (15.9).
     const layout = symbolLayout(info.symbol, folderName(entry), inputs, outputs, (key) => sockets?.[key]?.bits.length ?? 0);
@@ -331,13 +338,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     };
     return (
       <div className={[...classes, 'free', 'symbol'].join(' ')} style={{ width: layout.width }}>
-        <div className="free-caption" title={plainDoc(info.doc)}>
-          <span className="title">{folderName(entry)}</span>
-          {use && <OpenButton graph={entry.subgraph!} use={entry.id} />}
-          {use && toggle && <FrameButton open={false} onClick={() => toggle(entry.id)} />}
-          {domain && <DomainIcon domain={domain} />}
-          <StateIcon state={state} />
-        </div>
+        <FreeCaption entry={entry} info={info} inner={inner} domain={domain} state={state} use={use} />
         <SymbolBody layout={layout} levels={data.levels} sockets={sockets} far={far} />
         {lostParams && !inner && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
         {message && <div className="patina-node-message">{message}</div>}
@@ -348,14 +349,16 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
       </div>
     );
   }
-  if (info?.free && gui !== undefined && !open && !socketed) {
+  const tree = face ?? (info?.free && !open && !socketed ? gui : undefined);
+  if (info && tree !== undefined) {
     // A free layout (4.3): the GUI is the whole node, with a caption above it and the pins at their places.
-    const layout = freeLayout(gui);
-    const width = nodeWidth(gui, true);
+    // A face places the public pins of the use by key or by name.
+    const layout = freeLayout(tree);
+    const width = nodeWidth(tree, true);
     // shortcut: a wire leaves each pin to the left or the right, also from the middle of the shape; add a side to `Ui::pin` when a node needs it.
     const place = (pin: Pin, i: number, output: boolean): [number, number] => {
       const n = output ? outputs.length : inputs.length;
-      return layout.pins.get(pin.key) ?? [output ? width : 0, layout.height > 0 ? (layout.height * (i + 1)) / (n + 1) : ROW / 2 + i * ROW];
+      return layout.pins.get(pin.key) ?? (face && pin.name ? layout.pins.get(pin.name) : undefined) ?? [output ? width : 0, layout.height > 0 ? (layout.height * (i + 1)) / (n + 1) : ROW / 2 + i * ROW];
     };
     const handle = (pin: Pin, i: number, output: boolean) => {
       const [x, y] = place(pin, i, output);
@@ -364,8 +367,9 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
     };
     return (
       <div className={[...classes, 'free'].join(' ')} style={{ width }}>
-        <FreeCaption entry={entry} info={info} inner={inner} domain={domain} state={state} />
-        <NodeGui id={entry.id} mode={0} tree={gui} disabled={!editable} />
+        <FreeCaption entry={entry} info={info} inner={inner} domain={domain} state={state} use={use} />
+        {/* shortcut: a face only draws; it takes no pointer input, as a node in a use cannot write. Change it when a face needs input. */}
+        <NodeGui id={face ? `${entry.id}/${info.symbol!.face}` : entry.id} mode={0} tree={tree} disabled={!editable || face !== undefined} />
         {lostParams && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
         {message && <div className="patina-node-message">{message}</div>}
         {inputs.map((pin, i) => handle(pin, i, false))}

@@ -2,7 +2,7 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@xyflow/react';
 import { api, type GraphFile, type View } from '../api';
-import { gutter, HEADER, ROW } from './NodeView';
+import { gutter, HEADER, ROW, type NodeData } from './NodeView';
 import { FAR_ZOOM } from '../wires/gl';
 import { NODE_WIDTH } from '../controls/gui';
 import { GuiScope } from '../controls/NodeGui';
@@ -24,7 +24,11 @@ export function useVisibleGuis() {
     for (const n of s.nodeLookup.values()) {
       const { x, y } = n.internals.positionAbsolute;
       const [w, h] = [n.measured.width ?? 0, n.measured.height ?? 0];
-      if (n.type === 'patina' && x <= x1 && x + w >= x0 && y <= y1 && y + h >= y0) ids.push(n.id);
+      if (n.type !== 'patina' || x > x1 || x + w < x0 || y > y1 || y + h < y0) continue;
+      ids.push(n.id);
+      // The face node of a use with the code shape draws the body of the use (4.3).
+      const symbol = (n.data as NodeData).info?.symbol;
+      if (symbol?.shape === 'code' && symbol.face) ids.push(`${n.id}/${symbol.face}`);
     }
     return ids.join('\n');
   });

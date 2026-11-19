@@ -449,6 +449,13 @@ html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas .r
   margin: 6px 0;
 }
 
+/* The code of the face node of a subgraph (4.3) in the Look code section. */
+.look-code {
+  height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
 /* The Library panel (15.2): the list scrolls, and the preview keeps its place at the bottom. */
 .panel.library {
   overflow: hidden;

@@ -1,7 +1,7 @@
 // The Subgraph interface (mockup 11, spec 15): the public pins of the open subgraph in pin order
 // (6.4), and a preview of the node that each use shows.
 
-import type { FocusEvent, KeyboardEvent } from 'react';
+import type { FocusEvent, KeyboardEvent, ReactNode } from 'react';
 import { newId, SHAPES, type Edit, type NodeInfo, type Point, type PublicInput, type PublicOutput, type Shape, type Symbol, type View } from '../api';
 import { kindOf } from '../canvas/bus';
 import { outputType } from '../canvas/NodeView';
@@ -9,6 +9,7 @@ import { SymbolBody } from '../canvas/SymbolView';
 import { isOutline, startOutline, symbolLayout } from '../canvas/symbols';
 import { ColorInput } from '../controls/ValueWidgets';
 import { LookEditor } from './LookEditor';
+import { makeFace } from './faceCode';
 
 type Pin = PublicInput | PublicOutput;
 
@@ -41,13 +42,14 @@ const SHAPE_NAMES: Record<Shape, string> = {
   chip: 'Chip',
   bus: 'Bus bar',
   custom: 'Custom outline',
+  code: 'Code',
 };
 
 /** The subgraph node of the open subgraph, with its pin types. */
 const infoOf = (view: View) => view.nodes.find((n) => n.subgraph && n.name === view.graphName);
 
 /** The **Shape**, the **Color** and the **Label** of each use of the open subgraph, in the **Look** section (4.3). */
-export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit) => void }) {
+export function SymbolFields({ view, onEdit, onJob }: { view: View; onEdit: (edit: Edit) => void; onJob: (job: Promise<View>) => void }) {
   const symbol = view.graph.symbol;
   const set = (next: Symbol) => onEdit({ kind: 'SetSymbol', symbol: next });
   const commit = (e: FocusEvent<HTMLInputElement>) => {
@@ -76,7 +78,11 @@ export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit
           disabled={!view.trusted}
           onChange={(e) => {
             const shape = e.currentTarget.value;
-            onEdit({ kind: 'SetSymbol', symbol: shape === 'box' ? null : shapeOf(shape as Shape) });
+            const info = infoOf(view);
+            if (shape === 'code') return onJob(makeFace(view, info, (key) => (info ? lanesOf(view, key, info) : 0)));
+            const next = shape === 'box' ? null : shapeOf(shape as Shape);
+            // The face node goes with the code shape. Its folder and its code stay.
+            onEdit(symbol?.shape === 'code' && symbol.face ? { kind: 'Group', edits: [{ kind: 'SetSymbol', symbol: next }, { kind: 'RemoveNode', id: symbol.face }] } : { kind: 'SetSymbol', symbol: next });
           }}
         >
           <option value="box">Box</option>
@@ -93,7 +99,7 @@ export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit
           <input key={symbol.label ?? ''} className="field" defaultValue={symbol.label ?? ''} placeholder={view.graphName.toUpperCase()} maxLength={32} disabled={!view.trusted} onBlur={commit} onKeyDown={keys} />
         </label>
       )}
-      {symbol && symbol.shape !== 'bus' && (
+      {symbol && symbol.shape !== 'bus' && symbol.shape !== 'code' && (
         <div className="param look-color">
           <span className="label">Color</span>
           <ColorInput value={symbol.color ?? (symbol.shape === 'chip' ? '#1c1c1b' : '#262626')} label="Body color" send={(color) => set({ ...symbol, color })} disabled={!view.trusted} />
@@ -108,9 +114,11 @@ export function SymbolFields({ view, onEdit }: { view: View; onEdit: (edit: Edit
   );
 }
 
-export function SubgraphInterface({ view, onEdit }: { view: View; onEdit: (edit: Edit) => void }) {
+/** `code` gives the code editor of a folder, for the face node of the code shape (4.3). */
+export function SubgraphInterface({ view, onEdit, code }: { view: View; onEdit: (edit: Edit) => void; code: (folder: string) => ReactNode }) {
   const info = infoOf(view);
   const symbol = view.graph.symbol;
+  const face = symbol?.shape === 'code' ? view.graph.node?.find((n) => n.id === symbol.face)?.folder : undefined;
   const inputs = view.graph.input ?? [];
   const outputs = view.graph.output ?? [];
   const xs = (view.graph.node ?? []).map((n) => n.pos?.[0] ?? 0);
@@ -164,8 +172,13 @@ export function SubgraphInterface({ view, onEdit }: { view: View; onEdit: (edit:
       {list(true, inputs)}
       {list(false, outputs)}
       <div className="section">
-        <h3>Public node preview</h3>
-        {symbol && info && symbol.shape === 'custom' && isOutline(symbol.outline) ? (
+        <h3>{face ? 'Look code' : 'Public node preview'}</h3>
+        {face ? (
+          <>
+            <p className="label look-hint">The node {face.slice(face.indexOf('/') + 1)} in this subgraph draws each use. Its ui draws the body, and each ui.pin puts a public pin. Save to build it.</p>
+            <div className="look-code">{code(face)}</div>
+          </>
+        ) : symbol && info && symbol.shape === 'custom' && isOutline(symbol.outline) ? (
           <>
             <div className="symbol-preview" aria-label="Public node preview">
               <LookEditor

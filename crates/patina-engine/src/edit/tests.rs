@@ -179,9 +179,9 @@ corners = \"sharp\""), "{text}");
 
     history.apply(&serde_json::from_str(r#"{"kind":"SetSymbol","symbol":{"shape":"chip","label":" CPU "}}"#).unwrap()).unwrap();
     assert_eq!(history.graph.symbol.as_ref().and_then(|s| s.label.as_deref()), Some("CPU"));
-    let or = |label: &str| Edit::SetSymbol { symbol: Some(Symbol { shape: Shape::Or, label: Some(label.to_owned()), color: None, outline: Vec::new() }) };
+    let or = |label: &str| Edit::SetSymbol { symbol: Some(Symbol { shape: Shape::Or, label: Some(label.to_owned()), color: None, outline: Vec::new(), face: None }) };
     history.apply(&or(" ")).unwrap();
-    assert_eq!(history.graph.symbol, Some(Symbol { shape: Shape::Or, label: None, color: None, outline: Vec::new() }), "a blank label shows the name");
+    assert_eq!(history.graph.symbol, Some(Symbol { shape: Shape::Or, label: None, color: None, outline: Vec::new(), face: None }), "a blank label shows the name");
     assert!(history.apply(&or(&"x".repeat(33))).is_err());
     // A custom shape has an outline of 3 to 32 corners in 0..=480, and only it has one (4.3).
     let custom = |color: &str, outline: &str| serde_json::from_str::<Edit>(&format!(r#"{{"kind":"SetSymbol","symbol":{{"shape":"custom","color":"{color}","outline":{outline}}}}}"#)).unwrap();
@@ -206,6 +206,27 @@ corners = \"sharp\""), "{text}");
     assert!(history.apply(&name(Some(&"x".repeat(33)))).is_err());
     history.apply(&name(Some("  "))).unwrap();
     assert_eq!(history.graph.wire[0].name, None, "a blank name gives the default name");
+}
+
+#[test]
+fn a_code_symbol_shows_a_face_node_of_the_graph() {
+    let mut history = History::new(toml::from_str("format = 1").unwrap());
+    history.apply(&add(A)).unwrap();
+    history.apply(&Edit::AddNode { id: B.to_owned(), folder: "graphs/inner".to_owned(), builtin: false, pos: [0.0, 0.0] }).unwrap();
+    let code = |shape: &str, face: Option<&str>| {
+        let face = face.map(|f| format!(r#","face":"{f}""#)).unwrap_or_default();
+        serde_json::from_str::<Edit>(&format!(r#"{{"kind":"SetSymbol","symbol":{{"shape":"{shape}"{face}}}}}"#)).unwrap()
+    };
+    // The face is a node of a node folder in the graph, and only the code shape has one (4.3).
+    for (shape, face) in [("code", None), ("code", Some(C)), ("code", Some(B)), ("chip", Some(A))] {
+        assert!(history.apply(&code(shape, face)).is_err(), "{shape} {face:?}");
+    }
+    history.apply(&code("code", Some(A))).unwrap();
+    assert!(toml::to_string(&history.graph).unwrap().contains("face = \"000000000000000a\""));
+    history.apply(&Edit::RemoveNode { id: A.to_owned() }).unwrap();
+    assert_eq!(history.graph.symbol, None, "a removed face takes the symbol with it");
+    assert!(history.undo(no_code).unwrap());
+    assert_eq!(history.graph.symbol.as_ref().and_then(|s| s.face.as_deref()), Some(A));
 }
 
 #[test]

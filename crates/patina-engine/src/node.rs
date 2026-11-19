@@ -400,7 +400,7 @@ fn read_attr(attr: &Attribute) -> Result<Args, String> {
         if meta.path.is_ident("symbol") {
             let text = meta.value()?.parse::<LitStr>()?.value();
             // A custom outline belongs to a subgraph, so a node takes only the drawn shapes.
-            args.symbol = Some(Shape::parse(&text).filter(|s| *s != Shape::Custom).ok_or_else(|| meta.error(format!("`{text}` is not a node symbol (spec 4.3)")))?);
+            args.symbol = Some(Shape::parse(&text).filter(|s| !matches!(s, Shape::Custom | Shape::Code)).ok_or_else(|| meta.error(format!("`{text}` is not a node symbol (spec 4.3)")))?);
             return Ok(());
         }
         if !meta.path.is_ident("domain") {

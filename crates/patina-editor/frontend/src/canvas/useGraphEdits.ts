@@ -1,6 +1,6 @@
 // The edits of the open project: the graph edits, undo, redo, save, copy and paste (15.10, 15.11).
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import { api, guiGesture, newId, onEngine, paramEdit, type DragLink, type Edit, type EngineEvent, type LibraryNode, type View } from '../api';
+import { api, guiGesture, localId, newId, onEngine, paramEdit, type DragLink, type Edit, type EngineEvent, type LibraryNode, type View } from '../api';
 import { clipboard } from './clip';
 import { saveCode, undoRedo } from '../code/codeState';
 import type { Line } from '../run/Lines';
@@ -14,6 +14,8 @@ function onlyGeometry(edit: Edit): boolean {
 
 export function useGraphEdits(p: {
   serial: RefObject<number>;
+  /** The use path of the open graph (6.4). The GUI writes of its nodes have IDs in it. */
+  scope: RefObject<string>;
   current: RefObject<View | null>;
   show: (v: View) => void;
   markStale: (v: View) => void;
@@ -21,7 +23,7 @@ export function useGraphEdits(p: {
   setError: (e: string) => void;
   setFocus: (focus: { ids: string[]; n: number }) => void;
 }) {
-  const { serial, current, show, markStale, log, setError, setFocus } = p;
+  const { serial, scope, current, show, markStale, log, setError, setFocus } = p;
   const act = useCallback(
     (job: Promise<View>, after?: (v: View) => void) =>
       job
@@ -40,11 +42,12 @@ export function useGraphEdits(p: {
   useEvent(onEngine, (e: EngineEvent) => {
     if (e.serial !== serial.current || e.state !== 'gui' || e.params.length === 0 || !current.current) return;
     const graph = current.current.graph;
-    const change = paramEdit(graph, e.params);
+    // A write in a subgraph that is open through a use, or that runs alone, changes the open subgraph (4.3).
+    const change = paramEdit(graph, e.params, scope.current);
     const gesture = guiGesture();
     if (change) writes.current = writes.current.then(() => act(api.edit(change, gesture), markStale));
-    // The inner nodes of a use are read-only (15.3), so their writes do not apply.
-    else if (e.params.some((p) => !graph.node?.some((n) => n.id === p.id))) setError('A node in a subgraph use can not change its parameters. Open the subgraph and use the Inspector.');
+    // A node of a subgraph inside the open graph is in another file (15.3), so its writes do not apply.
+    else if (e.params.some((p) => !graph.node?.some((n) => n.id === localId(scope.current, p.id)))) setError('The node is in a subgraph inside this graph. Open that subgraph to change the node.');
   });
   // A change of a code or graph file from outside the editor checks and builds again (15.10).
   useEffect(() => {

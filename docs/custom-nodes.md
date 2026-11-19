@@ -273,6 +273,10 @@ pub fn nand(a: &bool, b: &bool) -> bool {
   **Inspector**. Set **Shape**, **Label** and **Color** in the **Look** section.
 - Only a subgraph can have **Custom outline**. Drag the corners of the outline in the
   **Inspector**. A node cannot have `symbol = "custom"`.
+- Only a subgraph can have **Code**. It adds a face node to the subgraph, with Rust code that
+  draws each use. Edit the code in the **Look code** section of the **Inspector**, then save.
+  Draw the body in `ui` with a canvas. Put each public pin with `ui.pin("<pin key or name>",
+  [x, y])`. Add an input to the face node and wire it in the subgraph to show a value.
 - On a `mux` and an `alu`, an input with the name `sel`, `s`, `op`, or `s` or `f` and one digit
   goes to the bottom edge.
 

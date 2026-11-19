@@ -9,6 +9,7 @@ import { checkDock } from './check-dock';
 import { checkDomains } from './check-domains';
 import { checkGroups } from './check-groups';
 import { checkFree } from './check-free';
+import { checkGate } from './check-gate';
 import { checkSymbol } from './check-symbol';
 import { checkThreads } from './check-threads';
 import { checkViewer } from './check-viewer';
@@ -96,7 +97,7 @@ export async function runCheck(dir: string, show: (v: View) => void, edited: (v:
     const made = await checkProject(c, dir);
     const { lib, original } = made;
     const dock = await checkDock(c, await checkIsolation(c, made.v));
-    let v = await checkWires(c, dock.v);
+    let v = await checkGate(c, await checkWires(c, dock.v));
     v = await checkCanvas(c, v);
     v = await checkGroups(c, v);
     v = await checkPalette(c, v, dock.at, edited);

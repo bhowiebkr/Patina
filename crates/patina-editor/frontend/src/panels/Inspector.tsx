@@ -51,6 +51,8 @@ interface Props {
   reveal: Reveal | null;
   onTab: (tab: InspectorTab) => void;
   onEdit: (edit: Edit) => void;
+  /** Shows the project that a job of more than one step gives, for example the face node of a subgraph (4.3). */
+  onJob: (job: Promise<View>) => void;
   onSave: () => void;
   /** Adds a crate to a node or widget folder. It fails with the problem of the crate. */
   onAddCrate: (folder: string, spec: string) => Promise<void>;
@@ -257,7 +259,7 @@ function hasFolder(view: View, folder: string): boolean {
   return (view[group as 'widgets' | 'views' | 'connections' | 'types'] ?? []).includes(name);
 }
 
-export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onSave, onAddCrate, onPick, onLock, onCollapse, onExpand }: Props) {
+export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit, onJob, onSave, onAddCrate, onPick, onLock, onCollapse, onExpand }: Props) {
   const entry = inspect?.kind === 'node' ? view.graph.node?.find((n) => n.id === inspect.id) : undefined;
   // A node with a GUI draws it in the Inspector size after each run, once the engine knows (4.3).
   const guiId = entry && guis.has(`0 ${entry.id}`) ? entry.id : null;
@@ -300,9 +302,9 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
               {routeOptions}
             </select>
           </label>
-          {!atTop(view) && <SymbolFields view={view} onEdit={onEdit} />}
+          {!atTop(view) && <SymbolFields view={view} onEdit={onEdit} onJob={onJob} />}
         </div>
-        {!atTop(view) && <SubgraphInterface view={view} onEdit={onEdit} />}
+        {!atTop(view) && <SubgraphInterface view={view} onEdit={onEdit} code={code} />}
       </aside>
     );
   }

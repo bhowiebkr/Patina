@@ -294,7 +294,7 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
         Edit::SetGraphLook { style } => {
             graph.style = style.filter(|s| *s != Style::Automatic);
         }
-        Edit::SetSymbol { symbol } => graph.symbol = symbol_of(symbol)?,
+        Edit::SetSymbol { symbol } => graph.symbol = symbol_of(graph, symbol)?,
         Edit::NameWire { to, name } => {
             let name = name.as_deref().map(str::trim).filter(|n| !n.is_empty());
             if name.is_some_and(|n| n.len() > 32 || n.chars().any(char::is_control)) {
@@ -347,7 +347,7 @@ pub(crate) fn change(graph: &mut GraphFile, edit: &Edit) -> Result<(), String> {
 }
 
 /// Checks a symbol for `Edit::SetSymbol`. A blank label shows the graph name (4.3).
-fn symbol_of(symbol: &Option<Symbol>) -> Result<Option<Symbol>, String> {
+fn symbol_of(graph: &GraphFile, symbol: &Option<Symbol>) -> Result<Option<Symbol>, String> {
     let mut symbol = symbol.clone();
     if let Some(s) = &mut symbol {
         s.label = s.label.as_deref().map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned);
@@ -366,6 +366,14 @@ fn symbol_of(symbol: &Option<Symbol>) -> Result<Option<Symbol>, String> {
         }
         if s.outline.iter().flatten().any(|v| !(0.0..=480.0).contains(v)) {
             return Err("each corner of a symbol outline is from 0 to 480 pixels".to_owned());
+        }
+        let face = match (s.face.as_deref(), s.shape == Shape::Code) {
+            (None, false) => true,
+            (Some(id), true) => graph.node.iter().any(|n| n.id == id && n.folder.as_deref().is_some_and(|f| f.starts_with("nodes/"))),
+            _ => false,
+        };
+        if !face {
+            return Err("only the code shape has a face, and the face is a node of a node folder in the graph".to_owned());
         }
     }
     Ok(symbol)
@@ -404,6 +412,10 @@ fn add_node(graph: &mut GraphFile, id: &str, folder: &str, builtin: bool, pos: &
 fn remove_node(graph: &mut GraphFile, id: &str) -> Result<(), String> {
     let index = find(graph, id)?;
     graph.node.remove(index);
+    // A use cannot show a face that is gone (4.3).
+    if graph.symbol.as_ref().is_some_and(|s| s.face.as_deref() == Some(id)) {
+        graph.symbol = None;
+    }
     graph.wire.retain(|w| node_of(&w.from) != id && node_of(&w.to) != id);
     graph.order.retain(|o| o.before != id && o.after != id);
     for pin in &mut graph.input {

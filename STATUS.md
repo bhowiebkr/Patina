@@ -472,6 +472,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - A node GUI in the open subgraph writes its parameters (2026-11-19): through a use, in the
   **Test** mode and when the subgraph runs alone. The self-check clicks a switch that drives a
   NAND gate and an LED in each of the three modes. Without the fix, the same check fails.
+- A subgraph can have the **Code** shape (2026-11-19). A face node with Rust code draws each
+  use, and the **Look code** section of the **Inspector** edits its code. Engine and frontend
+  unit tests cover it. The self-check writes face code with an input from the NAND gate, saves
+  it and reads the face of the use on the main graph after a click on the switch. Known limit:
+  the face GUI only draws, so a click on a use does not go to the face node.
 - A node canvas can grab only some rectangles (`grab_rect`, 2026-11-19). The button and the
   joystick of computer grab their caps, and a drag on the board moves the node. The self-check
   drags a free knob below its grab area and the node moves.
