@@ -32,17 +32,37 @@ fn blockwerk(b: &mut Build, sl: f64, h: f64, sw: f64) {
     b.add(Material::Rarity, both(&decal(&stripe(-0.92 * sl, 0.035, [-0.5 * h, 0.2 * h], -0.01), sw / 2.0, 0.0012)));
 }
 
-/// A smooth pill with a thumbhole, a soft pad and a glow line.
+/// A sculpted body with a narrow wrist, a cheek swell, a thumbhole, a soft pad and a glow line.
 fn vesper(b: &mut Build, sl: f64, h: f64, sw: f64) {
-    let body = pill(&[([-0.1 * h, 0.0], 0.28 * h), ([-sl + 0.45 * h, -0.15 * h], 0.45 * h)], sw, 0.005);
+    // The outline at `x`, `wide` x sw wide and smaller by `inset` on each side and by `round` more
+    // at the top and the bottom. From x0 to x1, the top goes from 0.28 h to 0.3 h and the bottom
+    // from -0.28 h to -0.6 h.
+    let (x0, x1) = (-0.1 * h, -sl + 0.45 * h);
+    let section = |x: f64, wide: f64, inset: f64, round: f64| {
+        let t = ((x - x0) / (x1 - x0)).clamp(0.0, 1.0);
+        let (top, bottom) = ((0.28 + 0.02 * t) * h - inset - round, -(0.28 + 0.32 * t) * h + inset + round);
+        (-x, squircle((top + bottom) / 2.0, top - bottom, wide * sw - 2.0 * inset - round, -0.12, 3.5))
+    };
+    // The top and the bottom edges of the butt are round, with the radius r.
+    let r = 0.12 * h;
+    let body = |inset: f64| {
+        let mut sections: Vec<_> = [(0.1 * h, 0.9), (-0.12 * sl, 0.82), (-0.35 * sl, 0.85), (-0.65 * sl, 1.0)].map(|(x, wide)| section(x, wide, inset, 0.0)).into();
+        sections.extend([0f64, 45.0, 75.0, 90.0].map(|a| section(-sl + r * (1.0 - a.to_radians().sin()), 1.0, inset, r * (1.0 - a.to_radians().cos()))));
+        along_x(&sections)
+    };
     let hole = pill(&[([-0.25 * sl, -0.12 * h], 0.1 * h), ([-sl + 0.5 * h, -0.2 * h], 0.12 * h)], 2.0 * sw, 0.0);
-    let pad_cut = block([-sl - 0.01, -sl + 0.012], [-h, h], 1.0);
-    let (groove, line) = inlay(&strip([-0.1 * sl, 0.16 * h], [-0.75 * sl, 0.2 * h], 0.03 * h), sw / 2.0, 0.0018);
-    b.add(Material::Paint, body.difference(&hole).difference(&pad_cut).difference(&groove));
-    b.add(Material::Glow, line);
-    let pad = pill(&[([-sl + 0.45 * h, -0.15 * h], 0.45 * h + 0.002)], sw + 0.002, 0.003);
-    b.add(Material::Grip, pad.intersection(&block([-sl - 0.004, -sl + 0.012], [-h, h], 1.0)));
-    b.add(Material::Trim, pill(&[([-0.02 * sl, -0.22 * h], 0.012), ([-0.18 * sl, -0.25 * h], 0.01)], sw + 0.002, 0.002));
+    // The glow line fills a groove in the round sides, a little under the surface.
+    let band = slab(&strip([-0.1 * sl, 0.16 * h], [-0.75 * sl, 0.2 * h], 0.03 * h), 2.0 * sw);
+    b.add(Material::Paint, body(0.0).difference(&band.difference(&body(0.0018))).difference(&hole));
+    b.add(Material::Glow, band.intersection(&body(0.0006)));
+    b.add(Material::Grip, along_x(&[section(-sl, 1.0, -0.001, r), section(-sl - 0.004, 1.0, 0.002, r)]));
+    b.add(Material::Trim, pill(&[([-0.02 * sl, -0.22 * h], 0.012), ([-0.18 * sl, -0.25 * h], 0.01)], 0.8 * sw, 0.002));
+}
+
+/// A sculpted solid along -X: each item is the distance back from x = 0 and an outline on the
+/// Z-Y plane, as `[z, y]` points. The distances go up.
+fn along_x(sections: &[(f64, Vec<[f64; 2]>)]) -> Solid {
+    taper(sections).rotate([0.0, -90.0, 0.0])
 }
 
 /// A wood plank with a strap, or a bent pipe with a pad.
@@ -65,9 +85,14 @@ fn scrapjaw(b: &mut Build, sl: f64, h: f64, sw: f64) {
     b.add(Material::Rarity, rod_x([-0.3 * sl, -0.27 * sl], [0.0085, 0.0085], 12).translate([0.0, 0.0, 0.12 * h]));
 }
 
-/// A spine with fins under it, a ring, a glow bar and a pad.
+/// A round spine with a waist and fins under it, a ring, a glow bar and a pad.
 fn halo(b: &mut Build, sl: f64, h: f64, sw: f64) {
-    b.add(Material::Paint, pill(&[([0.0, 0.08 * h], 0.14 * h), ([-sl + 0.01, 0.1 * h], 0.12 * h)], 0.7 * sw, 0.003));
+    // Each section is `x`, the center height, the height and the width, in units of h and sw.
+    let spine = |grow: f64| {
+        let sections = [(0.1 * h, 0.08, 0.28, 0.7), (-0.35 * sl, 0.085, 0.22, 0.6), (-0.75 * sl, 0.095, 0.24, 0.7), (-sl + 0.004, 0.1, 0.25, 0.72)];
+        along_x(&sections.map(|(x, z, depth, wide)| (-x, egg(z * h, depth * h + 2.0 * grow, wide * sw + 2.0 * grow, 0.0))))
+    };
+    b.add(Material::Paint, spine(0.0));
     let fins: Vec<Solid> = (0..3)
         .map(|i| {
             let x = -0.25 * sl - 0.22 * sl * f64::from(i);
@@ -76,7 +101,8 @@ fn halo(b: &mut Build, sl: f64, h: f64, sw: f64) {
         .collect();
     b.add(Material::Trim, Solid::union_all(&fins));
     b.add(Material::Metal, ring_y([-0.12 * sl, -0.12 * h], 0.11 * h, 0.006));
-    b.add(Material::Glow, pill(&[([-0.08 * sl, 0.08 * h], 0.03 * h), ([-0.85 * sl, 0.1 * h], 0.03 * h)], 0.7 * sw + 0.004, 0.001));
+    // The glow bar stands 1 mm out of the round sides.
+    b.add(Material::Glow, pill(&[([-0.08 * sl, 0.08 * h], 0.03 * h), ([-0.85 * sl, 0.1 * h], 0.03 * h)], 2.0 * sw, 0.0).intersection(&spine(0.001)));
     b.add(Material::Grip, bevel([-sl - 0.012, -sl + 0.006], [-0.6 * h, 0.28 * h], sw, 0.004));
     b.add(Material::Rarity, rod_y([-sl - 0.003, -0.15 * h], sw + 0.003, 0.05 * h, 16));
 }

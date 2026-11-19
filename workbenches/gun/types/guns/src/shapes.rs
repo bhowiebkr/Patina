@@ -65,7 +65,14 @@ pub fn pill(circles: &[([f64; 2], f64)], w: f64, b: f64) -> Solid {
 /// An egg outline on the X-Y plane with its center at `[x, 0]`, `depth` long on X and about
 /// `width` wide on Y. The part `back` of the width moves to the back half (-X).
 pub fn egg(x: f64, depth: f64, width: f64, back: f64) -> Vec<[f64; 2]> {
-    (0..24).map(|i| f64::from(i) * PI / 12.0).map(|t| [x + depth / 2.0 * t.cos(), width / 2.0 * t.sin() * (1.0 - back * t.cos())]).collect()
+    squircle(x, depth, width, back, 2.0)
+}
+
+/// An outline like `egg` with flatter sides: the power 2 gives an ellipse, and a higher power
+/// gives a box with round corners.
+pub fn squircle(x: f64, depth: f64, width: f64, back: f64, power: f64) -> Vec<[f64; 2]> {
+    let f = |v: f64| v.signum() * v.abs().powf(2.0 / power);
+    (0..24).map(|i| f64::from(i) * PI / 12.0).map(|t| [x + depth / 2.0 * f(t.cos()), width / 2.0 * f(t.sin()) * (1.0 - back * t.cos())]).collect()
 }
 
 /// A sculpted solid along Z: each item is a height and an outline on the X-Y plane at that

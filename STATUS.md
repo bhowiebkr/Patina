@@ -324,9 +324,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - Sculpted grips (2026-11-19): the Vesper and Halo grips are lofts through egg outlines at
     four heights, with a taper, a cut bottom edge and a palm swell. A unit test checks the
     `taper` helper. A preview of the pistols showed the taper, the swell and the finger grooves.
+  - Sculpted stocks (2026-11-19): the Vesper and Halo stocks are lofts along the gun. The
+    Vesper stock has round sides, a narrow wrist, a round butt and its glow line in a groove.
+    The Halo spine is round, with a waist. A preview of the rifles and the snipers showed the
+    shapes, and the CLI test has the new triangle count.
 - Known limits:
-  - Only the Vesper and Halo grips are sculpted. The other parts are extrusions, turned profiles
-    and booleans.
+  - Only the Vesper and Halo grips and stocks are sculpted. The other parts are extrusions,
+    turned profiles and booleans.
   - The maker mark is the only text. The other parts have no decals, logos or text.
   - Linux and macOS did not run the workbench.
 
