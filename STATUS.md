@@ -312,6 +312,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The CLI test runs `main`, checks the two stats reports, and runs the export with a trigger.
   - The editor shot of `gun` opens `gun-wall` and `model-view`, turns **Toon** on and off, and
     changes the seed. The captures show the gun wall in the maker colors and the toon bands.
+  - A click on a tile of `gun-wall` sets the seed and selects the `look` node, so the 3D view
+    shows that gun. The shot clicks the first tile and checks the selection and the new mesh.
 - Known limits:
   - The parts are extrusions, turned profiles and booleans, with no sculpted shapes.
   - The guns have no decals, logos or text.
@@ -386,6 +388,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     the view saw no value until the next **Run**.
   - The view panel sends only the newest viewport place with each ask. Before this, a slow view
     drew at an old place, and the check saw 44 % of the viewport drawn.
+  - The 3D view stayed frozen on the old picture after the open of another project. A surface
+    on the editor window stays for seconds after the node process ends. Now each node process
+    makes its surface on its own child window, and the editor waits 1 s for the drop of the views.
+  - The thread of the child window takes the DPI awareness of the editor window. Before this,
+    the picture moved up and to the left on a display at 175 %.
 - Checked on 2026-11-19, on Windows only:
   - The CI clippy and `cargo test --workspace`. The CLI test checks the first-read rerun.
   - 13 unit tests of the workbench crates and their clippy, with the MSVC toolchain. CI does
@@ -393,6 +400,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The 203 frontend tests.
   - The hidden shot check: it opens the view in the second pane, selects `union`, captures the
     view, sets seed 8, sees a new mesh, and undo gives the first mesh again.
+  - The hidden shot of `city` opens the `gun` workbench while the 3D view shows. The gun view
+    draws its own images, and seed 8 gives a new image. The shots of `model`, `gun`, `hello`,
+    `gpu` and `computer` also pass with the child window.
 - Known limits:
   - The view reads only an output with a wire, or the solid input of a node with no wired
     output.

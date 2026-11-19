@@ -432,7 +432,7 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
 - In the viewport prototype (19), the native path held 60 FPS on the RTX 4090 and the Intel UHD 770, and copied no bytes. A copy into the web view through WebView2 shared memory added about 16 to 33 ms of input latency, and copied 6.3 to 8.3 MB for each frame. With Vulkan, its page drew only 30 to 39 FPS. A copy through a Tauri channel drew 15 to 40 FPS.
 - On Windows, the native path uses the DX12 backend of `wgpu`. On the Intel UHD 770, the Vulkan swapchain often did not show under the web view for 1 s or more. DX12 showed in each check on both GPUs. (Agent decision, 2026-11-15. The owner can change it.)
 - The shared-memory copy is the fallback, for example on a platform where a web view cannot be transparent over a GPU surface. The native path ran only on Windows (13.5).
-- The node process (16.1) runs the native code in a different process. It makes the surface on the editor window from that process. On Windows with DX12, a probe drew and resized a viewport in this way (2026-11-16).
+- The node process (16.1) runs the native code in a different process. It makes the surface on its own child window of the editor window. On Windows with DX12, a probe drew and resized a viewport in this way (2026-11-16).
 - After a device loss, the render thread makes a new device, new surfaces and new GPU objects for each viewport. In the prototype, this took 150 to 340 ms.
 
 **Build**
@@ -490,6 +490,15 @@ change it.)
 - The view keeps a `patina_gpu::ViewportSurface` in its state and calls `draw` in its `ui` call,
   on the engine thread. Thus there is no render thread and no scissor in version 1. A window
   has one surface, so it shows one viewport.
+- The surface is on a child window of the editor window. A thread of the node process owns the
+  child window, and the child window is under the web view. When the node process ends, Windows
+  destroys the child window and its surface. A surface on the editor window itself stays for
+  seconds after a kill, and the next process cannot make its surface in that time.
+- The thread of the child window takes the DPI awareness of the editor window. A node process is
+  not DPI aware, so without it, Windows reads the place of the child in logical pixels. On a
+  display at 175 %, the picture then moved up and to the left.
+- Before the editor ends a node process, for example at the open of a project, the process drops
+  its views. The editor waits 1 s at most for the drop.
 - `draw` renders into a texture of the area size and copies it into the window surface at the
   area. The rest of the window clears to the page color #141414. The surface uses Mailbox when
   it can, so `draw` does not wait for the display. There is no depth buffer yet.

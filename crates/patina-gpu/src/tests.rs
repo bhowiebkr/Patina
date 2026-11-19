@@ -160,11 +160,11 @@ fn a_preview_takes_the_mean_of_each_block_and_keeps_the_ratio() {
 #[test]
 fn a_viewport_draws_on_a_hidden_window() {
     use std::ffi::c_void;
-    use std::ptr::{null, null_mut};
+    use std::ptr::null;
     #[link(name = "user32")]
     unsafe extern "system" {
-        fn CreateWindowExW(ex: u32, class: *const u16, name: *const u16, style: u32, x: i32, y: i32, w: i32, h: i32, parent: *mut c_void, menu: *mut c_void, instance: *mut c_void, param: *const c_void) -> *mut c_void;
-        fn DestroyWindow(window: *mut c_void) -> i32;
+        fn CreateWindowExW(ex: u32, class: *const u16, name: *const u16, style: u32, x: i32, y: i32, w: i32, h: i32, parent: isize, menu: isize, instance: isize, param: *const c_void) -> isize;
+        fn DestroyWindow(window: isize) -> i32;
     }
     if try_gpu().is_none() {
         return;
@@ -172,8 +172,8 @@ fn a_viewport_draws_on_a_hidden_window() {
     let class: Vec<u16> = "STATIC\0".encode_utf16().collect();
     // SAFETY: the class name ends with a zero, and the other pointers are null. WS_POPUP without
     // WS_VISIBLE keeps the window hidden.
-    let window = unsafe { CreateWindowExW(0, class.as_ptr(), null(), 0x8000_0000, 0, 0, 64, 48, null_mut(), null_mut(), null_mut(), null()) };
-    assert!(!window.is_null());
+    let window = unsafe { CreateWindowExW(0, class.as_ptr(), null(), 0x8000_0000, 0, 0, 64, 48, 0, 0, 0, null()) };
+    assert_ne!(window, 0);
     let mut surface = ViewportSurface::default();
     let viewport = patina_sdk::Viewport { window: window as u64, window_size: [64, 48], rect: [8, 8, 32, 24], ..Default::default() };
     // Other tests keep the GPU busy, and a busy GPU can fail the first configure.

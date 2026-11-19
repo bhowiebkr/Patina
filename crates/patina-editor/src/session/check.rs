@@ -59,9 +59,9 @@ pub fn check_resize(window: WebviewWindow, editor: State<'_, Editor>, width: f64
 
 /// Writes a screenshot of the page to `<check folder>/<name>.png`, only in the self-check. With
 /// `area` (physical pixels), the image is of the composed window, so it shows a viewport (15.8),
-/// and the result is the part of the area that the view drew.
+/// and the result is the part of the area that the view drew, with a print of its pixels.
 #[tauri::command(async)]
-pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String, area: Option<[f64; 4]>) -> Result<Option<f64>, String> {
+pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String, area: Option<[f64; 4]>) -> Result<Option<(f64, String)>, String> {
     let Some(dir) = &editor.check else { return Err("capture runs only in the self-check".to_owned()) };
     if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err(format!("bad screenshot name {name}"));
@@ -69,7 +69,7 @@ pub fn capture(window: WebviewWindow, editor: State<'_, Editor>, name: String, a
     #[cfg(windows)]
     {
         let (png, colors) = match area {
-            Some(area) => crate::shot::print_window(&window, area).map(|(png, n)| (png, Some(n)))?,
+            Some(area) => crate::shot::print_window(&window, area).map(|(png, (n, print))| (png, Some((n, format!("{print:016x}")))))?,
             None => (crate::shot::capture(&window)?, None),
         };
         std::fs::write(dir.join(format!("{name}.png")), png).map_err(|e| e.to_string())?;

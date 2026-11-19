@@ -9,16 +9,18 @@ const panel = () => document.querySelector<HTMLElement>('aside[data-view="model-
 // The text of the shown solid, for example "144 triangles, bounds -1.2 -1.2 0 to 1.2 1.2 2.933".
 const shown = () => panel()?.innerText.match(/\d+ triangles, bounds [^\n]+/)?.[0]?.trim() ?? '';
 // The seed node, the node that the check selects, the first name of the captures, and a capture with Toon.
-const TARGETS = [
+// `next` is a workbench beside this one that the check opens while the 3D view shows, when the folder is there.
+// `wall` is a view in the bottom dock whose click sets the seed and selects `node` again.
+const TARGETS: { seed: string; node: string; title: string; shot: string; toon: boolean; next?: string; wall?: string }[] = [
   { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false },
-  { seed: 'c170000000000001', node: 'c170000000000017', title: 'merge', shot: 'city', toon: false },
-  { seed: '9a70000000000001', node: '9a70000000000002', title: 'look', shot: 'gun', toon: true },
+  { seed: 'c170000000000001', node: 'c170000000000017', title: 'merge', shot: 'city', toon: false, next: 'gun' },
+  { seed: '9a70000000000001', node: '9a70000000000002', title: 'look', shot: 'gun', toon: true, wall: 'gun-wall' },
 ];
 
 export async function modelWorkbench(view: View, show: (view: View) => void): Promise<string[]> {
   const target = TARGETS.find((t) => view.graph.node?.some((n) => n.id === t.node));
   if (!view.views.includes('model-view') || !target) return [];
-  const { seed, node, title, shot, toon } = target;
+  const { seed, node, title, shot, toon, next, wall } = target;
   let stage = 'open';
   let failure = '';
   let runs = 0;
@@ -60,13 +62,14 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
     // Two nodes can have the same name, for example the two `look` nodes of the gun, so let the view take the selection first.
     await sleep(800);
     const first = shown();
-    // Only a capture with an area shows the 3D surface under the page (15.8).
+    // Only a capture with an area shows the 3D surface under the page (15.8). It gives a print of the image.
     const capture = async (name: string) => {
       const r = panel()!.querySelector('.gui-viewport')!.getBoundingClientRect();
-      const drawn = await api.capture(name, [r.left, r.top, r.width, r.height].map((v) => v * devicePixelRatio));
-      if (drawn !== null && drawn < 0.9) throw new Error(`The 3D view drew ${Math.round(drawn * 100)} % of its viewport`);
+      const [drawn, print] = (await api.captureArea(name, [r.left, r.top, r.width, r.height].map((v) => v * devicePixelRatio))) ?? [1, name];
+      if (drawn < 0.9) throw new Error(`The 3D view drew ${Math.round(drawn * 100)} % of its viewport`);
+      return print;
     };
-    await capture(`${shot}-view`);
+    const firstPrint = await capture(`${shot}-view`);
     steps.push(`the 3D view in the second pane shows the selected ${title}: ${first}`);
     if (toon) {
       stage = 'toon';
@@ -84,17 +87,51 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
     await until(() => shown() !== '' && shown() !== first, `A new seed did not give a new mesh in the 3D view: ${first}`);
     const second = shown();
     await sleep(800);
-    await capture(`${shot}-view-seed-8`);
+    if ((await capture(`${shot}-view-seed-8`)) === firstPrint) throw new Error('The 3D view drew the same image for seed 8');
     show(await api.undo());
     await until(() => shown() === first, 'Undo of the seed did not give the first mesh again');
-    steps.push(`seed 8 gives a new mesh (${second}), and undo gives the first mesh again`);
+    steps.push(`seed 8 gives a new mesh (${second}) and a new image, and undo gives the first mesh again`);
+    if (wall) {
+      stage = `click the ${wall}`;
+      changeLayout((layout) => openView(layout, wall, 'bottom'));
+      const pad = () => document.querySelector<SVGSVGElement>(`aside[data-view="${wall}"] svg.gui-canvas`);
+      await until(() => !!pad(), `The ${wall} view did not build`);
+      // Select the seed node first, so that only the click can select the node of the 3D view again.
+      // The 3D view keeps its node, because the seed has no model, so the check reads the canvas.
+      const selected = (id: string) => !!document.querySelector(`.react-flow__node[data-id="${id}"].selected`);
+      rightClick(document.querySelector(`.react-flow__node[data-id="${seed}"]`)!);
+      await until(() => !!document.querySelector('.menu-layer'), 'The node menu did not open');
+      closeMenu();
+      await until(() => selected(seed) && !selected(node), 'The right click did not select the seed node');
+      // The first tile, at the top left, is the first seed of the page. The seed of the graph is the last one.
+      const box = pad()!.getBoundingClientRect();
+      const at = { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: box.left + 8, clientY: box.top + 8 };
+      pad()!.dispatchEvent(new PointerEvent('pointerdown', at));
+      pad()!.dispatchEvent(new PointerEvent('pointerup', at));
+      await until(() => selected(node) && !selected(seed) && shown() !== '' && shown() !== first, `A click on the ${wall} did not select ${title} and show its tile`);
+      steps.push(`a click on the first tile of the ${wall} selects ${title} and shows a new mesh: ${shown()}`);
+      show(await api.undo());
+      await until(() => shown() === first, `Undo of the ${wall} click did not give the first mesh again`);
+    }
+    if (next) {
+      // A new node process draws the view after the switch. A view that keeps the old image fails the seed check of the nested run.
+      stage = `open the ${next} workbench`;
+      const opened = await api.openProject(`${view.root}/../${next}`).catch(() => null);
+      if (opened) {
+        show(opened.trusted ? opened : await api.trustProject());
+        const nested = await modelWorkbench(await api.openGraph('main'), show);
+        steps.push(`after the switch from ${shot}, the 3D view of the ${next} workbench draws its own images`, ...nested.map((s) => `${next}: ${s}`));
+        show(await api.openProject(view.root));
+      }
+    }
     closeViews();
     show(await api.stop());
     return steps;
   } catch (error) {
     await sleep(600);
     await api.capture(`${shot}-failed`);
-    throw new Error(`${shot} workbench, ${stage}: ${error}`);
+    // The 3D view shows its errors as labels, for example an error of the surface.
+    throw new Error(`${shot} workbench, ${stage}: ${error}. The 3D view shows: ${panel()?.innerText.replace(/\s+/g, ' ')}`);
   } finally {
     off();
   }

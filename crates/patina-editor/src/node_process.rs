@@ -30,6 +30,8 @@ const STOPPED: &str = "The node process stopped.";
 /// A second **Stop** after this time ends the node process when a node still runs. It is a little
 /// shorter than the 2 s after which the page shows "Node X does not stop" (15.2).
 const STOP_WAIT: Duration = Duration::from_millis(1500);
+/// The time that `end` waits for the node process to drop its views.
+const DROP_WAIT: Duration = Duration::from_millis(1000);
 /// The longest last error text that a crash shows on the run, in bytes.
 const TAIL: usize = 1000;
 
@@ -197,6 +199,10 @@ impl Host {
     /// Ends the node process and each process that it started, when a project closes. So no file
     /// of the project stays open, and the user can delete the project folder (16.1).
     pub fn end(&self) {
+        // The views drop first, so their surfaces and windows go before the kill (15.8).
+        if let Ok(Some(dropped)) = self.send_ask(false, |id| ToNode::Job(Job::DropViews(id))) {
+            let _ = dropped.recv_timeout(DROP_WAIT);
+        }
         let Some(proc) = lock(&self.0.state).proc.take() else { return };
         proc.killed.store(true, Ordering::SeqCst);
         if let Err(e) = lock(&proc.child).kill() {

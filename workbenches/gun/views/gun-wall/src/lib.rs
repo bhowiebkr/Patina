@@ -1,5 +1,5 @@
 //! The gun wall of the gun workbench: the side views of the guns of eight seeds, next to the
-//! graph. A click on a gun gives its seed to the `gun` node.
+//! graph. A click on a gun gives its seed to the `gun` node and selects its `look` node.
 
 use std::fmt::Write;
 
@@ -105,6 +105,12 @@ impl GunWall {
                 let index = (y / size[1]) as usize * columns + ((x / size[0]) as usize).min(columns - 1);
                 if index < PAGE as usize {
                     graph.set_param(&self.gun, "seed", first + index as u64);
+                    // The `look` node of the gun has the scene, so the 3D view shows the clicked gun.
+                    let from_gun = graph.wires().filter(|(from, _)| from.split_once('.').is_some_and(|(id, _)| id == self.gun));
+                    let look = from_gun.filter_map(|(_, to)| to.split_once('.')).map(|(id, _)| id).find(|id| graph.folder(id) == Some("nodes/look")).map(str::to_owned);
+                    if let Some(look) = look {
+                        graph.select([look.as_str()]);
+                    }
                 }
             }
         }
@@ -203,6 +209,7 @@ mod tests {
     use super::*;
 
     const GUN: &str = "9a70000000000001";
+    const LOOK: &str = "9a70000000000002";
 
     fn widget(tree: &str, prefix: &str) -> usize {
         tree.lines().position(|line| line.starts_with(prefix)).unwrap_or_else(|| panic!("no {prefix} in {tree}"))
@@ -210,7 +217,8 @@ mod tests {
 
     #[test]
     fn the_wall_shows_eight_guns_and_a_click_sets_the_seed() {
-        let mut graph = Graph::new(&format!("node\t{GUN}\tnodes/gun\nparam\t{GUN}\tseed\t11\nparam\t{GUN}\tmaker\tvesper\n"));
+        let lines = format!("node\t{GUN}\tnodes/gun\nparam\t{GUN}\tseed\t11\nparam\t{GUN}\tmaker\tvesper\nnode\t{LOOK}\tnodes/look\nwire\t{GUN}.out\t{LOOK}.gun\n");
+        let mut graph = Graph::new(&lines);
         let mut wall = GunWall::init();
         let mut tree = String::new();
         for _ in 0..PAGE {
@@ -232,7 +240,8 @@ mod tests {
         // With no size, the wall is 480 pixels wide: two columns of 240 x 132. Seed 10 is the third gun.
         wall.ui(&mut Ui::new(2, &format!("{} up 10 140", widget(&tree, "canvas\tGun wall"))), &mut graph);
         let edits: Vec<_> = graph.edits().collect();
-        assert!(edits.len() == 1 && edits[0].ends_with(&format!("{GUN}\tseed\t10")), "{edits:?}");
+        assert!(edits.len() == 2 && edits[0].ends_with(&format!("{GUN}\tseed\t10")), "{edits:?}");
+        assert_eq!(edits[1], format!("select\t{LOOK}"));
         wall.ui(&mut Ui::new(2, &format!("{} 1", widget(&tree, "button\tNext"))), &mut graph);
         assert_eq!(wall.first, Some(16));
     }

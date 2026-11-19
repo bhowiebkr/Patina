@@ -180,6 +180,13 @@ impl Views {
         self.open.retain(|(_, open, _, _)| open != instance);
         self.cancel(out, |b| b.instance == instance, "The panel closed.");
     }
+
+    /// Drops all instances, so that their surfaces free the editor windows before the node process
+    /// ends (15.8).
+    pub fn drop_all(&mut self, out: &Out) {
+        self.open.clear();
+        self.cancel(out, |_| true, "The project closed.");
+    }
 }
 
 /// Builds view `name` of the project `root` in `mode`, in a background thread. Builds run one at a

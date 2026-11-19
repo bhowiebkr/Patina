@@ -650,7 +650,9 @@ export const api = {
   /** Writes or, with null, removes a file or folder of the open project, as a change from outside the editor. Only the self-check can. */
   checkWrite: (path: string, text: string | null) => invoke<void>('check_write', { path, text }),
   /** With `area` (physical pixels), the shot shows the composed window with its viewport, and the result is the part of the area that the view drew. */
-  capture: (name: string, area?: number[]) => invoke<number | null>('capture', { name, area }),
+  capture: (name: string, area?: number[]) => invoke<[number, string] | null>('capture', { name, area }).then((r) => r?.[0] ?? null),
+  // The drawn part of `area` and a print of its pixels. Two equal prints show the same image.
+  captureArea: (name: string, area: number[]) => invoke<[number, string] | null>('capture', { name, area }),
   checkResize: (width: number, height: number) => invoke<void>('check_resize', { width, height }),
 };
 

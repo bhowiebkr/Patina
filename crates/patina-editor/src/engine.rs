@@ -59,6 +59,9 @@ pub enum Job {
     CloseView(String),
     /// Drops one view instance, by its dock slot. The reply to the ask comes after the drop.
     DropView(String, u64),
+    /// Drops all view instances before the node process ends. The reply to the ask comes after
+    /// the drop.
+    DropViews(u64),
     /// The nodes in the view of the graph. The frames draw only their GUIs (4.3 rule 3).
     Visible(Vec<String>),
 }
@@ -341,6 +344,10 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
                     views.drop_instance(out, &instance);
                     out.reply(ask, Ok(()));
                 }
+                Job::DropViews(ask) => {
+                    views.drop_all(out);
+                    out.reply(ask, Ok(()));
+                }
                 Job::Visible(ids) => shown.visible = Some(ids.into_iter().collect()),
             }
         }
@@ -477,6 +484,10 @@ impl Live<'_> {
             Ok(Job::Package { root, graph, out: to, ask }) => make_package(self.out, (self.folder, self.toolchain), (root, graph), to, ask),
             Ok(Job::DropView(instance, ask)) => {
                 self.views.drop_instance(self.out, &instance);
+                self.out.reply(ask, Ok(()));
+            }
+            Ok(Job::DropViews(ask)) => {
+                self.views.drop_all(self.out);
                 self.out.reply(ask, Ok(()));
             }
             Ok(Job::Visible(ids)) => self.shown.visible = Some(ids.into_iter().collect()),

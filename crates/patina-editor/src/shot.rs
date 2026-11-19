@@ -58,7 +58,7 @@ fn decode(json: &str) -> Png {
 /// Returns the composed client area of the window as a PNG, and the part of `area` (physical x, y,
 /// width and height) that the view drew. PrintWindow asks DWM for the composed window, so the
 /// image also shows a viewport under the page (15.8).
-pub fn print_window(window: &WebviewWindow, area: [f64; 4]) -> Result<(Vec<u8>, f64), String> {
+pub fn print_window(window: &WebviewWindow, area: [f64; 4]) -> Result<(Vec<u8>, (f64, u64)), String> {
     let hwnd = window.hwnd().map_err(|e| e.to_string())?;
     let mut rect = RECT::default();
     // SAFETY: the HWND belongs to a live window of this process. GetClientRect writes into `rect`.
@@ -120,8 +120,9 @@ pub fn print_window(window: &WebviewWindow, area: [f64; 4]) -> Result<(Vec<u8>, 
 
 /// The part of the BGRA points of `area`, on a grid of 32 x 32, that are not transparent and not
 /// the page color. The surface clears to the page color around the area (patina-gpu viewport.rs).
-fn drawn(pixels: &[u8], width: usize, height: usize, [x, y, w, h]: [f64; 4]) -> f64 {
-    let (mut all, mut drawn) = (0, 0);
+/// The second value is a print of the points: two equal prints show the same image.
+fn drawn(pixels: &[u8], width: usize, height: usize, [x, y, w, h]: [f64; 4]) -> (f64, u64) {
+    let (mut all, mut drawn, mut print) = (0, 0, 0xcbf2_9ce4_8422_2325_u64);
     for j in 0..32 {
         for i in 0..32 {
             let px = (x + w * f64::from(2 * i + 1) / 64.0) as usize;
@@ -130,10 +131,12 @@ fn drawn(pixels: &[u8], width: usize, height: usize, [x, y, w, h]: [f64; 4]) -> 
                 let p = &pixels[(py * width + px) * 4..][..4];
                 all += 1;
                 drawn += usize::from(p[3] != 0 && p[..3] != PAGE);
+                // FNV-1a
+                print = p[..3].iter().fold(print, |h, &b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3));
             }
         }
     }
-    if all == 0 { 0.0 } else { drawn as f64 / all as f64 }
+    (if all == 0 { 0.0 } else { drawn as f64 / all as f64 }, print)
 }
 
 #[cfg(test)]
@@ -142,9 +145,13 @@ mod tests {
     fn only_opaque_points_that_are_not_the_page_color_are_drawn() {
         // A 4 x 1 image: page, red, transparent red, red. Each pixel gets 8 points of the grid.
         let pixels = [20, 20, 20, 255, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 255, 255];
-        assert_eq!(super::drawn(&pixels, 4, 1, [0.0, 0.0, 4.0, 1.0]), 0.5);
-        assert_eq!(super::drawn(&pixels, 4, 1, [1.0, 0.0, 1.0, 1.0]), 1.0);
-        assert_eq!(super::drawn(&pixels, 4, 1, [0.0, 0.0, 1.0, 1.0]), 0.0);
-        assert_eq!(super::drawn(&pixels, 4, 1, [8.0, 0.0, 4.0, 1.0]), 0.0);
+        let drawn = |area| super::drawn(&pixels, 4, 1, area);
+        assert_eq!(drawn([0.0, 0.0, 4.0, 1.0]).0, 0.5);
+        assert_eq!(drawn([1.0, 0.0, 1.0, 1.0]).0, 1.0);
+        assert_eq!(drawn([0.0, 0.0, 1.0, 1.0]).0, 0.0);
+        assert_eq!(drawn([8.0, 0.0, 4.0, 1.0]).0, 0.0);
+        // The print changes with the image, and the transparent red has the print of the red.
+        assert_ne!(drawn([0.0, 0.0, 1.0, 1.0]).1, drawn([1.0, 0.0, 1.0, 1.0]).1);
+        assert_eq!(drawn([1.0, 0.0, 1.0, 1.0]).1, drawn([2.0, 0.0, 1.0, 1.0]).1);
     }
 }
