@@ -1,7 +1,7 @@
 # Made by Patina. Patina writes this file again at each build.
 [workspace]
 resolver = "3"
-members = ["nodes/*", "build/clusters/*"]
+members = ["nodes/*", "views/*", "build/clusters/*"]
 
 [workspace.dependencies]
 patina-sdk = { path = "build/sdk/patina-sdk" }

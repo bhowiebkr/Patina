@@ -48,6 +48,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
   attach at a socket, and seeded random values and picks (task D3).
 - Model workbench run model: a model builds at **Run** and after each change, not at each frame
   (task D4).
+- Model workbench 3D view: `model-view` opens next to the graph and shows the solid of the
+  selected node, with orbit, pan, zoom, a grid, part colors and a wireframe (task D5).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -269,6 +271,30 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The kernel has no loft, no fillet and no bevel.
   - `pick` chooses one of two inputs. Chain picks for more choices.
   - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
+
+### Model workbench 3D view, 2026-11-19
+
+- Task D5: the `model-view` view of [workbenches/model](workbenches/model/README.md) opens in
+  the second center pane. It draws the mesh of the selected node with wgpu, with its own depth
+  texture and 4x MSAA, a light, a grid, part colors and a wireframe. The agent decisions are in
+  [the workbenches plan](docs/workbenches-plan.md), task D5.
+- Tool changes:
+  - The first read of a batch output by a view starts a batch run (15.8 rule 3). Before this,
+    the view saw no value until the next **Run**.
+  - The view panel sends only the newest viewport place with each ask. Before this, a slow view
+    drew at an old place, and the check saw 44 % of the viewport drawn.
+- Checked on 2026-11-19, on Windows only:
+  - The CI clippy and `cargo test --workspace`. The CLI test checks the first-read rerun.
+  - 13 unit tests of the workbench crates and their clippy, with the MSVC toolchain. CI does
+    not run them.
+  - The 203 frontend tests.
+  - The hidden shot check: it opens the view in the second pane, selects `union`, captures the
+    view, sets seed 8, sees a new mesh, and undo gives the first mesh again.
+- Known limits:
+  - The view reads only an output with a wire, or the solid input of a node with no wired
+    output.
+  - During a batch run, the view keeps its last picture.
+  - Linux and macOS did not run the view.
 
 ### Model workbench run model, 2026-11-19
 

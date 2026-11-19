@@ -416,6 +416,10 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
    in the mode of the loaded cluster. When the mode of the cluster changes, for example after a
    fuse, the view builds again, and the state of each instance resets. (Agent decision of
    2026-11-18. The owner can change it.)
+   A batch node runs only at **Run** and after a change. Thus the first read of an output of a
+   batch node starts a batch run, and the view gets the copy without a second **Run**. (Agent
+   decision of 2026-11-19. The owner can change it. Reason: the 3D view of the model workbench
+   shows the selected node at once.)
 4. The CLI and packages do not run views. A graph with views still runs headless. See also 18.
 5. Views are native code. Section 11 applies to them.
 
@@ -481,7 +485,8 @@ change it.)
   `ui` call builds the view again. After a panic, the next call makes a new state.
 - `Ui::viewport` shows a viewport and returns its place and input: the window handle, the
   window size, the area, the pointer and the wheel, in physical pixels. The page sends the place
-  at each display frame.
+  at each display frame. Only the newest place goes with the next ask, so a slow view does not
+  draw at an old place.
 - The view keeps a `patina_gpu::ViewportSurface` in its state and calls `draw` in its `ui` call,
   on the engine thread. Thus there is no render thread and no scissor in version 1. A window
   has one surface, so it shows one viewport.

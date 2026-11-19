@@ -61,6 +61,17 @@ test('view drags share undo while separate actions stay separate', () => {
   assert.deepEqual(input.take(), { gesture: undefined, events: '' });
 });
 
+test('only the newest viewport place goes out, with the next ask', () => {
+  const input = new ViewInput();
+  let id = 0;
+  const next = () => ++id;
+  input.push('2 place 9 100 80 0 0 100 40', next);
+  input.push('2 place 9 100 80 0 0 100 60', next);
+  input.push('2 wheel 1', next);
+  assert.deepEqual(input.take(), { gesture: 1, events: '2 place 9 100 80 0 0 100 60\n2 wheel 1' });
+  assert.deepEqual(input.take(), { gesture: undefined, events: '' });
+});
+
 test('a tab moves before another tab and becomes active', () => {
   const l = movePanel(defaultLayout(), 'logs', 'right', 'inspector');
   assert.deepEqual(l.areas.right, { tabs: ['logs', 'inspector'], active: 'logs', size: 360 });

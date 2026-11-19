@@ -7,6 +7,8 @@ fn a_cube_has_12_triangles_and_its_bounds() {
     assert_eq!(format!("{cube:?}"), "12 triangles, bounds -1 -2 -0.5 to 1 2 0.5");
     assert_eq!(format!("{:?}", Solid::empty()), "empty");
     assert_eq!(format!("{:?}", Solid::default().clone()), "empty");
+    // A copy has a new serial, so a view sees the copy of each run as a new value.
+    assert_ne!(cube.serial(), cube.clone().serial());
 }
 
 #[test]

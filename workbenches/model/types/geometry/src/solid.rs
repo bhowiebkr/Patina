@@ -2,6 +2,7 @@
 
 use std::ffi::{c_int, c_void};
 use std::fmt;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::mesh::Mesh;
 use crate::sketch::Sketch;
@@ -91,7 +92,10 @@ const ERRORS: [&str; 15] = [
 
 /// A closed solid. A copy is cheap: the kernel shares the data, and each operation gives a new
 /// solid. Z is up. The units are free, for example meters for a city and centimeters for a gun.
-pub struct Solid(*mut Raw);
+pub struct Solid(*mut Raw, u64);
+
+/// The serial of the next solid.
+static SERIAL: AtomicU64 = AtomicU64::new(1);
 
 // SAFETY: a Manifold value is immutable after its construction. Its lazy CSG tree locks a mutex
 // at each access (csg_tree.h), so other threads can read and drop copies at the same time.
@@ -103,7 +107,7 @@ impl Solid {
     /// Makes a solid in new kernel memory. `make` constructs into the memory that it gets.
     fn make(make: impl FnOnce(*mut Raw) -> *mut Raw) -> Solid {
         // SAFETY: the memory has the size and alignment of a Manifold, and `make` constructs one in it.
-        Solid(make(unsafe { manifold_alloc_manifold() }))
+        Solid(make(unsafe { manifold_alloc_manifold() }), SERIAL.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Makes a solid with `make`, and runs its boolean at once. The kernel collapses a lazy boolean
@@ -256,6 +260,11 @@ impl Solid {
         // SAFETY: the solid is valid. The status runs the operations that wait.
         let status = unsafe { manifold_status(self.0) };
         (status != 0).then(|| usize::try_from(status).ok().and_then(|i| ERRORS.get(i)).copied().unwrap_or("unknown error"))
+    }
+
+    /// A number that no other solid has, also not a copy. A view compares it to find a new value.
+    pub fn serial(&self) -> u64 {
+        self.1
     }
 
     /// The number of triangles.

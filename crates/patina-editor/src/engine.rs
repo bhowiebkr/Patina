@@ -344,6 +344,8 @@ fn run_jobs(out: &Arc<Out>, jobs: &Receiver<Job>, shared: &Shared, folder: &Path
                 Job::Visible(ids) => shown.visible = Some(ids.into_iter().collect()),
             }
         }
+        // The first read of a batch output by a view needs a batch run (15.8 rule 3).
+        batch.rerun |= loaded.as_mut().is_some_and(|l| l.cluster.frame_part().take_asked());
         if let (true, true, Some(loaded), Some(serial)) = (batch.step && batch.newest.is_none(), framed, loaded.as_mut(), last.as_ref().map(|r| r.serial)) {
             frame(out, (&mut loaded.cluster.frame_part(), &mut shown, &loaded.aliases, &mut Tick::default()), shared, (serial, 1, 1), &mut Blocks::default());
             out.emit(&Event::Ended { serial, frames: 1 });
@@ -483,7 +485,8 @@ impl Live<'_> {
             Err(TryRecvError::Empty) if self.shared.control.stopped() => return Some(None),
             Err(TryRecvError::Empty) => {}
         }
-        None
+        // The first read of a batch output by a view needs a batch run (15.8 rule 3).
+        part.take_asked().then_some(Some(Job::Rerun))
     }
 
     /// Runs `count` frames and shows the last, with the results of `blocks`. Returns false when a

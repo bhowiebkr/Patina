@@ -174,6 +174,16 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
   texture, a grid, a light, part colors and a wireframe. It shows the mesh of the selected node.
   It sets `dock = "split"`, so it opens next to the graph (task A). When it needs a generic GPU
   function that `patina-gpu` does not have, add only the generic part to the tool.
+- Agent decisions of 2026-11-19 for D5, the owner can change them:
+  - The view draws into its own texture with 4x MSAA and a depth texture. Then it copies the
+    texture to the viewport. Thus `patina-gpu` needs no change.
+  - The view reads the wired solid output of the selected node. For a node with no wired
+    output, it reads the solid input. When the selection has no solid, it keeps the last solid.
+  - Each `Solid` has a serial number, so the view uploads a mesh only when the value changes.
+  - The first read of a batch output by a view starts a batch run (spec 15.8 rule 3). This is
+    a generic tool change: a view that opens after **Run** sees a value at once.
+  - The view panel sends only the newest viewport place with each ask. This is a generic tool
+    fix: a slow view drew at an old place.
 - **D6. Export.** A node writes `.glb`, `.obj` and `.stl` with a small writer in the workbench.
   The sockets go into the glTF extras. The node writes only after a button or a trigger.
 - **D7. Graphs and guide.** A `main` graph with a seeded sample model, learning graphs and a
@@ -229,6 +239,8 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   are not compared across platforms. Next is D4.
 - 2026-11-19: D4 is done on Windows. The tower builds one time while 30 frames run. The views
   wait during a batch run, so D4b is open. Next is D5.
+- 2026-11-19: D5 is done on Windows. The hidden shot check opens the view next to the graph,
+  changes the seed and sees a new mesh. Next is D6.
 
 ## Order
 

@@ -5,8 +5,8 @@ the output. The city and the gun workbenches use it as a library. The plan is in
 [the workbenches plan](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches-plan.md),
 task D.
 
-This workbench is at task D4. It has the types, the base nodes and the run model. The 3D view
-and the export come in tasks D5 to D8.
+This workbench is at task D5. It has the types, the base nodes, the run model and the 3D view.
+The export, the guide graphs and the checks come in tasks D6 to D8.
 
 ## Run the workbench
 
@@ -25,6 +25,27 @@ C++ build on a computer also makes the C++ runtime. This adds 10 to 20 s one tim
 A model builds at **Run** and after each change, not at each frame. The model nodes are in the
 batch domain (spec 9.1): a node with no wires in, and each node after it, runs in that domain.
 A wire from a node in the frame domain puts the model in the frame domain.
+
+## The 3D view
+
+The `model-view` view shows the solid of the selected node. It opens in the second center pane,
+next to the graph. Do these steps:
+
+1. Open the project in the editor and click **Run**.
+2. Open **Views** and select **model-view**.
+3. Click a model node, for example `union`.
+
+The view shows the output of the node when the output has a wire. For a node with no wired
+output, for example `report`, it shows the solid that goes into the node. When the selection
+has no solid, the view keeps the last solid.
+
+- Drag to orbit. Shift and drag to pan. Turn the wheel to zoom. Press Home or click
+  **Frame model** to frame the model.
+- **Wireframe** shows the triangle edges, **Grid** shows the ground grid and the X and Y axes,
+  and **Part colors** gives each part its own color.
+- Each new value of the node, for example after a seed change, shows at once. The camera stays.
+
+## Measure the builds
 
 To measure the build times, run this command from `workbenches/model`:
 

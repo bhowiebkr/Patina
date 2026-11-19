@@ -42,6 +42,8 @@ pub(crate) struct Gui {
     calls: Calls,
     /// The requested typed outputs, by probe index. A rebuild transfers these requests.
     pub(crate) reads: Vec<bool>,
+    /// True after the first read of an output of a batch node: only a batch run makes its copy.
+    pub(crate) asked: bool,
     /// The node index, the mode and the event lines of each input that came while a run held the
     /// node.
     waiting: Vec<(usize, u32, String)>,
@@ -227,7 +229,9 @@ impl Frames<'_> {
             return std::ptr::null();
         };
         let (Some(library), Ok(index)) = (self.nodes.library(n, false), u32::try_from(index)) else { return std::ptr::null() };
-        self.gui.reads[index as usize] = true;
+        if !std::mem::replace(&mut self.gui.reads[index as usize], true) && self.nodes.domains[n] == Domain::Batch {
+            self.gui.asked = true;
+        }
         // A sink of its own, so the outcome of the last run stays.
         let mut sink = Sink::default();
         let rep = Reporter { ctx: (&raw mut sink).cast(), report: collect, control: std::ptr::null() };
@@ -235,6 +239,12 @@ impl Frames<'_> {
         // audio thread never calls the library of a node that is not an audio node, and the
         // reporter is valid during the call.
         unsafe { (library.read)(library.state, index, &rep) }
+    }
+
+    /// True one time after the first read of an output of a batch node. Then the caller starts a
+    /// batch run, so the view gets its copy without a second **Run** (15.8 rule 3).
+    pub fn take_asked(&mut self) -> bool {
+        std::mem::take(&mut self.gui.asked)
     }
 
     /// The build mode of the cluster. A view that reads typed outputs builds in the same mode, so

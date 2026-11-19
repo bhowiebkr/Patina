@@ -379,6 +379,8 @@ impl Cluster {
                 self.read(id, key);
             }
         }
+        // The batch run of the new cluster makes the copies, so it asks for no other run.
+        self.gui_calls.asked = false;
         let pairs: Vec<(usize, usize)> = (self.keys.iter().zip(&self.names).enumerate())
             .filter_map(|(n, (key, (id, _)))| {
                 let from = old.keys.iter().zip(&old.names).position(|(k, (i, _))| key.is_some() && k == key && i == id)?;

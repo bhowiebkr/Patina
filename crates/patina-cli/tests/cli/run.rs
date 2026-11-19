@@ -599,15 +599,19 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
     // The view reads a typed output (15.8 rule 3). The first read asks the cluster to keep a copy.
     let mut cluster = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
     cluster.set_params(opened.graph());
-    let mut sum = || {
+    let mut sum = |cluster: &mut Cluster| {
         assert!(cluster.run(&Control::default()).ok);
         view.ui(0, "", &graph, Some(&mut cluster.frame_part())).unwrap().tree
     };
-    assert!(sum().contains("clicks, None"));
-    assert!(sum().contains("clicks, Some(6.5)"));
+    assert!(sum(&mut cluster).contains("clicks, None"));
+    // The add node is in the batch domain, so its first read asks for one batch run.
+    assert!(cluster.frame_part().take_asked() && !cluster.frame_part().take_asked());
+    assert!(sum(&mut cluster).contains("clicks, Some(6.5)"));
+    assert!(!cluster.frame_part().take_asked());
     // Run rebuilds the cluster. A batch view must keep its requests through that rebuild.
     let mut rebuilt = opened.check().unwrap().build(&Toolchain::detect().unwrap(), Mode::Edit).unwrap();
     rebuilt.adopt(&mut cluster);
+    assert!(!rebuilt.frame_part().take_asked());
     rebuilt.set_params(opened.graph());
     assert!(rebuilt.run(&Control::default()).ok);
     let tree = view.ui(0, "", &graph, Some(&mut rebuilt.frame_part())).unwrap().tree;
