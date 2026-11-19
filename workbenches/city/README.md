@@ -28,7 +28,8 @@ Each step is a node, so you can change or replace one step. The `main` graph has
 1. `terrain` makes the hills from the seed, with a slope down to the coast. Then drops of rain
    run down the slopes: they cut the valleys and sharpen the ridges. **erosion** sets the drops
    for each sample, from 0 to 8. `river` cuts a river along the valleys, from the highest edge
-   to the lowest edge. `ground` shows the grass, the sand, the rock and the water.
+   to the lowest edge. It also cuts a valley: **valley** sets the width of each side in meters.
+   `ground` shows the grass, the sand, the rock and the water.
 2. `density` puts the people on the land: a main center and sub-centers, less on steep slopes
    and none on the water.
 3. `highways` joins gates on the edge to the center. A steep slope costs more, and the water
@@ -93,15 +94,15 @@ wire to the node. A run after a change does not write.
 
 On 2026-11-19, on the Windows computer of the owner, with a bake build:
 
-- The `main` graph runs in about 0.7 s in a CLI run after the build. It has 173 buildings.
-- A city of 1 km x 1 km has 98882 places and 3128723 triangles. It runs in 0.34 s after the
+- The `main` graph runs in about 0.7 s in a CLI run after the build. It has 162 buildings.
+- A city of 1 km x 1 km has 92397 places and 2927971 triangles. It runs in 0.32 s after the
   build in the CLI test. The target of task E8 is 2 s.
 - The erosion takes about 18 ms for `main` and 80 ms for 1 km x 1 km in a release build.
 
 ## Known limits
 
-- The erosion has no rivers of its own. The `river` node follows the valleys, but it does not
-  cut them, and the erosion does not move the river.
+- The erosion has no rivers of its own. The `river` node cuts its valley after the erosion, so
+  the erosion does not move the river.
 - A cut across a concave block gives separate lots. A thin part of a block is a park, not a
   part of the next lot.
 - A street at the edge of the land turns along the edge. The roads stop at the edge.

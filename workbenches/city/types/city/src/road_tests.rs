@@ -18,7 +18,7 @@ fn flat(width: f64, depth: f64, cell: f64, water: impl Fn([f64; 2]) -> bool) -> 
 
 fn hills() -> Terrain {
     let land = Land { width: 600.0, depth: 450.0, cell: 5.0, relief: 25.0, hills: 200.0, coast: 80.0, sea: 0.0 };
-    river(&terrain(Seed(7), &land).unwrap(), Seed(7), 18.0, 2.0).unwrap()
+    river(&terrain(Seed(7), &land).unwrap(), Seed(7), 18.0, 2.0, 40.0).unwrap()
 }
 
 /// True when no two streets cross and no point is on a street that does not end at it.

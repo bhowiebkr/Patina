@@ -1,5 +1,5 @@
-//! The terrain: a height map from value noise with a coast, a river cut into it, and the ground
-//! as a scene (task E9).
+//! The terrain: a height map from value noise with a coast, a river and its valley cut into it,
+//! and the ground as a scene (task E9).
 
 use std::fmt;
 
@@ -156,9 +156,12 @@ pub fn terrain(seed: Seed, land: &Land) -> Result<Terrain, String> {
 
 /// Cuts a river from the highest edge to the lowest edge. It follows the valleys. The bed is
 /// `depth` below the sea level, so the river is water. The banks slope up over one river width.
-pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64) -> Result<Terrain, String> {
-    if !(width.is_finite() && width >= 0.0 && depth.is_finite() && depth > 0.0) {
-        return Err("the width must be 0 or more and the depth more than 0".into());
+/// The river also cuts a valley with sides of `sides` meters. The floor of the valley goes down
+/// from the high edge to the low edge, and it stays at the sea level or above.
+pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64, sides: f64) -> Result<Terrain, String> {
+    let wide = |x: f64| x.is_finite() && x >= 0.0;
+    if !(wide(width) && wide(sides) && depth.is_finite() && depth > 0.0) {
+        return Err("the width and the valley must be 0 or more, and the depth more than 0".into());
     }
     let mut out = terrain.clone();
     if width == 0.0 || terrain.nx < 2 || terrain.ny < 2 || terrain.heights.len() != terrain.nx * terrain.ny {
@@ -192,8 +195,10 @@ pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64) -> Result<Te
     };
     let across_of = valley(count, ((0.6 * span / step) as usize).max(1), step, center, span, terrain, at);
     let line: Vec<[f64; 2]> = across_of.iter().enumerate().map(|(k, &v)| at(k, v)).collect();
+    let mut low = f64::INFINITY;
+    let floors: Vec<f64> = line.iter().map(|&p| { low = low.min(terrain.height(p)).max(terrain.sea); low }).collect();
     let (half, bank) = (width / 2.0, width.max(3.0 * terrain.cell));
-    let reach = half + bank;
+    let reach = half + bank.max(sides);
     let bed = terrain.sea - depth;
     for j in 0..terrain.ny {
         for i in 0..terrain.nx {
@@ -202,13 +207,18 @@ pub fn river(terrain: &Terrain, seed: Seed, width: f64, depth: f64) -> Result<Te
             let a = p[0] * along[0] + p[1] * along[1] + length / 2.0;
             let first = ((a - reach) / step).floor().max(0.0) as usize;
             let last = (((a + reach) / step).ceil().max(0.0) as usize + 1).min(line.len() - 1);
-            let dist = (first..last).map(|k| segment_distance(p, line[k], line[k + 1])).fold(f64::INFINITY, f64::min);
+            let near = (first..last).map(|k| (segment_distance(p, line[k], line[k + 1]), k));
+            let (dist, k) = near.fold((f64::INFINITY, 0), |m, x| if x.0 < m.0 { x } else { m });
             if dist >= reach {
                 continue;
             }
-            let s = smooth(((dist - half) / bank).clamp(0.0, 1.0));
             let h = &mut out.heights[j * terrain.nx + i];
-            *h = h.min((bed + (f64::from(*h) - bed) * s) as f32);
+            let mut z = f64::from(*h);
+            if sides > 0.0 {
+                let floor = floors[k + 1];
+                z = z.min(floor + (z - floor) * smooth(((dist - half) / sides).clamp(0.0, 1.0)));
+            }
+            *h = z.min(bed + (z - bed) * smooth(((dist - half) / bank).clamp(0.0, 1.0))) as f32;
         }
     }
     Ok(out)

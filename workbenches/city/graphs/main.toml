@@ -36,6 +36,7 @@ pos = [520.0, -160.0]
 [node.params]
 width = "18"
 depth = "2"
+valley = "80"
 
 [[node]]
 id = "c170000000000022"

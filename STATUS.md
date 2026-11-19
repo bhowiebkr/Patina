@@ -358,6 +358,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - `main`: 574 items, 42651 places and 1329526 triangles. `planned`: 1269 items and 4580506
     triangles. A city of 1 km x 1 km: 3128723 triangles, 0.34 s after the build in the CLI
     test.
+  - `river` cuts a valley (2026-11-19). **valley** sets the width of each side in meters, and 0
+    gives no valley. The floor goes down along the river and stays at the sea level or above.
+    - `main` uses 80 m. A valley of 40 m gave steep sides, and `main` had 130 buildings. With
+      no valley it had 173, and with 80 m it has 162.
+    - `main`: 541 items, 39909 places and 1250223 triangles. A city of 1 km x 1 km: 92397
+      places and 2927971 triangles, 0.32 s after the build in the CLI test.
+    - Checked on Windows: the unit tests of `types/city`, with a test that the valley cuts the
+      slopes beside the bank and not the far edge, and the city CLI test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
   - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build
@@ -367,7 +375,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
-  - The erosion has no rivers of its own. The `river` node does not cut the valleys.
+  - The erosion has no rivers of its own. The `river` node cuts its valley after the erosion,
+    so the erosion does not move the river.
   - A cut across a concave block gives separate lots. A thin part of a block is a park, not
     a part of the next lot.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for

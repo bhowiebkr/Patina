@@ -243,7 +243,7 @@ fn erosion_cuts_the_slopes_and_keeps_or_loses_soil() {
 #[test]
 fn a_river_cuts_water_across_and_never_raises_the_ground() {
     let t = terrain(Seed(5), &Land { coast: 0.0, ..land() }).unwrap();
-    let r = river(&t, Seed(5), 20.0, 2.0).unwrap();
+    let r = river(&t, Seed(5), 20.0, 2.0, 40.0).unwrap();
     assert!(r.heights.iter().zip(&t.heights).all(|(a, b)| a <= b));
     let water = r.heights.iter().filter(|&&h| f64::from(h) < r.sea).count();
     assert!(water > 0 && water < r.heights.len() / 4, "{r:?}");
@@ -251,8 +251,8 @@ fn a_river_cuts_water_across_and_never_raises_the_ground() {
     let row = |j: usize| (0..r.nx).any(|i| r.water(r.point(i, j)));
     let column = |i: usize| (0..r.ny).any(|j| r.water(r.point(i, j)));
     assert!((row(0) && row(r.ny - 1)) || (column(0) && column(r.nx - 1)), "{r:?}");
-    assert_eq!(river(&t, Seed(5), 0.0, 2.0).unwrap(), t);
-    assert!(river(&t, Seed(5), 20.0, 0.0).is_err());
+    assert_eq!(river(&t, Seed(5), 0.0, 2.0, 40.0).unwrap(), t);
+    assert!(river(&t, Seed(5), 20.0, 0.0, 40.0).is_err() && river(&t, Seed(5), 20.0, 2.0, -1.0).is_err());
 }
 
 #[test]
@@ -267,18 +267,25 @@ fn a_river_follows_the_valley() {
         }
     }
     for seed in 1..6 {
-        let r = river(&t, Seed(seed), 10.0, 2.0).unwrap();
+        let r = river(&t, Seed(seed), 10.0, 2.0, 0.0).unwrap();
         for j in [5, 20, 35] {
             let wet: Vec<f64> = (0..nx).map(|i| r.point(i, j)).filter(|&p| r.water(p)).map(|p| p[0]).collect();
             let mean = wet.iter().sum::<f64>() / wet.len() as f64;
             assert!(!wet.is_empty() && (mean - 60.0).abs() < 10.0, "seed {seed}, row {j}: {wet:?}");
         }
+        // A valley of 60 m sides cuts the slopes beside the bank, but not the far edge.
+        let v = river(&t, Seed(seed), 10.0, 2.0, 60.0).unwrap();
+        assert!(v.heights.iter().zip(&r.heights).all(|(a, b)| a <= b));
+        let (side, far) = (20 * nx + 48, 20 * nx);
+        assert!(r.heights[side] - v.heights[side] > 0.5, "seed {seed}: {} to {}", r.heights[side], v.heights[side]);
+        assert_eq!(v.heights[far], t.heights[far]);
+        assert!(v.heights.iter().all(|&h| f64::from(h) >= v.sea - 2.0));
     }
 }
 
 #[test]
 fn the_ground_covers_each_cell_with_two_triangles_and_adds_water() {
-    let t = river(&terrain(Seed(3), &land()).unwrap(), Seed(3), 20.0, 2.0).unwrap();
+    let t = river(&terrain(Seed(3), &land()).unwrap(), Seed(3), 20.0, 2.0, 40.0).unwrap();
     let scene = ground(&t);
     let names: Vec<&str> = scene.items().iter().map(|i| i.name.as_str()).collect();
     assert_eq!(names, ["grass", "sand", "rock", "bed", "water"]);
