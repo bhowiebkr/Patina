@@ -136,6 +136,12 @@ impl Canvas<'_> {
         self.tree.push_str("\tgrab");
     }
 
+    /// Lets the canvas take each press in this rectangle at once, as `grab` does for all of the
+    /// canvas. A drag that starts outside of each rectangle moves the node (4.3).
+    pub fn grab_rect(&mut self, [x, y]: [f32; 2], [w, h]: [f32; 2]) {
+        let _ = write!(self.tree, "\tgrab {x} {y} {w} {h}");
+    }
+
     pub fn line(&mut self, from: [f32; 2], to: [f32; 2], color: [u8; 3]) {
         self.shape("line", &[from[0], from[1], to[0], to[1]], color, None);
     }

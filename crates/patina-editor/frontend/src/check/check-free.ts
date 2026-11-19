@@ -1,5 +1,6 @@
 // The free layout step of the self-check (check.ts): a node that draws all of its body on a
-// canvas, its pins at the places of the node, a drag on the canvas and its undo (4.3).
+// canvas, its pins at the places of the node, a drag on the canvas and its undo, and a drag
+// outside of the grab area that moves the node (4.3).
 
 import { api, type View } from '../api';
 import { BUILD_MS, RUN_MS, entry, leftTab, nodeToml, rightClick, type CheckContext } from './check-fixtures';
@@ -29,7 +30,7 @@ impl Knob {
         let before = self.value;
         {
             let mut c = ui.canvas(&format!("Knob {:.2}", self.value), [100.0, 60.0]);
-            c.grab();
+            c.grab_rect([0.0, 0.0], [100.0, 40.0]);
             for p in c.pointer() {
                 match (*p, self.drag) {
                     (Pointer::Down([x, _]), _) => self.drag = Some((x, self.value)),
@@ -107,7 +108,7 @@ export async function checkFree({ step, until, result, mark, steps }: CheckConte
   }
   steps.push('the pins of a free node are at their places');
 
-  // A drag on a canvas that grabs turns the knob and does not move the node. Each move writes the parameter.
+  // A drag in the grab area turns the knob and does not move the node. Each move writes the parameter.
   const place = document.querySelector<HTMLElement>(node)!.style.transform;
   const at = (x: number) => ({ bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: box.left + x * s, clientY: box.top + 30 * s });
   from = mark();
@@ -129,6 +130,28 @@ export async function checkFree({ step, until, result, mark, steps }: CheckConte
   if (value !== '0.25') throw new Error(`one undo after a drag gave the value ${value}, not 0.25`);
   await result(v, from, 'knob 0.25', RUN_MS);
   steps.push('drag a free node and undo the drag in one step');
+
+  // A drag that starts below the grab area moves the node and does not turn the knob (4.3).
+  // The steps are in screen pixels, so the first move passes the drag distance at each zoom.
+  const mouse = (dx: number) => ({ bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, clientX: box.left + 50 * s + dx, clientY: box.top + 50 * s });
+  const realEdit = api.edit;
+  let moved: Promise<View> | undefined;
+  api.edit = (e) => (moved = realEdit(e));
+  try {
+    pad()!.dispatchEvent(new PointerEvent('pointerdown', { ...mouse(0), pointerId: 1, isPrimary: true }));
+    pad()!.dispatchEvent(new PointerEvent('pointermove', { ...mouse(20), pointerId: 1, isPrimary: true }));
+    for (const dx of [40, 60]) document.dispatchEvent(new MouseEvent('mousemove', mouse(dx)));
+    document.dispatchEvent(new MouseEvent('mouseup', mouse(60)));
+    await until(`the move edit of a drag below the grab area (scale ${s.toFixed(2)}, label ${label()})`, RUN_MS, () => moved !== undefined);
+  } finally {
+    api.edit = realEdit;
+  }
+  v = await moved!;
+  if (document.querySelector<HTMLElement>(node)!.style.transform === place) throw new Error('a drag below the grab area did not move the node');
+  if (label() !== 'Knob 0.25') throw new Error(`a drag below the grab area turned the knob to ${label()}`);
+  v = await step('undo the move of the free knob', () => api.undo());
+  await until('the free knob at its place after the undo', RUN_MS, () => document.querySelector<HTMLElement>(node)!.style.transform === place);
+  steps.push('a drag outside of the grab area moves a free node');
 
   v = await step('undo the delete of the lost parameter', () => api.undo());
   if (v.graph.node?.find((n) => n.id === K)?.params?.gone !== '1') throw new Error('the undo did not give back the lost parameter');

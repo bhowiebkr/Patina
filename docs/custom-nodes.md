@@ -168,7 +168,10 @@ left corner. A color is `[red, green, blue]`.
 - A drag on a canvas moves the node. A click gives `Pointer::Down` at the release, and a hold
   gives it after 250 ms.
 - `canvas.grab()` gives each press to the canvas at once, with the moves. Call it for a drag in
-  the canvas, as a slider or a joystick has, or for a button that acts while it is held.
+  the canvas, as a slider has.
+- `canvas.grab_rect(at, size)` gives each press in the rectangle to the canvas at once. A drag
+  that starts outside of each rectangle moves the node. Call it for each button of a pad, or
+  for the cap of a button that acts while it is held.
 - Read the pointer before the draw calls when the input changes what the canvas draws.
 - An empty `text` shows no label above the canvas.
 

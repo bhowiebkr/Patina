@@ -119,7 +119,9 @@ function CanvasView({ w, send, disabled }: { w: Extract<Widget, { kind: 'canvas'
     lastPoint.current = at(e);
     e.currentTarget.setPointerCapture(e.pointerId);
     if (live) e.currentTarget.focus();
-    const node = w.grab || e.button !== 0 ? null : e.currentTarget.closest('.react-flow__node');
+    const [px, py] = lastPoint.current.split(' ').map(Number);
+    const grabbed = w.grab || w.grabs.some(([x, y, gw, gh]) => px >= x && px <= x + gw && py >= y && py <= y + gh);
+    const node = grabbed || e.button !== 0 ? null : e.currentTarget.closest('.react-flow__node');
     if (node) {
       press.current = { x: e.clientX, y: e.clientY, at: at(e), node, timer: window.setTimeout(take, HOLD_MS) };
       return;

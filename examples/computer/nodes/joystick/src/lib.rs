@@ -53,7 +53,10 @@ impl Joystick {
     pub fn ui(&mut self, ui: &mut Ui) {
         let e = edges(&[8, 8, 8], &[8]);
         let mut pad = ui.canvas("Pad", [WIDTH, e.height]);
-        pad.grab();
+        // A press on a button acts at once. A drag on the board moves the node (4.3).
+        for (_, at, size) in PAD {
+            pad.grab_rect(at, size);
+        }
         for key in pad.keys() {
             match key {
                 Key::Down(name) => self.keys |= button(name),
@@ -125,7 +128,7 @@ mod tests {
         let mut ui = Ui::new(0, "0 key down ArrowUp\n0 key down KeyD\n0 key up ArrowUp\n0 down 112 250");
         stick.ui(&mut ui);
         assert_eq!((stick.keys, stick.mouse), (RIGHT, FIRE));
-        assert!(ui.tree().starts_with("canvas\tPad\t224\t354\tgrab\tkeys\t"));
+        assert!(ui.tree().starts_with("canvas\tPad\t224\t354\tgrab 97 70 30 34\tgrab 97 136 30 34\tgrab 62 105 34 30\tgrab 128 105 34 30\tgrab 82 220 60 60\tkeys\t"));
         stick.ui(&mut Ui::new(0, "0 move 112 85\n0 up 112 85"));
         assert_eq!(stick.mouse, 0);
         stick.ui(&mut Ui::new(0, "0 down 112 85"));

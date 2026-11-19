@@ -213,9 +213,14 @@ test('a canvas keeps its good shapes and limits its size', () => {
       ],
       keys: true,
       grab: true,
+      grabs: [],
     },
   ]);
-  assert.deepEqual(parseTree('canvas\tPlain\t8\t8')[0], { kind: 'canvas', index: 0, text: 'Plain', width: 8, height: 8, shapes: [], keys: false, grab: false });
+  assert.deepEqual(parseTree('canvas\tPlain\t8\t8')[0], { kind: 'canvas', index: 0, text: 'Plain', width: 8, height: 8, shapes: [], keys: false, grab: false, grabs: [] });
+  // A grab area has four numbers. A bad area is a skipped shape.
+  const [cap] = parseTree('canvas\tCap\t8\t8\tgrab 1 2 3.5 4\tgrab 1 2 x 4\tgrab 0 0 8 8');
+  assert.deepEqual(cap.kind === 'canvas' && [cap.grab, cap.grabs], [false, [[1, 2, 3.5, 4], [0, 0, 8, 8]]]);
+  assert.equal(skippedShape, 'Cap');
 });
 
 test('a canvas sets the node width, and the values and labels do not', () => {

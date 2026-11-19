@@ -22,8 +22,8 @@ impl Button {
 
     pub fn ui(&mut self, ui: &mut Ui) {
         let mut c = ui.canvas(if self.held { "Button held" } else { "Button" }, [56.0, 56.0]);
-        // The button acts while it is held, so a press must not wait for a drag.
-        c.grab();
+        // A press on the cap acts at once, as the button acts while it is held. A drag on the board moves the node (4.3).
+        c.grab_rect([15.0, 15.0], [26.0, 26.0]);
         for p in c.pointer() {
             match p {
                 Pointer::Down(_) => self.held = true,

@@ -21,7 +21,7 @@ export type Widget =
   | { kind: 'section'; index: number; text: string; open: boolean }
   | { kind: 'group'; index: number; text: string; minWidth: number }
   | { kind: 'end'; index: number; text: string }
-  | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[]; keys: boolean; grab: boolean }
+  | { kind: 'canvas'; index: number; text: string; width: number; height: number; shapes: Shape[]; keys: boolean; grab: boolean; grabs: Rect[] }
   | { kind: 'viewport'; index: number; text: string; height: number }
   | { kind: 'color'; index: number; text: string; value: string }
   | { kind: 'plot'; index: number; text: string; low: number; high: number; values: number[]; axes: Axes | null }
@@ -57,6 +57,8 @@ export interface Transform {
 
 /** The position from 0 to 1 and the color of a color ramp stop. */
 export type Stop = [number, string];
+/** A rectangle in canvas pixels: x, y, width and height. */
+export type Rect = [number, number, number, number];
 
 /** A row of a layer stack. A layer without an amount, for example a base, has no amount field. */
 export interface Layer {
@@ -270,14 +272,17 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'end') widgets.push({ kind, index, text });
     else if (kind === 'canvas' && value > 0 && low > 0) {
       const shapes: Shape[] = [];
+      const grabs: Rect[] = [];
       for (const field of rest.slice(2)) {
         const shape = parseShape(field);
+        const area = field.startsWith('grab ') ? field.slice(5).split(' ').map(Number) : [];
         if (shape) shapes.push(shape);
+        else if (area.length === 4 && area.every(Number.isFinite)) grabs.push(area as Rect);
         else if (field !== 'keys' && field !== 'grab') skippedShape = text;
       }
       const keys = rest.slice(2).includes('keys');
       const grab = rest.slice(2).includes('grab');
-      widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes, keys, grab });
+      widgets.push({ kind, index, text, width: Math.min(value, MAX_SIDE), height: Math.min(low, MAX_SIDE), shapes, keys, grab, grabs });
     } else if (kind === 'viewport' && value > 0) widgets.push({ kind, index, text, height: Math.min(value, MAX_SIDE) });
     else {
       const widget = parseValue(kind, index, text, rest);
