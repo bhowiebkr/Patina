@@ -26,10 +26,11 @@ pub enum Instrument {
     Snare,
     Hat,
     Sampler,
+    Rave,
 }
 
 impl Instrument {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Lead,
         Self::Pad,
         Self::Bass,
@@ -37,8 +38,18 @@ impl Instrument {
         Self::Snare,
         Self::Hat,
         Self::Sampler,
+        Self::Rave,
     ];
-    pub const NAMES: [&'static str; 7] = ["Lead", "Pad", "Bass", "Kick", "Snare", "Hat", "Sampler"];
+    pub const NAMES: [&'static str; 8] = [
+        "Lead",
+        "Pad",
+        "Bass",
+        "Kick",
+        "Snare",
+        "Hat",
+        "Sampler",
+        "Rave lead",
+    ];
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -59,6 +70,8 @@ pub struct Track {
     pub drive: f32,
     pub delay_mix: f32,
     pub delay_beats: f32,
+    #[serde(default)]
+    pub rave: crate::RaveTone,
     pub clips: Vec<Clip>,
     pub automation: Vec<Automation>,
 }
@@ -81,6 +94,7 @@ impl Track {
             drive: 1.0,
             delay_mix: 0.0,
             delay_beats: 0.75,
+            rave: crate::RaveTone::default(),
             clips: Vec::new(),
             automation: Vec::new(),
         }
@@ -234,6 +248,7 @@ impl Score {
                 || track.sample.len() > 4096
                 || track.clips.len() > MAX_CLIPS
                 || track.automation.len() > 4
+                || !track.rave.valid()
             {
                 return Err(format!("Invalid track: {}", track.name));
             }

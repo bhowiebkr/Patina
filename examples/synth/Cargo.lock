@@ -321,6 +321,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rave-oscillator"
+version = "0.1.0"
+dependencies = [
+ "patina-sdk",
+ "synth-dsp",
+]
+
+[[package]]
 name = "reverb"
 version = "0.1.0"
 dependencies = [

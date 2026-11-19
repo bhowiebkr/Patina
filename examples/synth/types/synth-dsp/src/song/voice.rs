@@ -14,6 +14,7 @@ pub struct Voice {
     release: bool,
     noise: u32,
     highpass: f32,
+    rave: crate::RaveOscillator,
 }
 
 impl Voice {
@@ -34,6 +35,7 @@ impl Voice {
             (cycles * 1.004).fract() as f32,
             (cycles * 0.996).fract() as f32,
         ];
+        self.rave.reset(frequency(note.key), elapsed + note.offset);
     }
 
     pub fn release(&mut self) {
@@ -72,6 +74,7 @@ impl Voice {
         let high = noise - self.highpass;
         self.highpass += (noise - self.highpass) * 0.3;
         let mut pair = match track.instrument {
+            Instrument::Rave => [self.rave.next(hz, track.rave); 2],
             Instrument::Lead | Instrument::Pad => {
                 let shape = if track.instrument == Instrument::Lead {
                     2

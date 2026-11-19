@@ -14,6 +14,8 @@ mod keyboard;
 pub use keyboard::LiveKeys;
 mod modulation;
 mod processors;
+mod rave;
+pub use rave::{RaveOscillator, RaveTone};
 mod rhythm;
 pub mod song;
 mod space;

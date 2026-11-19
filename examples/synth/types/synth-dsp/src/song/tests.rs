@@ -18,6 +18,28 @@ fn score_roundtrip_rejects_bad_controls_and_duplicate_ids() {
 }
 
 #[test]
+fn old_scores_load_and_rave_controls_validate_without_restarting_notes() {
+    let mut json: serde_json::Value = serde_json::from_str(&demo().text()).unwrap();
+    for track in json["tracks"].as_array_mut().unwrap() {
+        track.as_object_mut().unwrap().remove("rave");
+    }
+    let mut score = Score::parse(&json.to_string()).unwrap();
+    assert_eq!(score.tracks[0].rave, crate::RaveTone::default());
+    score.tracks[0].instrument = Instrument::Rave;
+    let mut compiler = Compiler::default();
+    let before = compiler.process(&score.text(), Path::new(""));
+    score.tracks[0].rave.fifth = 0.25;
+    let after = compiler.process(&score.text(), Path::new(""));
+    assert_eq!(before.revision, after.revision);
+    assert_eq!(Score::parse(&score.text()).unwrap(), score);
+    score.tracks[0].rave.bits = 1;
+    assert!(score.validate().is_err());
+    score.tracks[0].rave.bits = 8;
+    score.tracks[0].rave.body = f32::NAN;
+    assert!(score.validate().is_err());
+}
+
+#[test]
 fn tempo_keeps_recordings_at_their_natural_duration_and_notes_on_beats() {
     let mut score = demo();
     let old = score.tracks[0].clips[0].length;

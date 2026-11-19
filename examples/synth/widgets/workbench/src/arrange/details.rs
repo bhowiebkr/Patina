@@ -276,6 +276,16 @@ impl Arrange {
                         .slider("Cutoff / Hz", &mut track.cutoff, 40.0..=18000.0)
                         .changed();
                     changed |= ui.slider("Drive", &mut track.drive, 1.0..=12.0).changed();
+                    if track.instrument == Instrument::Rave {
+                        changed |= ui
+                            .slider("Fifth level", &mut track.rave.fifth, 0.0..=1.0)
+                            .changed();
+                        changed |= ui
+                            .slider("Source body / Hz", &mut track.rave.body, 200.0..=8000.0)
+                            .changed();
+                        changed |= number8(ui, "Source bits", &mut track.rave.bits, [4, 16]);
+                        ui.label("Root + fifth > low-pass > bit depth > drive > cutoff.");
+                    }
                     changed |= ui
                         .slider("Delay send", &mut track.delay_mix, 0.0..=0.8)
                         .changed();

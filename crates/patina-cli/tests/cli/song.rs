@@ -110,3 +110,69 @@ fn wav() -> Vec<u8> {
     }
     bytes
 }
+
+#[test]
+fn the_sandstorm_excerpt_renders_and_its_lead_controls_save_and_undo() {
+    let path = copy(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/synth"),
+        "sandstorm",
+    );
+    let mut project = Project::open_top(&path, "sandstorm").unwrap();
+    let toolchain = Toolchain::detect().unwrap();
+    let checked = project.check().unwrap();
+    let control = Control::default();
+    let mut reference = Vec::new();
+    for mode in [Mode::Edit, Mode::Bake] {
+        let mut cluster = checked.build(&toolchain, mode).unwrap();
+        assert!(cluster.set_params(checked.graph()).ok);
+        assert!(cluster.run(&control).ok && cluster.frame(&control).ok);
+        let mut samples = Vec::new();
+        for _ in 0..1875 {
+            assert!(cluster.block(&control).ok);
+            samples.extend_from_slice(cluster.sound().unwrap());
+        }
+        assert!(samples.iter().all(|v| v.is_finite() && v.abs() <= 0.95));
+        let peak = samples.iter().fold(0.0_f32, |peak, v| peak.max(v.abs()));
+        assert!(peak > 0.2 && peak < 0.94, "peak {peak}");
+        let end = &samples[samples.len() - 48000..];
+        assert!(end.iter().all(|v| v.abs() < 0.001));
+        if !reference.is_empty() {
+            assert!(
+                samples
+                    .iter()
+                    .zip(&reference)
+                    .all(|(a, b): (&f32, &f32)| { (a - b).abs() < 0.00001 })
+            );
+        }
+        reference = samples;
+    }
+    let library = project
+        .build_view(&toolchain, "arrange", Mode::Edit)
+        .unwrap();
+    let mut view = View::load(&library, &path).unwrap();
+    let before = snapshot(project.graph(), &[], &[], &[]);
+    let page = view.ui(2, "@size 1100 620", &before, None).unwrap();
+    let tabs = page
+        .tree
+        .lines()
+        .position(|s| s.starts_with("tabs\t"))
+        .unwrap();
+    let mixer = view
+        .ui(2, &format!("@size 1100 620\n{tabs} 2"), &before, None)
+        .unwrap();
+    let fifth = mixer
+        .tree
+        .lines()
+        .position(|s| s.starts_with("slider\tFifth level"))
+        .unwrap();
+    let edit = view
+        .ui(2, &format!("@size 1100 620\n{fifth} 0.25"), &before, None)
+        .unwrap();
+    assert_eq!(edit.edits.len(), 1);
+    project.apply(&Edit::Group { edits: edit.edits }).unwrap();
+    project.save().unwrap();
+    let saved = Project::open_top(&path, "sandstorm").unwrap();
+    assert!(snapshot(saved.graph(), &[], &[], &[]).contains("\"fifth\":0.25"));
+    project.undo(&mut Default::default()).unwrap();
+    assert_eq!(snapshot(project.graph(), &[], &[], &[]), before);
+}

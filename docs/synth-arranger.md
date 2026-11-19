@@ -29,6 +29,38 @@ A supersaw alone does not reproduce its lead process.
 The supplied learning arrangement must state which sounds are original examples.
 It must not claim to contain Darude's recording or original samples.
 
+## Sandstorm hook study
+
+The **sandstorm** graph contains a short hook excerpt at 136 BPM, repeated across four bars.
+Its six tracks remain editable in the timeline and piano roll.
+Its synthesized accompaniment approximates the bass, drums, and pad.
+It does not reproduce the complete song arrangement or use audio from the original recording.
+
+[Darude's Funktasy interview](https://funktasy.com/exclusive-interviews/darude/)
+describes an 8-bit source, distortion, and a fifth within the lead sound.
+The indexed interview text was available. The full page returned HTTP 403.
+The [piano note guide](https://pianoletternotes.blogspot.com/2018/03/sandstorm-by-darude.html)
+informed the short hook's pitches and repeated-note pattern.
+The octave, gates, mix, accompaniment, and synthesis settings are approximations.
+
+The new **Rave lead** instrument filters a root-and-fifth source before bit reduction and track distortion.
+Its **Fifth level**, **Source body / Hz**, and **Source bits** controls save with the score.
+The separate **rave-oscillator** node exposes the same source for modular sound design.
+Older saved scores receive default source controls when they load.
+The existing **song** graph remains an original learning arrangement.
+
+Windows example tests and Clippy passed for the source and its controls.
+Workspace Clippy, workspace tests, and frontend checks passed on Windows.
+One compiler process crashed during a state-migration test. Its retry and the full test run passed with two test threads.
+The **sandstorm** graph passed **Edit** and **Bake** rendering, with sample differences below 0.00001.
+The actual dock view passed a lead-control edit, save, reopen, and undo test.
+A ten-second stereo WAV render contains 480000 frames at 48 kHz.
+Its peak is 0.8830. Its left and right RMS levels are about 0.1673 and 0.1675.
+The last-second RMS is 0.0000424. The source test counted zero allocations.
+The debug source test averaged 0.017 ms per 256 samples across three source settings.
+This measurement excludes track effects, mixing, the graph scheduler, and device output.
+No listening comparison established fidelity to the original recording. Other operating systems remain unchecked.
+
 ## Architecture
 
 - The workbench owns scores, instruments, samples, tracks, clips, and effects.

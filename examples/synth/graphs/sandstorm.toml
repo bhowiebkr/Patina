@@ -1,0 +1,714 @@
+format = 1
+top = true
+style = "curved"
+
+[[node]]
+id = "e6c0000000000001"
+folder = "nodes/arrangement"
+pos = [0.0, 0.0]
+[node.params]
+score = '''
+{
+  "version": 1,
+  "bpm": 136.0,
+  "length": 16.0,
+  "looping": false,
+  "loop_range": [
+    0.0,
+    16.0
+  ],
+  "tracks": [
+    {
+      "id": 1,
+      "name": "Sandstorm hook / gritty fifth",
+      "instrument": "Rave",
+      "sample": "",
+      "root_note": 60,
+      "gain": 0.34,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "attack": 0.0015,
+      "release": 0.012,
+      "cutoff": 9000,
+      "drive": 9.0,
+      "delay_mix": 0.12,
+      "delay_beats": 0.75,
+      "clips": [
+        {
+          "id": 10,
+          "name": "Hook excerpt",
+          "start": 0.0,
+          "length": 16.0,
+          "fade_in": 0.0,
+          "fade_out": 0.0,
+          "content": {
+            "kind": "Notes",
+            "period": 8.0,
+            "offset": 0.0,
+            "notes": [
+              {
+                "start": 0.0,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.97
+              },
+              {
+                "start": 0.25,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 0.5,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 0.75,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 1.0,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 1.5,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.97
+              },
+              {
+                "start": 1.75,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 2.0,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 2.25,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 2.5,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 2.75,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 3.0,
+                "length": 0.18,
+                "key": 59,
+                "velocity": 0.88
+              },
+              {
+                "start": 3.5,
+                "length": 0.18,
+                "key": 64,
+                "velocity": 0.97
+              },
+              {
+                "start": 3.75,
+                "length": 0.18,
+                "key": 64,
+                "velocity": 0.88
+              },
+              {
+                "start": 4.0,
+                "length": 0.18,
+                "key": 64,
+                "velocity": 0.88
+              },
+              {
+                "start": 4.25,
+                "length": 0.18,
+                "key": 64,
+                "velocity": 0.88
+              },
+              {
+                "start": 4.5,
+                "length": 0.18,
+                "key": 64,
+                "velocity": 0.88
+              },
+              {
+                "start": 4.75,
+                "length": 0.18,
+                "key": 64,
+                "velocity": 0.88
+              },
+              {
+                "start": 5.0,
+                "length": 0.18,
+                "key": 64,
+                "velocity": 0.88
+              },
+              {
+                "start": 5.5,
+                "length": 0.18,
+                "key": 62,
+                "velocity": 0.97
+              },
+              {
+                "start": 5.75,
+                "length": 0.18,
+                "key": 62,
+                "velocity": 0.88
+              },
+              {
+                "start": 6.0,
+                "length": 0.18,
+                "key": 62,
+                "velocity": 0.88
+              },
+              {
+                "start": 6.25,
+                "length": 0.18,
+                "key": 62,
+                "velocity": 0.88
+              },
+              {
+                "start": 6.5,
+                "length": 0.18,
+                "key": 62,
+                "velocity": 0.88
+              },
+              {
+                "start": 6.75,
+                "length": 0.18,
+                "key": 62,
+                "velocity": 0.88
+              },
+              {
+                "start": 7.0,
+                "length": 0.18,
+                "key": 62,
+                "velocity": 0.88
+              },
+              {
+                "start": 7.5,
+                "length": 0.18,
+                "key": 57,
+                "velocity": 0.97
+              },
+              {
+                "start": 7.75,
+                "length": 0.18,
+                "key": 57,
+                "velocity": 0.88
+              }
+            ]
+          }
+        }
+      ],
+      "automation": [],
+      "rave": {
+        "fifth": 0.58,
+        "body": 1500.0,
+        "bits": 8
+      }
+    },
+    {
+      "id": 2,
+      "name": "Offbeat bass",
+      "instrument": "Bass",
+      "sample": "",
+      "root_note": 60,
+      "gain": 0.52,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "attack": 0.001,
+      "release": 0.045,
+      "cutoff": 1250,
+      "drive": 1.6,
+      "delay_mix": 0.0,
+      "delay_beats": 0.75,
+      "clips": [
+        {
+          "id": 20,
+          "name": "Offbeat bass",
+          "start": 0.0,
+          "length": 16.0,
+          "fade_in": 0.0,
+          "fade_out": 0.0,
+          "content": {
+            "kind": "Notes",
+            "period": 4.0,
+            "offset": 0.0,
+            "notes": [
+              {
+                "start": 0.5,
+                "length": 0.36,
+                "key": 40,
+                "velocity": 0.92
+              },
+              {
+                "start": 1.5,
+                "length": 0.36,
+                "key": 40,
+                "velocity": 0.92
+              },
+              {
+                "start": 2.5,
+                "length": 0.36,
+                "key": 40,
+                "velocity": 0.92
+              },
+              {
+                "start": 3.5,
+                "length": 0.36,
+                "key": 40,
+                "velocity": 0.92
+              }
+            ]
+          }
+        }
+      ],
+      "automation": []
+    },
+    {
+      "id": 3,
+      "name": "Four-on-floor kick",
+      "instrument": "Kick",
+      "sample": "",
+      "root_note": 60,
+      "gain": 0.85,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "attack": 0.001,
+      "release": 0.04,
+      "cutoff": 11000,
+      "drive": 1.0,
+      "delay_mix": 0.0,
+      "delay_beats": 0.75,
+      "clips": [
+        {
+          "id": 30,
+          "name": "Four-on-floor kick",
+          "start": 0.0,
+          "length": 16.0,
+          "fade_in": 0.0,
+          "fade_out": 0.0,
+          "content": {
+            "kind": "Notes",
+            "period": 4.0,
+            "offset": 0.0,
+            "notes": [
+              {
+                "start": 0,
+                "length": 0.8,
+                "key": 36,
+                "velocity": 1.0
+              },
+              {
+                "start": 1,
+                "length": 0.8,
+                "key": 36,
+                "velocity": 1.0
+              },
+              {
+                "start": 2,
+                "length": 0.8,
+                "key": 36,
+                "velocity": 1.0
+              },
+              {
+                "start": 3,
+                "length": 0.8,
+                "key": 36,
+                "velocity": 1.0
+              }
+            ]
+          }
+        }
+      ],
+      "automation": []
+    },
+    {
+      "id": 4,
+      "name": "Backbeat snare",
+      "instrument": "Snare",
+      "sample": "",
+      "root_note": 60,
+      "gain": 0.44,
+      "pan": -0.1,
+      "mute": false,
+      "solo": false,
+      "attack": 0.001,
+      "release": 0.025,
+      "cutoff": 11000,
+      "drive": 1.0,
+      "delay_mix": 0.0,
+      "delay_beats": 0.75,
+      "clips": [
+        {
+          "id": 40,
+          "name": "Backbeat snare",
+          "start": 0.0,
+          "length": 16.0,
+          "fade_in": 0.0,
+          "fade_out": 0.0,
+          "content": {
+            "kind": "Notes",
+            "period": 4.0,
+            "offset": 0.0,
+            "notes": [
+              {
+                "start": 1,
+                "length": 0.4,
+                "key": 38,
+                "velocity": 0.9
+              },
+              {
+                "start": 3,
+                "length": 0.4,
+                "key": 38,
+                "velocity": 0.9
+              }
+            ]
+          }
+        }
+      ],
+      "automation": []
+    },
+    {
+      "id": 5,
+      "name": "Offbeat hat",
+      "instrument": "Hat",
+      "sample": "",
+      "root_note": 60,
+      "gain": 0.56,
+      "pan": 0.18,
+      "mute": false,
+      "solo": false,
+      "attack": 0.001,
+      "release": 0.025,
+      "cutoff": 11000,
+      "drive": 1.0,
+      "delay_mix": 0.0,
+      "delay_beats": 0.75,
+      "clips": [
+        {
+          "id": 50,
+          "name": "Offbeat hat",
+          "start": 0.0,
+          "length": 16.0,
+          "fade_in": 0.0,
+          "fade_out": 0.0,
+          "content": {
+            "kind": "Notes",
+            "period": 4.0,
+            "offset": 0.0,
+            "notes": [
+              {
+                "start": 0.0,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.3
+              },
+              {
+                "start": 0.5,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.92
+              },
+              {
+                "start": 1.0,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.3
+              },
+              {
+                "start": 1.5,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.92
+              },
+              {
+                "start": 2.0,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.3
+              },
+              {
+                "start": 2.5,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.92
+              },
+              {
+                "start": 3.0,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.3
+              },
+              {
+                "start": 3.5,
+                "length": 0.15,
+                "key": 42,
+                "velocity": 0.92
+              }
+            ]
+          }
+        }
+      ],
+      "automation": []
+    },
+    {
+      "id": 6,
+      "name": "Wide E minor pad",
+      "instrument": "Pad",
+      "sample": "",
+      "root_note": 60,
+      "gain": 0.16,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "attack": 0.1,
+      "release": 0.5,
+      "cutoff": 4200,
+      "drive": 1.0,
+      "delay_mix": 0.17,
+      "delay_beats": 0.75,
+      "clips": [
+        {
+          "id": 60,
+          "name": "Wide E minor pad",
+          "start": 0.0,
+          "length": 16.0,
+          "fade_in": 0.0,
+          "fade_out": 0.0,
+          "content": {
+            "kind": "Notes",
+            "period": 8.0,
+            "offset": 0.0,
+            "notes": [
+              {
+                "start": 0.0,
+                "length": 7.8,
+                "key": 52,
+                "velocity": 0.7
+              },
+              {
+                "start": 0.0,
+                "length": 7.8,
+                "key": 55,
+                "velocity": 0.7
+              },
+              {
+                "start": 0.0,
+                "length": 7.8,
+                "key": 59,
+                "velocity": 0.7
+              },
+              {
+                "start": 0.0,
+                "length": 7.8,
+                "key": 64,
+                "velocity": 0.7
+              }
+            ]
+          }
+        }
+      ],
+      "automation": []
+    }
+  ]
+}
+'''
+
+[[node]]
+id = "e6c0000000000002"
+folder = "nodes/song-clock"
+pos = [550.0, 0.0]
+
+[[node]]
+id = "e6c000000000000b"
+folder = "nodes/song-track"
+pos = [550.0, 160.0]
+[node.params]
+track = "1"
+
+[[node]]
+id = "e6c000000000000c"
+folder = "nodes/song-track"
+pos = [850.0, 160.0]
+[node.params]
+track = "2"
+
+[[node]]
+id = "e6c000000000000d"
+folder = "nodes/song-track"
+pos = [550.0, 340.0]
+[node.params]
+track = "3"
+
+[[node]]
+id = "e6c000000000000e"
+folder = "nodes/song-track"
+pos = [850.0, 340.0]
+[node.params]
+track = "4"
+
+[[node]]
+id = "e6c000000000000f"
+folder = "nodes/song-track"
+pos = [550.0, 520.0]
+[node.params]
+track = "5"
+
+[[node]]
+id = "e6c0000000000010"
+folder = "nodes/song-track"
+pos = [850.0, 520.0]
+[node.params]
+track = "6"
+
+[[node]]
+id = "e6c0000000000015"
+folder = "nodes/stereo-mix"
+pos = [1180.0, 210.0]
+
+[[node]]
+id = "e6c0000000000016"
+folder = "nodes/stereo-mix"
+pos = [1180.0, 480.0]
+
+[[node]]
+id = "e6c0000000000017"
+folder = "nodes/stereo-mix"
+pos = [1470.0, 300.0]
+
+[[node]]
+id = "e6c000000000001e"
+folder = "nodes/stereo-output"
+pos = [2050.0, 400.0]
+[node.params]
+level = "0.70"
+audible = "true"
+
+[[node]]
+id = "e6c0000000000018"
+folder = "nodes/stereo-mix"
+pos = [1180.0, 650.0]
+
+[[node]]
+id = "e6c0000000000019"
+folder = "nodes/stereo-mix"
+pos = [1760.0, 400.0]
+
+[[wire]]
+from = "e6c0000000000001.out"
+to = "e6c0000000000002.score"
+
+[[wire]]
+from = "e6c0000000000001.out"
+to = "e6c000000000000b.score"
+
+[[wire]]
+from = "e6c0000000000002.out"
+to = "e6c000000000000b.time"
+
+[[wire]]
+from = "e6c0000000000001.out"
+to = "e6c000000000000c.score"
+
+[[wire]]
+from = "e6c0000000000002.out"
+to = "e6c000000000000c.time"
+
+[[wire]]
+from = "e6c0000000000001.out"
+to = "e6c000000000000d.score"
+
+[[wire]]
+from = "e6c0000000000002.out"
+to = "e6c000000000000d.time"
+
+[[wire]]
+from = "e6c0000000000001.out"
+to = "e6c000000000000e.score"
+
+[[wire]]
+from = "e6c0000000000002.out"
+to = "e6c000000000000e.time"
+
+[[wire]]
+from = "e6c0000000000001.out"
+to = "e6c000000000000f.score"
+
+[[wire]]
+from = "e6c0000000000002.out"
+to = "e6c000000000000f.time"
+
+[[wire]]
+from = "e6c0000000000001.out"
+to = "e6c0000000000010.score"
+
+[[wire]]
+from = "e6c0000000000002.out"
+to = "e6c0000000000010.time"
+
+[[wire]]
+from = "e6c000000000000b.out"
+to = "e6c0000000000015.a"
+
+[[wire]]
+from = "e6c000000000000c.out"
+to = "e6c0000000000015.b"
+
+[[wire]]
+from = "e6c000000000000d.out"
+to = "e6c0000000000016.a"
+
+[[wire]]
+from = "e6c000000000000e.out"
+to = "e6c0000000000016.b"
+
+[[wire]]
+from = "e6c000000000000f.out"
+to = "e6c0000000000018.a"
+
+[[wire]]
+from = "e6c0000000000010.out"
+to = "e6c0000000000018.b"
+
+[[wire]]
+from = "e6c0000000000015.out"
+to = "e6c0000000000017.a"
+
+[[wire]]
+from = "e6c0000000000016.out"
+to = "e6c0000000000017.b"
+
+[[wire]]
+from = "e6c0000000000017.out"
+to = "e6c0000000000019.a"
+
+[[wire]]
+from = "e6c0000000000018.out"
+to = "e6c0000000000019.b"
+
+[[wire]]
+from = "e6c0000000000019.out"
+to = "e6c000000000001e.sound"

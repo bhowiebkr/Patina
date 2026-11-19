@@ -5,6 +5,39 @@ The instrument panels have different sizes. Each panel has room for its controls
 
 ![Ember in the Patina editor](images/editor.png)
 
+## Sandstorm hook study
+
+The **sandstorm** graph attempts a short hook from **Darude - Sandstorm** at 136 BPM.
+It repeats a two-bar excerpt twice, with separate lead, bass, kick, snare, hi-hat, and pad tracks.
+The accompaniment and sound are approximations. This is a short synthesis study, not the full song or its original recording.
+
+1. Open the **sandstorm** graph.
+2. Open **Views**, then **arrange**.
+3. Click **Run**.
+4. Open **Mixer** and enable **Solo** on the lead to hear its source clearly.
+5. Change **Fifth level**, **Source body / Hz**, **Source bits**, and **Drive** to shape the lead.
+6. Disable **Solo** to hear the full mix.
+7. Use **Piano roll** to inspect the hook's notes and timing.
+8. Click **Save** to keep the changes.
+
+The **Rave lead** instrument mixes the root and a fifth before source filtering and bit reduction.
+The track then applies distortion, cutoff, and stereo delay.
+The starting settings use a fifth level of 0.58, a 1500 Hz source filter, 8 bits, and a drive of 9.
+These are approximate synthesis settings. Darude's original lead used a processed sample.
+
+The **rave-oscillator** node supplies the same raw source for custom modular patches.
+Connect **Notes** to it, then connect its output to **Envelope**, **Saturator**, and **Filter**.
+Set **fifth** to 0.58, **body** to 1500, and **bits** to 8.
+This source has no amplitude envelope. The downstream envelope controls note length.
+
+For export, set **Saved top graph** to **sandstorm** and **Duration** to 10 seconds.
+The musical excerpt lasts about 7.06 seconds. The rest allows the effect tail to decay.
+The CLI can render the same saved graph:
+
+```
+cargo run -p patina-cli -- render examples/synth sandstorm-hook.wav --graph sandstorm --seconds 10
+```
+
 ## Arrange a song
 
 The **song** graph adds a 32-bar trance study at 136 BPM.
@@ -190,14 +223,14 @@ The score and settings use separate typed connections.
 
 ## Build another instrument
 
-The library contains 41 node types. Drag a node from **Project** onto the graph.
+The library contains 42 node types. Drag a node from **Project** onto the graph.
 The seven dedicated instrument panels and the general control knob run in the frame domain.
 The audio processors run in the audio domain.
 
 | Group | Modules |
 | --- | --- |
 | Instrument panels | Sequence, Timbre, Contour, Color, Space, Scope, Console, Control |
-| Sources and timing | Clock, Oscillator, Vco, Noise, Drums, Note, Transpose |
+| Sources and timing | Clock, Oscillator, Rave, Vco, Noise, Drums, Note, Transpose |
 | Modulation | Lfo, Adsr, Attenuverter, SampleHold, Slew, Constant |
 | Level and mixing | Envelope, Vca, Mixer, Output |
 | Filters and effects | Filter, Svf, Echo, Saturator, Crusher, Compressor, Chorus, Reverb, DcBlock |

@@ -45,7 +45,11 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
 
-- Ember sound workbench: 41 node types, three learning patches, a six-track song, instrument panels, and dock editors for sound design and arrangement.
+- Ember sound workbench: 42 node types, three learning patches, a six-track song, instrument panels, and dock editors for sound design and arrangement.
+  The **sandstorm** graph adds a short hook study with a root-and-fifth lead, bit reduction, and six editable tracks.
+  The study approximates the sound and accompaniment. It does not contain the full song arrangement.
+  Windows example tests, workspace checks, and stereo rendering passed. Its dock controls passed save and undo checks.
+  Listening fidelity and other operating systems remain unchecked.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
 - Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.
