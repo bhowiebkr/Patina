@@ -57,7 +57,7 @@ needs no admin rights. (Agent decision, 2026-11-15. The owner can change it.)
 renders a top graph without opening an audio device. The default graph is `main`.
 The command uses Bake unless `--edit` selects Edit.
 
-- The file contains mono, 32-bit IEEE float samples at 48 kHz, with RIFF, format, fact, and data chunks.
+- The file contains stereo, 32-bit IEEE float samples at 48 kHz, with RIFF, format, fact, and data chunks.
 - The duration rounds to the nearest sample. It must contain at least one sample and fit the RIFF size limit.
 - The graph sends its output through `audio::play`. Rendering captures these samples without device playback.
 - The batch domain runs once. Frames run before the first audio block at or after their scheduled time.

@@ -11,7 +11,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crate::clock::{self, Clock};
 
 /// The samples that wait for the device: 8 blocks, about 43 ms at 48 kHz.
-const QUEUE: usize = 2048;
+const QUEUE: usize = 4096;
 
 /// A queue of samples without a lock, with one writer and one reader.
 struct Ring {
@@ -46,22 +46,29 @@ impl Ring {
         true
     }
 
-    /// Writes one sample to each channel of each frame of `out`. An empty queue gives silence.
+    /// Writes stereo frames. Mono devices get the mean; extra channels stay silent.
     fn fill(&self, out: &mut [f32], channels: usize) {
         let (written, mut read) = (self.written.load(Acquire), self.read.load(Relaxed));
         for frame in out.chunks_mut(channels) {
-            let mut sample = 0.0;
-            if read != written {
-                sample = f32::from_bits(self.samples[read % self.samples.len()].load(Relaxed));
-                read = read.wrapping_add(1);
+            let mut pair = [0.0; 2];
+            if written.wrapping_sub(read) >= 2 {
+                for sample in &mut pair {
+                    *sample = f32::from_bits(self.samples[read % self.samples.len()].load(Relaxed));
+                    read = read.wrapping_add(1);
+                }
             }
-            frame.fill(sample);
+            frame.fill(0.0);
+            if frame.len() == 1 {
+                frame[0] = (pair[0] + pair[1]) * 0.5;
+            } else {
+                frame[..2].copy_from_slice(&pair);
+            }
         }
         self.read.store(read, Release);
     }
 }
 
-/// An open stream to the default output device. The sound is mono on all channels.
+/// An open stream to the default output device, with stereo on its first two channels.
 pub struct Device {
     ring: Arc<Ring>,
     _stream: cpal::Stream,
@@ -94,9 +101,12 @@ impl Device {
         Some(Device { ring, _stream: stream })
     }
 
-    /// Queues `samples` and waits while the queue is full, so the device paces the blocks.
+    /// Queues interleaved stereo samples and waits while the queue is full.
     /// Returns false when the device failed.
     pub fn play(&self, samples: &[f32]) -> bool {
+        if samples.len() > self.ring.samples.len() || !samples.len().is_multiple_of(2) {
+            return false;
+        }
         while !self.ring.push(samples) {
             if self.ring.failed.load(Relaxed) {
                 return false;
@@ -233,12 +243,15 @@ mod tests {
 
     #[test]
     fn the_ring_keeps_the_order_refuses_an_overflow_and_gives_silence_when_empty() {
-        let (ring, mut out) = (Ring::new(4), [9.0; 6]);
-        assert!(ring.push(&[1.0, 2.0, 3.0]) && !ring.push(&[4.0, 5.0]));
+        let (ring, mut out) = (Ring::new(8), [9.0; 6]);
+        assert!(ring.push(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]) && !ring.push(&[7.0, 8.0, 9.0, 10.0]));
         ring.fill(&mut out[..4], 2);
-        assert_eq!(out[..4], [1.0, 1.0, 2.0, 2.0]);
-        assert!(ring.push(&[4.0, 5.0, 6.0]));
+        assert_eq!(out[..4], [1.0, 2.0, 3.0, 4.0]);
+        assert!(ring.push(&[7.0, 8.0, 9.0, 10.0]));
         ring.fill(&mut out, 1);
-        assert_eq!((out, ring.queued()), ([3.0, 4.0, 5.0, 6.0, 0.0, 0.0], 0));
+        assert_eq!((out, ring.queued()), ([5.5, 7.5, 9.5, 0.0, 0.0, 0.0], 0));
+        assert!(ring.push(&[0.25, -0.5]));
+        ring.fill(&mut out, 6);
+        assert_eq!(out, [0.25, -0.5, 0.0, 0.0, 0.0, 0.0]);
     }
 }

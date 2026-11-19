@@ -176,7 +176,7 @@ The saw and pulse oscillators reduce aliasing. The triangle sums harmonics below
 cargo run -p patina-cli -- render examples/synth ember.wav --seconds 16
 ```
 
-The command writes mono, 32-bit float WAV audio at 48 kHz. It does not open a sound device.
+The command writes stereo, 32-bit float WAV audio at 48 kHz. It does not open a sound device.
 An existing output file stays unchanged. Choose a new name for another render.
 Use `--edit` for a faster build. The default uses **Bake**.
 
@@ -223,6 +223,8 @@ Ember uses its own code and panel drawings.
 
 The [workbench notes](../../docs/sound-workbench.md) record the wider node and GUI needs.
 
-Current limits: mono output, monophonic note input, and a fixed C minor phrase grid.
+Current limits: the learning patch uses mono signals, monophonic note input, and a fixed C minor phrase grid.
 MIDI, sample import, and song arrangement are not implemented.
 The tests check samples and controls. Speaker playback and listening quality have not been checked.
+
+The [arrangement design](../../docs/synth-arranger.md) records research and the next workbench stage.

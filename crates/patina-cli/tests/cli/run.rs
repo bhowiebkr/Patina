@@ -239,7 +239,7 @@ builtin = \"delay\"
     cluster.set_params(opened.graph());
     assert!(cluster.run(&control).ok && cluster.frame(&control).ok && cluster.sound().is_none());
     assert!(cluster.block(&control).ok);
-    assert_eq!(cluster.sound().map(|s| (s[0], s[1])), Some((15.0, 0.0)));
+    assert_eq!(cluster.sound().map(|s| (s[0], s[2])), Some((15.0, 0.0)));
 
     // Delay ad between tone and speaker runs in the audio domain (9.2): a block plays the tone of
     // the block before, also with no frame between them. The first block is silent.
@@ -256,10 +256,10 @@ builtin = \"delay\"
     let mut delayed = opened.check().unwrap().build(&toolchain, Mode::Edit).unwrap();
     delayed.set_params(opened.graph());
     assert!(delayed.run(&control).ok && delayed.frame(&control).ok && delayed.block(&control).ok);
-    let first = delayed.sound().map(|s| (s[0], s[1]));
+    let first = delayed.sound().map(|s| (s[0], s[2]));
     assert!(delayed.block(&control).ok);
     assert!(first.is_none_or(|s| s == (0.0, 0.0)), "{first:?}");
-    assert_eq!(delayed.sound().map(|s| (s[0], s[1])), Some((15.0, 0.0)));
+    assert_eq!(delayed.sound().map(|s| (s[0], s[2])), Some((15.0, 0.0)));
     drop(delayed);
     fs::write(&graph, text).unwrap();
 

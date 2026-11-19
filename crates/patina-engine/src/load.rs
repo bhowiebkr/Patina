@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 
-use patina_sdk::audio::{BLOCK, Mix};
+use patina_sdk::audio::{Mix, OUTPUT_SAMPLES};
 use patina_sdk::glue::{self, Control, Reporter, SlotRef};
 
 use crate::events::{EventRun, Events, Trigger};
@@ -63,7 +63,7 @@ pub struct Cluster {
     /// The mix that the audio nodes of the project play into (9.3).
     mix: &'static Mix,
     /// The mix of the last block.
-    sound: [f32; BLOCK],
+    sound: [f32; OUTPUT_SAMPLES],
     /// The trigger nodes of the event domain and their settings (9.4).
     triggers: Vec<Trigger>,
     /// The project root, where a relative path of a `file_change` trigger starts (9.4).
@@ -131,7 +131,7 @@ impl Cluster {
             calls: Calls { sink, ..Calls::default() },
             block_calls: Calls::default(),
             mix: glue::shared_in(&root.to_string_lossy(), Mix::default),
-            sound: [0.0; BLOCK],
+            sound: [0.0; OUTPUT_SAMPLES],
             triggers: (0..plan.steps.len())
                 .filter(|&n| plan.is_trigger(n))
                 .filter_map(|n| Some(Trigger::new(n, plan.steps[n].task as u32, plan.builtin(n)?)))
@@ -247,8 +247,8 @@ impl Cluster {
         &self.block_calls.out
     }
 
-    /// The samples that the nodes played in the last block, or `None` before the first node played.
-    pub fn sound(&self) -> Option<&[f32; BLOCK]> {
+    /// The interleaved stereo samples that the nodes played in the last block, or `None` before the first node played.
+    pub fn sound(&self) -> Option<&[f32; OUTPUT_SAMPLES]> {
         self.mix.played().then_some(&self.sound)
     }
 

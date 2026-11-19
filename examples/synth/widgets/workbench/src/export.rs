@@ -76,7 +76,7 @@ impl Export {
                 ui.number_unit("Duration", &mut self.seconds, 1.0, "seconds");
             });
         });
-        ui.label("Saved main graph / mono / 48000 Hz / 32-bit float WAV");
+        ui.label("Saved main graph / stereo / 48000 Hz / 32-bit float WAV");
         ui.label("Export reads saved files. Muted saved output renders silence. Enable Device output in Audio, then Save.");
         if let Some(job) = &self.job {
             let written = fs::metadata(job.folder.join("audio.wav"))
@@ -88,7 +88,7 @@ impl Export {
                 } else {
                     "Rendering audio"
                 },
-                written as f32 / (job.samples * 4) as f32,
+                written as f32 / (job.samples * 8) as f32,
             );
             if ui.button("Cancel export").clicked() {
                 self.cancel();
@@ -198,7 +198,7 @@ impl Job {
     fn publish(&self) -> Result<(), String> {
         let source = self.folder.join("audio.wav");
         let length = fs::metadata(&source).map_err(|e| e.to_string())?.len();
-        if length != 58 + self.samples * 4 {
+        if length != 58 + self.samples * 8 {
             return Err("The renderer returned an incomplete WAV".into());
         }
         // A hard link publishes the complete file without replacing an existing destination.

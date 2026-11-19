@@ -19,6 +19,12 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- Stereo audio: pooled stereo blocks reach device playback and float32 WAV export.
+  Mono nodes feed both channels. The C API keeps its mono function and adds a stereo function.
+  Windows workspace Clippy, workspace tests, and frontend checks passed on 2026-11-19.
+  Edit and Bake exports matched. Tests checked channel separation and C API compatibility.
+  The synth arrangement is in progress. Speaker listening, Linux, and macOS remain unchecked.
+
 - Smart material prototype: the GPU example adds 14 node types and a second top graph with 28 material nodes and three workflow nodes.
   On Windows MSVC and RTX 4090 DX12, all material channels matched Surface exactly at 512 x 512.
   The 640 x 640 shaded preview matched Surface's renderer. Independent roughness and metallic tests passed.

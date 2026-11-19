@@ -583,7 +583,7 @@ Render a saved audio graph to a WAV file without opening a sound device:
 cargo run -p patina-cli -- render examples/synth ember.wav --seconds 16
 ```
 
-The file contains mono, 32-bit float audio at 48 kHz. The command never replaces an existing file.
+The file contains stereo, 32-bit float audio at 48 kHz. The command never replaces an existing file.
 Add `--edit` for an Edit build, or `--graph <name>` to select another top graph.
 The render uses saved parameters. It does not record live controls or add an end fade.
 Graphs with event nodes cannot render offline.

@@ -4,7 +4,7 @@
 use std::ffi::c_void;
 use std::sync::atomic::Ordering::Relaxed;
 
-use patina_sdk::audio::{BLOCK, Mix};
+use patina_sdk::audio::{Mix, OUTPUT_SAMPLES};
 use patina_sdk::glue::{self, Control, Reporter};
 
 use crate::library::{Calling, Library, NodeFn, Sink, clock, collect, lock};
@@ -135,7 +135,7 @@ impl Frames<'_> {
     }
 
     /// The samples of the last block of `block`, as `Cluster::sound`.
-    pub fn sound(&self) -> Option<&[f32; BLOCK]> {
+    pub fn sound(&self) -> Option<&[f32; OUTPUT_SAMPLES]> {
         self.audio.as_ref()?.sound()
     }
 
@@ -313,7 +313,7 @@ impl Nodes<'_> {
 pub struct Audio<'a> {
     pub(crate) run: Run<'a>,
     pub(crate) mix: &'static Mix,
-    pub(crate) sound: &'a mut [f32; BLOCK],
+    pub(crate) sound: &'a mut [f32; OUTPUT_SAMPLES],
 }
 
 // SAFETY: while the split lasts, only the thread that holds `Audio` calls the audio cluster, and
@@ -334,7 +334,7 @@ impl Audio<'_> {
     }
 
     /// The samples of the last block, as `Cluster::sound`.
-    pub fn sound(&self) -> Option<&[f32; BLOCK]> {
+    pub fn sound(&self) -> Option<&[f32; OUTPUT_SAMPLES]> {
         self.mix.played().then_some(&*self.sound)
     }
 }

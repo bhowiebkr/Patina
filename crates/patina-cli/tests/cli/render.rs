@@ -81,13 +81,13 @@ fn render_writes_float_wav_and_preserves_existing_files() {
     let u32_at = |offset| u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
     assert_eq!(&bytes[..4], b"RIFF");
     assert_eq!(&bytes[8..16], b"WAVEfmt ");
-    assert_eq!(&bytes[20..24], &[3, 0, 1, 0]);
-    assert_eq!((u32_at(16), u32_at(24), u32_at(28)), (18, 48000, 192000));
-    assert_eq!(&bytes[32..38], &[4, 0, 32, 0, 0, 0]);
+    assert_eq!(&bytes[20..24], &[3, 0, 2, 0]);
+    assert_eq!((u32_at(16), u32_at(24), u32_at(28)), (18, 48000, 384000));
+    assert_eq!(&bytes[32..38], &[8, 0, 32, 0, 0, 0]);
     assert_eq!(&bytes[38..42], b"fact");
     assert_eq!((u32_at(42), u32_at(46)), (4, 1440));
     assert_eq!(&bytes[50..54], b"data");
-    assert_eq!((u32_at(4), u32_at(54), bytes.len()), (5810, 5760, 5818));
+    assert_eq!((u32_at(4), u32_at(54), bytes.len()), (11570, 11520, 11578));
     let audio: Vec<_> = bytes[58..]
         .as_chunks::<4>()
         .0
@@ -97,9 +97,9 @@ fn render_writes_float_wav_and_preserves_existing_files() {
         .collect();
     assert!(audio.iter().all(|v| v.is_finite()));
     assert_eq!(audio[0], 1.25);
-    assert_eq!(audio[1023], 1.25 + 255.0 / 4096.0);
-    assert_eq!(audio[1024], 2.5);
-    assert_eq!(audio[1439], 2.5 + 159.0 / 4096.0);
+    assert_eq!(audio[2047], 1.25 + 255.0 / 4096.0);
+    assert_eq!(audio[2048], 2.5);
+    assert_eq!(audio[2879], 2.5 + 159.0 / 4096.0);
     assert!(!render(&project, &out, &[]).status.success());
     assert_eq!(fs::read(&out).unwrap(), bytes);
     let baked = project.join("baked.wav");
@@ -137,4 +137,46 @@ fn render_writes_float_wav_and_preserves_existing_files() {
         &["--graph", "alternate", "--edit"],
     ));
     assert_eq!(fs::read(failed).unwrap(), bytes);
+    fs::write(&main, GRAPH).unwrap();
+    fs::write(project.join("nodes/render-audio/src/lib.rs"), AUDIO.replace(
+        "patina_sdk::audio::play(&sound);",
+        "patina_sdk::audio::play_stereo(&patina_sdk::audio::StereoBlock { right: sound.map(|x| -x), left: sound });",
+    )).unwrap();
+    let stereo = project.join("stereo.wav");
+    success(&render(&project, &stereo, &["--edit"]));
+    let stereo_bytes = fs::read(stereo).unwrap();
+    for frame in stereo_bytes[58..].as_chunks::<8>().0 {
+        let left = f32::from_le_bytes(frame[..4].try_into().unwrap());
+        let right = f32::from_le_bytes(frame[4..].try_into().unwrap());
+        assert_eq!(left, -right);
+        assert!(left > 1.0);
+    }
+    let stereo_baked = project.join("stereo-baked.wav");
+    success(&render(&project, &stereo_baked, &[]));
+    assert_eq!(fs::read(stereo_baked).unwrap(), stereo_bytes);
+    check_c_audio(&project);
+}
+
+fn check_c_audio(project: &Path) {
+    use patina_capi::*;
+    let out = project.join("stereo-package");
+    success(&Command::new(env!("CARGO_BIN_EXE_patina-cli"))
+        .arg("package").arg(project).arg(&out).arg("--edit").output().unwrap());
+    let path = std::ffi::CString::new(out.to_str().unwrap()).unwrap();
+    // SAFETY: the package owns both buffers. Reads stay within their documented lengths.
+    unsafe {
+        let package = patina_open(path.as_ptr());
+        assert!(!package.is_null());
+        assert_eq!(patina_run(package), 0);
+        assert_eq!(patina_frame(package), 0);
+        assert_eq!(patina_block(package), 0);
+        let stereo = patina_stereo_sound(package);
+        assert!(!stereo.is_null());
+        assert_eq!(*stereo, 1.25);
+        assert_eq!(*stereo.add(1), -1.25);
+        let mono = patina_sound(package);
+        assert!(!mono.is_null());
+        assert!(std::slice::from_raw_parts(mono, 256).iter().all(|v| *v == 0.0));
+        patina_close(package);
+    }
 }

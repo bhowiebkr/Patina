@@ -12,6 +12,7 @@ typedef struct PatinaPackage PatinaPackage;
 /* The samples in one audio block, and the samples in one second. */
 #define PATINA_BLOCK 256
 #define PATINA_RATE 48000
+#define PATINA_CHANNELS 2
 
 /* Opens the package folder `dir`. Gives NULL on an error. */
 PatinaPackage *patina_open(const char *dir);
@@ -28,9 +29,13 @@ int patina_frame(PatinaPackage *package);
 /* Runs one block of the audio domain. Gives 0, or -1 when a node failed or the graph has no audio nodes. */
 int patina_block(PatinaPackage *package);
 
-/* The PATINA_BLOCK mono samples that the nodes played in the last block, or NULL before a node played.
+/* The PATINA_BLOCK mono samples, downmixed from stereo, or NULL before a node played.
  * The samples stay until the next call. */
 const float *patina_sound(PatinaPackage *package);
+
+/* PATINA_BLOCK stereo frames, interleaved left then right, or NULL before a node played.
+ * The samples stay until the next call. */
+const float *patina_stereo_sound(PatinaPackage *package);
 
 /* Runs the event domain until `count` event runs ended, or until no trigger can fire again. Each
  * `trigger` node fires one time at the start. Gives 0, or -1 when a run failed or the graph has no

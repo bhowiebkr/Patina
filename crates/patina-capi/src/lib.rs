@@ -17,6 +17,7 @@ pub struct PatinaPackage {
     values: Vec<(String, String)>,
     /// The text that `patina_value` gave last, with its zero byte.
     text: Vec<u8>,
+    mono: [f32; 256],
 }
 
 thread_local! {
@@ -88,7 +89,7 @@ pub unsafe extern "C" fn patina_open(dir: *const c_char) -> *mut PatinaPackage {
         // SAFETY: the caller keeps the contract of this function.
         let dir = unsafe { text(dir, "folder") }?;
         let (checked, cluster) = package::open(Path::new(dir)).map_err(|e| e.to_string())?;
-        let package = PatinaPackage { checked, cluster, control: Control::default(), values: Vec::new(), text: Vec::new() };
+        let package = PatinaPackage { checked, cluster, control: Control::default(), values: Vec::new(), text: Vec::new(), mono: [0.0; 256] };
         Ok(Box::into_raw(Box::new(package)))
     })
 }
@@ -150,6 +151,21 @@ pub unsafe extern "C" fn patina_block(package: *mut PatinaPackage) -> c_int {
 /// `package` comes from `patina_open`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn patina_sound(package: *mut PatinaPackage) -> *const f32 {
+    guard(std::ptr::null(), || {
+        // SAFETY: the caller keeps the contract of this function.
+        let package = unsafe { open_package(package) }?;
+        let Some(sound) = package.cluster.sound() else { return Ok(std::ptr::null()) };
+        for (mono, pair) in package.mono.iter_mut().zip(sound.as_chunks::<2>().0) {
+            *mono = (pair[0] + pair[1]) * 0.5;
+        }
+        Ok(package.mono.as_ptr())
+    })
+}
+
+/// # Safety
+/// `package` comes from `patina_open`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn patina_stereo_sound(package: *mut PatinaPackage) -> *const f32 {
     guard(std::ptr::null(), || {
         // SAFETY: the caller keeps the contract of this function.
         let package = unsafe { open_package(package) }?;
@@ -233,6 +249,7 @@ mod tests {
             assert!(patina_value(std::ptr::null_mut(), c"a.b".as_ptr()).is_null());
             assert_eq!(patina_block(std::ptr::null_mut()), -1);
             assert!(patina_sound(std::ptr::null_mut()).is_null());
+            assert!(patina_stereo_sound(std::ptr::null_mut()).is_null());
             assert_eq!(patina_events(std::ptr::null_mut(), 1), -1);
             patina_close(std::ptr::null_mut());
         }

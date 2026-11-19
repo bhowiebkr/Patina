@@ -153,7 +153,7 @@ fn render_the_saved_patch(project: &Path) {
         String::from_utf8_lossy(&output.stderr)
     );
     let bytes = std::fs::read(wav).unwrap();
-    assert_eq!(bytes.len(), 58 + 4800 * 4);
+    assert_eq!(bytes.len(), 58 + 4800 * 8);
     let sound: Vec<_> = bytes[58..]
         .as_chunks::<4>()
         .0

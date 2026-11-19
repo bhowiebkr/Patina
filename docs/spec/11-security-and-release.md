@@ -222,7 +222,8 @@ functions:
 | `patina_run(package)` | Runs the graph one time. 0, or -1 when a node failed. |
 | `patina_frame(package)` | Runs one frame. 0, or -1 when a node failed or the graph has no frame nodes. |
 | `patina_block(package)` | Runs one audio block (9.3). 0, or -1 when a node failed or the graph has no audio nodes. |
-| `patina_sound(package)` | The 256 mono samples that the nodes played in the last block, or NULL before a node played. |
+| `patina_sound(package)` | The 256 mono samples, downmixed from the last stereo block, or NULL before a node played. |
+| `patina_stereo_sound(package)` | The 256 stereo frames of the last block, interleaved left then right, or NULL before a node played. |
 | `patina_events(package, count)` | Runs the event domain (9.4) until `count` runs ended, or until no trigger can fire again. 0, or -1 when a run failed or the graph has no event nodes. |
 | `patina_value(package, "<node ID>.<output key>")` | The value as text, or NULL. |
 | `patina_error()` | The text of the last error on this thread. |
