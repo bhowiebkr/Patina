@@ -35,13 +35,15 @@ interface Props {
   name: string;
   run: RunState;
   readOnly: boolean;
+  /** The code revision of the view. A file that came or went from outside the editor shows in the list (15.10). */
+  revision: number;
   reveal: Reveal | null;
   onSave: () => void;
   /** Adds a crate to the folder. It fails with the problem of the crate. */
   onAddCrate: (spec: string) => Promise<void>;
 }
 
-export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Props) {
+export function CodeTab({ name, run, readOnly, revision, reveal, onSave, onAddCrate }: Props) {
   const [adding, setAdding] = useState(false);
   const [files, setFiles] = useState<{ name: string; list: string[] } | null>(null);
   const [path, setPath] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export function CodeTab({ name, run, readOnly, reveal, onSave, onAddCrate }: Pro
     return () => {
       live = false;
     };
-  }, [name]);
+  }, [name, revision]);
 
   const go = (at: Reveal | null) => {
     if (!at || at === shown) return;

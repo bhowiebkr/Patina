@@ -227,6 +227,7 @@ impl Editor {
             if !session.trusted {
                 return Err("Trust the project before you change it.".to_owned());
             }
+            let outside = self.outside(session);
             let old = session.project.graph().clone();
             let code = session.project.code_revision();
             f(&mut session.project, &mut session.code)?;
@@ -238,15 +239,25 @@ impl Editor {
                 self.engine.send(Job::CloseView(name));
             }
             let built = (coded && view.is_none()).then_some(true);
-            let run = built.or_else(|| affects_run(&old, session.project.graph()));
+            let run = built.or(outside.filter(|&b| b)).or_else(|| affects_run(&old, session.project.graph()));
             // A move of a node changes no domain and no problem, so it needs no check of a large graph.
-            if !coded && run.is_none() && session.checked.is_some() {
+            if !coded && run.is_none() && outside.is_none() && session.checked.is_some() {
                 return Ok(session.show());
             }
             let build = run.filter(|_| session.live);
             let slot = built.and(session.project.last_code()).and_then(slot_folder);
             Ok(session.view(&self.engine, build, slot))
         })
+    }
+
+    /// Takes the file changes from outside the editor, so the view of a command that writes does
+    /// not hide them (15.10). Closes the changed views. Gives true when a live graph needs a build.
+    fn outside(&self, session: &mut Session) -> Option<bool> {
+        let (views, other) = session.take_outside()?;
+        for name in views {
+            self.engine.send(Job::CloseView(name));
+        }
+        Some(other && session.live)
     }
 
     /// An undo or a redo. The project refuses to remove a new folder with unsaved changes (15.2).
@@ -279,6 +290,18 @@ impl Session {
         {
             engine.run(self.serial, checked, true, None, false);
         }
+    }
+
+    /// The views and true for another file, when files changed since the last view. The Code tab reads them again.
+    fn take_outside(&mut self) -> Option<(BTreeSet<String>, bool)> {
+        let stamps = self.project.stamps();
+        if stamps == self.stamps {
+            return None;
+        }
+        let changes = outside_changes(&self.stamps, &stamps);
+        self.project.outside_change();
+        self.stamps = stamps;
+        Some(changes)
     }
 
     /// Checks the graph. With `build`, a live graph that passes the check goes to the engine.
@@ -427,18 +450,9 @@ pub fn edit(editor: State<'_, Editor>, edit: Edit, gesture: Option<u64>) -> Resu
 /// builds a live graph (15.10). The page calls it at a set time. Gives None when no file changed.
 #[tauri::command(async)]
 pub fn refresh(editor: State<'_, Editor>) -> Result<Option<View>, String> {
-    editor.with(|session| {
-        let stamps = session.project.stamps();
-        if stamps == session.stamps {
-            return Ok(None);
-        }
-        let (views, other) = outside_changes(&session.stamps, &stamps);
-        session.project.outside_change();
-        for name in views {
-            editor.engine.send(Job::CloseView(name));
-        }
-        let build = (other && session.live).then_some(true);
-        Ok(Some(session.view(&editor.engine, build, None)))
+    editor.with(|session| match editor.outside(session) {
+        Some(build) => Ok(Some(session.view(&editor.engine, build.then_some(true), None))),
+        None => Ok(None),
     })
 }
 
@@ -554,9 +568,10 @@ pub fn redo(editor: State<'_, Editor>) -> Result<View, String> {
 #[tauri::command(async)]
 pub fn save(editor: State<'_, Editor>) -> Result<View, String> {
     editor.with(|session| {
+        let build = editor.outside(session).filter(|&b| b);
         session.project.save().map_err(|e| e.to_string())?;
         session.keep_recovery(&editor.data);
-        Ok(session.view(&editor.engine, None, None))
+        Ok(session.view(&editor.engine, build, None))
     })
 }
 
@@ -745,54 +760,4 @@ pub fn quit(app: AppHandle, editor: State<'_, Editor>) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_a_rust_file_of_a_node_goes_into_the_slot() {
-        assert_eq!(slot_folder("nodes/acc/src/lib.rs").as_deref(), Some("acc"));
-        assert_eq!(slot_folder("nodes/acc/Cargo.toml"), None);
-        assert_eq!(slot_folder("widgets/bar/src/lib.rs"), None);
-        assert_eq!(view_folder("views/map/src/lib.rs").as_deref(), Some("map"));
-        assert_eq!(view_folder("nodes/map/src/lib.rs"), None);
-    }
-
-    #[test]
-    fn only_a_folder_of_the_project_panel_can_go() {
-        assert_eq!(deletable_folder("nodes/switch").as_deref(), Ok("nodes/switch"));
-        assert_eq!(deletable_folder("types/seg-2").as_deref(), Ok("types/seg-2"));
-        assert_eq!(deletable_folder("graphs/filter").as_deref(), Ok("graphs/filter.toml"));
-        for bad in ["graphs/main", "nodes/..", "nodes/a/b", "nodes/", "src/lib", "nodes", "target/debug", "nodes/a\\b"] {
-            assert!(deletable_folder(bad).is_err(), "{bad}");
-        }
-    }
-
-    #[test]
-    fn an_outside_change_of_a_view_closes_only_the_view() {
-        let stamp = |len: u64| (None, len);
-        let old: Stamps = [("views/map/src/lib.rs".to_owned(), stamp(1)), ("nodes/n/src/lib.rs".to_owned(), stamp(1))].into();
-        let mut new = old.clone();
-        new.insert("views/map/src/lib.rs".to_owned(), stamp(2));
-        assert_eq!(outside_changes(&old, &new), (["map".to_owned()].into(), false));
-        new.remove("nodes/n/src/lib.rs");
-        assert!(outside_changes(&old, &new).1, "a removed file is a change");
-        assert_eq!(outside_changes(&old, &old), (BTreeSet::new(), false));
-    }
-
-    #[test]
-    fn only_a_change_that_runs_needs_the_engine() {
-        let graph: GraphFile = toml::from_str(include_str!("../../../examples/hello/graphs/main.toml")).unwrap();
-        let mut moved = graph.clone();
-        moved.node[0].pos = Some([500.0, 500.0]);
-        assert_eq!(affects_run(&graph, &moved), None);
-        let mut routed = graph.clone();
-        routed.wire[0].points.push([40.0, 40.0]);
-        assert_eq!(affects_run(&graph, &routed), None, "a route point changes only the drawing");
-        let mut param = moved.clone();
-        param.node[0].params.insert("value".to_owned(), "7".to_owned());
-        assert_eq!(affects_run(&moved, &param), Some(false));
-        let mut unwired = param.clone();
-        unwired.wire.clear();
-        assert_eq!(affects_run(&param, &unwired), Some(true));
-    }
-}
+mod tests;

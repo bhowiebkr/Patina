@@ -269,7 +269,7 @@ export function Inspector({ view, run, guis, inspect, tab, reveal, onTab, onEdit
   }, [guiId, scope]);
   const code = (folder: string) => (
     <Suspense fallback={null}>
-      <CodeTab name={folder} run={run} readOnly={!view.trusted} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
+      <CodeTab name={folder} run={run} readOnly={!view.trusted} revision={view.codeRevision} reveal={reveal} onSave={onSave} onAddCrate={(spec) => onAddCrate(folder, spec)} />
     </Suspense>
   );
   const folder = inspect?.kind === 'type' ? `nodes/${inspect.name}` : inspect?.kind === 'folder' ? inspect.folder : '';

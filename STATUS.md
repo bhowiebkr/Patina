@@ -585,6 +585,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - An edit of only the layout keeps the domains and the problems of the last check. A change to a
   code or graph file from outside the editor shows in about 2 s, or at the window focus (fixed
   2026-11-17). A graph that is open in memory keeps its version.
+- An edit or a save before that poll also takes the outside change (fixed 2026-11-19). Before,
+  its view kept the new file times, so a node folder that was deleted outside the editor stayed
+  in the Code tab and got no build. A unit test deletes a node folder of a copy of
+  `examples/hello`. The Code tab file list also reads the folder again after an outside change.
 - The parse cache of the node folders keeps at most 4096 folders (fixed 2026-11-17). When it is
   full, it drops all entries, and the next check parses each node folder again.
 - The edit times ran only on Windows 11. The page times are from the debug editor.
