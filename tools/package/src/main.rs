@@ -1,8 +1,8 @@
 //! Makes the portable zip of Patina (spec 13.1 and 13.3). Run `cargo run -p package`.
 //!
 //! The tool builds the page and the release programs, collects the license notices of each crate
-//! and npm package in the build, copies the example projects to `projects/`, and writes `target/package/patina-<version>-<os>-<arch>.zip`.
-//! Then it updates the programs and the example projects in `target/package/Patina`. That folder
+//! and npm package in the build, copies the included workbenches to `workbenches/`, and writes `target/package/patina-<version>-<os>-<arch>.zip`.
+//! Then it updates the programs and the workbenches in `target/package/Patina`. That folder
 //! keeps its data, its toolchain and the changes of the person, so a person can run Patina from it.
 
 use serde_json::Value;
@@ -66,7 +66,7 @@ fn run() -> Result<()> {
     let library = format!("{}patina_capi{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX);
     copy(&root.join("target").join("release").join(&library), &folder.join(&library))?;
     write(&folder.join("portable"), PORTABLE)?;
-    copy_tree(&root.join("examples"), &folder.join("projects"))?;
+    copy_tree(&root.join("workbenches"), &folder.join("workbenches"))?;
     for name in ["LICENSE-MIT", "LICENSE-APACHE"] {
         copy(&root.join(name), &licenses.join(name))?;
     }
@@ -122,18 +122,18 @@ fn run() -> Result<()> {
         tool(Command::new("zip").arg("-qr").arg(&zip).arg("Patina").current_dir(&stage))?;
     }
     println!("{}", zip.display());
-    update(&folder, &out.join("Patina"), &out.join("examples")).map_err(|e| format!("{e}. Close Patina in target/package/Patina, then run the tool again."))
+    update(&folder, &out.join("Patina"), &out.join("workbenches")).map_err(|e| format!("{e}. Close Patina in target/package/Patina, then run the tool again."))
 }
 
-/// Puts the new programs, licenses and example projects in the folder that a person runs. The data
-/// and the toolchain stay. `last` holds the example projects of the last run (13.3).
+/// Puts the new programs, licenses and workbenches in the folder that a person runs. The data
+/// and the toolchain stay. `last` holds the workbenches of the last run (13.3).
 fn update(from: &Path, to: &Path, last: &Path) -> Result<()> {
     make_dir(to)?;
     for entry in fs::read_dir(from).map_err(|e| format!("{}: {e}", from.display()))? {
         let entry = entry.map_err(|e| format!("{}: {e}", from.display()))?;
         let (path, name) = (entry.path(), entry.file_name());
         let dest = to.join(&name);
-        if name == "projects" {
+        if name == "workbenches" {
             make_dir(&dest)?;
             for project in fs::read_dir(&path).map_err(|e| format!("{}: {e}", path.display()))? {
                 let project = project.map_err(|e| format!("{}: {e}", path.display()))?;
@@ -151,7 +151,7 @@ fn update(from: &Path, to: &Path, last: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Replaces an example project that the person did not change since the last run. A changed project
+/// Replaces a workbench that the person did not change since the last run. A changed workbench
 /// moves to `<name>-old`, so no work of the person is lost. The new project keeps the build output
 /// of the old one, so it builds faster.
 fn update_project(new: &Path, projects: &Path, last: &Path) -> Result<()> {

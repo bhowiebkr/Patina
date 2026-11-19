@@ -217,12 +217,12 @@ pub struct Checked {
 /// The node folders of the hello example, for the tests.
 #[cfg(test)]
 const HELLO_NODES: [(&str, &str); 6] = [
-    ("nodes/number/Cargo.toml", include_str!("../../../examples/hello/nodes/number/Cargo.toml")),
-    ("nodes/number/src/lib.rs", include_str!("../../../examples/hello/nodes/number/src/lib.rs")),
-    ("nodes/show/Cargo.toml", include_str!("../../../examples/hello/nodes/show/Cargo.toml")),
-    ("nodes/show/src/lib.rs", include_str!("../../../examples/hello/nodes/show/src/lib.rs")),
-    ("widgets/calc/Cargo.toml", include_str!("../../../examples/hello/widgets/calc/Cargo.toml")),
-    ("widgets/calc/src/lib.rs", include_str!("../../../examples/hello/widgets/calc/src/lib.rs")),
+    ("nodes/number/Cargo.toml", include_str!("../../../workbenches/hello/nodes/number/Cargo.toml")),
+    ("nodes/number/src/lib.rs", include_str!("../../../workbenches/hello/nodes/number/src/lib.rs")),
+    ("nodes/show/Cargo.toml", include_str!("../../../workbenches/hello/nodes/show/Cargo.toml")),
+    ("nodes/show/src/lib.rs", include_str!("../../../workbenches/hello/nodes/show/src/lib.rs")),
+    ("widgets/calc/Cargo.toml", include_str!("../../../workbenches/hello/widgets/calc/Cargo.toml")),
+    ("widgets/calc/src/lib.rs", include_str!("../../../workbenches/hello/widgets/calc/src/lib.rs")),
 ];
 
 impl Project {

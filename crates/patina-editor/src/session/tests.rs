@@ -46,7 +46,7 @@ fn a_delete_from_outside_goes_to_the_next_command_one_time() {
     }
     let dir = std::env::temp_dir().join(format!("patina-outside-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), &dir);
+    copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"), &dir);
     let project = Project::open(&dir).unwrap();
     let mut session = Session { project, serial: 1, trusted: true, live: false, code: BTreeMap::new(), test: None, recovery: None, recovery_error: None, checked: None, stamps: Stamps::new() };
     session.stamps = session.project.stamps();
@@ -61,7 +61,7 @@ fn a_delete_from_outside_goes_to_the_next_command_one_time() {
 
 #[test]
 fn only_a_change_that_runs_needs_the_engine() {
-    let graph: GraphFile = toml::from_str(include_str!("../../../../examples/hello/graphs/main.toml")).unwrap();
+    let graph: GraphFile = toml::from_str(include_str!("../../../../workbenches/hello/graphs/main.toml")).unwrap();
     let mut moved = graph.clone();
     moved.node[0].pos = Some([500.0, 500.0]);
     assert_eq!(affects_run(&graph, &moved), None);

@@ -1,4 +1,4 @@
-// The start screen (spec 15.10): New project, Open project and the recent projects.
+// The start screen (spec 15.10): New project, Open project, the included workbenches and the recent projects.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AboutDialog, useVersion } from './About';
@@ -145,6 +145,21 @@ export function StartScreen({ start, onOpen, onStart, onSettings }: Props) {
         </div>
         {busy && <div className="label start-busy">{busy}</div>}
         {error && <div className="error-text">{error}</div>}
+        {start.workbenches.length > 0 && (
+          <section className="start-box" aria-label="Workbenches">
+            <h2>Workbenches</h2>
+            <div className="workbench-list">
+              {start.workbenches.map((w) => (
+                <div key={w.path} className="workbench" title={w.path}>
+                  <span className="name">{w.name}</span>
+                  <button className="btn" aria-label={`Open ${w.name}`} disabled={!!busy} onClick={() => act(api.openProject(w.path))}>
+                    Open
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         <section className="start-box" aria-label="Recent projects">
           <div className="recent-top">
             <h2>Recent projects</h2>
@@ -162,7 +177,7 @@ export function StartScreen({ start, onOpen, onStart, onSettings }: Props) {
           </div>
           {start.recent.length === 0 ? (
             <div className="label">
-              No recent projects yet. Click <b>New project</b> to start a project, or <b>Open project</b> to open a project folder, for example <code>examples/hello</code>.
+              No recent projects yet. Click <b>New project</b> to start a project, or <b>Open project</b> to open a project folder.
             </div>
           ) : shown.length === 0 ? (
             <div className="label">No project matches the filter.</div>

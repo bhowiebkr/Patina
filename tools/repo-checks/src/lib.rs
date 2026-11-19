@@ -1,6 +1,7 @@
 //! Checks for the whole repository. `cargo test --workspace` runs them.
 //!
-//! The rules come from the "File length" section of `AGENTS.md`.
+//! The rules come from the "File length" section of `AGENTS.md`, and from task B5 of
+//! `docs/workbenches-plan.md`: a workbench names no path outside its own folder.
 
 use std::fs;
 use std::io;
@@ -82,4 +83,40 @@ fn is_source(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
         .is_some_and(|ext| SOURCE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+}
+
+/// Finds the relative paths in the text files of a workbench that go outside its folder, so the
+/// workbench can move out of the repository. Each item is `file: path`. Build output is not read.
+pub fn outside_paths(workbench: &Path) -> io::Result<Vec<String>> {
+    let mut found = Vec::new();
+    let mut folders = vec![workbench.to_path_buf()];
+    while let Some(folder) = folders.pop() {
+        for entry in fs::read_dir(&folder)? {
+            let path = entry?.path();
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            if path.is_dir() {
+                if !name.starts_with('.') && !SKIPPED_FOLDERS.contains(&name.as_ref()) && name != "build" {
+                    folders.push(path);
+                }
+                continue;
+            }
+            // A binary file is not text, so it names no path.
+            let Ok(text) = fs::read_to_string(&path) else { continue };
+            let rel = path.strip_prefix(workbench).unwrap_or(&path);
+            let depth = rel.components().count() - 1;
+            for (at, _) in text.match_indices("../") {
+                if text[..at].ends_with('.') || text[..at].ends_with('/') {
+                    continue;
+                }
+                let rest = &text[at..];
+                let ups = (rest.len() - rest.trim_start_matches("../").len()) / 3;
+                if ups > depth {
+                    let end = rest.find(|c: char| c.is_whitespace() || "\"'`)>],".contains(c)).unwrap_or(rest.len());
+                    found.push(format!("{}: {}", rel.to_string_lossy().replace('\\', "/"), &rest[..end]));
+                }
+            }
+        }
+    }
+    found.sort();
+    Ok(found)
 }

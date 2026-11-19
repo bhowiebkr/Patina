@@ -18,9 +18,9 @@ node_modules/
 # Reports and other files that agents and tools make.
 /artifacts/
 
-# The build folder of the example projects (spec 6.2), and the output of a direct cargo run.
-/examples/*/build/
-/examples/*/target/
+# The build folder of the workbenches (spec 6.2), and the output of a direct cargo run.
+/workbenches/*/build/
+/workbenches/*/target/
 
 # The incremental build state of the TypeScript compiler.
 *.tsbuildinfo

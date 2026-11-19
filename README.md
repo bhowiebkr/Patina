@@ -232,7 +232,7 @@ tool.
 - To make a view, click **+** in the **Views** group of the **Project** panel. Write the view in
   the **Code** tab. A save builds the view again.
 - A view can show a viewport with `ui.viewport` and draw into it with `wgpu`, through
-  `patina_gpu::ViewportSurface`. The `scene` view of `examples/gpu` is an example. On Linux and
+  `patina_gpu::ViewportSurface`. The `scene` view of `workbenches/gpu` is an example. On Linux and
   macOS, a viewport does not show yet.
 
 ## Layers
@@ -282,9 +282,9 @@ GPU support comes from crates and from `patina-sdk`, not from the engine.
 - A shader change needs no Rust compile.
 
 A node uses the GPU with the `patina-gpu` crate. Add `patina-gpu = { workspace = true }` to
-the `Cargo.toml` of the node, and set Rust 1.97.1 or later in `patina.toml`. The examples use Rust 1.100.0. Keep the shaders
+the `Cargo.toml` of the node, and set Rust 1.97.1 or later in `patina.toml`. The workbenches use Rust 1.100.0. Keep the shaders
 in the `assets/` folder of the node, and find them with `asset!("file.wesl")`. The
-`examples/gpu` project draws a gradient with a WESL shader, shows a small copy in the GUI of
+`workbenches/gpu` project draws a gradient with a WESL shader, shows a small copy in the GUI of
 a preview node and writes its mean brightness.
 
 A shader can import the shared functions of the `patina_gpu` package, for example
@@ -292,7 +292,7 @@ A shader can import the shared functions of the `patina_gpu` package, for exampl
 link WESL text, for example a string from another node, with `link_source`. Run the example:
 
 ```
-cargo +1.100.0 run -p patina-cli -- run examples/gpu
+cargo +1.100.0 run -p patina-cli -- run workbenches/gpu
 ```
 
 A node uses CUDA with the `patina-cuda` crate. `cuda()` gives the shared context, and
@@ -301,18 +301,18 @@ of the CUDA Toolkit 12.
 
 ## Logic circuits
 
-A graph can be a digital circuit. The `examples/computer` project has one node for the gate,
+A graph can be a digital circuit. The `workbenches/computer` project has one node for the gate,
 `nand`. The other gates, the adders and a 4-bit counter are subgraphs of NAND gates. Each frame
 is one clock step. A `delay` node keeps a bit for one step, as a flip-flop does. A loop of gates
 with no state needs no delay: each gate of the loop runs one time in each frame, and a wire back
 gives the value of the frame before. So two NOR gates make a latch, as in a logic simulator. To build the circuits of Digital Logic Sim 2, see [Build the computers of Digital Logic Sim 2](docs/dls2-parity.md). Run the example and the latch:
 
 ```
-cargo run -p patina-cli -- run examples/computer --frames 16
+cargo run -p patina-cli -- run workbenches/computer --frames 16
 ```
 
 ```
-cargo run -p patina-cli -- run examples/computer --graph latch --frames 16
+cargo run -p patina-cli -- run workbenches/computer --graph latch --frames 16
 ```
 
 In the editor, a 1-bit wire is lit when it is true. Run the project and double-click a use of a
@@ -535,7 +535,7 @@ has no Rust, it uses the Rust of your system. To run the example project from a 
 repository:
 
 ```
-cargo run -p patina-cli -- run examples/hello
+cargo run -p patina-cli -- run workbenches/hello
 ```
 
 The example adds two numbers and writes `6.5`. A node that fails or panics gives a message with
@@ -548,7 +548,7 @@ is 130. Push Ctrl+C again to end the CLI at once. To run a number of frames and 
 `--frames <count>`:
 
 ```
-cargo run -p patina-cli -- run examples/hello --frames 3
+cargo run -p patina-cli -- run workbenches/hello --frames 3
 ```
 
 The run stops at the first frame in which a node fails.
@@ -580,21 +580,21 @@ An async node with no inputs gets its runs from an order wire from its trigger (
 Render a saved audio graph to a WAV file without opening a sound device:
 
 ```
-cargo run -p patina-cli -- render examples/synth ember.wav --seconds 16
+cargo run -p patina-cli -- render workbenches/synth ember.wav --seconds 16
 ```
 
 The file contains stereo, 32-bit float audio at 48 kHz. The command never replaces an existing file.
 Add `--edit` for an Edit build, or `--graph <name>` to select another top graph.
 The render uses saved parameters. It does not record live controls or add an end fade.
 Graphs with event nodes cannot render offline.
-See the [Ember guide](examples/synth/README.md) for the sound modules and learning exercises.
+See the [Ember guide](workbenches/synth/README.md) for the sound modules and learning exercises.
 
 ## Make a package
 
 `patina-cli package` builds a project and writes a folder that runs without Rust:
 
 ```
-cargo run -p patina-cli -- package examples/hello hello-pkg
+cargo run -p patina-cli -- package workbenches/hello hello-pkg
 ```
 
 To run the package, start the program in the folder. Give a new value to a parameter with
@@ -620,8 +620,9 @@ build the editor again.
 
 To make your first graph:
 
-1. On the start screen, click **Open project** and select `examples/hello` in the folder
-   dialog. A new project has no nodes. To make a node, see the next part.
+1. On the start screen, click **Open** next to **hello** in the **Workbenches** box. In a
+   checkout of Patina, click **Open project** and select the `workbenches/hello` folder. A new
+   project has no nodes. To make a node, see the next part.
 2. Drag `number` and `show` from the **Project** panel into the graph. You can also
    double-click an empty area of the graph, type a part of the name and push Enter.
 3. Drag from the output of `number` to the input of `show`. You can also drag from a pin into
@@ -717,10 +718,10 @@ questions.
 
 ## Documentation
 
-- Examples: [hello](examples/hello/README.md), the smallest project.
-  [computer](examples/computer/README.md), an 8-bit computer of NAND gates.
-  [gpu](examples/gpu/README.md), WESL shaders on the GPU.
-  [synth](examples/synth/README.md), the Ember sound workbench.
+- Workbenches: [hello](workbenches/hello/README.md), the smallest project.
+  [computer](workbenches/computer/README.md), an 8-bit computer of NAND gates.
+  [gpu](workbenches/gpu/README.md), WESL shaders on the GPU.
+  [synth](workbenches/synth/README.md), the Ember sound workbench.
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
 - [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free

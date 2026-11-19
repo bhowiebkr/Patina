@@ -10,7 +10,7 @@ const SCORE: &str = r#"{"version":1,"bpm":120,"length":4,"looping":false,"loop_r
 #[test]
 fn the_song_plays_stereo_wav_and_polyphonic_notes_in_edit_and_bake_and_saves_view_edits() {
     let path = copy(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/synth"),
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/synth"),
         "song",
     );
     fs::write(path.join("types/synth-dsp/test.wav"), wav()).unwrap();
@@ -114,7 +114,7 @@ fn wav() -> Vec<u8> {
 #[test]
 fn the_sandstorm_excerpt_renders_and_its_lead_controls_save_and_undo() {
     let path = copy(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/synth"),
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/synth"),
         "sandstorm",
     );
     let mut project = Project::open_top(&path, "sandstorm").unwrap();

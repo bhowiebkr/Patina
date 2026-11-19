@@ -70,6 +70,8 @@ pub struct Data {
     pub webview: PathBuf,
     /// The default parent folder of new projects.
     pub projects: PathBuf,
+    /// The included workbenches, which the start screen lists (13.3).
+    pub workbenches: PathBuf,
     /// The toolchain folder (13.3).
     pub toolchain: PathBuf,
     /// True when the data stays in the folder of a portable edition or of `--portable` (13.3).
@@ -84,6 +86,8 @@ impl Data {
         let exe_dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_owned));
         let base = || dirs::data_local_dir().ok_or("the folder for local data is not known");
         let user = || Ok::<_, &str>(base()?.join(if cfg!(target_os = "linux") { "patina" } else { "Patina" }));
+        // The included workbenches stay next to the program, or in the `--portable` folder of a check.
+        let workbenches = portable.as_ref().or(exe_dir.as_ref()).map_or_else(|| PathBuf::from("workbenches"), |dir| dir.join("workbenches"));
         let (root, projects, portable, lists) = match (portable, exe_dir) {
             (Some(dir), _) => (dir.clone(), dir.join("projects"), true, None),
             (None, Some(exe)) if exe.join("portable").is_file() => (exe.clone(), exe.join("projects"), true, Some(user()?)),
@@ -102,7 +106,7 @@ impl Data {
         for folder in [&dir, &local] {
             fs::create_dir_all(folder).map_err(|e| format!("Patina cannot write to {}: {e}", folder.display()))?;
         }
-        let data = Data { dir, webview: local.join("webview"), projects, toolchain, portable };
+        let data = Data { dir, webview: local.join("webview"), projects, workbenches: absolute(workbenches)?, toolchain, portable };
         if data.dir != local {
             data.take_old(&local);
         }

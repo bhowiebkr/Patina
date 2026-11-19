@@ -13,16 +13,16 @@ Run these commands from the root of the repository.
 - Run the graph one time:
 
   ```
-  cargo run -p patina-cli -- run examples/hello
+  cargo run -p patina-cli -- run workbenches/hello
   ```
 
 - Run the graph for 3 frames:
 
   ```
-  cargo run -p patina-cli -- run examples/hello --frames 3
+  cargo run -p patina-cli -- run workbenches/hello --frames 3
   ```
 
-- Open the editor, then open the `examples/hello` folder. Click **Run**.
+- Open the editor, then open the `workbenches/hello` folder. Click **Run**.
 
 The show node writes `6.5`, which is 2.5 + 4. The first tape prints `36`, which is 12 x 3. The
 second tape prints `7.5`, the average of 12 and 3.
@@ -54,5 +54,5 @@ the editor to see its code. Change the code, and the editor builds and runs the 
 - Make a package of the example:
 
   ```
-  cargo run -p patina-cli -- package examples/hello hello-pkg
+  cargo run -p patina-cli -- package workbenches/hello hello-pkg
   ```

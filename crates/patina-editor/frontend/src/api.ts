@@ -216,6 +216,8 @@ export interface Recent {
 
 export interface StartInfo {
   recent: Recent[];
+  /** The included workbenches (13.3), sorted by name. */
+  workbenches: Recent[];
   projectsDir: string;
   check: string | null;
   /** The project of `patina --shot <project> <dir>`. */

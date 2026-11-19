@@ -44,7 +44,7 @@ static COUNTER: Counter = Counter;
 #[test]
 #[allow(clippy::too_many_lines)]
 fn hello_adds_two_numbers_and_a_kind_shows_lanes() {
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "hello");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"), "hello");
     let kind = project.join("connections/whole");
     fs::create_dir_all(kind.join("src")).unwrap();
     let manifest = "[package]\nname = \"whole\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\npatina-sdk = { workspace = true }\n";
@@ -373,7 +373,7 @@ from = \"00000000000000a1.out\"
 /// the frame cluster. Its output type changes, and changes again before the first build ends.
 #[test]
 fn a_type_change_during_a_build_reaches_all_uses() {
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "retype");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"), "retype");
     let manifest = fs::read_to_string(project.join("nodes/add/Cargo.toml")).unwrap();
     for (name, code) in [("tick", TICK), ("mix", MIX)] {
         let folder = project.join("nodes").join(name);
@@ -460,7 +460,7 @@ to = \"00000000000000b4.base\"
 
 #[test]
 fn a_package_runs_alone_and_takes_parameters() {
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "package");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"), "package");
     let out = Path::new(env!("CARGO_TARGET_TMPDIR")).join("hello-pkg");
     if out.exists() {
         fs::remove_dir_all(&out).unwrap();
@@ -502,7 +502,7 @@ fn a_package_runs_alone_and_takes_parameters() {
 
 #[test]
 fn the_gpu_example_draws_a_gradient_with_a_wesl_shader() {
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/gpu"), "gpu");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/gpu"), "gpu");
     let (output, stdout, stderr) = run(&project, &[]);
     if stderr.contains("no GPU adapter") {
         return; // shortcut: CI on Linux has no adapter, so only the build is checked there.
@@ -574,7 +574,7 @@ impl Panel {
 #[test]
 fn a_view_reads_the_graph_and_sets_a_parameter() {
     use patina_engine::view::{View, snapshot};
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "view");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"), "view");
     let mut opened = Project::open(&project).unwrap();
     opened.new_view("panel").unwrap();
     fs::write(project.join("views/panel/src/lib.rs"), VIEW).unwrap();
@@ -618,7 +618,7 @@ fn a_view_reads_the_graph_and_sets_a_parameter() {
 fn a_node_with_the_log_crate_sends_its_log_lines() {
     // The cluster turns on its logger for a `log` crate with another name and for a `log` crate
     // in a target table (15.7). The logger shows Info and higher, so the debug line does not show.
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "log");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"), "log");
     let (add, show) = (project.join("nodes/add"), project.join("nodes/show"));
     let manifest = fs::read_to_string(add.join("Cargo.toml")).unwrap();
     fs::write(add.join("Cargo.toml"), format!("{manifest}logger = {{ package = \"log\", version = \"0.4\" }}\n")).unwrap();
@@ -642,7 +642,7 @@ fn a_node_with_the_log_crate_sends_its_log_lines() {
 fn two_heavy_nodes_with_no_wire_run_on_two_threads() {
     // Two heavy naps with no wire have two tasks, so the pool runs them at the same time (4.1, 9.2,
     // 15.7). With no `heavy`, the two light naps share one task on one thread.
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"), "naps");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"), "naps");
     let mut graph = String::from("format = 1
 ");
     for (i, name) in ["nap1", "nap2"].into_iter().enumerate() {

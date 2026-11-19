@@ -19,7 +19,7 @@ members = [
 ]
 # The user projects of the prototypes build alone, with their own flags and toolchains.
 exclude = [
-    "examples",
+    "workbenches",
     "crates/patina-gpu/vendor/foldhash",
     "prototypes/types-across-clusters/project",
     "prototypes/toolchain/fixture",

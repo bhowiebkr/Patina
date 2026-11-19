@@ -90,7 +90,7 @@ Saving newly traced bake files, other object formats, and export above 2048 rema
 
 ## Scope
 
-Extend `examples/gpu` into the smart material workbench.
+Extend `workbenches/gpu` into the smart material workbench.
 Keep the graph as its main work surface.
 Use native Patina nodes, type crates, widgets and dock views.
 Reuse Surface's material algorithms, data contracts and renderer.
@@ -340,7 +340,7 @@ Do not conceal a failed prototype behind an embedded editor.
 ### Project layout and source reuse
 
 ```text
-examples/gpu/
+workbenches/gpu/
   patina.toml
   graphs/             existing main, new materials top graph and learning subgraphs
   nodes/              existing GPU nodes and new material operations

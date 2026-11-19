@@ -30,7 +30,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
   The 640 x 640 shaded preview matched Surface's renderer. Independent roughness and metallic tests passed.
   Hidden editor checks, workspace Clippy, workspace tests, and frontend checks passed on Windows.
   Object loading, traced mesh maps, target replacement, and eight PBR PNG exports passed GPU and hidden editor checks.
-  The renderer, mesh baker, object loader, and export stay inside `examples/gpu`.
+  The renderer, mesh baker, object loader, and export stay inside `workbenches/gpu`.
   General recipe import, UV unwrapping, overlapping UV detection, other object formats, and non-MSVC workflows remain open.
   The graph uses Millwright's original sphere, UV atlas, and saved 2048 maps. Loaded maps match the reference exactly.
   Explicit 2048 rebaking matched Millwright's direct baker. The corrected sphere workflow passed hidden editor and both CLI build modes.
@@ -41,6 +41,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
   View metadata selects the initial dock. A tab menu keeps crowded docks usable.
   The hidden Windows GUI check passed the nine synth workflows at narrow side widths and a shallow bottom height.
 
+- Center split and workbenches: the center area splits into the graph and a second pane of a
+  changeable size (15.2). The examples are now workbenches, and the start screen lists them (13.3).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -59,7 +61,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Copy, paste and libraries: **Copy**, **Cut** and **Paste** of nodes work. **Settings** > **Libraries** and **Add from Git** give nodes from other projects. The **Library** tab shows them with a preview of what a pick brings.
 - Gate speed: Light nodes share one task, nets share one check and skip the `Option` checks when their inputs have values, and the frame rate goes up to 100000 FPS.
 - Touchpad pan: A two-finger touchpad scroll pans the graph. The mouse wheel and a pinch zoom.
-- Arrange with node sizes and bus widths: **Arrange** uses node sizes and wire widths. The 25 graphs of `examples/computer` have 0 node overlaps.
+- Arrange with node sizes and bus widths: **Arrange** uses node sizes and wire widths. The 25 graphs of `workbenches/computer` have 0 node overlaps.
 - No save without Save: Only Ctrl+S or **Save** writes graph files, the frame rate and the text of **Add crate**. The recovery file keeps the unsaved graphs, code and frame rate. An undo of a code edit puts the text into the **Code** tab and writes no file.
 - Snake on the computer: The `programs/snake.asm` game runs on the computer. The CLI test checks 400 frames.
 - Sprite GPU of the computer: The `sprites` node draws 8 sprites, and the `monitor` view draws the screen on the GPU.
@@ -189,6 +191,28 @@ editor with the built page, on the Windows 11 computer of the owner.
 
 The open items of each section. Items that the text marks as fixed are in [docs/history.md](docs/history.md).
 
+### Workbenches and the center split, 2026-11-19
+
+- The center area of the dock can show a view next to the graph or under it (spec 15.2, task A
+  of [docs/workbenches-plan.md](docs/workbenches-plan.md)). The splitter changes the size with a
+  drag or the arrow keys. The layout file keeps the split. A view manifest can set
+  `dock = "split"`.
+- The examples are now workbenches in `workbenches/` (tasks B2 to B5). The start screen lists the
+  included workbenches in a **Workbenches** box, and **Open** opens one. The package copies them
+  to `Patina/workbenches/`.
+- A repo check fails when a text file of a workbench names a relative path outside its folder.
+  The READMEs link to the repository page in place of `../../docs`.
+- Checked on 2026-11-19, on Windows only: the CI clippy, `cargo test --workspace`, the frontend
+  check and tests, the selfcheck with a split step and the shots of `computer`, `hello` and
+  `gpu`. No person used the new GUI.
+- Known limits:
+  - The installed edition does not list the workbenches yet. Only the portable folder and a
+    checkout have them.
+  - An old portable folder keeps its copies of the examples in `projects/`. The package update
+    does not remove them, because they can have edits of the person.
+  - No check opened the editor again with a saved split. The selfcheck does not click **Open**
+    in the **Workbenches** box. A unit test reads the list.
+
 ### Groups, notes and the error display, 2026-11-18
 
 - A group is a colored transparent frame with a title bar. A drag on the title bar moves the
@@ -227,7 +251,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Export checks cover exact sample counts, frame timing, Edit/Bake equality, graph selection, invalid audio, and existing file protection.
 - Three 16-second renders contain finite audio. Speaker playback, listening quality, external sound-editor import, Linux, and macOS were not checked.
 - Hardware MIDI and live recording remain open. The **song** graph now provides sample import, stereo processing, polyphonic notes, and arrangement.
-- The [workbench notes](docs/sound-workbench.md) and [Ember guide](examples/synth/README.md) describe the modules, controls, and learning exercises.
+- The [workbench notes](docs/sound-workbench.md) and [Ember guide](workbenches/synth/README.md) describe the modules, controls, and learning exercises.
 - The **perform** view adds scene selection, phrase transport, sound controls, a filter XY pad, exact values, reset, and five learning experiments.
 - The view uses the same parameters as the main patch. The shared rotary widget now works in both nodes and views.
 - Windows workspace, frontend, and example checks passed. The view integration test covers Edit, Bake, saving, reopening, and grouped XY undo.
@@ -298,7 +322,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 
 ### Top graphs, 2026-11-18
 
-- A project can have more top graphs than `main`, for example an empty workbench next to a
+- A project can have more top graphs than `main`, for example an empty test graph next to a
   finished build. **New graph** in the **Graphs** group of the **Project** panel makes one.
 - A top graph opens and runs in place of the last top graph. Save writes `top = true` in its file.
   A subgraph use or a clip cannot name a top graph.
@@ -307,7 +331,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   a top graph and refuses a use of it, a clip test refuses a top graph, CLI parse tests of
   `--graph`), CI clippy, `npm test` (166 pass) and `npm run check`. The selfcheck (317 steps, on a
   hidden desktop) clicks **New graph**, sees the empty top graph run, opens `main` again and
-  deletes the new graph. On a copy of `examples/hello` with an empty `bench` top graph,
+  deletes the new graph. On a copy of `workbenches/hello` with an empty `bench` top graph,
   `patina-cli run --graph bench` ran, `--graph average` (a subgraph) and a missing name failed
   with a clear message, and `package --graph bench` wrote `graph = "bench"`. The package did not
   run.
@@ -335,14 +359,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 ### Gate cycles, 2026-11-18
 
 - A cycle of light gates with no state runs with no delay. Each gate runs one time in each frame,
-  as in Digital Logic Sim 2, so a latch settles over some frames (spec 9.2). The `latch` graph of `examples/computer` is a D latch of two NOR
+  as in Digital Logic Sim 2, so a latch settles over some frames (spec 9.2). The `latch` graph of `workbenches/computer` is a D latch of two NOR
   gates. The CLI test runs it for 16 frames and checks that it keeps its value. It also checks
   that a NAND gate that reads its own output changes at each frame, with no **WARN** line.
 - A node with state, for example `ram` or the new `rom`, can be part of a gate cycle. A light
   node can have a text parameter. The new `d-flip-flop` subgraph is two D latches. A CLI test runs a
   4-bit counter of these flip-flops with no delay node, a ROM and a RAM that read their own output,
   and the new `pulse` and `bus` nodes. See [docs/dls2-parity.md](docs/dls2-parity.md).
-- The new `led`, `dot-display` and `rgb-display` nodes of `examples/computer` are the LED and the
+- The new `led`, `dot-display` and `rgb-display` nodes of `workbenches/computer` are the LED and the
   16 x 16 displays of Digital Logic Sim 2, with the same pins. The CLI test writes a pixel at a
   clock tick on each display. A hidden `--shot` drew the three nodes.
 - Known limits: a rebuild of the cluster, for example after a graph edit, sets the values of a
@@ -480,7 +504,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - `#[node(free_layout)]` makes the GUI the whole node, with its own shape and pin places
   (2026-11-18). `Ui::pin`, `Ui::place` and `Canvas::path` are new. The SDK, engine and frontend
   unit tests read them. A self-check step adds a free knob, checks its pin places and drags
-  it on its canvas. The example is `examples/computer/nodes/button`.
+  it on its canvas. The example is `workbenches/computer/nodes/button`.
 - The parameter writes of one node GUI input are one undo step (2026-11-18). A canvas drag from
   the down to the up is one input. The writes go out in order. An engine test and the free knob
   step of the self-check read it.
@@ -613,7 +637,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - An edit or a save before that poll also takes the outside change (fixed 2026-11-19). Before,
   its view kept the new file times, so a node folder that was deleted outside the editor stayed
   in the Code tab and got no build. A unit test deletes a node folder of a copy of
-  `examples/hello`. The Code tab file list also reads the folder again after an outside change.
+  `workbenches/hello`. The Code tab file list also reads the folder again after an outside change.
 - The parse cache of the node folders keeps at most 4096 folders (fixed 2026-11-17). When it is
   full, it drops all entries, and the next check parses each node folder again.
 - The edit times ran only on Windows 11. The page times are from the debug editor.
@@ -716,7 +740,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - These shortcuts are open in the code:
   - A project root that is not UTF-8 goes to the clusters with lossy text
     (`crates/patina-engine/src/library.rs`).
-  - The CLI test of `examples/gpu` checks only the build when there is no adapter
+  - The CLI test of `workbenches/gpu` checks only the build when there is no adapter
     (`crates/patina-cli/tests/run.rs`).
 
 ### Milestone 8: packaging
@@ -911,7 +935,7 @@ domain free of locks. These limits are still open:
 - The capture works only on Windows. The check did not run on Linux or macOS.
 - rust-analyzer gives completion and hover in the **Code** tab (15.1, added 2026-11-17). A Rust
   unit test checks the message frames. A frontend unit test checks the conversion of the results.
-  A script sent the messages of the client to rust-analyzer 1.100 on a copy of `examples/hello`.
+  A script sent the messages of the client to rust-analyzer 1.100 on a copy of `workbenches/hello`.
   Completion, resolve and hover gave correct results. The editor did not run with rust-analyzer,
   because the selfcheck toolchain has none. Nobody typed in the **Code** tab with it.
 - A view opens as a tab in the center, after the fixed **Graph** tab (15.2, added 2026-11-17).
@@ -1216,7 +1240,7 @@ library in the target folder and the single run of the CLI. These limits are sti
 
 Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list together.
 
-- `crates/patina-cli/tests/run.rs:475`: The CLI test of `examples/gpu` checks only the build when no adapter exists. Add an adapter to CI when one is available.
+- `crates/patina-cli/tests/run.rs:475`: The CLI test of `workbenches/gpu` checks only the build when no adapter exists. Add an adapter to CI when one is available.
 - `crates/patina-editor/frontend/src/wires/gl.ts:266`: One texture row holds each wire. Above `MAX_TEXTURE_SIZE` wires, SVG draws them. Pack the rows for larger graphs.
 - `crates/patina-editor/frontend/src/canvas/NodeView.tsx:332`: A wire leaves a free pin only to the left or the right. Add a side to `Ui::pin` when a node needs it.
 - `crates/patina-editor/frontend/src/canvas/palette.ts:37`: The palette drops module paths, so two types of one name match. Rustc checks the types at build time.

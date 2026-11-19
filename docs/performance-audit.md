@@ -15,7 +15,7 @@ The computer example is the main workload. Other complex graphs need separate ch
 
 Each finding separates source evidence from measurements.
 Proposed changes are not implemented optimizations.
-The owner's changes in `examples/computer` are outside this audit.
+The owner's changes in `workbenches/computer` are outside this audit.
 Checks must use the committed example in a separate temporary folder.
 
 ## Existing work
@@ -225,8 +225,8 @@ More efficient gates cannot exceed that requested rate.
 The editor already supports a higher **FPS** value and quiet intermediate frames.
 The **Bake** action builds optimized clusters. Automatic fusion starts after 30 seconds without a change.
 
-Sources: [patina.toml](../examples/computer/patina.toml);
-[main.toml](../examples/computer/graphs/main.toml), the clock parameters;
+Sources: [patina.toml](../workbenches/computer/patina.toml);
+[main.toml](../workbenches/computer/graphs/main.toml), the clock parameters;
 [fuse.rs](../crates/patina-editor/src/engine/fuse.rs), `FUSE_IDLE`;
 [clock.rs](../crates/patina-engine/src/clock.rs), function `frames_at`.
 

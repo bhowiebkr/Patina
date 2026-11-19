@@ -5,9 +5,9 @@ Research, concept, and implementation record, 2026-11-18.
 ## Implemented tools
 
 The nine tabs now run as Ember views. The canvas and existing instrument nodes remain the main workspace.
-The [user guide](../examples/synth/README.md#use-the-dock-tools) gives the operating steps.
+The [user guide](../workbenches/synth/README.md#use-the-dock-tools) gives the operating steps.
 
-![Implemented dock tools in a hidden test window](../examples/synth/images/docks.png)
+![Implemented dock tools in a hidden test window](../workbenches/synth/images/docks.png)
 
 | Dock | Implemented behavior |
 | --- | --- |

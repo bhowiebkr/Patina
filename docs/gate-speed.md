@@ -59,7 +59,7 @@ All numbers are from the owner's Windows computer, on 2026-11-17, with a release
 
 | Item | Result |
 |---|---|
-| A frame of `examples/computer`, bake build, quiet, no frame pacing | about 175 us (median of 5000) |
+| A frame of `workbenches/computer`, bake build, quiet, no frame pacing | about 175 us (median of 5000) |
 | The same frame, after plan item 1 | about 141 us (median of 5000, three runs) |
 | The same frame, after plan item 2 | about 52 us (median of 5000, three runs) |
 | The same frame, after plan item 3, without the standard output of the example nodes | about 13.5 us (median of 5000) |

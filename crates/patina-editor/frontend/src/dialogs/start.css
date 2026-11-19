@@ -365,6 +365,30 @@
   position: relative;
 }
 
+/* The included workbenches: one cell for each, with Open (15.10). */
+.workbench-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.workbench {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.workbench .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The remove button shows only on the row under the pointer or with the focus (15.10). */
 .recent-remove {
   position: absolute;

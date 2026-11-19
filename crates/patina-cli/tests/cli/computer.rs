@@ -88,7 +88,7 @@ const TEST_WORDS: [(u8, u8); 30] = [
 
 #[test]
 fn the_d_latch_of_two_nor_gates_keeps_its_value() {
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer-latch");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/computer"), "computer-latch");
     let (output, stdout, stderr) = run(&project, &["--graph", "latch", "--frames", "16"]);
     assert!(output.status.success(), "{stderr}");
     // The bits 0 to 3 are Q, STORE, DATA and not Q. With STORE on, Q follows DATA. With STORE off,
@@ -123,7 +123,7 @@ fn values(project: &Path, name: &str, frames: &str) -> Vec<u8> {
 
 #[test]
 fn the_parts_of_digital_logic_sim_2_work_in_cycles_with_no_delay() {
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer-dls2");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/computer"), "computer-dls2");
     let w = |from: &str, to: &str| (from.to_owned(), to.to_owned());
     // A counter of 4 D flip-flops of NAND gates, as in the videos of Digital Logic Sim 2.
     let (q, d) = (|i: usize| format!("f00000000000000{i}.c3a96e04"), |i: usize| format!("f00000000000000{i}.4d1c7a90"));
@@ -190,7 +190,7 @@ fn the_parts_of_digital_logic_sim_2_work_in_cycles_with_no_delay() {
 
 #[test]
 fn the_computer_example_of_nand_gates_counts_adds_and_runs_programs() {
-    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/computer"), "computer");
+    let project = copy(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/computer"), "computer");
     // 560 frames run 140 instructions. At the carry, the program starts again.
     assert_eq!(check(&project, 560, &FIBONACCI), [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 1, 1, 2]);
     // The program node reads its file again at the start of the run.

@@ -25,7 +25,7 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
 
 ## The parts
 
-| DLS2 part | Patina part in `examples/computer` | Notes |
+| DLS2 part | Patina part in `workbenches/computer` | Notes |
 | --- | --- | --- |
 | NAND | `nand` | The same. |
 | Clock | `clock` | A one-frame tick each `every` frames. For a square wave, connect it to a `pulse` with `ticks` = `every` / 2. |

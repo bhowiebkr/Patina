@@ -13,6 +13,8 @@ use crate::data::same_path;
 #[serde(rename_all = "camelCase")]
 pub struct StartInfo {
     recent: Vec<Recent>,
+    /// The included workbenches, sorted by name.
+    workbenches: Vec<Recent>,
     projects_dir: PathBuf,
     check: Option<PathBuf>,
     shot: Option<PathBuf>,
@@ -61,11 +63,20 @@ fn check_project_name(name: &str) -> Result<(), String> {
     }
 }
 
+/// The project folders in `dir`, sorted by name. A missing folder gives an empty list.
+fn workbenches(dir: &Path) -> Vec<Recent> {
+    let folders = std::fs::read_dir(dir).into_iter().flatten().flatten().map(|entry| entry.path());
+    let mut list: Vec<_> = folders.filter(|path| path.join("patina.toml").is_file()).map(|path| Recent { name: folder_name(&path), exists: true, path }).collect();
+    list.sort_by(|a, b| a.name.cmp(&b.name));
+    list
+}
+
 #[tauri::command(async)]
 pub fn start_info(editor: State<'_, Editor>) -> StartInfo {
     let recent = editor.data.recent().into_iter();
     StartInfo {
         recent: recent.map(|path| Recent { name: folder_name(&path), exists: path.join("patina.toml").is_file(), path }).collect(),
+        workbenches: workbenches(&editor.data.workbenches),
         projects_dir: editor.data.projects.clone(),
         check: editor.check.clone(),
         shot: editor.shot.clone(),
@@ -201,5 +212,19 @@ mod tests {
         for name in ["", ".hidden", "a/b", "a\\b", "..", "end.", "end ", "c:x", "\u{e9}t\u{e9}"] {
             assert!(check_project_name(name).is_err(), "{name}");
         }
+    }
+
+    #[test]
+    fn the_workbench_list_has_only_project_folders() {
+        let dir = std::env::temp_dir().join(format!("patina-workbenches-{}", std::process::id()));
+        for name in ["synth", "hello", "notes"] {
+            fs::create_dir_all(dir.join(name)).unwrap();
+        }
+        fs::write(dir.join("synth/patina.toml"), "").unwrap();
+        fs::write(dir.join("hello/patina.toml"), "").unwrap();
+        let names: Vec<_> = workbenches(&dir).into_iter().map(|w| w.name).collect();
+        assert_eq!(names, ["hello", "synth"]);
+        assert!(workbenches(&dir.join("missing")).is_empty());
+        fs::remove_dir_all(&dir).unwrap();
     }
 }

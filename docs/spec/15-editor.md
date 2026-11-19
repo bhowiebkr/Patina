@@ -738,12 +738,13 @@ These are the fewest steps from a new project to a reopen:
 6. Push Ctrl+S.
 7. Close the project. On the start screen, click it in the recent projects list.
 
-- A new project has only `patina.toml` and an empty main graph. It has no node folders. The `examples/hello` project has the `number` and `show` nodes. (Agent decision of 2026-11-17, for the owner request that a new project has no nodes. The owner can change it.)
+- A new project has only `patina.toml` and an empty main graph. It has no node folders. The `workbenches/hello` project has the `number` and `show` nodes. (Agent decision of 2026-11-17, for the owner request that a new project has no nodes. The owner can change it.)
 - A new project goes on the list of trusted projects (11).
 - A project opens with its graph paused. The user clicks **Run**.
 - When a trusted project has a build, the open loads the clusters of that build, and the graph does not run. So the node GUIs show while the graph is paused. The nodes show **Not run**, and the status bar shows the build time and **Not run**. A project with no build waits for **Run**. (Agent decision, 2026-11-16, for the owner request that an open shows the built node GUIs. The owner can change it.)
 - The start screen has two large buttons, **New project** and **Open project**, and a list of the last 50 projects (13.3). (Owner request of 2026-11-18.)
 - Each large button has one line that tells what it does, and its tooltip shows its key. Ctrl+N clicks **New project** and Ctrl+O clicks **Open project**. The keys work only on the start screen with no dialog open. (Agent decision of 2026-11-18. The owner can change it.)
+- Under the large buttons, the **Workbenches** box lists the included workbenches (13.3) by name. Each has an **Open** button that opens it as a project. The box shows only when the folder has a workbench. (Agent decision of 2026-11-19, task B4 of [the workbench plan](../workbenches-plan.md). The owner can change it.)
 - **Open project** opens the folder dialog of the platform at the folder of new projects. The folder that the user selects opens at once. **Cancel** in the folder dialog changes nothing. The start screen has no path field. (Owner request of 2026-11-18.)
 - **New project** opens the **New project** dialog. It has a **Name** field, a **Location** field with **Browse**, and the path of the new folder. **Location** starts at the folder of new projects. (Owner request of 2026-11-18.)
 - The dialog checks the name while the user types, with the same rule as the editor: letters, digits, spaces, `-`, `_` and `.`, 64 characters or fewer, and no `.` at the start or the end. **Create** is off until the name is correct. Enter clicks **Create**. **Cancel** or Esc closes the dialog. An error of the editor, for example a folder that exists, shows in the dialog. (Agent decision of 2026-11-18. The owner can change it.)

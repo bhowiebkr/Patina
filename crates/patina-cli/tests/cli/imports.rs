@@ -15,7 +15,7 @@ fn scale(factor: &str) -> String {
 
 #[test]
 fn an_import_builds_and_a_bad_update_goes_back() {
-    let hello = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello");
+    let hello = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello");
     let (this, other) = (copy(&hello, "import-this"), copy(&hello, "import-other"));
     let id = fs::read_to_string(other.join("patina.toml")).unwrap().replace("f7ab5a61a3754081", "0123456789abcdef");
     fs::write(other.join("patina.toml"), id).unwrap();

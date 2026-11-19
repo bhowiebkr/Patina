@@ -6,7 +6,7 @@ use std::path::Path;
 #[test]
 fn the_synthesizer_plays_the_same_patch_in_edit_and_bake_and_has_live_controls() {
     let project = copy(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/synth"),
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/synth"),
         "synth",
     );
     let opened = Project::open(&project).unwrap();

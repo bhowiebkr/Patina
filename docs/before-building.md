@@ -85,7 +85,7 @@ Later milestones:
   has no window, so it cannot show views (14.1).
 - [x] **Q13, circuit graphs.** Agent decision of 2026-11-15: a synchronous model. One frame is
   one clock step, a delay is a D flip-flop, a cycle needs a delay, and a bus uses a multiplexer.
-  `examples/computer` counts and adds with NAND gates. See the
+  `workbenches/computer` counts and adds with NAND gates. See the
   [circuit graph design](circuit-graph-design.md).
 
 ## 4. Connections

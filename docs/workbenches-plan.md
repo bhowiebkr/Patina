@@ -162,6 +162,10 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   seed of a gun.
 - **F7.** Export: a `.glb` with the `muzzle` and `grip` sockets, and a stats file for each gun.
 
+## Progress
+
+- 2026-11-19: A and B1 to B5 are done. [STATUS.md](../STATUS.md) has the checks.
+
 ## Order
 
 1. A and B1 first. They are small and need no other task.

@@ -37,7 +37,7 @@ A shader error leaves the last valid node state and reports the error.
 Run the second graph without the editor:
 
 ```
-cargo +1.100.0 run -p patina-cli -- run examples/gpu --graph materials
+cargo +1.100.0 run -p patina-cli -- run workbenches/gpu --graph materials
 ```
 
 **Object** loads a Millwright `asset.json` with its adjacent `mesh.bin`, or a triangulated OBJ.
@@ -79,7 +79,7 @@ The renderer, shaders, object loader, mesh baker, and export code all stay insid
 This version includes the copper recipe. It does not provide general recipe import or the Paint workspace.
 UV unwrapping, overlapping UV detection, OBJ material import, and glTF import remain open.
 Windows GNU, Linux, and macOS material workflows are not verified.
-See [source notices](NOTICE.md) and the [implementation record](../../docs/smart-material-workbench.md).
+See [source notices](NOTICE.md) and the [implementation record](https://github.com/bhowiebkr/Patina/blob/main/docs/smart-material-workbench.md).
 
 A project that uses the GPU with WESL shaders through `wgpu`. The nodes look like the front
 panels of lab instruments. The first row draws a gray gradient on the GPU, finds its mean
@@ -94,13 +94,13 @@ The example needs Rust 1.100.0, as all examples do. Run
 this command from the root of the repository:
 
 ```
-cargo +1.100.0 run -p patina-cli -- run examples/gpu
+cargo +1.100.0 run -p patina-cli -- run workbenches/gpu
 ```
 
 The command writes the mean brightness of the gradient, about `0.336`.
 
 To open it in the editor, start the editor with Rust 1.100.0 or later. Then open the
-`examples/gpu` folder and click **Run**.
+`workbenches/gpu` folder and click **Run**.
 
 ## The parts
 
@@ -118,7 +118,7 @@ To open it in the editor, start the editor with Rust 1.100.0 or later. Then open
 | `views/scene/` | A view with a GPU viewport. A drag sets the color. The wheel and the arrow keys set the light. |
 
 The images stay on the GPU between the GPU nodes. A shader change needs no Rust compile. The
-[GPU](../../README.md#gpu) section of the main README tells how a node uses the GPU.
+[GPU](https://github.com/bhowiebkr/Patina/blob/main/README.md#gpu) section of the main README tells how a node uses the GPU.
 
 ## Try this
 

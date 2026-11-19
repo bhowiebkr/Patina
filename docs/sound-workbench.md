@@ -6,7 +6,7 @@ Owner direction, 2026-11-18: each example is a workbench for a specific domain.
 An example needs useful modules, controls, inspection tools, and complete workflows.
 The sound workbench must help a beginner learn synthesis and let a sound designer make useful sounds.
 
-The first instrument is [Ember](../examples/synth/README.md).
+The first instrument is [Ember](../workbenches/synth/README.md).
 Its three patches share 34 node types, instrument panels, and a reusable DSP library.
 The CLI renders saved patches to WAV files for further work in a sound editor.
 
@@ -22,7 +22,7 @@ It contains the original concept and the current implementation record.
 ## Current dock tools
 
 Ember now supplies nine dock tools: **sounds**, **learn**, **modulation**, **controls**, **audio**, **analysis**, **patterns**, **keyboard**, and **export**.
-The [Ember guide](../examples/synth/README.md#use-the-dock-tools) describes their workflows and limits.
+The [Ember guide](../workbenches/synth/README.md#use-the-dock-tools) describes their workflows and limits.
 Patina supplies responsive columns, available dock size, preferred dock metadata, tab overflow, and gesture undo.
 The existing canvas nodes and performance view remain available.
 

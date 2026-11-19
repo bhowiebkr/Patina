@@ -12,10 +12,10 @@ Run these commands from the root of the repository.
 - Run 16 frames in the terminal:
 
   ```
-  cargo run -p patina-cli -- run examples/computer --frames 16
+  cargo run -p patina-cli -- run workbenches/computer --frames 16
   ```
 
-- Open the editor, then open the `examples/computer` folder. Click **Run**.
+- Open the editor, then open the `workbenches/computer` folder. Click **Run**.
 
 Each frame is one clock step. Each frame writes ten lines: the count, the count plus 3, an
 accumulator, a memory, the three registers of the CPU and the segments of the three displays.
@@ -38,13 +38,13 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
   **DATA** when **CLOCK** goes on. The `rom` node has 256 words of 16 bits, the `pulse` node
   gives a pulse at a rising edge, and the `bus` node replaces tri-state buffers. The `led`,
   `dot-display` and `rgb-display` nodes are the LED and the 16 x 16 displays. See
-  [Build the computers of Digital Logic Sim 2](../../docs/dls2-parity.md).
+  [Build the computers of Digital Logic Sim 2](https://github.com/bhowiebkr/Patina/blob/main/docs/dls2-parity.md).
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
 - **Node GUIs.** The `program`, `ram`, `readout`, `display`, `lcd`, `clock`, `analyzer`,
   `keyboard`, `terminal`, `screen` and `joystick` nodes draw their values in the graph.
 - **Free layout.** The `button` node is a round push button with no box. Its pin is on the
-  edge of the circle. See [Write a custom node](../../docs/custom-nodes.md).
+  edge of the circle. See [Write a custom node](https://github.com/bhowiebkr/Patina/blob/main/docs/custom-nodes.md).
 - **IO devices.** The CPU reads a `keyboard`, a `random`, a `joystick` and the pixels of the `gpu`. It
   writes a `terminal`, a `gpu` and a `sprites` chip on its IO ports. The `screen` shows the 32 x 32
   frame with the sprites.
@@ -85,6 +85,6 @@ The subgraphs, from small to large:
 
 Each instruction has a 4-bit opcode and an 8-bit value k. The CPU has 16 operations, 256 words
 of program, 240 bytes of RAM in the `ram` node and 16 IO ports. The
-[Logic circuits](../../README.md#logic-circuits) section of the main README gives the full
+[Logic circuits](https://github.com/bhowiebkr/Patina/blob/main/README.md#logic-circuits) section of the main README gives the full
 list, the assembly language, the clock, the LCD and the IO ports. To change the program, select the `program`
 node and edit its code, or expand the node.

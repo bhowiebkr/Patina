@@ -35,7 +35,7 @@ The musical excerpt lasts about 7.06 seconds. The rest allows the effect tail to
 The CLI can render the same saved graph:
 
 ```
-cargo run -p patina-cli -- render examples/synth sandstorm-hook.wav --graph sandstorm --seconds 10
+cargo run -p patina-cli -- render workbenches/synth sandstorm-hook.wav --graph sandstorm --seconds 10
 ```
 
 ## Arrange a song
@@ -95,11 +95,11 @@ Saved loop settings apply to export. Disable **Loop** for a full song render.
 
 The song engine does not capture microphones or hardware MIDI.
 It does not provide time stretching, compressed audio import, VST hosting, or stem export.
-The [design and checks](../../docs/synth-arranger.md) record the architecture and current evidence.
+The [design and checks](https://github.com/bhowiebkr/Patina/blob/main/docs/synth-arranger.md) record the architecture and current evidence.
 
 ## Play
 
-1. Open `examples/synth` in Patina.
+1. Open `workbenches/synth` in Patina.
 2. Click **Run**.
 3. Start with a low speaker volume.
 4. Select **PHRASE**, **ATMOSPHERE**, or **IMPACT** on the workbench panel.
@@ -269,7 +269,7 @@ The saw and pulse oscillators reduce aliasing. The triangle sums harmonics below
 4. Run this command from the repository root:
 
 ```
-cargo run -p patina-cli -- render examples/synth ember.wav --seconds 16
+cargo run -p patina-cli -- render workbenches/synth ember.wav --seconds 16
 ```
 
 The command writes stereo, 32-bit float WAV audio at 48 kHz. It does not open a sound device.
@@ -299,7 +299,7 @@ This uses the current Patina audio model. Direct GUIs on audio nodes remain defe
 Run the DSP and panel checks from the repository root:
 
 ```
-cargo test --manifest-path examples/synth/Cargo.toml --workspace --release -- --nocapture
+cargo test --manifest-path workbenches/synth/Cargo.toml --workspace --release -- --nocapture
 ```
 
 The CLI integration test builds the graph in **Edit** and **Bake**. It compares their samples and checks live parameter writes.
@@ -317,10 +317,10 @@ These measurements cover DSP processing, without the editor, device, or graph sc
 [Vital](https://vital.audio/) shows waveforms, envelopes, and filter responses beside their controls.
 Ember uses its own code and panel drawings.
 
-The [workbench notes](../../docs/sound-workbench.md) record the wider node and GUI needs.
+The [workbench notes](https://github.com/bhowiebkr/Patina/blob/main/docs/sound-workbench.md) record the wider node and GUI needs.
 
 Current limits: the learning patch uses mono signals, monophonic note input, and a fixed C minor phrase grid.
 Hardware MIDI and microphone capture are not implemented. Use **song** for sample import and arrangement.
 The tests check samples and controls. Speaker playback and listening quality have not been checked.
 
-The [arrangement design](../../docs/synth-arranger.md) records research and the song workbench checks.
+The [arrangement design](https://github.com/bhowiebkr/Patina/blob/main/docs/synth-arranger.md) records research and the song workbench checks.

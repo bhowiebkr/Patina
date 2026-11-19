@@ -489,7 +489,7 @@ async function inspectNodes(where: string, ids = [...document.querySelectorAll<H
   return `inspect ${where}: ${ids.length} nodes`;
 }
 
-/** The outputs of the examples with a `Viewer` thumbnail, and the image labels of the Inspector: the frame of the computer GPU with its screen widget, and the image of the gpu gradient. */
+/** The outputs of the workbenches with a `Viewer` thumbnail, and the image labels of the Inspector: the frame of the computer GPU with its screen widget, and the image of the gpu gradient. */
 const VIEWED: { from: string; shows: RegExp }[] = [
   { from: 'ad357059907f778c.out0', shows: /^Value: 32 x 32 pixels, Screen: 32 x 32 pixels$/ },
   { from: '1a2b3c4d5e6f7081.out', shows: /^Value: 64 x 16 pixels$/ },
@@ -565,7 +565,7 @@ async function fullSizes(where: string, ids = [...document.querySelectorAll<HTML
   return { text: `full ${where}: ${seen} nodes`, code };
 }
 
-/** The views of the examples: an input on the viewport, and the text of the view after it. gpu: a wheel turn up sets the light to 60 %. computer: the monitor shows the frame of the run. */
+/** The views of the workbenches: an input on the viewport, and the text of the view after it. gpu: a wheel turn up sets the light to 60 %. computer: the monitor shows the frame of the run. */
 const VIEWS: Record<string, { input?: () => Event; shows: RegExp }> = {
   scene: { input: () => new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true }), shows: /light: 60 %/ },
   monitor: { shows: /Click the monitor/ },

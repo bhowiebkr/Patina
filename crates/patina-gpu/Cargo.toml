@@ -5,7 +5,7 @@ description = "The shared GPU context, GPU types and the WESL linker of node cod
 edition.workspace = true
 publish.workspace = true
 license.workspace = true
-# The examples use this Rust version (spec 8.1).
+# The workbenches use this Rust version (spec 8.1).
 rust-version = "1.100"
 
 [lints]

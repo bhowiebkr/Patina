@@ -9,7 +9,7 @@ use patina_engine::{Control, Mode, Project, Toolchain};
 use crate::common::copy;
 
 fn hello() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello")
 }
 
 /// A stateful node with each kind of input, for the slot (7.1).

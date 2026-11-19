@@ -422,7 +422,7 @@ name = \"n\"
     #[test]
     fn a_graph_file_writes_back_to_the_same_text() {
         // A Windows checkout can have CRLF line ends.
-        let text = include_str!("../../../examples/hello/graphs/main.toml").replace("\r\n", "\n");
+        let text = include_str!("../../../workbenches/hello/graphs/main.toml").replace("\r\n", "\n");
         let graph: GraphFile = toml::from_str(&text).unwrap();
         assert_eq!(toml::to_string(&graph).unwrap(), text);
     }

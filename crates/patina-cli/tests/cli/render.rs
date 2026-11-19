@@ -62,7 +62,7 @@ fn success(output: &Output) {
 #[test]
 fn render_writes_float_wav_and_preserves_existing_files() {
     let project = copy(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello"),
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../workbenches/hello"),
         "render",
     );
     for (name, code) in [("render-frame", FRAME), ("render-audio", AUDIO)] {

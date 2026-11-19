@@ -175,7 +175,7 @@ implementation result.
 | Ribbon buses and routes | Typed wires and editor visual rules | Lane metadata, renderer, routing, picking, style controls and persistence decisions |
 | Synchronous logic | Stateful nodes and explicit delays | Defined edge/step semantics and repeatable simulation tests |
 | Feedback-built latches | Gate cycles, spec 9.2 | Each node of a cycle runs one time in each frame, as in DLS2. A cycle can hold light nodes with state, for example RAM and ROM. A latch settles over some frames. Other cycles still need a delay. |
-| Shared electrical bus drivers | The `bus` node of `examples/computer` gives the OR of the drivers that are on | A wire has one driver. A general tri-state model with contention rules is not designed. See [docs/dls2-parity.md](dls2-parity.md). |
+| Shared electrical bus drivers | The `bus` node of `workbenches/computer` gives the OR of the drivers that are on | A wire has one driver. A general tri-state model with contention rules is not designed. See [docs/dls2-parity.md](dls2-parity.md). |
 | Fast circuit simulation | Headless engine and compiled clusters | Prototype performance and event/settling behavior; no speed claim is supported by the artwork |
 
 A specialized simulation node or compiled subgraph could own electrical
@@ -196,7 +196,7 @@ model and no engine change:
   graph is a D latch of two NOR gates, as in a logic simulator. The CLI test checks that it keeps its value.
 - A wire has one driver. A shared bus uses an explicit multiplexer.
 
-The `examples/computer` project has one Rust node for the gate, `nand`. The gates `not`, `and`,
+The `workbenches/computer` project has one Rust node for the gate, `nand`. The gates `not`, `and`,
 `or` and `xor` are subgraphs of NAND gates. The half adder, the full adder, the 4-bit adder and
 the 4-bit counter are subgraphs of these subgraphs. The CLI test runs 140 frames. Readout A shows
 the count, and readout B the count plus 3. So the four full adders get all 8 input vectors.
@@ -217,7 +217,7 @@ node draws 8 sprites over the frame on the CPU, so the `screen` node and the CLI
 ## Checks for a future implementation
 
 These are proposed acceptance checks. The full-adder vectors and the headless run are checked
-by the CLI test of `examples/computer`. The other checks have **not** run.
+by the CLI test of `workbenches/computer`. The other checks have **not** run.
 
 - Reuse a full-adder definition multiple times. Rename/reorder a public port.
   Verify connections and independent instance state survive.
