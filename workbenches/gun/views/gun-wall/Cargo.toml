@@ -1,0 +1,15 @@
+[package]
+name = "gun-wall"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.patina]
+dock = "bottom"
+
+[dependencies]
+patina-sdk = { workspace = true }
+geometry = { path = "../../types/geometry" }
+guns = { path = "../../types/guns" }

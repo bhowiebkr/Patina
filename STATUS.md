@@ -56,6 +56,9 @@ The records of the ended milestones and of the finished work are in [docs/histor
   **solids**, **sketches**, **seeds** and **sockets** (tasks D7 and D8).
 - City workbench: seeded streets, blocks, lots and buildings with roofs, windows and doors,
   roads, trees and lamps as instances, and an export of each building to a `.glb` file (task E).
+- Gun workbench: seeded guns from seven kinds of parts, four original makers and five rarities,
+  with stats, a **Toon** look in `model-view`, the `gun-wall` view and an export to `.glb` and
+  `.txt` (task F).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -277,6 +280,25 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The kernel has no loft, no fillet and no bevel.
   - `pick` chooses one of two inputs. Chain picks for more choices.
   - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
+
+### Gun workbench, 2026-11-19
+
+- Task F: [workbenches/gun](workbenches/gun/README.md) makes seeded guns with the model workbench
+  as a library. The agent decisions are in [the workbenches plan](docs/workbenches-plan.md),
+  task F.
+- Changes to the model workbench: `types/geometry` has `Solid::project` and `Sketch::outlines`
+  for side views. `model-view` has a **Toon** toggle: three light bands and outlines from the
+  back faces. The city workbench has the new imports.
+- Checked on 2026-11-19, on Windows only:
+  - 9 unit tests of `types/guns`, 1 test of `export-gun`, 2 tests of `gun-wall` and the shader
+    test of `model-view`, and the clippy of the gun crates, with the MSVC toolchain. CI does not
+    run them.
+  - The CLI test runs `main`, checks the two stats reports, and runs the export with a trigger.
+- Known limits:
+  - The Toon look and the gun wall did not get a visual check in the editor.
+  - The toon outline can have small gaps at sharp corners.
+  - The parts are boxes, cylinders and simple booleans.
+  - Linux and macOS did not run the workbench.
 
 ### City workbench, 2026-11-19
 

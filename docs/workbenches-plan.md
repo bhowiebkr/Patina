@@ -280,6 +280,36 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   seed of a gun.
 - **F7.** Export: a `.glb` with the `muzzle` and `grip` sockets, and a stats file for each gun.
 
+Agent decisions of 2026-11-19 for F, the owner can change them:
+
+- `workbenches/gun` is a new project, as the city. It has imports of `types/geometry`,
+  `views/model-view` and the model nodes that its graphs use. Its own types are in `types/guns`.
+- A `Part` has a kind, a solid, sockets and stat changes. A `Gun` has the parts, the maker, the
+  rarity and the stats. The receiver has a socket for each other kind, and each part has its
+  mount at the origin. `assemble` moves each part to the socket of the receiver.
+- The makers (F2) are original: **Blockwerk** (blocky boxes and chamfers), **Vesper** (sleek
+  cylinders and tapers), **Scrapjaw** (plates at random offsets, pipes and bolts) and **Halo**
+  (rings and coils). Each maker is a set of shape rules and stat biases in `types/guns`.
+- The rarities are common, uncommon, rare, epic and legendary. A higher rarity moves the stat
+  rolls up, makes a sight, a stock and an accessory more frequent, and changes the accent color.
+- The nodes:
+  - `receiver`, `barrel`, `grip`, `stock`, `magazine`, `sight` and `accessory` (F1): one part
+    from a seed and a maker.
+  - `assemble` (F3): a gun from the parts and a `rarity` input.
+  - `gun` (F3): all the parts from one seed, with a sub-seed for each part and a weighted pick
+    of the maker and the rarity when they are **random**.
+  - `stats` (F4): the stats as text.
+  - `look` (F5): the gun as a scene with the colors of the maker and the rarity.
+  - `export-gun` (F7): a `.glb` file with the `muzzle` and `grip` sockets, and a `.txt` file
+    with the stats.
+- `model-view` gets a **Toon** toggle (F5): three light bands and dark outlines from the back
+  faces.
+- The `gun-wall` view (F6) draws a grid of gun side views as canvas paths. The view tree goes to
+  the page at each frame, so images of 256 x 256 pixels cost too much. A click on a gun sets the
+  seed of the `gun` node.
+- The model geometry types get `Solid::project` and `Sketch::outlines` for the side views. They
+  are general tools of the model workbench, not gun logic.
+
 ## Progress
 
 - 2026-11-19: A and B1 to B5 are done. [STATUS.md](../STATUS.md) has the checks.
@@ -306,6 +336,9 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   places and runs in about 0.3 s after a bake build. A district of 1 km x 1 km runs in less than
   0.5 s. The CLI test runs the district, the 1 km check and the export of each building. Next
   is F.
+- 2026-11-19: F1 to F7 are done on Windows. The CLI test runs `main` and the export with a
+  trigger. The unit tests check the seeds, the sockets, the stats, the rarity weights, the side
+  view and the gun wall. The Toon look and the gun wall did not get a visual check.
 
 ## Order
 

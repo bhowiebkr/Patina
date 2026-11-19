@@ -1,0 +1,24 @@
+# Made by Patina. Patina writes this file again at each build.
+[workspace]
+resolver = "3"
+members = ["nodes/*", "views/*", "build/clusters/*"]
+
+[workspace.dependencies]
+patina-sdk = { path = "build/sdk/patina-sdk" }
+patina-gpu = { path = "build/sdk/patina-gpu" }
+patina-cuda = { path = "build/sdk/patina-cuda" }
+patina-event = { path = "build/sdk/patina-event" }
+
+[patch.crates-io]
+foldhash = { path = "build/sdk/patina-gpu/vendor/foldhash" }
+
+[profile.edit]
+inherits = "dev"
+debug-assertions = false
+
+[profile.bake]
+inherits = "release"
+codegen-units = 1
+
+[profile.edit.package.cluster-batch]
+debug = false

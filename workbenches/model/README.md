@@ -59,7 +59,8 @@ has no solid, the view keeps the last solid.
 - Drag to orbit. Shift and drag to pan. Turn the wheel to zoom. Press Home or click
   **Frame model** to frame the model.
 - **Wireframe** shows the triangle edges, **Grid** shows the ground grid and the X and Y axes,
-  and **Part colors** gives each part its own color.
+  and **Part colors** gives each part its own color. **Toon** gives three light bands and dark
+  outlines.
 - Each new value of the node, for example after a seed change, shows at once. The camera stays.
 
 ## Export a model

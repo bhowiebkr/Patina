@@ -13,6 +13,8 @@ const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 const SAMPLES: u32 = 4;
 /// The largest side of the picture, in pixels.
 const MAX_SIDE: u32 = 4096;
+/// The bytes of the uniform `Scene` of `scene.wgsl`: the matrix, the light and the pixel size.
+const UNIFORM: usize = 96;
 
 // The colors of the GUI guide, in sRGB.
 const BACKGROUND: u32 = 0x18_1818;
@@ -54,6 +56,7 @@ pub struct Options {
     pub grid: bool,
     pub wireframe: bool,
     pub parts: bool,
+    pub toon: bool,
 }
 
 /// The GPU state of one view.
@@ -61,6 +64,7 @@ pub struct Renderer {
     surface: ViewportSurface,
     triangles: wgpu::RenderPipeline,
     lines: wgpu::RenderPipeline,
+    outlines: wgpu::RenderPipeline,
     uniform: wgpu::Buffer,
     bind: wgpu::BindGroup,
     batches: Vec<Batch>,
@@ -113,13 +117,15 @@ impl Renderer {
             bind_group_layouts: &[Some(&layout)],
             immediate_size: 0,
         });
-        let pipeline = |topology, bias| {
+        // An outline pipeline draws the back faces with `vs_outline` and `fs_outline`.
+        let pipeline = |topology, bias, outline: bool| {
+            let entry = |name: &'static str| if outline { [name, "_outline"].concat() } else { name.to_string() };
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("model view"),
                 layout: Some(&pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &module,
-                    entry_point: Some("vs"),
+                    entry_point: Some(&entry("vs")),
                     compilation_options: Default::default(),
                     buffers: &[
                         Some(wgpu::VertexBufferLayout {
@@ -136,7 +142,7 @@ impl Renderer {
                 },
                 primitive: wgpu::PrimitiveState {
                     topology,
-                    cull_mode: (topology == wgpu::PrimitiveTopology::TriangleList).then_some(wgpu::Face::Back),
+                    cull_mode: (topology == wgpu::PrimitiveTopology::TriangleList).then_some(if outline { wgpu::Face::Front } else { wgpu::Face::Back }),
                     ..Default::default()
                 },
                 // The faces go back a little, so the lines on them show.
@@ -150,7 +156,7 @@ impl Renderer {
                 multisample: wgpu::MultisampleState { count: SAMPLES, ..Default::default() },
                 fragment: Some(wgpu::FragmentState {
                     module: &module,
-                    entry_point: Some("fs"),
+                    entry_point: Some(&entry("fs")),
                     compilation_options: Default::default(),
                     targets: &[Some(COLOR.into())],
                 }),
@@ -161,7 +167,7 @@ impl Renderer {
         let face_bias = wgpu::DepthBiasState { constant: 2, slope_scale: 1.5, clamp: 0.0 };
         let uniform = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("model view"),
-            size: 80,
+            size: UNIFORM as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -172,8 +178,9 @@ impl Renderer {
         });
         Ok(Renderer {
             surface: ViewportSurface::default(),
-            triangles: pipeline(wgpu::PrimitiveTopology::TriangleList, face_bias),
-            lines: pipeline(wgpu::PrimitiveTopology::LineList, Default::default()),
+            triangles: pipeline(wgpu::PrimitiveTopology::TriangleList, face_bias, false),
+            lines: pipeline(wgpu::PrimitiveTopology::LineList, Default::default(), false),
+            outlines: pipeline(wgpu::PrimitiveTopology::TriangleList, face_bias, true),
             uniform,
             bind,
             batches: Vec::new(),
@@ -255,8 +262,10 @@ impl Renderer {
     fn render(&self, gpu: &Gpu, targets: &Targets, camera: &Camera, options: Options) {
         let [w, h] = targets.size;
         let light = camera.light();
-        let floats = camera.matrix(w as f32 / h as f32).into_iter().flatten().chain(light).chain([0.0]);
-        let mut bytes = [0_u8; 80];
+        let toon = if options.toon { 1.0 } else { 0.0 };
+        let pixel = [2.0 / w as f32, 2.0 / h as f32, 0.0, 0.0];
+        let floats = camera.matrix(w as f32 / h as f32).into_iter().flatten().chain(light).chain([toon]).chain(pixel);
+        let mut bytes = [0_u8; UNIFORM];
         for (chunk, v) in bytes.as_chunks_mut::<4>().0.iter_mut().zip(floats) {
             *chunk = v.to_le_bytes();
         }
@@ -290,7 +299,7 @@ impl Renderer {
         for batch in &self.batches {
             let (instances, count) = batch.instances.as_ref().map_or((&self.identity, 1), |(b, n)| (b, *n));
             pass.set_vertex_buffer(1, instances.slice(..));
-            let draws = [(true, &self.triangles, &batch.faces), (options.wireframe, &self.lines, &batch.edges)];
+            let draws = [(true, &self.triangles, &batch.faces), (options.toon, &self.outlines, &batch.faces), (options.wireframe, &self.lines, &batch.edges)];
             for (pipeline, (buffer, vertices)) in draws.into_iter().filter_map(|(on, p, b)| Some((p, b.as_ref().filter(|_| on)?))) {
                 pass.set_pipeline(pipeline);
                 pass.set_vertex_buffer(0, buffer.slice(..));
@@ -445,5 +454,12 @@ mod tests {
         assert!(lines.iter().all(|v| v[2] == 0.0) && lines.iter().any(|v| v[0] >= 1.25));
         assert!(lines.iter().any(|v| v[6..] == linear(X_AXIS)));
         assert_eq!(linear(0xff_ffff), [1.0; 3]);
+    }
+
+    #[test]
+    fn the_shaders_are_valid() {
+        for (name, source) in [("scene.wgsl", include_str!("scene.wgsl")), ("blit.wgsl", include_str!("blit.wgsl"))] {
+            patina_gpu::link_source(name, source, &[]).unwrap();
+        }
     }
 }

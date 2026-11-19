@@ -17,6 +17,8 @@ struct Vec2 {
 
 /// `MANIFOLD_FILL_RULE_NON_ZERO`: a polygon fills in both turn directions.
 const NON_ZERO: c_int = 1;
+/// `MANIFOLD_FILL_RULE_POSITIVE`: an area fills where the outlines turn more counterclockwise.
+const POSITIVE: c_int = 2;
 
 unsafe extern "C" {
     fn manifold_alloc_cross_section() -> *mut RawSketch;
@@ -33,6 +35,10 @@ unsafe extern "C" {
     fn manifold_cross_section_circle(mem: *mut RawSketch, radius: f64, segments: c_int) -> *mut RawSketch;
     fn manifold_simple_polygon(mem: *mut c_void, ps: *const Vec2, length: usize) -> *mut c_void;
     fn manifold_cross_section_of_simple_polygon(mem: *mut RawSketch, p: *mut c_void, fill: c_int) -> *mut RawSketch;
+    fn manifold_cross_section_of_polygons(mem: *mut RawSketch, p: *mut c_void, fill: c_int) -> *mut RawSketch;
+    fn manifold_polygons_length(p: *mut c_void) -> usize;
+    fn manifold_polygons_simple_length(p: *mut c_void, index: usize) -> usize;
+    fn manifold_polygons_get_point(p: *mut c_void, simple: usize, point: usize) -> Vec2;
     fn manifold_cross_section_translate(mem: *mut RawSketch, cs: *mut RawSketch, x: f64, y: f64) -> *mut RawSketch;
     fn manifold_cross_section_to_polygons(mem: *mut c_void, cs: *mut RawSketch) -> *mut c_void;
     fn manifold_cross_section_area(cs: *mut RawSketch) -> f64;
@@ -84,6 +90,16 @@ impl Sketch {
         })
     }
 
+    /// The sketch of kernel Polygons from a projection, with the positive fill rule. The kernel
+    /// docs give this rule for the outlines of `Manifold::Project`, which can cross themselves.
+    ///
+    /// # Safety
+    /// `polygons` must be valid kernel Polygons. The caller deletes them.
+    pub(crate) unsafe fn of_projection(polygons: *mut c_void) -> Sketch {
+        // SAFETY: `mem` is new CrossSection memory, and the caller gives valid polygons.
+        Sketch::make(|mem| unsafe { manifold_cross_section_of_polygons(mem, polygons, POSITIVE) })
+    }
+
     /// Moves the sketch by `[x, y]`.
     pub fn translate(&self, [x, y]: [f64; 2]) -> Sketch {
         // SAFETY: `mem` is new CrossSection memory, and the input is a valid sketch.
@@ -111,6 +127,22 @@ impl Sketch {
             manifold_delete_rect(rect);
             [[min.x, min.y], [max.x, max.y]]
         }
+    }
+
+    /// The closed outlines, each as a list of corners. An outer outline turns counterclockwise,
+    /// and a hole turns clockwise.
+    pub fn outlines(&self) -> Vec<Vec<[f64; 2]>> {
+        self.with_polygons(|polygons| {
+            // SAFETY: the polygons are valid during the call, and each index is below its length.
+            unsafe {
+                let corner = |i, j| {
+                    let p = manifold_polygons_get_point(polygons, i, j);
+                    [p.x, p.y]
+                };
+                let outline = |i| (0..manifold_polygons_simple_length(polygons, i)).map(|j| corner(i, j)).collect();
+                (0..manifold_polygons_length(polygons)).map(outline).collect()
+            }
+        })
     }
 
     /// Calls `use_polygons` with the outlines of the sketch as kernel Polygons.

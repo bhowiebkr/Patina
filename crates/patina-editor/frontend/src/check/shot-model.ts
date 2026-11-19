@@ -1,4 +1,4 @@
-// The model and the city workbenches: the 3D view in the second center pane (tasks D5, D8 and E6), checked on the hidden screenshot desktop.
+// The model, the city and the gun workbenches: the 3D view in the second center pane (tasks D5, D8, E6 and F5), checked on the hidden screenshot desktop.
 import { api, onEngine, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { closePanel, openView, VIEW_SLOTS } from '../panels/layout';
@@ -8,16 +8,17 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const panel = () => document.querySelector<HTMLElement>('aside[data-view="model-view"]');
 // The text of the shown solid, for example "144 triangles, bounds -1.2 -1.2 0 to 1.2 1.2 2.933".
 const shown = () => panel()?.innerText.match(/\d+ triangles, bounds [^\n]+/)?.[0]?.trim() ?? '';
-// The seed node, the node that the check selects, and the first name of the captures.
+// The seed node, the node that the check selects, the first name of the captures, and a capture with Toon.
 const TARGETS = [
-  { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model' },
-  { seed: 'c170000000000001', node: 'c170000000000017', title: 'merge', shot: 'city' },
+  { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false },
+  { seed: 'c170000000000001', node: 'c170000000000017', title: 'merge', shot: 'city', toon: false },
+  { seed: '9a70000000000001', node: '9a70000000000002', title: 'look', shot: 'gun', toon: true },
 ];
 
 export async function modelWorkbench(view: View, show: (view: View) => void): Promise<string[]> {
   const target = TARGETS.find((t) => view.graph.node?.some((n) => n.id === t.node));
   if (!view.views.includes('model-view') || !target) return [];
-  const { seed, node, title, shot } = target;
+  const { seed, node, title, shot, toon } = target;
   let stage = 'open';
   let failure = '';
   let runs = 0;
@@ -66,6 +67,17 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
     };
     await capture(`${shot}-view`);
     steps.push(`the 3D view in the second pane shows the selected ${title}: ${first}`);
+    if (toon) {
+      stage = 'toon';
+      const box = () => [...panel()!.querySelectorAll('label.gui-row')].find((l) => l.textContent === 'Toon')?.querySelector('input');
+      box()!.click();
+      await until(() => !!box()?.checked, 'The Toon toggle did not turn on');
+      await sleep(800);
+      await capture(`${shot}-view-toon`);
+      box()!.click();
+      await until(() => box()?.checked === false, 'The Toon toggle did not turn off');
+      steps.push('the Toon toggle draws the toon look');
+    }
     stage = 'change the seed';
     show(await api.edit({ kind: 'SetParam', id: seed, key: 'seed', text: '8' }));
     await until(() => shown() !== '' && shown() !== first, `A new seed did not give a new mesh in the 3D view: ${first}`);

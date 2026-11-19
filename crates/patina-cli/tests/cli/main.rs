@@ -4,6 +4,7 @@ mod city;
 mod common;
 mod computer;
 mod events;
+mod gun;
 mod imports;
 mod model;
 mod nodes;

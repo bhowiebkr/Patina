@@ -724,6 +724,7 @@ questions.
   [synth](workbenches/synth/README.md), the Ember sound workbench.
   [model](workbenches/model/README.md), the procedural 3D models.
   [city](workbenches/city/README.md), seeded cities of streets, lots and buildings.
+  [gun](workbenches/gun/README.md), seeded guns for a game from parts of four makers.
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
 - [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free

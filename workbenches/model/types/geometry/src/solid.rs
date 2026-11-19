@@ -45,6 +45,9 @@ unsafe extern "C" {
         x4: f64, y4: f64, z4: f64,
     ) -> *mut Raw;
     fn manifold_hull(mem: *mut Raw, m: *mut Raw) -> *mut Raw;
+    fn manifold_project(mem: *mut c_void, m: *mut Raw) -> *mut c_void;
+    fn manifold_alloc_polygons() -> *mut c_void;
+    fn manifold_delete_polygons(p: *mut c_void);
     fn manifold_extrude(mem: *mut Raw, cs: *mut c_void, height: f64, slices: c_int, twist: f64, sx: f64, sy: f64) -> *mut Raw;
     fn manifold_revolve(mem: *mut Raw, cs: *mut c_void, segments: c_int, degrees: f64) -> *mut Raw;
     fn manifold_alloc_manifold_vec() -> *mut c_void;
@@ -253,6 +256,19 @@ impl Solid {
     pub fn part(&self) -> Option<u32> {
         // SAFETY: the solid is valid.
         u32::try_from(unsafe { manifold_original_id(self.0) }).ok()
+    }
+
+    /// The outline of the solid as seen from +Z, on the XY plane. Turn the solid first to see
+    /// another side, for example `rotate([-90.0, 0.0, 0.0])` for the side view on X and Z.
+    pub fn project(&self) -> Sketch {
+        // SAFETY: `mem` is new Polygons memory that the kernel fills from the valid solid. The
+        // sketch copies the polygons, and they are deleted after the copy.
+        unsafe {
+            let polygons = manifold_project(manifold_alloc_polygons(), self.0);
+            let sketch = Sketch::of_projection(polygons);
+            manifold_delete_polygons(polygons);
+            sketch
+        }
     }
 
     /// The kernel error of the solid, for example from a construction that is not valid.

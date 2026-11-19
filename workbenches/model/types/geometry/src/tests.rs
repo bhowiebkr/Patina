@@ -142,6 +142,23 @@ fn sketches_make_solids() {
 }
 
 #[test]
+fn a_projection_gives_the_outline_and_its_holes() {
+    let cube = Solid::cube(2.0, 2.0, 2.0);
+    let top = cube.project();
+    assert_eq!(top.area(), 4.0);
+    assert_eq!(top.outlines().iter().map(Vec::len).collect::<Vec<_>>(), [4]);
+    let frame = cube.difference(&Solid::cube(1.0, 1.0, 3.0));
+    let outlines = frame.project().outlines();
+    assert_eq!(outlines.len(), 2, "{outlines:?}");
+    assert_eq!(frame.project().area(), 3.0);
+    // The side view: Y turns to Z, so the long Z side of the block shows on Y.
+    let side = Solid::cube(1.0, 1.0, 4.0).rotate([-90.0, 0.0, 0.0]).project();
+    let [[_, y0], [_, y1]] = side.bounds();
+    assert!((y1 - y0 - 4.0).abs() < 1e-9, "{side:?}");
+    assert_eq!(format!("{:?}", Solid::empty().project()), "empty");
+}
+
+#[test]
 fn many_solids_join_mirror_and_move_to_a_frame() {
     let cube = Solid::cube(1.0, 1.0, 1.0);
     let row: Vec<Solid> = (0..3).map(|i| cube.translate([f64::from(i), 0.0, 0.0])).collect();

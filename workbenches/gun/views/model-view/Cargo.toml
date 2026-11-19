@@ -1,0 +1,15 @@
+[package]
+name = "model-view"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.patina]
+dock = "split"
+
+[dependencies]
+patina-sdk = { workspace = true }
+patina-gpu = { workspace = true }
+geometry = { path = "../../types/geometry" }

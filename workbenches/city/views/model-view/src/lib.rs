@@ -61,7 +61,7 @@ impl ModelView {
         Self {
             renderer: None,
             camera: Camera::default(),
-            options: Options { grid: true, wireframe: false, parts: true },
+            options: Options { grid: true, wireframe: false, parts: true, toon: false },
             source: String::new(),
             shown: None,
             stale: true,
@@ -107,6 +107,7 @@ impl ModelView {
             ui.column(|ui| _ = ui.toggle("Wireframe", &mut self.options.wireframe));
             ui.column(|ui| _ = ui.toggle("Grid", &mut self.options.grid));
             ui.column(|ui| _ = ui.toggle("Part colors", &mut self.options.parts));
+            ui.column(|ui| _ = ui.toggle("Toon", &mut self.options.toon));
         });
         // The part colors are in the vertices, so a change of the toggle sends the mesh again.
         self.stale |= parts != self.options.parts;
