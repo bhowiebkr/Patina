@@ -3,8 +3,8 @@
 import { createContext, memo, useContext, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
 import { duration, errorText, folderName, nodeProblems, openType, plainDoc, reportText, type Diagnostic, type Domain, type Edit, type NodeEntry, type NodeInfo, type NodeLog, type NodeTime, type Pin, type Report, type TickStages, type Value, type View } from '../api';
-import type { Socket } from './bus';
-import { BusSocket, socketBar, socketHeight, socketPin } from './BusSocket';
+import { socketBar, type Socket } from './bus';
+import { BusSocket, socketHeight, socketPin } from './BusSocket';
 import { FAR_ZOOM } from '../wires/gl';
 import { ExpandButton, NodeGui } from '../controls/NodeGui';
 import { Thumbnail } from '../controls/ValueWidgets';
@@ -13,7 +13,8 @@ import { FRAME_BOTTOM, FRAME_RIGHT } from './frames';
 import { freeLayout, nodeWidth } from '../controls/gui';
 import { DomainIcon, KindIcon } from '../controls/icons';
 import type { Lost } from './lostPins';
-import { SymbolBody, symbolLayout } from './SymbolView';
+import { SymbolBody } from './SymbolView';
+import { symbolLayout } from './symbols';
 
 export type NodeState = 'none' | 'ready' | 'compiling' | 'compile-error' | 'run-error' | 'stale' | 'skipped' | 'unresolved';
 
@@ -320,11 +321,12 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
   const use = entry.subgraph !== undefined && !inner;
   if (info?.symbol && !open) {
     // A circuit symbol (4.3): the shape is the whole node, with the caption of a free layout above it.
-    const layout = symbolLayout(info.symbol, folderName(entry), inputs, outputs);
+    // A bus pin is a bar with its lanes, as on a box node (15.9).
+    const layout = symbolLayout(info.symbol, folderName(entry), inputs, outputs, (key) => sockets?.[key]?.bits.length ?? 0);
     const handle = (pin: Pin, output: boolean) => {
       const key = `${output ? 'o' : 'i'}:${pin.key}`;
       const [x, y] = layout.leads.find((l) => l.key === key)?.end ?? [0, 0];
-      return <PinHandle key={key} pin={pin} generics={info.generics} output={output} editable={editable} lost={output ? lostOut(pin) : lostIn(pin)} top={y} left={GUTTER + x} socket={undefined} />;
+      return <PinHandle key={key} pin={pin} generics={info.generics} output={output} editable={editable} lost={output ? lostOut(pin) : lostIn(pin)} top={y} left={GUTTER + x} socket={sockets?.[key]} />;
     };
     return (
       <div className={[...classes, 'free', 'symbol'].join(' ')} style={{ width: layout.width }}>
@@ -335,7 +337,7 @@ function NodeViewImpl({ id, data, selected }: NodeProps<PatinaNode>) {
           {domain && <DomainIcon domain={domain} />}
           <StateIcon state={state} />
         </div>
-        <SymbolBody layout={layout} levels={data.levels} far={far} />
+        <SymbolBody layout={layout} levels={data.levels} sockets={sockets} far={far} />
         {lostParams && !inner && <LostParams id={entry.id} keys={lostParams} params={entry.params} editable={editable} />}
         {message && <div className="patina-node-message">{message}</div>}
         {inputs.map((pin) => handle(pin, false))}
@@ -538,14 +540,14 @@ function PinLabel({ pin, lost = false }: { pin: Pin | undefined; lost?: boolean 
 /** The pin of a row: a dot, or a bar as wide as the ribbon of a bus socket (15.9). */
 function PinHandle({ pin, generics = [], output, editable, lost, top, left, socket }: { pin: Pin; generics?: string[]; output: boolean; editable: boolean; lost: boolean; top: number; left?: number; socket: Socket | undefined }) {
   const bar = socket && socketBar(socket.bits.length);
-  const style = bar ? { top, height: bar, marginTop: 1 - bar / 2 } : { top, left };
+  const style = bar ? { top, left, height: bar, marginTop: 1 - bar / 2 } : { top, left };
   return (
     <Handle
       id={pin.key}
       type={output ? 'source' : 'target'}
       position={output ? Position.Right : Position.Left}
       isConnectable={editable && !lost}
-      className={socket ? 'bus-pin' : lost ? 'lost-pin' : undefined}
+      className={[socket && 'bus-pin', lost && 'lost-pin'].filter(Boolean).join(' ') || undefined}
       title={lost ? lostTitle(pin.key) : undefined}
       style={style}
       data-ty={socketKey(pin.ty, generics)}

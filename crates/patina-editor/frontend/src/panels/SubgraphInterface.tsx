@@ -2,10 +2,21 @@
 // (6.4), and a preview of the node that each use shows.
 
 import type { FocusEvent, KeyboardEvent } from 'react';
-import { newId, SHAPES, type Edit, type Point, type PublicInput, type PublicOutput, type Shape, type View } from '../api';
-import { SymbolBody, symbolLayout } from '../canvas/SymbolView';
+import { newId, SHAPES, type Edit, type NodeInfo, type Point, type PublicInput, type PublicOutput, type Shape, type View } from '../api';
+import { kindOf } from '../canvas/bus';
+import { outputType } from '../canvas/NodeView';
+import { SymbolBody } from '../canvas/SymbolView';
+import { symbolLayout } from '../canvas/symbols';
 
 type Pin = PublicInput | PublicOutput;
+
+/** The lane count of the kind of a pin of the preview, by "i:<key>" or "o:<key>" (15.9). A generic output has the kind of its wire source. */
+function lanesOf(view: View, key: string, info: NodeInfo): number {
+  const [output, k] = [key.startsWith('o:'), key.slice(2)];
+  const ty = (output ? info.outputs : info.inputs).find((p) => p.key === k)?.ty;
+  const from = output ? view.graph.output?.find((p) => p.key === k)?.from : undefined;
+  return (kindOf(view.kinds, ty) ?? (from ? kindOf(view.kinds, outputType(view, from)) : undefined))?.lanes.length ?? 0;
+}
 
 const Arrow = ({ d }: { d: string }) => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -129,7 +140,7 @@ export function SubgraphInterface({ view, onEdit }: { view: View; onEdit: (edit:
         <h3>Public node preview</h3>
         {view.graph.symbol && info ? (
           <div className="symbol-preview" aria-label="Public node preview">
-            <SymbolBody layout={symbolLayout(view.graph.symbol, view.graphName, info.inputs, info.outputs)} far={false} />
+            <SymbolBody layout={symbolLayout(view.graph.symbol, view.graphName, info.inputs, info.outputs, (key) => lanesOf(view, key, info))} far={false} />
           </div>
         ) : (
           <div className="pin-preview" aria-label="Public node preview">

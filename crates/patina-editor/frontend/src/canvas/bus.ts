@@ -47,13 +47,16 @@ export function familyOf(kind: KindInfo | undefined): number {
   return kind?.color ? FAMILIES.indexOf(kind.color) + 1 : 0;
 }
 
+/** The height of the pin bar of a bus socket: the width of the ribbon and a margin. */
+export const socketBar = (n: number) => n * PITCH + 4;
+
+/** The width in px of a wire with these lanes. */
+export const wireWidth = (bits: string) => Math.max(2, bits.length * PITCH);
+
 /**
  * The lanes of a wire, the most significant first: the live lanes, else all off lanes when the
  * kind gives `lanes`, else one lane for a `bool`, else "" for one plain line.
  */
-/** The width in px of a wire with these lanes. */
-export const wireWidth = (bits: string) => Math.max(2, bits.length * PITCH);
-
 export function wireBits(value: Value | undefined, kind: KindInfo | undefined): string {
   if (value?.lanes) return value.lanes.bits;
   if (kind?.lanes.length) return '0'.repeat(kind.lanes.length);
@@ -126,12 +129,17 @@ export interface Socket {
   to: string | null;
 }
 
-/** The socket of a pin, or undefined when its kind gives no lanes. A value with another number of lanes is not shown. */
+/**
+ * The socket of a pin, or undefined when its wire has no lanes. A pin with no kind or no lane count
+ * gets the lanes of the live value, as its wire does (15.9). A value with another number of lanes is not shown.
+ */
 export function socketOf(kind: KindInfo | undefined, bus: string, value: Value | undefined, stale: boolean, from: string, to: string | null): Socket | undefined {
-  const n = kind?.lanes.length ?? 0;
-  if (!kind || n === 0) return undefined;
-  const live = value?.lanes?.bits.length === n;
-  return { bus, names: kind.lanes, bits: live ? value!.lanes!.bits : '0'.repeat(n), live, stale, family: familyOf(kind), from, to };
+  const bits = value?.lanes?.bits ?? '';
+  const names = kind && kind.lanes.length > 0 ? kind.lanes : bits.length > 1 ? Array.from(bits, (_, i) => String(bits.length - 1 - i)) : [];
+  const n = names.length;
+  if (n === 0) return undefined;
+  const live = bits.length === n;
+  return { bus, names, bits: live ? bits : '0'.repeat(n), live, stale, family: familyOf(kind), from, to };
 }
 
 export const HoverContext = createContext<HoverStore>(new HoverStore());

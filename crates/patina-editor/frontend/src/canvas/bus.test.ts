@@ -67,4 +67,12 @@ test('only a kind with lanes makes a socket, and a value of another width is not
   assert.deepEqual([live.bits, live.live, live.family], ['101', true, 3]);
   const wide = socketOf(ctrl, 'ctrl', { from: 'n.out', text: '5', lanes: { bits: '0101', label: 'c' } }, false, 'n.out', null)!;
   assert.deepEqual([wide.bits, wide.live], ['000', false]);
+  // A kind with no lane count takes the lanes of the live value, so its wire never ends at a dot.
+  const dynamic = socketOf(byte, 'a', { from: 'n.out', text: '5', lanes: { bits: '0101', label: 'b' } }, false, 'n.out', null)!;
+  assert.deepEqual([dynamic.bits, dynamic.live, dynamic.names], ['0101', true, ['3', '2', '1', '0']]);
+  assert.equal(socketOf(byte, 'a', { from: 'n.out', text: '1', lanes: { bits: '1', label: 'b' } }, false, 'n.out', null), undefined, 'one lane is a plain pin');
+  // A pin with no kind also takes the live lanes, in the neutral family.
+  const none = socketOf(undefined, 'a', { from: 'n.out', text: '5', lanes: { bits: '01', label: 'b' } }, false, 'n.out', null)!;
+  assert.deepEqual([none.bits, none.family], ['01', 0]);
+  assert.equal(socketOf(undefined, 'a', undefined, false, 'n.out', null), undefined);
 });

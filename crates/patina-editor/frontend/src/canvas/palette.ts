@@ -68,3 +68,11 @@ export function outputTypeOf(from: string, pins: (id: string) => Pins | null | u
   const found = source === undefined ? undefined : outputTypeOf(source, pins, wireTo, [...seen, from]);
   return found ?? ty;
 }
+
+type DragNode = { type?: string; data: { socket?: { bits: string }; sockets?: Readonly<Record<string, { bits: string }>> } };
+
+/** The lane count of the socket `key` of `node` where a wire drag starts, or 0 for a pin with no lanes (15.9). */
+export function dragLanes(node: DragNode | undefined, side: 'source' | 'target', key: string): number {
+  const socket = node?.type === 'port' ? node.data.socket : node?.data.sockets?.[`${side === 'source' ? 'o' : 'i'}:${key}`];
+  return socket?.bits.length ?? 0;
+}

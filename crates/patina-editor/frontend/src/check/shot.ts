@@ -12,6 +12,7 @@ import { textsMeet } from './boxes';
 import { GAP } from '../wires/route';
 import { skippedShape } from '../controls/gui';
 import { frameStats } from './benchGraph';
+import { busPinFaults } from './busPins';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -419,7 +420,7 @@ function wiresClear(where: string) {
       const [[la, a], [lb, b]] = [labels[i], labels[j]];
       if (a.left < b.right + 0.5 && b.left < a.right + 0.5 && a.top < b.bottom + 0.5 && b.top < a.bottom + 0.5) bad.push(`the labels "${la.textContent}" and "${lb.textContent}" run together`);
     }
-  bad.push(...crossed, ...bendMeets());
+  bad.push(...crossed, ...bendMeets(), ...busPinFaults());
   for (const c of document.querySelectorAll('.route-conflict')) bad.push(`a conflict mark at ${c.getAttribute('style')}`);
   // A badge keeps room for a value of 6 characters (15.3).
   for (const b of document.querySelectorAll<HTMLElement>('.wire-value'))

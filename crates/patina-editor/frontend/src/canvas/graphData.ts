@@ -10,7 +10,7 @@ import type { WireData } from '../wires/WireLayer';
 import { pathOf } from '../wires/wires';
 import { same } from './same';
 import { valueStale } from './liveValues';
-import { lostParams, lostPins, wireEnds, wiredKeys } from './lostPins';
+import { lostParams, lostPins, wireEnds, wiredKeys, type Lost } from './lostPins';
 
 const NO_POINTS: readonly Point[] = [];
 
@@ -48,15 +48,20 @@ function pinName(view: View, infos: ReadonlyMap<string, NodeInfo | null>, pin: s
   return output ? p?.name : p && (p.name ?? p.key);
 }
 
-/** The bus sockets of a node (15.9), or undefined when no pin has a kind with lanes. */
-function socketsOf(id: string, info: NodeInfo | null, kinds: readonly KindInfo[], run: RunState, sources: ReadonlyMap<string, string>) {
+/**
+ * The bus sockets of a node (15.9), or undefined when no pin has lanes. A pin with no kind, for
+ * example a generic or a lost pin, has the kind of its wire source, from `tyOf`, so a bus never ends at a dot.
+ */
+function socketsOf(id: string, info: NodeInfo | null, kinds: readonly KindInfo[], run: RunState, sources: ReadonlyMap<string, string>, tyOf: (from: string) => string | undefined, lost?: Lost) {
   let out: Record<string, Socket> | undefined;
   const add = (key: string, pin: Pin, from: string, to: string | null) => {
-    const s = socketOf(kindOf(kinds, pin.ty), pin.name ?? pin.key, run.values.get(from), from !== '' && valueStale(run, from), from, to);
+    const kind = kindOf(kinds, pin.ty) ?? (from !== '' ? kindOf(kinds, tyOf(from)) : undefined);
+    const s = socketOf(kind, pin.name ?? pin.key, run.values.get(from), from !== '' && valueStale(run, from), from, to);
     if (s) (out ??= {})[key] = s;
   };
   for (const p of info?.outputs ?? []) add(`o:${p.key}`, p, `${id}.${p.key}`, null);
   for (const p of info?.inputs ?? []) add(`i:${p.key}`, p, sources.get(`${id}.${p.key}`) ?? '', `${id}.${p.key}`);
+  for (const key of lost?.inputs ?? []) add(`i:${key}`, { key, ty: '' }, sources.get(`${id}.${key}`) ?? '', `${id}.${key}`);
   return out;
 }
 
@@ -100,7 +105,9 @@ function buildPorts(view: View, run: RunState, rooms: readonly Room[], old: Map<
     const ty = types.get(id) ?? '?';
     // The socket of an input gives its lanes to all of its wires. An output gets the lanes of its one wire.
     const pin = `${id}.pin`;
-    const socket = socketOf(kindOf(view.kinds, ty), name, run.values.get(pin), valueStale(run, input ? pin : (from ?? pin)), input ? pin : (from ?? ''), input ? null : pin);
+    // A generic output, or a port with no type, has the kind and the value of its wire source.
+    const kind = kindOf(view.kinds, ty) ?? (from ? kindOf(view.kinds, outputType(view, from)) : undefined);
+    const socket = socketOf(kind, name, run.values.get(pin) ?? (from ? run.values.get(from) : undefined), valueStale(run, input ? pin : (from ?? pin)), input ? pin : (from ?? ''), input ? null : pin);
     const data = { name, ty, input, value, testing: view.test != null, socket };
     const before = old.get(id);
     return before?.type === 'port' ? kept(before, position, data, held) : { id, type: 'port', position, deletable: false, data };
@@ -139,11 +146,14 @@ function innerNodes(view: View, run: RunState, guis: ReadonlyMap<string, string>
     });
     const sources = new Map([...f.wires.map((w) => [w.to, w.from] as const), ...fed]);
     const wired = wiredKeys([...f.wires.map((w) => w.to), ...f.inputs.map((p) => p.to)]);
+    const infos = new Map(f.nodes.map((n) => [n.entry.id, infoOf(n.entry, view.nodes)]));
+    // An outer source is an output of the open graph, else an inner output.
+    const tyOf = (from: string) => (infos.has(splitPin(from)[0]) ? outputTypeOf(from, (id) => infos.get(id), (to) => sources.get(to)) : outputType(view, from));
     return f.nodes.map(({ entry, x, y }): PatinaNode => {
-      const info = infoOf(entry, view.nodes);
+      const info = infos.get(entry.id) ?? null;
       const [state, message] = nodeState(entry, info, view, run);
       const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
-      const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
+      const sockets = socketsOf(entry.id, info, view.kinds, run, sources, tyOf);
       const keys = wired.get(entry.id) ?? NO_KEYS;
       const data = { entry, info, wired: keys, state, message, editable: false, time, gui: guis.get(`0 ${entry.id}`), sockets, domain: domains.get(entry.id), inner: true, thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
       const position = { x, y };
@@ -168,9 +178,9 @@ export function buildNodes(view: View, run: RunState, guis: ReadonlyMap<string, 
     const position = { x: x - GUTTER, y };
     const time = run.phase === 'ran' ? run.times.get(entry.id)?.ms : undefined;
     const slot = run.slot !== null && entry.folder === `nodes/${run.slot}`;
-    const sockets = socketsOf(entry.id, info, view.kinds, run, sources);
-    const domain = domains.get(entry.id);
     const lost = lostPins(info, ends.get(entry.id));
+    const sockets = socketsOf(entry.id, info, view.kinds, run, sources, (from) => outputType(view, from), lost);
+    const domain = domains.get(entry.id);
     const lostKeys = lostParams(info, entry.params);
     const data = { entry, info, wired, lost, lostParams: lostKeys, state, message, editable: view.trusted, time, gui: guis.get(`0 ${entry.id}`), slot, sockets, domain, open: open.has(entry.id), thumb: thumbOf(entry.id, info, run), levels: levelsOf(entry, info, run, sources) };
     const before = old.get(entry.id);
@@ -200,8 +210,10 @@ function innerEdges(view: View, domains: ReadonlyMap<string, Domain>, frames: re
     // A wire from a frame pin shows the value of the outer wire. It routes as its own net, from the frame edge.
     const ins = f.inputs.map(({ key, to }) => {
       const pin = pins?.inputs.find((p) => p.key === key);
-      const from = outer.get(`${f.use}.${key}`) ?? `${f.use}.${key}`;
-      return edge(`${f.use}.in:${key}>${to}`, [f.use, `in:${key}`], splitPin(to), { from, to, route: NO_POINTS, ty: pin?.ty, bus: pin?.name ?? pin?.key, net: `${f.use}.in:${key}` });
+      const src = outer.get(`${f.use}.${key}`);
+      const from = src ?? `${f.use}.${key}`;
+      // The outer wire gives the type, so a generic inner pin gets the lanes before a run.
+      return edge(`${f.use}.in:${key}>${to}`, [f.use, `in:${key}`], splitPin(to), { from, to, route: NO_POINTS, ty: (src ? outputType(view, src) : undefined) ?? pin?.ty, bus: pin?.name ?? pin?.key, net: `${f.use}.in:${key}` });
     });
     const outs = f.outputs.map(({ key, from }) => {
       const pin = pins?.outputs.find((p) => p.key === key);

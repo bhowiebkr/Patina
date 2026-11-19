@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { dragStyle, matchNodes, matchPin, outputTypeOf, socketKey, wireType } from './palette.ts';
+import { dragLanes, dragStyle, matchNodes, matchPin, outputTypeOf, socketKey, wireType } from './palette.ts';
 
 const nodes = ['show', 'number', 'sum', 'Noise'].map((name) => ({ name }));
 const names = (query: string) => matchNodes(nodes, query).map((n) => n.name);
@@ -70,4 +70,12 @@ test('a wire drag rings the sockets of the other side that fit, and an order dra
   assert.match(dragStyle('source', 'order'), /--diamond: var\(--accent\); \}$/);
   assert.equal(fit(dragStyle('source', 'a"b\\c')), `${h}.target:not(.order-pin):is([data-ty="*"], [data-ty="a\\"b\\\\c"])`);
   assert.match(dragStyle('source', 'f64'), /^\.react-flow \.react-flow__handle:not\(\.connectingfrom\) \{ opacity: 0\.3; \}\n/);
+});
+
+test('a wire drag from a bus socket gives the lanes of the socket, so the drag line is a ribbon (15.9)', () => {
+  const bus = { bits: '0000' };
+  const node = { type: 'patina', data: { sockets: { 'o:q': bus, 'i:d': { bits: '00' } } } };
+  assert.deepEqual([dragLanes(node, 'source', 'q'), dragLanes(node, 'target', 'd'), dragLanes(node, 'target', 'q'), dragLanes(node, 'source', '@order')], [4, 2, 0, 0]);
+  assert.equal(dragLanes({ type: 'port', data: { socket: bus } }, 'source', 'pin'), 4);
+  assert.deepEqual([dragLanes({ type: 'port', data: {} }, 'target', 'pin'), dragLanes({ type: 'patina', data: {} }, 'source', 'q'), dragLanes(undefined, 'source', 'q')], [0, 0, 0]);
 });

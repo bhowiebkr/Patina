@@ -7,7 +7,6 @@ import { createPortal } from 'react-dom';
 import { getBezierPath, Position, useReactFlow, useStore, type Edge, type EdgeProps, type ReactFlowState } from '@xyflow/react';
 import type { Point } from '../api';
 import { dragRoute } from '../canvas/frames';
-import type { NodeData } from '../canvas/NodeView';
 import { HoverContext, PITCH, busLabel, busText, familyOf, hoveredLane, kindOf, laneAt, laneTip, wireBits, wireWidth } from '../canvas/bus';
 import { FAR_ZOOM } from './gl';
 import { jointSize } from './marks';
@@ -29,12 +28,6 @@ export function OrderEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
   );
 }
 
-/** True for a node that shows its pins as dots: a circuit symbol, or a free layout with no bus socket (4.3). */
-function dots(n: { type?: string; data: unknown } | undefined) {
-  const d = n?.type === 'patina' ? (n.data as NodeData) : undefined;
-  return !!d && !d.open && (!!d.info?.symbol || (!!d.info?.free && d.gui !== undefined && d.sockets === undefined));
-}
-
 const CONFLICT = 'No clear path around the nodes. Move a node or a route point.';
 
 const labelHosts = new WeakMap<Element, Element>();
@@ -51,7 +44,7 @@ function labelHost(s: ReactFlowState): Element | null {
   return host ?? null;
 }
 
-export function WireEdge({ id, source, target, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
+export function WireEdge({ id, sourceX, sourceY, targetX, targetY, selected, data }: EdgeProps<Edge<WireData>>) {
   const { store, router, labels, onEdit, editable, kinds } = useContext(WireContext)!;
   const hover = useContext(HoverContext);
   const flow = useReactFlow();
@@ -67,8 +60,6 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
   // A bool wire is one lane: lit when true. A kind with lanes shows its lanes before a run (15.9).
   const bits = wireBits(value, kind);
   const family = familyOf(kind);
-  // The lanes of a bus fan in to the dot pin of a free or symbol node (15.9).
-  const taper = useStore((s) => (bits.length > 1 ? (dots(s.nodeLookup.get(source)) ? 1 : 0) | (dots(s.nodeLookup.get(target)) ? 2 : 0) : 0));
   const lane = useSyncExternalStore(hover.subscribe, () => hoveredLane(hover.get(), data!.from, data!.to));
   const tip = useSyncExternalStore(hover.subscribe, () => (hover.get()?.wire === id ? hover.get() : null));
   // A bus shows one line with its width at a far zoom (15.9).
@@ -87,8 +78,8 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
     [auto, sourceX, sourceY, targetX, targetY, routed, route, drawn, corners, width, radii],
   );
   useLayoutEffect(
-    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross, gaps, taper),
-    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane, cross, gaps, taper],
+    () => store.set(id, sourceX, sourceY, targetX, targetY, path, !!selected, bits, old, family, lane, cross, gaps),
+    [store, id, sourceX, sourceY, targetX, targetY, path, selected, bits, old, family, lane, cross, gaps],
   );
   useLayoutEffect(() => () => store.remove(id), [store, id]);
   const send = (points: Point[]) => onEdit({ kind: 'SetRoute', to: data!.to, points });
@@ -162,9 +153,9 @@ export function WireEdge({ id, source, target, sourceX, sourceY, targetX, target
   const hit = ribbon && !far ? { strokeWidth: `max(var(--wire-hit, 12px), ${width + 4}px)` } : undefined;
   return (
     <>
-      {/* shortcut: the SVG fallback draws a bus as one line; draw its lanes when a GPU without WebGL2 matters. */}
+      {/* shortcut: the SVG fallback draws a bus as one wide line with no lanes; draw its lanes when a GPU without WebGL2 matters. */}
       {/* shortcut: the SVG fallback has no crossing gaps (15.9); add a mask when the fallback is more than a lost context. */}
-      <path className={cross ? 'wire-line cross' : 'wire-line'} d={d} />
+      <path className={cross ? 'wire-line cross' : 'wire-line'} d={d} style={ribbon ? { strokeWidth: width } : undefined} />
       {wave && <path className={old ? 'wire-wave stale' : 'wire-wave'} d={wave} />}
       <path ref={hitRef} className="wire-hit" data-net={auto && routed ? net : undefined} d={d} style={hit} onDoubleClick={add} onPointerMove={move} onPointerLeave={leave} />
       {layer && createPortal(

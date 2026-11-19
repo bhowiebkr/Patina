@@ -144,6 +144,22 @@
   margin-right: -3.5px;
 }
 
+/* The left offset of a pin of a free layout or a symbol is its place, so the margin centers the bar on it. */
+.patina-node.free .react-flow__handle.bus-pin:not(.order-pin) {
+  margin-left: -3.5px;
+}
+
+/* The lanes of a bus lead of a circuit symbol (4.3), as wide as the lanes of its wire. */
+.symbol-lanes path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--lane) 30%, var(--node));
+  stroke-width: 3;
+}
+
+.symbol-lanes path.on {
+  stroke: var(--lane);
+}
+
 /* A free layout with a bus pin (4.3): a socket column of COLUMN (NodeView.tsx) on each side of the drawing. */
 .patina-node.socketed .bus-socket {
   width: 96px;

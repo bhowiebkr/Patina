@@ -20,11 +20,6 @@ export function socketPin(top: number, n: number): number {
   return top + HEAD + (n * CONTACT) / 2;
 }
 
-/** The height of the pin bar: the width of the ribbon and a margin. */
-export function socketBar(n: number): number {
-  return n * PITCH + 4;
-}
-
 interface Props {
   socket: Socket;
   output: boolean;

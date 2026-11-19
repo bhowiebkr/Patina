@@ -18,11 +18,11 @@ import {
 } from '@xyflow/react';
 import { NameField } from '../controls/NameField';
 import type { Domain, Edit, LibraryNode, DragLink, View } from '../api';
-import { HoverContext, HoverStore } from './bus';
+import { HoverContext, HoverStore, PITCH } from './bus';
 import { savedViewport, saveViewport } from '../panels/Dock';
 import { FrameToggle, gutter, NodeEdit, NodeView, PortView, type RunState } from './NodeView';
 import { graphEdit } from './frames';
-import { dragStyle } from './palette';
+import { dragLanes, dragStyle } from './palette';
 import { OrderEdge, WireEdge } from '../wires/WireEdge';
 import { WireContext, WireLayer, type WireData } from '../wires/WireLayer';
 import { Labels } from '../wires/labels';
@@ -119,6 +119,13 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
     const [side, node, key] = JSON.parse(from) as ['source' | 'target', string, string];
     return dragStyle(side, dragKey(view, node, key, side === 'source'));
   }, [from, view]);
+  // A drag from a bus socket draws a ribbon as wide as the wire, never a thin line (15.9).
+  const dragLine = useMemo(() => {
+    if (!from) return undefined;
+    const [side, node, key] = JSON.parse(from) as ['source' | 'target', string, string];
+    const n = dragLanes(flow.getNode(node), side, key);
+    return n > 1 ? { strokeWidth: n * PITCH } : undefined;
+  }, [from, flow]);
   const [collapsing, setCollapsing] = useState<{ ids: string[]; x: number; y: number } | null>(null);
   const [renaming, setRenaming] = useState<{ key: string; name: string; x: number; y: number } | null>(null);
   // The last pointer point over the canvas.
@@ -243,6 +250,7 @@ export function GraphView({ view, run, domains, guis, onEdit, onSelect, focus, o
           onReconnect={onReconnect}
           edgesReconnectable={view.trusted}
           isValidConnection={orderMatch}
+          connectionLineStyle={dragLine}
           onConnectEnd={adding.onConnectEnd}
           onDragOver={adding.onDragOver}
           onDrop={adding.onDrop}
