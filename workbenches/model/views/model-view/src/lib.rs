@@ -1,21 +1,22 @@
-//! The 3D view of the model workbench. It shows the solid of the selected node next to the graph.
+//! The 3D view of the model workbench. It shows the solid or the scene of the selected node next
+//! to the graph.
 
 mod camera;
 mod render;
 
 use camera::Camera;
-use geometry::{Mesh, Solid};
+use geometry::{Mesh, Scene, Solid};
 use patina_sdk::{Graph, Key, Pointer, Ui};
-use render::{Options, Renderer};
+use render::{Content, Options, Renderer};
 
-/// Shows the solid of the selected node. Drag to orbit, Shift and drag to pan, use the wheel to
+/// Shows the solid or the scene of the selected node. Drag to orbit, Shift and drag to pan, use the wheel to
 /// zoom, or press Home to frame.
 #[patina_sdk::view]
 pub struct ModelView {
     renderer: Option<Renderer>,
     camera: Camera,
     options: Options,
-    /// The output that the view shows, as `<node>.<output>`. It stays when the selection has no solid.
+    /// The output that the view shows, as `<node>.<output>`. It stays when the selection has no model.
     source: String,
     shown: Option<Shown>,
     /// True when the GPU does not have the mesh of `shown` with the current part colors.
@@ -24,12 +25,35 @@ pub struct ModelView {
     shift: bool,
 }
 
-/// The solid that the view shows.
+/// The model that the view shows.
 struct Shown {
     serial: u64,
     text: String,
     bounds: [[f32; 3]; 2],
-    mesh: Mesh,
+    content: Content,
+}
+
+/// A value that the view can show.
+enum Model<'g> {
+    Solid(&'g Solid),
+    Scene(&'g Scene),
+}
+
+impl Model<'_> {
+    fn serial(&self) -> u64 {
+        match self {
+            Model::Solid(solid) => solid.serial(),
+            Model::Scene(scene) => scene.serial(),
+        }
+    }
+
+    fn shown(&self) -> Shown {
+        let (text, bounds, content) = match self {
+            Model::Solid(solid) => (format!("{solid:?}"), solid.bounds(), Content::Mesh(solid.mesh())),
+            Model::Scene(scene) => (format!("{scene:?}"), scene.bounds(), Content::Scene((*scene).clone())),
+        };
+        Shown { serial: self.serial(), text, bounds: bounds.map(|corner| corner.map(|v| v as f32)), content }
+    }
 }
 
 impl ModelView {
@@ -48,21 +72,20 @@ impl ModelView {
 
     pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
         ui.label("MODEL / 3D VIEW");
-        let found = graph.selected().find_map(|id| solid_of(graph, id)).or_else(|| {
+        let found = graph.selected().find_map(|id| model_of(graph, id)).or_else(|| {
             let from = graph.wires().map(|(from, _)| from).find(|from| *from == self.source)?;
-            let (id, key) = from.split_once('.')?;
-            Some((from, graph.value::<Solid>(id, key)?))
+            Some((from, model(graph, from)?))
         });
         let mut reframe = false;
-        if let Some((from, solid)) = found {
+        if let Some((from, model)) = found {
             if from != self.source {
                 self.source.clear();
                 self.source.push_str(from);
             }
-            if self.shown.as_ref().is_none_or(|shown| shown.serial != solid.serial()) {
-                let bounds = solid.bounds().map(|corner| corner.map(|v| v as f32));
-                reframe = self.shown.is_none() && bounds.iter().flatten().all(|v| v.is_finite());
-                self.shown = Some(Shown { serial: solid.serial(), text: format!("{solid:?}"), bounds, mesh: solid.mesh() });
+            if self.shown.as_ref().is_none_or(|shown| shown.serial != model.serial()) {
+                let shown = model.shown();
+                reframe = self.shown.is_none() && shown.bounds.iter().flatten().all(|v| v.is_finite());
+                self.shown = Some(shown);
                 self.stale = true;
             }
         }
@@ -119,10 +142,10 @@ impl ModelView {
         if reframe && let Some(shown) = &self.shown {
             self.camera.frame(shown.bounds);
         }
-        // With no solid, the view shows the grid alone.
+        // With no model, the view shows the grid alone.
         let result = renderer(&mut self.renderer).and_then(|r| {
             if self.stale {
-                r.upload(self.shown.as_ref().map_or(&Mesh::default(), |shown| &shown.mesh), self.options.parts)?;
+                r.upload(self.shown.as_ref().map_or(&Content::Mesh(Mesh::default()), |shown| &shown.content), self.options.parts)?;
                 self.stale = false;
             }
             r.draw(&viewport, &self.camera, self.options)
@@ -141,13 +164,16 @@ fn renderer(slot: &mut Option<Renderer>) -> Result<&mut Renderer, String> {
     }
 }
 
-/// The solid of node `id` and the output that gives it. It is the first solid output of the node
-/// with a wire, or for a node with no such output, the first solid that goes into the node.
-fn solid_of<'g>(graph: &'g Graph, id: &str) -> Option<(&'g str, &'g Solid)> {
+/// The model of node `id` and the output that gives it. It is the first model output of the node
+/// with a wire, or for a node with no such output, the first model that goes into the node.
+fn model_of<'g>(graph: &'g Graph, id: &str) -> Option<(&'g str, Model<'g>)> {
     let on = |pin: &str| pin.split_once('.').is_some_and(|(n, _)| n == id);
     let outputs = graph.wires().any(|(from, _)| on(from));
-    graph.wires().filter(|&(from, to)| on(if outputs { from } else { to })).find_map(|(from, _)| {
-        let (n, key) = from.split_once('.')?;
-        Some((from, graph.value::<Solid>(n, key)?))
-    })
+    graph.wires().filter(|&(from, to)| on(if outputs { from } else { to })).find_map(|(from, _)| Some((from, model(graph, from)?)))
+}
+
+/// The solid or the scene at the output `pin`, as `<node>.<output>`.
+fn model<'g>(graph: &'g Graph, pin: &str) -> Option<Model<'g>> {
+    let (id, key) = pin.split_once('.')?;
+    graph.value::<Solid>(id, key).map(Model::Solid).or_else(|| graph.value::<Scene>(id, key).map(Model::Scene))
 }

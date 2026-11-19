@@ -95,7 +95,7 @@ const ERRORS: [&str; 15] = [
 pub struct Solid(*mut Raw, u64);
 
 /// The serial of the next solid.
-static SERIAL: AtomicU64 = AtomicU64::new(1);
+pub(crate) static SERIAL: AtomicU64 = AtomicU64::new(1);
 
 // SAFETY: a Manifold value is immutable after its construction. Its lazy CSG tree locks a mutex
 // at each access (csg_tree.h), so other threads can read and drop copies at the same time.

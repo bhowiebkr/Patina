@@ -54,6 +54,8 @@ The records of the ended milestones and of the finished work are in [docs/histor
   click on **Export** or at a trigger fire. The sockets go into the glTF extras (task D6).
 - Model workbench guide: a note and an `export` node in `main`, and the guide graphs
   **solids**, **sketches**, **seeds** and **sockets** (tasks D7 and D8).
+- City workbench: seeded streets, blocks, lots and buildings with roofs, windows and doors,
+  roads, trees and lamps as instances, and an export of each building to a `.glb` file (task E).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -275,6 +277,34 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The kernel has no loft, no fillet and no bevel.
   - `pick` chooses one of two inputs. Chain picks for more choices.
   - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
+
+### City workbench, 2026-11-19
+
+- Task E: [workbenches/city](workbenches/city/README.md) makes a seeded city with the model
+  workbench as a library. The agent decisions are in
+  [the workbenches plan](docs/workbenches-plan.md), task E.
+- Changes to the model workbench: `types/geometry` has a `Scene` type (items of one mesh at many
+  places, with a group for each building). `model-view` draws a scene with GPU instances.
+- Checked on 2026-11-19, on Windows only:
+  - 6 unit tests of `types/city` and 1 test of `export-buildings`, and the clippy of the city
+    crates, with the MSVC toolchain. CI does not run them.
+  - The CLI test runs `main`, a district of 1 km x 1 km, and the export of each building with a
+    trigger.
+  - The editor shot on a hidden desktop opens `main`, shows the `merge` node in `model-view` in
+    the second center pane, and checks that seed 8 and undo change the mesh.
+- Measurements on the computer of the owner, with a game open at the same time:
+  - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build
+    takes 9.2 s the first time. The result has 559 items, 53244 places and 664546 triangles.
+  - A district of 1 km x 1 km: 2163 items, 105482 places and 1352998 triangles. The run after the
+    build took 0.14 s in the CLI test and 0.35 s in a CLI run by hand. The E8 target is 2 s.
+- Known limits:
+  - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
+    roofs can give another hash on another platform.
+  - The streets are a grid with jitter. There are no curved streets, no tensor field and no
+    terrain.
+  - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
+    about 0.3 s after each change.
+  - Linux and macOS did not run the workbench.
 
 ### Model workbench guide graphs and checks, 2026-11-19
 

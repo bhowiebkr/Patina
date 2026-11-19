@@ -3,6 +3,7 @@
 
 pub mod export;
 mod mesh;
+mod scene;
 mod seed;
 mod sketch;
 mod sockets;
@@ -14,6 +15,7 @@ use std::fmt::{self, Write};
 use patina_sdk::{Text, Thumbnail, Ui, Viewer};
 
 pub use mesh::Mesh;
+pub use scene::{IDENTITY, Item, Matrix, Place, Scene};
 pub use seed::{Random, Seed};
 pub use sketch::Sketch;
 pub use sockets::{Frame, Sockets};
@@ -100,6 +102,13 @@ impl Viewer for Sockets {
             let [x, y, z] = frame.origin;
             ui.label(&format!("{name} at {x} {y} {z}"));
         }
+    }
+}
+
+/// Shows the counts and the bounds. The 3D view draws a scene.
+impl Viewer for Scene {
+    fn text(&self, out: &mut Text<'_>) -> fmt::Result {
+        write!(out, "{self:?}")
     }
 }
 

@@ -723,6 +723,7 @@ questions.
   [gpu](workbenches/gpu/README.md), WESL shaders on the GPU.
   [synth](workbenches/synth/README.md), the Ember sound workbench.
   [model](workbenches/model/README.md), the procedural 3D models.
+  [city](workbenches/city/README.md), seeded cities of streets, lots and buildings.
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
 - [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free

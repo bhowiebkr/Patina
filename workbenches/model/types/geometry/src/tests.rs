@@ -218,3 +218,29 @@ fn the_export_replaces_a_file_and_keeps_no_temporary_file() {
     assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
     std::fs::remove_dir_all(&folder).unwrap();
 }
+
+#[test]
+fn a_scene_places_meshes_and_bakes_each_group() {
+    let cube = Solid::cube(2.0, 2.0, 2.0).mesh();
+    let wide = Frame { x: [2.0, 0.0, 0.0], ..Frame::at([10.0, 0.0, 1.0]) };
+    let item = |name: &str, places: Vec<Place>| Item { name: name.into(), mesh: cube.clone(), color: 0x80_8080, places };
+    let a = Scene::new([item("a", vec![Place::new(&Frame::at([0.0; 3]), 1), Place::new(&wide, 2)]), item("none", vec![])]);
+    let b = Scene::new([item("b", vec![Place::new(&Frame::at([0.0, 5.0, 0.0]), 0)])]);
+    // An item with no place is not part of the scene.
+    assert_eq!(a.items().len(), 1);
+    let both = a.merge(&b);
+    assert_eq!(format!("{both:?}"), "2 items, 3 places, 36 triangles, bounds -1 -1 -1 to 12 6 2");
+    assert_eq!((both.groups(), both.places()), (vec![1, 2], 3));
+    assert_ne!(both.serial(), a.serial());
+    // A group bakes only its places, with the scale of the frame and normals of length 1.
+    let two = both.bake(Some(2));
+    assert_eq!((two.triangles(), Scene::new([]).bake(None).triangles()), (12, 0));
+    assert!(two.positions.iter().all(|p| (8.0..=12.0).contains(&p[0])));
+    assert!(two.normals.iter().all(|n| (n[0] * n[0] + n[1] * n[1] + n[2] * n[2] - 1.0).abs() < 1e-6));
+    let all = both.bake(None);
+    assert_eq!((all.triangles(), all.parts.iter().max()), (36, Some(&1)));
+    // The hash sees a change of a place.
+    let moved = Scene::new([item("b", vec![Place::new(&Frame::at([0.0, 5.5, 0.0]), 0)])]);
+    assert_eq!(b.hash(), b.clone().hash());
+    assert_ne!(b.hash(), moved.hash());
+}

@@ -1,5 +1,6 @@
 //! The tests of the CLI, in one test binary, so that cargo runs all of them in parallel.
 
+mod city;
 mod common;
 mod computer;
 mod events;

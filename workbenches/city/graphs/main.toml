@@ -1,0 +1,390 @@
+format = 1
+
+[[note]]
+id = "7e7e000000000001"
+pos = [0.0, -340.0]
+width = 1100.0
+text = "# SEEDED CITY\nThe `streets` node makes a grid of streets from the seed. `blocks`, `lots` and `heights` make the lots, and `masses` and `facades` make the buildings.\n`scatter` puts model solids on the plots: trees on the parks and lamps on the sidewalks. Change **seed** in the `seed` node to get a new city.\nClick **Run**, open **Views** and select **model-view**. Then click `report` to see the full city.\nIn `export-buildings`, click **Export** to write one `.glb` file for each building into the **buildings** folder."
+
+[[node]]
+id = "c170000000000001"
+folder = "nodes/seed"
+pos = [0.0, 0.0]
+
+[node.params]
+seed = "11"
+
+[[node]]
+id = "c170000000000002"
+folder = "nodes/streets"
+pos = [260.0, 0.0]
+
+[node.params]
+width = "600"
+depth = "450"
+spacing = "60"
+jitter = "0.15"
+drop = "0.25"
+avenue = "3"
+street = "10"
+avenue_width = "16"
+
+[[node]]
+id = "c170000000000003"
+folder = "nodes/blocks"
+pos = [520.0, 0.0]
+
+[[node]]
+id = "c170000000000004"
+folder = "nodes/inset"
+pos = [780.0, 0.0]
+
+[node.params]
+distance = "3"
+
+[[node]]
+id = "c170000000000005"
+folder = "nodes/lots"
+pos = [1040.0, 0.0]
+
+[node.params]
+area = "450"
+width = "8"
+parks = "0.06"
+
+[[node]]
+id = "c170000000000006"
+folder = "nodes/heights"
+pos = [1300.0, 0.0]
+
+[node.params]
+low = "6"
+high = "54"
+radius = "220"
+floor = "3.2"
+
+[[node]]
+id = "c170000000000007"
+folder = "nodes/masses"
+pos = [1560.0, 0.0]
+
+[node.params]
+pitched = "0.4"
+rise = "3"
+
+[[node]]
+id = "c170000000000008"
+folder = "nodes/facades"
+pos = [1560.0, 240.0]
+
+[node.params]
+bay = "3.5"
+
+[[node]]
+id = "c17000000000001a"
+folder = "nodes/cuboid"
+pos = [1040.0, 180.0]
+
+[node.params]
+x = "1.2"
+y = "0.2"
+z = "1.4"
+
+[[node]]
+id = "c17000000000001b"
+folder = "nodes/translate"
+pos = [1300.0, 180.0]
+
+[node.params]
+z = "0.7"
+
+[[node]]
+id = "c17000000000001c"
+folder = "nodes/cuboid"
+pos = [1040.0, 380.0]
+
+[node.params]
+x = "1.4"
+y = "0.3"
+z = "2.4"
+
+[[node]]
+id = "c17000000000001d"
+folder = "nodes/translate"
+pos = [1300.0, 380.0]
+
+[node.params]
+z = "1.2"
+
+[[node]]
+id = "c170000000000009"
+folder = "nodes/merge"
+pos = [1820.0, 100.0]
+
+[[node]]
+id = "c170000000000019"
+folder = "nodes/export-buildings"
+pos = [2080.0, -120.0]
+
+[node.params]
+folder = "buildings"
+
+[[node]]
+id = "c17000000000000a"
+folder = "nodes/roads"
+pos = [780.0, 600.0]
+
+[[node]]
+id = "c17000000000000b"
+folder = "nodes/parks"
+pos = [1300.0, 600.0]
+
+[[node]]
+id = "c17000000000000c"
+folder = "nodes/cylinder"
+pos = [780.0, 780.0]
+
+[node.params]
+height = "3"
+radius = "0.25"
+segments = "8"
+
+[[node]]
+id = "c17000000000000d"
+folder = "nodes/translate"
+pos = [1040.0, 780.0]
+
+[node.params]
+z = "1.5"
+
+[[node]]
+id = "c17000000000000e"
+folder = "nodes/sphere"
+pos = [780.0, 940.0]
+
+[node.params]
+radius = "1.8"
+segments = "12"
+
+[[node]]
+id = "c17000000000000f"
+folder = "nodes/translate"
+pos = [1040.0, 940.0]
+
+[node.params]
+z = "4.4"
+
+[[node]]
+id = "c170000000000010"
+folder = "nodes/union"
+pos = [1300.0, 840.0]
+
+[[node]]
+id = "c170000000000011"
+folder = "nodes/scatter"
+pos = [1560.0, 660.0]
+
+[node.params]
+spacing = "7"
+inset = "2.5"
+color = "#3f6b35"
+
+[[node]]
+id = "c170000000000012"
+folder = "nodes/cylinder"
+pos = [1040.0, 1100.0]
+
+[node.params]
+height = "5"
+radius = "0.12"
+segments = "6"
+
+[[node]]
+id = "c170000000000013"
+folder = "nodes/translate"
+pos = [1300.0, 1100.0]
+
+[node.params]
+z = "2.5"
+
+[[node]]
+id = "c170000000000014"
+folder = "nodes/scatter"
+pos = [1560.0, 1000.0]
+
+[node.params]
+spacing = "24"
+inset = "0.8"
+color = "#30343a"
+
+[[node]]
+id = "c170000000000015"
+folder = "nodes/merge"
+pos = [1820.0, 620.0]
+
+[[node]]
+id = "c170000000000016"
+folder = "nodes/merge"
+pos = [2080.0, 780.0]
+
+[[node]]
+id = "c170000000000017"
+folder = "nodes/merge"
+pos = [2340.0, 200.0]
+
+[[node]]
+id = "c170000000000018"
+folder = "nodes/report"
+pos = [2600.0, 200.0]
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000002.seed"
+
+[[wire]]
+from = "c170000000000002.out"
+to = "c170000000000003.streets"
+
+[[wire]]
+from = "c170000000000003.out"
+to = "c170000000000004.plots"
+
+[[wire]]
+from = "c170000000000004.out"
+to = "c170000000000005.blocks"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000005.seed"
+
+[[wire]]
+from = "c170000000000005.out"
+to = "c170000000000006.plots"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000006.seed"
+
+[[wire]]
+from = "c170000000000006.out"
+to = "c170000000000007.plots"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000007.seed"
+
+[[wire]]
+from = "c170000000000006.out"
+to = "c170000000000008.plots"
+
+[[wire]]
+from = "c17000000000001a.out"
+to = "c17000000000001b.solid"
+
+[[wire]]
+from = "c17000000000001b.out"
+to = "c170000000000008.window"
+
+[[wire]]
+from = "c17000000000001c.out"
+to = "c17000000000001d.solid"
+
+[[wire]]
+from = "c17000000000001d.out"
+to = "c170000000000008.door"
+
+[[wire]]
+from = "c170000000000007.out"
+to = "c170000000000009.a"
+
+[[wire]]
+from = "c170000000000008.out"
+to = "c170000000000009.b"
+
+[[wire]]
+from = "c170000000000009.out"
+to = "c170000000000019.scene"
+
+[[wire]]
+from = "c170000000000002.out"
+to = "c17000000000000a.streets"
+
+[[wire]]
+from = "c170000000000003.out"
+to = "c17000000000000a.blocks"
+
+[[wire]]
+from = "c170000000000005.out"
+to = "c17000000000000b.plots"
+
+[[wire]]
+from = "c17000000000000c.out"
+to = "c17000000000000d.solid"
+
+[[wire]]
+from = "c17000000000000e.out"
+to = "c17000000000000f.solid"
+
+[[wire]]
+from = "c17000000000000d.out"
+to = "c170000000000010.a"
+
+[[wire]]
+from = "c17000000000000f.out"
+to = "c170000000000010.b"
+
+[[wire]]
+from = "c17000000000000b.out"
+to = "c170000000000011.plots"
+
+[[wire]]
+from = "c170000000000010.out"
+to = "c170000000000011.solid"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000011.seed"
+
+[[wire]]
+from = "c170000000000012.out"
+to = "c170000000000013.solid"
+
+[[wire]]
+from = "c170000000000003.out"
+to = "c170000000000014.plots"
+
+[[wire]]
+from = "c170000000000013.out"
+to = "c170000000000014.solid"
+
+[[wire]]
+from = "c170000000000001.out"
+to = "c170000000000014.seed"
+
+[[wire]]
+from = "c17000000000000a.out"
+to = "c170000000000015.a"
+
+[[wire]]
+from = "c170000000000011.out"
+to = "c170000000000015.b"
+
+[[wire]]
+from = "c170000000000015.out"
+to = "c170000000000016.a"
+
+[[wire]]
+from = "c170000000000014.out"
+to = "c170000000000016.b"
+
+[[wire]]
+from = "c170000000000009.out"
+to = "c170000000000017.a"
+
+[[wire]]
+from = "c170000000000016.out"
+to = "c170000000000017.b"
+
+[[wire]]
+from = "c170000000000017.out"
+to = "c170000000000018.scene"

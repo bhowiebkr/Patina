@@ -1,0 +1,9 @@
+[package]
+name = "parks"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+patina-sdk = { workspace = true }
+geometry = { path = "../../types/geometry" }
+city = { path = "../../types/city" }

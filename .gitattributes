@@ -1,0 +1,3 @@
+# The import hashes of copied folders read the bytes, so these workbenches keep LF on each platform (spec 6.4).
+workbenches/model/** text=auto eol=lf
+workbenches/city/** text=auto eol=lf

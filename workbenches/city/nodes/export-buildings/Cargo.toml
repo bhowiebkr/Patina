@@ -1,0 +1,11 @@
+[package]
+name = "export-buildings"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+patina-sdk = { workspace = true }
+geometry = { path = "../../types/geometry" }
+
+[dev-dependencies]
+city = { path = "../../types/city" }

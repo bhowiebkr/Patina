@@ -170,6 +170,10 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
 - **D4b. Views during a batch run (tool).** The views and the node GUIs go on during a long
   batch run, with the values of the last run. Do it before E8, or when a build of the model
   workbench takes more than 0.2 s.
+- Agent decision of 2026-11-19 for D4b, the owner can change it: D4b stays open. The `main`
+  graph of the city runs in about 0.3 s after a change, and the frames do not run the batch
+  again. A pause of 0.3 s after an edit is acceptable. Do D4b when a guide graph takes more than
+  1 s, or when the owner asks.
 - **D5. 3D view.** The `model-view` view of the workbench: orbit, pan and zoom, its own depth
   texture, a grid, a light, part colors and a wireframe. It shows the mesh of the selected node.
   It sets `dock = "split"`, so it opens next to the graph (task A). When it needs a generic GPU
@@ -218,6 +222,47 @@ library import in the tool.
 - **E7.** Export: one glTF node for each building, so that a game can use them one by one.
 - **E8.** Target: a district of 1 km x 1 km builds in less than 2 s in a bake build.
 
+Result of the check of 2026-11-19: a pick from a library already brings the type crates. The
+import follows the path dependencies of the node to `types/` and copies all their files. No tool
+change is necessary.
+
+Agent decisions of 2026-11-19 for E, the owner can change them:
+
+- The model workbench gets a generic `Scene` type in `types/geometry`. A scene has items, and
+  each item has a mesh, a color and one or more places. A place has a frame and a group. The
+  group of a building is its number, and 0 is not a building. The gun wall (F6) can use it too.
+- `model-view` also shows a scene. It draws an item with more than one place as GPU instances,
+  and all the other items in one buffer (E6).
+- `workbenches/city` is a new project. It has copies of `types/geometry`, `views/model-view`
+  and the model nodes that its graphs use, with import records (spec 6.4). Its own types are in
+  `types/city`: `Streets` and `Plots`. A plot is a polygon with a street flag for each edge, a
+  height and a number of floors.
+- The nodes of the city workbench:
+  - `streets` (E1): a grid with random offsets of the crossings. Each Nth line is an avenue.
+    Random inner streets drop out, so that two blocks become one block.
+  - `blocks` (E2): the closed faces of the street graph, each inset by half the street width.
+  - `inset`: moves the edges of each plot in, for the sidewalks and the setbacks.
+  - `lots` (E3): a recursive split across the long axis, with a minimum width and a lot area.
+    A lot with no street edge becomes a park. A random part of the lots also becomes parks.
+  - `heights` (E4): a height from a density map around the center, with a random part, in full
+    floors. A park has no height.
+  - `masses` (E4): the extruded footprint with a flat, gable or hip roof, and a color from a
+    palette.
+  - `facades` (E4): windows on each floor and bay, and a door on a street edge, as instances.
+    The window and the door are solid inputs, for example cuboids from the model nodes.
+  - `roads` (E5): the asphalt ground and the sidewalk slab of each block.
+  - `parks`: only the parks of the plots.
+  - `scatter` (E5): a solid along the edges of the plots, as instances, for example trees and
+    lamps from model nodes.
+  - `merge`: one scene from two scenes.
+  - `export-buildings` (E7): one `.glb` file for each building, with the origin at the center of
+    its base.
+  - `report`: writes the counts and the hash of a scene.
+- E8 is a test that runs the `main` graph of the city in a bake build and measures the time.
+- The grid with noise comes first. A tensor field can come later.
+- `.gitattributes` keeps LF in `workbenches/model` and `workbenches/city`. The import hash
+  reads the bytes of each file, so a copy with CRLF does not agree with its import record.
+
 ## F. Gun workbench
 
 The gun workbench also uses the model workbench as a library. Use original part styles and
@@ -257,6 +302,10 @@ maker names. Do not copy the names, logos or art of Borderlands or of another ga
   The guide graphs are **solids**, **sketches**, **seeds** and **sockets**. The CLI test runs
   each guide graph. The seed and mesh tests are the unit tests of D2 and D3. The hidden model
   shot is the selfcheck step of D8. Next is E.
+- 2026-11-19: E1 to E8 are done on Windows. The sample district has 664546 triangles at 53244
+  places and runs in about 0.3 s after a bake build. A district of 1 km x 1 km runs in less than
+  0.5 s. The CLI test runs the district, the 1 km check and the export of each building. Next
+  is F.
 
 ## Order
 

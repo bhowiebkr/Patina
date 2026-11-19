@@ -1,7 +1,7 @@
-//! Draws the mesh, the grid and the wireframe into the textures of the view, with a depth
-//! texture, and copies the picture into the viewport.
+//! Draws the mesh or the scene, the grid and the wireframe into the textures of the view, with a
+//! depth texture, and copies the picture into the viewport.
 
-use geometry::Mesh;
+use geometry::{IDENTITY, Mesh, Place, Scene};
 use patina_gpu::wgpu::util::DeviceExt;
 use patina_gpu::{Gpu, ViewportSurface, gpu, wgpu};
 use patina_sdk::Viewport;
@@ -34,6 +34,20 @@ const ATTRIBUTES: [wgpu::VertexAttribute; 3] = [
     wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 24, shader_location: 2 },
 ];
 
+/// An instance: the columns of its frame, as `geometry::Matrix`.
+const INSTANCE: [wgpu::VertexAttribute; 4] = [
+    wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 0, shader_location: 3 },
+    wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 12, shader_location: 4 },
+    wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 24, shader_location: 5 },
+    wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 36, shader_location: 6 },
+];
+
+/// What the view shows: the mesh of a solid, or a scene.
+pub enum Content {
+    Mesh(Mesh),
+    Scene(Scene),
+}
+
 /// What the view draws.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Options {
@@ -49,13 +63,21 @@ pub struct Renderer {
     lines: wgpu::RenderPipeline,
     uniform: wgpu::Buffer,
     bind: wgpu::BindGroup,
-    faces: Option<(wgpu::Buffer, u32)>,
-    edges: Option<(wgpu::Buffer, u32)>,
+    batches: Vec<Batch>,
+    /// One instance that does not move the mesh, for the grid and the meshes with one place.
+    identity: wgpu::Buffer,
     grid: Option<(wgpu::Buffer, u32)>,
     targets: Option<Targets>,
     blit: Option<Blit>,
     /// The camera and the options of the picture, or `None` when the picture is old.
     drawn: Option<(Camera, Options)>,
+}
+
+/// The faces and the edges of one mesh, and its instances, or `None` for the identity instance.
+struct Batch {
+    faces: Option<(wgpu::Buffer, u32)>,
+    edges: Option<(wgpu::Buffer, u32)>,
+    instances: Option<(wgpu::Buffer, u32)>,
 }
 
 /// The textures of the picture: the samples, the picture after the resolve, and the depth.
@@ -99,11 +121,18 @@ impl Renderer {
                     module: &module,
                     entry_point: Some("vs"),
                     compilation_options: Default::default(),
-                    buffers: &[Some(wgpu::VertexBufferLayout {
-                        array_stride: size_of::<Vertex>() as u64,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &ATTRIBUTES,
-                    })],
+                    buffers: &[
+                        Some(wgpu::VertexBufferLayout {
+                            array_stride: size_of::<Vertex>() as u64,
+                            step_mode: wgpu::VertexStepMode::Vertex,
+                            attributes: &ATTRIBUTES,
+                        }),
+                        Some(wgpu::VertexBufferLayout {
+                            array_stride: size_of::<geometry::Matrix>() as u64,
+                            step_mode: wgpu::VertexStepMode::Instance,
+                            attributes: &INSTANCE,
+                        }),
+                    ],
                 },
                 primitive: wgpu::PrimitiveState {
                     topology,
@@ -147,8 +176,8 @@ impl Renderer {
             lines: pipeline(wgpu::PrimitiveTopology::LineList, Default::default()),
             uniform,
             bind,
-            faces: None,
-            edges: None,
+            batches: Vec::new(),
+            identity: buffer(gpu, &IDENTITY, IDENTITY.len()).ok_or("no identity buffer")?.0,
             grid: None,
             targets: None,
             blit: None,
@@ -156,13 +185,36 @@ impl Renderer {
         })
     }
 
-    /// Sends the triangles, the edges and a grid under `mesh` to the GPU.
-    pub fn upload(&mut self, mesh: &Mesh, parts: bool) -> Result<(), String> {
+    /// Sends the triangles, the edges and a grid under the content to the GPU. A scene item with
+    /// more than one place gets instances, and the other items go into one batch.
+    pub fn upload(&mut self, content: &Content, parts: bool) -> Result<(), String> {
         let gpu = gpu()?;
-        let (faces, edges) = vertices(mesh, parts);
-        self.faces = buffer(gpu, &faces);
-        self.edges = buffer(gpu, &edges);
-        self.grid = buffer(gpu, &grid(mesh));
+        self.batches.clear();
+        let reach = match content {
+            Content::Mesh(mesh) => {
+                let (faces, edges) = vertices(mesh, parts);
+                self.batches.push(Batch::new(gpu, &faces, &edges, &[]));
+                mesh.positions.iter().map(|p| p[0].abs().max(p[1].abs())).fold(1.0_f32, f32::max)
+            }
+            Content::Scene(scene) => {
+                let (mut faces, mut edges) = (Vec::new(), Vec::new());
+                for item in scene.items() {
+                    let color = linear(if parts { item.color } else { PLAIN });
+                    if let [place] = item.places[..] {
+                        add(&item.mesh, &place, |_| color, &mut faces, &mut edges);
+                        continue;
+                    }
+                    let (mut f, mut e) = (Vec::new(), Vec::new());
+                    add(&item.mesh, &Place { matrix: IDENTITY, group: 0 }, |_| color, &mut f, &mut e);
+                    let instances: Vec<f32> = item.places.iter().flat_map(|p| p.matrix).collect();
+                    self.batches.push(Batch::new(gpu, &f, &e, &instances));
+                }
+                self.batches.push(Batch::new(gpu, &faces, &edges, &[]));
+                let [low, high] = scene.bounds();
+                [low[0], low[1], high[0], high[1]].into_iter().filter(|v| v.is_finite()).fold(1.0_f32, |r, v| r.max(v.abs() as f32))
+            }
+        };
+        self.grid = buffer(gpu, grid(reach).as_flattened(), size_of::<Vertex>() / 4);
         self.drawn = None;
         Ok(())
     }
@@ -229,11 +281,21 @@ impl Renderer {
             multiview_mask: None,
         });
         pass.set_bind_group(0, &self.bind, &[]);
-        let draws = [(options.grid, &self.lines, &self.grid), (true, &self.triangles, &self.faces), (options.wireframe, &self.lines, &self.edges)];
-        for (pipeline, (buffer, count)) in draws.into_iter().filter_map(|(on, p, b)| Some((p, b.as_ref().filter(|_| on)?))) {
-            pass.set_pipeline(pipeline);
-            pass.set_vertex_buffer(0, buffer.slice(..));
+        pass.set_vertex_buffer(1, self.identity.slice(..));
+        if let Some((grid, count)) = self.grid.as_ref().filter(|_| options.grid) {
+            pass.set_pipeline(&self.lines);
+            pass.set_vertex_buffer(0, grid.slice(..));
             pass.draw(0..*count, 0..1);
+        }
+        for batch in &self.batches {
+            let (instances, count) = batch.instances.as_ref().map_or((&self.identity, 1), |(b, n)| (b, *n));
+            pass.set_vertex_buffer(1, instances.slice(..));
+            let draws = [(true, &self.triangles, &batch.faces), (options.wireframe, &self.lines, &batch.edges)];
+            for (pipeline, (buffer, vertices)) in draws.into_iter().filter_map(|(on, p, b)| Some((p, b.as_ref().filter(|_| on)?))) {
+                pass.set_pipeline(pipeline);
+                pass.set_vertex_buffer(0, buffer.slice(..));
+                pass.draw(0..*vertices, 0..count);
+            }
         }
         drop(pass);
         gpu.queue.submit([encoder.finish()]);
@@ -294,36 +356,51 @@ impl Blit {
     }
 }
 
-/// A vertex buffer and its vertex count, or `None` for no vertices.
-fn buffer(gpu: &Gpu, vertices: &[Vertex]) -> Option<(wgpu::Buffer, u32)> {
-    let bytes: Vec<u8> = vertices.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
-    let count = u32::try_from(vertices.len()).ok().filter(|&n| n > 0)?;
+impl Batch {
+    fn new(gpu: &Gpu, faces: &[Vertex], edges: &[Vertex], instances: &[f32]) -> Batch {
+        let per = size_of::<Vertex>() / 4;
+        let (faces, edges) = (buffer(gpu, faces.as_flattened(), per), buffer(gpu, edges.as_flattened(), per));
+        Batch { faces, edges, instances: buffer(gpu, instances, IDENTITY.len()) }
+    }
+}
+
+/// A vertex buffer of `floats` and its count of items of `per` floats, or `None` for no items.
+fn buffer(gpu: &Gpu, floats: &[f32], per: usize) -> Option<(wgpu::Buffer, u32)> {
+    let count = u32::try_from(floats.len() / per).ok().filter(|&n| n > 0)?;
+    let bytes: Vec<u8> = floats.iter().flat_map(|v| v.to_le_bytes()).collect();
     let usage = wgpu::BufferUsages::VERTEX;
     Some((gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("model view"), contents: &bytes, usage }), count))
 }
 
 /// The triangles with their light colors, and the three edges of each triangle as lines.
 fn vertices(mesh: &Mesh, parts: bool) -> (Vec<Vertex>, Vec<Vertex>) {
-    let (palette, plain, edge) = (PARTS.map(linear), linear(PLAIN), linear(EDGE));
+    let (palette, plain) = (PARTS.map(linear), linear(PLAIN));
     let mut faces = Vec::with_capacity(mesh.positions.len());
     let mut edges = Vec::with_capacity(mesh.positions.len() * 2);
+    let color = |part: u32| if parts { palette[part as usize % palette.len()] } else { plain };
+    add(mesh, &Place { matrix: IDENTITY, group: 0 }, color, &mut faces, &mut edges);
+    (faces, edges)
+}
+
+/// Adds the triangles of `mesh` at `place` to `faces` with the color of their part, and the
+/// three edges of each triangle as lines to `edges`.
+fn add(mesh: &Mesh, place: &Place, color: impl Fn(u32) -> [f32; 3], faces: &mut Vec<Vertex>, edges: &mut Vec<Vertex>) {
+    let edge = linear(EDGE);
     let corners = mesh.positions.as_chunks::<3>().0.iter().zip(mesh.normals.as_chunks::<3>().0);
     for ((triangle, normals), part) in corners.zip(&mesh.parts) {
-        let color = if parts { palette[*part as usize % palette.len()] } else { plain };
+        let (color, triangle) = (color(*part), triangle.map(|p| place.point(p)));
         for (p, n) in triangle.iter().zip(normals) {
-            faces.push(vertex(*p, *n, color));
+            faces.push(vertex(*p, place.normal(*n), color));
         }
         for i in 0..3 {
             edges.push(vertex(triangle[i], [0.0; 3], edge));
             edges.push(vertex(triangle[(i + 1) % 3], [0.0; 3], edge));
         }
     }
-    (faces, edges)
 }
 
-/// The lines of a grid on the XY plane, with a step of a power of ten, under all of the mesh.
-fn grid(mesh: &Mesh) -> Vec<Vertex> {
-    let reach = mesh.positions.iter().map(|p| p[0].abs().max(p[1].abs())).fold(1.0_f32, f32::max);
+/// The lines of a grid on the XY plane, with a step of a power of ten, to `reach` and past it.
+fn grid(reach: f32) -> Vec<Vertex> {
     let step = 10_f32.powf(reach.log10().floor());
     let half = (reach * 1.25 / step).ceil().clamp(1.0, 50.0) as i32;
     let extent = half as f32 * step;
@@ -364,7 +441,7 @@ mod tests {
         assert_eq!(colors(&faces), 2);
         assert_eq!(colors(&vertices(&mesh, false).0), 1);
         // The grid reaches past the mesh, and the lines through the origin have the axis colors.
-        let lines = grid(&mesh);
+        let lines = grid(1.0);
         assert!(lines.iter().all(|v| v[2] == 0.0) && lines.iter().any(|v| v[0] >= 1.25));
         assert!(lines.iter().any(|v| v[6..] == linear(X_AXIS)));
         assert_eq!(linear(0xff_ffff), [1.0; 3]);
