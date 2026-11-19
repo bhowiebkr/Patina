@@ -60,7 +60,8 @@ export function CodeTab({ name, run, readOnly, revision, reveal, onSave, onAddCr
   });
 
   useEffect(() => {
-    const e = monaco.editor.create(box.current!, {
+    const el = box.current!;
+    const e = monaco.editor.create(el, {
       model: null,
       theme: 'patina',
       automaticLayout: true,
@@ -73,6 +74,8 @@ export function CodeTab({ name, run, readOnly, revision, reveal, onSave, onAddCr
       fixedOverflowWidgets: true,
     });
     e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => save.current());
+    // With errors, the box has the height of the code, so the error well is directly under it (mockup 3).
+    e.onDidContentSizeChange(() => (el.style.height = `${e.getContentHeight()}px`));
     editor.current = e;
     return () => {
       keepView(e);
@@ -172,7 +175,7 @@ export function CodeTab({ name, run, readOnly, revision, reveal, onSave, onAddCr
           onClose={() => setAdding(false)}
         />
       )}
-      <div className="code-box" ref={box} />
+      <div className={mine.length > 0 ? 'code-box fit' : 'code-box'} ref={box} />
       {error && <div className="code-state error-text">{error}</div>}
       {mine.length > 0 && (
         <div className="code-errors" role="alert">

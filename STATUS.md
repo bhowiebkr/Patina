@@ -527,8 +527,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The **Logs** have no "Compiling node" line for each node. The engine has no build event for
     each node (spec 15.5).
-  - The error well of the **Code** tab is at the bottom of the panel, not directly under the code
-    (mockup 3). Monaco needs a fixed height.
+  - The error well of the **Code** tab was at the bottom of the panel (fixed 2026-11-19). With an
+    error, the code box now has the height of the code, so the well is directly under it
+    (mockup 3). The selfcheck shot `code-error` shows it.
   - The group check of the selfcheck waits 400 ms before its undo, so that the move edit arrives
     first (`shortcut:` in `check-groups.ts`).
   - Spec 5 says that the nodes of a graph file sort by ID and the wires by their `to` end

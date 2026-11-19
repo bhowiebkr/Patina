@@ -58,6 +58,10 @@
   min-height: 160px;
 }
 
+.code-box.fit {
+  flex: 0 1 auto;
+}
+
 .gutter-error::before {
   content: '';
   display: block;
