@@ -323,13 +323,40 @@ fn trace(
 #[derive(Default)]
 pub struct Audio {
     meter: Reading,
+    right: Reading,
 }
 impl Audio {
     pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
         use crate::parameters::*;
-        crate::title(ui, "EMBER / AUDIO", "Mono output / 48 kHz / 256 samples");
+        let stereo = graph
+            .nodes()
+            .find(|id| graph.folder(id) == Some("nodes/stereo-output"))
+            .map(str::to_owned);
+        crate::title(
+            ui,
+            "EMBER / AUDIO",
+            if stereo.is_some() {
+                "Stereo output / 48 kHz / 256 frames"
+            } else {
+                "Mono patch / stereo output / 48 kHz"
+            },
+        );
         self.meter.update(
-            signals().into_iter().find(|s| s.name == "Output"),
+            signals().into_iter().find(|s| {
+                s.name
+                    == if stereo.is_some() {
+                        "Song master L"
+                    } else {
+                        "Output"
+                    }
+            }),
+            4096,
+            false,
+        );
+        self.right.update(
+            signals()
+                .into_iter()
+                .find(|s| stereo.is_some() && s.name == "Song master R"),
             4096,
             false,
         );
@@ -349,11 +376,28 @@ impl Audio {
         c.text([w - 44.0, 40.0], MUTED, "0 dBFS");
         drop(c);
         ui.label(&self.meter.meters(false));
-        crate::parameter(ui, graph, MASTER);
-        if available(graph, OUTPUT, "nodes/output", "audible") {
-            let mut on = graph.param(OUTPUT, "audible") == Some("true");
+        if stereo.is_some() {
+            ui.label(&format!("Right: {}", self.right.meters(false)));
+            ui.progress(
+                "Right peak",
+                ((db(self.right.peak) + 60.0) / 60.0).clamp(0.0, 1.0),
+            );
+        }
+        if let Some(id) = &stereo {
+            crate::number(ui, graph, id, "level", "Master", [0.0, 1.0]);
+        } else {
+            crate::parameter(ui, graph, MASTER);
+        }
+        let output = stereo.as_deref().unwrap_or(OUTPUT);
+        let folder = if stereo.is_some() {
+            "nodes/stereo-output"
+        } else {
+            "nodes/output"
+        };
+        if available(graph, output, folder, "audible") {
+            let mut on = graph.param(output, "audible") == Some("true");
             if ui.toggle("Device output enabled", &mut on).changed() {
-                graph.set_param(OUTPUT, "audible", on);
+                graph.set_param(output, "audible", on);
             }
         }
         ui.label("The meter measures the signal before device mute.");
@@ -361,6 +405,8 @@ impl Audio {
         if ui.button("Reset clipping and peak hold").clicked() {
             self.meter.hold = 0.0;
             self.meter.clips = 0;
+            self.right.hold = 0.0;
+            self.right.clips = 0;
         }
     }
 }

@@ -5,6 +5,65 @@ The instrument panels have different sizes. Each panel has room for its controls
 
 ![Ember in the Patina editor](images/editor.png)
 
+## Arrange a song
+
+The **song** graph adds a 32-bar trance study at 136 BPM.
+It has a lead, bass, kick, snare, hi-hat, and stereo pad.
+Sandstorm informed the feature study. The included music is original.
+
+![The song timeline with six tracks](images/arrangement.png)
+
+1. Open the **song** graph.
+2. Open **Views**, then **arrange**.
+3. Increase the bottom dock height, or move its tab to the center.
+4. Click **Run**.
+5. Click bar 9 on the ruler to hear the lead section.
+6. Use **Loop** to repeat the selected region.
+7. Drag clips to move them. Drag their ends to trim them.
+8. Open **Piano roll** to edit the selected note clip.
+9. Open **Mixer** to select instruments and change track controls.
+10. Click **Save** to keep the score and routing.
+
+The **Arrange** page shows eight tracks at a time. Track pages support up to 32 tracks.
+**Zoom** and horizontal scrolling change the visible range. Clip positions stay on the song's beat grid.
+Each track accepts note clips and recorded WAV clips together.
+**Add track** creates its player node and connects it to the song clock and stereo mix.
+**Remove selected track** preserves the remaining mix. It requires the normal workbench mixer route.
+Track order changes keep the same track IDs and sound routes.
+
+Use **Add note clip**, **Duplicate clip**, **Split position**, **Split clip**, and **Delete clip** to build the arrangement.
+Use **Move clip to track** to change a clip's destination.
+The piano roll supports overlapping chromatic notes, note lengths, and velocity.
+Drag a note's right edge to resize it. Arrow keys move the selected note. **Delete** removes it.
+Exact note fields provide keyboard access without a pointer.
+
+![The chromatic piano roll and note velocities](images/piano-roll.png)
+
+Use **Audio clip / WAV** and **Import WAV clip** to add recorded audio.
+Import copies the file into `types/synth-dsp/samples/`. Packages include that directory.
+Undo removes the clip edit but keeps the imported file for redo and other clips.
+WAV import supports mono and stereo PCM8, PCM16, PCM24, PCM32, float32, and float64.
+Source rates can range from 8 kHz to 192 kHz. Playback converts them to 48 kHz.
+**Reload WAV files** reloads modified sources. A failed import keeps the last valid score active and shows its error.
+
+The **Sampler** instrument plays a WAV from notes. **Root MIDI note** sets its original pitch.
+Recorded clips play at their natural speed. Tempo changes adjust their beat lengths to keep their duration.
+Clip offsets and fades use seconds. Note positions and loop lengths use beats.
+**Playback rate** changes both speed and pitch; this is not time stretching.
+
+The mixer provides stereo meters, gain, balance, mute, solo, attack, release, cutoff, drive, and tempo-based stereo delay.
+The **Automation** page edits gain, pan, cutoff, and delay send across the song.
+Its curves run in the audio domain. Closing the view does not stop playback.
+Each track has 32 voices. A full voice pool replaces the quietest voice and reports the count in the mixer.
+
+Open **export** to render the saved song. Set **Saved top graph** to **song**.
+**Use song duration plus 2 seconds** sets a starting duration. Increase it for longer effect tails.
+Saved loop settings apply to export. Disable **Loop** for a full song render.
+
+The song engine does not capture microphones or hardware MIDI.
+It does not provide time stretching, compressed audio import, VST hosting, or stem export.
+The [design and checks](../../docs/synth-arranger.md) record the architecture and current evidence.
+
 ## Play
 
 1. Open `examples/synth` in Patina.
@@ -131,7 +190,7 @@ The score and settings use separate typed connections.
 
 ## Build another instrument
 
-The library contains 34 node types. Drag a node from **Project** onto the graph.
+The library contains 41 node types. Drag a node from **Project** onto the graph.
 The seven dedicated instrument panels and the general control knob run in the frame domain.
 The audio processors run in the audio domain.
 
@@ -142,6 +201,10 @@ The audio processors run in the audio domain.
 | Modulation | Lfo, Adsr, Attenuverter, SampleHold, Slew, Constant |
 | Level and mixing | Envelope, Vca, Mixer, Output |
 | Filters and effects | Filter, Svf, Echo, Saturator, Crusher, Compressor, Chorus, Reverb, DcBlock |
+| Song and stereo | Arrangement, SongClock, SongTrack, StereoMix, StereoOutput, StereoChannel, StereoPair |
+
+Use **StereoChannel** to extract left (0), right (1), or their mean (2) for existing mono processors.
+Use **StereoPair** to join processed channels. Connect one mono source to both inputs for a centered signal.
 
 Audio and modulation use the same mono block type. A block has 256 samples at 48 kHz.
 An LFO usually spans -1 to 1. An envelope spans 0 to 1.
@@ -224,7 +287,7 @@ Ember uses its own code and panel drawings.
 The [workbench notes](../../docs/sound-workbench.md) record the wider node and GUI needs.
 
 Current limits: the learning patch uses mono signals, monophonic note input, and a fixed C minor phrase grid.
-MIDI, sample import, and song arrangement are not implemented.
+Hardware MIDI and microphone capture are not implemented. Use **song** for sample import and arrangement.
 The tests check samples and controls. Speaker playback and listening quality have not been checked.
 
-The [arrangement design](../../docs/synth-arranger.md) records research and the next workbench stage.
+The [arrangement design](../../docs/synth-arranger.md) records research and the song workbench checks.

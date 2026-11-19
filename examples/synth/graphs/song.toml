@@ -1,0 +1,184 @@
+format = 1
+top = true
+style = "curved"
+
+[[node]]
+id = "e6bf000000000001"
+folder = "nodes/arrangement"
+pos = [0.0, 0.0]
+
+[[node]]
+id = "e6bf000000000002"
+folder = "nodes/song-clock"
+pos = [550.0, 0.0]
+
+[[node]]
+id = "e6bf00000000000b"
+folder = "nodes/song-track"
+pos = [550.0, 160.0]
+[node.params]
+track = "1"
+
+[[node]]
+id = "e6bf00000000000c"
+folder = "nodes/song-track"
+pos = [850.0, 160.0]
+[node.params]
+track = "2"
+
+[[node]]
+id = "e6bf00000000000d"
+folder = "nodes/song-track"
+pos = [550.0, 340.0]
+[node.params]
+track = "3"
+
+[[node]]
+id = "e6bf00000000000e"
+folder = "nodes/song-track"
+pos = [850.0, 340.0]
+[node.params]
+track = "4"
+
+[[node]]
+id = "e6bf00000000000f"
+folder = "nodes/song-track"
+pos = [550.0, 520.0]
+[node.params]
+track = "5"
+
+[[node]]
+id = "e6bf000000000010"
+folder = "nodes/song-track"
+pos = [850.0, 520.0]
+[node.params]
+track = "6"
+
+[[node]]
+id = "e6bf000000000015"
+folder = "nodes/stereo-mix"
+pos = [1180.0, 210.0]
+
+[[node]]
+id = "e6bf000000000016"
+folder = "nodes/stereo-mix"
+pos = [1180.0, 480.0]
+
+[[node]]
+id = "e6bf000000000017"
+folder = "nodes/stereo-mix"
+pos = [1470.0, 300.0]
+
+[[node]]
+id = "e6bf00000000001e"
+folder = "nodes/stereo-output"
+pos = [2050.0, 400.0]
+[node.params]
+level = "0.72"
+audible = "true"
+
+[[node]]
+id = "e6bf000000000018"
+folder = "nodes/stereo-mix"
+pos = [1180.0, 650.0]
+
+[[node]]
+id = "e6bf000000000019"
+folder = "nodes/stereo-mix"
+pos = [1760.0, 400.0]
+
+[[wire]]
+from = "e6bf000000000001.out"
+to = "e6bf000000000002.score"
+
+[[wire]]
+from = "e6bf000000000001.out"
+to = "e6bf00000000000b.score"
+
+[[wire]]
+from = "e6bf000000000002.out"
+to = "e6bf00000000000b.time"
+
+[[wire]]
+from = "e6bf000000000001.out"
+to = "e6bf00000000000c.score"
+
+[[wire]]
+from = "e6bf000000000002.out"
+to = "e6bf00000000000c.time"
+
+[[wire]]
+from = "e6bf000000000001.out"
+to = "e6bf00000000000d.score"
+
+[[wire]]
+from = "e6bf000000000002.out"
+to = "e6bf00000000000d.time"
+
+[[wire]]
+from = "e6bf000000000001.out"
+to = "e6bf00000000000e.score"
+
+[[wire]]
+from = "e6bf000000000002.out"
+to = "e6bf00000000000e.time"
+
+[[wire]]
+from = "e6bf000000000001.out"
+to = "e6bf00000000000f.score"
+
+[[wire]]
+from = "e6bf000000000002.out"
+to = "e6bf00000000000f.time"
+
+[[wire]]
+from = "e6bf000000000001.out"
+to = "e6bf000000000010.score"
+
+[[wire]]
+from = "e6bf000000000002.out"
+to = "e6bf000000000010.time"
+
+[[wire]]
+from = "e6bf00000000000b.out"
+to = "e6bf000000000015.a"
+
+[[wire]]
+from = "e6bf00000000000c.out"
+to = "e6bf000000000015.b"
+
+[[wire]]
+from = "e6bf00000000000d.out"
+to = "e6bf000000000016.a"
+
+[[wire]]
+from = "e6bf00000000000e.out"
+to = "e6bf000000000016.b"
+
+[[wire]]
+from = "e6bf00000000000f.out"
+to = "e6bf000000000018.a"
+
+[[wire]]
+from = "e6bf000000000010.out"
+to = "e6bf000000000018.b"
+
+[[wire]]
+from = "e6bf000000000015.out"
+to = "e6bf000000000017.a"
+
+[[wire]]
+from = "e6bf000000000016.out"
+to = "e6bf000000000017.b"
+
+[[wire]]
+from = "e6bf000000000017.out"
+to = "e6bf000000000019.a"
+
+[[wire]]
+from = "e6bf000000000018.out"
+to = "e6bf000000000019.b"
+
+[[wire]]
+from = "e6bf000000000019.out"
+to = "e6bf00000000001e.sound"

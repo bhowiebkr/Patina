@@ -15,6 +15,7 @@ import { frameStats } from './benchGraph';
 import { busPinFaults } from './busPins';
 import { synthDocks } from './shot-synth';
 import { materialWorkbench } from './shot-material';
+import { songWorkbench } from './shot-song';
 
 const LIMIT_MS = 150_000;
 const FRAMES = 8;
@@ -729,6 +730,7 @@ export async function runShot(project: string, show: (v: View) => void, open: Op
     if (await echo()) steps.push('main-echo');
     for (const name of v.views) steps.push(...(await openView(name)));
     steps.push(...(await synthDocks(v, show)));
+    steps.push(...(await songWorkbench(v, show)));
     steps.push(...(await materialWorkbench(v, show, () => guiFit('materials'))));
     // A subgraph inspects the first node of each kind that the shot did not inspect yet.
     const kinds = new Set((v.graph.node ?? []).map((n) => n.folder ?? n.subgraph ?? n.builtin));

@@ -1,0 +1,14 @@
+[package]
+name = "arrange"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+patina-sdk = { workspace = true }
+workbench = { path = "../../widgets/workbench" }
+
+[package.metadata.patina]
+dock = "bottom"

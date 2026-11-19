@@ -15,18 +15,18 @@ async function until(test: () => boolean, message: string, timeout = 150_000) {
     await sleep(100);
   }
 }
-function click(name: string, text: string) {
+export function click(name: string, text: string) {
   const b = [...(panel(name)?.querySelectorAll('button') ?? [])].find((b) => b.textContent?.trim() === text);
   if (!b) throw new Error(`No ${text} in ${name}`);
   b.click();
 }
-function field(name: string, text: string) {
+export function field(name: string, text: string) {
   const label = [...(panel(name)?.querySelectorAll('label') ?? [])].find((l) => l.querySelector('span')?.textContent === text);
   const input = label?.querySelector<HTMLInputElement>('input');
   if (!input) throw new Error(`No field ${text} in ${name}`);
   return input;
 }
-async function showTab(name: string) {
+export async function showTab(name: string) {
   changeLayout((l) => {
     const slot = VIEW_SLOTS.find((s) => l.views[s] === name);
     return slot ? openPanel(l, slot) : openView(l, name, ['sounds', 'learn'].includes(name) ? 'left' : ['controls', 'audio', 'modulation'].includes(name) ? 'right' : 'bottom');
@@ -34,7 +34,7 @@ async function showTab(name: string) {
   await until(() => !!panel(name)?.querySelector('.node-gui'), `No ${name} controls`);
   await sleep(250);
 }
-function fit(name: string) {
+export function fit(name: string) {
   const p = panel(name)!;
   const body = p.querySelector<HTMLElement>('.view-controls')!;
   if (body.scrollWidth > body.clientWidth + 1) throw new Error(`${name} scrolls sideways`);
@@ -135,7 +135,10 @@ export async function synthDocks(view: View, show: (view: View) => void): Promis
   steps.push('continuous analysis captures, freezes, and marks paused samples stale');
 
   await showTab('export');
-  show(await api.edit({ kind: 'SetParam', id: 'e6be000000000026', key: 'audible', text: 'true' }));
+  const outputBefore = await api.pause(); show(outputBefore);
+  if (outputBefore.graph.node?.find((n) => n.id === 'e6be000000000026')?.params?.audible !== 'true') {
+    show(await api.edit({ kind: 'SetParam', id: 'e6be000000000026', key: 'audible', text: 'true' }));
+  }
   show(await api.save());
   enterText(field('export', 'WAV destination'), 'dock-check.wav');
   enterText(field('export', 'Duration'), '0.1');

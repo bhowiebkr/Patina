@@ -33,7 +33,16 @@ pub struct Timeline {
 
 impl Default for Timeline {
     fn default() -> Timeline {
-        Timeline { length: 4.0, playhead: 0.0, playing: false, looping: false, loop_range: [0.0, 4.0], snap: 0.1, lanes: Vec::new(), selected: None }
+        Timeline {
+            length: 4.0,
+            playhead: 0.0,
+            playing: false,
+            looping: false,
+            loop_range: [0.0, 4.0],
+            snap: 0.1,
+            lanes: Vec::new(),
+            selected: None,
+        }
     }
 }
 
@@ -87,7 +96,10 @@ impl Automation {
     /// point before the first point and after the last point. With no points, the lowest value.
     pub fn value(&self, time: f32) -> f32 {
         let i = self.points.partition_point(|p| p[0] <= time);
-        match (i.checked_sub(1).map(|i| self.points[i]), self.points.get(i).copied()) {
+        match (
+            i.checked_sub(1).map(|i| self.points[i]),
+            self.points.get(i).copied(),
+        ) {
             (Some([t0, v0]), Some([t1, v1])) => {
                 let t = (time - t0) / (t1 - t0);
                 v0 + (v1 - v0) * t * t * (3.0 - 2.0 * t)
@@ -123,7 +135,9 @@ impl Timeline {
 
     /// True when the lane plays: it is not muted, and no lane is solo or this lane is solo.
     pub fn audible(&self, lane: usize) -> bool {
-        self.lanes.get(lane).is_some_and(|l| !l.mute && (l.solo || !self.lanes.iter().any(|l| l.solo)))
+        self.lanes
+            .get(lane)
+            .is_some_and(|l| !l.mute && (l.solo || !self.lanes.iter().any(|l| l.solo)))
     }
 
     /// The number of clips or points of lane `lane`.
@@ -154,8 +168,15 @@ impl Timeline {
         let before = self.clone();
         let mut words = edit.split(' ');
         let kind = words.next().unwrap_or("");
-        let n: Vec<f32> = words.map(|w| w.parse().ok().filter(|v: &f32| v.is_finite())).collect::<Option<_>>().unwrap_or_default();
-        let index = |i: usize| n.get(i).filter(|v| v.fract() == 0.0 && **v >= 0.0).map_or(usize::MAX, |v| *v as usize);
+        let n: Vec<f32> = words
+            .map(|w| w.parse().ok().filter(|v: &f32| v.is_finite()))
+            .collect::<Option<_>>()
+            .unwrap_or_default();
+        let index = |i: usize| {
+            n.get(i)
+                .filter(|v| v.fract() == 0.0 && **v >= 0.0)
+                .map_or(usize::MAX, |v| *v as usize)
+        };
         let length = self.length;
         match (kind, n.len()) {
             ("play", 1) => self.playing = n[0] != 0.0,
@@ -163,7 +184,10 @@ impl Timeline {
             ("loop", 1) => self.looping = n[0] != 0.0,
             ("snap", 1) => self.snap = n[0].clamp(0.0, length),
             ("range", 2) => {
-                let [a, b] = [n[0].min(n[1]).clamp(0.0, length), n[0].max(n[1]).clamp(0.0, length)];
+                let [a, b] = [
+                    n[0].min(n[1]).clamp(0.0, length),
+                    n[0].max(n[1]).clamp(0.0, length),
+                ];
                 if b > a {
                     self.loop_range = [a, b];
                 }
@@ -184,8 +208,15 @@ impl Timeline {
                 }
             }
             ("clip", 5) => {
-                if let Some(clip) = self.clips(index(0)).and_then(|clips| clips.get_mut(index(1))) {
-                    let end = if clip.source > 0.0 { clip.source } else { f32::INFINITY };
+                if let Some(clip) = self
+                    .clips(index(0))
+                    .and_then(|clips| clips.get_mut(index(1)))
+                {
+                    let end = if clip.source > 0.0 {
+                        clip.source
+                    } else {
+                        f32::INFINITY
+                    };
                     clip.offset = n[4].clamp(0.0, (end - MIN_CLIP).max(0.0));
                     clip.length = n[3].clamp(MIN_CLIP, (end - clip.offset).max(MIN_CLIP));
                     clip.start = n[2].clamp(0.0, (length - clip.length).max(0.0));
@@ -198,13 +229,22 @@ impl Timeline {
                     // A point stays between its neighbors, so the indices keep the order of time.
                     let low = if i > 0 { a.points[i - 1][0] } else { 0.0 };
                     let high = a.points.get(i + 1).map_or(length, |p| p[0]).max(low);
-                    a.points[i] = [n[2].clamp(low, high), n[3].clamp(a.range[0], a.range[1].max(a.range[0]))];
+                    a.points[i] = [
+                        n[2].clamp(low, high),
+                        n[3].clamp(a.range[0], a.range[1].max(a.range[0])),
+                    ];
                     self.selected = Some([index(0), i]);
                 }
             }
             ("add", 3) => {
-                if let Some(a) = self.automation(index(0)).filter(|a| a.points.len() < MAX_POINTS) {
-                    let p = [n[1].clamp(0.0, length), n[2].clamp(a.range[0], a.range[1].max(a.range[0]))];
+                if let Some(a) = self
+                    .automation(index(0))
+                    .filter(|a| a.points.len() < MAX_POINTS)
+                {
+                    let p = [
+                        n[1].clamp(0.0, length),
+                        n[2].clamp(a.range[0], a.range[1].max(a.range[0])),
+                    ];
                     let i = a.points.partition_point(|q| q[0] <= p[0]);
                     a.points.insert(i, p);
                     self.selected = Some([index(0), i]);
@@ -229,12 +269,21 @@ impl Ui {
     /// clip to trim it and a point to move it. A double click on an automation lane adds a point.
     /// The node moves the playhead with `Timeline::advance` while the timeline plays.
     pub fn timeline(&mut self, text: &str, timeline: &mut Timeline) -> Response {
+        self.timeline_ruler(text, timeline, 0)
+    }
+
+    /// Shows quarter-note beats in groups of four. The data and edit times use beats.
+    pub fn beat_timeline(&mut self, text: &str, timeline: &mut Timeline) -> Response {
+        self.timeline_ruler(text, timeline, 4)
+    }
+
+    fn timeline_ruler(&mut self, text: &str, timeline: &mut Timeline, beats: u8) -> Response {
         let event = self.push("timeline", text);
         let changed = event.is_some_and(|e| timeline.apply(e));
         let t = &*timeline;
         let _ = write!(
             self.tree,
-            "\t{} {} {} {} {} {} {}\t",
+            "\t{} {} {} {} {} {} {}",
             t.length,
             t.playhead,
             u8::from(t.playing),
@@ -243,6 +292,10 @@ impl Ui {
             t.loop_span()[1],
             t.snap
         );
+        if beats > 0 {
+            let _ = write!(self.tree, " {beats}");
+        }
+        self.tree.push('\t');
         if let Some([lane, i]) = t.selected {
             let _ = write!(self.tree, "{lane} {i}");
         }
@@ -250,10 +303,18 @@ impl Ui {
             let (mute, solo) = (u8::from(lane.mute), u8::from(lane.solo));
             match &lane.kind {
                 LaneKind::Clips(clips) => {
-                    let _ = write!(self.tree, "\tclips {mute} {solo} {} ", clips.len().min(MAX_CLIPS));
+                    let _ = write!(
+                        self.tree,
+                        "\tclips {mute} {solo} {} ",
+                        clips.len().min(MAX_CLIPS)
+                    );
                     push_clean(&mut self.tree, &lane.name);
                     for clip in clips.iter().take(MAX_CLIPS) {
-                        let _ = write!(self.tree, "\t{} {} {} {} ", clip.start, clip.length, clip.offset, clip.source);
+                        let _ = write!(
+                            self.tree,
+                            "\t{} {} {} {} ",
+                            clip.start, clip.length, clip.offset, clip.source
+                        );
                         push_color(&mut self.tree, clip.color);
                         let samples = clip_samples(clip);
                         let columns = samples.len().min(CLIP_COLUMNS);
@@ -267,16 +328,26 @@ impl Ui {
                     }
                 }
                 LaneKind::Automation(a) => {
-                    let _ = write!(self.tree, "\tauto {mute} {solo} {} {} ", a.range[0], a.range[1]);
+                    let _ = write!(
+                        self.tree,
+                        "\tauto {mute} {solo} {} {} ",
+                        a.range[0], a.range[1]
+                    );
                     push_clean(&mut self.tree, &lane.name);
                     self.tree.push('\t');
                     push_clean(&mut self.tree, &a.unit);
                     self.tree.push('\t');
-                    push_numbers(&mut self.tree, a.points.iter().take(MAX_POINTS).flatten().copied());
+                    push_numbers(
+                        &mut self.tree,
+                        a.points.iter().take(MAX_POINTS).flatten().copied(),
+                    );
                 }
             }
         }
-        Response { clicked: false, changed }
+        Response {
+            clicked: false,
+            changed,
+        }
     }
 }
 
@@ -288,4 +359,24 @@ fn clip_samples(clip: &Clip) -> &[f32] {
     }
     let at = |time: f32| ((time / clip.source).clamp(0.0, 1.0) * n) as usize;
     &clip.samples[at(clip.offset)..at(clip.offset + clip.length).max(at(clip.offset))]
+}
+
+#[cfg(test)]
+mod musical_tests {
+    use super::*;
+    #[test]
+    fn a_musical_ruler_keeps_beat_edits_and_leaves_the_seconds_format_compatible() {
+        let mut time = Timeline {
+            length: 128.0,
+            snap: 0.25,
+            ..Default::default()
+        };
+        let mut ui = Ui::new(2, "0 seek 32.25");
+        assert!(ui.beat_timeline("Song", &mut time).changed());
+        assert_eq!(time.playhead, 32.25);
+        assert!(ui.tree().contains("128 32.25 0 0 0 4 0.25 4\t"));
+        let mut ui = Ui::new(2, "");
+        ui.timeline("Time", &mut time);
+        assert!(ui.tree().contains("128 32.25 0 0 0 4 0.25\t"));
+    }
 }

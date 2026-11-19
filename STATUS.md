@@ -23,7 +23,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
   Mono nodes feed both channels. The C API keeps its mono function and adds a stereo function.
   Windows workspace Clippy, workspace tests, and frontend checks passed on 2026-11-19.
   Edit and Bake exports matched. Tests checked channel separation and C API compatibility.
-  The synth arrangement is in progress. Speaker listening, Linux, and macOS remain unchecked.
+  The synth arrangement uses this path. Speaker listening, Linux, and macOS remain unchecked.
 
 - Smart material prototype: the GPU example adds 14 node types and a second top graph with 28 material nodes and three workflow nodes.
   On Windows MSVC and RTX 4090 DX12, all material channels matched Surface exactly at 512 x 512.
@@ -45,7 +45,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
 
-- Ember sound workbench: 34 node types, three playable patches, instrument panels, live waveform cables, and nine domain-specific dock tools.
+- Ember sound workbench: 41 node types, three learning patches, a six-track song, instrument panels, and dock editors for sound design and arrangement.
 
 - Hello and gpu examples: hello is a pocket calculator with keypads, tapes and an **AVG** subgraph. gpu has color bars, a mix, a knob and a waveform monitor.
 - Node symbols and styles: Gate and block nodes show circuit symbols, and a subgraph sets a **Shape** for its uses. Each example has its own style crate in `widgets/`.
@@ -219,10 +219,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Edit and Bake produced matching phrase samples. All three scenes produced finite audio in both modes.
 - The warm core DSP averaged 0.015 ms per block, with 0.016 ms p95. The 15-processor path averaged 0.030 ms, with 0.032 ms p95.
 - Both DSP checks counted zero allocations after warmup. These timings exclude the graph scheduler, editor, and device.
-- The CLI renders saved patches to mono, 32-bit float WAV files at 48 kHz, without opening a sound device.
+- The CLI renders saved patches to stereo, 32-bit float WAV files at 48 kHz, without opening a sound device.
 - Export checks cover exact sample counts, frame timing, Edit/Bake equality, graph selection, invalid audio, and existing file protection.
 - Three 16-second renders contain finite audio. Speaker playback, listening quality, external sound-editor import, Linux, and macOS were not checked.
-- MIDI, sample import, stereo processing, polyphonic note input, live recording, and song arrangement remain open.
+- Hardware MIDI and live recording remain open. The **song** graph now provides sample import, stereo processing, polyphonic notes, and arrangement.
 - The [workbench notes](docs/sound-workbench.md) and [Ember guide](examples/synth/README.md) describe the modules, controls, and learning exercises.
 - The **perform** view adds scene selection, phrase transport, sound controls, a filter XY pad, exact values, reset, and five learning experiments.
 - The view uses the same parameters as the main patch. The shared rotary widget now works in both nodes and views.
@@ -238,6 +238,27 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Presets require the original main patch's parameter nodes. Favorites, recent entries, and pinned controls last for one tab instance.
 - Device selection, device connection status, modulation history, and spectrograms remain open.
 - See the [dock implementation record](docs/synth-dock-design.md) for checks and remaining limits.
+
+### Ember song arrangement, 2026-11-19
+
+- The second top graph, **song**, contains an original 32-bar study at 136 BPM with six synchronized tracks.
+- The **arrange** dock edits hybrid note and WAV clips, a chromatic piano roll, track mixing, and automation.
+- Clips support movement, trimming, duplication, splitting, source offsets, playback rate, and audio fades.
+- Track creation adds a player and stereo routing. Track removal preserves the other mixer source.
+- The score supports 32 tracks, 64 clips per track, and 32 voices per track. Eight tracks appear on each timeline page.
+- A frame node validates the score and loads WAV files. One audio clock schedules every track at sample boundaries.
+- WAV import supports mono and stereo PCM and float audio from 8 kHz to 192 kHz. Imported assets stay in the project.
+- The player includes synth voices, drums, a pitched sampler, stereo delay, filtering, drive, and smoothed track gain and balance.
+- Stereo adapters connect the song to the existing mono effects. The output protects peaks and provides separate channel captures.
+- Windows workspace Clippy, workspace tests, frontend checks, and synth example tests passed.
+- The graph test mixed stereo WAV audio and overlapping notes. Edit and Bake matched within 0.00001.
+- Hidden GUI checks passed clip edits, undo, track creation, piano input, WAV import, saving, and graph switching.
+- The six-track timeline fits a 450 px bottom dock. A 60-second stereo Bake render contains finite audio and stays below clipping.
+- The warm six-track debug test measured 0.73 ms mean and 0.83 ms p95 per 256-frame block, with zero audio allocations.
+- These timings exclude the editor, device, and graph scheduler. They do not prove the maximum track count on other systems.
+- Microphone recording, hardware MIDI, time stretching, compressed audio import, VST hosting, and stem export remain open.
+- The ruler uses 4/4. Separate side views for track and clip details remain open. Speaker listening, Linux, and macOS were not checked.
+- The [arrangement notes](docs/synth-arranger.md) contain research, limits, and check details.
 
 ### Performance audit, 2026-11-18
 

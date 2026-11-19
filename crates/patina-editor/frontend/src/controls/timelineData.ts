@@ -18,6 +18,7 @@ export type Lane =
   | { kind: 'auto'; mute: boolean; solo: boolean; name: string; low: number; high: number; unit: string; points: [number, number][] };
 
 export interface TimelineData {
+  beatsPerBar?: number;
   length: number;
   playhead: number;
   playing: boolean;
@@ -48,7 +49,9 @@ const fit = (v: number, low: number, high: number) => Math.min(Math.max(v, low),
 export function parseTimeline(rest: string[]): TimelineData | null {
   const head = rest[0]?.split(' ').map(Number) ?? [];
   const [length, playhead, playing, looping, a, b, snap] = head;
-  if (head.length !== 7 || !finite(head) || !(length > 0)) return null;
+  if ((head.length !== 7 && head.length !== 8) || !finite(head) || !(length > 0)) return null;
+  const beatsPerBar = head[7] ?? 0;
+  if (!Number.isInteger(beatsPerBar) || beatsPerBar < 0 || beatsPerBar > 32) return null;
   const sel = rest[1] ? rest[1].split(' ').map(Number) : [];
   if (rest[1] && !(sel.length === 2 && sel.every((v) => Number.isInteger(v) && v >= 0))) return null;
   const lanes: Lane[] = [];
@@ -73,6 +76,7 @@ export function parseTimeline(rest: string[]): TimelineData | null {
     } else return null;
   }
   return {
+    ...(beatsPerBar ? { beatsPerBar } : {}),
     length,
     playhead: fit(playhead, 0, length),
     playing: playing !== 0,

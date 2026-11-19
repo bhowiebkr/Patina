@@ -9,6 +9,14 @@ import { clock, curvePath, dragClip, dragPoint, dragRange, quantity, ruler, type
 const CLIP = '0 1 0.5 2 #4080c0 4 -1 -1 2 2 -2 -2 3 3 impact 03';
 const LINE = `timeline\tTime\t3 1.25 0 1 0 2.4 0.1\t\tclips 0 0 1 Impact\t${CLIP}\tauto 0 0 500 5000 Cutoff\tHz\t0.1 500 1 2000`;
 
+test('a musical timeline keeps beat units and rejects an invalid bar size', () => {
+  const [w] = parseTree('timeline\tSong\t128 32 1 0 32 64 0.25 4\t');
+  assert.ok(w?.kind === 'timeline');
+  assert.equal(w.t.beatsPerBar, 4);
+  assert.equal(w.t.playhead, 32);
+  for (const beats of [-1, 0.5, 100]) assert.deepEqual(parseTree(`timeline\tSong\t128 32 1 0 32 64 0.25 ${beats}\t`), []);
+});
+
 test('a timeline line reads the transport, the clip lanes and the automation lanes', () => {
   assert.deepEqual(parseTree(LINE), [
     {

@@ -14,6 +14,8 @@ pub struct Export {
     job: Option<Job>,
     status: String,
     setup: bool,
+    graph: String,
+    graph_init: bool,
 }
 struct Job {
     child: Child,
@@ -42,11 +44,22 @@ impl Default for Export {
             seconds: 10.0,
             job: None,
             status: String::new(),
+            graph: "main".into(),
+            graph_init: false,
         }
     }
 }
 impl Export {
-    pub fn ui(&mut self, ui: &mut Ui, _: &mut Graph) {
+    pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
+        if !self.graph_init {
+            if graph
+                .nodes()
+                .any(|id| graph.folder(id) == Some("nodes/arrangement"))
+            {
+                self.graph = "song".into();
+            }
+            self.graph_init = true;
+        }
         if let Some(job) = &mut self.job {
             match job.child.try_wait() {
                 Ok(Some(status)) => {
@@ -76,7 +89,22 @@ impl Export {
                 ui.number_unit("Duration", &mut self.seconds, 1.0, "seconds");
             });
         });
-        ui.label("Saved main graph / stereo / 48000 Hz / 32-bit float WAV");
+        ui.text_field("Saved top graph", &mut self.graph);
+        if ui.button("Use song duration plus 2 seconds").clicked()
+            && let Some(id) = graph
+                .nodes()
+                .find(|id| graph.folder(id) == Some("nodes/arrangement"))
+        {
+            let score = graph
+                .param(id, "score")
+                .filter(|s| !s.is_empty())
+                .map(synth_dsp::song::Score::parse)
+                .unwrap_or_else(|| Ok(synth_dsp::song::demo()));
+            if let Ok(score) = score {
+                self.seconds = (score.length * 60.0 / score.bpm + 2.0) as f32;
+            }
+        }
+        ui.label("Saved graph / stereo / 48000 Hz / 32-bit float WAV. Saved loop settings apply.");
         ui.label("Export reads saved files. Muted saved output renders silence. Enable Device output in Audio, then Save.");
         if let Some(job) = &self.job {
             let written = fs::metadata(job.folder.join("audio.wav"))
@@ -147,7 +175,7 @@ impl Export {
                     "--seconds",
                     &self.seconds.to_string(),
                     "--graph",
-                    "main",
+                    &self.graph,
                     "--edit",
                 ])
                 .stdin(Stdio::null())
@@ -263,7 +291,7 @@ impl Job {
 }
 
 // FAT volumes cannot create hard links. A new file still protects existing exports.
-fn copy_new(source: &Path, target: &Path) -> Result<(), String> {
+pub(crate) fn copy_new(source: &Path, target: &Path) -> Result<(), String> {
     let mut input = File::open(source).map_err(|e| e.to_string())?;
     let mut output = File::create_new(target).map_err(|e| e.to_string())?;
     let result = std::io::copy(&mut input, &mut output).and_then(|_| output.sync_all());

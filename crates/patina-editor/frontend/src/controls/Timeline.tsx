@@ -24,10 +24,18 @@ const clipEdit = (lane: number, i: number, c: Clip) => `clip ${lane} ${i} ${c.st
 export function Timeline({ w, send, disabled }: Input<'timeline'>) {
   const t = w.t;
   const total = t.length;
+  const beats = t.beatsPerBar ?? 0;
+  const [zoom, setZoom] = useState(1);
+  const [scroll, setScroll] = useState(0);
+  const span = total / zoom;
+  const origin = Math.min(scroll, Math.max(0, total - span));
+  const unit = beats ? 'beats' : 's';
+  const timeText = (time: number) => beats ? `${Math.floor(time / beats) + 1}.${Math.floor(time % beats) + 1}` : clock(time);
   const [drag, setDrag] = useState<Drag | null>(null);
   const rect = useRef<DOMRect | null>(null);
-  const pct = (time: number) => `${(time / total) * 100}%`;
-  const timeAt = (x: number) => (rect.current ? Math.min(Math.max(((x - rect.current.left) / rect.current.width) * total, 0), total) : 0);
+  const pct = (time: number) => `${((time - origin) / span) * 100}%`;
+  const widthPct = (length: number) => `${(length / span) * 100}%`;
+  const timeAt = (x: number) => (rect.current ? Math.min(Math.max(origin + ((x - rect.current.left) / rect.current.width) * span, 0), total) : 0);
   const valueAt = (y: number, l: Auto) => (rect.current ? l.high - ((y - rect.current.top) / rect.current.height) * (l.high - l.low) : l.low);
   const step = (e: KeyboardEvent) => (e.shiftKey ? 0.01 : t.snap || 0.1);
 
@@ -135,14 +143,17 @@ export function Timeline({ w, send, disabled }: Input<'timeline'>) {
     }
   };
 
-  const { step: major, decimals } = ruler(total);
-  const majors = Array.from({ length: Math.floor(total / major + 1e-6) + 1 }, (_, k) => round(k * major));
-  const minors = Array.from({ length: Math.floor((total / major) * 5 + 1e-6) + 1 }, (_, k) => (k * major) / 5).filter((_, k) => k % 5 !== 0);
+  const { step: major, decimals } = beats
+    ? { step: Math.max(1, 2 ** Math.ceil(Math.log2(span / (beats * 8)) )) * beats, decimals: 0 }
+    : ruler(span);
+  const majors = Array.from({ length: Math.ceil(span / major) + 2 }, (_, k) => round((Math.floor(origin / major) + k) * major));
+  const divisions = beats ? 4 : 5;
+  const minors = Array.from({ length: Math.ceil(span / major) * divisions + divisions + 1 }, (_, k) => (Math.floor(origin / major) * divisions + k) * major / divisions);
   const solo = t.lanes.some((l) => l.solo);
   const focus = disabled ? -1 : 0;
   const rows = t.lanes.length;
   const lines = (
-    <svg viewBox={`0 0 ${total} 1`} preserveAspectRatio="none" aria-hidden="true">
+    <svg viewBox={`${origin} 0 ${span} 1`} preserveAspectRatio="none" aria-hidden="true">
       <path d={majors.map((m) => `M${m} 0V1`).join('')} />
     </svg>
   );
@@ -168,7 +179,7 @@ export function Timeline({ w, send, disabled }: Input<'timeline'>) {
             {guiIcon('rewind')}
           </button>
           <span className="tl-clock" aria-label="Time">
-            {clock(playhead)}
+            {timeText(playhead)}
           </span>
           <label className="tl-option">
             <input type="checkbox" checked={t.looping} disabled={disabled} onChange={(e) => send(`loop ${e.currentTarget.checked ? 1 : 0}`)} />
@@ -177,29 +188,39 @@ export function Timeline({ w, send, disabled }: Input<'timeline'>) {
           <label className="tl-option">
             Snap
             <select className="field gui-field" value={String(t.snap)} disabled={disabled} onChange={(e) => send(`snap ${e.currentTarget.value}`)}>
-              {[...new Set([...SNAPS, t.snap])]
+              {[...new Set([...(beats ? [0, 0.0625, 0.125, 0.25, 0.5, 1, 4] : SNAPS), t.snap])]
                 .sort((a, b) => a - b)
                 .map((s) => (
                   <option key={s} value={String(s)}>
-                    {s ? `${s} s` : 'Off'}
+                    {s ? `${s} ${unit}` : 'Off'}
                   </option>
                 ))}
             </select>
           </label>
         </div>
+        <div className="tl-transport">
+          <label className="tl-option">Zoom
+            <select className="field gui-field" aria-label="Timeline zoom" value={zoom} onChange={(e) => setZoom(Number(e.currentTarget.value))}>
+              {[1, 2, 4, 8, 16, 32].map((value) => <option key={value} value={value}>{value === 1 ? 'Fit' : `${value}x`}</option>)}
+            </select>
+          </label>
+          <input type="range" aria-label="Timeline horizontal position" min={0} max={Math.max(0, total - span)} step={beats ? 0.25 : 0.01}
+            value={origin} disabled={zoom === 1} onChange={(e) => setScroll(Number(e.currentTarget.value))} style={{ flex: 1, minWidth: 60 }} />
+          <span>{beats ? `Bars ${Math.floor(origin / beats) + 1} - ${Math.ceil((origin + span) / beats)}` : `${origin.toFixed(1)} - ${(origin + span).toFixed(1)} s`}</span>
+        </div>
         <div className="tl-grid">
           <div className="tl-ruler">
             <div className="tl-area" data-ruler="">
-              {majors.map((m, k) => (
-                <span key={k} className="tl-label" style={{ left: pct(m) }}>
-                  {m.toFixed(decimals) + (k === majors.length - 1 ? ' s' : '')}
+              {majors.filter((m) => m >= origin && m <= origin + span).map((m, k) => (
+                <span key={k} className="tl-label" style={{ left: pct(m), transform: m === origin ? 'none' : m === origin + span ? 'translateX(-100%)' : 'translateX(-50%)' }}>
+                  {beats ? String(m / beats + 1) : m.toFixed(decimals) + (k === majors.length - 1 ? ' s' : '')}
                 </span>
               ))}
-              <svg className="tl-ticks" viewBox={`0 0 ${total} 2`} preserveAspectRatio="none" aria-hidden="true">
+              <svg className="tl-ticks" viewBox={`${origin} 0 ${span} 2`} preserveAspectRatio="none" aria-hidden="true">
                 <path d={majors.map((m) => `M${m} 0V2`).join('') + minors.map((m) => `M${m} 1V2`).join('')} />
               </svg>
-              <div className={t.looping ? 'tl-loop on' : 'tl-loop'} style={{ left: pct(range[0]), width: pct(range[1] - range[0]) }}>
-                <span className="tl-loop-label">{`Loop (${range[0].toFixed(1)} - ${range[1].toFixed(1)} s)`}</span>
+              <div className={t.looping ? 'tl-loop on' : 'tl-loop'} style={{ left: pct(range[0]), width: widthPct(range[1] - range[0]) }}>
+                <span className="tl-loop-label">{`Loop (${range[0].toFixed(1)} - ${range[1].toFixed(1)} ${unit})`}</span>
               </div>
               {range.map((v, end) => (
                 <div
@@ -225,7 +246,7 @@ export function Timeline({ w, send, disabled }: Input<'timeline'>) {
                 aria-valuemin={0}
                 aria-valuemax={total}
                 aria-valuenow={playhead}
-                aria-valuetext={clock(playhead)}
+                aria-valuetext={timeText(playhead)}
                 onKeyDown={disabled ? undefined : keySeek}
               />
             </div>
@@ -261,11 +282,11 @@ export function Timeline({ w, send, disabled }: Input<'timeline'>) {
                           key={`c${i}`}
                           data-i={i}
                           className={isSelected(li, i) ? 'tl-clip selected' : 'tl-clip'}
-                          style={{ left: pct(c.start), width: pct(c.length), '--clip': c.color } as CSSProperties}
+                          style={{ left: pct(c.start), width: widthPct(c.length), '--clip': c.color } as CSSProperties}
                           role="button"
                           tabIndex={focus}
                           aria-pressed={isSelected(li, i)}
-                          aria-label={`${label}: start ${c.start} s, length ${c.length} s`}
+                          aria-label={`${label}: start ${c.start} ${unit}, length ${c.length} ${unit}`}
                           title="Drag to move, or press the left and right arrows"
                           onKeyDown={disabled ? undefined : (e) => keyClip(e, li, i, source, 'move')}
                         >
@@ -293,7 +314,7 @@ export function Timeline({ w, send, disabled }: Input<'timeline'>) {
                   </div>
                 ) : (
                   <div className="tl-area" data-lane={li} title="Double click to add a point">
-                    <svg className="tl-curve" viewBox={`0 0 ${total} 1`} preserveAspectRatio="none" aria-hidden="true">
+                    <svg className="tl-curve" viewBox={`${origin} 0 ${span} 1`} preserveAspectRatio="none" aria-hidden="true">
                       <path className="fill" d={`${curvePath(l.points.map((_, i) => pointAt(li, i, l)), total, l.low, l.high)}V1H0Z`} />
                       <path className="trace" d={curvePath(l.points.map((_, i) => pointAt(li, i, l)), total, l.low, l.high)} />
                     </svg>
@@ -312,7 +333,7 @@ export function Timeline({ w, send, disabled }: Input<'timeline'>) {
                           role="button"
                           tabIndex={focus}
                           aria-pressed={on}
-                          aria-label={`${name} point ${i + 1}: ${pt} s, ${quantity(pv, l.unit)}`}
+                          aria-label={`${name} point ${i + 1}: ${pt} ${unit}, ${quantity(pv, l.unit)}`}
                           title="Drag, or press the arrows. Double click or Delete removes it"
                           onKeyDown={disabled ? undefined : (e) => keyPoint(e, li, i, l)}
                         />,

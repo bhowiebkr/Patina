@@ -3,6 +3,7 @@ use panel::{EDGE, INK, TEAL};
 use patina_sdk::{Graph, Ui};
 
 mod analysis;
+mod arrange;
 mod controls;
 mod export;
 mod keyboard;
@@ -14,6 +15,7 @@ mod presets;
 mod sounds;
 mod spectrum;
 pub use analysis::{Analysis, Audio};
+pub use arrange::Arrange;
 pub use controls::Controls;
 pub use export::Export;
 pub use keyboard::Keyboard;

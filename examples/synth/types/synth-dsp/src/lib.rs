@@ -15,6 +15,7 @@ pub use keyboard::LiveKeys;
 mod modulation;
 mod processors;
 mod rhythm;
+pub mod song;
 mod space;
 pub use modulation::{Adsr, Attenuverter, DcBlock, Lfo, Mixer, Noise, SampleHold, Slew, Vca, Vco};
 pub use processors::{Compressor, Crusher, Dynamics, Saturator, Svf};

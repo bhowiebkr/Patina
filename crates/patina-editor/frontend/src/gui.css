@@ -584,6 +584,7 @@ aside[aria-label='Inspector'] .gui-image.thumb {
 .tl-inner {
   position: absolute;
   inset: 0 10px;
+  overflow: hidden;
 }
 
 .tl-ruler .tl-area {

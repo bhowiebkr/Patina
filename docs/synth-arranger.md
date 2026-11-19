@@ -1,6 +1,6 @@
 # Ember arrangement workbench
 
-The next synth workbench adds a song timeline above the existing modular sound tools.
+The synth workbench adds a song timeline beside the existing modular sound tools.
 Note clips and recorded audio share tracks, transport, mixing, and automation.
 The node canvas remains the main workspace.
 
@@ -48,8 +48,8 @@ Its detail page provides a chromatic piano roll, velocity, and exact note values
 Its mixer page provides track gain, pan, mute, solo, and effect settings.
 The dock can grow vertically or move to the center for detailed editing.
 
-The left track list identifies each track and its sound source.
-The right inspector edits the selected track or clip, including trims and fades.
+Track selection and clip fields currently sit below the timeline.
+Separate left track and right clip inspector views remain planned.
 The existing graph panels and learning views remain available.
 
 ## Required behavior
@@ -69,10 +69,30 @@ The existing graph panels and learning views remain available.
 The stereo foundation passed Windows workspace Clippy, tests, and frontend checks.
 Tests verified independent stereo channels in live graph blocks, WAV export, and the C API.
 The existing C API mono function still returns a downmix.
-The arrangement, track player, sampler, and dock editors are not implemented yet.
+The arrangement, track player, sampler, and dock editors are implemented.
+The **song** graph contains six tracks and an original 32-bar study.
 The current learning patch still uses mono signal nodes and its original 16-step sequencer.
 
-Acceptance checks cover channel separation, sample timing, loop boundaries, silence after stop, and finite audio.
-They also cover clip edits, save and undo, imported files, and matching **Edit** and **Bake** renders.
-Measure audio processing time and allocations after warmup.
-Speaker listening and other operating systems require separate checks.
+Windows unit tests passed for channel separation, sample timing, loop boundaries, silence after pause, and finite audio.
+View tests passed for clip edits, piano input, and track routing.
+A real graph test plays imported 44.1 kHz stereo WAV audio and overlapping synth notes together.
+Its **Edit** and **Bake** results match within 0.00001. Its view edits survive save and undo.
+Workspace Clippy, workspace tests, and frontend checks passed.
+Hidden Windows GUI checks passed clip edits, undo, track creation, piano input, WAV import, saving, and graph switching.
+All six demo tracks fit in a 450 px bottom dock. The piano shows note velocity below the keys.
+A 60-second **Bake** render contains 2880000 stereo frames at 48 kHz.
+Its peak is 0.7252. Its final second has an RMS level of 0.0000065.
+The render contains finite samples and distinct left and right channels. These checks do not replace listening.
+
+The six-track debug test processed 256 frames in a mean of 0.73 ms, with a 0.83 ms p95.
+The block deadline is 5.33 ms. The warm audio path made zero allocations.
+These measurements cover the supplied six-track workload. They do not establish a maximum track count for every computer.
+The earlier inactive-voice loop took a mean of 3.72 ms. Skipping inactive voices removed most of that work.
+
+The score supports 32 tracks, 64 clips per track, 2048 notes per pattern, and 200000 expanded note events.
+Each track has 32 voices. Import limits each WAV to 128 MiB and the sample cache to 256 MiB.
+The timeline displays eight tracks per page. The piano roll displays 24 pitches with octave and time controls.
+The musical ruler currently uses four quarter-note beats per bar.
+
+Microphone capture, hardware MIDI, time stretching, compressed codecs, VST hosting, and stem export remain open.
+Speaker listening and other operating systems remain unchecked.
