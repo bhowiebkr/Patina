@@ -1,7 +1,7 @@
 # Gun
 
-The workbench for seeded guns for a game. A gun has parts from four original makers and a
-rarity. A seed changes the full gun. The workbench uses the model workbench as a library. The
+The workbench for seeded guns for a game. A gun has a class, parts from four original makers, a
+rarity and an element. A seed changes the full gun. The workbench uses the model workbench as a library. The
 plan is in
 [the workbenches plan](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches-plan.md),
 task F.
@@ -14,21 +14,36 @@ Run this command from the root of the repository:
 cargo run -p patina-cli -- run workbenches/gun --frames 1
 ```
 
-The two `stats` nodes write the maker, the rarity, the stats and the parts of two guns, for
-example `Vesper common`, `damage 35` and `parts: receiver vesper, barrel vesper, ...`. The two
+The two `stats` nodes write the name, the maker, the rarity, the class, the element, the stats
+and the parts of two guns, for example `Brutal Gale`, `Vesper common shotgun`, `damage 95` and
+`parts: receiver vesper, barrel vesper, ...`. The two
 `report` nodes write the counts and the hash of each `look` scene. The first build compiles the
 C++ kernel of the model workbench in about 5 to 10 s.
 
 ## The two ways to make a gun
 
-- The `gun` node makes a full gun from one seed. A **random** maker or rarity comes from the
-  seed.
-- The lower row of the `main` graph makes a gun from parts. Each part node has a seed and a
-  maker. The maker **none** removes the part. `assemble` puts each part on its socket of the
-  receiver and applies the rarity.
+- The `gun` node makes a full gun from one seed. A **random** class, maker, rarity or element
+  comes from the seed.
+- The lower row of the `main` graph makes a gun from parts. Each part node has a seed, a class
+  and a maker. The maker **none** removes the part. `assemble` puts each part on its socket of
+  the receiver and applies the rarity and the element.
 
-The same seed and maker as a part of the `gun` node give the same part, so you can start from a
-`gun` node and then change one part.
+The same seed, class and maker as a part of the `gun` node give the same part, so you can start
+from a `gun` node and then change one part.
+
+## The classes
+
+The class sets the size of each part, the base stats and the chance of each extra part. A random
+class has these chances: pistol 24, SMG 20, rifle 22, shotgun 14, sniper rifle 12 and launcher
+8 percent.
+
+- **pistol**: a short body and barrel, a medium damage and a small magazine.
+- **smg**: a compact body, a high fire rate and a large magazine.
+- **rifle**: a long body, a stock and a medium fire rate.
+- **shotgun**: a wide barrel or two barrels, high damage and a slow fire rate.
+- **sniper**: a long barrel and a long scope, high damage and high accuracy. It always has a
+  sight.
+- **launcher**: a wide tube and a back blast pipe, very high damage and a magazine of two.
 
 ## The parts
 
@@ -42,13 +57,23 @@ The same seed and maker as a part of the `gun` node give the same part, so you c
 
 ## The makers
 
-- **Blockwerk**: blocky boxes and cut corners, high damage and a low fire rate. Olive body.
-- **Vesper**: sleek round shapes and tapers, high accuracy. Off-white body.
-- **Scrapjaw**: plates at random offsets, pipes and bolts, a high fire rate and large
-  magazines. Rust body.
-- **Halo**: rings and coils, a fast reload. Teal body.
+Each maker has its own shape language, stat bias, three paint schemes, a metal color and a
+glow color.
+
+- **Blockwerk**: heavy slabs with chamfers, vents, bolts and stripes. High damage and a
+  low fire rate. Olive, tan or gray paint.
+- **Vesper**: sleek turned shapes, tapers, fins and glow strips. High accuracy. White, black or
+  red paint.
+- **Scrapjaw**: plates at random offsets, pipes, bolts, tape and wire. A high fire rate and
+  large magazines. Rust, teal or red paint.
+- **Halo**: rings, coils, capsules and glow cells. A fast reload. Teal, purple or orange
+  paint.
 
 The `gun` node uses the maker of the gun for most parts. Some parts come from another maker.
+
+Each part has six materials, each with its own color: paint, trim, metal, grip, rarity and
+glow. The rarity accents use the color of the rarity. The glow parts use the color of the
+element, or the glow color of the maker when the gun has no element.
 
 ## The rarity
 
@@ -59,6 +84,21 @@ rarity has these chances: 50, 25, 14, 8 and 3 percent. A higher rarity does thes
   reload.
 - It adds a stock, a sight and an accessory more frequently.
 - It changes the accent color: gray, green, blue, purple or orange.
+- It adds an element more frequently.
+
+## The elements
+
+The elements are **none**, **fire**, **shock**, **corrosive** and **cryo**. A gun with an
+element does 15 percent less direct damage. Its glow parts have the color of the element:
+orange, blue, green or pale blue.
+
+## The names
+
+Each maker has a model name for each class, for example **Kestrel** for a Vesper rifle. The
+first word of the name comes from the element, for example **Searing** for fire. A gun with no
+element gets the word of its largest part bonus: **Brutal** (damage), **Rapid** (fire rate),
+**Steady** (accuracy), **Hoarding** (magazine) or **Nimble** (reload). A gun with no large
+bonus has only the model name.
 
 ## See the guns
 
@@ -67,9 +107,10 @@ Do these steps:
 1. Open the project in the editor and click **Run**.
 2. Open **Views** and select **model-view**. Click a `look` node to see its gun in 3D. The view
    shows an output only when it has a wire, so each `look` node has a `report` node.
-3. Click **Toon** in the view for three light bands and dark outlines.
+3. Click **Toon** in the view for three light bands, dark outlines and ink lines on the sharp
+   edges.
 4. Open **Views** and select **gun-wall**. The view shows the guns of eight seeds, with the
-   maker and the rarity of the `gun` node.
+   class, the maker, the rarity and the element of the `gun` node.
 5. Click a gun on the wall to give its seed to the `gun` node. Click **Previous** or **Next**
    for other seeds.
 
@@ -87,15 +128,16 @@ wire to the node. A run after a change does not write.
 
 ## The crates
 
-- `types/geometry` is an import of the model types. `types/guns` has the parts, the makers, the
-  rarity, the stats and the side view, with unit tests.
+- `types/geometry` is an import of the model types. `types/guns` has the parts, the classes,
+  the makers, the materials, the elements, the rarity, the stats, the names and the side view,
+  with unit tests.
 - `nodes/seed` is an import from the model workbench, and `nodes/report` is an import from the
   city workbench. The other nodes are thin nodes on `types/guns`.
 - `views/model-view` is an import of the model view. `views/gun-wall` is the gun wall.
 
 ## Known limits
 
-- The parts are boxes, cylinders and simple booleans. There are no curved or sculpted shapes.
+- The parts are made from extrusions, turned profiles and booleans. There are no sculpted
+  shapes.
 - The gun wall draws flat side views with paths, not 3D images.
-- The toon outline is near black. It shows between parts, but not on the dark background.
-- The toon outline can have small gaps at sharp corners.
+- The guns have no decals, logos or text on the parts.

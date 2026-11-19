@@ -25,7 +25,7 @@ fn place(v: In) -> Out {
     var out = place(v);
     let side = (scene.matrix * vec4f(out.normal, 0.0)).xy;
     if dot(side, side) > 1e-12 {
-        out.clip = vec4f(out.clip.xy + normalize(side) * scene.pixel.xy * 2.0 * out.clip.w, out.clip.zw);
+        out.clip = vec4f(out.clip.xy + normalize(side) * scene.pixel.xy * 3.0 * out.clip.w, out.clip.zw);
     }
     return out;
 }

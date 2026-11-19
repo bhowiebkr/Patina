@@ -1,15 +1,20 @@
 //! The types of the gun workbench: parts, makers, rarities and stats. The shape rules are here,
 //! so the nodes stay thin. Units are meters, +X points to the muzzle, Y is the width and Z is up.
 
+mod class;
 mod gun;
+mod palette;
 mod parts;
+mod shapes;
 
 use std::fmt::{self, Write};
 
 use geometry::{Solid, Sockets};
 use patina_sdk::{Param, Text, Thumbnail, Ui, Viewer};
 
+pub use class::{Class, Size};
 pub use gun::{Outline, assemble, generate, look, side_view};
+pub use palette::{Element, Material};
 pub use parts::part;
 
 /// A value of a short list with a name, for the text of a parameter.
@@ -208,22 +213,31 @@ impl fmt::Display for Stats {
     }
 }
 
-/// One part with its mount at the origin: the body in the color of its maker, the accent in the
-/// color of the rarity, the sockets and the stat changes. A part with no maker is no part.
+/// One part with its mount at the origin: one solid for each material, the paint scheme, the
+/// sockets and the stat changes. A part with no maker is no part.
 #[derive(Clone, Default)]
 pub struct Part {
     pub kind: Kind,
     pub maker: Option<Maker>,
-    pub body: Solid,
-    pub accent: Solid,
+    pub class: Class,
+    /// The paint scheme of the maker, 0 to 2.
+    pub scheme: u8,
+    /// The solids in the order of `Material::ALL`.
+    pub solids: [Solid; 6],
     pub sockets: Sockets,
     pub stats: Stats,
 }
 
 impl Part {
-    /// The body and the accent as one solid.
+    /// All materials as one solid.
     pub fn solid(&self) -> Solid {
-        self.body.union(&self.accent)
+        let solids: Vec<Solid> = self.solids.iter().filter(|s| s.triangles() > 0).cloned().collect();
+        if solids.is_empty() { Solid::empty() } else { Solid::union_all(&solids) }
+    }
+
+    /// The number of triangles of all materials.
+    pub fn triangles(&self) -> usize {
+        self.solids.iter().map(Solid::triangles).sum()
     }
 }
 
@@ -231,7 +245,7 @@ impl Part {
 impl fmt::Debug for Part {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.maker {
-            Some(maker) => write!(f, "{} by {}, {} triangles", self.kind.name(), maker.title(), self.body.triangles() + self.accent.triangles()),
+            Some(maker) => write!(f, "{} by {}, {} triangles", self.kind.name(), maker.title(), self.triangles()),
             None => write!(f, "no {}", self.kind.name()),
         }
     }
@@ -251,12 +265,15 @@ impl Viewer for Part {
     }
 }
 
-/// A gun: the parts at their places on the receiver, the maker of the receiver, the rarity, the
-/// stats, and the `muzzle` and `grip` sockets.
+/// A gun: the name, the parts at their places on the receiver, the class and the maker of the
+/// receiver, the rarity, the element, the stats, and the `muzzle` and `grip` sockets.
 #[derive(Clone, Default)]
 pub struct Gun {
+    pub name: String,
+    pub class: Class,
     pub maker: Maker,
     pub rarity: Rarity,
+    pub element: Element,
     pub parts: Vec<Part>,
     pub stats: Stats,
     pub sockets: Sockets,
@@ -265,27 +282,39 @@ pub struct Gun {
 impl Gun {
     /// All the parts as one solid.
     pub fn solid(&self) -> Solid {
-        let solids: Vec<Solid> = self.parts.iter().flat_map(|p| [p.body.clone(), p.accent.clone()]).collect();
-        Solid::union_all(&solids)
+        let solids: Vec<Solid> = self.parts.iter().map(Part::solid).filter(|s| s.triangles() > 0).collect();
+        if solids.is_empty() { Solid::empty() } else { Solid::union_all(&solids) }
     }
 
-    /// The name, the stats and the parts, with one item on each line.
+    /// The name, the maker, the element, the stats and the parts, with one item on each line.
     pub fn report(&self) -> String {
         let parts: Vec<String> = self.parts.iter().filter_map(|p| Some(format!("{} {}", p.kind.name(), p.maker?.name()))).collect();
         let Stats { damage, rate, accuracy, magazine, reload } = self.stats;
         format!(
-            "{} {}\ndamage {damage:.0}\nrate {rate:.1} per s\naccuracy {accuracy:.0}\nmagazine {magazine:.0}\nreload {reload:.1} s\nparts: {}\n",
+            "{}
+{} {} {}
+element {}
+damage {damage:.0}
+rate {rate:.1} per s
+accuracy {accuracy:.0}
+magazine {magazine:.0}
+reload {reload:.1} s
+parts: {}
+",
+            self.name,
             self.maker.title(),
             self.rarity.name(),
+            self.class.title(),
+            self.element.name(),
             parts.join(", ")
         )
     }
 }
 
-/// Shows "Vesper rare, damage 41, rate 5.2 per s, accuracy 78, magazine 18, reload 1.9 s".
+/// Shows "Caustic Swift: Vesper rare SMG, element corrosive, damage 41, rate 5.2 per s, ...".
 impl fmt::Debug for Gun {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {}, {}", self.maker.title(), self.rarity.name(), self.stats)
+        write!(f, "{}: {} {} {}, element {}, {}", self.name, self.maker.title(), self.rarity.name(), self.class.title(), self.element.name(), self.stats)
     }
 }
 

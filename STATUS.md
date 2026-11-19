@@ -56,9 +56,9 @@ The records of the ended milestones and of the finished work are in [docs/histor
   **solids**, **sketches**, **seeds** and **sockets** (tasks D7 and D8).
 - City workbench: seeded streets, blocks, lots and buildings with roofs, windows and doors,
   roads, trees and lamps as instances, and an export of each building to a `.glb` file (task E).
-- Gun workbench: seeded guns from seven kinds of parts, four original makers and five rarities,
-  with stats, a **Toon** look in `model-view`, the `gun-wall` view and an export to `.glb` and
-  `.txt` (task F).
+- Gun workbench: seeded guns from seven kinds of parts, six classes, four original makers with
+  their own shape language, five rarities and five elements, with generated names, stats, a
+  **Toon** look in `model-view`, the `gun-wall` view and an export to `.glb` and `.txt` (task F).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
 - Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
@@ -293,20 +293,23 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Task F: [workbenches/gun](workbenches/gun/README.md) makes seeded guns with the model workbench
   as a library. The agent decisions are in [the workbenches plan](docs/workbenches-plan.md),
   task F.
+- The second version adds six classes (pistol, SMG, rifle, shotgun, sniper rifle and
+  launcher), detailed parts for each maker, six materials with three paint schemes for each
+  maker, the elements fire, shock, corrosive and cryo, and names such as **Brutal Gale**.
 - Changes to the model workbench: `types/geometry` has `Solid::project` and `Sketch::outlines`
-  for side views. `model-view` has a **Toon** toggle: three light bands and outlines from the
-  back faces. The city workbench has the new imports.
+  for side views. `model-view` has a **Toon** toggle: three light bands, outlines from the back
+  faces, ink lines on sharp edges and a lighter background. The city workbench has the new
+  imports.
 - Checked on 2026-11-19, on Windows only:
-  - 9 unit tests of `types/guns`, 1 test of `export-gun`, 2 tests of `gun-wall` and the shader
-    test of `model-view`, and the clippy of the gun crates, with the MSVC toolchain. CI does not
-    run them.
+  - 12 unit tests of `types/guns`, 1 test of `export-gun`, 2 tests of `gun-wall` and the 5
+    tests of `model-view` with the crease test, and the clippy of the gun crates, with the MSVC
+    toolchain. CI does not run them.
   - The CLI test runs `main`, checks the two stats reports, and runs the export with a trigger.
   - The editor shot of `gun` opens `gun-wall` and `model-view`, turns **Toon** on and off, and
     changes the seed. The captures show the gun wall in the maker colors and the toon bands.
 - Known limits:
-  - The toon outline is near black, so it shows between parts but not on the dark background.
-  - The toon outline can have small gaps at sharp corners.
-  - The parts are boxes, cylinders and simple booleans.
+  - The parts are extrusions, turned profiles and booleans, with no sculpted shapes.
+  - The guns have no decals, logos or text.
   - Linux and macOS did not run the workbench.
 
 ### City workbench, 2026-11-19

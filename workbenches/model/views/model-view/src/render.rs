@@ -18,6 +18,8 @@ const UNIFORM: usize = 96;
 
 // The colors of the GUI guide, in sRGB.
 const BACKGROUND: u32 = 0x18_1818;
+/// The toon look has a lighter background, so the ink shows around dark parts.
+const TOON_BACKGROUND: u32 = 0x30_3030;
 const GRID: u32 = 0x45_4545;
 const X_AXIS: u32 = 0xED_7B78;
 const Y_AXIS: u32 = 0x75_C884;
@@ -25,6 +27,8 @@ const EDGE: u32 = 0x17_1511;
 const PLAIN: u32 = 0xBB_BBB5;
 /// The part colors: the light colors of the node categories.
 const PARTS: [u32; 7] = [0xE3_B869, 0x79_D4C8, 0xDE_8FBA, 0xD9_A17A, 0xB9_9BDF, 0xF2_C4B8, 0x75_C884];
+/// Two faces that meet with a smaller dot product of their normals get an ink line in the toon look.
+const CREASE: f32 = 0.75;
 
 /// A corner of a triangle or a line: the position, the normal and the linear color. A line has
 /// a zero normal.
@@ -77,10 +81,12 @@ pub struct Renderer {
     drawn: Option<(Camera, Options)>,
 }
 
-/// The faces and the edges of one mesh, and its instances, or `None` for the identity instance.
+/// The faces, the edges and the crease lines of one mesh, and its instances, or `None` for the
+/// identity instance.
 struct Batch {
     faces: Option<(wgpu::Buffer, u32)>,
     edges: Option<(wgpu::Buffer, u32)>,
+    creases: Option<(wgpu::Buffer, u32)>,
     instances: Option<(wgpu::Buffer, u32)>,
 }
 
@@ -200,23 +206,28 @@ impl Renderer {
         let reach = match content {
             Content::Mesh(mesh) => {
                 let (faces, edges) = vertices(mesh, parts);
-                self.batches.push(Batch::new(gpu, &faces, &edges, &[]));
+                let mut lines = Vec::new();
+                creases(mesh, &Place { matrix: IDENTITY, group: 0 }, &mut lines);
+                self.batches.push(Batch::new(gpu, [&faces, &edges, &lines], &[]));
                 mesh.positions.iter().map(|p| p[0].abs().max(p[1].abs())).fold(1.0_f32, f32::max)
             }
             Content::Scene(scene) => {
-                let (mut faces, mut edges) = (Vec::new(), Vec::new());
+                let (mut faces, mut edges, mut lines) = (Vec::new(), Vec::new(), Vec::new());
                 for item in scene.items() {
                     let color = linear(if parts { item.color } else { PLAIN });
                     if let [place] = item.places[..] {
                         add(&item.mesh, &place, |_| color, &mut faces, &mut edges);
+                        creases(&item.mesh, &place, &mut lines);
                         continue;
                     }
-                    let (mut f, mut e) = (Vec::new(), Vec::new());
-                    add(&item.mesh, &Place { matrix: IDENTITY, group: 0 }, |_| color, &mut f, &mut e);
+                    let (mut f, mut e, mut c) = (Vec::new(), Vec::new(), Vec::new());
+                    let identity = Place { matrix: IDENTITY, group: 0 };
+                    add(&item.mesh, &identity, |_| color, &mut f, &mut e);
+                    creases(&item.mesh, &identity, &mut c);
                     let instances: Vec<f32> = item.places.iter().flat_map(|p| p.matrix).collect();
-                    self.batches.push(Batch::new(gpu, &f, &e, &instances));
+                    self.batches.push(Batch::new(gpu, [&f, &e, &c], &instances));
                 }
-                self.batches.push(Batch::new(gpu, &faces, &edges, &[]));
+                self.batches.push(Batch::new(gpu, [&faces, &edges, &lines], &[]));
                 let [low, high] = scene.bounds();
                 [low[0], low[1], high[0], high[1]].into_iter().filter(|v| v.is_finite()).fold(1.0_f32, |r, v| r.max(v.abs() as f32))
             }
@@ -271,7 +282,7 @@ impl Renderer {
         }
         gpu.queue.write_buffer(&self.uniform, 0, &bytes);
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-        let [r, g, b] = linear(BACKGROUND).map(f64::from);
+        let [r, g, b] = linear(if options.toon { TOON_BACKGROUND } else { BACKGROUND }).map(f64::from);
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("model view"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -299,7 +310,12 @@ impl Renderer {
         for batch in &self.batches {
             let (instances, count) = batch.instances.as_ref().map_or((&self.identity, 1), |(b, n)| (b, *n));
             pass.set_vertex_buffer(1, instances.slice(..));
-            let draws = [(true, &self.triangles, &batch.faces), (options.toon, &self.outlines, &batch.faces), (options.wireframe, &self.lines, &batch.edges)];
+            let draws = [
+                (true, &self.triangles, &batch.faces),
+                (options.toon, &self.outlines, &batch.faces),
+                (options.toon && !options.wireframe, &self.lines, &batch.creases),
+                (options.wireframe, &self.lines, &batch.edges),
+            ];
             for (pipeline, (buffer, vertices)) in draws.into_iter().filter_map(|(on, p, b)| Some((p, b.as_ref().filter(|_| on)?))) {
                 pass.set_pipeline(pipeline);
                 pass.set_vertex_buffer(0, buffer.slice(..));
@@ -366,10 +382,10 @@ impl Blit {
 }
 
 impl Batch {
-    fn new(gpu: &Gpu, faces: &[Vertex], edges: &[Vertex], instances: &[f32]) -> Batch {
-        let per = size_of::<Vertex>() / 4;
-        let (faces, edges) = (buffer(gpu, faces.as_flattened(), per), buffer(gpu, edges.as_flattened(), per));
-        Batch { faces, edges, instances: buffer(gpu, instances, IDENTITY.len()) }
+    /// A batch of the faces, the edges and the creases.
+    fn new(gpu: &Gpu, vertices: [&[Vertex]; 3], instances: &[f32]) -> Batch {
+        let [faces, edges, creases] = vertices.map(|v| buffer(gpu, v.as_flattened(), size_of::<Vertex>() / 4));
+        Batch { faces, edges, creases, instances: buffer(gpu, instances, IDENTITY.len()) }
     }
 }
 
@@ -404,6 +420,36 @@ fn add(mesh: &Mesh, place: &Place, color: impl Fn(u32) -> [f32; 3], faces: &mut 
         for i in 0..3 {
             edges.push(vertex(triangle[i], [0.0; 3], edge));
             edges.push(vertex(triangle[(i + 1) % 3], [0.0; 3], edge));
+        }
+    }
+}
+
+/// Adds the ink lines of the toon look to `lines`: each edge where two faces meet at a sharp
+/// angle, and each edge with one face. The corners of a mesh are exact copies, so their bits match.
+fn creases(mesh: &Mesh, place: &Place, lines: &mut Vec<Vertex>) {
+    type Key = ([u32; 3], [u32; 3]);
+    let ink = linear(EDGE);
+    let bits = |p: [f32; 3]| p.map(f32::to_bits);
+    // The normal of the first face of each edge, the count of faces, and true for a sharp angle.
+    let mut sides: std::collections::HashMap<Key, ([f32; 3], u32, bool)> = std::collections::HashMap::with_capacity(mesh.positions.len());
+    for &[a, b, c] in mesh.positions.as_chunks::<3>().0 {
+        let (u, v) = (std::array::from_fn::<f32, 3, _>(|i| b[i] - a[i]), std::array::from_fn::<f32, 3, _>(|i| c[i] - a[i]));
+        let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        let length = n.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if length < 1e-12 {
+            continue;
+        }
+        let n = n.map(|x| x / length);
+        for (p, q) in [(a, b), (b, c), (c, a)] {
+            let key = if bits(p) < bits(q) { (bits(p), bits(q)) } else { (bits(q), bits(p)) };
+            let (first, faces, sharp) = sides.entry(key).or_insert((n, 0, false));
+            *faces += 1;
+            *sharp |= (0..3).map(|i| first[i] * n[i]).sum::<f32>() < CREASE;
+        }
+    }
+    for ((p, q), (_, faces, sharp)) in sides {
+        if faces != 2 || sharp {
+            lines.extend([p, q].map(|p| vertex(place.point(p.map(f32::from_bits)), [0.0; 3], ink)));
         }
     }
 }
@@ -454,6 +500,18 @@ mod tests {
         assert!(lines.iter().all(|v| v[2] == 0.0) && lines.iter().any(|v| v[0] >= 1.25));
         assert!(lines.iter().any(|v| v[6..] == linear(X_AXIS)));
         assert_eq!(linear(0xff_ffff), [1.0; 3]);
+    }
+
+    #[test]
+    fn a_box_has_twelve_creases_and_a_round_side_has_none() {
+        let count = |solid: geometry::Solid| {
+            let mut lines = Vec::new();
+            creases(&solid.mesh(), &Place { matrix: IDENTITY, group: 0 }, &mut lines);
+            lines.len() / 2
+        };
+        assert_eq!(count(geometry::Solid::cube(1.0, 2.0, 3.0)), 12);
+        // A cylinder of 32 sides has creases only on the two rims.
+        assert_eq!(count(geometry::Solid::cylinder(1.0, 0.5, 0.5, 32)), 64);
     }
 
     #[test]

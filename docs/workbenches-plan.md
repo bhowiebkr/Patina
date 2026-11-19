@@ -294,10 +294,10 @@ Agent decisions of 2026-11-19 for F, the owner can change them:
   rolls up, makes a sight, a stock and an accessory more frequent, and changes the accent color.
 - The nodes:
   - `receiver`, `barrel`, `grip`, `stock`, `magazine`, `sight` and `accessory` (F1): one part
-    from a seed and a maker.
-  - `assemble` (F3): a gun from the parts and a `rarity` input.
+    from a seed, a class and a maker.
+  - `assemble` (F3): a gun from the parts, a `rarity` input and an `element` input.
   - `gun` (F3): all the parts from one seed, with a sub-seed for each part and a weighted pick
-    of the maker and the rarity when they are **random**.
+    of the class, the maker, the rarity and the element when they are **random**.
   - `stats` (F4): the stats as text.
   - `look` (F5): the gun as a scene with the colors of the maker and the rarity.
   - `export-gun` (F7): a `.glb` file with the `muzzle` and `grip` sockets, and a `.txt` file
@@ -309,6 +309,23 @@ Agent decisions of 2026-11-19 for F, the owner can change them:
   seed of the `gun` node.
 - The model geometry types get `Solid::project` and `Sketch::outlines` for the side views. They
   are general tools of the model workbench, not gun logic.
+
+Agent decisions of 2026-11-19 for the second version of F, after the owner said that the guns
+were too simple. The owner can change them:
+
+- The look follows the general rules of stylized looter-shooter guns: a strong shape language
+  for each maker, thick ink lines, flat paint with a few colors, and a name from the parts. The
+  makers, names, shapes and colors are original.
+- A gun has a class (pistol, SMG, rifle, shotgun, sniper rifle or launcher). The class sets the
+  part sizes, the base stats and the chance of each extra part.
+- Each part has six solids, one for each material: paint, trim, metal, grip, rarity and glow.
+  Each maker has three paint schemes. The glow takes the element color.
+- The elements are none, fire, shock, corrosive and cryo. An element costs 15 percent of the
+  direct damage.
+- The name is the element word or the word of the largest part bonus, and the model name of the
+  maker for the class.
+- The toon ink of `model-view` gets lines on the sharp edges (more than 41 degrees) and a
+  lighter background, so the outlines show. These are general view features, not gun logic.
 
 ## Progress
 

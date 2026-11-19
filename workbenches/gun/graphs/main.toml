@@ -4,7 +4,7 @@ format = 1
 id = "9a70000000000100"
 pos = [0.0, -300.0]
 width = 1000.0
-text = "# SEEDED GUNS\nThe `gun` node makes a full gun from one seed. Change **seed**, **maker** or **rarity** to get a new gun. A **random** maker or rarity comes from the seed.\nClick **Run**, open **Views** and select **model-view**. Then click `look` to see the gun in 3D. The `report` nodes write the counts and the hash of each scene. The **gun-wall** view shows the guns of many seeds: click a gun to use its seed.\nThe lower row builds a gun from parts. Each part node has a seed and a maker, and the maker **none** removes the part.\nIn `export-gun`, click **Export** to write the gun to a `.glb` file and its stats to a `.txt` file in the **guns** folder."
+text = "# SEEDED GUNS\nThe `gun` node makes a full gun from one seed. Change **seed**, **class**, **maker**, **rarity** or **element** to get a new gun. A **random** value comes from the seed. Each maker has its own shapes, colors and stats, and the name comes from the element or from the best part.\nClick **Run**, open **Views** and select **model-view**. Then click `look` to see the gun in 3D. The `report` nodes write the counts and the hash of each scene. The **gun-wall** view shows the guns of many seeds: click a gun to use its seed.\nThe lower row builds a gun from parts. Each part node has a seed, a class and a maker, and the maker **none** removes the part. Parts from different makers fit together.\nIn `export-gun`, click **Export** to write the gun to a `.glb` file and its stats to a `.txt` file in the **guns** folder."
 
 [[node]]
 id = "9a70000000000001"
@@ -13,8 +13,10 @@ pos = [0.0, 0.0]
 
 [node.params]
 seed = "7"
+class = "random"
 maker = "random"
 rarity = "random"
+element = "random"
 
 [[node]]
 id = "9a70000000000002"
@@ -49,6 +51,7 @@ folder = "nodes/receiver"
 pos = [300.0, 400.0]
 
 [node.params]
+class = "rifle"
 maker = "blockwerk"
 
 [[node]]
@@ -57,6 +60,7 @@ folder = "nodes/barrel"
 pos = [300.0, 500.0]
 
 [node.params]
+class = "rifle"
 maker = "vesper"
 
 [[node]]
@@ -65,6 +69,7 @@ folder = "nodes/grip"
 pos = [300.0, 600.0]
 
 [node.params]
+class = "rifle"
 maker = "blockwerk"
 
 [[node]]
@@ -73,6 +78,7 @@ folder = "nodes/stock"
 pos = [300.0, 700.0]
 
 [node.params]
+class = "rifle"
 maker = "scrapjaw"
 
 [[node]]
@@ -81,6 +87,7 @@ folder = "nodes/magazine"
 pos = [300.0, 800.0]
 
 [node.params]
+class = "rifle"
 maker = "halo"
 
 [[node]]
@@ -89,6 +96,7 @@ folder = "nodes/sight"
 pos = [300.0, 900.0]
 
 [node.params]
+class = "rifle"
 maker = "vesper"
 
 [[node]]
@@ -97,6 +105,7 @@ folder = "nodes/accessory"
 pos = [300.0, 1000.0]
 
 [node.params]
+class = "rifle"
 maker = "none"
 
 [[node]]
@@ -106,6 +115,7 @@ pos = [600.0, 600.0]
 
 [node.params]
 rarity = "epic"
+element = "shock"
 
 [[node]]
 id = "9a70000000000019"

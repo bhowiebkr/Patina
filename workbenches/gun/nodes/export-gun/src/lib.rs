@@ -83,7 +83,7 @@ mod tests {
     fn only_a_click_writes_the_model_and_the_stats() {
         let folder = std::env::temp_dir().join(format!("patina-export-gun-{}", std::process::id()));
         let text = folder.to_str().unwrap();
-        let gun = generate(Seed(5), Pick::Random, Pick::Random).unwrap();
+        let gun = generate(Seed(5), Pick::Random, Pick::Random, Pick::Random, Pick::Random).unwrap();
         let mut node = ExportGun::init();
         node.process(&gun, text, "", 3).unwrap();
         assert!(!folder.exists());

@@ -4,7 +4,7 @@
 use std::fmt::Write;
 
 use geometry::Seed;
-use guns::{Choice, Maker, Outline, Pick, Rarity, generate, side_view};
+use guns::{Class, Element, Maker, Outline, Pick, Rarity, generate, side_view};
 use patina_sdk::{Canvas, Graph, Param, Pointer, Ui};
 
 /// The guns on one page.
@@ -20,8 +20,8 @@ const ACCENT: [u8; 3] = [0xdf, 0xa6, 0x4b];
 const MUTED: [u8; 3] = [0xb2, 0xb2, 0xad];
 const INK: [u8; 3] = [0x17, 0x15, 0x11];
 
-/// Shows the side views of the guns of eight seeds, with the maker and the rarity of the `gun`
-/// node. Click a gun to give its seed to the `gun` node. Click Previous or Next for other seeds.
+/// Shows the side views of the guns of eight seeds, with the class, the maker, the rarity and
+/// the element of the `gun` node. Click a gun to give its seed to the `gun` node. Click Previous or Next for other seeds.
 #[patina_sdk::view]
 pub struct GunWall {
     /// The ID of the `gun` node.
@@ -31,8 +31,8 @@ pub struct GunWall {
     tiles: Vec<Tile>,
 }
 
-/// The seed, the maker and the rarity of a gun.
-type Key = (u64, Pick<Maker>, Pick<Rarity>);
+/// The seed, the class, the maker, the rarity and the element of a gun.
+type Key = (u64, Pick<Class>, Pick<Maker>, Pick<Rarity>, Pick<Element>);
 
 /// One gun of the wall.
 #[derive(Default)]
@@ -61,9 +61,11 @@ impl GunWall {
             self.gun.clear();
             self.gun.push_str(id);
         }
-        let inputs = read::<Seed>(graph, id, "seed")
-            .and_then(|seed| Ok((seed, read::<Pick<Maker>>(graph, id, "maker")?, read::<Pick<Rarity>>(graph, id, "rarity")?)));
-        let (seed, maker, rarity) = match inputs {
+        let inputs = read::<Seed>(graph, id, "seed").and_then(|seed| {
+            let picks = (read(graph, id, "class")?, read(graph, id, "maker")?, read(graph, id, "rarity")?, read(graph, id, "element")?);
+            Ok((seed, picks))
+        });
+        let (seed, (class, maker, rarity, element)) = match inputs {
             Ok(inputs) => inputs,
             Err(error) => return ui.label(&error),
         };
@@ -84,9 +86,9 @@ impl GunWall {
         ui.label(&format!("Seeds {first} to {}. Click a gun to use its seed.", first + PAGE - 1));
 
         // One new gun at each call, because a gun takes some milliseconds.
-        let wanted = |i: usize| Some((first + i as u64, maker, rarity));
+        let wanted = |i: usize| Some((first + i as u64, class, maker, rarity, element));
         if let Some((i, tile)) = self.tiles.iter_mut().enumerate().find(|(i, tile)| tile.key != wanted(*i)) {
-            *tile = Tile::new((first + i as u64, maker, rarity));
+            *tile = Tile::new((first + i as u64, class, maker, rarity, element));
         }
 
         let width = ui.available_size().map_or(480.0, |size| size[0]).max(160.0);
@@ -111,9 +113,9 @@ impl GunWall {
 
 impl Tile {
     fn new(key: Key) -> Tile {
-        let (seed, maker, rarity) = key;
-        let (label, outlines) = match generate(Seed(seed), maker, rarity) {
-            Ok(gun) => (format!("{seed}  {} {}", gun.maker.title(), gun.rarity.name()), side_view(&gun)),
+        let (seed, class, maker, rarity, element) = key;
+        let (label, outlines) = match generate(Seed(seed), class, maker, rarity, element) {
+            Ok(gun) => (format!("{seed}  {}, {} {}", gun.name, gun.maker.title(), gun.class.title()), side_view(&gun)),
             Err(error) => (format!("{seed}  {error}"), Vec::new()),
         };
         Tile { key: Some(key), label, outlines, ..Tile::default() }
@@ -218,7 +220,7 @@ mod tests {
         }
         // The page starts at a multiple of eight, and each gun has the maker of the node.
         for (i, tile) in wall.tiles.iter().enumerate() {
-            assert_eq!(tile.key, Some((8 + i as u64, Pick::Of(Maker::Vesper), Pick::Random)));
+            assert_eq!(tile.key, Some((8 + i as u64, Pick::Random, Pick::Of(Maker::Vesper), Pick::Random, Pick::Random)));
             assert!(tile.label.contains("Vesper") && !tile.paths.is_empty(), "{}", tile.label);
         }
         for (_, data) in wall.tiles.iter().flat_map(|t| &t.paths) {

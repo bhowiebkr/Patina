@@ -96,16 +96,16 @@ copy = "sha256:0e06a0dd1c4e0f784ebbb12e6f3231f2085b73b3b1276716561fc2a79ee90d09"
 [imports."views/model-view"]
 project = "7118535a346ebba3"
 folder = "model-view"
-hash = "sha256:d5055ed6192adae1038f6539bef3193220b154c0b22a251e878cdff5a3a3a0ff"
-copy = "sha256:d5055ed6192adae1038f6539bef3193220b154c0b22a251e878cdff5a3a3a0ff"
+hash = "sha256:49d7d109fa0e2959e5128b08a1e45c571aca287db1b705fe0ccc33a6e04339bf"
+copy = "sha256:49d7d109fa0e2959e5128b08a1e45c571aca287db1b705fe0ccc33a6e04339bf"
 
 [imports."views/model-view".files]
 "Cargo.toml" = "sha256:31f98e5c1dc6af6d435bc1daa5e5ef04e31b1c9072f441da9d460a9201e882c4"
 "src/blit.wgsl" = "sha256:88c6f1dc454ecfc17b3d14cb5328d4c3239abe4e5ecd9a23fe7212ba21e6f4e9"
 "src/camera.rs" = "sha256:4f42ccc00624a5fb277a418cbc74eb693bb82ea4540aeacb07517c21b759c6e2"
 "src/lib.rs" = "sha256:b38d22fdd9803458465c6144c150adc3fb2e866f6675a7187d65ce7a1020dabb"
-"src/render.rs" = "sha256:59fdb8e59e356be0c83ba4463756e755ea6c2f3a322590f679e2dc29afd4ba31"
-"src/scene.wgsl" = "sha256:be193cf25012e00b77afced0db51387fddc0616af4bff8ea94e54af880615c39"
+"src/render.rs" = "sha256:63e63a4f28792d95224164447a74c90f0dfa04fded13d92347f26f1bc1660feb"
+"src/scene.wgsl" = "sha256:51778c44171e4e59f91e2a4fa88f2b000aa7c042283d8e1e917a7f173665b7e8"
 
 [imports."nodes/seed"]
 project = "7118535a346ebba3"
