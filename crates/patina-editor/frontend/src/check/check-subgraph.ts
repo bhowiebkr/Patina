@@ -438,13 +438,13 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the name field of New graph', RUN_MS, () => !!document.querySelector('[aria-label="Graph name"]'));
   enterText(document.querySelector<HTMLInputElement>('[aria-label="Graph name"]')!, 'bench_check');
   await until('the empty top graph bench_check that runs', BUILD_MS, () => document.querySelector('.graph-path') === null && count() === 0 && runs('bench_check'));
-  graphItem('main')!.click();
-  await until('main runs again after bench_check', BUILD_MS, () => count() === all && runs('main') && !runs('bench_check'));
+  // Delete on the open graph that runs asks first, then main opens and runs in its place (15.4).
   rightClick(graphItem('bench_check')!);
-  await until('the Delete entry of bench_check', RUN_MS, () => !!entry('graphs/bench_check', 'Delete'));
+  await until('the Delete entry of bench_check that runs', RUN_MS, () => !!entry('graphs/bench_check', 'Delete'));
   entry('graphs/bench_check', 'Delete')!.click();
-  await until('the delete question of bench_check', RUN_MS, () => !!button('Delete'));
+  const question = () => document.querySelector('.dialog[role="dialog"]')?.textContent ?? '';
+  await until('the delete question of bench_check that runs', RUN_MS, () => !!button('Delete') && question().includes('main opens and runs in its place'));
   button('Delete')!.click();
-  await until('no bench_check after Delete', RUN_MS, () => !graphItem('bench_check') && !graphItem('main')?.querySelector('.hint'));
-  steps.push('make, run and delete a top graph with New graph');
+  await until('main open and running after Delete of bench_check', BUILD_MS, () => !graphItem('bench_check') && count() === all && graphItem('main')?.classList.contains('active') === true && !graphItem('main')?.querySelector('.hint'));
+  steps.push('make, run and delete the open top graph that runs with New graph');
 }

@@ -710,6 +710,7 @@ mod tests {
         // A recovery file brings back a graph with no file as a new graph (15.10).
         project.restore("fresh", GraphFile { format: 1, top: true, ..GraphFile::default() }).unwrap();
         assert_eq!((project.graph_name(), project.top()), ("fresh", "fresh"));
+        assert!(!project.drop_graph("fresh"), "the open graph that runs goes only after main opens (15.4)");
         project.open_graph("main").unwrap();
         assert!(!project.drop_graph("main") && project.drop_graph("fresh") && !project.has_graph("fresh"));
         fs::remove_dir_all(&root).unwrap();

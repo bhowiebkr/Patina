@@ -81,6 +81,9 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
     };
   };
   const close = () => setNaming(null);
+  // The graph that runs or the open graph closes before it goes, so main or the graph that runs opens (15.4).
+  const graph = asking?.startsWith('graphs/') ? asking.slice('graphs/'.length) : null;
+  const instead = graph === view.top ? ` ${graph} runs, so main opens and runs in its place.` : graph === view.graphName ? ` ${graph} is open, so ${view.top} opens in its place.` : '';
   const startDrag = (e: DragEvent, name: string) => {
     e.dataTransfer.setData(NODE_MIME, name);
     e.dataTransfer.effectAllowed = 'move';
@@ -106,7 +109,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
             key={name}
             className={view.graphName === name ? 'item active' : 'item'}
             onClick={() => onOpen(name)}
-            {...actions(name === 'main' || name === view.top ? null : `graphs/${name}`, { label: 'Open', run: () => onOpen(name) })}
+            {...actions(name === 'main' ? null : `graphs/${name}`, { label: 'Open', run: () => onOpen(name) })}
             title={name === view.top ? 'Open the graph that runs' : `Open the graph. It runs in place of ${view.top}.`}
           >
             {name}
@@ -194,7 +197,7 @@ export function ProjectPanel({ view, inspect, onInspect, onNew, onImport, onUpda
       {asking && (
         <Confirm
           title={`Delete ${asking}?`}
-          label={`Delete moves ${asking} to the Recycle Bin. Undo cannot get it back, but the Recycle Bin can. The nodes and the uses that need it show an error until you delete them.`}
+          label={`Delete moves ${asking} to the Recycle Bin. Undo cannot get it back, but the Recycle Bin can. The nodes and the uses that need it show an error until you delete them.${instead}`}
           answers={[
             [
               'Delete',

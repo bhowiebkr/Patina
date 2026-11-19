@@ -404,6 +404,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - A right-click **Delete** on the **Project** panel items moves a folder to the Recycle Bin
   (2026-11-18). A unit test checks the folder names that can go. The self-check clicks **Delete**
   on a node folder and **Cancel** in the question. No check moved a folder to the Recycle Bin.
+- **Delete** on the open graph or on the top graph that runs first opens `main` or the top graph
+  that runs (2026-11-19). The self-check (326 steps, on a hidden desktop) deletes a new top graph
+  while it is open and runs, and sees `main` open and run again. An engine test checks that the
+  graph that runs goes only after `main` opens. No check deleted a saved graph file.
 - The **Logs** panel shows the full compile errors, with highlight and **Fix:** lines from a list
   of common errors (2026-11-18). The **Output** panel has the same highlight. A unit test checks
   the highlight parts. The self-check reads the highlight and the **Fix:** line of a type error.

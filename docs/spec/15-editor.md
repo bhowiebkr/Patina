@@ -126,7 +126,9 @@ The **Import** button at the end of the **Project** panel copies a folder from a
 - A right-click on a group title of the **Project** panel opens a menu with **New node**, **New widget** or the entry of that group, in a trusted project. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The editor shows no menu of the WebView, for example **Back**, **Refresh** or **Print**. A right-click on a place with no menu of the editor does nothing. A text field keeps the menu of the system, for **Cut**, **Copy** and **Paste**. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
   - **Delete** moves the folder, or the file of the subgraph, to the Recycle Bin. Undo cannot get it back, but the Recycle Bin can.
-  - The main graph, the open graph, the top graph that runs and a folder with unsaved changes in the **Code** tab cannot go. A new top graph with no file goes from memory. An untrusted project has no **Delete**.
+  - The main graph and a folder with unsaved changes in the **Code** tab cannot go. A new top graph with no file goes from memory. An untrusted project has no **Delete**.
+  - The open graph and the top graph that runs can go. Before the delete, another graph opens in their place: `main` for the top graph that runs, else the top graph that runs. The dialog tells the user which graph opens. (Agent decision of 2026-11-19, for the owner request to delete graphs. The owner can change it.)
+  - Reason: a click on a top graph opens it and makes it run, so a top graph that the user opened could never go.
   - The nodes and the uses that need the folder stay, and show the error of a missing folder until the user deletes them.
   - An imported folder keeps its record in `patina.toml`, but goes from the **Imports** list. A restore from the Recycle Bin shows it again. (Agent decision of 2026-11-18. The owner can change it.)
   - On Linux and macOS, **Delete** shows an error for now.

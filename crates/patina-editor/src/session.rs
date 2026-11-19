@@ -437,14 +437,25 @@ pub fn delete_folder(editor: State<'_, Editor>, folder: String) -> Result<View, 
         }
         let path = session.project.root().join(deletable_folder(&folder)?);
         let graph = folder.strip_prefix("graphs/");
-        if graph.is_some_and(|name| name == session.project.graph_name() || name == session.project.top()) {
-            return Err(format!("Open another top graph before you delete {folder}."));
-        }
+        // The open graph and the top graph that runs close first: the top graph or main opens (15.4).
+        let next = graph.and_then(|name| match name {
+            _ if name == session.project.top() => Some("main".to_owned()),
+            _ if name == session.project.graph_name() => Some(session.project.top().to_owned()),
+            _ => None,
+        });
         if !path.exists() {
-            // A new graph has no file before a save, so it goes from memory (15.10).
+            // A new graph has no file before a save, so it goes from memory (15.10). An open graph is in memory.
+            let (moved, tested) = match &next {
+                Some(next) => switch(session, next)?,
+                None => (false, false),
+            };
             if graph.is_some_and(|name| session.project.drop_graph(name)) {
                 session.keep_recovery(&editor.data);
-                return Ok(session.view(&editor.engine, None, None));
+                let view = session.view(&editor.engine, (moved || tested).then_some(true), None);
+                if moved {
+                    session.load(&editor.engine);
+                }
+                return Ok(view);
             }
             return Err(format!("The project has no {folder}."));
         }
@@ -455,6 +466,10 @@ pub fn delete_folder(editor: State<'_, Editor>, folder: String) -> Result<View, 
         // rust-analyzer watches each folder, so Windows cannot move one while it runs. The Code tab starts it again.
         editor.analyzer.stop();
         start::recycle(&path)?;
+        let (moved, tested) = match &next {
+            Some(next) => switch(session, next)?,
+            None => (false, false),
+        };
         if let Some(name) = graph {
             session.project.drop_graph(name);
             session.keep_recovery(&editor.data);
@@ -463,9 +478,20 @@ pub fn delete_folder(editor: State<'_, Editor>, folder: String) -> Result<View, 
         if let Some(name) = folder.strip_prefix("views/") {
             editor.engine.send(Job::CloseView(name.to_owned()));
         }
-        let build = session.live.then_some(true);
-        Ok(session.view(&editor.engine, build, None))
+        let view = session.view(&editor.engine, (session.live || moved || tested).then_some(true), None);
+        if moved {
+            session.load(&editor.engine);
+        }
+        Ok(view)
     })
+}
+
+/// Opens the graph `name`. Gives true when the top graph that runs moved, and true when the test
+/// of a subgraph ended, so the top graph runs again (15.9).
+fn switch(session: &mut Session, name: &str) -> Result<(bool, bool), String> {
+    let top = session.project.top().to_owned();
+    session.project.open_graph(name)?;
+    Ok((session.project.top() != top, session.test.take().is_some()))
 }
 
 /// The path of a folder that the Project panel can delete, so the page cannot delete another file.
@@ -633,11 +659,7 @@ pub fn recover(editor: State<'_, Editor>, restore: bool) -> Result<Recovered, St
 #[tauri::command(async)]
 pub fn open_graph(editor: State<'_, Editor>, name: String) -> Result<View, String> {
     editor.with(|session| {
-        let top = session.project.top().to_owned();
-        session.project.open_graph(&name)?;
-        let moved = session.project.top() != top;
-        // The test of a subgraph ends, so the top graph runs again (15.9).
-        let tested = session.test.take().is_some();
+        let (moved, tested) = switch(session, &name)?;
         let view = session.view(&editor.engine, (tested || moved).then_some(true), None);
         if moved {
             session.load(&editor.engine);

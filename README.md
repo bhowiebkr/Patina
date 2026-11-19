@@ -109,8 +109,10 @@ two pins connect only when they have the same type.
 Each node has its own folder, with its code, its GUI and its tests. Views, custom widgets and
 data types have their own folders too. Another project can import a folder and reuse it. The
 import is a copy. **Update** in the **Project** panel shows the changes in the original folder
-and copies them when you confirm. To delete a folder or a subgraph, right-click it in the
-**Project** panel and click **Delete**. The folder goes to the Recycle Bin.
+and copies them when you confirm. To delete a folder, a subgraph or a top graph, right-click it
+in the **Project** panel and click **Delete**. The folder goes to the Recycle Bin. When you
+delete the open graph or the graph that runs, `main` or the graph that runs opens in its place.
+The `main` graph cannot go.
 
 A project can have more than one top graph, for example an empty workbench next to a finished
 build. To make one, click **New graph** in the **Graphs** group of the **Project** panel and type
