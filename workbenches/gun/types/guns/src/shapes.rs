@@ -1,6 +1,8 @@
 //! Shape helpers for the parts. Units are meters, +X points to the muzzle, Y is the width and Z
 //! is up. A profile is a list of points `[x, z]` on the side of the gun.
 
+use std::f64::consts::PI;
+
 use geometry::{Sketch, Solid};
 
 /// A plate with the profile on the X-Z plane and the thickness `t` on Y, centered on Y.
@@ -58,6 +60,27 @@ pub fn pill(circles: &[([f64; 2], f64)], w: f64, b: f64) -> Solid {
     let mut bars: Vec<Solid> = circles.iter().map(|&c| bar(c, c.1, w - 2.0 * b)).collect();
     bars.extend(circles.iter().map(|&c| bar(c, (c.1 - b).max(0.0005), w)));
     Solid::union_all(&bars).hull()
+}
+
+/// An egg outline on the X-Y plane with its center at `[x, 0]`, `depth` long on X and about
+/// `width` wide on Y. The part `back` of the width moves to the back half (-X).
+pub fn egg(x: f64, depth: f64, width: f64, back: f64) -> Vec<[f64; 2]> {
+    (0..24).map(|i| f64::from(i) * PI / 12.0).map(|t| [x + depth / 2.0 * t.cos(), width / 2.0 * t.sin() * (1.0 - back * t.cos())]).collect()
+}
+
+/// A sculpted solid along Z: each item is a height and an outline on the X-Y plane at that
+/// height. A loft joins each two outlines in a row, from the lowest height to the highest.
+pub fn taper(sections: &[(f64, Vec<[f64; 2]>)]) -> Solid {
+    let parts: Vec<Solid> = sections
+        .windows(2)
+        .map(|w| {
+            let ((z0, a), (z1, b)) = (&w[0], &w[1]);
+            let (a, b) = (Sketch::polygon(a), Sketch::polygon(b));
+            // A loft fails only for a bad outline. The hull of the two outlines keeps a body there.
+            Solid::loft(&a, &b, z1 - z0).unwrap_or_else(|_| Solid::extrude(&a, 1e-4, 0.0, [1.0; 2], 0).union(&Solid::extrude(&b, 1e-4, 0.0, [1.0; 2], 0).translate([0.0, 0.0, z1 - z0])).hull()).translate([0.0, 0.0, *z0])
+        })
+        .collect();
+    Solid::union_all(&parts)
 }
 
 /// A solid of revolution around the X axis. Each point of the closed `profile` is
@@ -211,6 +234,7 @@ mod tests {
             tube([0.0, 0.1], 0.02, 0.01, 16),
             rail([0.0, 0.1], 0.02, 0.008),
             ring_x(0.0, 0.02, 0.004),
+            taper(&[(-0.1, egg(0.0, 0.03, 0.02, 0.15)), (-0.05, egg(0.001, 0.036, 0.026, 0.2)), (0.02, egg(0.0, 0.034, 0.024, 0.0))]),
         ];
         for (i, solid) in solids.iter().enumerate() {
             assert_eq!(solid.error(), None, "{i}");
@@ -219,5 +243,8 @@ mod tests {
         // The plate is inside its profile and as thick as asked.
         let [lo, hi] = solids[0].bounds();
         assert!((hi[1] - lo[1] - 0.03).abs() < 1e-6 && hi[0] <= 0.1 + 1e-6 && lo[2] >= -1e-6, "{lo:?} {hi:?}");
+        // The taper goes from the lowest height to the highest, and the middle outline is the widest.
+        let [lo, hi] = solids[7].bounds();
+        assert!((lo[2] + 0.1).abs() < 1e-6 && (hi[2] - 0.02).abs() < 1e-6 && hi[0] > 0.0185, "{lo:?} {hi:?}");
     }
 }

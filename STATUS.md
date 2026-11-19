@@ -321,8 +321,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     sides, in raised letters of the trim color. Two unit tests check the letters, the logos and
     the strokes. A preview of the meshes of the 24 guns of all classes and makers showed each
     mark readable on the receiver, from left to right on the two sides.
+  - Sculpted grips (2026-11-19): the Vesper and Halo grips are lofts through egg outlines at
+    four heights, with a taper, a cut bottom edge and a palm swell. A unit test checks the
+    `taper` helper. A preview of the pistols showed the taper, the swell and the finger grooves.
 - Known limits:
-  - The parts are extrusions, turned profiles and booleans, with no sculpted shapes.
+  - Only the Vesper and Halo grips are sculpted. The other parts are extrusions, turned profiles
+    and booleans.
   - The maker mark is the only text. The other parts have no decals, logos or text.
   - Linux and macOS did not run the workbench.
 

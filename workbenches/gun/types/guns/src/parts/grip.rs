@@ -51,10 +51,15 @@ fn blockwerk(b: &mut Build, gl: f64, gw: f64, front: f64) -> (Parts, Parts) {
     (body, vec![(Material::Trim, ring)])
 }
 
-/// A smooth pill with finger grooves, a backstrap and a round loop guard.
+/// A sculpted body with a palm swell, finger grooves, a backstrap and a round loop guard.
 fn vesper(_: &mut Build, gl: f64, gw: f64, front: f64) -> (Parts, Parts) {
-    let core = pill(&[([0.0, 0.012], 0.018), ([-0.004, -gl + 0.015], 0.015)], gw, 0.005);
-    let grooves: Vec<Solid> = (0..3).map(|i| rod_y([0.02, -0.02 - 0.02 * f64::from(i)], gw + 0.01, 0.0055, 16)).collect();
+    let core = taper(&[
+        (-gl, egg(-0.004, 0.024, 0.7 * gw, 0.15)),
+        (-gl + 0.005, egg(-0.004, 0.03, 0.86 * gw, 0.15)),
+        (-0.45 * gl, egg(-0.003, 0.037, 1.04 * gw, 0.2)),
+        (0.03, egg(0.0, 0.036, 0.92 * gw, 0.1)),
+    ]);
+    let grooves: Vec<Solid> = (0..3).map(|i| rod_y([0.0195, -0.02 - 0.02 * f64::from(i)], gw + 0.01, 0.0055, 16)).collect();
     let mut body = vec![(Material::Grip, core.difference(&Solid::union_all(&grooves)))];
     body.push((Material::Trim, pill(&[([-0.015, 0.0], 0.006), ([-0.018, -gl + 0.01], 0.008)], gw + 0.002, 0.002)));
     body.push((Material::Rarity, pill(&[([-0.006, -gl + 0.004], 0.006), ([0.004, -gl + 0.004], 0.006)], gw + 0.003, 0.002)));
@@ -76,9 +81,15 @@ fn scrapjaw(b: &mut Build, gl: f64, gw: f64, front: f64) -> (Parts, Parts) {
     (body, vec![(Material::Metal, guard)])
 }
 
-/// A round pill with a glow stripe on its front, a pommel ring and a ring guard.
+/// A round sculpted body with a glow stripe on its front, a pommel ring and a ring guard.
 fn halo(_: &mut Build, gl: f64, gw: f64, _front: f64) -> (Parts, Parts) {
-    let mut body = vec![(Material::Paint, pill(&[([0.0, 0.012], 0.017), ([-0.002, -gl + 0.012], 0.016)], gw, 0.007))];
+    let core = taper(&[
+        (-gl, egg(-0.002, 0.026, 0.75 * gw, 0.0)),
+        (-gl + 0.006, egg(-0.002, 0.032, 0.95 * gw, 0.0)),
+        (-0.5 * gl, egg(-0.001, 0.036, 1.05 * gw, 0.1)),
+        (0.029, egg(0.0, 0.034, 0.95 * gw, 0.0)),
+    ]);
+    let mut body = vec![(Material::Paint, core)];
     body.push((Material::Glow, pill(&[([0.0155, -0.012], 0.003), ([0.0145, -gl + 0.02], 0.003)], gw * 0.5, 0.001)));
     body.push((Material::Trim, bevel([-0.02, 0.018], [-gl - 0.004, -gl + 0.006], gw + 0.003, 0.003)));
     body.push((Material::Metal, ring_y([-0.014, -gl - 0.008], 0.007, 0.003)));

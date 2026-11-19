@@ -143,7 +143,7 @@ wire to the node. A run after a change does not write.
 
 ## Known limits
 
-- The parts are made from extrusions, turned profiles and booleans. There are no sculpted
-  shapes.
+- The parts are made from extrusions, turned profiles and booleans. Only the Vesper and Halo
+  grips are sculpted: lofts through outlines at four heights give them a taper and a palm swell.
 - The gun wall draws flat side views with paths, not 3D images.
 - The maker mark is the only text. The other parts have no decals, logos or text.
