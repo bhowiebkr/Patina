@@ -200,6 +200,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "perform"
+version = "0.1.0"
+dependencies = [
+ "panel",
+ "patina-sdk",
+]
+
+[[package]]
 name = "reverb"
 version = "0.1.0"
 dependencies = [

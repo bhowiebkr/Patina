@@ -3,6 +3,9 @@ use patina_sdk::{Canvas, Key, Mode, Pointer, Ui};
 use std::f32::consts::PI;
 use std::fmt::Write;
 
+mod xy;
+pub use xy::XyPad;
+
 pub const INK: [u8; 3] = [238, 238, 235];
 pub const MUTED: [u8; 3] = [178, 178, 173];
 pub const DARK: [u8; 3] = [20, 20, 20];
@@ -104,9 +107,17 @@ pub struct Dial {
 }
 impl Dial {
     pub fn show(&mut self, ui: &mut Ui, value: &mut f32, knob: Knob) {
+        let key = knob.key;
+        if self.edit(ui, value, knob) {
+            ui.set_param(key, *value);
+        }
+    }
+
+    /// A view uses the same dial, then sends its change through `Graph::set_param`.
+    pub fn edit(&mut self, ui: &mut Ui, value: &mut f32, knob: Knob) -> bool {
         let Knob {
             at,
-            key,
+            key: _,
             label,
             range,
             color,
@@ -190,9 +201,7 @@ impl Dial {
             };
             c.text([44.0 - text.len() as f32 * 3.3, 102.0], INK, &text);
         }
-        if (*value - before).abs() > 0.000001 {
-            ui.set_param(key, *value);
-        }
+        (*value - before).abs() > 0.000001
     }
 }
 

@@ -20,6 +20,31 @@ The instrument panels have different sizes. Each panel has room for its controls
 The knobs also accept arrow keys when they have focus. The **Inspector** shows exact parameter values and short explanations.
 The large panels also support **Full size**. Use the node menu to open one.
 
+## Play from the performance view
+
+![The Ember performance view](images/perform.png)
+
+1. Open the **main** graph.
+2. Open **Views**, then **perform**.
+3. Select **PHRASE**, **ATMOSPHERE**, or **IMPACT**.
+4. Click **Run** to start the engine.
+5. Use **Perform** for master level, drums, tempo, swing, and the filter XY pad.
+6. Use **Tone**, **Envelope**, and **Echo** to shape the phrase.
+7. Select an **Exact control** to type its value or reset it.
+8. Open **Learn** for short listening experiments.
+
+The view controls the same parameters as the graph nodes. **Save** keeps changes, and **Undo** restores values.
+The XY pad changes cutoff horizontally and resonance vertically. Its arrow keys make small changes.
+**Select its node** selects the corresponding graph node. Open **Graph** to see it.
+
+**Phrase playing** controls the score. It does not stop the ambient patch or the engine.
+**Audio output enabled** controls the output node's audio submission. Keep it enabled for CLI rendering.
+The tone, envelope, echo, and filter controls affect **PHRASE**. Edit the other patches inside their subgraphs.
+
+The view requires the original main patch's node IDs and folders. It reports missing or connected controls instead of writing hidden overrides.
+The envelope display is a settings preview. It shows a 0.4-second sustain hold, followed by release.
+The view has no live audio analyzer or device-status display yet.
+
 ## Explore the patches
 
 **PHRASE** combines the 16-step synth with kick, snare, and hi-hat.

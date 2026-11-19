@@ -91,6 +91,51 @@ fn the_synthesizer_plays_the_same_patch_in_edit_and_bake_and_has_live_controls()
         );
     }
     render_the_saved_patch(&project);
+    check_performance_view(&project, &toolchain);
+}
+
+fn check_performance_view(project: &Path, toolchain: &Toolchain) {
+    use patina_engine::Edit;
+    use patina_engine::view::{View, snapshot};
+    let mut opened = Project::open(project).unwrap();
+    for mode in [Mode::Edit, Mode::Bake] {
+        let library = opened.build_view(toolchain, "perform", mode).unwrap();
+        let mut view = View::load(&library, project).unwrap();
+        let graph = snapshot(opened.graph(), &[], &[], &[]);
+        let first = view.ui(0, "", &graph, None).unwrap();
+        assert!(first.edits.is_empty());
+        let pad = first
+            .tree
+            .lines()
+            .position(|line| line.starts_with("canvas\tFilter XY"))
+            .unwrap();
+        let frame = view
+            .ui(
+                0,
+                &format!("{pad} down 272 80\n{pad} up 272 80"),
+                &graph,
+                None,
+            )
+            .unwrap();
+        assert_eq!(frame.edits.len(), 2);
+        opened.apply(&Edit::Group { edits: frame.edits }).unwrap();
+        let graph = snapshot(opened.graph(), &[], &[], &[]);
+        let changed = view.ui(0, "", &graph, None).unwrap();
+        assert!(
+            changed.tree.contains("number\tCUTOFF\t979."),
+            "{}",
+            changed.tree
+        );
+        opened.save().unwrap();
+        let saved = Project::open(project).unwrap();
+        assert_eq!(snapshot(saved.graph(), &[], &[], &[]), graph);
+        opened.undo(&mut Default::default()).unwrap();
+        let restored = view
+            .ui(0, "", &snapshot(opened.graph(), &[], &[], &[]), None)
+            .unwrap();
+        assert!(restored.tree.contains("number\tCUTOFF\t1600\t"));
+        opened.save().unwrap();
+    }
 }
 
 fn render_the_saved_patch(project: &Path) {

@@ -175,6 +175,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Three 16-second renders contain finite audio. Speaker playback, listening quality, external sound-editor import, Linux, and macOS were not checked.
 - MIDI, sample import, stereo processing, polyphonic note input, live recording, an export button, and song arrangement remain open.
 - The [workbench notes](docs/sound-workbench.md) and [Ember guide](examples/synth/README.md) describe the modules, controls, and learning exercises.
+- The **perform** view adds scene selection, phrase transport, sound controls, a filter XY pad, exact values, reset, and five learning experiments.
+- The view uses the same parameters as the main patch. The shared rotary widget now works in both nodes and views.
+- Windows workspace, frontend, and example checks passed. The view integration test covers Edit, Bake, saving, reopening, and grouped XY undo.
+- A hidden GUI check operated the view's scenes, transport, XY pad, exact values, reset, and all five pages.
+- Known limits: the view needs the original main patch's node IDs. Its sound controls shape **PHRASE**. Short docks need vertical scrolling.
+- Each view call groups its edits. A continuous drag can still need several undo steps. Live analysis and audio device setup remain open.
+- The [GUI research](docs/sound-workbench.md#gui-research-2026-11-18) records the missing sound browser, modulation view, export panel, MIDI setup, and production views.
 
 ### Performance audit, 2026-11-18
 
