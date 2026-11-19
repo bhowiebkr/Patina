@@ -62,7 +62,7 @@ segments = "4"
 [[node]]
 id = "5eedd00000000008"
 folder = "nodes/sphere"
-pos = [260.0, 520.0]
+pos = [260.0, 760.0]
 
 [node.params]
 radius = "1"
@@ -80,17 +80,17 @@ weights = "1 1"
 [[node]]
 id = "5eedd0000000000a"
 folder = "nodes/translate"
-pos = [780.0, 240.0]
+pos = [780.0, 420.0]
 
 [[node]]
 id = "5eedd0000000000b"
 folder = "nodes/union"
-pos = [1040.0, 120.0]
+pos = [1040.0, 200.0]
 
 [[node]]
 id = "5eedd0000000000c"
 folder = "nodes/report"
-pos = [1300.0, 120.0]
+pos = [1300.0, 200.0]
 
 [[wire]]
 from = "5eedd00000000002.out"

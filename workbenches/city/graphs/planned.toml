@@ -173,7 +173,7 @@ z = "1.5"
 [[node]]
 id = "c17100000000000e"
 folder = "nodes/sphere"
-pos = [1560.0, 1060.0]
+pos = [1560.0, 1300.0]
 
 [node.params]
 radius = "1.8"
@@ -182,7 +182,7 @@ segments = "12"
 [[node]]
 id = "c17100000000000f"
 folder = "nodes/translate"
-pos = [1820.0, 1060.0]
+pos = [1820.0, 1300.0]
 
 [node.params]
 z = "4.4"
@@ -190,7 +190,7 @@ z = "4.4"
 [[node]]
 id = "c171000000000010"
 folder = "nodes/union"
-pos = [2080.0, 960.0]
+pos = [2080.0, 1100.0]
 
 [[node]]
 id = "c171000000000011"
@@ -205,7 +205,7 @@ color = "#3f6b35"
 [[node]]
 id = "c171000000000012"
 folder = "nodes/cylinder"
-pos = [1820.0, 1220.0]
+pos = [1820.0, 1700.0]
 
 [node.params]
 height = "5"
@@ -215,7 +215,7 @@ segments = "6"
 [[node]]
 id = "c171000000000013"
 folder = "nodes/translate"
-pos = [2080.0, 1220.0]
+pos = [2080.0, 1700.0]
 
 [node.params]
 z = "2.5"
@@ -223,7 +223,7 @@ z = "2.5"
 [[node]]
 id = "c171000000000014"
 folder = "nodes/scatter"
-pos = [2340.0, 1120.0]
+pos = [2340.0, 1500.0]
 
 [node.params]
 spacing = "24"
