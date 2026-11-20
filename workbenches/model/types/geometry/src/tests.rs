@@ -342,6 +342,10 @@ fn a_loft_joins_two_outlines() {
     assert_eq!(Solid::loft(&rect, &far, 1.0).unwrap_err(), "the top sketch has a kernel error: the construction is not valid");
     assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch has no outer outline");
     assert!(Solid::loft(&rect, &rect, 0.0).is_err() && Solid::loft(&rect, &rect, f64::NAN).is_err());
+    // The gap of a U goes to the bar of a U that is upside down, so the sides cross.
+    let u = |s: f64| Sketch::polygon(&[[0.0, 0.0], [3.0, 0.0], [3.0, 3.0], [2.0, 3.0], [2.0, 1.0], [1.0, 1.0], [1.0, 3.0], [0.0, 3.0]].map(|[x, y]| [1.5 + (x - 1.5) * s, 1.5 + (y - 1.5) * s]));
+    let error = Solid::loft(&u(1.0), &u(-1.0), 2.0).unwrap_err();
+    assert_eq!(error, "the sides of the loft cross at the height 1, because the two sketches are too different");
 }
 
 #[test]

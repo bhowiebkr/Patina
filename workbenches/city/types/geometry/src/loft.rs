@@ -16,7 +16,8 @@ impl Solid {
     /// size. Two joined outer outlines must have the same number of holes. Each hole joins the
     /// hole with the nearest center and size in the joined outer outline. A straight line joins the points at the same part of the length of two joined outlines. Each outline
     /// starts where a line from its center to +X leaves it, so the sides do not twist. Very
-    /// different outlines can give sides that cross.
+    /// different outlines can give sides that cross, and a crossing at one of 7 heights gives an
+    /// error.
     pub fn loft(bottom: &Sketch, top: &Sketch, height: f64) -> Result<Solid, String> {
         if !(height.is_finite() && height > 0.0) {
             return Err(format!("the height must be more than 0, not {height}"));
@@ -38,6 +39,12 @@ impl Solid {
             joined.extend(pairs(holes, other_holes, measure).into_iter().map(|(a, b)| join(a, b)));
         }
         let (bottoms, tops): (Vec<Ring>, Vec<Ring>) = joined.into_iter().unzip();
+        for s in (1..8).map(|k| f64::from(k) / 8.0) {
+            let rings: Vec<Ring> = bottoms.iter().zip(&tops).map(|(a, b)| a.iter().zip(b).map(|(p, q)| [p[0] + (q[0] - p[0]) * s, p[1] + (q[1] - p[1]) * s]).collect()).collect();
+            if crosses(&rings) {
+                return Err(format!("the sides of the loft cross at the height {}, because the two sketches are too different", s * height));
+            }
+        }
         stack(&[(&bottoms, 0.0), (&tops, height)])
     }
 
@@ -183,6 +190,29 @@ fn join(a: Ring, b: Ring) -> (Ring, Ring) {
     ts.sort_by(f64::total_cmp);
     ts.dedup_by(|t, kept| *t - *kept < SAME);
     (ts.iter().map(|&t| at(&a, &ta, t)).collect(), ts.iter().map(|&t| at(&b, &tb, t)).collect())
+}
+
+/// True when two edges of the rings cross. The edges sort by their lowest x, so each edge is
+/// compared only with the edges that start before its highest x.
+fn crosses(rings: &[Ring]) -> bool {
+    let mut edges: Vec<([f64; 2], [f64; 2])> = rings.iter().flat_map(|r| (0..r.len()).map(move |i| (r[i], r[(i + 1) % r.len()]))).collect();
+    edges.sort_by(|a, b| a.0[0].min(a.1[0]).total_cmp(&b.0[0].min(b.1[0])));
+    (0..edges.len()).any(|i| {
+        let (p, q) = edges[i];
+        edges[i + 1..].iter().take_while(|(r, s)| r[0].min(s[0]) <= p[0].max(q[0])).any(|&(r, s)| cross(p, q, r, s))
+    })
+}
+
+/// True when the edge from `p` to `q` and the edge from `r` to `s` cross inside both. Edges that
+/// only touch, or that are on one line, do not cross.
+fn cross(p: [f64; 2], q: [f64; 2], r: [f64; 2], s: [f64; 2]) -> bool {
+    let (d, e, w) = ([q[0] - p[0], q[1] - p[1]], [s[0] - r[0], s[1] - r[1]], [r[0] - p[0], r[1] - p[1]]);
+    let den = d[0] * e[1] - d[1] * e[0];
+    if den.abs() <= 1e-12 * d[0].hypot(d[1]) * e[0].hypot(e[1]) {
+        return false;
+    }
+    let (t, u) = ((w[0] * e[1] - w[1] * e[0]) / den, (w[0] * d[1] - w[1] * d[0]) / den);
+    [t, u].iter().all(|v| *v > 1e-9 && *v < 1.0 - 1e-9)
 }
 
 /// The area of a ring, more than 0 when it turns counterclockwise.

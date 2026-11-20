@@ -490,8 +490,10 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   chamfer, the unit tests of the city and gun copies, and the CLI test of the guide graphs.
 - Known limits:
   - A loft cannot join one outline to two outlines, for example one square to two circles.
-  - Very different outlines, for example a U to a circle, can give sides that cross. The
-    kernel then gives an error or a solid that is not correct.
+  - Very different outlines can give sides that cross. Since 2026-11-20, the loft examines its
+    edges at 7 heights, and a crossing gives an error. A unit test lofts a U to a U that is
+    upside down. A crossing between two of these heights can still give a solid that is not
+    correct.
 
 ### Model workbench guide graphs and checks, 2026-11-19
 

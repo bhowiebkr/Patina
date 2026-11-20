@@ -138,9 +138,11 @@ cargo test --release -p geometry measure -- --ignored --nocapture
 - The kernel has no fillet. A Minkowski opening was too slow, and `SmoothOut` makes the faces
   bulge (see STATUS.md). The **chamfer** of `extrude` cuts only the top edges, with sharp
   corners. A chamfer that removes an edge of the sketch gives an error.
-- A loft of very different outlines can give sides that cross. A loft joins each outline to the
-  outline with the nearest center and size, so very different holes or islands can also give
-  sides that cross. A loft cannot join one outline to two outlines.
+- A loft of very different outlines can give sides that cross. The loft examines its edges at 7
+  heights, and a crossing at one of them gives an error. A crossing between two of these heights
+  stays. A loft joins each outline to the outline with the nearest center and size, so very
+  different holes or islands can also give sides that cross. A loft cannot join one outline to
+  two outlines.
 - The same graph gives the same mesh on MSVC and on the Patina toolchain for boxes, polygons,
   moves and turns by multiples of 90 degrees. Round shapes and other turns use the sine of the
   C++ runtime, so the last bit can be different on another platform. This is not checked.
