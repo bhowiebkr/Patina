@@ -5,10 +5,9 @@
 
 </div>
 
-> **Patina is at an early stage.** The engine runs a simple graph from the command line. There
-> is no editor yet. This README tells what Patina will be. The
-> [specification](docs/spec/README.md) is the full design. [STATUS.md](STATUS.md) tells what
-> works now.
+> **Patina 0.1 is the first release.** The editor, the engine and the command line work on
+> Windows. The Linux and macOS builds are basic. [STATUS.md](STATUS.md) tells what works and the
+> known limits. The [specification](docs/spec/README.md) is the full design.
 
 - [What Patina is](#what-patina-is)
 - [Nodes](#nodes)
@@ -465,12 +464,12 @@ In the example, it shows the clock, the strobe, the PC bits, A0 and OUT0.
 
 ## Install
 
-Patina will come in two editions, on GitHub Releases.
+Patina comes in two editions, on GitHub Releases. Release 0.1 has only the portable edition.
 
 - **Portable:** a zip file, for Windows and Linux. Patina runs from its folder and keeps
   everything in it. It needs no admin rights and makes no changes to the system.
 - **Installed:** the installer of your system. An `.msi` file on Windows, a `.dmg` file on
-  macOS, and a `.deb` package or an AppImage on Linux.
+  macOS, and a `.deb` package or an AppImage on Linux. The installers come in a later release.
 
 Windows is the main platform. The Linux and macOS builds are basic, and contributors who use
 those systems improve them.
@@ -480,9 +479,11 @@ To start the portable edition:
 1. Unzip the file.
 2. Start `patina`.
 
-The `projects` folder of the portable edition has the example projects, for example `computer`.
+The `workbenches` folder of the portable edition has the example workbenches, for example
+`computer` and `synth`.
 
-To install on Windows:
+The installers are not available yet. These steps are for a later release. To install on
+Windows:
 
 1. Run the `.msi` file.
 2. Select **Just me** or **All users**. **Just me** needs no admin rights.
@@ -513,7 +514,7 @@ A finished graph can become a package that runs without the editor:
 
 - An executable. The graph inputs become command-line arguments.
 - A library with a C API, to call from other software.
-- A Python module.
+- A Python module. It comes in a later release.
 
 To call a package from C, load `patina_capi.dll` (`libpatina_capi.so` on Linux) of the
 package and include `patina_capi.h`. Then call `patina_open` with the package folder.
@@ -605,8 +606,8 @@ optimization.
 
 ## Open the editor
 
-The editor is at an early stage. It makes or opens a project, edits the main graph, runs it and
-saves it. To start it from a checkout of this repository, you need Rust and Node.js:
+In the portable edition, start `patina`. To start the editor from a checkout of this
+repository, you need Rust and Node.js:
 
 1. In `crates/patina-editor/frontend`, run `npm ci` and then `npm run build`.
 2. In the root folder, run `cargo run -p patina-editor`.
@@ -682,8 +683,8 @@ All code is Rust, except the web frontend of the editor.
 
 ## Status and roadmap
 
-Milestone 2 is in progress. [STATUS.md](STATUS.md) gives the results. Each milestone gives a
-tool that works.
+All milestones of this roadmap ended. [STATUS.md](STATUS.md) gives the results and the known
+limits. Each milestone gave a tool that works.
 
 0. **Risk prototypes**, proven on Windows first:
    - Rust types across two compiled clusters, with a shared Rust library, and type keys that
