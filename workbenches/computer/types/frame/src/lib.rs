@@ -41,9 +41,9 @@ impl Default for Frame {
 impl Frame {
     /// The red, green, blue and alpha of each pixel, row by row from the top.
     fn rgba(&self, out: &mut [u8]) {
-        for (pixel, &color) in out.chunks_exact_mut(4).zip(&self.0) {
+        for (pixel, &color) in out.as_chunks_mut::<4>().0.iter_mut().zip(&self.0) {
             let [r, g, b] = PALETTE[usize::from(color & 15)];
-            pixel.copy_from_slice(&[r, g, b, 255]);
+            *pixel = [r, g, b, 255];
         }
     }
 }
