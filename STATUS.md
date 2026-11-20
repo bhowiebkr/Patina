@@ -1677,28 +1677,31 @@ library in the target folder and the single run of the CLI. These limits are sti
 
 Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list together.
 
-- `crates/patina-cli/tests/run.rs:475`: The CLI test of `workbenches/gpu` checks only the build when no adapter exists. Add an adapter to CI when one is available.
-- `crates/patina-editor/frontend/src/wires/gl.ts:266`: One texture row holds each wire. Above `MAX_TEXTURE_SIZE` wires, SVG draws them. Pack the rows for larger graphs.
-- `crates/patina-editor/frontend/src/canvas/NodeView.tsx:332`: A wire leaves a free pin only to the left or the right. Add a side to `Ui::pin` when a node needs it.
-- `crates/patina-editor/frontend/src/canvas/palette.ts:37`: The palette drops module paths, so two types of one name match. Rustc checks the types at build time.
+- `crates/patina-cli/tests/cli/run.rs:508`: The CLI test of `workbenches/gpu` checks only the build when no adapter exists. Add an adapter to CI when one is available.
+- `crates/patina-editor/frontend/src/canvas/NodeView.tsx:358`: A wire leaves a free pin only to the left or the right. Add a side to `Ui::pin` when a node needs it.
+- `crates/patina-editor/frontend/src/canvas/NodeView.tsx:371`: A face only draws. It takes no pointer input, because a node in a use cannot write. Change it when a face needs input.
 - `crates/patina-editor/frontend/src/canvas/SymbolView.tsx:24`: A lane of a symbol has no hover tooltip, as the contacts of a box socket have. Add one when a symbol needs it.
-- `crates/patina-editor/frontend/src/wires/route.ts:36`: A graph with a larger route grid gets simple orthogonal paths. Use a sparser grid when such graphs matter.
+- `crates/patina-editor/frontend/src/canvas/palette.ts:38`: The palette drops module paths, so two types of one name match. Rustc checks the types at build time.
+- `crates/patina-editor/frontend/src/check/check-groups.ts:73`: A short wait lets the move edit arrive before the undo. Change it when the canvas shows the edit count.
+- `crates/patina-editor/frontend/src/check/shot-layout.ts:273`: The pin rows of two outputs nearer than the gap cross at a bend, and the nudge cannot fix this. Fix it in the A* router.
 - `crates/patina-editor/frontend/src/wires/WireEdge.tsx:156`: The SVG fallback draws a bus as one wide line with no lanes. Draw its lanes when a GPU without WebGL2 matters.
 - `crates/patina-editor/frontend/src/wires/WireEdge.tsx:157`: The SVG fallback has no crossing gaps. Add a mask when the fallback is more than a lost context.
-- `crates/patina-editor/frontend/src/wires/wires.ts:360`: A path with more than `MAX_POINTS` - 2 bends draws only its first bends. Split the row when this matters.
-- `crates/patina-editor/frontend/src/wires/wires.ts:601`: A new lane state builds the instances of all wires again. Put the lane states in a texture for larger graphs.
-- `crates/patina-editor/src/engine.rs:518`: No event runs when the slot holds a value that is not `Sync`, an event node and a node of another domain. Give event nodes their own slot library.
-- `crates/patina-editor/src/engine.rs:614`: When a library is not parallel, the blocks run between the frames, so a slow frame makes them late. Give such a graph its own thread.
-- `crates/patina-editor/src/session/check.rs:47`: Screenshots work only on Windows. Add a path for Linux when the check runs there.
-- `crates/patina-engine/src/device.rs:186`: Only Windows raises the audio thread priority. Add it for Linux when a user there hears gaps.
+- `crates/patina-editor/frontend/src/wires/gl.ts:275`: One texture row holds each wire. Above `MAX_TEXTURE_SIZE` wires, SVG draws them. Pack the rows for larger graphs.
+- `crates/patina-editor/frontend/src/wires/route.ts:36`: A graph with a larger route grid gets simple orthogonal paths. Use a sparser grid when such graphs matter.
+- `crates/patina-editor/frontend/src/wires/wires.ts:368`: A path with more than `MAX_POINTS` - 2 bends draws only its first bends. Split the row when this matters.
+- `crates/patina-editor/src/engine.rs:522`: No event runs when the slot holds a value that is not `Sync`, an event node and a node of another domain. Give event nodes their own slot library.
+- `crates/patina-editor/src/engine.rs:618`: When a library is not parallel, the blocks run between the frames, so a slow frame makes them late. Give such a graph its own thread.
+- `crates/patina-editor/src/session/check.rs:78`: Screenshots work only on Windows. Add a path for Linux when the check runs there.
+- `crates/patina-editor/src/session/start.rs:170`: Linux and macOS have no trash, so **Delete** shows an error there. Add the freedesktop trash when a user asks.
+- `crates/patina-engine/src/device.rs:196`: Only Windows raises the audio thread priority. Add it for Linux when a user there hears gaps.
 - `crates/patina-engine/src/events/watch.rs:36`: `file_change` polls its folder. Use the change events of the system when folders get large.
-- `crates/patina-engine/src/generate.rs:21`: Each domain has one cluster, with no boundary at large nodes. Split at large nodes and subgraphs when a measurement shows the need.
-- `crates/patina-engine/src/library.rs:73`: A project root that is not UTF-8 changes, so its assets are not found. Pass the bytes of the system when a user needs it.
-- `crates/patina-engine/src/load.rs:386`: A node with no cluster or index loses its state. Only a defective plan causes this, so no change is needed.
-- `crates/patina-engine/src/node.rs:130`: Code that nests deeper than the 64 MB stack allows still overflows. Parse in a child process if a real project needs it.
+- `crates/patina-engine/src/generate.rs:23`: Each domain has one cluster, with no boundary at large nodes. Split at large nodes and subgraphs when a measurement shows the need.
+- `crates/patina-engine/src/library.rs:77`: A project root that is not UTF-8 changes, so its assets are not found. Pass the bytes of the system when a user needs it.
+- `crates/patina-engine/src/load.rs:416`: A node with no cluster or index loses its state. Only a defective plan causes this, so no change is needed.
+- `crates/patina-engine/src/node.rs:153`: Code that nests deeper than the 64 MB stack allows still overflows. Parse in a child process if a real project needs it.
 - `crates/patina-event/src/lib.rs:20`: Each cluster build makes its own runtime. Share one runtime when many builds load.
 - `crates/patina-event/src/lib.rs:75`: The run thread blocks while it waits. Change this when event runs share the worker threads.
-- `crates/patina-gpu/src/viewport.rs:160`: A viewport surface works only on Windows. Add the X11 and Wayland handles when the editor needs them.
+- `crates/patina-gpu/src/viewport.rs:348`: A viewport surface works only on Windows. Add the X11 and Wayland handles when the editor needs them.
 - `prototypes/connections/src/bench.rs:167`: The path comes from the source tree, so the bench runs only from a checkout.
 - `prototypes/connections/src/bench.rs:236`: CPU and GPU use are measured on Windows only. Add `/proc` sampling for Linux when needed.
 - `prototypes/connections/src/feed.rs:62`: Each send allocates, because Tauri takes the frame by value. A pooled path needs shared memory.
@@ -1717,3 +1720,4 @@ Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list t
 - `prototypes/viewport/src/render.rs:447`: A real device loss after the check keeps the texture, and the Vulkan surface drop then panics.
 - `prototypes/viewport/src/render.rs:566`: Each frame of the channel path allocates, because Tauri takes an owned `Vec`. The shared path does not.
 - `prototypes/viewport/src/shared.rs:45`: A resize makes a new buffer and waits for the main thread. Keep spare room when resizes are frequent.
+- `workbenches/gpu/nodes/bars/src/lib.rs:120`: A computer without a GPU adapter checks nothing in the bars test. CI on Linux has no adapter.
