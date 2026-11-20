@@ -103,10 +103,11 @@ fn a_canvas_reads_the_pointer_and_writes_its_shapes() {
     let mut canvas = ui.canvas("Grid", [8.0, 8.0]);
     assert!(canvas.pointer().is_empty());
     canvas.line([0.0, 0.0], [8.0, 8.0], [1, 2, 3]);
+    canvas.text([0.0, 8.0], [1, 2, 3], format_args!("{}\n{:02X}", "c", 10));
     assert_eq!(ui.canvas("Again", [1.0, 1.0]).pointer(), &[] as &[Pointer]);
     let lines: Vec<_> = ui.tree().lines().collect();
     assert_eq!(lines[1], "canvas\tDot\t40\t20\tcircle 5 5 2.5 #ff0010 1\ttext 1 15 #000000 a b");
-    assert_eq!(lines[2], "canvas\tGrid\t8\t8\tline 0 0 8 8 #010203");
+    assert_eq!(lines[2], "canvas\tGrid\t8\t8\tline 0 0 8 8 #010203\ttext 0 8 #010203 c 0A");
     let mut ui = Ui::new(0, "0 down 1 2\n0 move 3 4\n0 up 5 6");
     assert_eq!(ui.canvas("Drag", [9.0, 9.0]).pointer(), [Pointer::Down([1.0, 2.0]), Pointer::Move([3.0, 4.0]), Pointer::Up([5.0, 6.0])]);
 }

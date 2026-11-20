@@ -48,7 +48,7 @@ impl Clock {
             // A square wave on the glass of a scope, lit while the clock runs.
             glass(&mut c, [62.0, 7.0], [66.0, 22.0]);
             c.path("M 66 24 H 74 V 12 H 86 V 24 H 98 V 12 H 110 V 24 H 122 V 12 H 124", if self.halt { UNLIT } else { LIT }, false);
-            c.text([136.0, 23.0], TEXT, &format!("/{}", self.every));
+            c.text([136.0, 23.0], TEXT, format_args!("/{}", self.every));
         }
         ui.pin("every", [0.0, 18.0]);
         ui.pin("halt", [0.0, 52.0]);

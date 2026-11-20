@@ -66,7 +66,7 @@ impl Keyboard {
             let enter = next == ENTER;
             round_rect(&mut c, [x0 + 160.0, 166.0], [32.0, 16.0], 3.0, if enter { LIT } else { BODY });
             c.text([x0 + 165.0, 178.5], if enter { GLASS } else { SILK }, "RET");
-            c.text([x0 + 12.0, 200.0], SILK, &format!("FIFO {}/{BUFFER}", self.keys.len()));
+            c.text([x0 + 12.0, 200.0], SILK, format_args!("FIFO {}/{BUFFER}", self.keys.len()));
             // The code that the CPU reads next, as hex digits and as a name.
             window(&mut c, [x0 + 12.0, 208.0], [180.0, 40.0]);
             c.text([x0 + 22.0, 233.0], SILK, "NEXT");

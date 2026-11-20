@@ -1318,9 +1318,10 @@ domain free of locks. These limits are still open:
   engine part gives 0 (fixed 2026-11-19). The measurement was a temporary test.
 - Each call of a node GUI copies its widget lines one time in the engine. The SDK keeps the
   widget buffer of the last GUI, so the GUI itself does not grow a new buffer.
-- The `ui` functions of the computer nodes allocate for their texts with `format!` and
-  `collect`, for example `ram` (more than 256 texts in each frame), `readout` and `analyzer`.
-  The allocation test does not see the cluster library, so nobody measured these allocations.
+- The canvas texts of the computer nodes use `format_args!`, so they do not allocate (fixed
+  2026-11-19). The labels, the canvas names, the digits of the displays and the paths of `ram`
+  still allocate at each frame with `format!`, `collect` and `vec!`. The allocation test does
+  not see the cluster library, so nobody measured these allocations.
 - The allocation test counts only the thread of the run. In the test graph, this thread runs
   all the frame tasks, because the second task waits for the first.
 - A text that is longer than the text of the last frame grows its buffer one time.

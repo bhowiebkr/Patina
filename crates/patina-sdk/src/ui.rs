@@ -162,11 +162,12 @@ impl Canvas<'_> {
         push_clean(self.tree, data);
     }
 
-    /// Writes `text` on one line. `at` is the left end of the base line.
-    pub fn text(&mut self, at: [f32; 2], color: [u8; 3], text: &str) {
+    /// Writes `text` on one line. `at` is the left end of the base line. Give `format_args!` for
+    /// a text with numbers, so that the GUI does not allocate at each frame.
+    pub fn text(&mut self, at: [f32; 2], color: [u8; 3], text: impl std::fmt::Display) {
         self.shape("text", &at, color, None);
         self.tree.push(' ');
-        push_clean(self.tree, text);
+        let _ = write!(Clean(self.tree), "{text}");
     }
 
     fn shape(&mut self, kind: &str, numbers: &[f32], [r, g, b]: [u8; 3], fill: Option<bool>) {
@@ -584,6 +585,16 @@ impl Ui {
 /// A tab or a line break in a text would break the widget lines, so it becomes a space.
 fn push_clean(tree: &mut String, text: &str) {
     tree.extend(text.chars().map(|c| if c.is_control() { ' ' } else { c }));
+}
+
+/// Writes a formatted text into the widget lines with `push_clean`.
+struct Clean<'a>(&'a mut String);
+
+impl Write for Clean<'_> {
+    fn write_str(&mut self, text: &str) -> std::fmt::Result {
+        push_clean(self.0, text);
+        Ok(())
+    }
 }
 
 /// Writes the size and the base64 RGBA of an image, or `0 0` for an image of more than 256 x 256

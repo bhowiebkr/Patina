@@ -147,7 +147,7 @@ impl Program {
                 canvas.rect([0.0, y], [size[0], ROW], MARK, true);
             }
             let color = if address == pc { ON } else if address < self.image.len { TEXT } else { OFF };
-            canvas.text([6.0, y + 12.0], color, &format!("{address:02X}  {word:03X}  {}", disassemble(word)));
+            canvas.text([6.0, y + 12.0], color, format_args!("{address:02X}  {word:03X}  {}", disassemble(word)));
         }
     }
 

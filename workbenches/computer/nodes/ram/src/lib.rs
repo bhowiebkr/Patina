@@ -82,8 +82,8 @@ impl Ram {
         for i in 0..16_u8 {
             let x = 8.0 + CELL[0] * f32::from(i + 1);
             let y = 2.0 + CELL[1] * f32::from(i + 1);
-            canvas.text([x, CELL[1] - 2.0], DIM, &format!("{i:X}"));
-            canvas.text([4.0, y + CELL[1] - 4.0], DIM, &format!("{:X}0", i));
+            canvas.text([x, CELL[1] - 2.0], DIM, format_args!("{i:X}"));
+            canvas.text([4.0, y + CELL[1] - 4.0], DIM, format_args!("{i:X}0"));
         }
         for (address, &byte) in (0..=255_u8).zip(&self.bytes) {
             let x = 8.0 + CELL[0] * f32::from(address % 16 + 1);
@@ -92,7 +92,7 @@ impl Ram {
                 canvas.rect([x - 3.0, y], [CELL[0], CELL[1]], MARK, true);
             }
             let color = if self.written == Some(address) { ON } else if byte == 0 { DIM } else { TEXT };
-            canvas.text([x, y + CELL[1] - 4.0], color, &format!("{byte:02X}"));
+            canvas.text([x, y + CELL[1] - 4.0], color, format_args!("{byte:02X}"));
         }
     }
 }

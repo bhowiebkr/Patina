@@ -96,7 +96,7 @@ impl Gpu {
         c.text([x0 + 14.0, 368.0], SILK, "REGISTERS");
         for (i, name) in ["X", "Y", "PLOT", "CLEAR"].into_iter().enumerate() {
             let y = 390.0 + i as f32 * 20.0;
-            c.text([x0 + 14.0, y], SILK, &format!("+{i}"));
+            c.text([x0 + 14.0, y], SILK, format_args!("+{i}"));
             c.text([x0 + 44.0, y], TEXT, name);
         }
     }

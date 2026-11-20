@@ -160,7 +160,7 @@ left corner. A color is `[red, green, blue]`.
 | `rect(at, size, color, fill)` | A rectangle. |
 | `circle(center, radius, color, fill)` | A circle. |
 | `path(data, color, fill)` | SVG path data, for example `M 0 0 L 40 0 L 20 30 Z`. |
-| `text(at, color, text)` | One line of text. `at` is the left end of the base line. |
+| `text(at, color, text)` | One line of text. `at` is the left end of the base line. `text` is a string, a number or `format_args!`. |
 
 - `canvas.pointer()` gives the pointer inputs since the last `ui` call: `Pointer::Down`,
   `Pointer::Move` and `Pointer::Up`, each with a point.
@@ -174,6 +174,8 @@ left corner. A color is `[red, green, blue]`.
   that starts outside of each rectangle moves the node. Call it for each button of a pad, or
   for the cap of a button that acts while it is held.
 - Read the pointer before the draw calls when the input changes what the canvas draws.
+- `ui` runs at each frame. Give `format_args!("{x:02X}")` to `text`, not `&format!`, because
+  `format!` allocates at each frame.
 - An empty `text` shows no label above the canvas.
 
 The readout node of the computer example draws 8 lamps and a number:
@@ -192,7 +194,7 @@ pub fn ui(&mut self, ui: &mut Ui) {
         let on = number >> (7 - i) & 1 == 1;
         canvas.circle([x, 18.0], 7.0, if on { ON } else { OFF }, on);
     }
-    canvas.text([178.0, 23.0], TEXT, &number.to_string());
+    canvas.text([178.0, 23.0], TEXT, number);
 }
 ```
 

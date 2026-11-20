@@ -27,7 +27,7 @@ impl Readout {
         let [x0, _] = package(&mut c, &e, w);
         window(&mut c, [x0 + 10.0, 14.0], [84.0, 70.0]);
         digits(&mut c, [x0 + 19.0, 25.0], 48.0, 2, &format!("{number:02X}"));
-        c.text([x0 + 10.0, 104.0], SILK, &format!("HEX  dec {number}"));
+        c.text([x0 + 10.0, 104.0], SILK, format_args!("HEX  dec {number}"));
     }
 
     fn text(&self) -> String {

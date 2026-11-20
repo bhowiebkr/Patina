@@ -120,7 +120,7 @@ impl Lcd {
                     }
                 }
             }
-            c.text([56.0, 142.0], SILK, &format!("cursor {}:{}", self.cursor / COLS, self.cursor % COLS));
+            c.text([56.0, 142.0], SILK, format_args!("cursor {}:{}", self.cursor / COLS, self.cursor % COLS));
         }
         for (i, key) in PINS.iter().enumerate() {
             ui.pin(key, [0.0, 16.0 + i as f32 * PIN_STEP]);

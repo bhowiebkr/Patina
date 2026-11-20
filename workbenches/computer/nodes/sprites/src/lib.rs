@@ -112,13 +112,13 @@ impl Sprites {
         c.path(&format!("M {} {y} l 7 -5 v 10 Z", x0 + 106.0), LIT, true);
         round_rect(&mut c, [x0 + 116.0, 184.0], [66.0, 28.0], 3.0, PALETTE[usize::from(s.color % 16)]);
         c.rect([x0 + 116.0, 184.0], [66.0, 28.0], EDGE, false);
-        c.text([x0 + 116.0, 232.0], SILK, &format!("COLOR {}", s.color));
-        c.text([x0 + 116.0, 250.0], SILK, &format!("ROW {}", self.row));
-        c.text([x0 + 116.0, 268.0], SILK, &format!("{shown}/{COUNT} ON"));
+        c.text([x0 + 116.0, 232.0], SILK, format_args!("COLOR {}", s.color));
+        c.text([x0 + 116.0, 250.0], SILK, format_args!("ROW {}", self.row));
+        c.text([x0 + 116.0, 268.0], SILK, format_args!("{shown}/{COUNT} ON"));
         c.text([x0 + 14.0, 302.0], SILK, "REGISTERS");
         for (i, name) in ["SEL", "X", "Y", "COLOR", "ROW"].into_iter().enumerate() {
             let at = [x0 + 14.0 + (i / 3) as f32 * 90.0, 322.0 + (i % 3) as f32 * 18.0];
-            c.text(at, SILK, &format!("+{i}"));
+            c.text(at, SILK, format_args!("+{i}"));
             c.text([at[0] + 26.0, at[1]], TEXT, name);
         }
     }
