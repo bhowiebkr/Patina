@@ -2,6 +2,9 @@
 
 use std::ffi::{c_int, c_void};
 use std::fmt;
+use std::ptr::null;
+
+use crate::solid::guard;
 
 #[repr(C)]
 pub(crate) struct RawSketch {
@@ -20,7 +23,8 @@ const NON_ZERO: c_int = 1;
 /// `MANIFOLD_FILL_RULE_POSITIVE`: an area fills where the outlines turn more counterclockwise.
 const POSITIVE: c_int = 2;
 
-unsafe extern "C" {
+// "C-unwind": a C++ exception of the kernel goes through the Rust calls to `guard`.
+unsafe extern "C-unwind" {
     fn manifold_alloc_cross_section() -> *mut RawSketch;
     fn manifold_alloc_simple_polygon() -> *mut c_void;
     fn manifold_alloc_polygons() -> *mut c_void;
@@ -64,10 +68,15 @@ unsafe impl Send for Sketch {}
 unsafe impl Sync for Sketch {}
 
 impl Sketch {
-    /// Makes a sketch in new kernel memory. `make` constructs into the memory that it gets.
+    /// Makes a sketch in new kernel memory. `make` constructs into the memory that it gets. A C++
+    /// exception, for example from a coordinate that is too large, gives an empty sketch.
     fn make(make: impl FnOnce(*mut RawSketch) -> *mut RawSketch) -> Sketch {
-        // SAFETY: the memory has the size and alignment of a CrossSection, and `make` constructs one in it.
-        Sketch(make(unsafe { manifold_alloc_cross_section() }))
+        // SAFETY: the memory has the size and alignment of a CrossSection, and `make` constructs
+        // one in it. After an exception, the memory has no CrossSection, and an empty one goes in.
+        Sketch(unsafe {
+            let mem = manifold_alloc_cross_section();
+            guard(|| make(mem)).unwrap_or_else(|_| manifold_cross_section_empty(mem))
+        })
     }
 
     /// A rectangle with the sizes `x` and `y`, with its center at the origin.
@@ -115,23 +124,28 @@ impl Sketch {
     /// The area. The area of a hole counts as negative.
     pub fn area(&self) -> f64 {
         // SAFETY: the sketch is valid.
-        unsafe { manifold_cross_section_area(self.0) }
+        guard(|| unsafe { manifold_cross_section_area(self.0) }).unwrap_or(0.0)
     }
 
     /// The number of corners on all the outlines.
     pub fn corners(&self) -> usize {
         // SAFETY: the sketch is valid.
-        unsafe { manifold_cross_section_num_vert(self.0) }
+        guard(|| unsafe { manifold_cross_section_num_vert(self.0) }).unwrap_or(0)
     }
 
     /// The lowest and the highest corner of the bounds.
     pub fn bounds(&self) -> [[f64; 2]; 2] {
-        // SAFETY: `mem` is new Rect memory that the constructor fills, and the rect is deleted after its read.
+        // SAFETY: `mem` is new Rect memory that the constructor fills, and the rect is deleted
+        // after its read. A Rect has no destructor, so the delete is also safe after an exception.
         unsafe {
-            let rect = manifold_cross_section_bounds(manifold_alloc_rect(), self.0);
-            let (min, max) = (manifold_rect_min(rect), manifold_rect_max(rect));
-            manifold_delete_rect(rect);
-            [[min.x, min.y], [max.x, max.y]]
+            let mem = manifold_alloc_rect();
+            let bounds = guard(|| {
+                let rect = manifold_cross_section_bounds(mem, self.0);
+                let (min, max) = (manifold_rect_min(rect), manifold_rect_max(rect));
+                [[min.x, min.y], [max.x, max.y]]
+            });
+            manifold_delete_rect(mem);
+            bounds.unwrap_or([[f64::INFINITY; 2], [f64::NEG_INFINITY; 2]])
         }
     }
 
@@ -153,10 +167,11 @@ impl Sketch {
 
     /// Calls `use_polygons` with the outlines of the sketch as kernel Polygons.
     pub(crate) fn with_polygons<R>(&self, use_polygons: impl FnOnce(*mut c_void) -> R) -> R {
-        // SAFETY: `mem` is new Polygons memory that the constructor fills. `use_polygons` only
-        // reads it, and it is deleted after the call.
+        // SAFETY: `mem` is new Polygons memory that the constructor fills, or that gets no polygons
+        // after an exception. `use_polygons` only reads it, and it is deleted after the call.
         unsafe {
-            let polygons = manifold_cross_section_to_polygons(manifold_alloc_polygons(), self.0);
+            let mem = manifold_alloc_polygons();
+            let polygons = guard(|| manifold_cross_section_to_polygons(mem, self.0)).unwrap_or_else(|_| manifold_polygons(mem, null(), 0));
             let result = use_polygons(polygons);
             manifold_delete_polygons(polygons);
             result
@@ -171,15 +186,19 @@ pub(crate) fn triangulate(rings: &[Vec<[f64; 2]>]) -> Vec<[u32; 3]> {
     let points: Vec<Vec<Vec2>> = rings.iter().map(|ring| ring.iter().map(|&[x, y]| Vec2 { x, y }).collect()).collect();
     // SAFETY: each constructor fills new memory of its type. The polygons copy the simple
     // polygons, the buffer has the length that the kernel gives, and all is deleted after the copy.
-    // The tolerance -1 lets the kernel choose.
+    // The tolerance -1 lets the kernel choose. After an exception, the triangulation memory has no
+    // vector, so it is not deleted.
     let corners = unsafe {
         let simple: Vec<*mut c_void> =
             points.iter().map(|p| manifold_simple_polygon(manifold_alloc_simple_polygon(), p.as_ptr(), p.len())).collect();
         let polygons = manifold_polygons(manifold_alloc_polygons(), simple.as_ptr(), simple.len());
-        let triangles = manifold_triangulate(manifold_alloc_triangulation(), polygons, -1.0);
-        let mut corners: Vec<c_int> = vec![0; manifold_triangulation_num_tri(triangles) * 3];
-        manifold_triangulation_tri_verts(corners.as_mut_ptr(), triangles);
-        manifold_delete_triangulation(triangles);
+        let mem = manifold_alloc_triangulation();
+        let mut corners: Vec<c_int> = Vec::new();
+        if let Ok(triangles) = guard(|| manifold_triangulate(mem, polygons, -1.0)) {
+            corners = vec![0; manifold_triangulation_num_tri(triangles) * 3];
+            manifold_triangulation_tri_verts(corners.as_mut_ptr(), triangles);
+            manifold_delete_triangulation(triangles);
+        }
         manifold_delete_polygons(polygons);
         simple.into_iter().for_each(|p| manifold_delete_simple_polygon(p));
         corners

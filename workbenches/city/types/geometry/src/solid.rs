@@ -21,7 +21,10 @@ struct Vec3 {
     z: f64,
 }
 
-unsafe extern "C" {
+// "C-unwind": a C++ exception of the kernel goes through the Rust calls to `patina_guard`.
+unsafe extern "C-unwind" {
+    fn patina_guard(run: unsafe extern "C-unwind" fn(*mut c_void), data: *mut c_void) -> c_int;
+    fn patina_manifold_failed(mem: *mut Raw, status: c_int) -> *mut Raw;
     fn manifold_alloc_manifold() -> *mut Raw;
     fn manifold_alloc_meshgl() -> *mut c_void;
     fn manifold_alloc_box() -> *mut c_void;
@@ -48,6 +51,7 @@ unsafe extern "C" {
     fn manifold_meshgl(mem: *mut c_void, props: *const f32, n_verts: usize, n_props: usize, tris: *const u32, n_tris: usize) -> *mut c_void;
     fn manifold_of_meshgl(mem: *mut Raw, mesh: *mut c_void) -> *mut Raw;
     fn manifold_project(mem: *mut c_void, m: *mut Raw) -> *mut c_void;
+    fn manifold_polygons(mem: *mut c_void, ps: *const *mut c_void, length: usize) -> *mut c_void;
     fn manifold_alloc_polygons() -> *mut c_void;
     fn manifold_delete_polygons(p: *mut c_void);
     fn manifold_extrude(mem: *mut Raw, cs: *mut c_void, height: f64, slices: c_int, twist: f64, sx: f64, sy: f64) -> *mut Raw;
@@ -109,10 +113,16 @@ unsafe impl Send for Solid {}
 unsafe impl Sync for Solid {}
 
 impl Solid {
-    /// Makes a solid in new kernel memory. `make` constructs into the memory that it gets.
+    /// Makes a solid in new kernel memory. `make` constructs into the memory that it gets. A C++
+    /// exception gives a solid with the error.
     fn make(make: impl FnOnce(*mut Raw) -> *mut Raw) -> Solid {
-        // SAFETY: the memory has the size and alignment of a Manifold, and `make` constructs one in it.
-        Solid(make(unsafe { manifold_alloc_manifold() }), SERIAL.fetch_add(1, Ordering::Relaxed))
+        // SAFETY: the memory has the size and alignment of a Manifold, and `make` constructs one
+        // in it. After an exception, the memory has no Manifold, and the failed one goes into it.
+        let raw = unsafe {
+            let mem = manifold_alloc_manifold();
+            guard(|| make(mem)).unwrap_or_else(|status| patina_manifold_failed(mem, status))
+        };
+        Solid(raw, SERIAL.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Makes a solid with `make`, and runs its boolean at once. The kernel collapses a lazy boolean
@@ -120,8 +130,11 @@ impl Solid {
     fn boolean(make: impl FnOnce(*mut Raw) -> *mut Raw) -> Solid {
         let solid = Solid::make(make);
         // SAFETY: the solid is valid. The status runs the boolean and keeps its result.
-        unsafe { manifold_status(solid.0) };
-        solid
+        match guard(|| unsafe { manifold_status(solid.0) }) {
+            Ok(_) => solid,
+            // SAFETY: `mem` is new Manifold memory.
+            Err(status) => Solid::make(|mem| unsafe { patina_manifold_failed(mem, status) }),
+        }
     }
 
     /// A solid with no volume.
@@ -271,16 +284,18 @@ impl Solid {
     /// different at each build. `Mesh::parts` has an index that stays the same.
     pub fn part(&self) -> Option<u32> {
         // SAFETY: the solid is valid.
-        u32::try_from(unsafe { manifold_original_id(self.0) }).ok()
+        guard(|| unsafe { manifold_original_id(self.0) }).ok().and_then(|id| u32::try_from(id).ok())
     }
 
     /// The outline of the solid as seen from +Z, on the XY plane. Turn the solid first to see
     /// another side, for example `rotate([-90.0, 0.0, 0.0])` for the side view on X and Z.
     pub fn project(&self) -> Sketch {
-        // SAFETY: `mem` is new Polygons memory that the kernel fills from the valid solid. The
-        // sketch copies the polygons, and they are deleted after the copy.
+        // SAFETY: `mem` is new Polygons memory that the kernel fills from the valid solid, or that
+        // gets no polygons after an exception. The sketch copies the polygons, and they are
+        // deleted after the copy.
         unsafe {
-            let polygons = manifold_project(manifold_alloc_polygons(), self.0);
+            let mem = manifold_alloc_polygons();
+            let polygons = guard(|| manifold_project(mem, self.0)).unwrap_or_else(|_| manifold_polygons(mem, std::ptr::null(), 0));
             let sketch = Sketch::of_projection(polygons);
             manifold_delete_polygons(polygons);
             sketch
@@ -290,7 +305,7 @@ impl Solid {
     /// The kernel error of the solid, for example from a construction that is not valid.
     pub fn error(&self) -> Option<&'static str> {
         // SAFETY: the solid is valid. The status runs the operations that wait.
-        let status = unsafe { manifold_status(self.0) };
+        let status = guard(|| unsafe { manifold_status(self.0) }).unwrap_or_else(|status| status);
         (status != 0).then(|| usize::try_from(status).ok().and_then(|i| ERRORS.get(i)).copied().unwrap_or("unknown error"))
     }
 
@@ -302,26 +317,35 @@ impl Solid {
     /// The number of triangles.
     pub fn triangles(&self) -> usize {
         // SAFETY: the solid is valid.
-        unsafe { manifold_num_tri(self.0) }
+        guard(|| unsafe { manifold_num_tri(self.0) }).unwrap_or(0)
     }
 
     /// The lowest and the highest corner of the bounds. An empty solid gives infinite values.
     pub fn bounds(&self) -> [[f64; 3]; 2] {
-        // SAFETY: `mem` is new box memory that the box constructor fills, and the box is deleted after its read.
+        // SAFETY: `mem` is new box memory that the box constructor fills, and the box is deleted
+        // after its read. A Box has no destructor, so the delete is also safe after an exception.
         unsafe {
-            let bounds = manifold_bounding_box(manifold_alloc_box(), self.0);
-            let (min, max) = (manifold_box_min(bounds), manifold_box_max(bounds));
-            manifold_delete_box(bounds);
-            [[min.x, min.y, min.z], [max.x, max.y, max.z]]
+            let mem = manifold_alloc_box();
+            let bounds = guard(|| {
+                let bounds = manifold_bounding_box(mem, self.0);
+                let (min, max) = (manifold_box_min(bounds), manifold_box_max(bounds));
+                [[min.x, min.y, min.z], [max.x, max.y, max.z]]
+            });
+            manifold_delete_box(mem);
+            bounds.unwrap_or([[f64::INFINITY; 3], [f64::NEG_INFINITY; 3]])
         }
     }
 
-    /// The triangle mesh of the solid, with a flat normal on each triangle.
+    /// The triangle mesh of the solid, with a flat normal on each triangle. An exception of the
+    /// kernel gives an empty mesh.
     pub fn mesh(&self) -> Mesh {
-        // SAFETY: `mem` is new MeshGL memory that the constructor fills. Each array gets a buffer
-        // of the length that the kernel gives, and the mesh is deleted after the copies.
+        // SAFETY: `mem` is new MeshGL memory that the constructor fills, or that gets an empty
+        // mesh after an exception. Each array gets a buffer of the length that the kernel gives,
+        // and the mesh is deleted after the copies.
         unsafe {
-            let gl = manifold_get_meshgl(manifold_alloc_meshgl(), self.0);
+            let mem = manifold_alloc_meshgl();
+            let gl = guard(|| manifold_get_meshgl(mem, self.0))
+                .unwrap_or_else(|_| manifold_meshgl(mem, std::ptr::null(), 0, 3, std::ptr::null(), 0));
             let stride = manifold_meshgl_num_prop(gl);
             let mut props = vec![0.0_f32; manifold_meshgl_vert_properties_length(gl)];
             let mut tris = vec![0_u32; manifold_meshgl_tri_length(gl)];
@@ -368,6 +392,22 @@ pub(crate) fn limit(segments: i32) -> i32 {
     segments.clamp(0, MAX_SEGMENTS)
 }
 
+/// Runs the kernel calls in `run`, which must not panic. A C++ exception of the kernel gives the
+/// kernel status of its error and does not stop the program: "the result is too large" for a
+/// `bad_alloc`, or else "the construction is not valid". The exception can leave kernel memory
+/// that nothing deletes.
+pub(crate) fn guard<R, F: FnOnce() -> R>(run: F) -> Result<R, c_int> {
+    unsafe extern "C-unwind" fn call<R, F: FnOnce() -> R>(data: *mut c_void) {
+        // SAFETY: `data` is the pair of `guard`, which lives until `patina_guard` returns.
+        let (run, result) = unsafe { &mut *data.cast::<(Option<F>, Option<R>)>() };
+        *result = run.take().map(|run| run());
+    }
+    let mut pair: (Option<F>, Option<R>) = (Some(run), None);
+    // SAFETY: `call` gets a pointer to the pair, which lives during the call.
+    let status = unsafe { patina_guard(call::<R, F>, (&raw mut pair).cast()) };
+    pair.1.ok_or(status)
+}
+
 /// Shows the triangle count and the bounds, for example "12 triangles, -1 -1 -1 to 1 1 1".
 impl fmt::Debug for Solid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -376,4 +416,14 @@ impl fmt::Debug for Solid {
         }
         crate::mesh::summary(f, self.triangles(), self.bounds())
     }
+}
+
+#[test]
+fn a_kernel_exception_gives_an_error() {
+    // SAFETY: a vector of 2^50 solids cannot get its memory, so the kernel throws `bad_alloc`.
+    let status = guard(|| unsafe { manifold_manifold_vec(manifold_alloc_manifold_vec(), 1 << 50) });
+    assert_eq!(status.err(), Some(12));
+    // SAFETY: `mem` is new Manifold memory.
+    let failed = Solid::make(|mem| unsafe { patina_manifold_failed(mem, 12) });
+    assert_eq!(failed.union(&Solid::cube(1.0, 1.0, 1.0)).translate([1.0; 3]).error(), Some("the result is too large"));
 }

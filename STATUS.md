@@ -570,7 +570,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     seeded model of 5 boxes. A cold build took 5.3 s with MSVC and 8.8 s with the own toolchain.
 - Kernel exceptions (2026-11-19): a C++ exception of the kernel does not stop the program. A
   solid gets the error "the result is too large" for a `bad_alloc`, or else "the construction is
-  not valid". The booleans keep the error. A sketch that the kernel cannot make is empty.
+  not valid". The booleans keep the error. A sketch that the kernel cannot make is empty. The
+  copies of the crate in the city and the gun workbenches have the same guard, with new import
+  records.
 - Checked on 2026-11-19, on Windows only: a unit test catches a `bad_alloc` and keeps its error
   through a union. A unit test makes a sketch with a coordinate out of the Clipper2 range. Before
   the change, Clipper2 threw an exception for this sketch.
