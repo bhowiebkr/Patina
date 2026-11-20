@@ -131,9 +131,8 @@ pub fn station_map(
     size: [f32; 2],
 ) -> Option<usize> {
     let mut c = ui.canvas("Station map / select a station", size);
-    let maxx = run.stations.iter().map(|s| s.x_mm).fold(1.0, f64::max);
-    let maxy = run.stations.iter().map(|s| s.y_mm).fold(1.0, f64::max);
-    plot_frame(&mut c, [24.0, 20.0, size[0] - 48.0, size[1] - 48.0]);
+    let (origin, area, scale) = station_area(run, size);
+    plot_frame(&mut c, area);
     let mut picked = None;
     let mut nearest = 12.0;
     let mut visited = [0_u64; 64];
@@ -144,8 +143,8 @@ pub fn station_map(
     }
     for (i, s) in run.stations.iter().enumerate() {
         let at = [
-            24.0 + (size[0] - 48.0) * (s.x_mm / maxx) as f32,
-            size[1] - 28.0 - (size[1] - 48.0) * (s.y_mm / maxy) as f32,
+            area[0] + ((s.x_mm - origin[0]) * scale) as f32,
+            area[1] + area[3] - ((s.y_mm - origin[1]) * scale) as f32,
         ];
         for p in c.pointer() {
             if let patina_sdk::Pointer::Down(pt) = p
@@ -176,12 +175,43 @@ pub fn station_map(
     picked
 }
 
+fn station_area(run: &measurement::core::survey::Run, size: [f32; 2]) -> ([f64; 2], [f32; 4], f64) {
+    let mut lo = [f64::INFINITY; 2];
+    let mut hi = [f64::NEG_INFINITY; 2];
+    for p in &run.stations {
+        for (i, value) in [p.x_mm, p.y_mm].into_iter().enumerate() {
+            lo[i] = lo[i].min(value);
+            hi[i] = hi[i].max(value);
+        }
+    }
+    if run.stations.is_empty() {
+        lo = [0.; 2];
+        hi = [1.; 2];
+    }
+    let span = [hi[0] - lo[0], hi[1] - lo[1]];
+    let available = size.map(|v| (v - 48.).max(1.));
+    let scale = (available[0] as f64 / span[0].max(1e-9)).min(available[1] as f64 / span[1].max(1e-9));
+    let [w, h] = span.map(|v| (v * scale) as f32);
+    (lo, [24. + (available[0] - w) / 2., 20. + (available[1] - h) / 2., w, h], scale)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn dense_station_map_picks_the_nearest_point() {
         let run = measurement::core::survey::Run::grid("Coin", 41, 41, 0.75, 0.75);
-        let mut ui = patina_sdk::Ui::new(0, "0 down 24 162");
+        let mut ui = patina_sdk::Ui::new(0, "0 down 93 162");
         assert_eq!(super::station_map(&mut ui, &run, 0, [328., 190.]), Some(0));
+    }
+    #[test]
+    fn maps_preserve_square_rectangular_and_line_extents() {
+        use measurement::core::survey::Run;
+        let (_, square, _) = super::station_area(&Run::grid("Coin", 41, 41, 0.75, 0.75), [440., 440.]);
+        assert_eq!(square, [24., 20., 392., 392.]);
+        let (_, rectangle, _) = super::station_area(&Run::grid("Plate", 3, 3, 2., 1.), [440., 440.]);
+        assert_eq!(rectangle[2], rectangle[3] * 2.);
+        let (_, line, scale) = super::station_area(&Run::line("Line", 5, 1.), [440., 440.]);
+        assert_eq!(line[3], 0.);
+        assert!(scale.is_finite());
     }
 }

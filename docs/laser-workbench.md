@@ -71,7 +71,7 @@ The nodes remain the primary interface. The bottom table reads the same graph va
 ## Current checkpoint
 
 The workbench has eleven nodes, two graphs, a bottom data tab, and a 3D surface view.
-All 108 core, camera, workflow, and display tests pass on Windows.
+All 111 core, camera, workflow, and display tests pass on Windows.
 Tests cover simulated surveys, linear drift removal, file reload, rejected setting changes,
 and retained samples after failed saves.
 
@@ -87,11 +87,13 @@ The node plot and native GPU view both displayed the reconstructed coin.
 Workspace Clippy and workspace tests passed. Editor frontend checks and both prototype frontend builds passed.
 
 A complete coin scan processed 18,177 synthetic 640 x 480 frames and measured all 1,681 stations.
-The headless camera-to-session workflow averaged 6.70 ms per frame.
+The headless camera-to-session workflow averaged 2.59 ms per frame after the camera optimization, down from 6.70 ms.
 Height error against the known test surface was 0.062 um RMS and 0.246 um maximum.
 These errors describe the synthetic test, not physical camera accuracy.
-The generated integration check measured 42.55 ms in Edit, 6.20 ms in Bake, and 39.87 ms with the survey slot.
-Each integration run used 120 frames. The populated hidden editor measured 18.53 ms per graph frame and 13.66 ms per GUI update.
+Before the camera optimization, the generated integration check measured 42.55 ms in Edit, 6.20 ms in Bake, and 39.87 ms with the survey slot.
+Each integration run used 120 frames.
+The current populated hidden editor measured 18.25 ms per simulation tick and 13.95 ms per GUI update at the 150 FPS target.
+Each tick can contain multiple graph frames. The page frame interval was 16.7 ms.
 These are measurements on this Windows computer. Allocation counts remain unmeasured.
 
 The core and camera manifests use local dependencies. ASCII labels replace Unicode labels.
@@ -129,3 +131,15 @@ The renderer and simulation code stay inside this workbench.
 
 Both tables use pages of 500 rows. Every station and raw visit remains accessible beyond the editor's table row limit.
 The station map builds its visited flags in one pass. Geometry rebuilds only when data or display settings change.
+
+## Square maps and faster simulation
+
+The station maps have square drawing areas and equal X and Y scales. Rectangular and line plans retain their actual proportions.
+The project targets 150 graph frames per second, compared with the earlier 30.
+Each synthetic frame still advances camera time by 1/30 second. This gives a 5x target simulation rate without reducing sample counts.
+Actual playback speed depends on the computer and the visible panels. Physical cameras retain their own timestamps.
+
+The aligned synthetic laser reuses its beam profile across rows. A regression test verifies identical pixels against the general renderer.
+The full 1,681-station scan retained its earlier reconstruction errors and frame count.
+The sampler now waits for enough accepted frames until the maximum sample time.
+The automated preset uses a 0.2-second minimum and a 0.5-second maximum. A dropout test checks recovery and bounded failure.

@@ -443,8 +443,12 @@ impl Survey {
         if !s.sampler.done(time, &self.shown.options.rule, scale.um_per_px) {
             return Ok(());
         }
+        let sample = s.sampler.reading();
+        if time - s.start < s.rule.max_s && sample.as_ref().is_none_or(|r| r.flags.few_frames) {
+            return Ok(());
+        }
         let s = self.sample.take().expect("sample exists");
-        let sample = s.sampler.reading().ok_or("No beam in the sample")?;
+        let sample = sample.ok_or("No beam in the sample")?;
         if sample.flags.few_frames {
             return Err("Too few valid frames. Repeat the sample.".into());
         }

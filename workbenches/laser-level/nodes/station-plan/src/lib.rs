@@ -44,20 +44,20 @@ impl StationPlan {
         Ok(self.plan.clone())
     }
     pub fn ui(&mut self, ui: &mut Ui) {
-        panel(ui, [360.0, 526.0], "STATION PLAN", "LAYOUT AND ZERO REFERENCE", AMBER);
+        panel(ui, [360.0, 664.0], "STATION PLAN", "LAYOUT AND ZERO REFERENCE", AMBER);
         place(ui, [16.0, 78.0]);
         if ui.toggle("Line survey", &mut self.line).changed() {
             ui.set_param("line", self.line);
         }
         place(ui, [16.0, 116.0]);
-        if let Some(zero) = station_map(ui, &self.plan.0, self.zero as usize, [328.0, 190.0]) {
+        if let Some(zero) = station_map(ui, &self.plan.0, self.zero as usize, [328.0, 328.0]) {
             ui.set_param("zero", zero);
         }
-        field(ui, [16.0, 325.0], "Columns", "nx", &mut self.nx, 1, "");
-        field(ui, [16.0, 360.0], "Rows", "ny", &mut self.ny, 1, "");
-        field(ui, [16.0, 395.0], "X spacing", "dx", &mut self.dx, 1.0, "mm");
-        field(ui, [16.0, 430.0], "Y spacing", "dy", &mut self.dy, 1.0, "mm");
-        place(ui, [16.0, 479.0]);
+        field(ui, [16.0, 463.0], "Columns", "nx", &mut self.nx, 1, "");
+        field(ui, [16.0, 498.0], "Rows", "ny", &mut self.ny, 1, "");
+        field(ui, [16.0, 533.0], "X spacing", "dx", &mut self.dx, 1.0, "mm");
+        field(ui, [16.0, 568.0], "Y spacing", "dy", &mut self.dy, 1.0, "mm");
+        place(ui, [16.0, 617.0]);
         ui.label("Click the map to set zero. New run applies this plan.");
         ui.pin("out", [360.0, 210.0]);
     }

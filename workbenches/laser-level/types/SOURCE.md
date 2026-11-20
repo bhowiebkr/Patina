@@ -9,3 +9,5 @@ are retained. The manifests use explicit metadata and local dependencies.
 Text and comments use ASCII unit names and mathematical notation.
 
 `measurement` adapts these crates to Patina values and workflows.
+The synthetic camera reuses the beam profile across rows when its tilt is zero.
+A regression test checks identical pixels against the general rendering path.

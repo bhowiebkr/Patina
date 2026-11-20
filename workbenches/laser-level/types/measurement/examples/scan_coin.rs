@@ -30,7 +30,7 @@ fn main() -> Result<(), String> {
     };
     let options = settings::encode(&Options {
         file: file.to_string_lossy().into_owned(),
-        rule: SampleRule { min_s: 0.2, max_s: 0.2, target_um: None },
+        rule: SampleRule { min_s: 0.2, max_s: 0.5, target_um: None },
         ..Default::default()
     });
     let mut camera = Camera::default();

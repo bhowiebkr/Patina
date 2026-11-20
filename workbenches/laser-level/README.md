@@ -21,7 +21,10 @@ The synthetic camera produces sensor images with beam noise and warm-up drift.
 The automated graph scans an authored coin relief on a 30 x 30 mm bed.
 The coin has a raised rim, beads, engraved rings, and a compass rose.
 This is a synthetic test object, not a recording of the coin in the reference video.
-The default grid has 41 x 41 stations at 0.75 mm spacing. A complete scan takes several minutes.
+The default grid has 41 x 41 stations at 0.75 mm spacing.
+The graph targets 150 updates per second. The synthetic camera advances by 1/30 second per update, for a 5x simulation rate.
+A complete scan takes about two minutes when the computer sustains that rate.
+Set the toolbar **FPS** to **150** if an already open workbench still uses **30**.
 The normal beam finder measures each image. The results are not a stored animation.
 
 The controller lifts, travels, lowers, waits, and samples. It revisits zero and finishes at zero.
@@ -44,6 +47,7 @@ The graph has no network connection. It does not send machine commands.
 With the synthetic camera, selecting a station also places the simulated block.
 With a real camera, move the block yourself. The station selector does not move hardware.
 The active sample keeps its initial station, even if you select another station.
+The station maps use equal X and Y scales. Square plans appear square; rectangular plans keep their proportions.
 
 **Discard** removes an unfinished or pending sample. It keeps all saved visits.
 A failed save retains the pending sample. Correct the file problem, then click **Keep sample** again.
@@ -85,6 +89,9 @@ Windows uses Media Foundation. The inherited source also provides Linux V4L2 and
 Camera controls depend on the device. Readback reports settings that the driver does not hold.
 Camera, ROI, orientation, scale, or sample-rule changes discard an active sample.
 A changed camera grid requires a new run. A changed calibration requires a new session file.
+Physical camera timestamps keep their normal measurement timing at any graph rate.
+The sampler can wait until **Sample at most** when too few valid frames remain after rejection.
+The automated preset allows 0.2 to 0.5 seconds of simulated sampling time.
 
 ## Results and the bottom table
 

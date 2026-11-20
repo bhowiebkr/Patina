@@ -88,7 +88,7 @@ folder = "nodes/survey"
 pos = [880.0, 820.0]
 
 [node.params]
-options = "{\"rule\":{\"min_s\":0.2,\"max_s\":0.2,\"target_um\":null},\"file\":\"measurements/coin.json\"}"
+options = "{\"rule\":{\"min_s\":0.2,\"max_s\":0.5,\"target_um\":null},\"file\":\"measurements/coin.json\"}"
 request = ""
 
 [[node]]

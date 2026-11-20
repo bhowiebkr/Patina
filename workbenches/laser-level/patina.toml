@@ -1,4 +1,4 @@
 format = 1
 id = "1a5e120000000001"
 rust = "1.100.0"
-frame_rate = 30
+frame_rate = 150

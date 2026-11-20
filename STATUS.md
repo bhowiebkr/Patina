@@ -24,9 +24,11 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Laser measurement workbench: eleven nodes, manual and automated graphs, a bottom **survey-data** table, and a **surface-view** dock.
   Colored 3D results support orbit in the node, with orbit, pan, and zoom in the larger view.
   The automated graph scans a coin relief. **Measured height** retains its shape; **Leveled** removes a fitted plane.
-  All 108 workbench tests passed on Windows. Generated Edit, Bake, and slot surveys saved visits and exported CSV.
+  All 111 workbench tests passed on Windows. Generated Edit, Bake, and slot surveys saved visits and exported CSV.
   Both views read the same measured data in all three build modes. Tables expose dense scans through pages of 500 rows.
-  A complete synthetic scan measured 1,681 stations from 18,177 camera frames, averaging 6.70 ms per frame without the GUI.
+  A complete synthetic scan measured 1,681 stations from 18,177 camera frames, averaging 2.59 ms per frame without the GUI.
+  The earlier average was 6.70 ms. The 150 FPS default targets 5x simulated time while retaining camera samples.
+  Station maps keep equal axis scales. Short samples can recover missing frames within their maximum time.
   Error against the test surface was 0.062 um RMS and 0.246 um maximum. These are simulation results.
   Hidden GUI checks passed for both graphs and for the populated 3D node and dock.
   Windows workspace Clippy, workspace tests, editor frontend checks, and both prototype frontend builds passed.

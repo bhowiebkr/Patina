@@ -59,6 +59,9 @@ impl Rig {
         rig
     }
     fn tick(&mut self, request: &str) {
+        self.tick_with_beam(request, true);
+    }
+    fn tick_with_beam(&mut self, request: &str, valid: bool) {
         self.step += 1;
         let t = self.step as f64 / 30.0;
         let shift = self.reading.beam.frame.block.as_ref().unwrap().shift_px();
@@ -74,6 +77,9 @@ impl Rig {
             strips_used: 16,
             warnings: Default::default(),
         });
+        if !valid {
+            self.reading.beam.fix = Err(measurement::core::beam::NoBeam::Flat);
+        }
         self.survey.update(&self.reading, &self.plan, &self.motion, &settings::encode(&self.options), request).unwrap();
     }
     fn command(&mut self, verb: &str) {
@@ -112,6 +118,30 @@ fn manual_sample_keeps_its_station_and_survives_camera_restart() {
         reopened.update(&rig.reading, &rig.plan, &rig.motion, &settings::encode(&rig.options), &previous).unwrap();
     assert_eq!(shown.run().unwrap().visits.len(), 1);
     assert!(!shown.active);
+}
+
+#[test]
+fn a_short_sample_recovers_missing_frames_within_its_maximum_time() {
+    let mut rig = Rig::new();
+    rig.options.rule.max_s = 0.5;
+    rig.command("sample");
+    for _ in 0..7 {
+        rig.tick_with_beam("", false);
+    }
+    assert!(rig.survey.shown.active);
+    for _ in 0..4 {
+        rig.tick("");
+    }
+    assert!(rig.survey.shown.pending, "{}", rig.survey.shown.error);
+    assert!(!rig.survey.shown.sample.as_ref().unwrap().flags.few_frames);
+    rig.command("cancel");
+    rig.command("sample");
+    for _ in 0..20 {
+        rig.tick_with_beam("", false);
+    }
+    assert!(!rig.survey.shown.active);
+    assert!(!rig.survey.shown.pending);
+    assert!(rig.survey.shown.error.contains("Too few valid frames"));
 }
 
 #[test]

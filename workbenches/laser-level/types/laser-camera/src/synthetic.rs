@@ -215,25 +215,33 @@ impl Synthetic {
 
         let mut data = vec![0u8; w * h];
         let mut light = vec![0f64; w];
+        let aligned = s.axis == LineAxis::Vertical && s.tilt == 0.0;
+        if aligned {
+            for (x, l) in light.iter_mut().enumerate() {
+                *l = beam * line(x as f64 - centre);
+            }
+        }
         for y in 0..h {
             let band = ripple * (std::f64::consts::TAU * (t_s + y as f64 * row_time) / period).sin();
             match s.axis {
-                LineAxis::Vertical => {
+                LineAxis::Vertical if !aligned => {
                     let c = centre + s.tilt * (y as f64 - mid);
                     for (x, l) in light.iter_mut().enumerate() {
-                        *l = ambient + band + beam * line(x as f64 - c);
+                        *l = beam * line(x as f64 - c);
                     }
                 }
                 LineAxis::Horizontal => {
                     for (x, l) in light.iter_mut().enumerate() {
                         let c = centre + s.tilt * (x as f64 - mid);
-                        *l = ambient + band + beam * line(y as f64 - c);
+                        *l = beam * line(y as f64 - c);
                     }
                 }
+                LineAxis::Vertical => {}
             }
             let start = (self.rng.next_u64() as usize) % (NOISE_LEN - w);
             let noise = &self.noise[start..start + w];
             for ((out, &l), &n) in data[y * w..(y + 1) * w].iter_mut().zip(&light).zip(noise) {
+                let l = ambient + band + l;
                 let sd = gain * (s.read_noise * s.read_noise + s.shot_gain * l.max(0.0)).sqrt();
                 *out = (gain * l + sd * f64::from(n)).round().clamp(0.0, 255.0) as u8;
             }
@@ -367,6 +375,18 @@ mod tests {
         assert_eq!(f.data.len(), 640 * 480);
         let fix = find(&f.luma().unwrap(), &FinderConfig::default()).unwrap();
         assert!((fix.position_px - 320.0).abs() < 0.5, "{fix:?}");
+    }
+
+    #[test]
+    fn the_cached_profile_matches_the_general_render() {
+        let mode = VideoMode { width: 640, height: 480, fps: 30.0, format: PixelFormat::Yuyv };
+        let mut fast = Synthetic::open(Some(mode));
+        let mut general = Synthetic::open(Some(mode));
+        // This nonzero tilt selects the general path without changing any pixel position.
+        general.scene.tilt = f64::MIN_POSITIVE;
+        for _ in 0..3 {
+            assert_eq!(fast.next_frame().unwrap().data, general.next_frame().unwrap().data);
+        }
     }
 
     #[test]
