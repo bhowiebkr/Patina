@@ -3,6 +3,8 @@
 The project has two top graphs. **main** shows small GPU experiments.
 **materials** is a native smart material workbench built from Millwright Surface.
 
+The [illustrated guide](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches/gpu.md) shows each part of this workbench in the editor.
+
 ## Smart materials
 
 Open **materials** in the **Project** panel. Click **Run** to evaluate the copper recipe.

@@ -5,6 +5,8 @@ the output. The city and the gun workbenches use it as a library. The plan is in
 [the workbenches plan](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches-plan.md),
 task D.
 
+The [illustrated guide](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches/model.md) shows each part of this workbench in the editor.
+
 This workbench has the types, the base nodes, the run model, the 3D view, the export, the guide
 graphs and the checks (tasks D1 to D8).
 

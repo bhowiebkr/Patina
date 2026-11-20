@@ -4,6 +4,8 @@ The first Patina project. Two numbers go into an add node, and a show node write
 them, a small pocket calculator: two keypads, an operation and two paper tapes. Start with this
 example to learn the parts of a project.
 
+The [illustrated guide](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches/hello.md) shows each part of this workbench in the editor.
+
 ![The hello graph in the editor](images/editor.png)
 
 ## Run the example

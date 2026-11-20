@@ -3,6 +3,8 @@
 Ember is a modular synthesizer for learning and sound design. Its graph shows how a score becomes sound.
 The instrument panels have different sizes. Each panel has room for its controls and displays.
 
+The [illustrated guide](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches/synth.md) shows each part of this workbench in the editor.
+
 ![Ember in the Patina editor](images/editor.png)
 
 ## Sandstorm hook study

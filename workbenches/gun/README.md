@@ -6,6 +6,8 @@ plan is in
 [the workbenches plan](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches-plan.md),
 task F.
 
+The [illustrated guide](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches/gun.md) shows each part of this workbench in the editor.
+
 ## Run the workbench
 
 Run this command from the root of the repository:

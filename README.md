@@ -3,6 +3,8 @@
 
 <p><b>A visual node graph editor and engine. Each node is Rust code.</b></p>
 
+<img src="docs/images/workbenches/synth/overview.png" alt="The Ember synth workbench in the Patina editor: node GUIs, live audio wires, an analysis dock and a pattern editor">
+
 </div>
 
 > **Patina 0.1 is the first release.** The editor, the engine and the command line work on
@@ -10,6 +12,7 @@
 > known limits. The [specification](docs/spec/README.md) is the full design.
 
 - [What Patina is](#what-patina-is)
+- [Workbenches](#workbenches)
 - [Nodes](#nodes)
 - [Connections](#connections)
 - [Views](#views)
@@ -47,6 +50,32 @@ Patina does not limit what a graph does. Some examples:
 - Scientific data processing
 
 Patina is the Rust successor to [PyFlowGraph](https://github.com/bhowiebkr/PyFlowGraph).
+
+## Workbenches
+
+Patina comes with eight workbenches. A workbench is a complete project that shows what a graph
+can do. Open one from the start screen of the editor, click **Run** and change it. The
+[workbench guide](docs/workbenches/README.md) explains the editor and each workbench, with many
+images.
+
+<table>
+<tr>
+<td width="50%" valign="top"><a href="docs/workbenches/hello.md"><img src="docs/images/workbenches/hello/overview.png" alt="The hello workbench"></a><br><b><a href="docs/workbenches/hello.md">hello</a></b>: The smallest project: numbers, a keypad, a calculator and a subgraph. Start here.</td>
+<td width="50%" valign="top"><a href="docs/workbenches/computer.md"><img src="docs/images/workbenches/computer/overview.png" alt="The computer workbench"></a><br><b><a href="docs/workbenches/computer.md">computer</a></b>: An 8-bit computer of NAND gates, with RAM, a video chip, a keyboard and displays.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="docs/workbenches/gpu.md"><img src="docs/images/workbenches/gpu/overview.png" alt="The gpu workbench"></a><br><b><a href="docs/workbenches/gpu.md">gpu</a></b>: Smart materials on the GPU: noise, masks, layers and a material preview.</td>
+<td width="50%" valign="top"><a href="docs/workbenches/synth.md"><img src="docs/images/workbenches/synth/overview.png" alt="The synth workbench"></a><br><b><a href="docs/workbenches/synth.md">synth</a></b>: Ember, a modular synthesizer: a sequencer, a synth voice, effects and analysis.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="docs/workbenches/model.md"><img src="docs/images/workbenches/model/overview.png" alt="The model workbench"></a><br><b><a href="docs/workbenches/model.md">model</a></b>: Procedural 3D models with solids, sketches, booleans and export.</td>
+<td width="50%" valign="top"><a href="docs/workbenches/city.md"><img src="docs/images/workbenches/city/overview.png" alt="The city workbench"></a><br><b><a href="docs/workbenches/city.md">city</a></b>: Seeded cities: terrain, a river, streets, lots and buildings in a 3D view.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="docs/workbenches/gun.md"><img src="docs/images/workbenches/gun/overview.png" alt="The gun workbench"></a><br><b><a href="docs/workbenches/gun.md">gun</a></b>: Seeded guns for a game, from the parts of four makers.</td>
+<td width="50%" valign="top"><a href="docs/workbenches/laser-level.md"><img src="docs/images/workbenches/laser-level/overview.png" alt="The laser-level workbench"></a><br><b><a href="docs/workbenches/laser-level.md">laser-level</a></b>: Surface measurement with a camera and a laser level, with a simulated scan.</td>
+</tr>
+</table>
 
 ## Nodes
 
@@ -97,6 +126,8 @@ A `ui` function in the node code draws the GUI of the node: buttons, sliders, cu
 images, and a canvas for custom controls. The GUI shows small in the node and large in the
 inspector. A node can also open its GUI in the whole graph area, for example a large curve
 editor.
+
+![Node GUIs of the synth workbench: an oscillator, an envelope, a filter and an echo](docs/images/workbenches/synth/instrument-panels.png)
 
 Nodes can also be generic or async. Patina does not define data types. Crates define them, and
 two pins connect only when they have the same type.
@@ -158,6 +189,8 @@ The graph view moves at once, with no animation.
 ## Connections
 
 A wire shows the value that it carries while the graph runs, as a node shows its state.
+
+![Wires in a register of NAND gates: a bus with eight lanes, labels with live values and shared trunks](docs/images/workbenches/computer/register-graph.png)
 
 - A bus carries one value with many signals, for example the 8 bits of a byte. The wire shows
   each signal as a lane, and a lane lights when its bit is 1. A badge shows the value as text.
@@ -230,6 +263,8 @@ tool.
   `patina_gpu::ViewportSurface`. The `scene` view of `workbenches/gpu` is an example. On Linux and
   macOS, a viewport does not show yet.
 
+![The model-view view of the model workbench with a seeded tower](docs/images/workbenches/model/tower.png)
+
 ## Layers
 
 Patina compiles a graph in two layers, so that the graph runs fast and your changes build fast.
@@ -276,6 +311,8 @@ GPU support comes from crates and from `patina-sdk`, not from the engine.
 - GPU data stays on the GPU between GPU nodes.
 - A shader change needs no Rust compile.
 
+![GPU material layers with live previews in the gpu workbench](docs/images/workbenches/gpu/layers.png)
+
 A node uses the GPU with the `patina-gpu` crate. Add `patina-gpu = { workspace = true }` to
 the `Cargo.toml` of the node, and set Rust 1.97.1 or later in `patina.toml`. The workbenches use Rust 1.100.0. Keep the shaders
 in the `assets/` folder of the node, and find them with `asset!("file.wesl")`. The
@@ -309,6 +346,8 @@ cargo run -p patina-cli -- run workbenches/computer --frames 16
 ```
 cargo run -p patina-cli -- run workbenches/computer --graph latch --frames 16
 ```
+
+![The decoder, the gates and the registers of the CPU of NAND gates](docs/images/workbenches/computer/cpu-gates.png)
 
 In the editor, a 1-bit wire is lit when it is true. Run the project and double-click a use of a
 subgraph, for example the `cpu` node, or click its **Open subgraph** button. The subgraph opens
@@ -630,6 +669,8 @@ To make your first graph:
 6. Click the wire. The **Inspector** shows the full value.
 7. Push Ctrl+S to save the project.
 
+![Two numbers, an add node and a show node in the hello workbench](docs/images/workbenches/hello/sum.png)
+
 To make a new node, click **+** in the title of the **Nodes** group of the **Project** panel.
 Type a name and push Enter. The **Inspector** shows the code of the new node. Edit the code
 and push Ctrl+S. Undo removes the new folder while it has only its start files.
@@ -660,7 +701,10 @@ connect to the network before you click this button.
 If Patina stops before you save, it keeps your changes. When you open the project again, click
 **Restore** to get them back, or **Discard** to delete them.
 
-The panels dock at the left, the right and the bottom of the graph:
+![The parts of the Patina editor, with numbers](docs/images/workbenches/hello/editor-parts.png)
+
+The [editor at a glance](docs/workbenches/README.md#the-editor-at-a-glance) explains each
+numbered part of the image. The panels dock at the left, the right and the bottom of the graph:
 
 - Drag a tab to another area, or right-click the tab to move or close it.
 - Drag the line between an area and the graph to change the size of the area.
@@ -715,14 +759,17 @@ questions.
 
 ## Documentation
 
-- Workbenches: [hello](workbenches/hello/README.md), the smallest project.
-  [computer](workbenches/computer/README.md), an 8-bit computer of NAND gates.
-  [gpu](workbenches/gpu/README.md), WESL shaders on the GPU.
-  [synth](workbenches/synth/README.md), the Ember sound workbench.
-  [laser-level](workbenches/laser-level/README.md), laser measurement and simulated surface surveys.
-  [model](workbenches/model/README.md), the procedural 3D models.
-  [city](workbenches/city/README.md), seeded cities of streets, lots and buildings.
-  [gun](workbenches/gun/README.md), seeded guns for a game from parts of four makers.
+- [Workbench guide](docs/workbenches/README.md): the editor at a glance and one illustrated
+  page for each workbench: [hello](docs/workbenches/hello.md),
+  [computer](docs/workbenches/computer.md), [gpu](docs/workbenches/gpu.md),
+  [synth](docs/workbenches/synth.md), [model](docs/workbenches/model.md),
+  [city](docs/workbenches/city.md), [gun](docs/workbenches/gun.md) and
+  [laser-level](docs/workbenches/laser-level.md).
+- Workbench READMEs, with the full lists of nodes and limits:
+  [hello](workbenches/hello/README.md), [computer](workbenches/computer/README.md),
+  [gpu](workbenches/gpu/README.md), [synth](workbenches/synth/README.md),
+  [model](workbenches/model/README.md), [city](workbenches/city/README.md),
+  [gun](workbenches/gun/README.md) and [laser-level](workbenches/laser-level/README.md).
 - [Specification](docs/spec/README.md): the full design, in one file for each group of
   sections.
 - [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free

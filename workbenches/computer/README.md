@@ -3,6 +3,8 @@
 A small 8-bit computer, made of NAND gates. The style is the style of a digital logic
 simulator: each gate, adder, register and memory is a subgraph that you can open.
 
+The [illustrated guide](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches/computer.md) shows each part of this workbench in the editor.
+
 ![The main graph of the computer in the editor](images/editor.png)
 
 ## Run the example

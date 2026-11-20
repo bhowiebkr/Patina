@@ -3,6 +3,8 @@
 Measure a line or a surface with a laser and a lensless camera sensor.
 The nodes form the instrument panel. The **survey-data** tab shows the data below the canvas.
 
+The [illustrated guide](https://github.com/bhowiebkr/Patina/blob/main/docs/workbenches/laser-level.md) shows each part of this workbench in the editor.
+
 This workbench uses the owner's Laser Level Webcam measurement and camera code.
 See the [source details](types/SOURCE.md).
 
