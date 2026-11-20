@@ -510,12 +510,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   tower as `.glb`, `.obj` and `.stl` with no error, each with 144 triangles. The `.glb` has
   the `sockets` extra. The gun `.glb` gave 10484 triangles, as in the CLI, and 6 materials.
   Two city buildings gave their mesh, 9 and 7 materials and the `sockets` extra.
+- The hidden model shot clicks **Export** in the node GUI of `export` (2026-11-19). The node
+  shows "Wrote tower.glb, 144 triangles", and the shot undoes the click. The file goes into
+  the git copy of the shot.
 - Known limits:
   - The `.obj` and the `.stl` files have no sockets. A solid has no colors, so the `export`
     node writes no materials. The `.glb` writer gives each part with a color a material
     (2026-11-19), and the city and the gun exports use it.
   - No other program than Blender opened the files, and no test runs Blender.
-  - The **Export** click in the editor is not checked. The unit test checks its rule.
 
 ### Model workbench 3D view, 2026-11-19
 
@@ -598,8 +600,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   leaves no memory. A test leak of 100 bytes in each loop step gave 55 MB after 500000 steps.
   The loop was a temporary test, and it is not in the repository.
 - Known limits:
-  - The memory check ran only on the model workbench crate, not on the copies in the city and
-    the gun workbenches. The `bad_alloc` path was not in the loop.
+  - The memory check ran only on the model workbench crate. The copies in the city and the gun
+    workbenches have the same source files (a diff on 2026-11-19). The `bad_alloc` path was not
+    in the loop.
   - An allocation failure in the Rust code stops the program.
   - The `parallel` feature of `cc` adds `jobserver` and `libc` to the crate downloads.
   - Linux and macOS did not run.

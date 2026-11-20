@@ -2,7 +2,7 @@
 import { api, onEngine, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
 import { closePanel, openView, VIEW_SLOTS } from '../panels/layout';
-import { closeMenu, rightClick } from './check-fixtures';
+import { closeMenu, entry, rightClick } from './check-fixtures';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const panel = () => document.querySelector<HTMLElement>('aside[data-view="model-view"]');
@@ -12,8 +12,9 @@ const shown = () => panel()?.innerText.match(/\d+ triangles, bounds [^\n]+/)?.[0
 // `next` is a workbench beside this one that the check opens while the 3D view shows, when the folder is there.
 // `wall` is a view in the bottom dock whose click sets the seed and selects `node` again.
 // `taper` is an `extrude` node whose **taper** slider in the Inspector the check moves (4.8).
-const TARGETS: { seed: string; node: string; title: string; shot: string; toon: boolean; next?: string; wall?: string; taper?: string }[] = [
-  { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false, taper: 'b0d1000000000004' },
+// `exporter` is an `export` node whose **Export** button the check clicks. The file goes into the project copy of the shot.
+const TARGETS: { seed: string; node: string; title: string; shot: string; toon: boolean; next?: string; wall?: string; taper?: string; exporter?: string }[] = [
+  { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false, taper: 'b0d1000000000004', exporter: 'e8a000000000000d' },
   { seed: 'c170000000000001', node: 'c170000000000017', title: 'merge', shot: 'city', toon: false, next: 'gun' },
   { seed: '9a70000000000001', node: '9a70000000000002', title: 'look', shot: 'gun', toon: true, wall: 'gun-wall' },
 ];
@@ -21,7 +22,7 @@ const TARGETS: { seed: string; node: string; title: string; shot: string; toon: 
 export async function modelWorkbench(view: View, show: (view: View) => void): Promise<string[]> {
   const target = TARGETS.find((t) => view.graph.node?.some((n) => n.id === t.node));
   if (!view.views.includes('model-view') || !target) return [];
-  const { seed, node, title, shot, toon, next, wall, taper } = target;
+  const { seed, node, title, shot, toon, next, wall, taper, exporter } = target;
   let stage = 'open';
   let failure = '';
   let runs = 0;
@@ -137,6 +138,24 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
       steps.push(`a click on the first tile of the ${wall} selects ${title} and shows a new mesh: ${shown()}`);
       show(await api.undo());
       await until(() => shown() === first, `Undo of the ${wall} click did not give the first mesh again`);
+    }
+    if (exporter) {
+      stage = 'click Export';
+      const card = () => document.querySelector(`.react-flow__node[data-id="${exporter}"]`);
+      const exportButton = () => [...(card()?.querySelectorAll<HTMLButtonElement>('button.gui-button') ?? [])].find((b) => b.textContent === 'Export');
+      const wrote = () => card()?.textContent?.match(/Wrote \S+, \d+ triangles/)?.[0] ?? '';
+      // The frames draw only the GUIs of the nodes in view (4.3 rule 3), so Fit node shows the node first.
+      rightClick(card()!);
+      await until(() => !!entry('Node', 'Fit node'), 'The export node menu has no Fit node entry');
+      entry('Node', 'Fit node')!.click();
+      await until(() => !!exportButton() && !document.querySelector('.menu-layer'), 'The export node shows no Export button');
+      if (wrote()) throw new Error(`The export node wrote a file before the click: ${wrote()}`);
+      const beforeExport = runs;
+      exportButton()!.click();
+      await until(() => runs > beforeExport && wrote() !== '', 'The Export click did not write a file');
+      await api.capture(`${shot}-export`);
+      steps.push(`a click on Export writes the file: ${wrote()}`);
+      show(await api.undo());
     }
     if (next) {
       // A new node process draws the view after the switch. A view that keeps the old image fails the seed check of the nested run.
