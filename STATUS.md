@@ -1689,8 +1689,8 @@ Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list t
 - `crates/patina-editor/frontend/src/wires/gl.ts:275`: One texture row holds each wire. Above `MAX_TEXTURE_SIZE` wires, SVG draws them. Pack the rows for larger graphs.
 - `crates/patina-editor/frontend/src/wires/route.ts:36`: A graph with a larger route grid gets simple orthogonal paths. Use a sparser grid when such graphs matter.
 - `crates/patina-editor/frontend/src/wires/wires.ts:368`: A path with more than `MAX_POINTS` - 2 bends draws only its first bends. Split the row when this matters.
-- `crates/patina-editor/src/engine.rs:522`: No event runs when the slot holds a value that is not `Sync`, an event node and a node of another domain. Give event nodes their own slot library.
-- `crates/patina-editor/src/engine.rs:618`: When a library is not parallel, the blocks run between the frames, so a slow frame makes them late. Give such a graph its own thread.
+- `crates/patina-editor/src/engine.rs:525`: No event runs when the slot holds a value that is not `Sync`, an event node and a node of another domain. Give event nodes their own slot library.
+- `crates/patina-editor/src/engine.rs:621`: When a library is not parallel, the blocks run between the frames, so a slow frame makes them late. Give such a graph its own thread.
 - `crates/patina-editor/src/session/check.rs:78`: Screenshots work only on Windows. Add a path for Linux when the check runs there.
 - `crates/patina-editor/src/session/start.rs:170`: Linux and macOS have no trash, so **Delete** shows an error there. Add the freedesktop trash when a user asks.
 - `crates/patina-engine/src/device.rs:196`: Only Windows raises the audio thread priority. Add it for Linux when a user there hears gaps.
