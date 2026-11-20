@@ -72,22 +72,25 @@ impl ModelView {
 
     pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
         ui.label("MODEL / 3D VIEW");
-        let found = graph.selected().find_map(|id| model_of(graph, id)).or_else(|| {
-            let from = graph.wires().map(|(from, _)| from).find(|from| *from == self.source)?;
-            Some((from, model(graph, from)?))
+        let picked = graph.selected().find_map(|id| model_of(graph, id));
+        if let Some(((id, key), _)) = picked
+            && self.source.split_once('.') != Some((id, key))
+        {
+            self.source.clear();
+            self.source.extend([id, ".", key]);
+        }
+        let found = picked.map(|(_, model)| model).or_else(|| {
+            let (id, key) = self.source.split_once('.')?;
+            model(graph, id, key)
         });
         let mut reframe = false;
-        if let Some((from, model)) = found {
-            if from != self.source {
-                self.source.clear();
-                self.source.push_str(from);
-            }
-            if self.shown.as_ref().is_none_or(|shown| shown.serial != model.serial()) {
-                let shown = model.shown();
-                reframe = self.shown.is_none() && shown.bounds.iter().flatten().all(|v| v.is_finite());
-                self.shown = Some(shown);
-                self.stale = true;
-            }
+        if let Some(model) = found
+            && self.shown.as_ref().is_none_or(|shown| shown.serial != model.serial())
+        {
+            let shown = model.shown();
+            reframe = self.shown.is_none() && shown.bounds.iter().flatten().all(|v| v.is_finite());
+            self.shown = Some(shown);
+            self.stale = true;
         }
         let node = self.source.split_once('.').map_or("", |(id, _)| id);
         match &self.shown {
@@ -95,7 +98,7 @@ impl ModelView {
                 let name = graph.folder(node).map_or(node, |f| f.trim_start_matches("nodes/"));
                 ui.label(&format!("{name} - {}", shown.text));
             }
-            None => ui.label("Select a model node. The view shows its output when the output has a wire."),
+            None => ui.label("Select a model node. The view shows its output after the node runs."),
         }
         if let Some(error) = graph.error(node) {
             ui.label(error);
@@ -165,16 +168,15 @@ fn renderer(slot: &mut Option<Renderer>) -> Result<&mut Renderer, String> {
     }
 }
 
-/// The model of node `id` and the output that gives it. It is the first model output of the node
-/// with a wire, or for a node with no such output, the first model that goes into the node.
-fn model_of<'g>(graph: &'g Graph, id: &str) -> Option<(&'g str, Model<'g>)> {
-    let on = |pin: &str| pin.split_once('.').is_some_and(|(n, _)| n == id);
-    let outputs = graph.wires().any(|(from, _)| on(from));
-    graph.wires().filter(|&(from, to)| on(if outputs { from } else { to })).find_map(|(from, _)| Some((from, model(graph, from)?)))
+/// The model of node `id` and the output that gives it, as (node, output). It is the first model
+/// output of the node, or for a node with no model output, the first model that goes into the node.
+fn model_of<'g>(graph: &'g Graph, id: &'g str) -> Option<((&'g str, &'g str), Model<'g>)> {
+    let own = graph.outputs(id).find_map(|key| Some(((id, key), model(graph, id, key)?)));
+    let into = || graph.wires().filter(|(_, to)| to.split_once('.').is_some_and(|(n, _)| n == id)).filter_map(|(from, _)| from.split_once('.'));
+    own.or_else(|| into().find_map(|(n, key)| Some(((n, key), model(graph, n, key)?))))
 }
 
-/// The solid or the scene at the output `pin`, as `<node>.<output>`.
-fn model<'g>(graph: &'g Graph, pin: &str) -> Option<Model<'g>> {
-    let (id, key) = pin.split_once('.')?;
+/// The solid or the scene at the output `key` of node `id`.
+fn model<'g>(graph: &'g Graph, id: &str, key: &str) -> Option<Model<'g>> {
     graph.value::<Solid>(id, key).map(Model::Solid).or_else(|| graph.value::<Scene>(id, key).map(Model::Scene))
 }

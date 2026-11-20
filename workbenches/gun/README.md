@@ -110,8 +110,7 @@ bonus has only the model name.
 Do these steps:
 
 1. Open the project in the editor and click **Run**.
-2. Open **Views** and select **model-view**. Click a `look` node to see its gun in 3D. The view
-   shows an output only when it has a wire, so each `look` node has a `report` node.
+2. Open **Views** and select **model-view**. Click a `look` node to see its gun in 3D.
 3. Click **Toon** in the view for three light bands, dark outlines and ink lines on the sharp
    edges.
 4. Open **Views** and select **gun-wall**. The view shows the guns of eight seeds, with the

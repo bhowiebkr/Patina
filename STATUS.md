@@ -521,6 +521,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     makes its surface on its own child window, and the editor waits 1 s for the drop of the views.
   - The thread of the child window takes the DPI awareness of the editor window. Before this,
     the picture moved up and to the left on a display at 175 %.
+  - Each output of a batch node sends its value, also with no wire, so a view reads it
+    (15.8 rule 3). A lone model node now shows in the 3D view. `Graph::outputs` gives the
+    output keys of a node with a live value.
 - Checked on 2026-11-19, on Windows only:
   - The CI clippy and `cargo test --workspace`. The CLI test checks the first-read rerun.
   - 13 unit tests of the workbench crates and their clippy, with the MSVC toolchain. CI does
@@ -532,8 +535,6 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     draws its own images, and seed 8 gives a new image. The shots of `model`, `gun`, `hello`,
     `gpu` and `computer` also pass with the child window.
 - Known limits:
-  - The view reads only an output with a wire, or the solid input of a node with no wired
-    output.
   - During a batch run, the view keeps its last picture.
   - Linux and macOS did not run the view.
 

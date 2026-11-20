@@ -204,6 +204,10 @@ pub fn check(root: &Path, graph: &GraphFile) -> Result<Plan, Vec<String>> {
     check_loops(&steps, &loops, &orders, &light, builtin)?;
     let trigger = event::triggers(&steps, &edges, |n| fires(steps[n].node))?;
     let tasks = split(&mut steps, &edges, &trigger, &light, &loops);
+    // A view reads each output of a batch step, also with no wire (15.8 rule 3).
+    for step in steps.iter_mut().filter(|s| s.domain == Domain::Batch) {
+        step.consumers.iter_mut().for_each(|c| *c = (*c).max(1));
+    }
     let mut plan = Plan { nodes, steps, slots, kinds, log: false, tasks, builtins, slot: None, loops };
     let used: BTreeSet<String> = plan.held().filter_map(|(n, k)| plan.kind(n, k)).map(|(name, _)| name.clone()).collect();
     plan.kinds.retain(|(name, _)| used.contains(name));
@@ -626,6 +630,8 @@ to = \"000000000000000f.value\"
         assert!(crossed.err().unwrap()[0].contains("from the frame domain to the batch domain"));
         let mixed = mixed.unwrap_or_else(|p| panic!("{p:?}"));
         assert_eq!(mixed.steps.iter().find(|s| s.id.ends_with('b')).map(|s| s.domain), Some(Domain::Frame), "batch and frame inputs give the frame domain");
+        let num = mixed.steps.iter().find(|s| s.id.ends_with('a')).unwrap();
+        assert_eq!((&num.consumers[..], &num.readers[..]), (&[1][..], &[vec![]][..]), "a view reads a batch output with no wire (15.8)");
         let heard: Vec<Domain> = heard.unwrap_or_else(|p| panic!("{p:?}")).steps.iter().map(|s| s.domain).collect();
         assert_eq!(heard, [Domain::Frame, Domain::Audio], "a frame value goes to the audio domain");
         let resolved = resolved.unwrap_or_else(|p| panic!("{p:?}"));

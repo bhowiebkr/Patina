@@ -184,8 +184,10 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
 - Agent decisions of 2026-11-19 for D5, the owner can change them:
   - The view draws into its own texture with 4x MSAA and a depth texture. Then it copies the
     texture to the viewport. Thus `patina-gpu` needs no change.
-  - The view reads the wired solid output of the selected node. For a node with no wired
-    output, it reads the solid input. When the selection has no solid, it keeps the last solid.
+  - The view reads the solid output of the selected node. For a node with no solid output, it
+    reads the solid input. When the selection has no solid, it keeps the last solid. A view
+    reads each output of a batch node, also with no wire (spec 15.8 rule 3, changed
+    2026-11-19).
   - Each `Solid` has a serial number, so the view uploads a mesh only when the value changes.
   - The first read of a batch output by a view starts a batch run (spec 15.8 rule 3). This is
     a generic tool change: a view that opens after **Run** sees a value at once.

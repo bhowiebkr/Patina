@@ -14,6 +14,7 @@ use crate::glue::Reader;
 /// let mut graph = patina_sdk::Graph::new("node\tclock\tclock\nout\tclock\tframe\t42\nparam\tclock\trate\t60\nwire\tclock.frame\tshow.value\nselected\tclock\nerror\tshow\tno value");
 /// assert_eq!(graph.nodes().collect::<Vec<_>>(), ["clock"]);
 /// assert_eq!(graph.output::<u64>("clock", "frame"), Some(42));
+/// assert_eq!(graph.outputs("clock").collect::<Vec<_>>(), ["frame"]);
 /// assert_eq!(graph.param("clock", "rate"), Some("60"));
 /// assert_eq!(graph.wires().collect::<Vec<_>>(), [("clock.frame", "show.value")]);
 /// assert_eq!(graph.selected().collect::<Vec<_>>(), ["clock"]);
@@ -80,12 +81,17 @@ impl Graph {
 
     /// The live value of the output `key` of node `id` after the last run, as its type `T` from
     /// the type crate of the output (15.8 rule 3). `T` must have `Clone` and `Send`. None when
-    /// the type is not `T`, when the output has no wire, and before the second run after the
-    /// first call: the first call asks the engine to keep a copy of the value.
+    /// the type is not `T`, when the output has no wire and is not of a batch node, and before the
+    /// second run after the first call: the first call asks the engine to keep a copy of the value.
     pub fn value<T: 'static>(&self, id: &str, key: &str) -> Option<&T> {
         // SAFETY: the reader comes from `view_ui` and is valid during the call of `ui`, and the
         // result borrows `self`, which lives only during that call.
         self.reader.and_then(|reader| unsafe { reader.value(id, key) })
+    }
+
+    /// The key of each output of node `id` that has a live value after the last run.
+    pub fn outputs<'a>(&'a self, id: &'a str) -> impl Iterator<Item = &'a str> {
+        self.items("out").filter(move |[n, _, _]| *n == id).map(|[_, key, _]| key)
     }
 
     /// The live value of an output, read from its text. Use it for numbers and `bool`. The text of

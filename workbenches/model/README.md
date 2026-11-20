@@ -52,8 +52,8 @@ next to the graph. Do these steps:
 2. Open **Views** and select **model-view**.
 3. Click a model node, for example `union`.
 
-The view shows the output of the node when the output has a wire. For a node with no wired
-output, for example `report`, it shows the solid that goes into the node. When the selection
+The view shows the output of the node, also when the output has no wire. For a node with no
+solid output, for example `report`, it shows the solid that goes into the node. When the selection
 has no solid, the view keeps the last solid.
 
 - Drag to orbit. Shift and drag to pan. Turn the wheel to zoom. Press Home or click

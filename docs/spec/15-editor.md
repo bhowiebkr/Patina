@@ -409,9 +409,12 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
    runs keep the copy. A quiet frame (9.1) keeps no copy, because a view reads only between two
    ticks, after the last frame. (Agent decision of 2026-11-18. The owner can change it. Reason: a
    large value then costs one copy for each tick, not one for each frame.) The `Any` type ID is the type check, because the clusters and the views
-   of a project link one build of each type crate (5.2). A view reads only an output with a
-   wire. (Agent decision, 2026-11-15. The owner can change it. Reason: a copy costs only for
-   the outputs that a view reads, and a clone keeps the run free of locks on the value.)
+   of a project link one build of each type crate (5.2). A view reads an output with a wire,
+   and each output of a batch node, also with no wire. (Agent decision, 2026-11-15, changed
+   2026-11-19. The owner can change it. Reason: a copy costs only for the outputs that a view
+   reads, and a clone keeps the run free of locks on the value. A batch node runs only at
+   **Run** and after a change, so its unwired outputs cost little, and a lone node shows its
+   result.)
    An edit build and a bake build of a type crate have different type IDs. Thus a view builds
    in the mode of the loaded cluster. When the mode of the cluster changes, for example after a
    fuse, the view builds again, and the state of each instance resets. (Agent decision of
@@ -522,7 +525,8 @@ change it.)
 The limits of version 1:
 
 - Up to twelve view instances at a time, each in a dock panel or a float window.
-- A view reads the typed value only of an output with a wire. A rebuild of the cluster
+- A view reads the typed value only of an output with a wire, or of an output of a batch
+  node. A rebuild of the cluster
   transfers its copy requests by node ID and output key.
   (Agent decision, 2026-11-19. Reason: a batch view must receive a value after **Run** rebuilds the cluster. The owner can change it.)
 - No subgraph edits and no reads of node states. `fire` finds a `trigger` node in a use with
