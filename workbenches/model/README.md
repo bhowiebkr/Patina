@@ -129,7 +129,7 @@ cargo test --release -p geometry measure -- --ignored --nocapture
 - In the editor, a build stops the frames, the node GUIs and the views until it ends. A block
   of 500 houses takes about 0.13 s.
 - When the C++ kernel has no memory, the node gets the error "the result is too large". A
-  sketch that the kernel cannot make, for example with a very large coordinate, is empty. A shape
+  sketch with a very large coordinate gets the error "the construction is not valid". A shape
   has 1024 segments at most, and an array has 1000 copies at most.
 - The kernel has no fillet and no bevel. A Minkowski opening was too slow, and `SmoothOut`
   makes the faces bulge (see STATUS.md).

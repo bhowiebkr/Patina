@@ -132,9 +132,14 @@ impl Solid {
         // SAFETY: the solid is valid. The status runs the boolean and keeps its result.
         match guard(|| unsafe { manifold_status(solid.0) }) {
             Ok(_) => solid,
-            // SAFETY: `mem` is new Manifold memory.
-            Err(status) => Solid::make(|mem| unsafe { patina_manifold_failed(mem, status) }),
+            Err(status) => Solid::failed(status),
         }
+    }
+
+    /// An empty solid with the kernel error `status`.
+    fn failed(status: c_int) -> Solid {
+        // SAFETY: `mem` is new Manifold memory.
+        Solid::make(|mem| unsafe { patina_manifold_failed(mem, status) })
     }
 
     /// A solid with no volume.
@@ -200,7 +205,11 @@ impl Solid {
 
     /// Makes the sketch thick along Z, from 0 to `height`. The top turns by `twist` degrees and
     /// scales by `scale`. `slices` 0 makes one slice, or more when the top turns.
+    /// A sketch with an error gives a solid with the same error.
     pub fn extrude(sketch: &Sketch, height: f64, twist: f64, scale: [f64; 2], slices: i32) -> Solid {
+        if sketch.status() != 0 {
+            return Solid::failed(sketch.status());
+        }
         sketch.with_polygons(|polygons| {
             // SAFETY: `mem` is new Manifold memory, and the polygons are valid during the call.
             Solid::make(|mem| unsafe { manifold_extrude(mem, polygons, height, limit(slices), twist, scale[0], scale[1]) })
@@ -209,7 +218,11 @@ impl Solid {
 
     /// Turns the sketch around its Y axis by `degrees`, and makes that axis the Z axis. The kernel
     /// uses only the part of the sketch at x > 0. `segments` 0 lets the kernel choose.
+    /// A sketch with an error gives a solid with the same error.
     pub fn revolve(sketch: &Sketch, degrees: f64, segments: i32) -> Solid {
+        if sketch.status() != 0 {
+            return Solid::failed(sketch.status());
+        }
         // SAFETY: `mem` is new Manifold memory, and the polygons are valid during the call.
         sketch.with_polygons(|polygons| Solid::make(|mem| unsafe { manifold_revolve(mem, polygons, limit(segments), degrees) }))
     }
@@ -305,8 +318,7 @@ impl Solid {
     /// The kernel error of the solid, for example from a construction that is not valid.
     pub fn error(&self) -> Option<&'static str> {
         // SAFETY: the solid is valid. The status runs the operations that wait.
-        let status = guard(|| unsafe { manifold_status(self.0) }).unwrap_or_else(|status| status);
-        (status != 0).then(|| usize::try_from(status).ok().and_then(|i| ERRORS.get(i)).copied().unwrap_or("unknown error"))
+        error_text(guard(|| unsafe { manifold_status(self.0) }).unwrap_or_else(|status| status))
     }
 
     /// A number that no other solid has, also not a copy. A view compares it to find a new value.
@@ -396,6 +408,11 @@ pub(crate) fn limit(segments: i32) -> i32 {
 /// kernel status of its error and does not stop the program: "the result is too large" for a
 /// `bad_alloc`, or else "the construction is not valid". The exception can leave kernel memory
 /// that nothing deletes.
+/// The text of the kernel status `status`, or `None` for 0.
+pub(crate) fn error_text(status: c_int) -> Option<&'static str> {
+    (status != 0).then(|| usize::try_from(status).ok().and_then(|i| ERRORS.get(i)).copied().unwrap_or("unknown error"))
+}
+
 pub(crate) fn guard<R, F: FnOnce() -> R>(run: F) -> Result<R, c_int> {
     unsafe extern "C-unwind" fn call<R, F: FnOnce() -> R>(data: *mut c_void) {
         // SAFETY: `data` is the pair of `guard`, which lives until `patina_guard` returns.

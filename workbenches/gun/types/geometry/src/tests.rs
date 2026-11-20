@@ -128,8 +128,14 @@ fn sketches_make_solids() {
     assert_eq!(Sketch::polygon(&[[0.0, 0.0], [0.0, 2.0], [2.0, 0.0]]).area(), 2.0);
     assert_eq!(Sketch::circle(1.0, 6).corners(), 6);
     assert_eq!(Sketch::circle(1.0, 100_000).corners(), MAX_SEGMENTS as usize);
-    // Clipper2 throws on a coordinate out of its range, and the sketch is empty.
-    assert_eq!(format!("{:?}", Sketch::polygon(&[[0.0, 0.0], [1e300, 0.0], [0.0, 1e300]])), "empty");
+    // Clipper2 throws on a coordinate out of its range. The sketch is empty and keeps the error.
+    let far = Sketch::polygon(&[[0.0, 0.0], [1e300, 0.0], [0.0, 1e300]]);
+    assert_eq!(format!("{:?}", far.translate([1.0, 0.0]).clone()), "error: the construction is not valid");
+    assert_eq!(far.corners(), 0);
+    assert_eq!(Solid::extrude(&far, 1.0, 0.0, [1.0; 2], 0).error(), Some("the construction is not valid"));
+    assert_eq!(Solid::revolve(&far, 360.0, 8).error(), Some("the construction is not valid"));
+    assert_eq!(far.clone().checked().unwrap_err(), "the kernel gave an error: the construction is not valid");
+    assert_eq!(rect.clone().checked().unwrap().error(), None);
     let block = Solid::extrude(&rect, 3.0, 0.0, [1.0; 2], 0);
     assert_eq!(block.bounds(), [[-1.0, -0.5, 0.0], [1.0, 0.5, 3.0]]);
     let point = Solid::extrude(&rect, 1.0, 0.0, [0.0; 2], 0).checked().unwrap();
@@ -314,6 +320,8 @@ fn a_loft_joins_two_outlines() {
     assert_eq!(solid.unwrap_err(), "the two sketches must have the same number of holes, not 1 and 0");
     let pair = Solid::cube(1.0, 1.0, 1.0).union(&Solid::cube(1.0, 1.0, 1.0).translate([3.0, 0.0, 0.0])).project();
     assert_eq!(Solid::loft(&pair, &rect, 1.0).unwrap_err(), "the bottom sketch must have one outer outline");
+    let far = Sketch::polygon(&[[0.0, 0.0], [1e300, 0.0], [0.0, 1e300]]);
+    assert_eq!(Solid::loft(&rect, &far, 1.0).unwrap_err(), "the top sketch has a kernel error: the construction is not valid");
     assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch must have one outer outline");
     assert!(Solid::loft(&rect, &rect, 0.0).is_err() && Solid::loft(&rect, &rect, f64::NAN).is_err());
 }

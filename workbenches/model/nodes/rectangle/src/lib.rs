@@ -8,6 +8,6 @@ pub fn rectangle(
     #[param(default = 1.0, min = 0)] height: f64,
     x: f64,
     y: f64,
-) -> Sketch {
-    Sketch::rectangle(width, height).translate([x, y])
+) -> Result<Sketch, String> {
+    Sketch::rectangle(width, height).translate([x, y]).checked()
 }

@@ -55,6 +55,9 @@ impl Solid {
 /// The outlines of a sketch: the one outer outline, counterclockwise, and then the holes,
 /// clockwise.
 fn rings(sketch: &Sketch, name: &str) -> Result<Vec<Ring>, String> {
+    if let Some(error) = sketch.error() {
+        return Err(format!("the {name} sketch has a kernel error: {error}"));
+    }
     let (mut outer, holes): (Vec<Ring>, Vec<Ring>) = sketch.outlines().into_iter().partition(|ring| area(ring) > 0.0);
     if outer.len() != 1 || outer[0].len() < 3 {
         return Err(format!("the {name} sketch must have one outer outline"));

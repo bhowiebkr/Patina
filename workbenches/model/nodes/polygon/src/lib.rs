@@ -5,7 +5,7 @@ use patina_sdk::node;
 /// point as two numbers, with a comma between the points.
 #[node]
 pub fn polygon(points: &str) -> Result<Sketch, String> {
-    Ok(Sketch::polygon(&corners(points)?))
+    Sketch::polygon(&corners(points)?).checked()
 }
 
 fn corners(points: &str) -> Result<Vec<[f64; 2]>, String> {

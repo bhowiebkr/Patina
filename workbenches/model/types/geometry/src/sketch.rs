@@ -4,7 +4,7 @@ use std::ffi::{c_int, c_void};
 use std::fmt;
 use std::ptr::null;
 
-use crate::solid::guard;
+use crate::solid::{error_text, guard};
 
 #[repr(C)]
 pub(crate) struct RawSketch {
@@ -59,8 +59,8 @@ unsafe extern "C-unwind" {
 }
 
 /// A flat shape on the XY plane, with holes. `Solid::extrude` and `Solid::revolve` make solids
-/// from it.
-pub struct Sketch(*mut RawSketch);
+/// from it. The second field is the kernel status of the construction, 0 for no error.
+pub struct Sketch(*mut RawSketch, c_int);
 
 // SAFETY: a CrossSection value is immutable after its construction, as a Manifold (see `Solid`).
 unsafe impl Send for Sketch {}
@@ -69,14 +69,18 @@ unsafe impl Sync for Sketch {}
 
 impl Sketch {
     /// Makes a sketch in new kernel memory. `make` constructs into the memory that it gets. A C++
-    /// exception, for example from a coordinate that is too large, gives an empty sketch.
+    /// exception, for example from a coordinate that is too large, gives an empty sketch with the
+    /// error.
     fn make(make: impl FnOnce(*mut RawSketch) -> *mut RawSketch) -> Sketch {
         // SAFETY: the memory has the size and alignment of a CrossSection, and `make` constructs
         // one in it. After an exception, the memory has no CrossSection, and an empty one goes in.
-        Sketch(unsafe {
+        unsafe {
             let mem = manifold_alloc_cross_section();
-            guard(|| make(mem)).unwrap_or_else(|_| manifold_cross_section_empty(mem))
-        })
+            match guard(|| make(mem)) {
+                Ok(raw) => Sketch(raw, 0),
+                Err(status) => Sketch(manifold_cross_section_empty(mem), status),
+            }
+        }
     }
 
     /// A rectangle with the sizes `x` and `y`, with its center at the origin.
@@ -115,10 +119,36 @@ impl Sketch {
         Sketch::make(|mem| unsafe { manifold_cross_section_of_polygons(mem, polygons, POSITIVE) })
     }
 
-    /// Moves the sketch by `[x, y]`.
+    /// Moves the sketch by `[x, y]`. The sketch keeps its error.
     pub fn translate(&self, [x, y]: [f64; 2]) -> Sketch {
         // SAFETY: `mem` is new CrossSection memory, and the input is a valid sketch.
-        Sketch::make(|mem| unsafe { manifold_cross_section_translate(mem, self.0, x, y) })
+        self.keep_error(Sketch::make(|mem| unsafe { manifold_cross_section_translate(mem, self.0, x, y) }))
+    }
+
+    /// `made` with the error of this sketch, when `made` has no error of its own.
+    fn keep_error(&self, mut made: Sketch) -> Sketch {
+        if made.1 == 0 {
+            made.1 = self.1;
+        }
+        made
+    }
+
+    /// The kernel error of the construction, for example from a coordinate that is too large.
+    pub fn error(&self) -> Option<&'static str> {
+        error_text(self.1)
+    }
+
+    /// The kernel status of the construction, 0 for no error.
+    pub(crate) fn status(&self) -> c_int {
+        self.1
+    }
+
+    /// The sketch, or the kernel error as a text for the node.
+    pub fn checked(self) -> Result<Sketch, String> {
+        match self.error() {
+            Some(error) => Err(format!("the kernel gave an error: {error}")),
+            None => Ok(self),
+        }
     }
 
     /// The area. The area of a hole counts as negative.
@@ -209,7 +239,7 @@ pub(crate) fn triangulate(rings: &[Vec<[f64; 2]>]) -> Vec<[u32; 3]> {
 impl Clone for Sketch {
     fn clone(&self) -> Sketch {
         // SAFETY: `mem` is new CrossSection memory, and the input is a valid sketch.
-        Sketch::make(|mem| unsafe { manifold_cross_section_copy(mem, self.0) })
+        self.keep_error(Sketch::make(|mem| unsafe { manifold_cross_section_copy(mem, self.0) }))
     }
 }
 
@@ -227,10 +257,13 @@ impl Default for Sketch {
     }
 }
 
-/// Shows "4 corners, area 2, bounds -1 -0.5 to 1 0.5", or "empty".
+/// Shows "4 corners, area 2, bounds -1 -0.5 to 1 0.5", "empty" or the error.
 impl fmt::Debug for Sketch {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use crate::mesh::Short;
+        if let Some(error) = self.error() {
+            return write!(f, "error: {error}");
+        }
         let corners = self.corners();
         if corners == 0 {
             return f.write_str("empty");

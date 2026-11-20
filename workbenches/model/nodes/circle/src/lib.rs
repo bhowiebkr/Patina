@@ -8,6 +8,6 @@ pub fn circle(
     x: f64,
     y: f64,
     segments: i32,
-) -> Sketch {
-    Sketch::circle(radius, segments).translate([x, y])
+) -> Result<Sketch, String> {
+    Sketch::circle(radius, segments).translate([x, y]).checked()
 }
