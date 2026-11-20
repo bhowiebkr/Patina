@@ -501,9 +501,10 @@ change it.)
   asked for this on 2026-11-19.
 - The view keeps a `patina_gpu::ViewportSurface` in its state and calls `draw` in its `ui` call,
   on the engine thread. Thus there is no render thread and no scissor in version 1. A window
-  has one surface, so it shows one viewport.
+  has one surface, so each viewport has its own child window.
 - The surface is on a child window of the editor window. A thread of the node process owns the
-  child window, and the child window is under the web view. When the node process ends, Windows
+  child window, and the child window is under the web view. The child window has the place and
+  the size of the area, so two viewports do not cover each other. When the node process ends, Windows
   destroys the child window and its surface. A surface on the editor window itself stays for
   seconds after a kill, and the next process cannot make its surface in that time.
 - The thread of the child window takes the DPI awareness of the editor window. A node process is
@@ -511,12 +512,16 @@ change it.)
   display at 175 %, the picture then moved up and to the left.
 - Before the editor ends a node process, for example at the open of a project, the process drops
   its views. The editor waits 1 s at most for the drop.
-- `draw` renders into a texture of the area size and copies it into the window surface at the
-  area. The rest of the window clears to the page color #141414. The surface uses Mailbox when
-  it can, so `draw` does not wait for the display. There is no depth buffer yet.
-- On Windows, the editor window is transparent. While a viewport shows, the page root and each
-  parent of the viewport are transparent. Thus the **View** panel shows the page color around
-  the viewport.
+- `draw` renders into the surface of the child window. The surface uses Mailbox when it can, so
+  `draw` does not wait for the display. There is no depth buffer yet. An area of size 0, for
+  example of a hidden panel, gives the child window the size 0.
+- On Windows, the web view is transparent, and the editor window paints the page color #141414.
+  While a viewport shows, the page root and each parent of the viewport are transparent. Thus
+  the **View** panel shows the page color around the viewport.
+- Before 2026-11-20, each child window had the size of the editor window and cleared to the page
+  color around its area. A second viewport, also in a hidden tab, then covered the first. The
+  **material-preview** view of the GPU workbench stayed blank. (Agent decision, 2026-11-20. The
+  owner can change it.)
 - The shared GPU context loads the view library before its first call, so a view uses the same
   device as the nodes. On Windows, the context uses only DX12.
 - A click gives the focus to the viewport. While it has the focus, each key down and key up goes
@@ -527,7 +532,9 @@ change it.)
   instance in a closed view panel. The tab shows the view name, and a number from the second
   instance, for example **scene 2**. The layout file keeps the view of each open panel.
 - A close of the panel drops its instance, so the next instance starts with `init`. A hidden
-  tab keeps its instance but does not call `ui`.
+  tab keeps its instance but does not call `ui` at each frame. When the panel hides, it sends one
+  ask with the line `@hide` and each viewport place at the size 0, so its child windows hide. An
+  `@hide` ask never builds a view.
 - Twelve panels let domain tools keep separate browser, inspector, and bottom tabs beside the graph.
   This supports the owner's synth dock request of 2026-11-18.
 

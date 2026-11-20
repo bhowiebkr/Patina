@@ -30,7 +30,6 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE};
 use tauri::http::{Request, Response, StatusCode};
-#[cfg(not(windows))]
 use tauri::window::Color;
 use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
 
@@ -157,11 +156,9 @@ fn window<'a>(app: &'a AppHandle, label: &str, url: Url, webview_dir: PathBuf, c
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::CustomProtocol(url)).data_directory(webview_dir).disable_drag_drop_handler();
     // Copy and paste use the clipboard of the system, also between two editors (15.11).
     let builder = builder.enable_clipboard_access();
-    // A viewport draws on the window under the web view, so the web view is transparent (15.8).
-    #[cfg(windows)]
-    let builder = builder.transparent(true);
-    #[cfg(not(windows))]
-    let builder = builder.background_color(Color(0x14, 0x14, 0x14, 0xff));
+    // A viewport draws on a window under the web view, so the web view is transparent on Windows.
+    // The alpha 0 makes only the web view transparent, and the window shows the page color (15.8).
+    let builder = builder.background_color(Color(0x14, 0x14, 0x14, if cfg!(windows) { 0 } else { 0xff }));
     if check {
         // Off-screen and not focused: the check must not take the desktop (AGENTS.md).
         builder

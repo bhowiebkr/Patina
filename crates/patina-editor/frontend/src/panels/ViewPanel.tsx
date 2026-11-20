@@ -51,15 +51,16 @@ export function ViewPanel({ name, instance, revision, trusted, onView, selected,
 
   useEffect(() => {
     if (!name || !trusted) return;
-    events.current = new ViewInput();
+    const input = new ViewInput();
+    events.current = input;
     let live = true;
     let frame = 0;
     setTree(null);
     setError(null);
     const ask = () => {
-      const input = events.current.take();
-      const lines = `@size ${size.current.join(' ')}\n${input.events}`;
-      api.viewUi(name, instance, lines, selected.current, input.gesture).then(
+      const next = input.take();
+      const lines = `@size ${size.current.join(' ')}\n${next.events}`;
+      api.viewUi(name, instance, lines, selected.current, next.gesture).then(
         (f) => {
           if (!live) return;
           setTree(f.tree);
@@ -75,6 +76,9 @@ export function ViewPanel({ name, instance, revision, trusted, onView, selected,
     return () => {
       live = false;
       cancelAnimationFrame(frame);
+      // A hidden panel does not ask again, so its viewport windows hide now (15.8).
+      const hide = input.hidden();
+      if (hide.length) api.viewUi(name, instance, `@size ${size.current.join(' ')}\n@hide\n${hide.join('\n')}`, selected.current).catch(() => {});
     };
   }, [name, instance, revision, trusted, attempt, selected]);
 

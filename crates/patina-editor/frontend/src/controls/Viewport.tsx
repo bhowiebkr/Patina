@@ -9,6 +9,8 @@ import type { Widget } from './gui';
 const CLASS = 'native-viewport';
 /** The frames before the page goes transparent, so that the view draws first. */
 const SHOW_AFTER = 3;
+/** The viewports that show. The page stays transparent while one shows. */
+let shown = 0;
 
 type Props = { w: Extract<Widget, { kind: 'viewport' }>; send: (value: string) => void; disabled: boolean; window: number };
 
@@ -54,7 +56,7 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
       const [right, bottom] = [Math.min(r.right, c.right), Math.min(r.bottom, c.bottom)];
       const size = `${px(Math.max(0, right - left))} ${px(Math.max(0, bottom - top))}`;
       out.current(`place ${handle} ${px(innerWidth)} ${px(innerHeight)} ${px(left)} ${px(top)} ${size}`);
-      if (++count === SHOW_AFTER) document.documentElement.classList.add(CLASS);
+      if (++count === SHOW_AFTER && ++shown === 1) document.documentElement.classList.add(CLASS);
       frame = requestAnimationFrame(tick);
     };
     // A native listener, because the wheel must not scroll the panel.
@@ -67,7 +69,7 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
     return () => {
       cancelAnimationFrame(frame);
       area.removeEventListener('wheel', wheel);
-      document.documentElement.classList.remove(CLASS);
+      if (count >= SHOW_AFTER && --shown === 0) document.documentElement.classList.remove(CLASS);
     };
   }, [handle, disabled]);
 

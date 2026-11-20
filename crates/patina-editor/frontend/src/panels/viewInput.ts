@@ -4,11 +4,14 @@ export class ViewInput {
   private drag: { widget: string; gesture: number } | null = null;
   /** The newest place of each viewport. A place is a state, so an old place never goes out (15.8). */
   private places = new Map<string, string>();
+  /** The last place of each viewport, which stays after take(). */
+  private last = new Map<string, string>();
 
   push(line: string, next: () => number) {
     const [widget, action] = line.split(' ');
     if (action === 'place') {
       this.places.set(widget, line);
+      this.last.set(widget, line);
       return;
     }
     const continuing = (action === 'move' || action === 'up') && this.drag?.widget === widget;
@@ -25,5 +28,10 @@ export class ViewInput {
     const lines = [...this.places.values(), ...this.pending.splice(0, count).map((e) => e.line)];
     this.places.clear();
     return { events: lines.join('\n'), gesture };
+  }
+
+  /** The lines that hide each viewport: the last place with a size of 0 x 0 (15.8). */
+  hidden() {
+    return [...this.last.values()].map((line) => [...line.split(' ').slice(0, -2), '0', '0'].join(' '));
   }
 }

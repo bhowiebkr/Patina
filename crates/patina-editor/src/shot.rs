@@ -119,7 +119,7 @@ pub fn print_window(window: &WebviewWindow, area: [f64; 4]) -> Result<(Vec<u8>, 
 }
 
 /// The part of the BGRA points of `area`, on a grid of 32 x 32, that are not transparent and not
-/// the page color. The surface clears to the page color around the area (patina-gpu viewport.rs).
+/// the page color. The editor window shows the page color around a viewport window (15.8).
 /// The second value is a print of the points: two equal prints show the same image.
 fn drawn(pixels: &[u8], width: usize, height: usize, [x, y, w, h]: [f64; 4]) -> (f64, u64) {
     let (mut all, mut drawn, mut print) = (0, 0, 0xcbf2_9ce4_8422_2325_u64);

@@ -1,7 +1,7 @@
 // The native material workbench, checked on the hidden screenshot desktop.
 import { api, onEngine, onOutput, type View } from '../api';
 import { changeLayout } from '../panels/Dock';
-import { closePanel, openView, resizeArea, VIEW_SLOTS } from '../panels/layout';
+import { closePanel, movePanel, openPanel, openView, resizeArea, VIEW_SLOTS, type Layout } from '../panels/layout';
 import { entry, rightClick } from './check-fixtures';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -10,6 +10,8 @@ async function capture(name: string) {
   const r = panel()?.querySelector('.gui-viewport')?.getBoundingClientRect();
   return api.capture(name, r && [r.left, r.top, r.width, r.height].map((v) => v * devicePixelRatio));
 }
+const viewport = (name: string) => document.querySelector(`aside[data-view="${name}"] .gui-viewport`);
+const slotOf = (layout: Layout, name: string) => VIEW_SLOTS.find((slot) => layout.views[slot] === name)!;
 async function until(test: () => boolean, message: string, fault: () => string) {
   const end = Date.now() + 150_000;
   while (!test()) {
@@ -68,6 +70,25 @@ export async function materialWorkbench(view: View, show: (view: View) => void, 
       if (drawn !== null && drawn < 0.9) throw new Error(`Material preview drew ${drawn} of its viewport`);
     }
     steps.push('the native material preview draws in 240 and 360 px side docks');
+    stage = 'two viewports';
+    // A second viewport, in a hidden tab or beside the first, must not cover the first (15.8).
+    const drawn = async (name: string, shot: string) => {
+      await until(() => !!viewport(name), `The ${name} view did not show its viewport`, () => failure);
+      await sleep(1000);
+      const r = viewport(name)!.getBoundingClientRect();
+      const part = await api.capture(shot, [r.left, r.top, r.width, r.height].map((v) => v * devicePixelRatio));
+      if (part !== null && part < 0.9) throw new Error(`The ${name} view drew ${part} of its viewport (${shot})`);
+    };
+    changeLayout((layout) => openView(layout, 'scene', 'right'));
+    await drawn('scene', 'materials-scene-tab');
+    changeLayout((layout) => openPanel(layout, slotOf(layout, 'material-preview')));
+    await drawn('material-preview', 'materials-preview-tab');
+    changeLayout((layout) => movePanel(layout, slotOf(layout, 'scene'), 'split'));
+    await drawn('scene', 'materials-two-scene');
+    await drawn('material-preview', 'materials-two-preview');
+    changeLayout((layout) => openPanel(closePanel(layout, slotOf(layout, 'scene')), slotOf(layout, 'material-preview')));
+    await sleep(500);
+    steps.push('the scene and the material preview draw in tabs of one dock and side by side');
     const select = panel()!.querySelector<HTMLSelectElement>('select')!;
     for (const index of [1, 2, 3, 4, 5, 6, 0]) {
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, String(index));

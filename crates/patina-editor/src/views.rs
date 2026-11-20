@@ -91,6 +91,11 @@ impl Views {
         // of one build mode, so an instance of another mode than the cluster builds again. The old
         // instance and its last image stay until the new build loads (15.8).
         let mode = frames.as_ref().map(|frames| frames.mode());
+        // A panel that hides sends `@hide` one time, so that its viewports hide. It never builds a view.
+        let open = |name: &str, instance: &str, built: Mode| name == input.name && instance == input.instance && mode.is_none_or(|m| m == built);
+        if input.events.lines().any(|line| line == "@hide") && !self.open.iter().any(|(name, instance, _, built)| open(name, instance, *built)) {
+            return out.reply(input.ask, Err::<ViewReply, _>("The view is not open.".to_owned()));
+        }
         self.open.retain(|(name, instance, _, _)| *instance != input.instance || *name == input.name);
         self.cancel(out, |b| b.instance == input.instance && b.name != input.name, "The panel shows another view.");
         if self.open.iter().any(|(_, instance, _, built)| *instance == input.instance && mode.is_none_or(|m| m == *built)) {
