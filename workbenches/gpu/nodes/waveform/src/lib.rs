@@ -58,7 +58,7 @@ fn trace([w, _]: [u32; 2], pixels: &[u8]) -> [u64; ROWS] {
     if w == 0 {
         return rows;
     }
-    for (i, p) in pixels.chunks_exact(4).enumerate() {
+    for (i, p) in pixels.as_chunks::<4>().0.iter().enumerate() {
         let luma = 0.2126 * f32::from(p[0]) + 0.7152 * f32::from(p[1]) + 0.0722 * f32::from(p[2]);
         let row = ((luma / 255.0 * (ROWS - 1) as f32).round() as usize).min(ROWS - 1);
         rows[row] |= 1 << ((i % w) * COLS / w);

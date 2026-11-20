@@ -254,7 +254,9 @@ fn near_other_part_at_2048_stays_under_the_gpu_timeout() {
         let bytes = forge_gpu::read_texture(&gpu.device, &gpu.queue, &out.texture, [SIDE; 2], 1, 8)
             .unwrap();
         let near: Vec<f32> = bytes
-            .chunks_exact(8)
+            .as_chunks::<8>()
+            .0
+            .iter()
             .map(|t| f16(u16::from_le_bytes([t[6], t[7]])))
             .collect();
         let (lo, hi) = near
@@ -376,7 +378,9 @@ impl Gpu {
             forge_gpu::read_texture(&self.device, &self.queue, &target.texture, [SIZE; 2], 1, 8);
         bytes
             .unwrap()
-            .chunks_exact(8)
+            .as_chunks::<8>()
+            .0
+            .iter()
             .take(n)
             .map(|t| [0, 1, 2, 3].map(|k| f16(u16::from_le_bytes([t[2 * k], t[2 * k + 1]]))))
             .collect()

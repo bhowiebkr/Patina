@@ -233,7 +233,7 @@ pub(super) fn parse_default(ty: &ParamType, t: &[String]) -> Result<Vec<f32>, St
             let points: Vec<[f32; 2]> = if v.is_empty() {
                 vec![[0.0, 0.0], [1.0, 1.0]]
             } else if v.len() % 2 == 0 && v.len() / 2 <= ty.curve_capacity().unwrap_or(0) {
-                v.chunks_exact(2).map(|c| [c[0], c[1]]).collect()
+                v.as_chunks::<2>().0.to_vec()
             } else {
                 return Err("a curve takes (x y) per point".into());
             };

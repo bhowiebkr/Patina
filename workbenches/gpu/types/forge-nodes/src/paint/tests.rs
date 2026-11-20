@@ -61,8 +61,10 @@ fn object_guard_protects_brush_eraser_and_mirrored_dabs_with_the_original_kernel
     let read = || {
         forge_gpu::read_texture(&device, &queue, &mask.texture, [2, 2], 1, 4)
             .unwrap()
-            .chunks_exact(4)
-            .map(|bytes| f32::from_le_bytes(bytes.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|bytes| f32::from_le_bytes(*bytes))
             .collect::<Vec<_>>()
     };
     write(&[0.1, 0.2, 0.3, 0.4]);

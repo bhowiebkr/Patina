@@ -77,7 +77,9 @@ impl Bvh {
         let pos = |i: u32| Vec3::from(mesh.vertices[i as usize].position);
         let corners: Vec<[Vec3; 3]> = mesh
             .indices
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|t| [pos(t[0]), pos(t[1]), pos(t[2])])
             .collect();
         let boxes: Vec<Aabb> = corners

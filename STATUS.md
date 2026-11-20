@@ -1171,11 +1171,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - A project with GPU nodes needs Rust 1.97.1 or later. All examples use Rust 1.100.0.
 - NVRTC comes with the CUDA Toolkit, not with the driver. A package does not carry it yet.
 - CI has no NVIDIA driver, so it checks only the error path of `patina-cuda`.
+- In `workbenches/gpu`, `cargo test --workspace` does not link the forge crates (`LNK1104`,
+  `atls.lib`). The feature `static-dxc` of `patina-gpu` applies to all crates, but only
+  `patina-gpu` adds the ATL folder. Test each crate with `-p`.
 - These shortcuts are open in the code:
   - A project root that is not UTF-8 goes to the clusters with lossy text
     (`crates/patina-engine/src/library.rs`).
   - The CLI test of `workbenches/gpu` checks only the build when there is no adapter
-    (`crates/patina-cli/tests/run.rs`).
+    (`crates/patina-cli/tests/cli/run.rs`).
 
 ### Milestone 8: packaging
 

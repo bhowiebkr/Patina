@@ -186,10 +186,9 @@ impl NativePass {
         if self.last_values == values
             && self.last_inputs == keys
             && self.last_defaults == node.defaults_version
+            && let Some(output) = &self.output
         {
-            if let Some(output) = &self.output {
-                return Ok(output.clone());
-            }
+            return Ok(output.clone());
         }
         let size = self.gpu.shape.size;
         let output = Arc::new(Layers::new(

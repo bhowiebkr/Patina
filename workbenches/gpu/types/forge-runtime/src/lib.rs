@@ -277,7 +277,7 @@ impl Session {
         let direction = inv_model
             .transform_vector3(unproject(1.0) - unproject(0.0))
             .normalize();
-        for tri in self._mesh.indices.chunks_exact(3) {
+        for tri in self._mesh.indices.as_chunks::<3>().0 {
             let a = Vec3::from(self._mesh.vertices[tri[0] as usize].position);
             let b = Vec3::from(self._mesh.vertices[tri[1] as usize].position);
             let c = Vec3::from(self._mesh.vertices[tri[2] as usize].position);

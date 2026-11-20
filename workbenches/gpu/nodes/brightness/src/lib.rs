@@ -59,7 +59,7 @@ impl Brightness {
 fn histogram(pixels: &[u8]) -> ([u32; BINS], f64) {
     let mut bins = [0; BINS];
     let mut sum = 0u64;
-    for p in pixels.chunks_exact(4) {
+    for p in pixels.as_chunks::<4>().0 {
         sum += u64::from(p[0]);
         bins[usize::from(p[0]) * BINS / 256] += 1;
     }

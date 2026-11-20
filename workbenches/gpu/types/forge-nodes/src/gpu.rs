@@ -76,8 +76,8 @@ pub fn device_descriptor(adapter: &wgpu::Adapter) -> wgpu::DeviceDescriptor<'sta
 /// One `OUT_FORMAT` texel of a readback, from `OUT_TEXEL` bytes.
 pub fn out_texel(bytes: &[u8]) -> [f32; 4] {
     let mut c = [0.0; 4];
-    for (v, b) in c.iter_mut().zip(bytes.chunks_exact(4)) {
-        *v = f32::from_le_bytes([b[0], b[1], b[2], b[3]]);
+    for (v, b) in c.iter_mut().zip(bytes.as_chunks::<4>().0) {
+        *v = f32::from_le_bytes(*b);
     }
     c
 }
