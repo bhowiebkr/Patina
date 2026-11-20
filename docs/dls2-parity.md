@@ -61,7 +61,9 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
 
 ## Not checked
 
-- The `rom`, `pulse` and `bus` nodes have no custom GUI. No check ran them in the editor.
+- The `bus` node has no custom GUI, because its 16 inputs are the most that a node function takes.
+  A hidden `--shot` drew the `pulse` and `bus` nodes. No shot drew `rom`, and no person used the
+  three nodes in the editor.
 - A hidden `--shot` drew the `led`, `dot-display` and `rgb-display` nodes. No person used them in
   the editor.
 - No check ran these circuits on Linux or macOS.

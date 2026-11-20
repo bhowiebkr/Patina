@@ -972,6 +972,7 @@ dependencies = [
 name = "pulse"
 version = "0.1.0"
 dependencies = [
+ "parts",
  "patina-sdk",
 ]
 

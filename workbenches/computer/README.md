@@ -36,8 +36,9 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
   **STORE** copies **DATA** to **Q**, and the latch keeps **Q** when **STORE** is false.
 - **Parts as in Digital Logic Sim 2.** The `d-flip-flop` subgraph is two D latches. **Q** gets
   **DATA** when **CLOCK** goes on. The `rom` node has 256 words of 16 bits, the `pulse` node
-  gives a pulse at a rising edge, and the `bus` node replaces tri-state buffers. The `led`,
-  `dot-display` and `rgb-display` nodes are the LED and the 16 x 16 displays. See
+  gives a pulse at a rising edge, and the `bus` node replaces tri-state buffers. The **-** and
+  **+** buttons of `pulse` halve and double the length of the pulse. The `led`, `dot-display` and
+  `rgb-display` nodes are the LED and the 16 x 16 displays. See
   [Build the computers of Digital Logic Sim 2](https://github.com/bhowiebkr/Patina/blob/main/docs/dls2-parity.md).
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
