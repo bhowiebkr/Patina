@@ -477,7 +477,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   tests of the city and gun copies, and the CLI test of the guide graphs.
 - Known limits:
   - Each sketch must have one outer outline. A loft cannot join one hole to two holes.
-  - Very different outlines, for example a thin L to a circle, can give sides that cross. The
+  - Very different outlines, for example a U to a circle, can give sides that cross. The
     kernel then gives an error or a solid that is not correct.
 
 ### Model workbench guide graphs and checks, 2026-11-19
@@ -588,8 +588,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Checked on 2026-11-19, on Windows only: a unit test catches a `bad_alloc` and keeps its error
   through a union. A unit test makes a sketch with a coordinate out of the Clipper2 range. It
   checks the error of the sketch, its move, its copy, and its extrude, revolve and loft.
+- Measured on 2026-11-19, on Windows, in a debug build of the type crate: a loop of 2 million
+  sketches with a coordinate out of the Clipper2 range, with their extrude, loft and a flat
+  projection that fails. The private memory of the process stayed at 0.8 MB, so an exception
+  leaves no memory. A test leak of 100 bytes in each loop step gave 55 MB after 500000 steps.
+  The loop was a temporary test, and it is not in the repository.
 - Known limits:
-  - No check measured the memory after many kernel exceptions.
+  - The memory check ran only on the model workbench crate, not on the copies in the city and
+    the gun workbenches. The `bad_alloc` path was not in the loop.
   - An allocation failure in the Rust code stops the program.
   - The `parallel` feature of `cc` adds `jobserver` and `libc` to the crate downloads.
   - Linux and macOS did not run.
