@@ -428,6 +428,8 @@ were too simple. The owner can change them:
   trigger. The unit tests check the seeds, the sockets, the stats, the rarity weights, the side
   view and the gun wall. The editor shot shows the gun wall and the Toon look. The near-black
   outline does not show on the dark background of the view.
+- 2026-11-19: The second version of F gives the Toon look a lighter background (`#303030`), so
+  the near-black outline shows. A loft can now join sketches with more than one outer outline.
 
 ## Order
 

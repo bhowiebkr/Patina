@@ -19,6 +19,8 @@ The CLI test `the_parts_of_digital_logic_sim_2_work_in_cycles_with_no_delay` in
 - A `clock`, a `pulse` and a `bus` node with three drivers.
 - A `dot-display` and an `rgb-display` that write a pixel at a clock tick. The dot lights an
   `led`.
+- A `buzzer` that gets its pitch from a byte of the frame domain. `patina-cli render` writes
+  its square wave of 440 Hz.
 
 A cycle can hold a node with state, for example `ram` or `rom`, because each node of the cycle
 runs one time in each frame. Each node of the cycle must be a light node (spec 4.1).
@@ -39,7 +41,7 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
 | Dot display and RGB display | `dot-display` and `rgb-display` | The same pins and the same rule: at a rising edge of **clock**, **reset** or **write** changes the back buffer, then **refresh** shows it. The address is the row x 16 + the column, with row 0 at the bottom. The color inputs are bytes, and only the low 4 bits count. |
 | ROM 256 x 16 | `rom` | Type the 256 words in the **words** text. Decimal, `0x` hex and `0b` binary are OK. |
 | RAM | `ram` | 256 bytes. |
-| Buzzer | None | Gap. |
+| Buzzer | `buzzer` | A square wave in the audio domain. **pitch** is a MIDI note number: 69 is the A at 440 Hz. The low 4 bits of **volume** set the loudness, and 0 is silent. |
 
 ## Differences and limits
 
@@ -50,8 +52,7 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
 - **No Key chip.** A node canvas gets the keys only while it has the focus. Thus one node for
   each key can not read the keyboard at the same time. Use `button` nodes, the `joystick` or the
   `keyboard` node.
-- **No buzzer.** Write a custom node (see [Write a custom node](custom-nodes.md)). The `led`
-  has one color, not a color input.
+- **One LED color.** The `led` has one color, not a color input.
 - **The ROM editor is a text.** Select the `rom` node and edit **words** in the **Inspector**.
   There is no grid editor.
 - **A ripple shows for one frame.** A counter of flip-flops can show a wrong value for one frame
@@ -66,4 +67,5 @@ runs one time in each frame. Each node of the cycle must be a light node (spec 4
   editor.
 - A hidden `--shot` drew the `led`, `dot-display` and `rgb-display` nodes. No person used them in
   the editor.
+- No person heard the `buzzer` on an audio device. The CLI test checks the rendered file only.
 - No check ran these circuits on Linux or macOS.

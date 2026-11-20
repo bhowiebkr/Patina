@@ -1,7 +1,9 @@
 //! The computer example: NAND gates that count and add, and a CPU of NAND gates that runs programs.
 
+use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 use crate::common::{copy, run};
 use patina_engine::view::{View, snapshot};
@@ -186,6 +188,35 @@ fn the_parts_of_digital_logic_sim_2_work_in_cycles_with_no_delay() {
     let row = |l: &str, n: usize| l.split(' ').nth(16 - n).unwrap().to_owned();
     assert_eq!(line("dots").iter().map(|l| row(l, 1)).collect::<Vec<_>>(), ["4000"], "{stdout}");
     assert_eq!(line("rgb").iter().map(|l| row(l, 0)[3..6].to_owned()).collect::<Vec<_>>(), ["f05"], "{stdout}");
+    check_buzzer(&project);
+}
+
+/// A byte of the frame domain sets the pitch of the buzzer in the audio domain (9).
+fn check_buzzer(project: &Path) {
+    let (bits, buzzer) = ("d000000000000001", "e000000000000009");
+    let nodes = [
+        (bits, "folder = \"nodes/join\"
+[node.params]
+b0 = \"true\"
+b2 = \"true\"
+b6 = \"true\""),
+        (buzzer, "folder = \"nodes/buzzer\"
+[node.params]
+volume = \"15\""),
+    ];
+    fs::write(project.join("graphs/buzz.toml"), graph(&nodes, &[(format!("{bits}.out"), format!("{buzzer}.pitch"))])).unwrap();
+    let out = project.join("buzz.wav");
+    let output = Command::new(env!("CARGO_BIN_EXE_patina-cli"))
+        .args([OsStr::new("render"), project.as_os_str(), out.as_os_str()])
+        .args(["--seconds", "0.1", "--graph", "buzz", "--edit"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let left: Vec<f32> = fs::read(&out).unwrap()[58..].as_chunks::<8>().0.iter().map(|s| f32::from_le_bytes(s[..4].try_into().unwrap())).collect();
+    assert!(left.len() == 4800 && left.iter().all(|s| s.abs() == 0.25 || *s == 0.0));
+    // The pitch 69 is 440 Hz, so each rising edge in the second half is 109 or 110 samples after the one before.
+    let rises: Vec<usize> = (2400..left.len()).filter(|&i| left[i] > left[i - 1]).collect();
+    assert!(rises.len() > 10 && rises.windows(2).all(|w| matches!(w[1] - w[0], 109 | 110)), "{rises:?}");
 }
 
 #[test]

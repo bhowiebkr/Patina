@@ -773,12 +773,16 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits: a rebuild of the cluster, for example after a graph edit, sets the values of a
   cycle back to the default, so a latch forgets its value. No check ran the latch in the editor.
 - Known limits for the parts of Digital Logic Sim 2: no wire with many drivers (use `bus`), no
-  buzzer, no Key chip, and no random order in a race. The `bus` node has no custom GUI, because
+  Key chip, and no random order in a race. The `bus` node has no custom GUI, because
   its 16 inputs are the most that a node function takes (spec 4.1). Its contacts show the lanes.
 - The `pulse` node has a custom GUI, as `clock`: an LED, a scope, the length and the **-** and
   **+** buttons (2026-11-19). A hidden `--shot` of a test graph drew `clock`, `pulse` and `bus`
   in the editor. A hidden `--shot` drew `rom` with ten words: the word map, the address and
   the word. No person clicked the buttons.
+- The new `buzzer` node of `workbenches/computer` is the buzzer of Digital Logic Sim 2: a square
+  wave in the audio domain (2026-11-19). **pitch** is a MIDI note number, and the low 4 bits of
+  **volume** set the loudness. The CLI test renders a byte of the frame domain as the pitch.
+  No person heard it on an audio device.
 
 ### Touchpad pan
 

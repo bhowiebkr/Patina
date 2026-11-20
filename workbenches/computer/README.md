@@ -38,7 +38,7 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
   **DATA** when **CLOCK** goes on. The `rom` node has 256 words of 16 bits, the `pulse` node
   gives a pulse at a rising edge, and the `bus` node replaces tri-state buffers. The **-** and
   **+** buttons of `pulse` halve and double the length of the pulse. The `led`, `dot-display` and
-  `rgb-display` nodes are the LED and the 16 x 16 displays. See
+  `rgb-display` nodes are the LED and the 16 x 16 displays. The `buzzer` plays a square wave. See
   [Build the computers of Digital Logic Sim 2](https://github.com/bhowiebkr/Patina/blob/main/docs/dls2-parity.md).
 - **Live subgraphs.** Double-click a use of a subgraph, for example the `cpu` node. The
   subgraph opens with the live values of that use.
@@ -63,7 +63,7 @@ accumulator, a memory, the three registers of the CPU and the segments of the th
 
 | Folder | Parts |
 | --- | --- |
-| `nodes/` | `nand`, `switch`, `clock`, `program`, `ram`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `sprites`, `screen`, `random`, `joystick`, `button`, `rom`, `pulse`, `bus`, `led`, `dot-display`, `rgb-display` |
+| `nodes/` | `nand`, `switch`, `clock`, `program`, `ram`, `split`, `join`, `seg-join`, `readout`, `display`, `lcd`, `analyzer`, `keyboard`, `terminal`, `gpu`, `sprites`, `screen`, `random`, `joystick`, `button`, `rom`, `pulse`, `bus`, `led`, `dot-display`, `rgb-display`, `buzzer` |
 | `views/` | `monitor` |
 | `programs/` | `fibonacci.asm`, `count.asm`, `echo.asm`, `stripes.asm`, `noise.asm`, `confetti.asm`, `dice.asm`, `paint.asm`, `snake.asm` |
 | `connections/` | `byte`, `segment-bus` |
