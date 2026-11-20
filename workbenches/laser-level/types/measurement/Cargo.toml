@@ -1,0 +1,11 @@
+[package]
+name = "measurement"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+patina-sdk = { workspace = true }
+laser-core = { path = "../laser-core" }
+laser-camera = { path = "../laser-camera" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }

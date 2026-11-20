@@ -1,0 +1,175 @@
+format = 1
+top = true
+style = "curved"
+
+[[node]]
+id = "1a5e000000000010"
+folder = "nodes/camera"
+pos = [0.0, 0.0]
+
+[node.params]
+settings = "{\"mode\":{\"width\":640,\"height\":480,\"fps\":30,\"format\":\"yuyv\"}}"
+enabled = "true"
+
+[[node]]
+id = "1a5e000000000011"
+folder = "nodes/orientation"
+pos = [400.0, 0.0]
+
+[node.params]
+turns = "1"
+mirror = "false"
+
+[[node]]
+id = "1a5e000000000012"
+folder = "nodes/sensor"
+pos = [400.0, 290.0]
+
+[node.params]
+pitch = "3"
+width = "1920"
+height = "1080"
+cropped = "false"
+uncertainty = "0.01"
+
+[[node]]
+id = "1a5e000000000013"
+folder = "nodes/beam-finder"
+pos = [790.0, 0.0]
+
+[node.params]
+settings = ""
+
+[[node]]
+id = "1a5e000000000014"
+folder = "nodes/reading"
+pos = [1330.0, 0.0]
+
+[[node]]
+id = "1a5e000000000015"
+folder = "nodes/warm-up"
+pos = [1330.0, 280.0]
+
+[node.params]
+run_s = "600"
+tolerance = "1"
+reset = "0"
+
+[[node]]
+id = "1a5e000000000016"
+folder = "nodes/station-plan"
+pos = [0.0, 700.0]
+
+[node.params]
+nx = "5"
+ny = "5"
+dx = "25"
+dy = "25"
+zero = "0"
+line = "false"
+
+[[node]]
+id = "1a5e000000000017"
+folder = "nodes/scan-controller"
+pos = [420.0, 750.0]
+
+[node.params]
+simulated = "true"
+feed = "3000"
+lift = "5"
+dwell = "0.3"
+zero_every = "5"
+
+[[node]]
+id = "1a5e000000000018"
+folder = "nodes/survey"
+pos = [880.0, 820.0]
+
+[node.params]
+options = "{\"rule\":{\"min_s\":0.4,\"max_s\":1,\"target_um\":0.05},\"file\":\"measurements/automated.json\"}"
+request = ""
+
+[[node]]
+id = "1a5e000000000019"
+folder = "nodes/results"
+pos = [1440.0, 800.0]
+
+[node.params]
+interpolate = "true"
+
+[[node]]
+id = "1a5e00000000001a"
+folder = "nodes/export"
+pos = [1980.0, 800.0]
+
+[node.params]
+path = "automated-surface.csv"
+format = "0"
+unit = "0"
+request = "0"
+
+[[wire]]
+from = "1a5e000000000010.out"
+to = "1a5e000000000011.frame"
+name = "SENSOR FRAME"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000011.out"
+to = "1a5e000000000012.frame"
+name = "PIXEL GRID"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000011.out"
+to = "1a5e000000000013.frame"
+name = "ORIENTED FRAME"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000012.out"
+to = "1a5e000000000014.calibration"
+name = "SENSOR SCALE"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000013.out"
+to = "1a5e000000000014.beam"
+name = "BEAM FIT"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000014.out"
+to = "1a5e000000000015.reading"
+name = "LIVE HEIGHT"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000014.out"
+to = "1a5e000000000018.reading"
+name = "SAMPLE SOURCE"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000016.out"
+to = "1a5e000000000018.plan"
+name = "STATION PLAN"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000017.out"
+to = "1a5e000000000018.motion"
+name = "CONTROLLER"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000018.out"
+to = "1a5e000000000019.survey"
+name = "KEPT VISITS"
+style = "automatic"
+
+[[wire]]
+from = "1a5e000000000019.out"
+to = "1a5e00000000001a.results"
+name = "CORRECTED SURFACE"
+style = "automatic"

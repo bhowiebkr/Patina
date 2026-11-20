@@ -1,0 +1,9 @@
+[package]
+name = "orientation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+patina-sdk = { workspace = true }
+measurement = { path = "../../types/measurement" }
+measurement-ui = { path = "../../widgets/measurement-ui" }

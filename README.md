@@ -722,6 +722,7 @@ questions.
   [computer](workbenches/computer/README.md), an 8-bit computer of NAND gates.
   [gpu](workbenches/gpu/README.md), WESL shaders on the GPU.
   [synth](workbenches/synth/README.md), the Ember sound workbench.
+  [laser-level](workbenches/laser-level/README.md), laser measurement and simulated surface surveys.
   [model](workbenches/model/README.md), the procedural 3D models.
   [city](workbenches/city/README.md), seeded cities of streets, lots and buildings.
   [gun](workbenches/gun/README.md), seeded guns for a game from parts of four makers.

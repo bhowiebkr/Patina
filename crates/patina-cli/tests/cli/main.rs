@@ -6,6 +6,7 @@ mod computer;
 mod events;
 mod gun;
 mod imports;
+mod laser;
 mod model;
 mod nodes;
 mod params;

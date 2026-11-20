@@ -21,6 +21,14 @@ The records of the ended milestones and of the finished work are in [docs/histor
 
 ## What works
 
+- Laser measurement workbench: eleven nodes, manual and automated graphs, and a bottom **survey-data** table.
+  All 98 workbench tests passed on Windows. Generated Edit, Bake, and slot surveys saved visits and exported CSV.
+  Hidden GUI checks passed for both graphs and for empty and populated sessions.
+  Windows workspace Clippy, workspace tests, editor frontend checks, and both prototype frontend builds passed.
+  The workbench reuses Laser Level Webcam's finder, camera backends, drift correction, and uncertainty calculations.
+  Physical cameras, Linux, and macOS remain unchecked. LinuxCNC motion remains simulated.
+  Frame allocation counts remain unmeasured. The [integration notes](docs/laser-workbench.md) record the remaining limits.
+
 - Stereo audio: pooled stereo blocks reach device playback and float32 WAV export.
   Mono nodes feed both channels. The C API keeps its mono function and adds a stereo function.
   Windows workspace Clippy, workspace tests, and frontend checks passed on 2026-11-19.
