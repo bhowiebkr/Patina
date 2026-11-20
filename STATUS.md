@@ -1698,6 +1698,7 @@ Each `shortcut:` marker of the code (AGENTS.md). Change the code and this list t
 - `crates/patina-editor/src/engine.rs:621`: When a library is not parallel, the blocks run between the frames, so a slow frame makes them late. Give such a graph its own thread.
 - `crates/patina-editor/src/session/check.rs:78`: Screenshots work only on Windows. Add a path for Linux when the check runs there.
 - `crates/patina-editor/src/session/start.rs:170`: Linux and macOS have no trash, so **Delete** shows an error there. Add the freedesktop trash when a user asks.
+- `crates/patina-engine/src/cargo.rs:405`: A build in which rustc crashes runs one more time. Rustc 1.100 crashed now and then on `wgpu-core` and `naga` in bake on the Windows test computer. Remove the retry when rustc stops crashing.
 - `crates/patina-engine/src/device.rs:196`: Only Windows raises the audio thread priority. Add it for Linux when a user there hears gaps.
 - `crates/patina-engine/src/events/watch.rs:36`: `file_change` polls its folder. Use the change events of the system when folders get large.
 - `crates/patina-engine/src/generate.rs:23`: Each domain has one cluster, with no boundary at large nodes. Split at large nodes and subgraphs when a measurement shows the need.

@@ -397,9 +397,24 @@ fn write_slot(root: &Path, plan: &Plan, slot: usize) -> Result<(), Error> {
     write(root, "build/clusters/slot/lib.rs", &slot::source(plan, slot))
 }
 
-/// Runs one cargo build of `packages` in `mode`, and gives its JSON messages. `compiling` runs at
-/// the first crate that cargo compiles. When `stop` becomes true, cargo stops.
+/// Runs a cargo build of `packages` in `mode`, and gives its JSON messages. `compiling` runs at
+/// the first crate that cargo compiles. When `stop` becomes true, cargo stops. When a process of
+/// the build crashes, cargo runs one more time. The finished crates stay, so the retry is short.
 fn run_cargo(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode, compiling: &dyn Fn(), stop: &AtomicBool) -> Result<Vec<Value>, Error> {
+    match cargo_once(root, toolchain, packages, mode, compiling, stop) {
+        // shortcut: one retry hides a rustc 1.100 that crashed now and then on wgpu-core and naga in bake (2026-11-20), remove it when rustc stops crashing.
+        Err(Error::Build(stderr)) if crashed(&stderr) => cargo_once(root, toolchain, packages, mode, compiling, stop),
+        result => result,
+    }
+}
+
+/// True when the cargo stderr shows a crashed process, not an error in the code. On Windows the
+/// exit code of a crash has the high bit set, so Rust writes it in hex. On Unix it is a signal.
+fn crashed(stderr: &str) -> bool {
+    stderr.lines().any(|line| line.contains("process didn't exit successfully") && (line.contains("(exit code: 0x") || line.contains("(signal: ")))
+}
+
+fn cargo_once(root: &Path, toolchain: &Toolchain, packages: &[String], mode: Mode, compiling: &dyn Fn(), stop: &AtomicBool) -> Result<Vec<Value>, Error> {
     let stopped = || Error::Build("the build stopped".to_owned());
     if stop.load(Ordering::Relaxed) {
         return Err(stopped());

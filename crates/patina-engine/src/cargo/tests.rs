@@ -271,3 +271,14 @@ fn the_first_compiling_line_tells_and_fresh_crates_do_not() {
     status_lines("    Finished `bake` profile\n".as_bytes(), &|| count.set(count.get() + 1)).unwrap();
     assert_eq!(count.get(), 1);
 }
+
+#[test]
+fn only_a_crashed_process_builds_again() {
+    let failed = |status: &str| format!("error: could not compile `wgpu-core` (lib)\n\nCaused by:\n  process didn't exit successfully: `rustc --crate-name wgpu_core` ({status})\n");
+    assert!(crashed(&failed("exit code: 0xc0000005, STATUS_ACCESS_VIOLATION")));
+    assert!(crashed(&failed("exit code: 0xc0000409, STATUS_STACK_BUFFER_OVERRUN")));
+    assert!(crashed(&failed("signal: 11, SIGSEGV: invalid memory reference")));
+    assert!(!crashed(&failed("exit code: 1")));
+    assert!(!crashed(&failed("exit code: 101")));
+    assert!(!crashed("error: no matching package named `x` found\n"));
+}
