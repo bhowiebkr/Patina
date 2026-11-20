@@ -3,7 +3,7 @@
 
 import { emit, listen } from '@tauri-apps/api/event';
 import { api, type View } from '../api';
-import { changeLayout } from '../panels/Dock';
+import { changeLayout, flushLayout } from '../panels/Dock';
 import { showGraph } from '../panels/layout';
 import { checkGuard, checkGuiZoom, checkWidgets } from './check-gui';
 import { A, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, button, enterText, leftTab, mouseWheel, scale, statusText, tab, topButton, undoCode, type At, type CheckContext } from './check-fixtures';
@@ -236,6 +236,14 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   const paneSplitter = () => document.querySelector<HTMLElement>('[aria-label="Size of the split area"]')!;
   paneSplitter().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
   await until('a wider split pane', RUN_MS, () => width('.area.split') === 544);
+  // The split pane and its size come back when the project opens again (15.2).
+  await flushLayout();
+  const live = v.live;
+  if (v.dirty) v = await step('save before the open with a split', () => api.save());
+  v = await step('open again with a split', () => api.openProject(v.root));
+  await until('the view in the split pane at 544 px after the open', BUILD_MS, () => !!second()?.closest('.panes > .area.split') && width('.area.split') === 544);
+  if (live) v = await step('run after the open with a split', () => api.run());
+  steps.push('the split pane and its size after an open');
   const fromViews = async (label: string) => {
     button('Views')!.click();
     await until(`${label} in the Views menu`, RUN_MS, () => !!menuOf(label));

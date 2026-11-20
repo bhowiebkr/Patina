@@ -2,7 +2,7 @@
 // the content security policy (15.3, 15.10).
 
 import { api } from '../api';
-import { RUN_MS, button, enterText, startAction, type CheckContext } from './check-fixtures';
+import { BUILD_MS, RUN_MS, button, enterText, startAction, topButton, type CheckContext } from './check-fixtures';
 
 /** Runs the steps of the start screen before a project opens. */
 export async function checkStart({ until, steps }: CheckContext) {
@@ -60,4 +60,37 @@ export async function checkStart({ until, steps }: CheckContext) {
   document.removeEventListener('securitypolicyviolation', onRefuse);
   if (evaluated || fetched) throw new Error(`the content security policy let ${evaluated ? 'eval' : 'a request to another host'} through`);
   steps.push('the content security policy refuses eval and other hosts');
+}
+
+/** Makes a project in the workbenches folder and opens it with Open in the Workbenches box (15.10). */
+export async function checkWorkbench({ step, until, steps }: CheckContext, dir: string) {
+  // With --check, the editor reads the workbenches folder of the check folder.
+  await step('new workbench project', () => api.newProject(`${dir}/workbenches`, 'bench'));
+  topButton('Close')!.click();
+  const open = () => document.querySelector<HTMLButtonElement>('section[aria-label="Workbenches"] button[aria-label="Open bench"]');
+  await until('Open bench in the Workbenches box', RUN_MS, () => open()?.disabled === false);
+  open()!.click();
+  await until('the workbench project after Open', BUILD_MS, () => !open() && topButton('Run') !== undefined);
+  const v = await step('pause the workbench project', () => api.pause());
+  if (!/[\\/]workbenches[\\/]bench$/.test(v.root)) throw new Error(`Open in the Workbenches box opened ${v.root}`);
+  steps.push('Open in the Workbenches box opens the workbench');
+  // The arrow keys move between the filter and the recent rows, and Ctrl+O clicks Open project (15.10).
+  topButton('Close')!.click();
+  const filter = () => document.querySelector<HTMLInputElement>('.recent-filter');
+  const rows = () => [...document.querySelectorAll<HTMLButtonElement>('.recent-row button.item')];
+  await until('the filter and two recent rows after Close', RUN_MS, () => !!filter() && rows().length >= 2);
+  for (const [from, key, to] of [[filter, 'ArrowDown', 0], [0, 'ArrowDown', 1], [1, 'ArrowUp', 0], [0, 'ArrowUp', filter]] as const) {
+    const at = (p: typeof from) => (typeof p === 'number' ? rows()[p] : p());
+    at(from)!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    await until(`the focus after ${key}`, RUN_MS, () => document.activeElement === at(to));
+  }
+  const pickFolder = api.pickFolder;
+  api.pickFolder = async () => v.root;
+  try {
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'o', ctrlKey: true }));
+    await until('the workbench project after Ctrl+O', BUILD_MS, () => !filter() && topButton('Run') !== undefined);
+  } finally {
+    api.pickFolder = pickFolder;
+  }
+  steps.push('the arrow keys of the recent list and Ctrl+O');
 }

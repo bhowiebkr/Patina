@@ -234,13 +234,16 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Checked on 2026-11-19, on Windows only: the CI clippy, `cargo test --workspace`, the frontend
   check and tests, the selfcheck with a split step and the shots of `computer`, `hello` and
   `gpu`. No person used the new GUI.
+- The selfcheck opens the project again with a view in the split pane at 544 px, and the split
+  comes back (2026-11-19). It makes a project in the `workbenches` folder of the check folder and
+  clicks **Open** in the **Workbenches** box. Then it sends the arrow keys to the recent list and
+  presses Ctrl+O. The selfcheck passed 359 steps on Windows on 2026-11-19.
 - Known limits:
   - The installed edition does not list the workbenches yet. Only the portable folder and a
     checkout have them.
   - An old portable folder keeps its copies of the examples in `projects/`. The package update
     does not remove them, because they can have edits of the person.
-  - No check opened the editor again with a saved split. The selfcheck does not click **Open**
-    in the **Workbenches** box. A unit test reads the list.
+  - No person opened a workbench from the **Workbenches** box yet.
 
 ### Geometry kernel prototype, 2026-11-19
 
@@ -773,9 +776,9 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   types. The recent list has the columns **Name** and **Path**, a **Filter** field and the
   arrow keys. Ctrl+N and Ctrl+O click the two buttons.
 - Checked on 2026-11-18, on Windows only: the frontend type check, 198 frontend unit tests with the new name test, the frontend build, the CI clippy command and the workspace tests passed. The selfcheck passed 326 steps, with the New project dialog, Ctrl+N, the name check, Create, the recent filter and Open project with a stubbed folder dialog.
-- Known limits: no check sent Ctrl+O or the arrow keys, and no check opened the real folder
-  dialog, because it waits for a person. The recent list has no time of the last open, because
-  the list file has no times (13.3).
+- Known limits: no check opened the real folder dialog, because it waits for a person. Since
+  2026-11-19, the selfcheck sends Ctrl+O and the arrow keys. The recent list has no time of the
+  last open, because the list file has no times (13.3).
 - The **x** button of a recent project removes it from the list or moves its folder to the Recycle
   Bin (2026-11-17). The self-check clicks **Close**, the **x** of the project and **Remove from
   list**, and runs the refusal of **Delete project** through the API. No check moved a project to

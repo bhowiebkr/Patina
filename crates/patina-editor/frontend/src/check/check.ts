@@ -19,7 +19,7 @@ import { checkIsolation } from './check-isolation';
 import { checkPackage } from './check-package';
 import { checkPalette } from './check-palette';
 import { checkProject, checkRecovery, checkUpdate, removeLibrary } from './check-project';
-import { checkStart } from './check-start';
+import { checkStart, checkWorkbench } from './check-start';
 import { checkSubgraph } from './check-subgraph';
 import { checkViews } from './check-views';
 import { checkWires } from './check-wires';
@@ -113,6 +113,7 @@ export async function runCheck(dir: string, show: (v: View) => void, edited: (v:
     steps.push('screenshot');
     // The package step opens another project, so it comes after the screenshot of the check project.
     await checkPackage(c, dir);
+    await checkWorkbench(c, dir);
     await checkUpdate(c, dir);
     await removeLibrary(c);
     steps.push(clicks());
