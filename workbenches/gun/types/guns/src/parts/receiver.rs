@@ -3,7 +3,7 @@
 
 use geometry::Solid;
 
-use super::mark::mark;
+use super::mark::{mark, serial};
 use super::Build;
 use crate::shapes::*;
 use crate::{Choice, Class, Kind, Maker, Material, Stats};
@@ -70,6 +70,7 @@ fn blockwerk(b: &mut Build) {
         b.add(Material::Rarity, both(&decal(&stripe, w / 2.0, 0.0012)));
     }
     mark(b, Maker::Blockwerk, [x0 + 0.08 * l, x1 - 0.5 * l], 0.64 * h, 0.14 * h, hw);
+    serial(b, Material::Metal, [x0 + 0.1 * l + 0.022, x1 - 0.34 * l - 0.022], 0.17 * h, 0.09 * h, w / 2.0 + 0.005);
 }
 
 /// A white shell over a dark frame: smooth pills, a glow strip in a groove, fins and a chevron.
@@ -88,6 +89,7 @@ fn vesper(b: &mut Build) {
     let chevron = [[cx, cz], [cx + 0.016, cz + 0.012], [cx + 0.008, cz + 0.012], [cx - 0.006, cz], [cx + 0.008, cz - 0.012], [cx + 0.016, cz - 0.012]];
     b.add(Material::Rarity, both(&decal(&chevron, w / 2.0, 0.0012)));
     mark(b, Maker::Vesper, [x0 + 0.3 * l, x1 - 0.3 * l], 0.66 * h, 0.12 * h, w / 2.0);
+    serial(b, Material::Trim, [x0 + 0.38 * l, x1 - 0.32 * l], 0.36 * h, 0.07 * h, w / 2.0);
     collar(b, (0.2 * h).max(b.s.shroud() + 0.004));
     // A thin dark spine on top, behind the sight.
     b.add(Material::Trim, pill(&[([x0 + 0.06 * l, 0.9 * h], 0.012), ([x0 + 0.3 * l, h - 0.006], 0.008)], 0.3 * w, 0.002));
@@ -145,6 +147,7 @@ fn scrapjaw(b: &mut Build) {
     let spray = [[x1 - 0.3 * l, 0.56 * h], [x1 - 0.2 * l, 0.6 * h], [x1 - 0.17 * l, 0.8 * h], [x1 - 0.24 * l, 0.78 * h], [x1 - 0.28 * l, 0.84 * h]];
     b.add(Material::Rarity, both(&decal(&spray, bw / 2.0, 0.0012)));
     mark(b, Maker::Scrapjaw, [x0 + 0.47 * l, x1 - 0.32 * l], 0.62 * h, 0.13 * h, bw / 2.0);
+    serial(b, Material::Metal, [x0 + 0.5 * l + 0.02, x1 - 0.1 * l - 0.02], 0.2 * h, 0.065 * h, side + 0.0025);
 }
 
 /// A round body on a wide frame, a glow core in a metal rim, glow cells and a rarity nose ring.
@@ -168,6 +171,7 @@ fn halo(b: &mut Build) {
         b.add(Material::Metal, both(&ring_y(c, r + 0.002, 0.003).translate([0.0, w / 2.0, 0.0])));
     }
     mark(b, Maker::Halo, [xc + rc + 0.012, x1 - 0.3 * h], 0.58 * h, 0.13 * h, w / 2.0);
+    serial(b, Material::Trim, [xc + rc + 0.012, x1 - 0.15 * l], 0.27 * h, 0.08 * h, w / 2.0);
     let nose = (b.s.shroud() + 0.004).max(0.2 * h);
     b.add(Material::Rarity, ring_x(x1 - 0.016, nose, 0.006).translate([0.0, 0.0, b.s.bz()]));
     collar(b, nose);

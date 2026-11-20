@@ -73,7 +73,8 @@ The `gun` node uses the maker of the gun for most parts. Some parts come from an
 
 Each receiver has the maker mark on its two sides: the logo of the maker and its name in raised
 letters of the trim color. The logos are three blocks (Blockwerk), a crescent (Vesper), two
-jaws (Scrapjaw) and a ring (Halo).
+jaws (Scrapjaw) and a ring (Halo). The right side of each receiver also has a serial number of
+six digits. The seed of the gun sets the number.
 
 Each part has six materials, each with its own color: paint, trim, metal, grip, rarity and
 glow. The rarity accents use the color of the rarity. The glow parts use the color of the
@@ -148,4 +149,5 @@ wire to the node. A run after a change does not write.
   Blockwerk grip and stock are lofts through chamfered outlines, so they keep the blocky style.
   The Scrapjaw grip and stocks are planks and pipes, which fit the junk style.
 - The gun wall draws flat side views with paths, not 3D images.
-- The maker mark is the only text. The other parts have no decals, logos or text.
+- The maker mark and the serial number are the only text. The other parts have no decals, logos
+  or text.

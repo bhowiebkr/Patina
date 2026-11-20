@@ -338,10 +338,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - Faceted Blockwerk stock (2026-11-19): the Blockwerk stock is a loft along the gun through
     chamfered outlines, with the frame hole. The cheek rest sits on the flat sides. A preview
     of the Blockwerk shotgun and sniper showed the facets.
+  - Serial numbers (2026-11-19): each receiver has a serial number of six digits on its right
+    side. The seed of the gun sets the number. A preview of the rifles, the pistols and the
+    launchers showed the numbers on a free area of each maker. The CLI test has the new
+    triangle counts.
 - Known limits:
   - The Scrapjaw grip and stocks are extrusions and turned profiles, which fit the junk style.
     The other parts are extrusions, turned profiles and booleans.
-  - The maker mark is the only text. The other parts have no decals, logos or text.
+  - The maker mark and the serial number are the only text. The other parts have no decals,
+    logos or text. The serial number adds about 1400 triangles to a gun.
   - Linux and macOS did not run the workbench.
 
 ### City workbench, 2026-11-19

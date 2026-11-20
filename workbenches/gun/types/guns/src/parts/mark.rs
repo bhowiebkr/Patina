@@ -1,5 +1,6 @@
 //! The maker mark on the two sides of a receiver: the logo of the maker and its name in raised
-//! letters of the trim color. Each side reads from left to right.
+//! letters of the trim color. Each side reads from left to right. The serial number of the gun on
+//! the right side.
 
 use std::f64::consts::PI;
 
@@ -18,18 +19,10 @@ const LOGO: f64 = 8.0;
 /// with its base at `z`. Its letters are `height` high, or less to stay in `x`.
 pub(super) fn mark(b: &mut Build, maker: Maker, x: [f64; 2], z: f64, height: f64, side: f64) {
     let name = maker.name();
-    let wide = LOGO + ADVANCE * (name.len() - 1) as f64 + 4.0 + STROKE;
+    let wide = LOGO + width(name);
     let unit = (height / (6.0 + STROKE)).min((x[1] - x[0]) / wide);
     let mut shapes = logo(maker);
-    for (i, c) in name.chars().enumerate() {
-        let left = LOGO + STROKE / 2.0 + ADVANCE * i as f64;
-        for line in letter(c) {
-            for pair in line.windows(2) {
-                let at = |[u, v]: [i8; 2]| [left + f64::from(u), STROKE / 2.0 + f64::from(v)];
-                shapes.push(stroke(at(pair[0]), at(pair[1])));
-            }
-        }
-    }
+    shapes.extend(text(name, LOGO));
     // The +Y side is seen from the other direction, so its mark is mirrored along X.
     for (side, flip) in [(-side, false), (side, true)] {
         for shape in &shapes {
@@ -39,10 +32,53 @@ pub(super) fn mark(b: &mut Build, maker: Maker, x: [f64; 2], z: f64, height: f64
     }
 }
 
-/// The strokes of each letter of the maker names, as lines through points of the grid.
+/// Adds the serial number of the gun in `material` on the right face `y = -side`. The number
+/// starts at `x[0]` with its base at `z`. Its digits are `height` high, or less to stay in `x`.
+pub(super) fn serial(b: &mut Build, material: Material, x: [f64; 2], z: f64, height: f64, side: f64) {
+    let number = format!("{:06}", b.seed.child("serial").random().index(1_000_000));
+    let unit = (height / (6.0 + STROKE)).min((x[1] - x[0]) / width(&number));
+    for shape in text(&number, 0.0) {
+        let profile: Vec<[f64; 2]> = shape.iter().map(|&[u, v]| [x[0] + unit * u, z + unit * v]).collect();
+        b.add(material, decal(&profile, -side, 0.0006));
+    }
+}
+
+/// The width of `text` in grid units, with the strokes.
+fn width(text: &str) -> f64 {
+    ADVANCE * (text.len() - 1) as f64 + 4.0 + STROKE
+}
+
+/// The strokes of `text` in grid units, with the left edge of the first letter at `left`.
+fn text(text: &str, left: f64) -> Vec<Vec<[f64; 2]>> {
+    let mut shapes = Vec::new();
+    for (i, c) in text.chars().enumerate() {
+        let left = left + STROKE / 2.0 + ADVANCE * i as f64;
+        for line in letter(c) {
+            for pair in line.windows(2) {
+                let at = |[u, v]: [i8; 2]| [left + f64::from(u), STROKE / 2.0 + f64::from(v)];
+                shapes.push(stroke(at(pair[0]), at(pair[1])));
+            }
+        }
+    }
+    shapes
+}
+
+/// The strokes of each letter of the maker names and of each digit, as lines through points of
+/// the grid.
 fn letter(c: char) -> &'static [&'static [[i8; 2]]] {
     const P: &[[i8; 2]] = &[[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]];
+    const O: &[[i8; 2]] = &[[1, 0], [0, 1], [0, 5], [1, 6], [3, 6], [4, 5], [4, 1], [3, 0], [1, 0]];
     match c {
+        '0' => &[O, &[[1, 1], [3, 5]]],
+        '1' => &[&[[1, 5], [2, 6], [2, 0]], &[[1, 0], [3, 0]]],
+        '2' => &[&[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [0, 0], [4, 0]]],
+        '3' => &[&[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]], &[[1, 3], [3, 3]]],
+        '4' => &[&[[3, 0], [3, 6], [0, 2], [4, 2]]],
+        '5' => &[&[[4, 6], [0, 6], [0, 3], [3, 3], [4, 2], [4, 1], [3, 0], [0, 0]]],
+        '6' => &[&[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2], [3, 3], [0, 3]]],
+        '7' => &[&[[0, 6], [4, 6], [1, 0]]],
+        '8' => &[&[[1, 3], [0, 4], [0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [1, 3], [0, 2], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2], [3, 3]]],
+        '9' => &[&[[0, 1], [1, 0], [3, 0], [4, 1], [4, 5], [3, 6], [1, 6], [0, 5], [0, 4], [1, 3], [4, 3]]],
         'a' => &[&[[0, 0], [0, 4], [2, 6], [4, 4], [4, 0]], &[[0, 3], [4, 3]]],
         'b' => &[P, &[[3, 3], [4, 2], [4, 1], [3, 0], [0, 0]]],
         'c' => &[&[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1]]],
@@ -51,7 +87,7 @@ fn letter(c: char) -> &'static [&'static [[i8; 2]]] {
         'j' => &[&[[4, 6], [4, 1], [3, 0], [1, 0], [0, 1]]],
         'k' => &[&[[0, 0], [0, 6]], &[[4, 6], [0, 2]], &[[1, 3], [4, 0]]],
         'l' => &[&[[0, 6], [0, 0], [4, 0]]],
-        'o' => &[&[[1, 0], [0, 1], [0, 5], [1, 6], [3, 6], [4, 5], [4, 1], [3, 0], [1, 0]]],
+        'o' => &[O],
         'p' => &[P],
         'r' => &[P, &[[2, 3], [4, 0]]],
         's' => &[&[[4, 5], [3, 6], [1, 6], [0, 5], [0, 4], [1, 3], [3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]]],
@@ -117,9 +153,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn each_maker_name_has_letters_and_a_logo() {
+    fn each_maker_name_and_digit_has_letters_and_a_logo() {
         for &maker in Maker::ALL {
-            for c in maker.name().chars() {
+            for c in maker.name().chars().chain('0'..='9') {
                 let lines = letter(c);
                 assert!(!lines.is_empty(), "{c}");
                 // Each point is on the grid of 4 x 6.

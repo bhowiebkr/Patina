@@ -33,6 +33,7 @@ pub fn part(kind: Kind, seed: Seed, maker: Pick<Maker>, class: Pick<Class>) -> P
         Pick::None => return Part { kind, ..Part::default() },
     };
     let mut b = Build {
+        seed,
         s: Size::new(class, seed.child("size")),
         class,
         r: seed.child(kind.name()).random(),
@@ -55,6 +56,8 @@ pub fn part(kind: Kind, seed: Seed, maker: Pick<Maker>, class: Pick<Class>) -> P
 
 /// The solids of one part in work, by material, and the random values of the part.
 pub(crate) struct Build {
+    /// The seed of the gun.
+    pub seed: Seed,
     pub s: Size,
     pub class: Class,
     pub r: Random,
