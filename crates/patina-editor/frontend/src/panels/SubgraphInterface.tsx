@@ -1,4 +1,4 @@
-// The Subgraph interface (mockup 11, spec 15): the public pins of the open subgraph in pin order
+// The Subgraph interface (spec 15): the public pins of the open subgraph in pin order
 // (6.4), and a preview of the node that each use shows.
 
 import type { FocusEvent, KeyboardEvent, ReactNode } from 'react';

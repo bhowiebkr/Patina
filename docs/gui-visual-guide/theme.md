@@ -2,38 +2,11 @@
 
 Part of the [GUI visual guide](../gui-visual-guide.md).
 
-## What is actually in mockup 9
-
-The screenshot is the visual reference. Its pixels are not a source theme file.
-The table below reports the median red, green and blue values in six small
-regions. Coordinates are source-image pixels, written as x, y, width, height.
-The [sample record](../mockups/details/sampled-surfaces.json) preserves these results.
-
-| Region | Sample rectangle | Observed median | Proposed neutral role |
-|---|---|---|---|
-| Toolbar | 150, 5, 12, 30 | #171D22 | app: #141414 |
-| Canvas, including grid | 1075, 700, 80, 50 | #10151A | canvas: #181818 |
-| Material Layers body | 688, 640, 8, 17 | #222426 | node: #262626 |
-| Preview dock | 1210, 879, 340, 10 | #15191C | panel: #202020 |
-| Raised tab | 1207, 137, 15, 16 | #404446 | raised: #303030 |
-| Export button | 1208, 904, 25, 20 | #2B3239 | raised: #303030 |
-
-![Sampled screenshot colors compared with proposed neutral replacements](../mockups/details/surface-comparison.svg)
-
-The samples confirm a blue cast even in the preferred image. The proposed
-surfaces below deliberately remove that cast. They preserve dark-to-light
-hierarchy rather than claim to be exact copies of hidden original CSS values.
-The owner's chosen direction is the restrained look of mockup 9 and less blue.
-The individual token values remain a design proposal.
-
-## Proposed implementation palette
+## Implementation palette
 
 Use shared tokens, not local guesses in each component. Equal RGB values keep
 the large surfaces neutral. Color remains in the branding artwork, node headers,
-state and visual data. Amber is the proposed global focus/action accent, following
-the reference's selected tabs and main material action.
-
-![Proposed charcoal palette and node-header families](../mockups/details/gui-palette.svg)
+state and visual data. Amber is the global focus and action accent.
 
 ## Surfaces and text
 
@@ -60,8 +33,8 @@ Use brightness to separate surfaces. Avoid broad blue gradients, glowing panel
 edges and black-to-navy backgrounds. A very small neutral header gradient is
 acceptable, but flat fills are the default.
 
-Use soft dark shadows for depth, as mockups 9 and 10 do. This is an agent
-decision of 2026-11-15. The owner can change it.
+Use soft dark shadows for depth. This is an agent decision of 2026-11-15. The
+owner can change it.
 
 - Each dock area and the graph are cards with a 6 px radius on the **app**
   color. A 5 px gap is the splitter, and it shows an accent line on hover.
@@ -141,8 +114,6 @@ delta E values in Lab space. A value under 10 is hard to see on a small mark.
   and its text. Color is never the only sign of a state.
 - Each header keeps a contrast of 6.5:1 or more with **text**. The warning has
   a contrast of 10:1 on the node and panel surfaces.
-- The [palette image](../mockups/details/gui-palette.svg), the mockups and the
-  image requests show the old values. The tables of this file win.
 
 The listed normal text/header pairs and primary-button pair were checked
 numerically. They exceed 4.5:1 contrast. That does not validate every combination

@@ -1,5 +1,5 @@
 // The timeline widget of a node GUI (spec 4.3): a transport, a ruler with the loop and the
-// playhead, and clip lanes and automation lanes on one time axis (mockup 5). A drag sends one
+// playhead, and clip lanes and automation lanes on one time axis. A drag sends one
 // edit at its end, as the other value widgets do.
 
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';

@@ -1,10 +1,8 @@
 # Patina branding: Aged Dovetail
 
-The owner selected **Aged Dovetail**, concept 03 of
-[contact sheet 04](../../docs/mockups/branding/patina-logo-contact-sheet-04.png), on 2026-11-15.
-The pieces in this folder come from the
-[branding sheet 01](../../docs/mockups/branding/patina-aged-dovetail-branding-sheet-01.md).
-The original sheets stay unchanged.
+The owner selected **Aged Dovetail**, concept 03 of logo contact sheet 04, on 2026-11-15.
+The pieces in this folder come from branding sheet 01. The sheets were removed on 2026-11-20.
+The git history keeps them.
 
 ## The pieces
 

@@ -119,7 +119,7 @@
   width: auto;
 }
 
-/* The red dot before the error count of the status bar (mockup 3). */
+/* The red dot before the error count of the status bar. */
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -129,7 +129,7 @@
   background: var(--error);
 }
 
-/* The time of a Logs line and the compiler text under an error line (mockup 3). */
+/* The time of a Logs line and the compiler text under an error line. */
 .lines .line-time {
   color: var(--subtle);
 }

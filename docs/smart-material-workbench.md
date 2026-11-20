@@ -362,7 +362,7 @@ Read the full Patina spec before implementation changes.
 
 ## Workbench and node design
 
-Use [mockup 9](gui-visual-guide/editor-mockups.md#9-smart-material-editor) as the visual starting point.
+Follow the [GUI visual guide](gui-visual-guide.md).
 Keep neutral bodies, family-colored headers, readable pin labels and visible keyboard focus.
 Use useful node sizes instead of making every operation the same square.
 

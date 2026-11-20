@@ -106,31 +106,6 @@ values, disable editing of the node or bypass connection checks. Endpoints
 still follow their nodes. If that makes the fixed route impossible, expose
 the conflict. Automatic avoidance and locks are optional design directions.
 
-<a id="routed-connections"></a>
-
-## 16. Routed connections and a crossover bridge
-
-![Patina ribbons wrap around a waveform node and cross at a raised bridge](../mockups/mockup-16-routed-connections.png)
-
-This study adapts the supplied game's use of routing space and crossover
-collars to Patina's charcoal theme. It does not establish how the game's
-controls work.
-
-- The green address route wraps left and below the unrelated **Waveform** node.
-- The violet data route wraps below and to the right. It passes over the green
-  bus at the graphite bridge. **Crossing - not joined** explains the distinction.
-- Square handles identify an editable route. A padlock identifies a fixed bend.
-- **Avoid nodes**, **Lock bends** and **Crossings** show possible routing controls.
-  They do not demonstrate working algorithms.
-- Keep the restrained highlights and rounded conductors from mockup 12.
-  The bridge hardware is optional; the connection must remain readable without it.
-
-**Correct when implementing:** some generated strips have extra cells and the
-contact lights do not consistently match the data. Address must be
-`0x3C = 00111100`; data must be `0x66 = 01100110`. Lane count, labels and
-lights must all come from the same value. The image also needs explicit **1 Hz**
-or other actual units on a waveform axis if it presents a measured trace.
-
 ## Other connection cases to leave room for
 
 These are extension candidates, not commitments to add every feature.
@@ -154,7 +129,7 @@ serialization format or arbitrary renderer plugin mechanism.
 
 ## Connection checks for implementation
 
-These are checks to run when the editor exists, not results from these images.
+Run these checks on the running editor.
 
 - Trace each route to named sockets. Test crowded crossings and fan-out.
 - Move and resize an intervening node. Check the whole ribbon clears its GUI.

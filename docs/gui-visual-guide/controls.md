@@ -10,7 +10,7 @@ project. The same parameter shown in two places must represent one value.
 
 Use Segoe UI or the Windows UI font stack for controls. Use a monospace face for
 code and logs, with tabular digits for measurements and times. These are starting
-metrics at 100% UI scale, not sizes measured from the mockups:
+metrics at 100% UI scale:
 
 | Element | Starting size |
 |---|---|

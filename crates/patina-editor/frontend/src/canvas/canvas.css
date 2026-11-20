@@ -8,7 +8,7 @@
   background: var(--node);
   border: 1px solid var(--edge, var(--border));
   border-radius: 6px;
-  /* A soft shadow lifts the node off the canvas, as in mockup 9. */
+  /* A soft shadow lifts the node off the canvas. */
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
@@ -364,7 +364,7 @@
 .patina-node-time {
   height: 24px;
   padding: 0 10px;
-  /* A darker footer band, as in mockups 6 and 7. */
+  /* A darker footer band. */
   background: rgba(0, 0, 0, 0.16);
   border-top: 1px solid var(--border);
   border-radius: 0 0 5px 5px;
@@ -373,7 +373,7 @@
   color: var(--muted);
 }
 
-/* A pin is a light dot with a ring of the node color, as in mockup 9. */
+/* A pin is a light dot with a ring of the node color. */
 .react-flow__node-patina .react-flow__handle {
   width: 11px;
   height: 11px;

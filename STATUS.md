@@ -79,7 +79,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
   **Toon** look in `model-view`, the `gun-wall` view and an export to `.glb` and `.txt` (task F).
 - Start screen: **Open project** opens the folder dialog directly, **New project** opens a dialog, and the recent list has **Name** and **Path** columns and a filter (15.10).
 - Groups and notes: colored transparent groups with a title bar move the nodes in them, and notes show Markdown on the canvas (15.12).
-- Error display of mockup 3: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
+- Error display: one **Errors: N** count with a red dot, a time on each **Logs** line, and one error text in each place (15.5).
 
 - Ember sound workbench: 44 node types, three learning patches, a six-track song, instrument panels, and dock editors for sound design and arrangement.
   The **sandstorm** graph adds a short hook study with a pulse lead, bit reduction, and six editable tracks.
@@ -652,8 +652,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - The **Logs** have no "Compiling node" line for each node. The engine has no build event for
     each node (spec 15.5).
   - The error well of the **Code** tab was at the bottom of the panel (fixed 2026-11-19). With an
-    error, the code box now has the height of the code, so the well is directly under it
-    (mockup 3). The selfcheck shot `code-error` shows it.
+    error, the code box now has the height of the code, so the well is directly under it.
+    The selfcheck shot `code-error` shows it.
   - The group check of the selfcheck waits 400 ms before its undo, so that the move edit arrives
     first (`shortcut:` in `check-groups.ts`).
   - Spec 5 says that the nodes of a graph file sort by ID and the wires by their `to` end
@@ -1294,7 +1294,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   now holds the capture (fixed 2026-11-17 from the source, not tried with a real mouse). The
   selfcheck sets a color with the change event that the closed picker sends (2026-11-18). No check
   opens the color picker or clicks **Browse**. The dialogs of the platform need a person.
-- The timeline widget (4.3, mockup 5) has a transport, a ruler with the loop and the playhead,
+- The timeline widget (4.3) has a transport, a ruler with the loop and the playhead,
   clip lanes and automation lanes. The SDK tests check the widget line, the edits, `advance` and
   `Automation::value`. The frontend tests check the parse and the limits of each drag. The
   selfcheck drags a clip, and clicks **Play**, **Pause**, **Loop** and a **Snap** value (2026-11-18).

@@ -1,5 +1,5 @@
-// The 2D transform of a node GUI (spec 4.3): a gizmo on the image, and the number fields under it
-// (the Transform node of mockup 4). A drag shows its own transform and sends it at the end.
+// The 2D transform of a node GUI (spec 4.3): a gizmo on the image, and the number fields under it.
+// A drag shows its own transform and sends it at the end.
 
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Field } from './Field';

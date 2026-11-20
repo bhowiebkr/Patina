@@ -293,7 +293,7 @@ html.native-viewport .gui-viewport {
   stroke: var(--accent);
 }
 
-/* A 2D transform: a light gizmo with a dark edge shows on a light or a dark image (mockup 4). */
+/* A 2D transform: a light gizmo with a dark edge shows on a light or a dark image. */
 .gui-transform {
   height: auto;
   touch-action: none;
@@ -447,7 +447,7 @@ html.native-viewport .gui-viewport {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* The selected row has a tint and an edge of the accent, as the selected layer of mockup 9. */
+/* The selected row has a tint and an edge of the accent. */
 .gui-table tr[aria-selected='true'] {
   background: rgba(223, 166, 75, 0.12);
   outline: 1px solid rgba(223, 166, 75, 0.65);

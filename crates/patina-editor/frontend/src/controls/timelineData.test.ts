@@ -69,7 +69,7 @@ test('a bad timeline line drops', () => {
   for (const line of bad) assert.deepEqual(parseTree(line), [], line);
 });
 
-test('the clock, the quantities and the ruler steps have the form of mockup 5', () => {
+test('the clock, the quantities and the ruler steps have the expected form', () => {
   assert.equal(clock(1.24), '00:00:01.240');
   assert.equal(clock(3725.5), '01:02:05.500');
   assert.equal(clock(-1), '00:00:00.000');

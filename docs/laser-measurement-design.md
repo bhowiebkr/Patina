@@ -1,12 +1,9 @@
 # Laser measurement nodes and views
 
-Visual proposal for Claude. No node library or camera integration was implemented.
+Design proposal. No node library or camera integration was implemented.
 
 The owner asked for nodes sized to their contents. Do not normalize these nodes
-to one width or height. Use the two images together:
-
-- [Acquisition](mockups/mockup-7-laser-acquisition.png).
-- [Survey](mockups/mockup-8-laser-survey.png).
+to one width or height.
 
 ## Reference
 
@@ -18,7 +15,7 @@ README for the raw URL; the API returned the current Rust version.
 The current workflow covers camera setup, beam detection, thermal settling,
 station visits, drift correction and results. The old LinuxCNC screenshot
 inspired the surface viewport. It is not evidence of that integration in version 2
-or in Patina. The source screenshots and these mockups contain illustrative data.
+or in Patina. The source screenshots contain illustrative data.
 
 ## Proposed nodes
 
@@ -60,7 +57,7 @@ Calibrated Reading -> Sample Window -> Session -> Drift Correction -> Fit Surfac
 Station Plan -----------------------> Session
 ```
 
-The images simplify trigger and command plumbing. **Take sample** needs an
+**Take sample** needs an
 explicit request carrying a station ID and measurement settings. **Session**
 must associate the completed sample with that request, even if selection
 changes while sampling. The sample window consumes timestamped readings;
@@ -80,8 +77,7 @@ those details.
 **Measurement Console** is the main operator panel. It selects a run and station,
 starts or cancels sampling, shows uncertainty and visits, and offers repeat and
 zero-visit actions. It reads the nodes and sends graph commands. It has no pins.
-The mockup shows a compact completed-run state; in-progress controls still need
-a design.
+The in-progress controls still need a design.
 
 **Surface Results** combines a 3D viewport, a station table and result modes.
 Keep the color scale, height units, coordinates and uncertainty visible.
@@ -116,26 +112,3 @@ drift-corrected surface height.
 
 Save calibration and measurement settings with the session. Reopening the graph
 must not depend on a particular dock arrangement.
-
-## Image limits to correct during implementation
-
-Both images are 1586 x 992. Larger native resolution was requested but not
-returned. No upscaling or extra refinement images were made.
-
-- Acquisition: the generator added an extra scale connection into **Beam Finder**.
-  The intended scale connection goes only to **Calibrated Reading**.
-- Acquisition: the ROI and strip overlays are schematic. Their apparent number
-  and dimensions are not a validated representation of the displayed fields.
-- Survey: the **Plan** wire passes behind **Sample Window**. Route it through
-  empty space directly to **Session**.
-- Survey: the map marks the centre as zero, while the console calls A1 zero.
-  Use one station identity throughout.
-- Survey: the 3D mesh is illustrative. Its displayed slope, values and contour
-  thumbnail were not calculated from the table. Do not use it to validate plane
-  removal or uncertainty calculations.
-- The sample chart, zero timeline and example readouts are illustrative too.
-  The application must calculate them from shared data.
-
-The updated spec allows colored node headers and uses a lighter shade of the
-header for node selection. Keep that rule when implementing these designs.
-

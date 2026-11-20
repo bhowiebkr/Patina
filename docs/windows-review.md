@@ -9,7 +9,7 @@ including the existing questions in section 18.
 ## What was reviewed
 
 Read every file in [the specification](spec/README.md), the README, agent rules,
-and [the mockup plan](mockup-plan.md). Inspected both original mockups. Read image
+and the mockup plan (removed 2026-11-20). Inspected both original mockups. Read image
 briefs 0003 and 0004 and checked relevant text in the other draft briefs.
 
 The folder contains documentation and images. There is no application source,
@@ -325,7 +325,7 @@ local modifications through a cancelled or failed update. Verify trust handling 
 
 ### R15. Specify the first usable editor workflow and source/runtime distinction
 
-**Evidence:** [the mockup plan](mockup-plan.md#needs-the-owner-first) already lists
+**Evidence:** the mockup plan (removed 2026-11-20) already lists
 missing creation and dependency flows. The editor spec also lacks complete save,
 external-file-change, and recovery behavior. Compile errors may coexist with a graph
 running an earlier successful build.

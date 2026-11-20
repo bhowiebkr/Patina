@@ -1,5 +1,5 @@
 // The Inspector (spec 15.5): the parameters, the code and the logs of the selected node, in a
-// stable tab group (docs/gui-visual-guide/editor-mockups.md).
+// stable tab group (docs/gui-visual-guide.md).
 
 import { lazy, Suspense, useContext, useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent } from 'react';
 import { KIND_NAMES, KindIcon } from '../controls/icons';

@@ -1,13 +1,9 @@
 # Patina: circuit graphs and multi-signal connections
 
-**Status:** design proposal and image reference. No simulator or connection
+**Status:** design proposal. No simulator or connection
 renderer was implemented by this work. **Updated:** 2026-11-14.
 
-The [illustrated GUI guide](gui-visual-guide/connections.md) contains the
-connection rules and routed-crossing study. Its [circuit references](gui-visual-guide/circuit-mockups.md)
-include the original electronic workspaces and their ribbon variants. The owner
-accepted mockup 12's cable appearance and asked to keep original mockups 10 and
-11. The other images explore related cases.
+The [GUI guide](gui-visual-guide/connections.md) contains the connection rules.
 
 ## What the source project does
 
@@ -79,8 +75,7 @@ bus presentation and extension cases. [Spec 15.9](spec/15-editor.md#159-connecti
 records the core interface rules. Keep circuit-specific rendering subject to
 those rules rather than building a separate electronics editor.
 
-Mockup 16 explores routing around an unrelated node and a raised crossing.
-The bridge changes visual over/under order only. It does not join values.
+A raised crossing bridge changes visual over/under order only. It does not join values.
 Automatic routing, crossing minimization and bend locks remain optional
 refinements. Manual geometry must not change electrical or dataflow semantics.
 
@@ -233,8 +228,4 @@ by the CLI test of `workbenches/computer`. The other checks have **not** run.
   labels, keyboard focus and panel boundaries.
 - Reject incompatible widths, unresolved multiple drivers and unsupported cycles.
 - Run the same defined logic headlessly without the custom Views.
-
-The [image handoff](../tools/image-handoff/responses/user-computer-building.md)
-records prompts, generated files and checks. It does not imply Claude has
-read the files.
 

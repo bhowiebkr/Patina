@@ -66,7 +66,7 @@ export async function checkSubgraph({ step, until, mark, events, steps, fresh }:
   await until('the event run of the trigger in the use', RUN_MS, () => eventRuns().some((e) => e.trigger === `${use}/${T}`) && fresh().includes('2.5'));
   topButton('Stop')!.click();
   await until('the end of the event runs in the subgraph', RUN_MS, () => ofRun().some((e) => e.state === 'ended'));
-  // The Subgraph interface (mockup 11): the Inspector lists the public pins in pin order (6.4).
+  // The Subgraph interface: the Inspector lists the public pins in pin order (6.4).
   const rows = () => [...document.querySelectorAll<HTMLElement>('aside[aria-label="Inspector"] .pin-row')];
   // A view tab can cover the Inspector. The click on Fire selected the trigger, and a click on the
   // pane clears the selection. With selection on drag, the pane takes a pointer down and up.

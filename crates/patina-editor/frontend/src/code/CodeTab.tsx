@@ -74,7 +74,7 @@ export function CodeTab({ name, run, readOnly, revision, reveal, onSave, onAddCr
       fixedOverflowWidgets: true,
     });
     e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => save.current());
-    // With errors, the box has the height of the code, so the error well is directly under it (mockup 3).
+    // With errors, the box has the height of the code, so the error well is directly under it.
     e.onDidContentSizeChange(() => (el.style.height = `${e.getContentHeight()}px`));
     editor.current = e;
     return () => {

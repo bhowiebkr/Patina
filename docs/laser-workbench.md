@@ -45,8 +45,8 @@ that value to um for its surface plot. This is not a remote G-code interface.
 
 ## UI direction
 
-Use mockup 7 for acquisition and mockup 8 for the survey. Apply the current
-neutral charcoal theme and amber focus rules. Keep the original mockup files.
+Apply the neutral charcoal theme and the amber focus rules of the
+[GUI visual guide](gui-visual-guide.md).
 
 The Beam Finder needs an oriented image, a profile, the ROI, and fit information.
 The camera needs device and mode controls with actual control readback.

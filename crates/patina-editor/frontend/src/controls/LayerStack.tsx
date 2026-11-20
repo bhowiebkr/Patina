@@ -1,5 +1,5 @@
 // The layer stack of a node GUI (spec 4.3): ordered rows with a handle, a visibility toggle, a
-// swatch, the name and the amount, as the Material Layers node of mockup 9.
+// swatch, the name and the amount.
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Field } from './Field';

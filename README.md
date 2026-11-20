@@ -3,10 +3,6 @@
 
 <p><b>A visual node graph editor and engine. Each node is Rust code.</b></p>
 
-<img src="docs/mockups/mockup-1-main-editor-colored-headers.png" alt="Mockup of the Patina main editor: a layer list on the left, an image-processing graph in the center, the inspector with the Rust code and parameters of the selected node on the right, and logs at the bottom" width="900">
-
-<sub>A design mockup, not a screenshot. <a href="docs/spec/README.md#0-notes-for-the-agent">Section 0 of the spec</a> lists where it differs from the design.</sub>
-
 </div>
 
 > **Patina is at an early stage.** The engine runs a simple graph from the command line. There
@@ -730,13 +726,9 @@ questions.
   sections.
 - [Write a custom node](docs/custom-nodes.md): the logic, the GUI, the canvas and the free
   layout of a node, with examples.
-- [Mockups](docs/mockups/): the visual direction of the editor.
-- [GUI visual guide](docs/gui-visual-guide.md): palette, node sizing, custom controls,
-  views and implementation notes for each mockup.
-- [Mockup plan](docs/mockup-plan.md): the mockups still to make, and the rules for them.
+- [GUI visual guide](docs/gui-visual-guide.md): the palette, the node sizes, the shared controls
+  and the connections.
 - [History](docs/history.md): the records of the ended milestones and of the finished work.
-- [Mockup gaps](docs/mockup-gaps.md): the controls and behaviors of the mockups that the editor
-  does not have yet.
 - [Circuit graph design](docs/circuit-graph-design.md): buses, ribbon wires and logic circuits.
 - [Gate speed](docs/gate-speed.md): why a NAND circuit is slower than in Digital Logic Sim 2,
   and the plan to make it faster.

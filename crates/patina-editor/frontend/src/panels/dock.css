@@ -1,4 +1,4 @@
-/* The dock (spec 15.2). Each area is a card with a small gap, as in mockups 9 and 10. */
+/* The dock (spec 15.2). Each area is a card with a small gap. */
 .area {
   flex: none;
   display: flex;
@@ -314,7 +314,7 @@ html.native-viewport .center-body:has(> .center-view .gui-viewport) > .canvas .r
   width: 64px;
 }
 
-/* The Subgraph interface (mockup 11): one row for each public pin, and the preview of the use. */
+/* The Subgraph interface: one row for each public pin, and the preview of the use. */
 .pin-row {
   display: grid;
   grid-template-columns: 1fr auto auto auto auto;

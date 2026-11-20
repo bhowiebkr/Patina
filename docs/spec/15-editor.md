@@ -67,7 +67,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
   - The splitter between the panes works as the other splitters. Each pane keeps at least 120 px, so either pane can be the small one.
   - A view with `dock = "split"` (15.8) opens in the split pane.
 - An area with no tabs takes no space. During a drag, it shows as a drop zone.
-- The navigation rail at the left edge has an icon for each tab of the left area, and an icon for **Project** when it is closed. A click on the icon of the active left panel folds the left area, so the graph gets its width (mockup 6). A click on another icon, or a second click, unfolds the area and shows that panel. A move or an open of a panel in the left area also unfolds it. The **Views** menu shows a folded panel without a check mark. The layout file keeps the fold. (Agent decision, 2026-11-16. The owner can change it.)
+- The navigation rail at the left edge has an icon for each tab of the left area, and an icon for **Project** when it is closed. A click on the icon of the active left panel folds the left area, so the graph gets its width. A click on another icon, or a second click, unfolds the area and shows that panel. A move or an open of a panel in the left area also unfolds it. The **Views** menu shows a folded panel without a check mark. The layout file keeps the fold. (Agent decision, 2026-11-16. The owner can change it.)
 - A splitter between an area and the center changes the size of the area. An arrow key moves a focused splitter by 16 px, and Shift and an arrow key move it by 64 px. A size is 120 px to 1600 px.
 - The **Views** menu has a check mark for each panel. A click shows or hides the panel. A hidden panel opens again in its default area. A view of the project has a check mark while an instance of it is open. A click on it opens a new instance (15.8).
 - **Reset layout** keeps the pan and zoom of each graph.
@@ -238,11 +238,10 @@ The **Add node** palette is the second way to add a node, after a drag from the 
 
 ### 15.3 Visual rules
 
-The [GUI visual guide](../gui-visual-guide.md) defines the palette, dimensions,
-shared controls and image-specific corrections. Use neutral charcoal surfaces,
-an amber application accent, and the Aged Dovetail branding artwork of
-[assets/branding](../../assets/branding/README.md). Mockup 9 is the
-main theme reference. Do not copy the blue-tinted surfaces of earlier mockups.
+The [GUI visual guide](../gui-visual-guide.md) defines the palette, dimensions
+and shared controls. Use neutral charcoal surfaces, an amber application accent,
+and the Aged Dovetail branding artwork of
+[assets/branding](../../assets/branding/README.md). Do not use blue-tinted surfaces.
 Node bodies fit their contents; their widths and heights need not match. A node never changes size with the values that it shows (4.3).
 
 **Colors:**
@@ -258,7 +257,6 @@ Node bodies fit their contents; their widths and heights need not match. A node 
 - A node with a header color has a border of the header color with 25% white. Its selection has the hue of the header color, a lightness of 0.8 in OKLCH and 1.25 times the chroma. A browser without relative colors uses the header color with 60% white. A subgraph has the gray header. (Agent decision, 2026-11-16. The owner can change it.)
 - The doc comment of the node item (`///` lines above `#[node]`) is the description of the node. The node header, the **Add node** palette and the **Project** panel show it as a tooltip. The **Inspector** shows it under its title, with `**bold**` text in bold and a backtick span as code. A tooltip shows the text without these marks. (Agent decision of 2026-11-18. The owner can change it.)
 - A header color never means a state. The state shows only with the state dot, its icon, and the red error border (the table below).
-- [mockup-1-main-editor-colored-headers.png](../mockups/mockup-1-main-editor-colored-headers.png) shows the direction for header colors. Its selected node has the accent outline. Patina uses a lighter shade of the header color instead.
 - Subgraph borders and other structure use neutral gray.
 - The node in the slot shows a slot icon (7.3).
 - Each state also has an icon. Color alone never carries a meaning.
@@ -319,12 +317,12 @@ A crate of crates.io is a dependency of one code folder, in its `Cargo.toml` (8.
   - A red line in Logs.
   - The error count in the status bar.
 - A click on an error in Logs or the status bar selects the node and shows the line.
-- The status bar shows one count, **Errors: N**, with a red dot. N is the number of compile errors and graph problems. When N is 0, the status bar shows **Ready**. A click on the count shows the first compile error with a place in the code. When no error has a place, the click opens the **Logs** panel. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
-- One error has the same words in each place. The node and the error well of the **Code** tab show `line N: message`. The **Logs** panel and the **Logs** tab of the **Inspector** show `Error in node 'name': line N: message`. The tooltip shows the path of the file. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
-- Each **Logs** line starts with its local time, `HH:MM:SS`. The **Output** lines have no time. Only the error line is red. The text of the compiler is under it, indented, and "The build failed" is an info line. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
-- The error well has the red state icon of the node before its heading. The **Inspector** header shows the kind of the node under its name, and the state icon before the state. With no selection, the heading is **Graph** or **Subgraph**, not **Inspector**. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
-- The **Logs** panel has no "Compiling node" line for each node. A build compiles all nodes of the cluster in one cargo call, so the engine has no build event for each node. The error line names the node. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
-- The **Code** tab does not show the parameters under the code, as mockup 3 does. The parameters stay in the **Parameters** tab. (Agent decision of 2026-11-18, for mockup 3. The owner can change it.)
+- The status bar shows one count, **Errors: N**, with a red dot. N is the number of compile errors and graph problems. When N is 0, the status bar shows **Ready**. A click on the count shows the first compile error with a place in the code. When no error has a place, the click opens the **Logs** panel. (Agent decision of 2026-11-18. The owner can change it.)
+- One error has the same words in each place. The node and the error well of the **Code** tab show `line N: message`. The **Logs** panel and the **Logs** tab of the **Inspector** show `Error in node 'name': line N: message`. The tooltip shows the path of the file. (Agent decision of 2026-11-18. The owner can change it.)
+- Each **Logs** line starts with its local time, `HH:MM:SS`. The **Output** lines have no time. Only the error line is red. The text of the compiler is under it, indented, and "The build failed" is an info line. (Agent decision of 2026-11-18. The owner can change it.)
+- The error well has the red state icon of the node before its heading. The **Inspector** header shows the kind of the node under its name, and the state icon before the state. With no selection, the heading is **Graph** or **Subgraph**, not **Inspector**. (Agent decision of 2026-11-18. The owner can change it.)
+- The **Logs** panel has no "Compiling node" line for each node. A build compiles all nodes of the cluster in one cargo call, so the engine has no build event for each node. The error line names the node. (Agent decision of 2026-11-18. The owner can change it.)
+- The **Code** tab does not show the parameters under the code. The parameters stay in the **Parameters** tab. (Agent decision of 2026-11-18. The owner can change it.)
 - A failed build opens the **Logs** panel. The **Logs** panel shows the full text of each compile error, each graph problem and each long error. The status bar shows only the first line of an error, and a click on it opens the **Logs** panel. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - The **Logs** and **Output** panels highlight their text as a terminal does: the severity (`error[E0308]`, `warning`, `note`, `help`, `ERROR`, `WARN`), the paths with line numbers, the code in backticks, the strings, the numbers and the gutter of a compiler message get colors. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
 - After an error line that a rule of the list of common errors matches, the **Logs** panel shows a **Fix:** line with a fix in plain words. The list is in `frontend/src/run/hints.ts`, and it has rules for missing names and crates, wrong types, moves and borrows, missing traits, wrong argument counts, missing delimiters, lost parameters and lost pins. A contributor adds a rule for each error that users often meet. (Agent decision of 2026-11-18, for the owner request. The owner can change it.)
@@ -701,7 +699,7 @@ This is an agent decision of 2026-11-15. The owner can change it.
 - A double-click on a use of a subgraph opens the subgraph file in the graph view (6.1). A path bar at the top left shows `<top graph> / <name>`, for example `main / <name>`. Its first button opens the top graph that runs again.
 - The header of each use of a subgraph, in the graph and in the **Inspector**, has an **Open subgraph** button. It does the same as a double-click. (Agent decision, 2026-11-16. The owner can change it.)
 - The header of each use also has a **Show inner nodes** button. It shows the nodes of the subgraph in place, inside the use, which becomes a neutral frame. **Hide inner nodes** makes the use a node again. The inner nodes and wires are read-only and show the live values of the use. The inner wires route inside the frame and start and end at the pins of the use. The open frame moves the nodes, pins and route points at its right and below it in the view, so it covers no node. The file keeps the closed positions. The state of each use stays while the editor runs. (Agent decision, 2026-11-16. The owner can change it.)
-- Reason: mockups 3 and 11 show an expanded subgraph in its parent graph. A read-only frame shows the inside of a use with no change to the files. Edits stay in the opened subgraph, so each edit has one place.
+- Reason: a read-only frame shows the inside of a use with no change to the files. Edits stay in the opened subgraph, so each edit has one place.
 - The path bar shows one name for each use from the top graph to the open subgraph, for example `main / cpu / alu-8 / full-adder 2`. The name is the subgraph name. When the graph has more than one use of the subgraph, the name gets the number of the use, in the order of the graph file. A click on a name opens that graph through the same uses, with their live values. A subgraph that opens from the **Project** panel starts a new path with no use. (Agent decision, 2026-11-16. The owner can change it.)
 - Reason: a nested use, for example one full adder of four, is clear only with each use of its path. The number tells two uses of the same subgraph apart.
 - The graph view shows each public pin of the subgraph as a small node with the pin name, and a wire to each inner end (6.4).
@@ -841,8 +839,8 @@ The owner asked for groups with a color and transparency, and for text on the ca
 
 **Groups:**
 
-- A group is a frame with a title bar and a transparent fill of its color. It is behind the nodes, and the wires show through it. [mockup-3-error-view.png](../mockups/mockup-3-error-view.png) shows a group, **Color Grade**, around three nodes.
-- The colors are **Gray**, **Amber**, **Green**, **Teal**, **Violet**, **Pink** and **Copper**. A new group is amber, as in mockup 3. The fill has 10% of the color, the title bar 22% and the edge 45%.
+- A group is a frame with a title bar and a transparent fill of its color. It is behind the nodes, and the wires show through it.
+- The colors are **Gray**, **Amber**, **Green**, **Teal**, **Violet**, **Pink** and **Copper**. A new group is amber. The fill has 10% of the color, the title bar 22% and the edge 45%.
 - A drag on the title bar moves the group and each item in it: the nodes, the uses of subgraphs, the public pins, the notes and the smaller groups. An item is in the group when its full box is in the group when the drag starts. The move is one undo step.
 - A drag of a selection with a group in it also moves the items of the group.
 - A click on the title bar selects the group. A selected group has a lighter edge of its color, and handles at its corners and edges. A drag on a handle changes the size, to 120 x 60 at least.

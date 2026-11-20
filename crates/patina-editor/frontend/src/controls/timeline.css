@@ -1,4 +1,4 @@
-/* A timeline (mockup 5): a transport, a ruler, and lane heads beside the tracks. All areas of the
+/* A timeline: a transport, a ruler, and lane heads beside the tracks. All areas of the
    time axis have the same 10px inset, so a time has the same x in the ruler and in each lane. */
 .gui-timeline {
   overflow: hidden;

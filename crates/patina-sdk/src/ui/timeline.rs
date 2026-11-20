@@ -1,5 +1,5 @@
 //! The timeline widget of a node GUI or a view (spec 4.3): a transport, a time ruler, clip lanes
-//! and automation lanes on one time axis, as the Timeline view of mockup 5.
+//! and automation lanes on one time axis.
 
 use super::{Response, Ui, push_clean, push_color, push_columns, push_numbers};
 use std::fmt::Write;

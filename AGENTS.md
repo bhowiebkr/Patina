@@ -6,7 +6,7 @@ These are the work rules for AI agents in this repository.
   part of this repository.
 - [docs/spec/](docs/spec/README.md) is the full specification, with one file for each group of
   sections. Read all of it before you write code. Its section 0 has the notes for agents.
-- The spec is the source of truth. If code, a mockup or an instruction does not agree with the
+- The spec is the source of truth. If code or an instruction does not agree with the
   spec, follow the spec or ask the owner. When the owner changes a decision, update the spec in
   the same change.
 - Do not decide an open question of section 18 alone, unless the owner told you to work alone.
@@ -28,9 +28,8 @@ These are the work rules for AI agents in this repository.
   one of these items different.
 - Before GUI work, read [docs/gui-visual-guide.md](docs/gui-visual-guide.md). Then read the
   files in `docs/gui-visual-guide/` that the task needs.
-- The GUI guide defines the neutral charcoal palette, the node sizes, the shared controls, the
-  logo and the corrections for each image. Mockup 9 is the main theme reference. The guide
-  covers all current mockups. The spec defines the behavior.
+- The GUI guide defines the neutral charcoal palette, the node sizes, the shared controls and
+  the logo. The spec defines the behavior.
 - Keep the names of the images. Change or remove an image name only when the owner asks.
 - Keep the README a user guide to the program. Put long plans and designs in their own Markdown
   files in `docs/`, as the spec is. Link these files from the README.

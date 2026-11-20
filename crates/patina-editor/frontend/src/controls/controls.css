@@ -63,7 +63,7 @@
   align-self: flex-start;
 }
 
-/* A row of icon buttons, as the Orientation node of mockup 7. */
+/* A row of icon buttons. */
 .gui-icons {
   display: flex;
   flex-wrap: wrap;
@@ -166,7 +166,7 @@
   flex: 1 1 136px;
 }
 
-/* A layer stack: rows with the same columns, as the Material Layers node of mockup 9. */
+/* A layer stack: rows with the same columns. */
 .gui-layers {
   display: flex;
   flex-direction: column;

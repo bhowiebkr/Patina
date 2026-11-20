@@ -19,15 +19,13 @@ The specification is split into these files. Each file keeps its section numbers
 ## 0. Notes for the agent
 
 - These files are the full specification for Patina. Read all of them before you write code.
-- Read the [GUI visual guide](../gui-visual-guide.md) for the palette, node sizing,
-  custom controls and corrections for all current mockups. Mockup 9 is the main
-  theme reference. These earlier images remain layout and error references:
-  - **Main editor** ([../mockups/mockup-1-main-editor-colored-headers.png](../mockups/mockup-1-main-editor-colored-headers.png)): graph, inspector with code and parameters, logs.
-  - **Error view** ([../mockups/mockup-3-error-view.png](../mockups/mockup-3-error-view.png)): compile error and a subgraph.
-- The mockups show the visual direction: dark theme, layout, and density. If a mockup and this spec disagree, follow this spec. Known differences:
-  - The mockups show edit layers: a layer list with on/off toggles and an orphan edit warning. They also show "Layer: Color Grade" in the status bar and "Layer Edit" in the inspector header. Patina has no edit layers. Its layers are compile layers: the base and the slot (7). Show them as 15.2 and 15.4 tell.
-  - The inspector header uses a Rust logo. Do not use it. Use Patina node-kind icons (15.3).
-  - Labels such as "Compiled 12.8 ms" mix build status and run time. Use separate labels (15.3).
+- Read the [GUI visual guide](../gui-visual-guide.md) for the palette, node sizing and custom
+  controls. These visual rules also apply:
+  - Patina has no edit layers. Its layers are compile layers: the base and the slot (7). Show
+    them as 15.2 and 15.4 tell.
+  - Do not use a Rust logo in the inspector header. Use Patina node-kind icons (15.3).
+  - Do not mix build status and run time in one label, as in "Compiled 12.8 ms". Use separate
+    labels (15.3).
   - In the error view, the node with the error has a green dot. It must have a red border and an error icon. The inspector header must show the selected node with its path. The error line must have a mark in the code. The subgraph border must be neutral gray, and the subgraph needs a collapse button.
   - The error view logs "Graph execution aborted due to compile errors". The graph does not stop. It keeps running with the last build of the node that compiled (7.2), so the other nodes keep their normal look.
   - The error view has a **Compare** tab in the bottom panel. Patina has no compare mode. The bottom panel has the Logs, Output, and Debug tabs (15.2).

@@ -96,13 +96,13 @@ These block milestone 2, with the connections prototype of section 2.
   socket, the label and the badge. Start small. The owner expects it to change. Agent decision
   in 6.3, 2026-11-15: a `#[connection]` function gives the lanes and the label.
 - [x] Where the controls of a wire go: **Route**, **Corners**, **Bus**, **Lock bends** and
-  **Reset route** (15.9). The mockups show them in a toolbar and in a panel. Agent decision in
+  **Reset route** (15.9). Agent decision in
   15.9, 2026-11-15: the **Look** section of the **Inspector**. **Bus** and **Lock bends** come
   with the automatic router.
 
 ## 5. Editor screens that the spec does not define
 
-These block milestone 2. The [mockup plan](mockup-plan.md) lists them too.
+These block milestone 2.
 
 - [x] How the user adds a node other than with a drag from the **Project** panel, for example
   with a search palette. Agent decision in 15.2, 2026-11-15: the **Add node** palette opens on
@@ -118,7 +118,7 @@ These block milestone 2. The [mockup plan](mockup-plan.md) lists them too.
   start screen shows the toolchain, the data folders and the trusted projects. **Remove** takes a
   folder off the trusted list.
 - [x] Where the large node GUI goes in the inspector. Agent decision in 15.4, 2026-11-15: at
-  the top, under the header and above the tabs, as the mockup plan proposed.
+  the top, under the header and above the tabs.
 
 ## 6. GUI guide colors
 
@@ -138,9 +138,6 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
 - [x] Do the [quality plan](quality-plan.md) of 2026-11-17 before more major work. It holds the
   review of the code quality, the architecture and the speed. Done on 2026-11-17, except two
   items that need the owner: the time of the format commit and the npm download of ESLint.
-- [x] Drop or mark the planned images that mockups 4 to 9 already cover. Mockup 4 covers 0002,
-  mockup 5 covers 0008, mockup 6 covers 0017, mockups 7 and 8 cover 0009, and mockup 9 partly
-  covers 0006. The [mockup plan](mockup-plan.md) marks these rows **Covered**, 2026-11-15.
 - [x] Link [laser-measurement-design.md](laser-measurement-design.md) and
   [circuit-graph-design.md](circuit-graph-design.md) from the README.
 - [x] Create `STATUS.md` with the result of the first prototype (AGENTS.md).
@@ -149,11 +146,6 @@ These affect only the look of milestone 2. See the [GUI visual guide](gui-visual
 - [x] Add a check for updates: Patina looks for new releases on GitHub. The owner asked for it
   on 2026-11-15, for later. The **About** dialog has **Check for updates** since 2026-11-16
   (spec 15.3).
-- [x] Compare the mechanics and the look of all mockups with the editor, not only mockup 9.
-  List each control and behavior that the editor does not have yet. The owner asked for it on
-  2026-11-15, for later. The first pass on 2026-11-15 added only visual polish: shadows, card
-  panels, header gradients, pins, sliders and the selected rows. Done on 2026-11-16:
-  [mockup-gaps.md](mockup-gaps.md) lists the gaps. Each gap needs a spec decision first.
 - [x] Add the node header colors of spec 15.3 (`#[node(color = ...)]`), with the tinted node
-  border of the Material Layers node of mockup 9 and the swatches of the Project panel. Done
+  border and the swatches of the Project panel. Done
   on 2026-11-16.

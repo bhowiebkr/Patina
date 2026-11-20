@@ -75,17 +75,9 @@ Keep the node canvas as the main workspace. Use the existing left, right, and bo
 Keep the **EMBER / SOUND WORKBENCH** console node and the other instrument nodes.
 Make each added panel adapt to its dock. Do not shrink a fixed instrument panel to fit.
 
-![Synthesizer dock concept](mockups/synth-docks/dock-concept.png)
-
-[Open the full concept](mockups/synth-docks/dock-concept.png).
-The concept uses the owner's screenshot as the edit target. The graph remains the central work surface.
+The graph remains the central work surface.
 The left dock shows **Sounds**. The right dock shows **Modulation**. The bottom dock shows **Analysis**.
 Other tools occupy alternate tabs. They do not all appear at once.
-
-The image contains illustrative sound names, assignments, plots, and measurements.
-The application is paused, so the analysis header says **Paused / held frame**.
-The concept does not prove live capture, preset loading, or modulation editing.
-Generated details can differ from the original screenshot. Existing source code defines the nodes, labels, connections, and values.
 
 ## Research findings
 
@@ -143,7 +135,7 @@ Provide **Locate source** and **Locate target** actions so the graph explains ea
 
 Use existing graph connections and parameters as the source of truth.
 An internal modulation path can appear as a read-only summary until the node exposes an editable amount.
-The concept's envelope amount illustrates the proposed control. The existing envelope path does not provide a general modulation-depth editor.
+The existing envelope path does not provide a general modulation-depth editor.
 Adding, muting, or removing an assignment must change the real patch and support undo.
 The panel must not create a separate routing model that disagrees with the canvas.
 
@@ -235,7 +227,6 @@ When dimensions fall below a panel's usable minimum, show a compact mode or a cl
 5. Add **Modulation** after editable routes map to real connections and parameters.
 6. Add **Audio**, **Export**, and deeper musical editors with their required host support.
 
-The image shows the proposed destination, rather than the implementation order.
 Do not add active-looking placeholders for backend work that remains open.
 The SDK already has views, fields, plots, waveform, table, curve, and timeline building blocks.
 Their presence does not provide audio capture, preset persistence, MIDI, or automation playback.
@@ -251,11 +242,6 @@ Their presence does not provide audio capture, preset persistence, MIDI, or auto
 - Verify that a complete drag produces one undo step.
 - Measure capture and drawing cost with complex graphs. Keep analysis work outside the audio callback.
 
-## Asset provenance and current limits
+## Current limits
 
-The built-in imagegen tool edited the screenshot supplied by the owner.
-The final asset is [dock-concept.png](mockups/synth-docks/dock-concept.png).
-The exact request is [prompt.txt](mockups/synth-docks/prompt.txt).
-
-The image above remains the original concept. It is not a screenshot of the implemented controls.
 The implementation record separates measured checks from the original resize targets.
