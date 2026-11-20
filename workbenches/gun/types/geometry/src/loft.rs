@@ -7,29 +7,35 @@ use crate::{Sketch, Solid};
 const SAME: f64 = 1e-9;
 
 type Ring = Vec<[f64; 2]>;
+/// An outer outline, counterclockwise, and the holes in it, clockwise.
+type Island = (Ring, Vec<Ring>);
 
 impl Solid {
     /// The solid from the outlines of `bottom` at z = 0 to the outlines of `top` at z = `height`.
-    /// Each sketch must have one outer outline, and the two sketches must have the same number of
-    /// holes. Each hole of `bottom` joins the hole of `top` with the nearest center. A straight
-    /// line joins the points at the same part of the length of two joined outlines. Each outline
+    /// Each outer outline of `bottom` joins the outer outline of `top` with the nearest center and
+    /// size. Two joined outer outlines must have the same number of holes. Each hole joins the
+    /// hole with the nearest center and size in the joined outer outline. A straight line joins the points at the same part of the length of two joined outlines. Each outline
     /// starts where a line from its center to +X leaves it, so the sides do not twist. Very
     /// different outlines can give sides that cross.
     pub fn loft(bottom: &Sketch, top: &Sketch, height: f64) -> Result<Solid, String> {
         if !(height.is_finite() && height > 0.0) {
             return Err(format!("the height must be more than 0, not {height}"));
         }
-        let (mut a, mut b) = (rings(bottom, "bottom")?, rings(top, "top")?);
-        if a.len() != b.len() {
-            return Err(format!("the two sketches must have the same number of holes, not {} and {}", a.len() - 1, b.len() - 1));
+        let (a, b) = (islands(bottom, "bottom")?, islands(top, "top")?);
+        let holes = |islands: &[Island]| islands.iter().map(|(_, holes)| holes.len()).sum::<usize>();
+        if holes(&a) != holes(&b) {
+            return Err(format!("the two sketches must have the same number of holes, not {} and {}", holes(&a), holes(&b)));
         }
-        let mut joined = vec![join(a.remove(0), b.remove(0))];
-        for hole in a {
-            let c = center(&hole);
-            let far = |ring: &Ring| center(ring).iter().zip(c).map(|(p, q)| (p - q).powi(2)).sum::<f64>();
-            if let Some(k) = (0..b.len()).min_by(|&i, &j| far(&b[i]).total_cmp(&far(&b[j]))) {
-                joined.push(join(hole, b.swap_remove(k)));
+        if a.len() != b.len() {
+            return Err(format!("the two sketches must have the same number of outer outlines, not {} and {}", a.len(), b.len()));
+        }
+        let mut joined = Vec::new();
+        for ((outer, holes), (other, other_holes)) in pairs(a, b, |(outer, _)| measure(outer)) {
+            if holes.len() != other_holes.len() {
+                return Err(format!("two joined outer outlines must have the same number of holes, not {} and {}", holes.len(), other_holes.len()));
             }
+            joined.push(join(outer, other));
+            joined.extend(pairs(holes, other_holes, measure).into_iter().map(|(a, b)| join(a, b)));
         }
         let (bottoms, tops): (Vec<Ring>, Vec<Ring>) = joined.into_iter().unzip();
         let level = |rings: &[Ring], z: f64| rings.iter().flatten().map(|&[x, y]| [x as f32, y as f32, z as f32]).collect::<Vec<_>>();
@@ -52,18 +58,55 @@ impl Solid {
     }
 }
 
-/// The outlines of a sketch: the one outer outline, counterclockwise, and then the holes,
-/// clockwise.
-fn rings(sketch: &Sketch, name: &str) -> Result<Vec<Ring>, String> {
+/// The outer outlines of a sketch, each with its holes.
+fn islands(sketch: &Sketch, name: &str) -> Result<Vec<Island>, String> {
     if let Some(error) = sketch.error() {
         return Err(format!("the {name} sketch has a kernel error: {error}"));
     }
-    let (mut outer, holes): (Vec<Ring>, Vec<Ring>) = sketch.outlines().into_iter().partition(|ring| area(ring) > 0.0);
-    if outer.len() != 1 || outer[0].len() < 3 {
-        return Err(format!("the {name} sketch must have one outer outline"));
+    let (outers, holes): (Vec<Ring>, Vec<Ring>) = sketch.outlines().into_iter().partition(|ring| area(ring) > 0.0);
+    if outers.is_empty() || outers.iter().any(|ring| ring.len() < 3) {
+        return Err(format!("the {name} sketch has no outer outline"));
     }
-    outer.extend(holes);
-    Ok(outer)
+    let mut islands: Vec<Island> = outers.into_iter().map(|outer| (outer, Vec::new())).collect();
+    for hole in holes {
+        // A hole is in the smallest outer outline around it, because an island can be in a hole.
+        let point = [(hole[0][0] + hole[1][0]) / 2.0, (hole[0][1] + hole[1][1]) / 2.0];
+        let around = (0..islands.len()).filter(|&k| inside(&islands[k].0, point));
+        let Some(k) = around.min_by(|&i, &j| area(&islands[i].0).total_cmp(&area(&islands[j].0))) else {
+            return Err(format!("a hole of the {name} sketch is in no outer outline"));
+        };
+        islands[k].1.push(hole);
+    }
+    Ok(islands)
+}
+
+/// Each item of `a` with the item of `b` that has the nearest `measure`, in the order of `a`.
+fn pairs<T>(a: Vec<T>, mut b: Vec<T>, measure: impl Fn(&T) -> [f64; 3]) -> Vec<(T, T)> {
+    let mut joined = Vec::with_capacity(a.len());
+    for item in a {
+        let c = measure(&item);
+        let far = |other: &T| measure(other).iter().zip(c).map(|(p, q)| (p - q).powi(2)).sum::<f64>();
+        if let Some(k) = (0..b.len()).min_by(|&i, &j| far(&b[i]).total_cmp(&far(&b[j]))) {
+            joined.push((item, b.swap_remove(k)));
+        }
+    }
+    joined
+}
+
+/// The center of a ring and the root of its area. An island in a hole has the center of the hole,
+/// so the size tells the two apart.
+fn measure(ring: &Ring) -> [f64; 3] {
+    let [x, y] = center(ring);
+    [x, y, area(ring).abs().sqrt()]
+}
+
+/// True when `point` is in the ring, by the number of edges that a line to +X crosses.
+fn inside(ring: &[[f64; 2]], [x, y]: [f64; 2]) -> bool {
+    let n = ring.len();
+    (0..n).filter(|&i| {
+        let (p, q) = (ring[i], ring[(i + 1) % n]);
+        (p[1] <= y) != (q[1] <= y) && x < p[0] + (y - p[1]) / (q[1] - p[1]) * (q[0] - p[0])
+    }).count() % 2 == 1
 }
 
 /// The two rings with the same number of points. The points at the same index are at the same

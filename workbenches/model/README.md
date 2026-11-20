@@ -110,8 +110,9 @@ cargo test --release -p geometry measure -- --ignored --nocapture
   - Sketches: `rectangle`, `circle` and `polygon`. A polygon is a text of points, for example
     `0 0, 2 0, 1 1.5`.
   - Sketch to solid: `extrude` (with twist and taper), `revolve` (with a gap in degrees) and
-    `loft` (from the outlines of a bottom sketch to the outlines of a top sketch, with the same
-    number of holes).
+    `loft` (from the outlines of a bottom sketch to the outlines of a top sketch). Each outer
+    outline joins the outer outline with the nearest center and size. Two joined outer outlines
+    must have the same number of holes.
   - Moves: `translate`, `rotate`, `scale`, `mirror`, `linear-array` and `polar-array`.
   - Booleans: `union`, `cut`, `intersect` and `hull`.
   - Sockets: `attach` moves a solid to a socket. A sockets input is a text, for example
@@ -133,8 +134,9 @@ cargo test --release -p geometry measure -- --ignored --nocapture
   has 1024 segments at most, and an array has 1000 copies at most.
 - The kernel has no fillet and no bevel. A Minkowski opening was too slow, and `SmoothOut`
   makes the faces bulge (see STATUS.md).
-- A loft of very different outlines can give sides that cross. A loft joins each hole to the
-  hole with the nearest center, so very different holes can also give sides that cross.
+- A loft of very different outlines can give sides that cross. A loft joins each outline to the
+  outline with the nearest center and size, so very different holes or islands can also give
+  sides that cross. A loft cannot join one outline to two outlines.
 - The same graph gives the same mesh on MSVC and on the Patina toolchain for boxes, polygons,
   moves and turns by multiples of 90 degrees. Round shapes and other turns use the sine of the
   C++ runtime, so the last bit can be different on another platform. This is not checked.

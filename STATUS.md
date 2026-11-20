@@ -466,6 +466,11 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - Holes (2026-11-19): each sketch has one outer outline, and the two sketches have the same
     number of holes. Each hole of the bottom joins the hole of the top with the nearest center.
     A unit test lofts a frame to a round tube, and two holes where one hole moves.
+  - Islands (2026-11-19): a sketch can have more than one outer outline. Each outer outline
+    joins the outer outline of the other sketch with the nearest center and size. A hole goes
+    to the smallest outer outline around it. Two joined outer outlines must have the same
+    number of holes. A unit test lofts a frame and a square to a ring and a circle, and an
+    island in a hole to an island in a hole.
 - The fillet trial, measured in a release build while the computer ran a game:
   - A Minkowski opening with a ball took 1.5 to 7.3 s for a cylinder and box of 324
     triangles, and 3.9 to 23 s for a sphere and box of 2112 triangles. This is too slow for
@@ -476,7 +481,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Checked on 2026-11-19, on Windows only: the `geometry` unit test of the loft, the unit
   tests of the city and gun copies, and the CLI test of the guide graphs.
 - Known limits:
-  - Each sketch must have one outer outline. A loft cannot join one hole to two holes.
+  - A loft cannot join one outline to two outlines, for example one square to two circles.
   - Very different outlines, for example a U to a circle, can give sides that cross. The
     kernel then gives an error or a solid that is not correct.
 

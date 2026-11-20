@@ -312,16 +312,33 @@ fn a_loft_joins_two_outlines() {
     };
     let moved = Solid::loft(&holes(1.0), &holes(0.8), 2.0).unwrap();
     assert!(near(volume(&moved), 12.0), "{}", volume(&moved));
-    let frame = Solid::cube(2.0, 2.0, 2.0).difference(&Solid::cube(1.0, 1.0, 3.0)).project();
-    let ring = Solid::cylinder(2.0, 1.2, 1.2, 32).difference(&Solid::cylinder(3.0, 0.4, 0.4, 16)).project();
+    let framed = || Solid::cube(2.0, 2.0, 2.0).difference(&Solid::cube(1.0, 1.0, 3.0));
+    let ringed = || Solid::cylinder(2.0, 1.2, 1.2, 32).difference(&Solid::cylinder(3.0, 0.4, 0.4, 16));
+    let (frame, ring) = (framed().project(), ringed().project());
     let tube = Solid::loft(&frame, &ring, 1.0).unwrap();
     assert!(volume(&tube) > 3.0 && volume(&tube) < 4.1, "{}", volume(&tube));
     let solid = Solid::loft(&frame, &Sketch::circle(1.2, 32), 1.0);
     assert_eq!(solid.unwrap_err(), "the two sketches must have the same number of holes, not 1 and 0");
-    let pair = Solid::cube(1.0, 1.0, 1.0).union(&Solid::cube(1.0, 1.0, 1.0).translate([3.0, 0.0, 0.0])).project();
-    assert_eq!(Solid::loft(&pair, &rect, 1.0).unwrap_err(), "the bottom sketch must have one outer outline");
+    // Each outer outline joins the outer outline with the nearest center and size, with its holes.
+    let both = |a: Solid, b: Solid| a.union(&b.translate([3.0, 0.0, 0.0])).project();
+    let (cube, disc) = (|| Solid::cube(1.0, 1.0, 1.0), || Solid::cylinder(1.0, 0.5, 0.5, 32));
+    let two = Solid::loft(&both(framed(), cube()), &both(ringed(), disc()), 1.0).unwrap();
+    let extra = volume(&two) - volume(&tube);
+    assert!(extra > 0.85 && extra < 0.95, "{extra}");
+    let pair = both(cube(), cube());
+    let posts = Solid::loft(&pair, &both(disc(), disc()), 1.0).unwrap();
+    assert!(volume(&posts) > 1.7 && volume(&posts) < 1.9, "{}", volume(&posts));
+    let error = Solid::loft(&pair, &rect, 1.0).unwrap_err();
+    assert_eq!(error, "the two sketches must have the same number of outer outlines, not 2 and 1");
+    let error = Solid::loft(&both(framed(), cube()), &both(disc(), ringed()), 1.0).unwrap_err();
+    assert_eq!(error, "two joined outer outlines must have the same number of holes, not 1 and 0");
+    // An island in a hole has the center of the hole. It joins the island of the other sketch.
+    let target = framed().union(&Solid::cube(0.4, 0.4, 0.4)).project();
+    let dot = Solid::loft(&target, &ringed().union(&Solid::cylinder(1.0, 0.2, 0.2, 32)).project(), 1.0).unwrap();
+    let extra = volume(&dot) - volume(&tube);
+    assert!(extra > 0.13 && extra < 0.15, "{extra}");
     let far = Sketch::polygon(&[[0.0, 0.0], [1e300, 0.0], [0.0, 1e300]]);
     assert_eq!(Solid::loft(&rect, &far, 1.0).unwrap_err(), "the top sketch has a kernel error: the construction is not valid");
-    assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch must have one outer outline");
+    assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch has no outer outline");
     assert!(Solid::loft(&rect, &rect, 0.0).is_err() && Solid::loft(&rect, &rect, f64::NAN).is_err());
 }

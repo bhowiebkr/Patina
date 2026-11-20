@@ -5,7 +5,7 @@ top = true
 id = "5ce7c00000000001"
 pos = [0.0, -260.0]
 width = 760.0
-text = "# 2 SKETCHES\nA sketch is a flat shape on the XY plane. `extrude` makes it thick along Z, with a **twist** in degrees and a **taper**: 0 keeps the top size and 1 makes a point.\n`revolve` turns the part of a sketch at x > 0 around the Y axis, which becomes Z. A **gap** in degrees leaves the turn open.\nA `polygon` is a text of points, for example `0 0, 2 0, 1 1.5`.\n`loft` joins the outlines of a **bottom** sketch at z = 0 to the outlines of a **top** sketch at the **height**. The two sketches need the same number of holes."
+text = "# 2 SKETCHES\nA sketch is a flat shape on the XY plane. `extrude` makes it thick along Z, with a **twist** in degrees and a **taper**: 0 keeps the top size and 1 makes a point.\n`revolve` turns the part of a sketch at x > 0 around the Y axis, which becomes Z. A **gap** in degrees leaves the turn open.\nA `polygon` is a text of points, for example `0 0, 2 0, 1 1.5`.\n`loft` joins the outlines of a **bottom** sketch at z = 0 to the outlines of a **top** sketch at the **height**. Each outer outline joins the outer outline with the nearest center and size. Two joined outer outlines need the same number of holes."
 
 [[node]]
 id = "5ce7c00000000002"
