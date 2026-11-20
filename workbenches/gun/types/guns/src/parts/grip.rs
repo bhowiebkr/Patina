@@ -34,18 +34,18 @@ pub(super) fn make(b: &mut Build, maker: Maker) -> Stats {
 
 type Parts = Vec<(Material, Solid)>;
 
-/// A cut plate with ribbed rubber panels, a cap and an angular guard.
+/// A faceted body with a palm swell, ribbed rubber bands, a cap and an angular guard.
 fn blockwerk(b: &mut Build, gl: f64, gw: f64, front: f64) -> (Parts, Parts) {
-    let outline = [[-0.019, 0.025], [0.016, 0.025], [0.018, -0.85 * gl], [0.012, -gl], [-0.021, -gl], [-0.023, -0.35 * gl]];
-    let mut body = vec![(Material::Paint, plate(&outline, gw, 0.003))];
+    // Each section is a height, the back and the front on X, and the width as a part of `gw`.
+    let sections = [(-gl, -0.021, 0.012, 0.86), (-0.85 * gl, -0.022, 0.017, 0.98), (-0.35 * gl, -0.023, 0.017, 1.08), (0.025, -0.019, 0.016, 0.92)];
+    let core = |grow: f64| taper(&sections.map(|(z, x0, x1, w)| (z, inset(&chamfer([x0, -w * gw / 2.0], [x1, w * gw / 2.0], 0.22 * w * gw), -grow))));
+    let mut body = vec![(Material::Paint, core(0.0))];
     let ribs = ((0.7 * gl / 0.009) as usize).max(3);
-    for i in 0..ribs {
-        let z = -0.12 * gl - 0.009 * i as f64;
-        body.push((Material::Grip, both(&decal(&chamfer([-0.016, z - 0.005], [0.012, z], 0.001), gw / 2.0, 0.0015))));
-    }
+    let bands: Vec<Solid> = (0..ribs).map(|i| -0.12 * gl - 0.009 * i as f64).map(|z| block([-0.017, 0.01], [z - 0.005, z], 0.1)).collect();
+    body.push((Material::Grip, core(0.0015).intersection(&Solid::union_all(&bands))));
     body.push((Material::Trim, bevel([-0.024, 0.016], [-gl - 0.007, -gl + 0.003], gw + 0.003, 0.002)));
     let pin = b.range(0.25, 0.4) * gl;
-    body.push((Material::Metal, bolts(&[[-0.002, -pin]], gw + 0.003, 0.0026)));
+    body.push((Material::Metal, bolts(&[[-0.002, -pin]], 1.1 * gw + 0.003, 0.0026)));
     let outer = [[0.005, 0.004], [front, 0.004], [front, -0.018], [front - 0.012, -0.03], [0.005, -0.03]];
     let ring = slab(&outer, 0.008).difference(&slab(&inset(&outer, 0.005), 0.02));
     (body, vec![(Material::Trim, ring)])

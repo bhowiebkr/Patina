@@ -143,7 +143,9 @@ wire to the node. A run after a change does not write.
 
 ## Known limits
 
-- The parts are made from extrusions, turned profiles and booleans. Only the Vesper and Halo
-  grips and stocks are sculpted: lofts through outlines give them a taper, a swell and a waist.
+- The parts are made from extrusions, turned profiles and booleans. The Vesper and Halo grips
+  and stocks are sculpted: lofts through outlines give them a taper, a swell and a waist. The
+  Blockwerk grip is a loft through chamfered outlines, so it keeps the blocky style. The
+  Scrapjaw grip is a wood plank, which fits the junk style.
 - The gun wall draws flat side views with paths, not 3D images.
 - The maker mark is the only text. The other parts have no decals, logos or text.

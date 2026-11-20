@@ -328,9 +328,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     Vesper stock has round sides, a narrow wrist, a round butt and its glow line in a groove.
     The Halo spine is round, with a waist. A preview of the rifles and the snipers showed the
     shapes, and the CLI test has the new triangle count.
+  - Faceted Blockwerk grip (2026-11-19): the Blockwerk grip is a loft through chamfered
+    outlines, with a palm swell, raised rubber bands, a cap and a long pin. It keeps the blocky
+    style. A preview of the six Blockwerk guns showed the facets and the bands. The CLI test
+    has the new triangle count.
 - Known limits:
-  - Only the Vesper and Halo grips and stocks are sculpted. The other parts are extrusions,
-    turned profiles and booleans.
+  - The Scrapjaw grip and the Blockwerk and Scrapjaw stocks are extrusions. The Scrapjaw wood
+    plank fits the junk style. The other parts are extrusions, turned profiles and booleans.
   - The maker mark is the only text. The other parts have no decals, logos or text.
   - Linux and macOS did not run the workbench.
 

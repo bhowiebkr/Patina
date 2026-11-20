@@ -18,7 +18,7 @@ fn the_gun_workbench_makes_seeded_guns_and_exports_one() {
     let built = "parts: receiver blockwerk, barrel vesper, grip blockwerk, stock scrapjaw, magazine halo, sight vesper\n";
     assert!(stdout.contains("Crackling Girder\nBlockwerk epic rifle\nelement shock\n") && stdout.contains(built), "{stdout}");
     // The `report` nodes after the `look` nodes. Round parts can give another hash on another platform.
-    for scene in ["27 items, 27 places, 7218 triangles, bounds ", "27 items, 27 places, 9130 triangles, bounds "] {
+    for scene in ["27 items, 27 places, 7302 triangles, bounds ", "27 items, 27 places, 9130 triangles, bounds "] {
         assert!(stdout.contains(scene), "{stdout}");
     }
     let folder = project.join("guns");
