@@ -238,11 +238,12 @@ pub(crate) fn fill(out: &mut Outcome, spare: &mut Spare, ok: bool, sink: &Sink, 
         }
     }
     out.ok = ok;
-    spare.reports.extend(out.reports.drain(reports..));
-    spare.values.extend(out.values.drain(values..));
-    spare.ids.extend(out.skipped.drain(skipped..).chain(out.stopped.drain(stopped..)));
-    spare.times.extend(out.times.drain(times..));
-    spare.logs.extend(out.logs.drain(logs..));
+    // In reverse, so that `reuse` gives each item back to its old place, and a value keeps its lanes.
+    spare.reports.extend(out.reports.drain(reports..).rev());
+    spare.values.extend(out.values.drain(values..).rev());
+    spare.ids.extend(out.skipped.drain(skipped..).chain(out.stopped.drain(stopped..)).rev());
+    spare.times.extend(out.times.drain(times..).rev());
+    spare.logs.extend(out.logs.drain(logs..).rev());
 }
 
 /// The next item of `list` to fill: an old item that keeps its texts, a spare item, or a new item.
@@ -367,5 +368,23 @@ mod tests {
         assert_eq!((&out.skipped[..], &out.stopped[..]), (&["a1".to_owned()][..], &["a1".to_owned()][..]));
         fill(&mut out, &mut spare, false, &run, &names, &probes);
         assert_eq!(out.values[0].text.as_ptr(), text, "the value of a spare item keeps its buffer");
+    }
+
+    #[test]
+    fn a_quiet_frame_gives_each_value_its_old_item_again() {
+        let names = [("a1".to_owned(), "number".to_owned()), ("a2".to_owned(), "number".to_owned())];
+        let probes = ["a1.out".to_owned(), "a2.out".to_owned()];
+        let mut run = Sink::default();
+        run.push(0, glue::VALUE, "6");
+        run.push(0, glue::LANES, "0110 bus");
+        run.push(1, glue::VALUE, "1");
+        let (mut out, mut spare) = (Outcome::default(), Spare::default());
+        fill(&mut out, &mut spare, true, &run, &names, &probes);
+        let bits = out.values[0].lanes.as_ref().map(|l| l.bits.as_ptr());
+        // A quiet frame sends no values, so all items go to the spare list.
+        fill(&mut out, &mut spare, true, &Sink::default(), &names, &probes);
+        fill(&mut out, &mut spare, true, &run, &names, &probes);
+        assert_eq!(out.values[0].lanes.as_ref().map(|l| l.bits.as_ptr()), bits, "the lanes keep their buffer");
+        assert_eq!((out.values[1].from.as_str(), &out.values[1].lanes), ("a2.out", &None));
     }
 }

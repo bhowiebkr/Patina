@@ -231,6 +231,13 @@ impl Ui {
     /// A GUI in mode `mode` (0 compact, 1 large, 2 full), with the events of `events`. Each line of
     /// `events` is the index of a widget and its new value. The editor makes this text.
     pub fn new(mode: u32, events: &str) -> Ui {
+        Ui::with_tree(mode, events, String::new())
+    }
+
+    /// As `new`, with the buffer `tree` for the widget lines, so that a GUI that draws again does
+    /// not allocate.
+    pub(crate) fn with_tree(mode: u32, events: &str, mut tree: String) -> Ui {
+        tree.clear();
         let available_size = layout::size(events);
         let mode = match mode {
             1 => Mode::Large,
@@ -244,7 +251,7 @@ impl Ui {
                 Some((index.parse().ok()?, value.to_owned()))
             })
             .collect();
-        Ui { mode, available_size, events, tree: String::new(), next: 0, params: Vec::new() }
+        Ui { mode, available_size, events, tree, next: 0, params: Vec::new() }
     }
 
     /// The size to draw (4.3).
@@ -555,14 +562,7 @@ impl Ui {
         &self.tree
     }
 
-    /// A GUI in the Inspector size with no events, for `Viewer::show` (5.3). It writes its lines
-    /// to the buffer `tree`.
-    pub(crate) fn viewer(mut tree: String) -> Ui {
-        tree.clear();
-        Ui { mode: Mode::Large, available_size: None, events: Vec::new(), tree, next: 0, params: Vec::new() }
-    }
-
-    /// The buffer of the widget lines, for the next viewer.
+    /// The buffer of the widget lines, for the next GUI or viewer.
     pub(crate) fn into_tree(self) -> String {
         self.tree
     }

@@ -1312,12 +1312,15 @@ domain free of locks. These limits are still open:
 
 - The pool rule uses the node times of the last run. Thus, after a small run, the next run
   stays on one thread also when it is heavy. The measurement ran only on Windows.
-- The frame loop of the editor allocates about 12 times for each shown frame on the computer
-  example, in the frame of the engine part. The list of changed values uses its buffer again
-  (fixed 2026-11-17). The CLI test graph gives 0. The `ui` functions of the computer nodes make
-  their labels with `format!` and `collect`, for example `ram`, `readout` and `analyzer`. So the
-  12 are in the node code. This is from the source, not from a measurement. The frames of the
-  CLI do not allocate. Nobody measured the editor again on the computer example.
+- Measured on 2026-11-19, on Windows, in a debug build, with a copy of the computer graph in
+  the edit mode: the engine part gave 48 allocations in each frame with values after a quiet
+  frame. They came from the lanes of the values. Now each value gets its old item again, so the
+  engine part gives 0 (fixed 2026-11-19). The measurement was a temporary test.
+- Each call of a node GUI copies its widget lines one time in the engine. The SDK keeps the
+  widget buffer of the last GUI, so the GUI itself does not grow a new buffer.
+- The `ui` functions of the computer nodes allocate for their texts with `format!` and
+  `collect`, for example `ram` (more than 256 texts in each frame), `readout` and `analyzer`.
+  The allocation test does not see the cluster library, so nobody measured these allocations.
 - The allocation test counts only the thread of the run. In the test graph, this thread runs
   all the frame tasks, because the second task waits for the first.
 - A text that is longer than the text of the last frame grows its buffer one time.

@@ -149,6 +149,29 @@ fn the_control_keeps_the_node_while_its_gui_draws() {
 }
 
 #[test]
+fn a_gui_writes_its_widget_lines_into_the_buffer_of_the_last_gui() {
+    unsafe extern "C" fn place(ctx: *mut c_void, _: u32, kind: u32, text: *const u8, _: usize) {
+        // SAFETY: the test gives a `Vec` as the context.
+        let places = unsafe { &mut *ctx.cast::<Vec<usize>>() };
+        if kind == UI {
+            places.push(text.addr());
+        }
+    }
+    let mut places: Vec<usize> = Vec::new();
+    let control = Control::default();
+    let rep = Reporter { ctx: (&raw mut places).cast(), report: place, control: &raw const control };
+    let buffer = String::with_capacity(1024);
+    let at = buffer.as_ptr().addr();
+    TREE.set(buffer);
+    let (state, gui) = (State::new(), |_: &mut i32, ui: &mut Ui| ui.label("x"));
+    assert!(draw(&state, || 0, gui, (0, ""), &rep, 3));
+    // A user input draws two times, with the same buffer.
+    assert!(draw(&state, || 0, gui, (0, "0 1"), &rep, 3));
+    let buffer = TREE.take();
+    assert_eq!((places, buffer.as_ptr().addr()), (vec![at, at], at));
+}
+
+#[test]
 fn a_gui_sends_nothing_while_a_run_holds_the_state() {
     let mut sent: Vec<(u32, u32, String)> = Vec::new();
     let control = Control::default();

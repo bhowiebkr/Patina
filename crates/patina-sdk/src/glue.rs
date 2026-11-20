@@ -188,6 +188,9 @@ thread_local! {
     static NODE: Cell<u32> = const { Cell::new(IDLE) };
     /// True during a fire of a trigger on this thread (9.4), for `fired`.
     static FIRING: Cell<bool> = const { Cell::new(false) };
+    /// The buffer of the widget lines of the last `draw` on this thread, so that a node GUI does
+    /// not allocate at each frame.
+    static TREE: Cell<String> = const { Cell::new(String::new()) };
 }
 
 /// Calls `f` with the reporter of the run on this thread. Gives None outside a run.
@@ -427,7 +430,7 @@ pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &
     // A slow call of an event node holds its state, so the GUI must not wait for it.
     let Some(mut st) = state.try_lock() else { return true };
     rep.set_node(node);
-    let mut gui = crate::Ui::new(cmd.0, cmd.1);
+    let mut gui = crate::Ui::with_tree(cmd.0, cmd.1, TREE.take());
     let mut params = Vec::new();
     let caught = catch_quiet(AssertUnwindSafe(|| {
         let value = st.get_or_insert_with(init);
@@ -435,7 +438,9 @@ pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &
         // A widget writes its value before it applies its event, so draw again with the new state.
         // Only the call with the events writes parameters.
         if !cmd.1.is_empty() {
-            params = std::mem::replace(&mut gui, crate::Ui::new(cmd.0, "")).params;
+            let mut first = std::mem::replace(&mut gui, crate::Ui::new(cmd.0, ""));
+            params = std::mem::take(&mut first.params);
+            gui = crate::Ui::with_tree(cmd.0, "", first.into_tree());
             ui(value, &mut gui);
         }
         Ok(())
@@ -445,6 +450,7 @@ pub fn draw<T>(state: &State<T>, init: impl FnOnce() -> T, ui: impl Fn(&mut T, &
         params.iter().for_each(|(key, text)| rep.send(node, EDIT, &format!("{key}\t{text}")));
         rep.send(node, UI, gui.tree());
     }
+    TREE.set(gui.into_tree());
     rep.set_node(IDLE);
     ok
 }

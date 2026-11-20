@@ -99,7 +99,8 @@ fn send_views(rep: &Reporter, index: u32, viewer: &dyn Viewer) {
             crate::view::push_base64(text, out.data());
             rep.send(index, THUMB, text);
         }
-        let mut ui = Ui::viewer(std::mem::take(text));
+        // The Inspector size with no events (5.3).
+        let mut ui = Ui::with_tree(1, "", std::mem::take(text));
         let shown = catch_unwind(AssertUnwindSafe(|| viewer.show(&mut ui))).is_ok();
         if shown && !ui.tree().is_empty() {
             rep.send(index, VIEW, ui.tree());
