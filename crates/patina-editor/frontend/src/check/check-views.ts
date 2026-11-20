@@ -12,7 +12,6 @@ import { A, BUILD_MS, EVENT_NODE, GUI_NODE, RUN_MS, T, VIEW_CODE, button, enterT
 export async function checkViews({ step, until, result, mark, events, steps, fresh }: CheckContext, v: View, lib: string, at: At) {
   let from = 0;
   const ofRun = () => events.slice(from).filter((e) => e.serial === v.serial);
-  const wheel = (deltaY: number) => document.querySelector('.react-flow__pane')!.dispatchEvent(mouseWheel(deltaY, at.clientX, at.clientY));
   // A node GUI (4.3): the node body shows the button of the `ui`. A click in a live graph runs
   // the graph again with the new state, and does not build again.
   v = await step('make a node with a GUI', () => api.edit({ kind: 'SetCode', path: lib, text: GUI_NODE }));
@@ -49,6 +48,8 @@ export async function checkViews({ step, until, result, mark, events, steps, fre
   const gui = `.react-flow__node[data-id="${A}"] .node-gui`;
   await checkWidgets(until, gui);
   await checkGuard(until);
+  // The wheel over the node GUI zooms the canvas (15.2).
+  const wheel = (deltaY: number) => document.querySelector(gui)!.dispatchEvent(mouseWheel(deltaY, at.clientX, at.clientY));
   await checkGuiZoom(until, gui, wheel, scale);
   steps.push('node GUI at a far zoom');
   await api.capture('node-gui');

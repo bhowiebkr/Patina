@@ -278,8 +278,8 @@ function Widgets({ tree, disabled, label, send: sendLine, window = 0 }: WidgetsP
   // A placed widget (4.3) is on top of the column, at its point.
   const places = tree.includes('place\t') ? freeLayout(tree).places : null;
   return (
-    // The nodrag and nowheel classes keep a drag on a control from moving the node (GUI guide).
-    <div className={`node-gui nodrag nowheel${places ? ' placed' : ''}`} role="group" aria-label={label}>
+    // The nodrag class keeps a drag on a control from moving the node (GUI guide). The wheel zooms the canvas, also here (15.2).
+    <div className={`node-gui nodrag${places ? ' placed' : ''}`} role="group" aria-label={label}>
       {blocks.map(function draw(w: Block): ReactNode {
         switch (w.kind) {
           case 'label':

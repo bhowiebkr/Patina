@@ -749,6 +749,8 @@ questions.
   measurement tool.
 - [Before building](docs/before-building.md): the setup, prototypes and decisions that are still
   open, by milestone.
+- [Owner feedback of 2026-11-19](docs/feedback-2026-11-19.md): the work list from the test of
+  all workbenches.
 - [Architecture](docs/architecture.md): the crates, the engine layers, the path from an edit to
   a frame, and the threads.
 - [Quality plan](docs/quality-plan.md): the review of the code quality, the architecture and the

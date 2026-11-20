@@ -161,7 +161,8 @@ The graph view is snappy. This is an owner decision of 2026-11-15.
 - The mouse wheel zooms at the mouse pointer. Wheel up zooms in. A touchpad pinch also zooms.
 - One wheel step changes the zoom by a fixed factor. A smaller pinch step changes it by a smaller amount.
 - A two-finger touchpad scroll pans the graph up, down, left and right. The owner asked for this on 2026-11-17.
-- A mouse wheel step is a multiple of 120 in the `wheelDelta` of the wheel event. Other values come from a touchpad, so they pan. A node GUI keeps its own wheel input. (Agent decision, 2026-11-17. The owner can change it.)
+- A mouse wheel step is a multiple of 120 in the `wheelDelta` of the wheel event. Other values come from a touchpad, so they pan. (Agent decision, 2026-11-17. The owner can change it.)
+- The wheel zooms and the touchpad pans at all places on the canvas, also over a node and its GUI. A node GUI does not get the wheel, and a long code field scrolls with its scroll bar. The owner asked for one navigation in the canvas on 2026-11-19.
 - The zoom goes from 10% to 400%. The top bar shows the zoom as a percent.
 - The standard controls:
 

@@ -4,6 +4,7 @@ All milestones of the roadmap (spec section 16) ended. Milestone 12, the event d
 2026-11-16. The [quality plan](docs/quality-plan.md) of 2026-11-17 is done, except two items
 that need the owner. The next work is the open items of the known limits and of
 [docs/before-building.md](docs/before-building.md).
+The owner feedback of 2026-11-19 is the current work list: [docs/feedback-2026-11-19.md](docs/feedback-2026-11-19.md).
 Milestone 11, the audio domain, ended on 2026-11-16. Its step 3, the GUI of audio nodes, stays
 deferred by the owner.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
