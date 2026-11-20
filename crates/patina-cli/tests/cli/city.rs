@@ -15,7 +15,7 @@ fn the_city_workbench_builds_a_district_and_exports_each_building() {
     assert!(output.status.success(), "{stderr}");
     // Round trees and turned roofs can give another hash on another platform, so the check stops
     // before the hash. `main` is the organic city on the terrain (E9 to E12).
-    let line = "567 items, 40915 places, 1265020 triangles, bounds -300 -225 -6.5 to 300 225 164.087, scene hash ";
+    let line = "573 items, 41357 places, 1277498 triangles, bounds -300 -225 -6.5 to 300 225 164.087, scene hash ";
     assert!(stdout.starts_with(line), "{stdout}");
     // `planned` puts the same buildings on the street grid on flat land.
     let (output, stdout, stderr) = run(&project, &["--graph", "planned", "--frames", "1"]);
@@ -33,7 +33,7 @@ fn the_city_workbench_builds_a_district_and_exports_each_building() {
     let total = start.elapsed().as_secs_f64();
     let (stdout, stderr) = (String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
     assert!(output.status.success(), "{stderr}");
-    assert!(stdout.starts_with("1803 items, 95518 places, 2956283 triangles, bounds -500 -500 -6.5 to 500 500 171.479, scene hash "), "{stdout}");
+    assert!(stdout.starts_with("1791 items, 93244 places, 2886571 triangles, bounds -500 -500 -6.5 to 500 500 153.036, scene hash "), "{stdout}");
     let built: f64 = stderr.lines().find_map(|l| l.strip_prefix("Built in ")?.strip_suffix(" s")?.parse().ok()).unwrap();
     println!("1 km x 1 km district: {:.2} s after a build of {built:.2} s", total - built);
     assert!(total - built < 2.0, "the district took {:.2} s", total - built);

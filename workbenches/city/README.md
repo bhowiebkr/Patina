@@ -42,7 +42,8 @@ Each step is a node, so you can change or replace one step. The `main` graph has
    `lots` splits each block into lots. Each lot keeps a street edge, so a lot in a large block
    is deeper. A thin part of a cut joins a lot across the cut.
 5. `zoning` gives each lot a zone: residential, commercial, industrial or park. A thin lot
-   becomes a park. `heights` gives each lot a number of floors from the density and the zone.
+   becomes a park. A lot with a thin arm is not thin when the rest of it is large. `heights`
+   gives each lot a number of floors from the density and the zone.
 6. `buildings` plans a building on each lot: a house, an apartment, a shop, a tower or a
    warehouse. The plan has the footprint, the wings, the step-backs, the floors, the roof form
    and a style.
@@ -98,12 +99,10 @@ wire to the node. A run after a change does not write.
 On 2026-11-19, on the Windows computer of the owner, with a bake build:
 
 - The `main` graph runs in about 0.7 s in a CLI run after the build.
-- A city of 1 km x 1 km has 95518 places and 2956283 triangles. It runs in 0.23 s after the
-  build in the CLI test. The target of task E8 is 2 s.
+- A city of 1 km x 1 km has 93244 places and 2886571 triangles. It runs in 0.33 s after the
+  build in the CLI test, with a game open at the same time. The target of task E8 is 2 s.
 - The erosion takes about 19 ms for `main` and 81 ms for 1 km x 1 km in a release build.
 
 ## Known limits
 
-- A thin part of a cut stays a park when the lot that it joins is also thin, for example with
-  a long arm of 2 m.
 - A street at the edge of the land turns along the edge. The roads stop at the edge.

@@ -268,8 +268,9 @@ fn clip(plot: &Plot, axis: [f64; 2], at: f64, side: f64) -> Vec<Plot> {
 
 /// Moves edge `i` of a counterclockwise polygon in by `distances[i]`. Each new corner is where
 /// two moved edges meet. An edge that the move turns around goes, the worst first, and its
-/// neighbors meet again. It gives the corners and, for each new edge, the index of its old edge,
-/// or `None` when fewer than three edges stay or the area goes away.
+/// neighbors meet again. When two edges that point the opposite way come side by side, the arm
+/// between them closed, so the shorter edge goes. It gives the corners and, for each new edge,
+/// the index of its old edge, or `None` when fewer than three edges stay or the area goes away.
 pub(crate) fn offset(corners: &[[f64; 2]], distances: &[f64]) -> Option<(Vec<[f64; 2]>, Vec<usize>)> {
     let n = corners.len();
     if n < 3 || distances.len() != n {
@@ -297,6 +298,12 @@ pub(crate) fn offset(corners: &[[f64; 2]], distances: &[f64]) -> Option<(Vec<[f6
         let m = kept.len();
         if m < 3 {
             return None;
+        }
+        let back = |t: usize| cross(dirs[kept[t]], dirs[kept[(t + 1) % m]]).abs() < 1e-6 && dot(dirs[kept[t]], dirs[kept[(t + 1) % m]]) < 0.0;
+        if let Some(t) = (0..m).find(|&t| back(t)) {
+            let long = |t: usize| length(sub(corners[(kept[t] + 1) % n], corners[kept[t]]));
+            kept.remove(if long(t) < long((t + 1) % m) { t } else { (t + 1) % m });
+            continue;
         }
         let moved: Vec<[f64; 2]> = (0..m).map(|t| meet(kept[(t + m - 1) % m], kept[t])).collect();
         let worst = (0..m).map(|t| (t, dot(sub(moved[(t + 1) % m], moved[t]), dirs[kept[t]]))).min_by(|a, b| a.1.total_cmp(&b.1));

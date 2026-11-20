@@ -2,8 +2,9 @@
 
 use geometry::Seed;
 
+use crate::plots::offset;
 use crate::terrain::fbm;
-use crate::{ARTERIAL, Density, HIGHWAY, Plots, Terrain, Zone, area, centroid, length, sub};
+use crate::{ARTERIAL, Density, HIGHWAY, Plots, Terrain, Zone, area, centroid};
 
 /// The most floors of a building.
 pub const MAX_FLOORS: u32 = 120;
@@ -11,8 +12,9 @@ pub const MAX_FLOORS: u32 = 120;
 /// The size of the districts of the noise, in meters.
 const DISTRICT: f64 = 160.0;
 
-/// A lot with 2 x area / perimeter below this value, in meters, is too thin for a building. A
-/// strip of width w gives about w, and a square of side s gives s / 2.
+/// A lot is too thin for a building when its inset by half this value, in meters, has less area
+/// than its square. A rectangle is then thin when 2 x area / perimeter is less than this value,
+/// but a lot with a thin arm is not thin when the rest of it is large.
 const THIN: f64 = 4.0;
 
 /// Gives each lot a zone. A lot with no street, a thin lot, a lot on a steep slope or in the water,
@@ -46,9 +48,7 @@ pub fn zoning(plots: &Plots, terrain: &Terrain, density: &Density, seed: Seed, p
 }
 
 pub(crate) fn thin(corners: &[[f64; 2]]) -> bool {
-    let n = corners.len();
-    let perimeter: f64 = (0..n).map(|i| length(sub(corners[(i + 1) % n], corners[i]))).sum();
-    2.0 * area(corners).abs() < THIN * perimeter
+    offset(corners, &vec![THIN / 2.0; corners.len()]).is_none_or(|(inner, _)| area(&inner) < THIN * THIN)
 }
 
 /// Gives each lot its floors from the density and the zone, up to `high`. A residential lot

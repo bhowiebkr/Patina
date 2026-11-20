@@ -110,7 +110,7 @@ fn a_thin_part_of_a_cut_joins_the_lot_across_the_cut() {
         let total: f64 = lots.0.iter().map(|l| area(&l.corners)).sum();
         assert!((total - 690.0).abs() < 1e-6, "{total}");
         assert_eq!(lots.0.len(), 2, "seed {seed}: {lots:?}");
-        assert!(lots.0.iter().all(|l| l.corners.len() == l.fronts.len() && 2.0 * area(&l.corners) > 4.0 * perimeter(&l.corners)), "{lots:?}");
+        assert!(lots.0.iter().all(|l| l.corners.len() == l.fronts.len() && !zoning::thin(&l.corners)), "{lots:?}");
         assert_eq!(lots.0.iter().map(|l| l.corners.len()).collect::<Vec<_>>(), [4, 8], "seed {seed}: {lots:?}");
         // Only the edge between the two lots is not on a street.
         assert_eq!(lots.0.iter().flat_map(|l| &l.fronts).filter(|f| f.is_none()).count(), 2, "{lots:?}");
@@ -128,10 +128,28 @@ fn a_thin_part_joins_one_of_the_lots_along_its_cut() {
         let total: f64 = lots.0.iter().map(|l| area(&l.corners)).sum();
         assert!((total - 1374.0).abs() < 1e-6, "seed {seed}: {total}");
         for lot in &lots.0 {
-            assert!(lot.corners.len() == lot.fronts.len() && 2.0 * area(&lot.corners) > 4.0 * perimeter(&lot.corners), "seed {seed}: {lot:?}");
+            assert!(lot.corners.len() == lot.fronts.len() && !zoning::thin(&lot.corners), "seed {seed}: {lot:?}");
         }
         assert_eq!(lots.0.iter().filter(|l| l.corners.iter().any(|c| c[0] == 60.0)).count(), 1, "seed {seed}: {lots:?}");
     }
+}
+
+#[test]
+fn a_long_thin_arm_joins_a_small_lot_and_the_inset_drops_the_arm() {
+    // A lot of 14 m x 14 m with an arm of 2 m x 46 m. The cut across the arm gives a thin part.
+    // The joined lot has 2 x area / perimeter below 4 m, but its inset keeps a large square.
+    let corners = vec![[0.0, 0.0], [14.0, 0.0], [14.0, 60.0], [12.0, 60.0], [12.0, 14.0], [0.0, 14.0]];
+    let block = Plot { corners, fronts: vec![Some(LOCAL); 6], ..Plot::default() };
+    assert!(2.0 * area(&block.corners) < 4.0 * perimeter(&block.corners));
+    for seed in 1..6 {
+        let lots = lots(&Plots(vec![block.clone()]), Seed(seed), 250.0, 2.0).unwrap();
+        assert_eq!(lots.0.len(), 1, "seed {seed}: {lots:?}");
+        assert!((area(&lots.0[0].corners) - 288.0).abs() < 1e-6, "seed {seed}: {lots:?}");
+    }
+    let zoned = zoning(&Plots(vec![block.clone()]), &flat(), &even(0.1), Seed(4), 0.0, 0.0).unwrap();
+    assert_eq!(zoned.0[0].zone, Zone::Residential, "{zoned:?}");
+    let moved = inset(&Plots(vec![block]), 3.0).unwrap();
+    assert_eq!(moved.0[0].corners, [[3.0, 3.0], [11.0, 3.0], [11.0, 11.0], [3.0, 11.0]]);
 }
 
 fn perimeter(corners: &[[f64; 2]]) -> f64 {

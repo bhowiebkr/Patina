@@ -372,7 +372,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     lowest edge, with a pull to the middle.
   - A cut across a concave block gives one lot for each part, not one lot with a bridge of no
     width over the street.
-  - A thin lot becomes a park (2 x area / perimeter below 4 m), so it gets no thin building.
+  - A thin lot becomes a park (its inset by 2 m has less than 16 m2), so it gets no thin
+    building.
   - `terrain` has hydraulic erosion (2026-11-19): drops of rain cut the valleys and sharpen the
     ridges. The sea takes their soil, so the coast stays. **erosion** sets the drops for each
     sample (default 1, 0 to 8). A unit test checks the seed, 0 drops, the range and the soil.
@@ -432,6 +433,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
       the CLI test.
     - Checked on Windows: 25 unit tests of `types/city`, with a test that each lot of a large
       block keeps a street edge, and the city CLI test.
+  - A lot with a thin arm is not thin (2026-11-19). A lot is thin when its inset by 2 m has
+    less than 16 m2. For a rectangle, this is the old rule of 2 x area / perimeter below 4 m.
+    The inset also drops an arm that closes, so the house of such a lot stands on the large
+    part. Before, the inset of such a lot crossed itself or gave no house.
+    - `main`: 573 items, 41357 places and 1277498 triangles. `planned` has no change. A city of
+      1 km x 1 km: 1791 items, 93244 places and 2886571 triangles, 0.33 s after the build in
+      the CLI test.
+    - Checked on Windows: 26 unit tests of `types/city`, with a lot of 14 m x 14 m with an arm
+      of 2 m x 46 m, and the city CLI test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
   - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build
@@ -441,8 +451,6 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
-  - A thin part of a cut stays a park when the lot that it joins is also thin, for example
-    with a long arm of 2 m.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
     about 0.3 s after each change.
   - Linux and macOS did not run the workbench.
