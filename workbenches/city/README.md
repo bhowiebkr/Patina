@@ -39,7 +39,7 @@ Each step is a node, so you can change or replace one step. The `main` graph has
    A street follows the ground, and it turns along a bank or a steep slope. `prune` removes
    the dead ends.
 4. `blocks` gives the faces between the streets. `inset` moves the edges in for a sidewalk.
-   `lots` splits each block into lots.
+   `lots` splits each block into lots. A thin part of a cut joins a lot across the cut.
 5. `zoning` gives each lot a zone: residential, commercial, industrial or park. A thin lot
    becomes a park. `heights` gives each lot a number of floors from the density and the zone.
 6. `buildings` plans a building on each lot: a house, an apartment, a shop, a tower or a
@@ -103,6 +103,6 @@ On 2026-11-19, on the Windows computer of the owner, with a bake build:
 
 ## Known limits
 
-- A cut across a concave block gives separate lots. A thin part of a block is a park, not a
-  part of the next lot.
+- A thin part of a cut stays a park when the lot that it joins is also thin, for example with
+  a long arm of 2 m.
 - A street at the edge of the land turns along the edge. The roads stop at the edge.

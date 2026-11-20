@@ -45,7 +45,7 @@ pub fn zoning(plots: &Plots, terrain: &Terrain, density: &Density, seed: Seed, p
     Ok(out)
 }
 
-fn thin(corners: &[[f64; 2]]) -> bool {
+pub(crate) fn thin(corners: &[[f64; 2]]) -> bool {
     let n = corners.len();
     let perimeter: f64 = (0..n).map(|i| length(sub(corners[(i + 1) % n], corners[i]))).sum();
     2.0 * area(corners).abs() < THIN * perimeter

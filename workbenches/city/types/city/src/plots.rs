@@ -2,6 +2,7 @@
 
 use geometry::{Random, Seed};
 
+use crate::zoning::thin;
 use crate::{Plot, Plots, Streets, add, area, axes, cross, dot, extent, length, scale, sub};
 
 /// The deepest split of one block, so that a small lot area cannot loop for a long time.
@@ -69,7 +70,8 @@ pub fn inset(plots: &Plots, distance: f64) -> Result<Plots, String> {
 }
 
 /// Splits each block across its long axis again and again, until a lot has `area` or less, or
-/// is narrower than two times `width`. An edge on a cut is not on a street.
+/// is narrower than two times `width`. An edge on a cut is not on a street. A thin part of a cut
+/// joins a lot across the cut, when the joined lot is not thin.
 pub fn lots(blocks: &Plots, seed: Seed, area_limit: f64, width: f64) -> Result<Plots, String> {
     if !(area_limit.is_finite() && area_limit > 0.0 && width.is_finite() && width > 0.0) {
         return Err("the lot area and the width must be more than 0".into());
@@ -90,11 +92,86 @@ fn split(plot: Plot, area_limit: f64, width: f64, random: &mut Random, depth: u3
         return;
     }
     let at = lo + (hi - lo) * random.range(0.4, 0.6);
-    for side in [1.0, -1.0] {
-        for part in clip(&plot, u, at, side) {
+    let parts = [1.0, -1.0].into_iter().flat_map(|side| clip(&plot, u, at, side));
+    // A thin part joins a lot of the other parts, so that it is not a park.
+    let (thin_parts, parts): (Vec<Plot>, Vec<Plot>) = parts.partition(|p| thin(&p.corners));
+    let start = out.len();
+    for part in parts {
+        split(part, area_limit, width, random, depth + 1, out);
+    }
+    for part in thin_parts {
+        if let Some(part) = join_next(part, &mut out[start..]) {
             split(part, area_limit, width, random, depth + 1, out);
         }
     }
+}
+
+/// Joins `part` to the lot that shares the longest piece of a cut edge with it, if that piece is
+/// 0.5 m or more and the joined lot is not thin. It gives the part back when it does not join.
+fn join_next(part: Plot, lots: &mut [Plot]) -> Option<Plot> {
+    let (n, view): (usize, &[Plot]) = (part.corners.len(), lots);
+    // The line of edge i of the part: its start, its direction and its length.
+    let line = |i: usize| {
+        let (p, q) = (part.corners[i], part.corners[(i + 1) % n]);
+        let len = length(sub(q, p));
+        (p, scale(sub(q, p), 1.0 / len.max(1e-300)), len)
+    };
+    // The piece of edge i that edge j of lot k covers the other way, from lo to hi along edge i.
+    let piece = |i: usize, k: usize, j: usize| {
+        let ((p, dir, len), lot) = (line(i), &view[k]);
+        let (r, s) = (lot.corners[j], lot.corners[(j + 1) % lot.corners.len()]);
+        let on = cross(dir, sub(r, p)).abs() < 1e-7 && cross(dir, sub(s, p)).abs() < 1e-7;
+        let (lo, hi) = (dot(sub(s, p), dir).max(0.0), dot(sub(r, p), dir).min(len));
+        (on && hi - lo >= 0.5).then_some((lo, hi))
+    };
+    let edges = (0..n).filter(|&i| part.fronts[i].is_none()).flat_map(|i| (0..view.len()).map(move |k| (i, k)));
+    let pieces = edges.flat_map(|(i, k)| (0..view[k].corners.len()).filter(move |&j| view[k].fronts[j].is_none()).map(move |j| (i, k, j)));
+    let mut found: Vec<_> = pieces.filter_map(|(i, k, j)| piece(i, k, j).map(|(lo, hi)| (i, k, j, lo, hi))).collect();
+    found.sort_by(|x, y| (y.4 - y.3).total_cmp(&(x.4 - x.3)));
+    for (i, k, j, lo, hi) in found {
+        // Both plots get corners at the ends of the piece, so that they share one edge.
+        let ((p, dir, len), m) = (line(i), lots[k].corners.len());
+        let at = |t: f64| add(p, scale(dir, t));
+        let (r, s) = (dot(sub(lots[k].corners[j], p), dir), dot(sub(lots[k].corners[(j + 1) % m], p), dir));
+        let (a_lo, b_hi) = (lo > 1e-9, r - hi > 1e-9);
+        let a = with_corners(&part, i, [a_lo.then(|| at(lo)), (hi < len - 1e-9).then(|| at(hi))]);
+        let b = with_corners(&lots[k], j, [b_hi.then(|| at(hi)), (lo - s > 1e-9).then(|| at(lo))]);
+        let lot = joined(&a, &b, i + usize::from(a_lo), j + usize::from(b_hi));
+        if !thin(&lot.corners) {
+            lots[k] = lot;
+            return None;
+        }
+    }
+    Some(part)
+}
+
+/// The plot with the points put into edge `e`, in order. The new edges have the front of edge e.
+fn with_corners(plot: &Plot, e: usize, points: [Option<[f64; 2]>; 2]) -> Plot {
+    let points: Vec<[f64; 2]> = points.into_iter().flatten().collect();
+    let mut out = plot.clone();
+    out.corners.splice(e + 1..e + 1, points.iter().copied());
+    out.fronts.splice(e + 1..e + 1, points.iter().map(|_| plot.fronts[e]));
+    out
+}
+
+/// The plot of `a` and `b`, which share edge `i` of `a` as edge `j` of `b`, the other way round.
+/// The two ends of the shared edge go when they are on a straight line.
+fn joined(a: &Plot, b: &Plot, i: usize, j: usize) -> Plot {
+    let (na, nb) = (a.corners.len(), b.corners.len());
+    let mut corners: Vec<[f64; 2]> = (1..=na).map(|k| a.corners[(i + k) % na]).collect();
+    // The edge out of corner i of `a` now continues as the edge out of corner j + 1 of `b`.
+    let mut fronts: Vec<_> = (1..=na).map(|k| if k == na { b.fronts[(j + 1) % nb] } else { a.fronts[(i + k) % na] }).collect();
+    corners.extend((2..nb).map(|k| b.corners[(j + k) % nb]));
+    fronts.extend((2..nb).map(|k| b.fronts[(j + k) % nb]));
+    for c in [na - 1, 0] {
+        let n = corners.len();
+        let (d0, d1) = (sub(corners[c], corners[(c + n - 1) % n]), sub(corners[(c + 1) % n], corners[c]));
+        if n > 3 && cross(d0, d1).abs() <= 1e-9 * length(d0) * length(d1) && dot(d0, d1) > 0.0 {
+            corners.remove(c);
+            fronts.remove(c);
+        }
+    }
+    Plot { corners, fronts, ..Plot::default() }
 }
 
 /// The parts of the plot where `side * (p . axis - at) <= 0`. A concave plot can give more than

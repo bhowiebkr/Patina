@@ -86,6 +86,45 @@ fn a_cut_across_a_concave_block_gives_separate_lots() {
 }
 
 #[test]
+fn a_thin_part_of_a_cut_joins_the_lot_across_the_cut() {
+    // A U of a 10 m arm and a 3 m arm on a base of 30 m x 10 m. The cut across the arms gives a
+    // thin part of the 3 m arm, which joins the base. The joined lot has no corners on the cut.
+    let u = [[0.0, 0.0], [30.0, 0.0], [30.0, 40.0], [27.0, 40.0], [27.0, 10.0], [10.0, 10.0], [10.0, 40.0], [0.0, 40.0]];
+    let block = Plot { corners: u.to_vec(), fronts: vec![Some(LOCAL); 8], ..Plot::default() };
+    for seed in 1..6 {
+        let lots = lots(&Plots(vec![block.clone()]), Seed(seed), 600.0, 2.0).unwrap();
+        let total: f64 = lots.0.iter().map(|l| area(&l.corners)).sum();
+        assert!((total - 690.0).abs() < 1e-6, "{total}");
+        assert_eq!(lots.0.len(), 2, "seed {seed}: {lots:?}");
+        assert!(lots.0.iter().all(|l| l.corners.len() == l.fronts.len() && 2.0 * area(&l.corners) > 4.0 * perimeter(&l.corners)), "{lots:?}");
+        assert_eq!(lots.0.iter().map(|l| l.corners.len()).collect::<Vec<_>>(), [4, 8], "seed {seed}: {lots:?}");
+        // Only the edge between the two lots is not on a street.
+        assert_eq!(lots.0.iter().flat_map(|l| &l.fronts).filter(|f| f.is_none()).count(), 2, "{lots:?}");
+    }
+}
+
+#[test]
+fn a_thin_part_joins_one_of_the_lots_along_its_cut() {
+    // A block of 33 m x 40 m with an arm of 27 m x 2 m. A cut near x = 30 gives a thin part
+    // along the cut, and the other part splits into lots that each cover a piece of the cut.
+    let corners = vec![[0.0, 0.0], [60.0, 0.0], [60.0, 2.0], [33.0, 2.0], [33.0, 40.0], [0.0, 40.0]];
+    let block = Plot { corners, fronts: vec![Some(LOCAL); 6], ..Plot::default() };
+    for seed in 1..9 {
+        let lots = lots(&Plots(vec![block.clone()]), Seed(seed), 800.0, 2.0).unwrap();
+        let total: f64 = lots.0.iter().map(|l| area(&l.corners)).sum();
+        assert!((total - 1374.0).abs() < 1e-6, "seed {seed}: {total}");
+        for lot in &lots.0 {
+            assert!(lot.corners.len() == lot.fronts.len() && 2.0 * area(&lot.corners) > 4.0 * perimeter(&lot.corners), "seed {seed}: {lot:?}");
+        }
+        assert_eq!(lots.0.iter().filter(|l| l.corners.iter().any(|c| c[0] == 60.0)).count(), 1, "seed {seed}: {lots:?}");
+    }
+}
+
+fn perimeter(corners: &[[f64; 2]]) -> f64 {
+    (0..corners.len()).map(|i| length(sub(corners[(i + 1) % corners.len()], corners[i]))).sum()
+}
+
+#[test]
 fn inset_moves_the_edges_in_or_drops_the_plot() {
     let plots = Plots(vec![square(10.0), square(3.0)]);
     let moved = inset(&plots, 2.0).unwrap();

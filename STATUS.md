@@ -398,6 +398,14 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     - Checked on Windows: 22 unit tests of `types/city`, with a test that the river follows a
       valley that turns, and the city CLI test. A shaded preview showed the river in the north
       of `main` and of the 1 km area, with curves and off the side edges.
+  - A thin part of a cut joins a lot (2026-11-19). A cut of a block can give a thin part. That
+    part now joins the lot across the cut with the longest shared piece of the cut. The part
+    stays a park when the joined lot is also thin.
+    - `main`: 539 items, 39740 places and 1235164 triangles. `planned` has no change. A city of
+      1 km x 1 km: 1731 items, 94298 places and 2960785 triangles, 0.23 s after the build in
+      the CLI test.
+    - Checked on Windows: 24 unit tests of `types/city`, with a U block with a thin arm and a
+      block where the thin part touches two lots, and the city CLI test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
   - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build
@@ -407,8 +415,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - The CLI test checks the counts and the bounds, not the scene hash. Round shapes and turned
     roofs can give another hash on another platform.
-  - A cut across a concave block gives separate lots. A thin part of a block is a park, not
-    a part of the next lot.
+  - A thin part of a cut stays a park when the lot that it joins is also thin, for example
+    with a long arm of 2 m.
   - D4b stays open: in the editor, a run of the `main` graph stops the frames and the views for
     about 0.3 s after each change.
   - Linux and macOS did not run the workbench.
