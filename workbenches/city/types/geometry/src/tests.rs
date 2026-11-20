@@ -278,16 +278,17 @@ fn a_scene_places_meshes_and_bakes_each_group() {
     assert_ne!(b.hash(), moved.hash());
 }
 
+fn volume(solid: &Solid) -> f64 {
+    let mesh = solid.mesh();
+    let corner = |i: usize| mesh.positions[i].map(f64::from);
+    (0..mesh.triangles()).map(|t| {
+        let [a, b, c] = [corner(3 * t), corner(3 * t + 1), corner(3 * t + 2)];
+        a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
+    }).sum::<f64>() / 6.0
+}
+
 #[test]
 fn a_loft_joins_two_outlines() {
-    let volume = |solid: &Solid| -> f64 {
-        let mesh = solid.mesh();
-        let corner = |i: usize| mesh.positions[i].map(f64::from);
-        (0..mesh.triangles()).map(|t| {
-            let [a, b, c] = [corner(3 * t), corner(3 * t + 1), corner(3 * t + 2)];
-            a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
-        }).sum::<f64>() / 6.0
-    };
     let near = |a: f64, b: f64| (a - b).abs() < 1e-4;
     let rect = Sketch::rectangle(2.0, 1.0);
     let block = Solid::loft(&rect, &rect, 3.0).unwrap();
@@ -341,4 +342,34 @@ fn a_loft_joins_two_outlines() {
     assert_eq!(Solid::loft(&rect, &far, 1.0).unwrap_err(), "the top sketch has a kernel error: the construction is not valid");
     assert_eq!(Solid::loft(&rect, &Sketch::default(), 1.0).unwrap_err(), "the top sketch has no outer outline");
     assert!(Solid::loft(&rect, &rect, 0.0).is_err() && Solid::loft(&rect, &rect, f64::NAN).is_err());
+}
+
+#[test]
+fn a_chamfer_cuts_the_top_edges() {
+    let near = |solid: &Solid, expected: f64| (volume(solid) - expected).abs() < 1e-4;
+    // A box of 2 x 2 x 0.75 and a frustum of 0.25 from 2 x 2 to 1.5 x 1.5.
+    let block = Solid::chamfered(&Sketch::rectangle(2.0, 2.0), 1.0, 0.25).unwrap();
+    assert_eq!(block.bounds(), [[-1.0, -1.0, 0.0], [1.0, 1.0, 1.0]]);
+    assert!(near(&block, 3.0 + 0.25 / 3.0 * (4.0 + 2.25 + 3.0)), "{}", volume(&block));
+    // A hole gets larger to the top: the outer frustum less the frustum of the hole.
+    let frame = Solid::cube(2.0, 2.0, 2.0).difference(&Solid::cube(1.0, 1.0, 3.0)).project();
+    let framed = Solid::chamfered(&frame, 1.0, 0.2).unwrap();
+    let frustum = |side: f64, top: f64| 0.2 / 3.0 * (side * side + top * top + side * top) + side * side * 0.8;
+    assert!(near(&framed, frustum(2.0, 1.6) - frustum(1.0, 1.4)), "{}", volume(&framed));
+    // The area of an L at the depth t is (2 - 2t)^2 - 1, and the corners stay sharp.
+    let l = Sketch::polygon(&[[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]]);
+    let bent = Solid::chamfered(&l, 1.0, 0.1).unwrap();
+    assert!(near(&bent, 2.7 + 0.3 - 0.04 + 0.004 / 3.0), "{}", volume(&bent));
+    let error = |sketch: &Sketch, height: f64, chamfer: f64| Solid::chamfered(sketch, height, chamfer).unwrap_err();
+    let square = Sketch::rectangle(2.0, 2.0);
+    // The edges of the square turn back at a chamfer of 1 or more.
+    assert_eq!(error(&square, 2.0, 1.0), "the chamfer 1 is too large for the sketch");
+    assert_eq!(error(&square, 2.0, 1.5), "the chamfer 1.5 is too large for the sketch");
+    // The hole of the frame gets larger than the outer outline.
+    assert_eq!(error(&frame, 1.0, 0.3), "the chamfer 0.3 is too large for the sketch");
+    assert_eq!(error(&square, 1.0, 1.0), "the chamfer must be more than 0 and less than the height 1, not 1");
+    assert!(Solid::chamfered(&square, 1.0, f64::NAN).is_err() && Solid::chamfered(&square, f64::INFINITY, 0.1).is_err());
+    let far = Sketch::polygon(&[[0.0, 0.0], [1e300, 0.0], [0.0, 1e300]]);
+    assert_eq!(error(&far, 1.0, 0.1), "the sketch has a kernel error: the construction is not valid");
+    assert_eq!(Solid::chamfered(&Sketch::default(), 1.0, 0.1).unwrap().triangles(), 0);
 }

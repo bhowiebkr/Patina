@@ -1,4 +1,4 @@
-//! `Solid::loft`: a solid between two outlines at two heights.
+//! `Solid::loft`: a solid between two outlines at two heights, and `Solid::chamfered`.
 
 use crate::sketch::triangulate;
 use crate::{Sketch, Solid};
@@ -38,24 +38,88 @@ impl Solid {
             joined.extend(pairs(holes, other_holes, measure).into_iter().map(|(a, b)| join(a, b)));
         }
         let (bottoms, tops): (Vec<Ring>, Vec<Ring>) = joined.into_iter().unzip();
-        let level = |rings: &[Ring], z: f64| rings.iter().flatten().map(|&[x, y]| [x as f32, y as f32, z as f32]).collect::<Vec<_>>();
-        let corners = [level(&bottoms, 0.0), level(&tops, height)].concat();
-        let n = (corners.len() / 2) as u32;
-        let mut triangles = Vec::with_capacity(corners.len() * 4);
+        stack(&[(&bottoms, 0.0), (&tops, height)])
+    }
+
+    /// The extrusion of `sketch` from 0 to `height`, with a 45 degree chamfer of the size
+    /// `chamfer` on the top edges. At the top, each edge moves `chamfer` into the material, and the
+    /// corners stay sharp. A chamfer that removes an edge or that makes outlines touch gives an
+    /// error.
+    pub fn chamfered(sketch: &Sketch, height: f64, chamfer: f64) -> Result<Solid, String> {
+        if let Some(error) = sketch.error() {
+            return Err(format!("the sketch has a kernel error: {error}"));
+        }
+        if !(height.is_finite() && chamfer > 0.0 && chamfer < height) {
+            return Err(format!("the chamfer must be more than 0 and less than the height {height}, not {chamfer}"));
+        }
+        let rings = sketch.outlines();
+        if rings.is_empty() {
+            return Ok(Solid::empty());
+        }
+        let top: Vec<Ring> = rings.iter().map(|ring| inset(ring, chamfer)).collect();
+        // An edge that the chamfer removes turns back. Outlines that touch overlap, so the filled
+        // area is not the sum of the ring areas.
+        let turned = rings.iter().zip(&top).any(|(a, b)| {
+            (0..a.len()).any(|i| {
+                let j = (i + 1) % a.len();
+                let along = (a[j][0] - a[i][0]) * (b[j][0] - b[i][0]) + (a[j][1] - a[i][1]) * (b[j][1] - b[i][1]);
+                along.is_nan() || along <= 0.0
+            })
+        });
+        let sum: f64 = top.iter().map(|ring| area(ring)).sum();
+        if turned || (Sketch::of_rings(&top).area() - sum).abs() > 1e-6 * (1.0 + sum.abs()) {
+            return Err(format!("the chamfer {chamfer} is too large for the sketch"));
+        }
+        stack(&[(&rings, 0.0), (&rings, height - chamfer), (&top, height)])
+    }
+}
+
+/// The solid through the rings of each level at the height of the level, from the first level
+/// to the last. All levels have the same number of rings and points, and a straight line joins
+/// the points at the same index of two levels that follow.
+fn stack(levels: &[(&[Ring], f64)]) -> Result<Solid, String> {
+    let level = |&(rings, z): &(&[Ring], f64)| rings.iter().flatten().map(move |&[x, y]| [x as f32, y as f32, z as f32]).collect::<Vec<_>>();
+    let corners: Vec<[f32; 3]> = levels.iter().flat_map(level).collect();
+    let n = (corners.len() / levels.len()) as u32;
+    let mut triangles = Vec::with_capacity(corners.len() * 2);
+    for k in 1..levels.len() as u32 {
+        let (low, high) = ((k - 1) * n, k * n);
         let mut first = 0;
-        for ring in &bottoms {
+        for ring in levels[0].0 {
             let m = ring.len() as u32;
             for i in 0..m {
                 let (i, j) = (first + i, first + (i + 1) % m);
-                triangles.extend([[i, j, n + j], [i, n + j, n + i]]);
+                triangles.extend([[low + i, low + j, high + j], [low + i, high + j, high + i]]);
             }
             first += m;
         }
-        // The bottom faces down, so its triangles turn the other way.
-        triangles.extend(triangulate(&bottoms).into_iter().map(|[x, y, z]| [x, z, y]));
-        triangles.extend(triangulate(&tops).into_iter().map(|t| t.map(|i| i + n)));
-        Solid::of_triangles(&corners, &triangles).checked()
     }
+    let (bottom, (top, _)) = (levels[0].0, levels[levels.len() - 1]);
+    // The bottom faces down, so its triangles turn the other way.
+    triangles.extend(triangulate(bottom).into_iter().map(|[x, y, z]| [x, z, y]));
+    let last = n * (levels.len() as u32 - 1);
+    triangles.extend(triangulate(top).into_iter().map(|t| t.map(|i| i + last)));
+    Solid::of_triangles(&corners, &triangles).checked()
+}
+
+/// The ring with each edge moved `distance` to its left, into the material, with sharp corners.
+/// An outer outline turns counterclockwise and a hole turns clockwise, so the material is at
+/// the left of each edge.
+fn inset(ring: &[[f64; 2]], distance: f64) -> Ring {
+    let n = ring.len();
+    let left = |i: usize| {
+        let (p, q) = (ring[i], ring[(i + 1) % n]);
+        let length = (q[0] - p[0]).hypot(q[1] - p[1]);
+        [(p[1] - q[1]) / length, (q[0] - p[0]) / length]
+    };
+    (0..n)
+        .map(|i| {
+            let (a, b) = (left((i + n - 1) % n), left(i));
+            // The corner goes to where the two moved edges meet.
+            let s = distance / (1.0 + a[0] * b[0] + a[1] * b[1]);
+            [ring[i][0] + s * (a[0] + b[0]), ring[i][1] + s * (a[1] + b[1])]
+        })
+        .collect()
 }
 
 /// The outer outlines of a sketch, each with its holes.

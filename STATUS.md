@@ -291,7 +291,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Known limits:
   - Round shapes and turns that are not multiples of 90 degrees use the sine of the C++
     runtime. Their hashes were not compared across platforms.
-  - The kernel has no fillet and no bevel. The loft came later, see the loft section.
+  - The kernel has no fillet and no bevel. The loft and the top chamfer came later, see the
+    loft section.
   - `pick` chooses one of two inputs. Chain picks for more choices.
   - The mesh sort adds a sort of all triangles to each `Solid::mesh` call. Task D4 measured it.
 
@@ -478,8 +479,13 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - `SmoothOut` with `Refine` took less than 8 ms, but the faces bulge out. A cube of 2 grew
     to +-1.169 at a smoothness of 0.3 and to +-1.337 at 0.6.
   - Thus the model workbench has no fillet node and no bevel node.
-- Checked on 2026-11-19, on Windows only: the `geometry` unit test of the loft, the unit
-  tests of the city and gun copies, and the CLI test of the guide graphs.
+- Top chamfer (2026-11-19): `Solid::chamfered` and the **chamfer** of `extrude` cut the top
+  edges at 45 degrees. Each edge moves into the material, and the corners stay sharp. A
+  chamfer that removes an edge, or that makes a hole touch an outline, gives an error. It
+  works only with no twist and no taper. A unit test measures the volume of a box, a frame
+  and an L.
+- Checked on 2026-11-19, on Windows only: the `geometry` unit tests of the loft and the
+  chamfer, the unit tests of the city and gun copies, and the CLI test of the guide graphs.
 - Known limits:
   - A loft cannot join one outline to two outlines, for example one square to two circles.
   - Very different outlines, for example a U to a circle, can give sides that cross. The

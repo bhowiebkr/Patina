@@ -143,6 +143,7 @@ The working name is the model workbench, in `workbenches/model`. The owner can g
   - Manifold has no loft, no fillet and no bevel, so D3 has none of them.
   - Later on 2026-11-19, the agent added a loft that the workbench makes from the two
     outlines. A fillet trial was too slow or bulged the faces, so there is still no fillet.
+    Later, `extrude` got a 45 degree chamfer of the top edges.
   - `pick` has two solid inputs and a weights text, because a node has a fixed set of inputs.
     Chain picks for more choices.
   - Seeds and sockets have a text form, so an input with no wire can hold them. `attach` reads

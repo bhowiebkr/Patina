@@ -109,7 +109,8 @@ cargo test --release -p geometry measure -- --ignored --nocapture
   - Solids: `cuboid`, `cylinder`, `cone`, `sphere` and `torus`.
   - Sketches: `rectangle`, `circle` and `polygon`. A polygon is a text of points, for example
     `0 0, 2 0, 1 1.5`.
-  - Sketch to solid: `extrude` (with twist and taper), `revolve` (with a gap in degrees) and
+  - Sketch to solid: `extrude` (with twist, taper and a 45 degree **chamfer** of the top
+    edges), `revolve` (with a gap in degrees) and
     `loft` (from the outlines of a bottom sketch to the outlines of a top sketch). Each outer
     outline joins the outer outline with the nearest center and size. Two joined outer outlines
     must have the same number of holes.
@@ -132,8 +133,9 @@ cargo test --release -p geometry measure -- --ignored --nocapture
 - When the C++ kernel has no memory, the node gets the error "the result is too large". A
   sketch with a very large coordinate gets the error "the construction is not valid". A shape
   has 1024 segments at most, and an array has 1000 copies at most.
-- The kernel has no fillet and no bevel. A Minkowski opening was too slow, and `SmoothOut`
-  makes the faces bulge (see STATUS.md).
+- The kernel has no fillet. A Minkowski opening was too slow, and `SmoothOut` makes the faces
+  bulge (see STATUS.md). The **chamfer** of `extrude` cuts only the top edges, with sharp
+  corners. A chamfer that removes an edge of the sketch gives an error.
 - A loft of very different outlines can give sides that cross. A loft joins each outline to the
   outline with the nearest center and size, so very different holes or islands can also give
   sides that cross. A loft cannot join one outline to two outlines.

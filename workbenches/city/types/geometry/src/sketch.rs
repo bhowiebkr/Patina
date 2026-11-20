@@ -109,6 +109,13 @@ impl Sketch {
         }
     }
 
+    /// The shape inside the closed lines through `rings`, with the non-zero fill rule. An area
+    /// that two rings around it turn in the same direction counts one time.
+    pub(crate) fn of_rings(rings: &[Vec<[f64; 2]>]) -> Sketch {
+        // SAFETY: `mem` is new CrossSection memory, and the polygons are valid during the call.
+        with_rings(rings, |polygons| Sketch::make(|mem| unsafe { manifold_cross_section_of_polygons(mem, polygons, NON_ZERO) }))
+    }
+
     /// The sketch of kernel Polygons from a projection, with the positive fill rule. The kernel
     /// docs give this rule for the outlines of `Manifold::Project`, which can cross themselves.
     ///
@@ -213,15 +220,10 @@ impl Sketch {
 /// the other. They turn counterclockwise when the outer rings turn counterclockwise and the holes
 /// turn clockwise.
 pub(crate) fn triangulate(rings: &[Vec<[f64; 2]>]) -> Vec<[u32; 3]> {
-    let points: Vec<Vec<Vec2>> = rings.iter().map(|ring| ring.iter().map(|&[x, y]| Vec2 { x, y }).collect()).collect();
-    // SAFETY: each constructor fills new memory of its type. The polygons copy the simple
-    // polygons, the buffer has the length that the kernel gives, and all is deleted after the copy.
-    // The tolerance -1 lets the kernel choose. After an exception, the triangulation memory has no
-    // vector, so it is not deleted.
-    let corners = unsafe {
-        let simple: Vec<*mut c_void> =
-            points.iter().map(|p| manifold_simple_polygon(manifold_alloc_simple_polygon(), p.as_ptr(), p.len())).collect();
-        let polygons = manifold_polygons(manifold_alloc_polygons(), simple.as_ptr(), simple.len());
+    // SAFETY: the polygons are valid during the call, and the buffer has the length that the
+    // kernel gives. The tolerance -1 lets the kernel choose. After an exception, the triangulation
+    // memory has no vector, so it is not deleted.
+    let corners = with_rings(rings, |polygons| unsafe {
         let mem = manifold_alloc_triangulation();
         let mut corners: Vec<c_int> = Vec::new();
         if let Ok(triangles) = guard(|| manifold_triangulate(mem, polygons, -1.0)) {
@@ -229,11 +231,25 @@ pub(crate) fn triangulate(rings: &[Vec<[f64; 2]>]) -> Vec<[u32; 3]> {
             manifold_triangulation_tri_verts(corners.as_mut_ptr(), triangles);
             manifold_delete_triangulation(triangles);
         }
+        corners
+    });
+    corners.as_chunks::<3>().0.iter().map(|t| t.map(|i| i as u32)).collect()
+}
+
+/// Calls `use_polygons` with `rings` as kernel Polygons.
+fn with_rings<R>(rings: &[Vec<[f64; 2]>], use_polygons: impl FnOnce(*mut c_void) -> R) -> R {
+    let points: Vec<Vec<Vec2>> = rings.iter().map(|ring| ring.iter().map(|&[x, y]| Vec2 { x, y }).collect()).collect();
+    // SAFETY: each constructor fills new memory of its type. The polygons copy the simple
+    // polygons, and all is deleted after the call.
+    unsafe {
+        let simple: Vec<*mut c_void> =
+            points.iter().map(|p| manifold_simple_polygon(manifold_alloc_simple_polygon(), p.as_ptr(), p.len())).collect();
+        let polygons = manifold_polygons(manifold_alloc_polygons(), simple.as_ptr(), simple.len());
+        let result = use_polygons(polygons);
         manifold_delete_polygons(polygons);
         simple.into_iter().for_each(|p| manifold_delete_simple_polygon(p));
-        corners
-    };
-    corners.as_chunks::<3>().0.iter().map(|t| t.map(|i| i as u32)).collect()
+        result
+    }
 }
 
 impl Clone for Sketch {
