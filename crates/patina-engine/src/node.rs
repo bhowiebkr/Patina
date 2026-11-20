@@ -113,7 +113,8 @@ pub struct Node {
     pub domain: Option<Domain>,
     /// `pub async fn`: the node returns a future, and the event domain waits for it (4.6).
     pub is_async: bool,
-    /// The state struct has `pub fn ui(&mut self, ui: &mut Ui)` (4.3).
+    /// The state struct has `pub fn ui(&mut self, ui: &mut Ui)` (4.3). An audio node has
+    /// `pub fn ui(gui: &mut G, shown: &D, ui: &mut Ui)` and `pub fn display(&self) -> D`.
     pub ui: bool,
     /// `#[node(full_gui)]`: the GUI has a full size (4.3).
     pub full: bool,
@@ -187,7 +188,7 @@ fn parse_node(source: &str) -> Result<Node, String> {
         Item::Struct(s) if !matches!(s.vis, Visibility::Public(_)) => return Err(format!("make the node struct `{}` pub", s.ident)),
         Item::Struct(s) => {
             let generics = type_params(&s.generics)?;
-            let (sig, ui) = process(&file, s, &generics)?;
+            let (sig, ui) = process(&file, s, &generics, domain == Some(Domain::Audio))?;
             (sig, Some(s.ident.to_string()), generics, ui)
         }
         _ => return Err("put #[node] on a function (spec 4.1) or a struct (spec 4.2)".to_owned()),
@@ -338,12 +339,13 @@ fn plain(sig: &Signature, own_generics: bool) -> Result<(), String> {
 }
 
 /// Finds the `process` method of stateful node `node`, and checks its `init` method (4.2) and its
-/// `ui` method (4.3). The `impl` block names the type parameters as the struct does (4.5).
-fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> Result<(&'a Signature, bool), String> {
+/// `ui` method (4.3). The `impl` block names the type parameters as the struct does (4.5). The
+/// `ui` of an audio node never gets the state, so it takes the display value of `display`.
+fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String], audio: bool) -> Result<(&'a Signature, bool), String> {
     let name = &node.ident;
     let this = if generics.is_empty() { name.to_string() } else { format!("{name}<{}>", generics.join(", ")) };
     let head = if generics.is_empty() { format!("impl {this}") } else { format!("impl<{}> {this}", generics.join(", ")) };
-    let (mut init, mut process, mut ui, mut marked) = (None, None, None, false);
+    let (mut init, mut process, mut ui, mut display, mut marked) = (None, None, None, None, false);
     for item in &file.items {
         let Item::Impl(block) = item else { continue };
         if block.trait_.is_some() || type_text(&block.self_ty) != this {
@@ -354,6 +356,7 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
                 "init" => &mut init,
                 "process" => &mut process,
                 "ui" => &mut ui,
+                "display" => &mut display,
                 _ => continue,
             };
             if !matches!(func.vis, Visibility::Public(_)) {
@@ -375,7 +378,20 @@ fn process<'a>(file: &'a syn::File, node: &ItemStruct, generics: &[String]) -> R
         plain(ui, false)?;
         let is_mut = |arg: Option<&FnArg>| matches!(arg, Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_some());
         let is_ui = |arg: Option<&FnArg>| matches!(arg, Some(FnArg::Typed(t)) if { let ty = type_text(&t.ty).replace(' ', ""); ty.starts_with("&mut") && (ty == "&mutUi" || ty.ends_with("::Ui")) });
-        if ui.inputs.len() != 2 || !is_mut(ui.inputs.first()) || !is_ui(ui.inputs.get(1)) || !matches!(ui.output, ReturnType::Default) {
+        let is_ref = |arg: Option<&FnArg>, m: bool| matches!(arg, Some(FnArg::Typed(t)) if matches!(&*t.ty, Type::Reference(r) if r.mutability.is_some() == m));
+        if audio {
+            if ui.inputs.len() != 3 || !is_ref(ui.inputs.first(), true) || !is_ref(ui.inputs.get(1), false) || !is_ui(ui.inputs.get(2)) || !matches!(ui.output, ReturnType::Default) {
+                return Err(format!("`{name}::ui` of an audio node takes `gui: &mut G`, `shown: &D` and `ui: &mut Ui` (spec 4.3)"));
+            }
+            let is_ref_self = |arg: Option<&FnArg>| matches!(arg, Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none());
+            match display {
+                Some(d) if d.inputs.len() == 1 && is_ref_self(d.inputs.first()) && matches!(d.output, ReturnType::Type(..)) => plain(d, false)?,
+                _ => return Err(format!("an audio node with `ui` needs `pub fn display(&self) -> D` in `{head}` (spec 4.3)")),
+            }
+            if !generics.is_empty() {
+                return Err(format!("`{name}` is a generic audio node, so it cannot have a `ui` function (spec 4.3)"));
+            }
+        } else if ui.inputs.len() != 2 || !is_mut(ui.inputs.first()) || !is_ui(ui.inputs.get(1)) || !matches!(ui.output, ReturnType::Default) {
             return Err(format!("`{name}::ui` takes `&mut self` and `ui: &mut Ui` (spec 4.3)"));
         }
     }
@@ -676,6 +692,13 @@ mod tests {
         assert!(parse(&counter.replace("domain = frame", "symbol = \"star\"")).is_err());
         assert!(parse(&counter.replace("domain = frame", "symbol = \"custom\"")).is_err());
         assert!(parse(&counter.replace("#[node(domain = frame)]", "#[node(full_gui)]")).is_err());
+        let level = "pub fn ui(gui: &mut u8, shown: &f32, ui: &mut Ui) {} pub fn display(&self) -> f32 { 0.0 }";
+        let meter = counter.replace("domain = frame", "domain = audio").replace("fn other(&self) {}", level);
+        assert!(parse(&meter).unwrap().ui);
+        assert!(parse(&meter.replace("pub fn display", "pub fn shown")).is_err(), "an audio ui needs display");
+        assert!(parse(&meter.replace("shown: &f32", "shown: &mut f32")).is_err());
+        assert!(parse(&meter.replace("domain = audio", "domain = frame")).is_err(), "only an audio node takes the display form");
+        assert!(parse(&gui.replace("domain = frame", "domain = audio")).is_err(), "an audio ui never gets the state");
         let hold = "#[node] pub struct Hold<T, U> { v: Option<(T, U)> }\n\
                     impl<T: Clone, U> Hold<T, U> { pub fn init() -> Hold<T, U> { todo!() } }\n\
                     impl<T, U> Hold<T, U> where T: Copy { pub fn process(&mut self, x: T, y: &mut Vec<U>) -> Option<T> { todo!() } }";

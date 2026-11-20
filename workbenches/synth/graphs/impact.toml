@@ -52,7 +52,7 @@ semitones = "0"
 [[node]]
 id = "e6beb00000000005"
 folder = "nodes/adsr"
-pos = [280.0, 300.0]
+pos = [340.0, 300.0]
 
 [node.params]
 attack = "0.002"
@@ -63,7 +63,7 @@ release = "0.08"
 [[node]]
 id = "e6beb00000000006"
 folder = "nodes/noise"
-pos = [560.0, 300.0]
+pos = [680.0, 300.0]
 
 [node.params]
 color = "0"
@@ -73,7 +73,7 @@ seed = "293"
 [[node]]
 id = "e6beb00000000007"
 folder = "nodes/vco"
-pos = [840.0, 300.0]
+pos = [1020.0, 300.0]
 
 [node.params]
 hz = "70"
@@ -91,7 +91,7 @@ value = "0"
 [[node]]
 id = "e6beb00000000009"
 folder = "nodes/mixer"
-pos = [280.0, 650.0]
+pos = [340.0, 650.0]
 
 [node.params]
 a_level = "0.65"
@@ -102,7 +102,7 @@ d_level = "0"
 [[node]]
 id = "e6beb0000000000a"
 folder = "nodes/vca"
-pos = [560.0, 650.0]
+pos = [680.0, 650.0]
 
 [node.params]
 level = "1"
@@ -111,7 +111,7 @@ bias = "0"
 [[node]]
 id = "e6beb0000000000b"
 folder = "nodes/svf"
-pos = [840.0, 650.0]
+pos = [1020.0, 650.0]
 
 [node.params]
 cutoff = "900"
@@ -131,7 +131,7 @@ mix = "0.7"
 [[node]]
 id = "e6beb0000000000d"
 folder = "nodes/crusher"
-pos = [280.0, 1020.0]
+pos = [340.0, 1020.0]
 
 [node.params]
 bits = "12"
@@ -141,12 +141,12 @@ mix = "0.12"
 [[node]]
 id = "e6beb0000000000e"
 folder = "nodes/dc-block"
-pos = [560.0, 1020.0]
+pos = [680.0, 1020.0]
 
 [[node]]
 id = "e6beb0000000000f"
 folder = "nodes/compressor"
-pos = [840.0, 1020.0]
+pos = [1020.0, 1020.0]
 
 [node.params]
 threshold = "-16"
@@ -158,7 +158,7 @@ makeup = "3"
 [[node]]
 id = "e6beb00000000010"
 folder = "nodes/reverb"
-pos = [1120.0, 1020.0]
+pos = [1360.0, 1020.0]
 
 [node.params]
 decay = "0.7"
@@ -264,5 +264,5 @@ to = ["e6beb00000000004.notes"]
 [[output]]
 key = "bb000002"
 name = "sound"
-pos = [1400, 1050]
+pos = [1700.0, 1050.0]
 from = "e6beb00000000010.out"

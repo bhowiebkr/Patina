@@ -5,6 +5,8 @@ use std::fmt::Write;
 
 mod xy;
 pub use xy::XyPad;
+mod strip;
+pub use strip::{Ctl, Live, Look, Strip};
 
 pub const INK: [u8; 3] = [238, 238, 235];
 pub const MUTED: [u8; 3] = [178, 178, 173];

@@ -1,8 +1,10 @@
+use panel::{Ctl, Live, Look, Strip};
 use patina_sdk::{AudioBlock, audio};
 
 /// Crossfades the workbench patches, limits peaks, and plays the result. Audible controls the device output.
-#[patina_sdk::node(domain = audio, color = "#59366f")]
+#[patina_sdk::node(domain = audio, free_layout, color = "#59366f")]
 pub struct Output {
+    live: Live,
     capture: synth_dsp::capture::Capture,
     audition: synth_dsp::audition::Audition,
     gain: f32,
@@ -11,6 +13,7 @@ pub struct Output {
 impl Output {
     pub fn init() -> Self {
         Self {
+            live: Live::default(),
             capture: synth_dsp::capture::Capture::new("Output"),
             audition: Default::default(),
             gain: 0.0,
@@ -59,6 +62,22 @@ impl Output {
         if audible {
             audio::play(&block);
         }
+        self.live.keep(
+            &block,
+            &block,
+            [f32::from(u8::from(audible)), 0.0, 0.0, 0.0, 0.0],
+        );
         block
+    }
+    pub fn display(&self) -> Live {
+        self.live
+    }
+    pub fn ui(gui: &mut Strip, shown: &Live, ui: &mut patina_sdk::Ui) {
+        let look = Look {
+            title: "OUTPUT",
+            subtitle: "SCENE MIX",
+            color: panel::VIOLET,
+        };
+        gui.show(ui, shown, look, &[Ctl::switch("audible", "AUDIBLE")]);
     }
 }

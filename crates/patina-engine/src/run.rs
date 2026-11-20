@@ -149,8 +149,8 @@ impl Frames<'_> {
     /// Calls the `ui` function of node `id` (4.3), in mode `mode` (0 compact, 1 large, 2 full).
     /// `events` has a line for each user input: the widget index and the value. Returns the
     /// widget lines, or `None` when the node has no GUI or failed (see the outcome), and the
-    /// parameter writes of the GUI in the outcome. While the audio thread runs, an audio node
-    /// gives `None` (4.3). While the event runs go on, an event node gives `None` when the cluster
+    /// parameter writes of the GUI in the outcome. While the audio thread runs, an audio node gives
+    /// `None`, except an audio node with a display (4.3). While the event runs go on, an event node gives `None` when the cluster
     /// is not parallel, or while a run holds its state. Then the input waits, and the next call of
     /// the node in the same mode applies it first. During the call, `control` keeps the node, so a
     /// second **Stop** can end a GUI that does not return (15.2).
@@ -205,7 +205,9 @@ impl Frames<'_> {
         let calls = &mut self.gui.calls;
         calls.sink.clear();
         // SAFETY: `state` is live, `&mut self` shows that no run of this thread is active, the
-        // audio thread never calls the library of a node that is not an audio node, the event runs
+        // audio thread never calls the library of a node that is not an audio node, the GUI of an
+        // audio node touches only its `Shown` cell, which the parallel audio library shares with
+        // this call (`Nodes::shown`), the event runs
         // share only a parallel library with this call (`Nodes::event_guis`), and `events` and the
         // reporter are valid during the call.
         calls.call(names, probes, control, Some(own), |rep| unsafe { ui(state, node, mode, events.as_ptr(), events.len(), rep) });
@@ -281,6 +283,8 @@ pub(crate) struct Nodes<'a> {
     pub(crate) slot: Option<&'a Library>,
     pub(crate) slotted: &'a [bool],
     pub(crate) domains: &'a [Domain],
+    /// True for each audio node with a display, so its GUI can draw while the audio thread runs.
+    pub(crate) shown: &'a [bool],
     pub(crate) guis: &'a [(String, bool)],
     pub(crate) gui_nodes: &'a [usize],
     /// False while the audio thread runs the audio domain (`Cluster::split`).
@@ -295,10 +299,10 @@ pub(crate) struct Nodes<'a> {
 impl Nodes<'_> {
     /// False for an audio node while the audio thread runs, for an event node while the event
     /// runs go on, and for an unknown node. A `gui` call of an event node can run with parallel
-    /// event runs.
+    /// event runs, and a `gui` call of an audio node with a display can run with the audio thread.
     fn callable(&self, n: usize, gui: bool) -> bool {
         self.domains.get(n).is_some_and(|&domain| match domain {
-            Domain::Audio => self.audio,
+            Domain::Audio => self.audio || (gui && self.shown[n]),
             Domain::Event => self.events || (gui && self.event_guis),
             _ => true,
         })
@@ -326,8 +330,9 @@ pub struct Audio<'a> {
     pub(crate) sound: &'a mut [f32; OUTPUT_SAMPLES],
 }
 
-// SAFETY: while the split lasts, only the thread that holds `Audio` calls the audio cluster, and
-// `Frames` never calls it: its `ui` and `read` refuse the audio nodes. `Cluster::split` and
+// SAFETY: while the split lasts, only the thread that holds `Audio` runs the audio cluster.
+// `Frames` reads no audio node, and its `ui` calls only the audio nodes with a display, which
+// touch only their `Shown` cells (`glue::draw_shown`). `Cluster::split` and
 // `Cluster::live` give an `Audio` only when the audio library and the slot library are parallel,
 // so each value that the audio thread keeps or reads is `Sync`. Else `Frames` keeps the `Audio`,
 // and `Frames` is not `Send`. The

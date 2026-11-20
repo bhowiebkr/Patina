@@ -5,8 +5,8 @@ All milestones of the roadmap (spec section 16) ended. Milestone 12, the event d
 that need the owner. The next work is the open items of the known limits and of
 [docs/before-building.md](docs/before-building.md).
 The owner feedback of 2026-11-19 is the current work list: [docs/feedback-2026-11-19.md](docs/feedback-2026-11-19.md).
-Milestone 11, the audio domain, ended on 2026-11-16. Its step 3, the GUI of audio nodes, stays
-deferred by the owner.
+Milestone 11, the audio domain, ended on 2026-11-16. Since 2026-11-20, an audio node can have a GUI
+with a display value (spec 4.3). The settings and the messages of audio GUIs stay deferred.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
 complete since 2026-11-16. Milestone 10, views,
 ended on 2026-11-15. Milestone 9, the GPU, ended on 2026-11-15. Milestone 8, packaging, ended on 2026-11-15 without the Python module, which needs
@@ -106,7 +106,7 @@ The records of the ended milestones and of the finished work are in [docs/histor
 - Process isolation: The editor runs the engine in a node process. A crash ends only that process.
 - Circuit graphs: The computer example of NAND gates is complete: gates, adders, a register, a RAM and a CPU.
 - Milestone 12: the event domain: The event domain runs async nodes and triggers in the CLI and in the editor, with **Fire**.
-- Milestone 11: the audio domain: The audio domain runs blocks on an audio thread and plays them with `cpal`. The GUI of audio nodes is deferred.
+- Milestone 11: the audio domain: The audio domain runs blocks on an audio thread and plays them with `cpal`. An audio node GUI shows a display value (4.3).
 - Milestone 10: views: `#[view]` builds a view library. The editor lists views, and a view reads and edits the graph.
 - Milestone 9: the GPU: `patina-gpu` gives a `wgpu` device and a WESL linker. `patina-cuda` compiles CUDA with NVRTC.
 - Milestone 8: packaging: `patina-cli package` and the **Package** button make a package folder with a runner. The Python module is open.
@@ -1112,8 +1112,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - These shortcuts are open in the code:
   - `engine.rs` of `patina-editor`: when a library is not parallel, the blocks run on the engine
     thread between the frames, so a slow frame or node GUI makes them late.
-- While the audio thread of the editor runs, a view reads no output of an audio node, and the
-  GUI of an audio node does not draw. The badges of the audio outputs still show.
+- While the audio thread of the editor runs, a view reads no output of an audio node. The GUI of
+  an audio node draws only its display value (4.3, since 2026-11-20). The badges still show.
 - No check played a sound in the editor. The editor uses the same device code as the CLI.
 - When an audio node keeps a value that is not `Sync`, the blocks run on the thread of the
   frames. A slow frame then makes the blocks late. The device queue of 43 ms hides a short delay
@@ -1289,8 +1289,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   not only the task of the node (9.2).
 - The editor selfcheck wires the built-in delay, a generic node, from A to B in the live graph.
   Both wires show 2.5. The editor uses the same engine code as the CLI.
-- Only stateful nodes can have a GUI. The audio `ui` with `#[settings]` comes with the audio
-  domain (milestone 11).
+- Only stateful nodes can have a GUI. An audio GUI has no `#[settings]` and no messages yet (4.3).
 - The **Widgets** group of the **Project** tab makes widget folders with a start widget. **Add
   crate** with a widget name adds the widget by its path. A manual check built a node that shows
   a widget folder in `patina-cli`. The editor self-check makes a widget folder. Then it builds a

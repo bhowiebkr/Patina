@@ -232,6 +232,10 @@ fn cells(s: &mut String, plan: &Plan, domain: Domain) -> Cells {
     for &n in &stateful {
         let _ = writeln!(s, "    let s{n} = ::patina_sdk::glue::State::new(); // {}", plan.steps[n].id);
         shared.push(format!("s{n}"));
+        if shows(plan, n) {
+            let _ = writeln!(s, "    let g{n} = ::patina_sdk::glue::Shown::new();");
+            shared.push(format!("g{n}"));
+        }
     }
     // The value of each delay for the next frame (9.2). The first frame gives `Default::default()`.
     for (n, step) in plan.steps.iter().enumerate().filter(|&(n, _)| plan.is_delay(n) && mine(n)) {
@@ -373,12 +377,22 @@ fn end(s: &mut String, plan: &Plan, domain: Domain) {
     s.push_str("            ok\n        }\n");
 }
 
+/// True when step `n` is an audio node with a GUI, so its GUI draws a display value (4.3).
+pub(crate) fn shows(plan: &Plan, n: usize) -> bool {
+    let node = &plan.nodes[plan.steps[n].node].1;
+    node.ui && node.domain == Some(Domain::Audio)
+}
+
 /// Writes the `Ui` arm of each step of `steps` with a `ui` function (4.3).
 fn ui_arms(s: &mut String, plan: &Plan, steps: &[usize]) {
     for &n in steps {
         let (name, node) = &plan.nodes[plan.steps[n].node];
         let (Some(state), true) = (&node.state, node.ui) else { continue };
         let krate = name.replace('-', "_");
+        if shows(plan, n) {
+            let _ = writeln!(s, "            {n} => ::patina_sdk::glue::draw_shown(&g{n}, ::{krate}::{state}::ui, (mode, events), rep, {n}),");
+            continue;
+        }
         let _ = writeln!(
             s,
             "            {n} => ::patina_sdk::glue::draw(&s{n}, ::{krate}::{state}::init, |st, ui| st.ui(ui), (mode, events), rep, {n}),"
@@ -738,6 +752,9 @@ fn inline(s: &mut String, plan: &Plan, n: usize) {
         s.push_str(" }");
     }
     s.push('\n');
+    if let (Some(state), true) = (&node.state, shows(plan, n)) {
+        let _ = writeln!(s, "{indent}ok &= ::patina_sdk::glue::show(&g{n}, &mut *st, ::{krate}::{state}::display, rep, {n});");
+    }
     let _ = writeln!(s, "{indent}rep.time({n}, t);");
 }
 

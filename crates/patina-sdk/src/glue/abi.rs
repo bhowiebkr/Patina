@@ -46,7 +46,8 @@ pub unsafe fn set(
 /// # Safety
 ///
 /// The same as for `set`. No run of the cluster is active, or the cluster is `parallel` and only
-/// event runs are active.
+/// event runs are active, or the cluster is `parallel`, only the audio run is active and `node` is
+/// an audio node with a display (spec 4.3).
 pub unsafe fn ui(cluster: *const Cluster, node: u32, mode: u32, text: *const u8, len: usize, rep: *const Reporter) -> bool {
     // SAFETY: the caller keeps the rules of this function.
     let (cluster, rep, bytes) = unsafe { (&*cluster, &*rep, std::slice::from_raw_parts(text, len)) };

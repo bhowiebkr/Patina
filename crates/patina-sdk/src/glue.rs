@@ -522,6 +522,8 @@ mod net;
 pub use net::*;
 mod probe;
 pub use probe::*;
+mod shown;
+pub use shown::*;
 mod slot;
 pub use slot::*;
 mod view;

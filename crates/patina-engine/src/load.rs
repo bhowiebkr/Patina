@@ -38,6 +38,8 @@ pub struct Cluster {
     pub(crate) sources: crate::cargo::Sources,
     /// The domain of each node, by node index.
     domains: Vec<Domain>,
+    /// True for each audio node with a GUI, by node index (`generate::shows`).
+    shown: Vec<bool>,
     /// The state key of each node, by node index (7.2). A node with no state has none.
     keys: Vec<Option<u64>>,
     /// The times of the last runs of each domain (9.2).
@@ -120,6 +122,7 @@ impl Cluster {
             mode: crate::Mode::Edit,
             sources: Vec::new(),
             domains: plan.steps.iter().map(|s| s.domain).collect(),
+            shown: (0..plan.steps.len()).map(|n| crate::generate::shows(plan, n)).collect(),
             keys,
             pace: [Pace::default(); 4],
             names,
@@ -350,6 +353,7 @@ impl Cluster {
             slot: self.slot.as_ref().map(|(library, _)| library),
             slotted: &self.slotted,
             domains: &self.domains,
+            shown: &self.shown,
             guis: &self.guis,
             gui_nodes: &self.gui_nodes,
             audio,

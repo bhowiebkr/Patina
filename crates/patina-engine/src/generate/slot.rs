@@ -109,6 +109,10 @@ pub fn source(plan: &Plan, slot: usize) -> String {
     for &n in &stateful {
         let _ = writeln!(s, "    let s{n} = ::patina_sdk::glue::State::new(); // {}", plan.steps[n].id);
         let _ = writeln!(s, "    let c_s{n} = ::patina_sdk::glue::check(&s{n});");
+        if super::shows(plan, n) {
+            let _ = writeln!(s, "    let g{n} = ::patina_sdk::glue::Shown::new();");
+            let _ = writeln!(s, "    let c_g{n} = ::patina_sdk::glue::check(&g{n});");
+        }
     }
     s.push_str(
         "    let f = ::patina_sdk::glue::typed(move |cmd, rep| match cmd {\n        \
@@ -130,6 +134,9 @@ pub fn source(plan: &Plan, slot: usize) -> String {
     s.push_str("            _ => false,\n        },\n        _ => false,\n    });\n    let parallel = true");
     for n in &stateful {
         let _ = write!(s, " && (&&c_s{n}).sync()");
+        if super::shows(plan, *n) {
+            let _ = write!(s, " && (&&c_g{n}).sync()");
+        }
     }
     s.push_str(";\n    ::patina_sdk::glue::cluster(f, parallel)\n}\n");
     s.push_str(EXPORTS);
@@ -207,6 +214,9 @@ fn call_arm(s: &mut String, plan: &Plan, slot: usize, n: usize) {
     };
     for (k, value) in outputs.iter().enumerate().filter(|_| generic) {
         let _ = writeln!(s, "{inner}if false {{ ::patina_sdk::glue::same({value}, &::patina_sdk::glue::like(&w{n}).{k}); }}");
+    }
+    if let (Some(state), true) = (&node.state, super::shows(plan, n)) {
+        let _ = writeln!(s, "{inner}g{n}.publish(::{krate}::{state}::display(st));");
     }
     let _ = writeln!(s, "{inner}// SAFETY: the last argument is the `Option` of the result (generate/slot.rs).");
     let _ = writeln!(s, "{inner}unsafe {{ ::patina_sdk::glue::put_result(args[{count}], r) }};");

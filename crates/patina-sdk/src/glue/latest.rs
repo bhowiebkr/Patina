@@ -30,13 +30,13 @@ unsafe impl<T: Send> Send for Triple<T> {}
 unsafe impl<T: Send> Sync for Triple<T> {}
 
 impl<T> Triple<T> {
-    fn new() -> Triple<T> {
+    pub(super) fn new() -> Triple<T> {
         let slots = [UnsafeCell::new(None), UnsafeCell::new(None), UnsafeCell::new(None)];
         Triple { slots, middle: AtomicU8::new(1), back: AtomicU8::new(0), front: AtomicU8::new(2) }
     }
 
     /// Puts a copy of `value` in the middle for the reader. One thread writes at a time.
-    fn publish(&self, value: &Option<T>)
+    pub(super) fn publish(&self, value: &Option<T>)
     where
         T: Clone,
     {
@@ -54,7 +54,7 @@ impl<T> Triple<T> {
 
     /// Swaps the newest value into `own` when the writer gave one after the last fetch. The old
     /// value of `own` goes back to the writer, which drops or reuses it. One thread reads at a time.
-    fn fetch(&self, own: &mut Option<T>) {
+    pub(super) fn fetch(&self, own: &mut Option<T>) {
         if self.middle.load(Relaxed) & FRESH == 0 {
             return;
         }

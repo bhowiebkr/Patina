@@ -6,6 +6,7 @@ version = 4
 name = "adsr"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -39,6 +40,7 @@ dependencies = [
 name = "attenuverter"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -55,6 +57,7 @@ dependencies = [
 name = "audio-capture"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -63,6 +66,7 @@ dependencies = [
 name = "chorus"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -71,6 +75,7 @@ dependencies = [
 name = "clock"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -88,6 +93,7 @@ dependencies = [
 name = "compressor"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -105,6 +111,7 @@ dependencies = [
 name = "constant"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -139,6 +146,7 @@ dependencies = [
 name = "crusher"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -147,6 +155,7 @@ dependencies = [
 name = "dc-block"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -155,6 +164,7 @@ dependencies = [
 name = "drums"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -163,6 +173,7 @@ dependencies = [
 name = "echo"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -171,6 +182,7 @@ dependencies = [
 name = "envelope"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -187,6 +199,7 @@ dependencies = [
 name = "filter"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -217,6 +230,7 @@ dependencies = [
 name = "lfo"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -231,6 +245,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 name = "mixer"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -247,6 +262,7 @@ dependencies = [
 name = "noise"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -255,6 +271,7 @@ dependencies = [
 name = "note"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -263,6 +280,7 @@ dependencies = [
 name = "oscillator"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -271,6 +289,7 @@ dependencies = [
 name = "output"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -332,6 +351,7 @@ dependencies = [
 name = "rave-oscillator"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -340,6 +360,7 @@ dependencies = [
 name = "reverb"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -348,6 +369,7 @@ dependencies = [
 name = "sample-hold"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -356,6 +378,7 @@ dependencies = [
 name = "saturator"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -424,6 +447,7 @@ dependencies = [
 name = "slew"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -432,6 +456,7 @@ dependencies = [
 name = "song-clock"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -440,6 +465,7 @@ dependencies = [
 name = "song-track"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -474,6 +500,7 @@ dependencies = [
 name = "stereo-channel"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
 ]
 
@@ -481,6 +508,7 @@ dependencies = [
 name = "stereo-mix"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
 ]
 
@@ -488,6 +516,7 @@ dependencies = [
 name = "stereo-output"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -496,6 +525,7 @@ dependencies = [
 name = "stereo-pair"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
 ]
 
@@ -503,6 +533,7 @@ dependencies = [
 name = "svf"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -540,6 +571,7 @@ dependencies = [
 name = "transpose"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -554,6 +586,7 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 name = "vca"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]
@@ -562,6 +595,7 @@ dependencies = [
 name = "vco"
 version = "0.1.0"
 dependencies = [
+ "panel",
  "patina-sdk",
  "synth-dsp",
 ]

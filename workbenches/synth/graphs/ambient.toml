@@ -63,7 +63,7 @@ seed = "137"
 [[node]]
 id = "e6bea00000000006"
 folder = "nodes/lfo"
-pos = [280.0, 300.0]
+pos = [340.0, 300.0]
 
 [node.params]
 rate = "0.09"
@@ -74,12 +74,12 @@ offset = "0"
 [[node]]
 id = "e6bea00000000007"
 folder = "nodes/sample-hold"
-pos = [560.0, 300.0]
+pos = [680.0, 300.0]
 
 [[node]]
 id = "e6bea00000000008"
 folder = "nodes/slew"
-pos = [840.0, 300.0]
+pos = [1020.0, 300.0]
 
 [node.params]
 rise = "0.8"
@@ -96,7 +96,7 @@ value = "0"
 [[node]]
 id = "e6bea0000000000a"
 folder = "nodes/vco"
-pos = [280.0, 620.0]
+pos = [340.0, 620.0]
 
 [node.params]
 hz = "65.4064"
@@ -106,7 +106,7 @@ shape = "1"
 [[node]]
 id = "e6bea0000000000b"
 folder = "nodes/vco"
-pos = [560.0, 620.0]
+pos = [680.0, 620.0]
 
 [node.params]
 hz = "98"
@@ -116,7 +116,7 @@ shape = "3"
 [[node]]
 id = "e6bea0000000000c"
 folder = "nodes/adsr"
-pos = [840.0, 620.0]
+pos = [1020.0, 620.0]
 
 [node.params]
 attack = "0.8"
@@ -138,7 +138,7 @@ d_level = "0"
 [[node]]
 id = "e6bea0000000000e"
 folder = "nodes/svf"
-pos = [280.0, 960.0]
+pos = [340.0, 960.0]
 
 [node.params]
 cutoff = "850"
@@ -149,7 +149,7 @@ mode = "0"
 [[node]]
 id = "e6bea0000000000f"
 folder = "nodes/saturator"
-pos = [560.0, 960.0]
+pos = [680.0, 960.0]
 
 [node.params]
 drive = "2.2"
@@ -158,7 +158,7 @@ mix = "0.4"
 [[node]]
 id = "e6bea00000000010"
 folder = "nodes/chorus"
-pos = [840.0, 960.0]
+pos = [1020.0, 960.0]
 
 [node.params]
 rate = "0.18"
@@ -168,7 +168,7 @@ mix = "0.6"
 [[node]]
 id = "e6bea00000000011"
 folder = "nodes/reverb"
-pos = [560.0, 1280.0]
+pos = [680.0, 1280.0]
 
 [node.params]
 decay = "4.2"
@@ -178,7 +178,7 @@ mix = "0.35"
 [[node]]
 id = "e6bea00000000012"
 folder = "nodes/vca"
-pos = [840.0, 1280.0]
+pos = [1020.0, 1280.0]
 
 [node.params]
 level = "1"
@@ -187,7 +187,7 @@ bias = "0"
 [[node]]
 id = "e6bea00000000013"
 folder = "nodes/dc-block"
-pos = [1120.0, 1280.0]
+pos = [1360.0, 1280.0]
 
 [[wire]]
 from = "e6bea00000000003.out"
@@ -297,5 +297,5 @@ name = "VOICE"
 [[output]]
 key = "aa000001"
 name = "sound"
-pos = [1400, 1310]
+pos = [1700.0, 1310.0]
 from = "e6bea00000000013.out"

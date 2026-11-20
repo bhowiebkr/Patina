@@ -102,9 +102,30 @@ impl CurveEditor {
 
 **Audio nodes**
 
-The owner deferred the GUI of audio nodes on 2026-11-15: the settings, the messages and the display values below. The design stays for a later milestone. Until then, an audio node has no `ui` function.
+The audio thread has a hard deadline (9.3). So the `ui` function of an audio node never runs on the audio thread, and it never gets the node state. Since 2026-11-20, an audio node can have a GUI that shows a display value (agent decision, the owner can change it):
 
-The audio thread has a hard deadline (9.3). So the `ui` function of an audio node never runs on the audio thread, and it never gets the node state:
+```rust
+#[node(domain = audio)]
+pub struct Meter { peak: f32 }
+
+impl Meter {
+    pub fn process(&mut self, sound: &StereoBlock) -> StereoBlock { ... }
+
+    pub fn display(&self) -> f32 { self.peak }
+
+    pub fn ui(gui: &mut Dial, shown: &f32, ui: &mut Ui) {
+        ui.label(&format!("{shown:.2}"));
+    }
+}
+```
+
+- `display(&self)` returns a small value that is `Copy` and `Default`. The engine calls it after each block and gives the latest value to the GUI with no lock and no allocation (9.3).
+- Before the first block, `ui` gets `Default::default()`. A panic in `display` drops the node state, as a panic in `process` does (4.7).
+- The first argument of `ui` is a GUI state that is `Default`, for example the drag of a dial. It does not save, and the audio thread never touches it.
+- A control of the GUI writes a parameter with `ui.set_param`, as the Inspector does (4.8). The parameter change starts the live run again, as for a frame node.
+- The GUI draws while the audio thread runs, because the engine splits only a parallel cluster (9.3). A generic audio node cannot have a `ui` function yet.
+
+The owner deferred the settings and the messages below on 2026-11-15. The design stays for a later milestone:
 
 ```rust
 #[derive(Clone, Param)]
@@ -127,7 +148,6 @@ impl AdsrEnvelope {
 - After a change, the engine copies the settings to the audio side. `process` sees the new settings at the start of the next block. The audio thread never waits for the GUI, and the copy does not allocate or drop on the audio thread.
 - The settings save with the project and take part in undo, as parameters do (4.8).
 - One-shot actions, for example **Audition** or **Reset**, are messages. `ui.send` puts a message into a queue with a fixed size (9.1). `process` gets the messages of the block in its `#[messages]` argument. If the queue is full, the node shows an error.
-- For display, the node can have a `display(&self)` function that returns a small `Copy` value, for example the position of the playhead. The engine calls it after a block, at the display rate at most. `ui` gets the latest value.
 - The nodes of the other domains use the model above: `ui` gets `&mut self` between two runs.
 
 **Widgets**

@@ -152,7 +152,8 @@ export async function synthDocks(view: View, show: (view: View) => void): Promis
   click('export', 'Export saved patch');
   await until(() => panel('export')!.textContent!.includes('Cancel export'), 'Cancel action did not appear');
   click('export', 'Cancel export');
-  await until(() => panel('export')!.textContent!.includes('Export cancelled.'), 'Export did not cancel');
+  await until(() => panel('export')!.textContent!.includes('Export cancelled.'), 'Export did not cancel', 60_000)
+    .catch((e: Error) => { throw new Error(`${e.message}: ${panel('export')!.textContent!.slice(-300)}`); });
   show(await api.edit({ kind: 'SetParam', id: 'e6be000000000026', key: 'audible', text: 'false' }));
   show(await api.save());
   steps.push('export cancellation stops its process tree and removes the partial render');
