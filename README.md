@@ -1,7 +1,31 @@
 <div align="center">
+
+<img src="assets/branding/emblem.png" alt="Patina logo" width="140">
+
 <h1>Patina</h1>
 
-<p><b>A visual node graph editor and engine. Each node is Rust code.</b></p>
+<p><b>A visual node graph editor and engine. Each node is Rust code.</b><br>
+Patina compiles the graph to native code and runs the independent nodes in parallel.</p>
+
+<p>
+<a href="https://github.com/bhowiebkr/Patina/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/bhowiebkr/Patina?label=release&color=b0602f"></a>
+<a href="https://github.com/bhowiebkr/Patina/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bhowiebkr/Patina/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+<a href="#license"><img alt="License: MIT or Apache-2.0" src="https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-4a4a4a"></a>
+<img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-4a4a4a">
+<img alt="Written in Rust" src="https://img.shields.io/badge/written%20in-Rust-b0602f">
+</p>
+
+<p>
+<a href="https://github.com/bhowiebkr/Patina/releases/latest"><b>Download</b></a>
+&nbsp;|&nbsp;
+<a href="#install"><b>Install</b></a>
+&nbsp;|&nbsp;
+<a href="docs/workbenches/README.md"><b>Workbench guide</b></a>
+&nbsp;|&nbsp;
+<a href="docs/spec/README.md"><b>Specification</b></a>
+&nbsp;|&nbsp;
+<a href="CHANGELOG.md"><b>Changelog</b></a>
+</p>
 
 <img src="docs/images/workbenches/synth/overview.png" alt="The Ember synth workbench in the Patina editor: node GUIs, live audio wires, an analysis dock and a pattern editor">
 
@@ -15,11 +39,13 @@
 - [What Patina is](#what-patina-is)
 - [Workbenches](#workbenches)
 - [Nodes](#nodes)
+- [Graph view](#graph-view)
 - [Connections](#connections)
 - [Views](#views)
 - [Layers](#layers)
 - [Clock domains](#clock-domains)
 - [GPU](#gpu)
+- [Logic circuits](#logic-circuits)
 - [Install](#install)
 - [Packages](#packages)
 - [Run a project from the command line](#run-a-project-from-the-command-line)
