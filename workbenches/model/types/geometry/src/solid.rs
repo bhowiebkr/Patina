@@ -268,14 +268,15 @@ impl Solid {
     /// The solid has the kernel error of a mesh that is not closed or of an index that is too large.
     pub fn of_triangles(corners: &[[f32; 3]], triangles: &[[u32; 3]]) -> Solid {
         // SAFETY: the MeshGL copies the two arrays of the given lengths into new MeshGL memory,
-        // the solid copies the mesh into new Manifold memory, and the mesh is deleted after the copy.
-        Solid::make(|mem| unsafe {
+        // the solid copies the mesh into new Manifold memory, and the mesh is deleted after the copy,
+        // also after an exception.
+        unsafe {
             let (props, tris) = (corners.as_flattened(), triangles.as_flattened());
             let mesh = manifold_meshgl(manifold_alloc_meshgl(), props.as_ptr(), corners.len(), 3, tris.as_ptr(), triangles.len());
-            let solid = manifold_of_meshgl(mem, mesh);
+            let solid = Solid::make(|mem| manifold_of_meshgl(mem, mesh));
             manifold_delete_meshgl(mesh);
             solid
-        })
+        }
     }
 
     /// The solid, or the kernel error as a text for the node.
@@ -404,15 +405,15 @@ pub(crate) fn limit(segments: i32) -> i32 {
     segments.clamp(0, MAX_SEGMENTS)
 }
 
-/// Runs the kernel calls in `run`, which must not panic. A C++ exception of the kernel gives the
-/// kernel status of its error and does not stop the program: "the result is too large" for a
-/// `bad_alloc`, or else "the construction is not valid". The exception can leave kernel memory
-/// that nothing deletes.
 /// The text of the kernel status `status`, or `None` for 0.
 pub(crate) fn error_text(status: c_int) -> Option<&'static str> {
     (status != 0).then(|| usize::try_from(status).ok().and_then(|i| ERRORS.get(i)).copied().unwrap_or("unknown error"))
 }
 
+/// Runs the kernel calls in `run`, which must not panic. A C++ exception of the kernel gives the
+/// kernel status of its error and does not stop the program: "the result is too large" for a
+/// `bad_alloc`, or else "the construction is not valid". The callers make their temporary kernel
+/// objects before `run` and delete them after it, so that an exception does not leave them.
 pub(crate) fn guard<R, F: FnOnce() -> R>(run: F) -> Result<R, c_int> {
     unsafe extern "C-unwind" fn call<R, F: FnOnce() -> R>(data: *mut c_void) {
         // SAFETY: `data` is the pair of `guard`, which lives until `patina_guard` returns.

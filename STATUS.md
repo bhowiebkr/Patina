@@ -571,7 +571,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Kernel exceptions (2026-11-19): a C++ exception of the kernel does not stop the program. A
   solid gets the error "the result is too large" for a `bad_alloc`, or else "the construction is
   not valid". The booleans keep the error. The copies of the crate in the city and the gun
-  workbenches have the same guard, with new import records.
+  workbenches have the same guard, with new import records. The Rust calls delete their
+  temporary kernel objects also after an exception.
 - A sketch that the kernel cannot make is empty and keeps the error. A move and a copy keep it,
   and an extrude, a revolve or a loft of the sketch gives the same error. The circle, rectangle
   and polygon nodes show the error.
@@ -579,7 +580,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   through a union. A unit test makes a sketch with a coordinate out of the Clipper2 range. It
   checks the error of the sketch, its move, its copy, and its extrude, revolve and loft.
 - Known limits:
-  - After a kernel exception, the kernel memory of the failed call stays until the program stops.
+  - No check measured the memory after many kernel exceptions.
   - An allocation failure in the Rust code stops the program.
   - The `parallel` feature of `cc` adds `jobserver` and `libc` to the crate downloads.
   - Linux and macOS did not run.

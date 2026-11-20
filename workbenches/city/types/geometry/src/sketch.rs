@@ -100,13 +100,13 @@ impl Sketch {
     pub fn polygon(points: &[[f64; 2]]) -> Sketch {
         let points: Vec<Vec2> = points.iter().map(|&[x, y]| Vec2 { x, y }).collect();
         // SAFETY: the polygon copies the points into new SimplePolygon memory, the sketch copies
-        // the polygon, and the polygon is deleted after the copy.
-        Sketch::make(|mem| unsafe {
+        // the polygon, and the polygon is deleted after the copy, also after an exception.
+        unsafe {
             let polygon = manifold_simple_polygon(manifold_alloc_simple_polygon(), points.as_ptr(), points.len());
-            let sketch = manifold_cross_section_of_simple_polygon(mem, polygon, NON_ZERO);
+            let sketch = Sketch::make(|mem| manifold_cross_section_of_simple_polygon(mem, polygon, NON_ZERO));
             manifold_delete_simple_polygon(polygon);
             sketch
-        })
+        }
     }
 
     /// The sketch of kernel Polygons from a projection, with the positive fill rule. The kernel
