@@ -29,16 +29,27 @@ impl Processor {
         let correction = if interpolate { DriftCorrection::Interpolate } else { DriftCorrection::LastZero };
         self.output = match survey.run() {
             Some(run) => {
-                match Results::compute(run, &run.scale(&survey.session.scale, &survey.session.sensor), correction) {
+                let scale = run.scale(&survey.session.scale, &survey.session.sensor);
+                let heights = run.heights(&scale, correction);
+                let computed =
+                    heights.as_ref().map_err(Clone::clone).and_then(|h| Results::from_heights(run, &scale, h.clone()));
+                let surface =
+                    heights.ok().map(|h| Arc::new(crate::surface::Surface::new(run, &h, computed.as_ref().ok())));
+                match computed {
                     Ok(result) => ResultData {
                         result: Some(Arc::new(result)),
                         name: run.name.clone(),
                         error: String::new(),
                         correction,
+                        surface,
                     },
-                    Err(e) => {
-                        ResultData { error: e.to_string(), name: run.name.clone(), correction, ..Default::default() }
-                    }
+                    Err(e) => ResultData {
+                        error: e.to_string(),
+                        name: run.name.clone(),
+                        correction,
+                        surface,
+                        ..Default::default()
+                    },
                 }
             }
             None => ResultData { error: "No survey run".into(), correction, ..Default::default() },

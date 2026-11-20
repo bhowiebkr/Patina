@@ -8,10 +8,12 @@ pub struct SurveyData {
     selected: Option<usize>,
     visit: Option<usize>,
     file: String,
+    station_page: u32,
+    visit_page: u32,
 }
 impl SurveyData {
     pub fn init() -> Self {
-        Self { page: 0, unit: 0, selected: None, visit: None, file: String::new() }
+        Self { page: 0, unit: 0, selected: None, visit: None, file: String::new(), station_page: 1, visit_page: 1 }
     }
     pub fn ui(&mut self, ui: &mut Ui, graph: &mut Graph) {
         let survey_id = graph.nodes().find(|id| graph.folder(id) == Some("nodes/survey")).map(str::to_owned);
@@ -40,8 +42,13 @@ impl SurveyData {
         if self.page == 0 {
             if let Some(data) = result {
                 self.selected = data.result.as_ref().and_then(|r| r.points.iter().position(|p| p.station == s.station));
-                if measurement_ui::results::table(ui, &data, Unit::ALL[self.unit], &mut self.selected)
-                    && let Some(p) = self.selected.and_then(|i| data.result.as_ref()?.points.get(i))
+                if measurement_ui::results::table(
+                    ui,
+                    &data,
+                    Unit::ALL[self.unit],
+                    &mut self.selected,
+                    &mut self.station_page,
+                ) && let Some(p) = self.selected.and_then(|i| data.result.as_ref()?.points.get(i))
                 {
                     let mut options = s.options.clone();
                     options.station = p.station;
@@ -51,7 +58,7 @@ impl SurveyData {
                 ui.label("Connect a Results node to the survey.");
             }
         } else if self.page == 1 {
-            measurement_ui::survey::visits(ui, &s, &mut self.visit);
+            measurement_ui::survey::visits(ui, &s, &mut self.visit, &mut self.visit_page);
         } else {
             ui.label(&format!("Session file: {}", s.options.file));
             ui.label(

@@ -41,7 +41,7 @@ The console makes the graph usable as an instrument.
 |---|---|
 | <img src="../mockups/details/nodes/station-plan.png" alt="Interactive station map" width="283"> | **Station Plan: an editable spatial control**<br><br>The grid, station labels and zero marker are data, not decoration. Selecting a station should update the console and result selection. Spacing and grid size affect the plan. Make the active station and the zero reference visually distinct. |
 | <img src="../mockups/details/nodes/sample-window.png" alt="Sampling uncertainty and progress" width="277"> | **Sample Window: quality and progress together**<br><br>The scatter plot distinguishes accepted frames and outliers. Time bounds and uncertainty target are inputs. Current uncertainty, used-frame count and progress are results. Sampling actions must refer to one explicit request and station, even if the visible selection changes. |
-| <img src="../mockups/details/nodes/fit-surface.png" alt="Compact fitting summary" width="284"> | **Fit Surface: a compact computed summary**<br><br>The fit option, contour thumbnail, flatness and noise floor make a useful short node. Do not place an interactive 3D editor inside this body. The thumbnail summarizes the same result that the larger view displays. |
+| <img src="../mockups/details/nodes/fit-surface.png" alt="Compact fitting summary" width="284"> | **Fit Surface: a compact computed summary**<br><br>The fit option, contour thumbnail, flatness and noise floor make a useful short node. The node can show a projected 3D plot with orbit controls. A separate GPU view shows the same measured geometry. |
 
 ![Measurement Console custom view](../mockups/details/views/measurement-console.png)
 
@@ -62,3 +62,11 @@ uses a line plot and uncertainty bars instead.
 not behind Sample Window. The central zero marker and **A1 Zero** disagree.
 Use one identity. The pictured surface and numbers are illustrative and do
 not validate plane removal, uncertainty or drift correction.
+
+
+## Surface probing update, 2026-11-20
+
+The owner requested colored 3D results and a coin scan. Surface probing must retain the object shape by default.
+Use **Measured height** for the raw geometry relative to zero. Keep plane removal under **Leveled**.
+A node canvas can project the measured mesh and accept orbit input. The GPU viewport remains in a separate view.
+Show a height legend, physical units, and the display exaggeration. Do not fill missing measurements from the simulation target.

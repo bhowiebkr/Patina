@@ -4,7 +4,6 @@ use crate::{
     core::{
         reading::{SampleRule, Sampler, Subsample},
         survey::{PixelGrid, Run, Session},
-        synth::Surface,
     },
     settings, storage,
 };
@@ -37,6 +36,8 @@ pub struct Motion {
     pub lift_mm: f64,
     pub dwell_s: f64,
     pub zero_every: usize,
+    pub object: u32,
+    pub relief_um: f64,
 }
 impl patina_sdk::Viewer for Motion {
     fn text(&self, out: &mut patina_sdk::Text<'_>) -> fmt::Result {
@@ -190,6 +191,8 @@ impl Survey {
         let opts: Options = settings::decode(options)?;
         settings::sample(opts.rule)?;
         if !settings::range(motion.dwell_s, 0.0, 60.0)
+            || motion.object > 1
+            || (motion.object == 1 && !settings::range(motion.relief_um, 1.0, 1500.0))
             || (motion.simulated
                 && (!settings::range(motion.feed_mm_min, 1.0, 6000.0) || !settings::range(motion.lift_mm, 0.0, 100.0)))
         {
@@ -241,9 +244,13 @@ impl Survey {
                 - frame.image.as_ref().map_or(0.0, |im| im.t_s);
             self.placed = None;
         }
-        if !self.route.is_empty() && self.motion != *motion {
-            self.stop_active();
-            self.shown.error = "Controller settings changed. The scan stopped.".into();
+        if self.motion != *motion {
+            if self.shown.active {
+                self.stop_active();
+                self.shown.error = "Controller settings changed. The scan stopped.".into();
+            }
+            self.motion = *motion;
+            self.placed = None;
         }
         let time = frame.image.as_ref().map_or(self.offset, |im| im.t_s + self.offset);
         if let Some(verb) = self.accept(request) {
@@ -335,9 +342,19 @@ impl Survey {
                 if !motion.simulated || reading.beam.frame.block.is_none() {
                     return Err("Automated Survey requires the simulated controller and synthetic camera".into());
                 }
-                if self.shown.run().is_some_and(|r| !r.visits.is_empty()) {
+                if self
+                    .shown
+                    .run()
+                    .is_some_and(|r| !r.visits.is_empty() || r.stations != plan.0.stations || r.zero != plan.0.zero)
+                {
                     self.action("new", reading, plan, motion, time)?;
                 }
+                let run = &mut Arc::make_mut(&mut self.shown.session).runs[self.shown.run];
+                run.name = if motion.object == 1 {
+                    format!("Coin relief / scale {} um", motion.relief_um)
+                } else {
+                    "Surface plate".into()
+                };
                 let run = self.shown.run().ok_or("No station plan")?;
                 self.route = route(run, motion.zero_every.max(1));
                 self.cursor = 0;
@@ -474,7 +491,8 @@ impl Survey {
             (&reading.beam.frame.block, reading.calibration.scale, self.shown.run())
         {
             let sign = if scale.invert { -1.0 } else { 1.0 };
-            block.place(sign * Surface::default().seen_um(run, station) / scale.um_per_px);
+            let height = crate::specimen::height(run, station, self.motion.object, self.motion.relief_um);
+            block.place(sign * height / scale.um_per_px);
             self.placed = Some(station);
         }
     }

@@ -1,6 +1,9 @@
 use patina_sdk::{Canvas, Mode, Ui};
 pub mod beam;
 pub mod results;
+pub mod surface;
+pub mod surface_camera;
+pub mod surface_render;
 pub mod survey;
 pub const INK: [u8; 3] = [238, 238, 235];
 pub const MUTED: [u8; 3] = [178, 178, 173];
@@ -132,6 +135,13 @@ pub fn station_map(
     let maxy = run.stations.iter().map(|s| s.y_mm).fold(1.0, f64::max);
     plot_frame(&mut c, [24.0, 20.0, size[0] - 48.0, size[1] - 48.0]);
     let mut picked = None;
+    let mut nearest = 12.0;
+    let mut visited = [0_u64; 64];
+    for visit in &run.visits {
+        if let Some(word) = visited.get_mut(visit.station / 64) {
+            *word |= 1 << (visit.station % 64);
+        }
+    }
     for (i, s) in run.stations.iter().enumerate() {
         let at = [
             24.0 + (size[0] - 48.0) * (s.x_mm / maxx) as f32,
@@ -139,13 +149,15 @@ pub fn station_map(
         ];
         for p in c.pointer() {
             if let patina_sdk::Pointer::Down(pt) = p
-                && (pt[0] - at[0]).hypot(pt[1] - at[1]) < 12.0
+                && (pt[0] - at[0]).hypot(pt[1] - at[1]) < nearest
             {
+                nearest = (pt[0] - at[0]).hypot(pt[1] - at[1]);
                 picked = Some(i);
             }
         }
-        let visited = run.visits.iter().any(|v| v.station == i);
-        c.circle(at, 4.0, if visited { TEAL } else { MUTED }, true);
+        let done = visited.get(i / 64).is_some_and(|word| word & (1 << (i % 64)) != 0);
+        let radius = if run.stations.len() > 100 { 1.5 } else { 4.0 };
+        c.circle(at, radius, if done { TEAL } else { MUTED }, true);
         if i == selected {
             c.circle(at, 8.0, AMBER, false);
         }
@@ -162,4 +174,14 @@ pub fn station_map(
     }
     c.text([24.0, size[1] - 6.0], MUTED, "X / Y in mm     Z = zero reference");
     picked
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn dense_station_map_picks_the_nearest_point() {
+        let run = measurement::core::survey::Run::grid("Coin", 41, 41, 0.75, 0.75);
+        let mut ui = patina_sdk::Ui::new(0, "0 down 24 162");
+        assert_eq!(super::station_map(&mut ui, &run, 0, [328., 190.]), Some(0));
+    }
 }

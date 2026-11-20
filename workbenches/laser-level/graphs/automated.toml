@@ -61,10 +61,10 @@ folder = "nodes/station-plan"
 pos = [0.0, 700.0]
 
 [node.params]
-nx = "5"
-ny = "5"
-dx = "25"
-dy = "25"
+nx = "41"
+ny = "41"
+dx = "0.75"
+dy = "0.75"
 zero = "0"
 line = "false"
 
@@ -76,9 +76,11 @@ pos = [420.0, 750.0]
 [node.params]
 simulated = "true"
 feed = "3000"
-lift = "5"
-dwell = "0.3"
-zero_every = "5"
+lift = "0.5"
+dwell = "0.05"
+zero_every = "41"
+object = "1"
+relief = "800"
 
 [[node]]
 id = "1a5e000000000018"
@@ -86,7 +88,7 @@ folder = "nodes/survey"
 pos = [880.0, 820.0]
 
 [node.params]
-options = "{\"rule\":{\"min_s\":0.4,\"max_s\":1,\"target_um\":0.05},\"file\":\"measurements/automated.json\"}"
+options = "{\"rule\":{\"min_s\":0.2,\"max_s\":0.2,\"target_um\":null},\"file\":\"measurements/coin.json\"}"
 request = ""
 
 [[node]]
@@ -100,7 +102,7 @@ interpolate = "true"
 [[node]]
 id = "1a5e00000000001a"
 folder = "nodes/export"
-pos = [1980.0, 800.0]
+pos = [2160.0, 800.0]
 
 [node.params]
 path = "automated-surface.csv"

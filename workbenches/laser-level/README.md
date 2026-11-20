@@ -14,10 +14,14 @@ See the [source details](types/SOURCE.md).
 4. Click **Start scan** in the **Survey** node.
 5. Watch the station map during the scan.
 6. Inspect the **Results** node when measurements appear.
-7. Open **survey-data** from **Views** to inspect all stations.
+7. Open **surface-view** from **Views** for a larger 3D view.
+8. Open **survey-data** from **Views** to inspect all stations.
 
 The synthetic camera produces sensor images with beam noise and warm-up drift.
-The simulated controller moves a block across the original tool's test surface.
+The automated graph scans an authored coin relief on a 30 x 30 mm bed.
+The coin has a raised rim, beads, engraved rings, and a compass rose.
+This is a synthetic test object, not a recording of the coin in the reference video.
+The default grid has 41 x 41 stations at 0.75 mm spacing. A complete scan takes several minutes.
 The normal beam finder measures each image. The results are not a stored animation.
 
 The controller lifts, travels, lowers, waits, and samples. It revisits zero and finishes at zero.
@@ -55,9 +59,9 @@ A failed save retains the pending sample. Correct the file problem, then click *
 | Reading | Absolute beam position, within-frame uncertainty, tilt, and validity |
 | Warm-up | Drift history, settle estimate, noise, and readiness for the planned run |
 | Station Plan | Line or grid, spacing, station count, and zero reference |
-| Scan Controller | Local simulation, travel feed, lift, settling time, and zero visit interval |
+| Scan Controller | Local simulation, test object, relief scale, travel feed, lift, settling time, and zero visit interval |
 | Survey | Station selection, sample progress, keep or discard, scan control, and session saving |
-| Results | Measured height, reference removal, peak-to-valley, uncertainty, scrape, and shim |
+| Results | Rotatable 3D surface, measured height, reference removal, peak-to-valley, uncertainty, scrape, and shim |
 | Export | CSV or JSON results in a new file |
 
 Drag across the **Beam Finder** image to set the ROI.
@@ -85,27 +89,53 @@ A changed camera grid requires a new run. A changed calibration requires a new s
 ## Results and the bottom table
 
 **Measured** gives height relative to the zero station, with laser drift correction.
-**Shape** removes a fitted line or plane from those heights.
+**Measured height** is the default 3D channel. It retains the shape and slope of the object.
+**Leveled** removes a fitted line or plane from those heights.
 **Scrape** gives height above the lowest corrected station.
 **Shim** gives distance below the highest corrected station.
 
-The surface display shows measured stations. It does not fill unmeasured regions with invented values.
+The 3D display joins adjacent measured grid cells with triangles. Missing measurements remain holes.
+It shows measured points before enough stations exist for a fitted plane.
+It never reads the simulated target to fill the result surface.
 Line plots include uncertainty bars. The table includes uncertainty and measurement flags for every station.
 The noise estimate helps distinguish surface variation from measurement noise.
 
 Open **survey-data** below the canvas:
 
-- **Stations** shows positions, measured heights, shape, shim, scrape, uncertainty, visits, and checks.
+- **Stations** shows positions, measured and leveled heights, shim, scrape, uncertainty, visits, and checks.
 - **Raw visits** shows the individual sample readings and their frame counts.
 - **Session** shows the current file and controls for opening or starting a session.
 
+The tables use pages of 500 rows. Change **Page** to see later stations or visits.
 Selecting a station row also selects that station in **Survey**.
 Table units affect displayed heights. Station coordinates remain in mm.
+
+## Explore the 3D surface
+
+Drag the 3D plot in **Results** to rotate it. Use **Zoom in**, **Zoom out**, **Top view**, and **Reset view**.
+With plot focus, arrow keys rotate, plus and minus zoom, and Home resets the view.
+The wheel over a graph node keeps its normal graph navigation behavior.
+
+Open **surface-view** for the larger view beside the graph:
+
+- Drag with the left button to rotate.
+- Drag with the middle button or Shift to pan.
+- Drag with the right button, or use the wheel, to zoom.
+- Press Home to reset the view.
+
+**Z display scale** exaggerates the displayed height only. It does not change measurements, table values, or exports.
+The color legend shows the selected height channel in um. X and Y use mm.
+**Leveled**, **Scrape**, and **Shim** remain available for flatness work.
+
+In **Scan Controller**, select **Surface plate** or **Coin relief** with **Test object**.
+**Coin relief scale** changes the simulated object's physical height. Start a new scan after changing the object.
+Use 61 x 61 stations at 0.5 mm spacing for finer detail. The scan takes longer.
 
 ## Files
 
 Each kept visit saves the session under `measurements/` in this workbench.
-**main** uses `manual.json`. **automated** uses `automated.json`.
+**main** uses `manual.json`. **automated** uses `coin.json`.
+Earlier `automated.json` sessions remain available through **Open / new session**.
 The session includes frame readings, measurement settings, station layouts, and run history.
 It does not include camera image recordings.
 
@@ -138,3 +168,4 @@ Results show the current run. The session file retains earlier runs.
 Gauge-block scale calibration remains in the inherited core. It has no workbench GUI yet.
 The frame path still allocates camera and analysis buffers. It is not a real-time control loop.
 Physical cameras and the Linux and macOS backends still need hardware checks.
+The native 3D dock needs Windows. The node plot uses Patina's canvas controls.

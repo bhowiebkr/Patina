@@ -70,23 +70,28 @@ The nodes remain the primary interface. The bottom table reads the same graph va
 
 ## Current checkpoint
 
-The workbench has eleven nodes, two graphs, and a bottom data tab.
-All 98 core, camera, and workflow tests pass on Windows.
+The workbench has eleven nodes, two graphs, a bottom data tab, and a 3D surface view.
+All 108 core, camera, workflow, and display tests pass on Windows.
 Tests cover simulated surveys, linear drift removal, file reload, rejected setting changes,
 and retained samples after failed saves.
 
 The generated graphs pass in Edit, Bake, and slot builds. The test runs a complete
 survey, saves its visits, selects a station through the bottom table, and exports CSV.
+The 3D dock reads the measured surface in all three build modes.
 The manual graph also runs through the CLI.
 
 Hidden Windows GUI checks passed for empty and populated sessions.
 They checked both graphs, all node controls, the bottom tab, contrast, focus, and wire clearance.
-The populated check showed nine stations from eleven saved visits.
+The latest populated check showed 1,681 stations from 1,722 saved visits.
+The node plot and native GPU view both displayed the reconstructed coin.
 Workspace Clippy and workspace tests passed. Editor frontend checks and both prototype frontend builds passed.
 
-A 640 x 480 synthetic scan measured 18.72 ms per frame in Edit and 6.85 ms in Bake.
-The survey slot build measured 41.84 ms per frame. Each run used 120 frames.
-The hidden editor measured 18.45 ms per graph frame and 10.45 ms per node GUI update.
+A complete coin scan processed 18,177 synthetic 640 x 480 frames and measured all 1,681 stations.
+The headless camera-to-session workflow averaged 6.70 ms per frame.
+Height error against the known test surface was 0.062 um RMS and 0.246 um maximum.
+These errors describe the synthetic test, not physical camera accuracy.
+The generated integration check measured 42.55 ms in Edit, 6.20 ms in Bake, and 39.87 ms with the survey slot.
+Each integration run used 120 frames. The populated hidden editor measured 18.53 ms per graph frame and 13.66 ms per GUI update.
 These are measurements on this Windows computer. Allocation counts remain unmeasured.
 
 The core and camera manifests use local dependencies. ASCII labels replace Unicode labels.
@@ -100,4 +105,27 @@ One chunk iterator uses the current Rust spelling. The numerical algorithms are 
 - Results show the current run. Earlier runs remain in the session file.
 - Gauge-block calibration has no node UI. Its original core implementation remains available.
 - Camera and analysis buffers still allocate. Session writes can delay a frame at sample completion.
-- The surface node shows measured points and line profiles. It has no 3D surface viewport.
+- The GPU surface view needs Windows. The projected node plot uses the normal canvas path.
+- The mesh connects regular grid cells. Irregular imported plans can show points without a connected surface.
+
+
+## Coin probing and 3D results
+
+The owner's screenshot defines the result direction: a colored relief surface with a height legend and an orbit camera.
+The automated graph now uses a 41 x 41 grid over a 30 x 30 mm bed.
+An authored coin height field drives the synthetic beam displacement. Its rim, beads, rings, and compass rose provide known detail.
+This is a synthetic medallion, not measured data from the video.
+
+The results come from the camera frames, beam finder, sampler, saved visits, and drift correction.
+**Measured height** keeps the object shape relative to zero. **Leveled** removes the fitted plane for flatness work.
+The mesh joins four adjacent measured stations. Missing cells remain open.
+The measured channel works before enough stations exist for a plane fit.
+
+The **Results** node has a projected 3D plot with drag and keyboard orbit controls.
+The **surface-view** dock uses Patina's native GPU surface with depth testing and antialiasing.
+Its camera follows the model workbench: left drag orbits, middle drag pans, and right drag or the wheel zooms.
+The renderer and simulation code stay inside this workbench.
+**Z display scale** changes displayed geometry only. The measured values and exports remain unchanged.
+
+Both tables use pages of 500 rows. Every station and raw visit remains accessible beyond the editor's table row limit.
+The station map builds its visited flags in one pass. Geometry rebuilds only when data or display settings change.

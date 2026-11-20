@@ -90,13 +90,15 @@ pub fn controls(ui: &mut Ui, s: &Snapshot) -> Edits {
     edits
 }
 
-pub fn visits(ui: &mut Ui, s: &Snapshot, selected: &mut Option<usize>) {
+pub fn visits(ui: &mut Ui, s: &Snapshot, selected: &mut Option<usize>, page: &mut u32) {
     let Some(run) = s.run() else {
         ui.label("No run");
         return;
     };
+    let range = crate::results::page_range(ui, run.visits.len(), page);
+    let mut row = selected.filter(|i| range.contains(i)).map(|i| i - range.start);
     let mut cells = Vec::new();
-    for (i, v) in run.visits.iter().enumerate() {
+    for (i, v) in run.visits.iter().enumerate().skip(range.start).take(range.len()) {
         cells.extend([
             format!("{}", i + 1),
             format!("{}{}", v.station + 1, if v.station == run.zero { " / ZERO" } else { "" }),
@@ -107,10 +109,15 @@ pub fn visits(ui: &mut Ui, s: &Snapshot, selected: &mut Option<usize>) {
             v.reading.flags.names().collect::<Vec<_>>().join(", "),
         ]);
     }
-    ui.table(
-        "Raw visits",
-        &["Visit", "Station", "Time / s", "Position / px", "Uncertainty / px", "Frames", "Checks"],
-        &cells,
-        selected,
-    );
+    if ui
+        .table(
+            "Raw visits",
+            &["Visit", "Station", "Time / s", "Position / px", "Uncertainty / px", "Frames", "Checks"],
+            &cells,
+            &mut row,
+        )
+        .changed()
+    {
+        *selected = row.map(|i| i + range.start);
+    }
 }

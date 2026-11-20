@@ -44,7 +44,14 @@ impl Rig {
             plan: Plan(Arc::new(Run::grid("test", 3, 3, 1.0, 1.0))),
             reading,
             options,
-            motion: Motion { simulated: true, feed_mm_min: 6000.0, lift_mm: 0.1, dwell_s: 0.1, zero_every: 3 },
+            motion: Motion {
+                simulated: true,
+                feed_mm_min: 6000.0,
+                lift_mm: 0.1,
+                dwell_s: 0.1,
+                zero_every: 3,
+                ..Default::default()
+            },
             step: 0,
             dir,
         };
@@ -168,4 +175,37 @@ fn changed_acquisition_or_sampling_settings_discard_the_active_sample() {
     rig.tick("");
     assert!(!rig.survey.shown.active);
     assert!(!rig.survey.shown.pending);
+}
+
+#[test]
+fn coin_scan_preserves_relief_and_applies_a_changed_empty_plan() {
+    let mut rig = Rig::new();
+    rig.plan = Plan(Arc::new(Run::grid("Coin", 9, 9, 3.75, 3.75)));
+    rig.motion.object = 1;
+    rig.motion.relief_um = 800.0;
+    rig.motion.zero_every = 9;
+    rig.command("start");
+    let mut processor = Processor::default();
+    let mut early = false;
+    for _ in 0..5000 {
+        rig.tick("");
+        let data = processor.update(&rig.survey.shown, true);
+        if data.result.is_none() && data.surface.as_ref().is_some_and(|s| s.measured() > 1) {
+            early = true;
+        }
+        if !rig.survey.shown.active {
+            break;
+        }
+    }
+    assert!(early, "raw heights must appear before a plane can fit");
+    assert!(!rig.survey.shown.active);
+    assert!(rig.survey.shown.error.is_empty(), "{}", rig.survey.shown.error);
+    let data = processor.update(&rig.survey.shown, true);
+    let surface = data.surface.unwrap();
+    assert_eq!(surface.measured(), 81);
+    for (xy, h) in surface.xy.iter().zip(&surface.heights) {
+        let expected = measurement::specimen::coin(xy[0], xy[1]) * 800.0;
+        assert!((h.unwrap()[1] - expected).abs() < 1e-7);
+    }
+    assert!(surface.range(1)[1] > 750.0);
 }

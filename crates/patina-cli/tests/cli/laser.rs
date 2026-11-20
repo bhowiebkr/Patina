@@ -29,6 +29,8 @@ fn laser_survey_runs_in_edit_bake_and_slot_with_a_shared_data_table() {
         project.open_graph("automated").unwrap();
         let library = project.build_view(&toolchain, "survey-data", mode).unwrap();
         let mut view = View::load(&library, &root).unwrap();
+        let surface_library = project.build_view(&toolchain, "surface-view", mode).unwrap();
+        let mut surface_view = View::load(&surface_library, &root).unwrap();
         let mut checked = project.check().unwrap();
         if slot {
             checked.set_slot(Some("survey")).unwrap();
@@ -42,12 +44,7 @@ fn laser_survey_runs_in_edit_bake_and_slot_with_a_shared_data_table() {
             let out = cluster.frame(&control);
             assert!(out.ok, "{:?}", out.reports);
         }
-        for node in &graph.node {
-            let (tree, out) = cluster.ui(&control, &node.id, 0, "");
-            assert!(out.ok, "{:?}", out.reports);
-            fs::write(root.join(format!("build/gui-{}.txt", node.id)), tree.unwrap()).unwrap();
-            assert!(cluster.ui(&control, &node.id, 1, "").1.ok);
-        }
+        check_node_panels(&mut cluster, &control, &graph, &root);
         let params = click(&mut cluster, &control, SURVEY, "Start scan");
         assert!(params.iter().any(|(key, _)| key == "request"));
         graph.node.iter_mut().find(|n| n.id == SURVEY).unwrap().params.extend(params);
@@ -83,6 +80,7 @@ fn laser_survey_runs_in_edit_bake_and_slot_with_a_shared_data_table() {
         let session = fs::read_to_string(root.join(format!("measurements/{name}.json"))).unwrap();
         assert!(session.matches("\"station\":").count() >= 11);
         check_table(&mut cluster, &control, &mut view, &graph, &root);
+        check_surface(&mut cluster, &control, &mut surface_view, &graph);
         let params = click(&mut cluster, &control, "1a5e00000000001a", "Export new file");
         graph.node.iter_mut().find(|n| n.id == "1a5e00000000001a").unwrap().params.extend(params);
         assert!(cluster.set_params(&graph).ok);
@@ -111,6 +109,7 @@ fn configure(graph: &mut patina_engine::project::GraphFile, name: &str) {
                 n.params.insert("lift".into(), "0".into());
                 n.params.insert("feed".into(), "6000".into());
                 n.params.insert("dwell".into(), "0.1".into());
+                n.params.insert("zero_every".into(), "5".into());
             }
             Some("nodes/survey") => {
                 n.params.insert(
@@ -144,4 +143,27 @@ fn check_table(
     let index = table.tree.lines().position(|l| l.starts_with("table\tMeasured stations")).unwrap();
     let selected = view.ui(0, &format!("{index} 1"), &graph_text, Some(&mut cluster.frame_part())).unwrap();
     assert!(selected.edits.iter().any(|e|matches!(e,patina_engine::Edit::SetParam{id,key,text:Some(text)} if id==SURVEY&&key=="options"&&text.contains("\"station\":1"))),"{:?}",selected.edits);
+}
+
+fn check_node_panels(cluster: &mut Cluster, control: &Control, graph: &patina_engine::project::GraphFile, root: &Path) {
+    for node in &graph.node {
+        let (tree, out) = cluster.ui(control, &node.id, 0, "");
+        assert!(out.ok, "{:?}", out.reports);
+        fs::write(root.join(format!("build/gui-{}.txt", node.id)), tree.unwrap()).unwrap();
+        assert!(cluster.ui(control, &node.id, 1, "").1.ok);
+    }
+}
+
+fn check_surface(
+    cluster: &mut Cluster,
+    control: &Control,
+    surface_view: &mut View,
+    graph: &patina_engine::project::GraphFile,
+) {
+    let text = snapshot(graph, &[], &[], &[]);
+    surface_view.ui(0, "@size 900 700", &text, Some(&mut cluster.frame_part())).unwrap();
+    assert!(cluster.frame(control).ok);
+    let surface = surface_view.ui(0, "@size 900 700", &text, Some(&mut cluster.frame_part())).unwrap();
+    assert!(surface.tree.contains("9 / 9 measured stations"), "{}", surface.tree);
+    assert!(surface.tree.contains("viewport\tMeasured surface"));
 }

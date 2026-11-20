@@ -65,63 +65,87 @@ pub fn surface(ui: &mut Ui, result: &Results, channel: usize, selected: Option<u
     picked
 }
 
-#[derive(Default)]
 pub struct Display {
     pub channel: usize,
     pub selected: Option<usize>,
+    plot: crate::surface::Plot,
+    page: usize,
+}
+impl Default for Display {
+    fn default() -> Self {
+        Self { channel: 1, selected: None, plot: Default::default(), page: 0 }
+    }
 }
 impl Display {
     pub fn ui(&mut self, ui: &mut Ui, data: &ResultData) {
-        panel(ui, [472.0, 596.0], "SURFACE / RESULTS", "REFERENCE REMOVED. UNCERTAINTY RETAINED.", VIOLET);
+        panel(ui, [480.0, 822.0], "SURFACE / RESULTS", "MEASURED HEIGHT. ROTATE TO EXPLORE.", VIOLET);
         place(ui, [16.0, 76.0]);
-        ui.tabs("Surface channel", &mut self.channel, &["Shape", "Measured", "Scrape", "Shim"]);
-        let Some(result) = &data.result else {
-            place(ui, [16.0, 125.0]);
-            ui.label(&data.error);
-            place(ui, [16.0, 164.0]);
-            ui.label("Measure zero, then three non-collinear grid stations.");
-            place(ui, [16.0, 198.0]);
-            ui.label("Return to zero to bracket the laser drift.");
-            return;
-        };
+        ui.tabs("Surface channel", &mut self.channel, &["Leveled", "Measured height", "Scrape", "Shim"]);
+        self.plot.channel = self.channel;
+        self.plot.sync(data);
         place(ui, [16.0, 120.0]);
-        let mut c = ui.canvas("Flatness / peak to valley", [440.0, 70.0]);
-        digits(&mut c, [0.0, 0.0], &format!("{:.3}", result.pv_um), TEAL);
-        c.text([230.0, 20.0], INK, "um / PEAK TO VALLEY");
-        c.text(
-            [0.0, 62.0],
-            MUTED,
-            format_args!("Noise estimate {:.3} um / scale +/- {:.3} um", result.pv_noise_um, result.pv_scale_um),
-        );
-        drop(c);
-        place(ui, [16.0, 202.0]);
-        if let Some(station) = surface(ui, result, self.channel, self.selected) {
-            self.selected = Some(station);
-        }
-        place(ui, [16.0, 466.0]);
-        ui.label(&format!("{} stations / {:?} drift correction", result.points.len(), data.correction));
-        place(ui, [16.0, 500.0]);
-        if let Some(p) = self.selected.and_then(|id| result.points.iter().find(|p| p.station == id)) {
-            ui.label(&format!(
-                "Station {} / {:.3} +/- {:.3} um / {} visits",
-                p.station + 1,
-                value(p, self.channel),
-                p.uncertainty_um,
-                p.visits
-            ));
+        let mut c = ui.canvas("Height range / peak to valley", [448.0, 70.0]);
+        if let Some(source) = &data.surface {
+            let [lo, hi] = source.range(self.channel);
+            digits(&mut c, [0., 0.], &format!("{:.3}", hi - lo), TEAL);
+            c.text([270., 20.], INK, "um / PEAK TO VALLEY");
+            c.text(
+                [0., 62.],
+                MUTED,
+                format_args!(
+                    "{} / {} stations measured / {}",
+                    source.measured(),
+                    source.xy.len(),
+                    if self.channel == 1 { "relative to zero" } else { "fitted plane removed" }
+                ),
+            );
         } else {
-            ui.label("Select a station. Open Survey Data for all values.");
+            c.text([0., 25.], MUTED, "Measure zero, then start the surface scan.");
+        }
+        drop(c);
+        place(ui, [16., 202.]);
+        ui.tabs("Surface display", &mut self.page, &["3D surface", "Stations"]);
+        place(ui, [16., 242.]);
+        if self.page == 0 {
+            self.plot.preview(ui, [448., 350.]);
+        } else if let Some(result) = &data.result {
+            if let Some(station) = surface(ui, result, self.channel, self.selected) {
+                self.selected = Some(station);
+            }
+        } else {
+            ui.label(&data.error);
+        }
+        let at = (ui.mode() != patina_sdk::Mode::Large).then_some([16., 605.]);
+        self.plot.controls(ui, at);
+        place(ui, [16., 649.]);
+        ui.number_unit("Z display scale", &mut self.plot.scale, 1.0, "x");
+        place(ui, [16., 686.]);
+        ui.label("Drag to orbit. Arrow keys rotate. Home resets. +/- zooms.");
+        place(ui, [16., 716.]);
+        if let Some(result) = &data.result {
+            ui.label(&format!(
+                "Leveled noise {:.3} um / scale uncertainty +/- {:.3} um",
+                result.pv_noise_um, result.pv_scale_um
+            ));
+        }
+        place(ui, [16., 748.]);
+        if self.channel != 1 && data.surface.as_ref().is_some_and(|s| !s.leveled) {
+            ui.label("Plane fit needs more stations. Select Measured height.");
+        } else {
+            ui.label("Open surface-view for a larger view with pan and wheel zoom.");
         }
     }
 }
 
-pub fn table(ui: &mut Ui, data: &ResultData, unit: Unit, selected: &mut Option<usize>) -> bool {
+pub fn table(ui: &mut Ui, data: &ResultData, unit: Unit, selected: &mut Option<usize>, page: &mut u32) -> bool {
     let Some(result) = &data.result else {
         ui.label(&data.error);
         return false;
     };
-    let mut cells = Vec::with_capacity(result.points.len() * 10);
-    for p in &result.points {
+    let range = page_range(ui, result.points.len(), page);
+    let mut row = selected.filter(|i| range.contains(i)).map(|i| i - range.start);
+    let mut cells = Vec::with_capacity(range.len() * 10);
+    for p in &result.points[range.clone()] {
         cells.extend([
             format!("{}", p.station + 1),
             format!("{:.2}", p.x_mm),
@@ -135,17 +159,51 @@ pub fn table(ui: &mut Ui, data: &ResultData, unit: Unit, selected: &mut Option<u
             p.flags.names().collect::<Vec<_>>().join(", "),
         ]);
     }
-    ui.table(
-        "Measured stations",
-        &["Station", "X / mm", "Y / mm", "Measured", "Shape", "Shim", "Scrape", "Uncertainty", "Visits", "Checks"],
-        &cells,
-        selected,
-    )
-    .changed()
+    let changed = ui
+        .table(
+            "Measured stations",
+            &[
+                "Station",
+                "X / mm",
+                "Y / mm",
+                "Measured",
+                "Leveled",
+                "Shim",
+                "Scrape",
+                "Uncertainty",
+                "Visits",
+                "Checks",
+            ],
+            &cells,
+            &mut row,
+        )
+        .changed();
+    if changed {
+        *selected = row.map(|i| i + range.start);
+    }
+    changed
+}
+
+pub fn page_range(ui: &mut Ui, count: usize, page: &mut u32) -> std::ops::Range<usize> {
+    let pages = count.div_ceil(500).max(1) as u32;
+    if pages > 1 {
+        ui.number_unit("Page", page, 1, &format!("of {pages}"));
+    }
+    *page = (*page).clamp(1, pages);
+    let start = (*page as usize - 1) * 500;
+    start..(start + 500).min(count)
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn pages_cover_the_whole_dense_scan() {
+        let mut page = 4;
+        assert_eq!(super::page_range(&mut patina_sdk::Ui::new(0, ""), 1681, &mut page), 1500..1681);
+        page = 99;
+        assert_eq!(super::page_range(&mut patina_sdk::Ui::new(0, ""), 1681, &mut page), 1500..1681);
+        assert_eq!(page, 4);
+    }
     #[test]
     fn channel_values_keep_the_source_meaning() {
         let p = measurement::core::results::Point {

@@ -2,7 +2,9 @@
 pub mod acquisition;
 pub mod results;
 pub mod settings;
+pub mod specimen;
 pub mod storage;
+pub mod surface;
 pub mod survey;
 
 use core::{
@@ -93,6 +95,7 @@ impl Default for Plan {
 #[derive(Clone, Debug, Default)]
 pub struct ResultData {
     pub result: Option<Arc<core::results::Results>>,
+    pub surface: Option<Arc<surface::Surface>>,
     pub name: String,
     pub error: String,
     pub correction: core::survey::DriftCorrection,

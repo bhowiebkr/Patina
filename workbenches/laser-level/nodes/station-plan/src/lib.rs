@@ -18,12 +18,12 @@ impl StationPlan {
         Self { plan: Plan::default(), nx: 5, ny: 5, dx: 25.0, dy: 25.0, zero: 0, line: false, built: None }
     }
     pub fn process(&mut self, nx: u32, ny: u32, dx: f64, dy: f64, zero: u32, line: bool) -> Result<Plan, String> {
-        if !(2..=32).contains(&nx)
-            || !(2..=32).contains(&ny)
+        if !(2..=64).contains(&nx)
+            || !(2..=64).contains(&ny)
             || !measurement::settings::range(dx, 0.01, 10000.0)
             || !measurement::settings::range(dy, 0.01, 10000.0)
         {
-            return Err("Use 2 to 32 stations per side and positive spacing".into());
+            return Err("Use 2 to 64 stations per side and positive spacing".into());
         }
         if self.built != Some((nx, ny, dx, dy, zero, line)) {
             let mut run = if line {
