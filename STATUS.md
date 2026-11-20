@@ -506,11 +506,15 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     sees no file. Then it adds a `trigger` and an order wire, and reads the `.glb` file.
   - The unit tests of `geometry` and `export` and their clippy, with the MSVC toolchain. They
     check the three formats, the sockets in the extras, the replace and the click rule.
+- Checked on 2026-11-19, on Windows, with Blender 5.2 without a window: Blender imported the
+  tower as `.glb`, `.obj` and `.stl` with no error, each with 144 triangles. The `.glb` has
+  the `sockets` extra. The gun `.glb` gave 10484 triangles, as in the CLI, and 6 materials.
+  Two city buildings gave their mesh, 9 and 7 materials and the `sockets` extra.
 - Known limits:
   - The `.obj` and the `.stl` files have no sockets. A solid has no colors, so the `export`
     node writes no materials. The `.glb` writer gives each part with a color a material
     (2026-11-19), and the city and the gun exports use it.
-  - No other program opened the files. The tests read the bytes only.
+  - No other program than Blender opened the files, and no test runs Blender.
   - The **Export** click in the editor is not checked. The unit test checks its rule.
 
 ### Model workbench 3D view, 2026-11-19
