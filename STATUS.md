@@ -1,5 +1,8 @@
 # Status
 
+Release 0.1.0 of 2026-11-20 is the first release, with the portable zips of Windows and Linux.
+The [changelog](CHANGELOG.md) lists its contents and limits.
+
 All milestones of the roadmap (spec section 16) ended. Milestone 12, the event domain, ended on
 2026-11-16. The [quality plan](docs/quality-plan.md) of 2026-11-17 is done, except two items
 that need the owner. The next work is the open items of the known limits and of

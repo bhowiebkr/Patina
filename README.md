@@ -9,7 +9,8 @@
 
 > **Patina 0.1 is the first release.** The editor, the engine and the command line work on
 > Windows. The Linux and macOS builds are basic. [STATUS.md](STATUS.md) tells what works and the
-> known limits. The [specification](docs/spec/README.md) is the full design.
+> known limits. The [specification](docs/spec/README.md) is the full design. The
+> [changelog](CHANGELOG.md) lists the changes of each release.
 
 - [What Patina is](#what-patina-is)
 - [Workbenches](#workbenches)
@@ -515,8 +516,13 @@ those systems improve them.
 
 To start the portable edition:
 
-1. Unzip the file.
-2. Start `patina`.
+1. Download the zip of your system from
+   [GitHub Releases](https://github.com/bhowiebkr/Patina/releases).
+2. Unzip the file.
+3. Start `patina`.
+
+The program has no code signature yet. Thus Windows SmartScreen can show **Windows protected
+your PC** the first time. Click **More info**, then **Run anyway**.
 
 The `workbenches` folder of the portable edition has the example workbenches, for example
 `computer` and `synth`.
@@ -759,6 +765,7 @@ questions.
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md): the changes of each release. Patina uses semantic versioning.
 - [Workbench guide](docs/workbenches/README.md): the editor at a glance and one illustrated
   page for each workbench: [hello](docs/workbenches/hello.md),
   [computer](docs/workbenches/computer.md), [gpu](docs/workbenches/gpu.md),

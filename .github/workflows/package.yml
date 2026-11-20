@@ -1,5 +1,6 @@
 # Makes the portable zip of Windows and Linux with `cargo run -p package` (spec 13.1).
 # Start it by hand, or push a tag `v*`. The zip is an artifact of the run.
+# A tag `v<version>` also makes a GitHub Release with the zips and the notes of CHANGELOG.md.
 name: Package
 
 on:
@@ -61,3 +62,33 @@ jobs:
           name: patina-${{ runner.os }}
           path: target/package/*.zip
           if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: zip
+    # A failed Linux zip leaves out the Linux file (spec 13.5). The Windows zip must be there.
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: zips
+          merge-multiple: true
+
+      - name: Make the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          grep -q "\"version\": \"$version\"" crates/patina-editor/tauri.conf.json \
+            || { echo "The tag $GITHUB_REF_NAME is not the version in tauri.conf.json."; exit 1; }
+          ls zips/*windows*.zip
+          awk -v v="$version" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "CHANGELOG.md has no section for $version."; exit 1; }
+          gh release create "$GITHUB_REF_NAME" zips/*.zip --repo "$GITHUB_REPOSITORY" --verify-tag --title "Patina $version" --notes-file notes.md
