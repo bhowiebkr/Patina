@@ -332,9 +332,12 @@ The open items of each section. Items that the text marks as fixed are in [docs/
     outlines, with a palm swell, raised rubber bands, a cap and a long pin. It keeps the blocky
     style. A preview of the six Blockwerk guns showed the facets and the bands. The CLI test
     has the new triangle count.
+  - Faceted Blockwerk stock (2026-11-19): the Blockwerk stock is a loft along the gun through
+    chamfered outlines, with the frame hole. The cheek rest sits on the flat sides. A preview
+    of the Blockwerk shotgun and sniper showed the facets.
 - Known limits:
-  - The Scrapjaw grip and the Blockwerk and Scrapjaw stocks are extrusions. The Scrapjaw wood
-    plank fits the junk style. The other parts are extrusions, turned profiles and booleans.
+  - The Scrapjaw grip and stocks are extrusions and turned profiles, which fit the junk style.
+    The other parts are extrusions, turned profiles and booleans.
   - The maker mark is the only text. The other parts have no decals, logos or text.
   - Linux and macOS did not run the workbench.
 

@@ -20,13 +20,16 @@ pub(super) fn make(b: &mut Build, maker: Maker) -> Stats {
     Stats { accuracy, reload: 0.05 * base.reload, ..Stats::default() }
 }
 
-/// A frame with a hole, a rubber butt pad, a cheek rest and bolts.
+/// A faceted frame with a hole, a rubber butt pad, a cheek rest and bolts.
 fn blockwerk(b: &mut Build, sl: f64, h: f64, sw: f64) {
-    let outline = [[0.01, 0.3 * h], [-sl, 0.32 * h], [-sl, -0.6 * h], [-0.04 * sl, -0.3 * h], [0.01, -0.3 * h]];
+    // Each section is the distance back, the bottom and the top on Z, and the width as a part of `sw`.
+    let sections = [(-0.01, -0.3 * h, 0.3 * h, 0.86), (0.04 * sl, -0.3 * h, 0.301 * h, 0.9), (0.6 * sl, -0.475 * h, 0.311 * h, 1.0), (sl, -0.6 * h, 0.32 * h, 1.0)];
+    let frame = along_x(&sections.map(|(x, z0, z1, w)| (x, chamfer([z0, -w * sw / 2.0], [z1, w * sw / 2.0], 0.22 * w * sw))));
     let hole = inset(&[[-0.12 * sl, 0.3 * h], [-sl, 0.32 * h], [-sl, -0.6 * h], [-0.12 * sl, -0.3 * h]], 0.012);
-    b.add(Material::Paint, plate(&outline, sw, 0.003).difference(&slab(&hole, 2.0 * sw)));
+    b.add(Material::Paint, frame.difference(&slab(&hole, 2.0 * sw)));
     b.add(Material::Grip, bevel([-sl - 0.014, -sl + 0.002], [-0.63 * h, 0.35 * h], sw + 0.004, 0.003));
-    let cheek = [[-0.3 * sl, 0.28 * h], [-0.85 * sl, 0.29 * h], [-0.85 * sl, 0.44 * h], [-0.4 * sl, 0.42 * h]];
+    // The cheek starts under the chamfer of the top edge, so it sits on the flat sides.
+    let cheek = [[-0.3 * sl, 0.3 * h - 0.008], [-0.85 * sl, 0.31 * h - 0.008], [-0.85 * sl, 0.44 * h], [-0.4 * sl, 0.42 * h]];
     b.add(Material::Trim, plate(&cheek, 0.9 * sw, 0.002));
     b.add(Material::Metal, bolts(&[[-0.004, 0.18 * h], [-0.004, -0.18 * h], [-0.5 * sl, 0.36 * h], [-0.75 * sl, 0.36 * h]], sw + 0.002, 0.0026));
     b.add(Material::Rarity, both(&decal(&stripe(-0.92 * sl, 0.035, [-0.5 * h, 0.2 * h], -0.01), sw / 2.0, 0.0012)));
