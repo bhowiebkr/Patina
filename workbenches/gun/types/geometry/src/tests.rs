@@ -345,7 +345,7 @@ fn a_loft_joins_two_outlines() {
     // The gap of a U goes to the bar of a U that is upside down, so the sides cross.
     let u = |s: f64| Sketch::polygon(&[[0.0, 0.0], [3.0, 0.0], [3.0, 3.0], [2.0, 3.0], [2.0, 1.0], [1.0, 1.0], [1.0, 3.0], [0.0, 3.0]].map(|[x, y]| [1.5 + (x - 1.5) * s, 1.5 + (y - 1.5) * s]));
     let error = Solid::loft(&u(1.0), &u(-1.0), 2.0).unwrap_err();
-    assert_eq!(error, "the sides of the loft cross at the height 1, because the two sketches are too different");
+    assert_eq!(error, "the sides of the loft cross at the height 0.81, because the two sketches are too different");
 }
 
 #[test]

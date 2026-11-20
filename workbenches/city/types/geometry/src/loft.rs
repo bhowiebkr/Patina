@@ -16,8 +16,7 @@ impl Solid {
     /// size. Two joined outer outlines must have the same number of holes. Each hole joins the
     /// hole with the nearest center and size in the joined outer outline. A straight line joins the points at the same part of the length of two joined outlines. Each outline
     /// starts where a line from its center to +X leaves it, so the sides do not twist. Very
-    /// different outlines can give sides that cross, and a crossing at one of 7 heights gives an
-    /// error.
+    /// different outlines can give sides that cross, and a crossing at any height gives an error.
     pub fn loft(bottom: &Sketch, top: &Sketch, height: f64) -> Result<Solid, String> {
         if !(height.is_finite() && height > 0.0) {
             return Err(format!("the height must be more than 0, not {height}"));
@@ -39,11 +38,8 @@ impl Solid {
             joined.extend(pairs(holes, other_holes, measure).into_iter().map(|(a, b)| join(a, b)));
         }
         let (bottoms, tops): (Vec<Ring>, Vec<Ring>) = joined.into_iter().unzip();
-        for s in (1..8).map(|k| f64::from(k) / 8.0) {
-            let rings: Vec<Ring> = bottoms.iter().zip(&tops).map(|(a, b)| a.iter().zip(b).map(|(p, q)| [p[0] + (q[0] - p[0]) * s, p[1] + (q[1] - p[1]) * s]).collect()).collect();
-            if crosses(&rings) {
-                return Err(format!("the sides of the loft cross at the height {}, because the two sketches are too different", s * height));
-            }
+        if let Some(s) = crossing(&bottoms, &tops) {
+            return Err(format!("the sides of the loft cross at the height {:.2}, because the two sketches are too different", s * height));
         }
         stack(&[(&bottoms, 0.0), (&tops, height)])
     }
@@ -192,15 +188,65 @@ fn join(a: Ring, b: Ring) -> (Ring, Ring) {
     (ts.iter().map(|&t| at(&a, &ta, t)).collect(), ts.iter().map(|&t| at(&b, &tb, t)).collect())
 }
 
-/// True when two edges of the rings cross. The edges sort by their lowest x, so each edge is
-/// compared only with the edges that start before its highest x.
-fn crosses(rings: &[Ring]) -> bool {
-    let mut edges: Vec<([f64; 2], [f64; 2])> = rings.iter().flat_map(|r| (0..r.len()).map(move |i| (r[i], r[(i + 1) % r.len()]))).collect();
-    edges.sort_by(|a, b| a.0[0].min(a.1[0]).total_cmp(&b.0[0].min(b.1[0])));
-    (0..edges.len()).any(|i| {
-        let (p, q) = edges[i];
-        edges[i + 1..].iter().take_while(|(r, s)| r[0].min(s[0]) <= p[0].max(q[0])).any(|&(r, s)| cross(p, q, r, s))
+/// A point of the loft side: its place on the bottom outline and on the top outline.
+type Path = [[f64; 2]; 2];
+
+/// The lowest part of the height, from 0 to 1, where two sides of the loft cross. The edges sort
+/// by their lowest x, so each edge is compared only with the edges that start before its highest
+/// x, and only when their y ranges overlap.
+fn crossing(bottoms: &[Ring], tops: &[Ring]) -> Option<f64> {
+    let bounds = |e: [Path; 2]| {
+        let (x, y) = (e.iter().flatten().map(|p| p[0]), e.iter().flatten().map(|p| p[1]));
+        [x.clone().fold(f64::INFINITY, f64::min), x.fold(f64::NEG_INFINITY, f64::max), y.clone().fold(f64::INFINITY, f64::min), y.fold(f64::NEG_INFINITY, f64::max)]
+    };
+    let mut edges: Vec<([Path; 2], [f64; 4])> = bottoms
+        .iter()
+        .zip(tops)
+        .flat_map(|(a, b)| (0..a.len()).map(move |i| [[a[i], b[i]], [a[(i + 1) % a.len()], b[(i + 1) % a.len()]]]))
+        .map(|e| (e, bounds(e)))
+        .collect();
+    edges.sort_by(|a, b| a.1[0].total_cmp(&b.1[0]));
+    (0..edges.len())
+        .flat_map(|i| {
+            let (e, b) = edges[i];
+            edges[i + 1..].iter().take_while(move |(_, c)| c[0] <= b[1]).filter(move |(_, c)| c[2] <= b[3] && b[2] <= c[3]).filter_map(move |&(f, _)| meet(e, f))
+        })
+        .min_by(f64::total_cmp)
+}
+
+/// The lowest part of the height where the two moving edges cross. Each point moves on a straight
+/// line, so the sides of the edges change only at the roots of 4 quadratics. Between two roots,
+/// the edges cross everywhere or nowhere, so a test at the middle is sufficient.
+fn meet(e: [Path; 2], f: [Path; 2]) -> Option<f64> {
+    let mut cuts = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let turns = [(e, f[0]), (e, f[1]), (f, e[0]), (f, e[1])];
+    for (k, root) in turns.iter().flat_map(|&([a, b], c)| roots(turn(a, b, c))).enumerate() {
+        if root > 0.0 && root < 1.0 {
+            cuts[k + 2] = root;
+        }
+    }
+    cuts.sort_by(f64::total_cmp);
+    let at = |p: Path, s: f64| [p[0][0] + (p[1][0] - p[0][0]) * s, p[0][1] + (p[1][1] - p[0][1]) * s];
+    cuts.windows(2).filter(|w| w[1] > w[0]).find_map(|w| {
+        let s = (w[0] + w[1]) / 2.0;
+        cross(at(e[0], s), at(e[1], s), at(f[0], s), at(f[1], s)).then_some(w[0])
     })
+}
+
+/// The cross product of b - a and c - a as a quadratic in the part of the height, low power first.
+fn turn(a: Path, b: Path, c: Path) -> [f64; 3] {
+    let sub = |p: [f64; 2], q: [f64; 2]| [p[0] - q[0], p[1] - q[1]];
+    let det = |p: [f64; 2], q: [f64; 2]| p[0] * q[1] - p[1] * q[0];
+    let (d, e) = (sub(b[0], a[0]), sub(c[0], a[0]));
+    let (dd, de) = (sub(sub(b[1], a[1]), d), sub(sub(c[1], a[1]), e));
+    [det(d, e), det(d, de) + det(dd, e), det(dd, de)]
+}
+
+/// The roots of c0 + c1 s + c2 s^2, or NaN or infinity. This form stays accurate when c2 is near
+/// 0, and it gives the root of the line when c2 is 0.
+fn roots([c0, c1, c2]: [f64; 3]) -> [f64; 2] {
+    let q = -0.5 * (c1 + (c1 * c1 - 4.0 * c2 * c0).sqrt().copysign(c1));
+    [q / c2, c0 / q]
 }
 
 /// True when the edge from `p` to `q` and the edge from `r` to `s` cross inside both. Edges that
@@ -277,4 +323,14 @@ fn at(ring: &[[f64; 2]], ts: &[f64], t: f64) -> [f64; 2] {
     let span = ts.get(k + 1).copied().unwrap_or(1.0) - ts[k];
     let u = if span > 0.0 { (t - ts[k]) / span } else { 0.0 };
     [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u]
+}
+
+#[cfg(test)]
+#[test]
+fn a_short_crossing_between_two_heights_is_found() {
+    // The vertical edge moves down and crosses the fixed edge only from 0.5 to 0.55 of the height.
+    let fixed = [[[0.0, 0.0], [0.0, 0.0]], [[1.0, 0.0], [1.0, 0.0]]];
+    let moving = [[[0.5, 1.0], [0.5, -1.0]], [[0.5, 1.1], [0.5, -0.9]]];
+    assert_eq!(meet(fixed, moving), Some(0.5));
+    assert_eq!(meet(fixed, [[[0.5, 1.0], [0.5, 0.1]], [[0.5, 1.1], [0.5, 0.2]]]), None);
 }
