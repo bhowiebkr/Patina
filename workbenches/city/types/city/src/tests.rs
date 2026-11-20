@@ -72,6 +72,20 @@ fn lots_split_to_the_area_and_keep_the_street_edges() {
 }
 
 #[test]
+fn each_lot_of_a_large_block_keeps_a_street_edge() {
+    let lots = lots(&Plots(vec![square(120.0)]), Seed(3), 300.0, 8.0).unwrap();
+    let total: f64 = lots.0.iter().map(|l| area(&l.corners)).sum();
+    assert!((total - 14400.0).abs() < 1e-6, "{total}");
+    for lot in &lots.0 {
+        let n = lot.corners.len();
+        let front: f64 = (0..n).filter(|&e| lot.fronts[e].is_some()).map(|e| length(sub(lot.corners[(e + 1) % n], lot.corners[e]))).sum();
+        assert!(front >= 8.0, "{lot:?}");
+    }
+    // The lots that reach the middle are deeper, so they have more than the area.
+    assert!(lots.0.iter().any(|l| area(&l.corners) > 300.0));
+}
+
+#[test]
 fn a_cut_across_a_concave_block_gives_separate_lots() {
     // A U of two arms of 10 m x 30 m on a base of 30 m x 10 m. One cut across the arms gives
     // three lots, not one lot for the two arms.

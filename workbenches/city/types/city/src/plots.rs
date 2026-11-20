@@ -8,6 +8,9 @@ use crate::{Plot, Plots, Streets, add, area, axes, cross, dot, extent, length, s
 /// The deepest split of one block, so that a small lot area cannot loop for a long time.
 const MAX_DEPTH: u32 = 24;
 
+/// A cut across the short axis gives no part that is more than this many times as long as wide.
+const DEEP: f64 = 4.0;
+
 /// The closed faces of the street graph, each inset by half the width of its streets. All the
 /// edges of a block are on a street and keep its road class. A block that the inset closes is
 /// not in the list.
@@ -70,8 +73,11 @@ pub fn inset(plots: &Plots, distance: f64) -> Result<Plots, String> {
 }
 
 /// Splits each block across its long axis again and again, until a lot has `area` or less, or
-/// is narrower than two times `width`. An edge on a cut is not on a street. A thin part of a cut
-/// joins a lot across the cut, when the joined lot is not thin.
+/// is narrower than two times `width`. An edge on a cut is not on a street. Each lot keeps
+/// `width` of street edge or more: when a cut across the long axis gives a part with less, the
+/// cut goes across the short axis, if no part is more than 4 times as long as wide. Else the
+/// lot stays bigger. A thin part of a cut joins a lot across the cut, when the joined lot is not
+/// thin.
 pub fn lots(blocks: &Plots, seed: Seed, area_limit: f64, width: f64) -> Result<Plots, String> {
     if !(area_limit.is_finite() && area_limit > 0.0 && width.is_finite() && width > 0.0) {
         return Err("the lot area and the width must be more than 0".into());
@@ -85,25 +91,49 @@ pub fn lots(blocks: &Plots, seed: Seed, area_limit: f64, width: f64) -> Result<P
 }
 
 fn split(plot: Plot, area_limit: f64, width: f64, random: &mut Random, depth: u32, out: &mut Vec<Plot>) {
-    let (u, _) = axes(&plot.corners);
-    let (lo, hi) = extent(&plot.corners, u);
-    if depth >= MAX_DEPTH || area(&plot.corners) <= area_limit || hi - lo < 2.0 * width {
+    if depth >= MAX_DEPTH || area(&plot.corners) <= area_limit {
         out.push(plot);
         return;
     }
-    let at = lo + (hi - lo) * random.range(0.4, 0.6);
-    let parts = [1.0, -1.0].into_iter().flat_map(|side| clip(&plot, u, at, side));
-    // A thin part joins a lot of the other parts, so that it is not a park.
-    let (thin_parts, parts): (Vec<Plot>, Vec<Plot>) = parts.partition(|p| thin(&p.corners));
-    let start = out.len();
-    for part in parts {
-        split(part, area_limit, width, random, depth + 1, out);
-    }
-    for part in thin_parts {
-        if let Some(part) = join_next(part, &mut out[start..]) {
+    let (u, v) = axes(&plot.corners);
+    let street = on_street(&plot, width);
+    // The cut across the short axis is for a plot where the cut across the long axis gives a
+    // part with no street.
+    for axis in [u, v] {
+        let (lo, hi) = extent(&plot.corners, axis);
+        if hi - lo < 2.0 * width {
+            continue;
+        }
+        let at = lo + (hi - lo) * random.range(0.4, 0.6);
+        let parts = [1.0, -1.0].into_iter().flat_map(|side| clip(&plot, axis, at, side));
+        // A thin part joins a lot of the other parts, so that it is not a park.
+        let (thin_parts, parts): (Vec<Plot>, Vec<Plot>) = parts.partition(|p| thin(&p.corners));
+        let deep = |p: &Plot| {
+            let ((a, b), (c, d)) = (extent(&p.corners, u), extent(&p.corners, v));
+            b - a > DEEP * (d - c)
+        };
+        if street && !parts.iter().all(|p| on_street(p, width)) || axis == v && parts.iter().any(deep) {
+            continue;
+        }
+        let start = out.len();
+        for part in parts {
             split(part, area_limit, width, random, depth + 1, out);
         }
+        for part in thin_parts {
+            if let Some(part) = join_next(part, &mut out[start..]) {
+                split(part, area_limit, width, random, depth + 1, out);
+            }
+        }
+        return;
     }
+    out.push(plot);
+}
+
+/// True when the edges of the plot on a street are `width` long or more.
+fn on_street(plot: &Plot, width: f64) -> bool {
+    let n = plot.corners.len();
+    let front: f64 = (0..n).filter(|&e| plot.fronts[e].is_some()).map(|e| length(sub(plot.corners[(e + 1) % n], plot.corners[e]))).sum();
+    front >= width
 }
 
 /// Joins `part` to the lot that shares the longest piece of a cut edge with it, if that piece is

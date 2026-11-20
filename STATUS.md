@@ -406,6 +406,17 @@ The open items of each section. Items that the text marks as fixed are in [docs/
       the CLI test.
     - Checked on Windows: 24 unit tests of `types/city`, with a U block with a thin arm and a
       block where the thin part touches two lots, and the city CLI test.
+  - Each lot keeps a street edge (2026-11-19). A lot with no street edge became a park, so
+    blocks had green clusters inside. Now a cut goes across the short axis when the cut across
+    the long axis gives a part with less street edge than the lot width. No part of that cut
+    can be more than 4 times as long as wide. Else the lot stays bigger.
+    - Parks: 68 to 43 in `main`, and 199 to 58 in the 1 km area. A top view showed deeper lots
+      and few parks inside the blocks.
+    - `main`: 567 items, 40915 places and 1265020 triangles. `planned` has no change. A city of
+      1 km x 1 km: 1803 items, 95518 places and 2956283 triangles, 0.23 s after the build in
+      the CLI test.
+    - Checked on Windows: 25 unit tests of `types/city`, with a test that each lot of a large
+      block keeps a street edge, and the city CLI test.
 - Measurements of the first version, on the computer of the owner, with a game open at the
   same time:
   - The `main` graph: the bake build takes 7.2 s, and the run takes about 0.3 s. The edit build

@@ -250,7 +250,11 @@ Agent decisions of 2026-11-19 for E, the owner can change them:
   - `blocks` (E2): the closed faces of the street graph, each inset by half the street width.
   - `inset`: moves the edges of each plot in, for the sidewalks and the setbacks.
   - `lots` (E3): a recursive split across the long axis, with a minimum width and a lot area.
-    A lot with no street edge becomes a park. A random part of the lots also becomes parks.
+    A random part of the lots becomes parks. Each lot keeps a street edge of the minimum width:
+    when the cut across the long axis gives a part with less, the cut goes across the short
+    axis, if no part is more than 4 times as long as wide. Else the lot stays bigger. Agent
+    decision, 2026-11-19, that the owner can change: lots with no street edge became parks, and
+    blocks had green clusters inside.
   - `heights` (E4): a height from a density map around the center, with a random part, in full
     floors. A park has no height.
   - `masses` (E4): the extruded footprint with a flat, gable or hip roof, and a color from a
