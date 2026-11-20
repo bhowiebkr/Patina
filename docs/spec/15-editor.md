@@ -418,8 +418,10 @@ A view gets a `Graph` handle. The handle gives the same access as the editor. Pa
    result.)
    An edit build and a bake build of a type crate have different type IDs. Thus a view builds
    in the mode of the loaded cluster. When the mode of the cluster changes, for example after a
-   fuse, the view builds again, and the state of each instance resets. (Agent decision of
-   2026-11-18. The owner can change it.)
+   fuse, the view builds again, and the state of each instance resets. The old instance and its
+   last image stay until the new build loads, so the viewport area does not go empty. A build
+   that ends after a change of the cluster mode builds again in the new mode. (Agent decision of
+   2026-11-18, changed 2026-11-19. The owner can change it.)
    A batch node runs only at **Run** and after a change. Thus the first read of an output of a
    batch node starts a batch run, and the view gets the copy without a second **Run**. (Agent
    decision of 2026-11-19. The owner can change it. Reason: the 3D view of the model workbench

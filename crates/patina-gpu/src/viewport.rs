@@ -58,11 +58,17 @@ impl ViewportSurface {
         }
         let frame = match target.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
-            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+            wgpu::CurrentSurfaceTexture::Outdated => {
                 target.configured = false;
                 return Ok(());
             }
-            _ => return Ok(()),
+            // A lost surface does not come back, so the next frame makes a new window and surface.
+            wgpu::CurrentSurfaceTexture::Lost => {
+                self.0 = None;
+                return Ok(());
+            }
+            wgpu::CurrentSurfaceTexture::Validation => return Err("the viewport surface has no frame".to_owned()),
+            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => return Ok(()),
         };
         let format = target.config.format;
         let area = match &target.area {

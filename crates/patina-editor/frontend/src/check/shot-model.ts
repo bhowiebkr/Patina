@@ -13,8 +13,12 @@ const shown = () => panel()?.innerText.match(/\d+ triangles, bounds [^\n]+/)?.[0
 // `wall` is a view in the bottom dock whose click sets the seed and selects `node` again.
 // `taper` is an `extrude` node whose **taper** slider in the Inspector the check moves (4.8).
 // `exporter` is an `export` node whose **Export** button the check clicks. The file goes into the project copy of the shot.
-const TARGETS: { seed: string; node: string; title: string; shot: string; toon: boolean; next?: string; wall?: string; taper?: string; exporter?: string }[] = [
-  { seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false, taper: 'b0d1000000000004', exporter: 'e8a000000000000d' },
+// `others` are the other top graphs and a node in each that the check selects.
+const TARGETS: { seed: string; node: string; title: string; shot: string; toon: boolean; next?: string; wall?: string; taper?: string; exporter?: string; others?: [string, string][] }[] = [
+  {
+    seed: '5eed000000000001', node: 'a11a000000000008', title: 'union', shot: 'model', toon: false, taper: 'b0d1000000000004', exporter: 'e8a000000000000d',
+    others: [['solids', '5011d00000000007'], ['sketches', '5ce7c00000000010'], ['seeds', '5eedd0000000000b'], ['sockets', '50c4e00000000008']],
+  },
   { seed: 'c170000000000001', node: 'c170000000000017', title: 'merge', shot: 'city', toon: false, next: 'gun' },
   { seed: '9a70000000000001', node: '9a70000000000002', title: 'look', shot: 'gun', toon: true, wall: 'gun-wall' },
 ];
@@ -22,7 +26,7 @@ const TARGETS: { seed: string; node: string; title: string; shot: string; toon: 
 export async function modelWorkbench(view: View, show: (view: View) => void): Promise<string[]> {
   const target = TARGETS.find((t) => view.graph.node?.some((n) => n.id === t.node));
   if (!view.views.includes('model-view') || !target) return [];
-  const { seed, node, title, shot, toon, next, wall, taper, exporter } = target;
+  const { seed, node, title, shot, toon, next, wall, taper, exporter, others } = target;
   let stage = 'open';
   let failure = '';
   let runs = 0;
@@ -48,13 +52,15 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
     closeViews();
     show(await api.stop());
     show(await api.openGraph('main'));
-    const beforeRun = runs;
-    show(await api.run());
-    await until(() => runs > beforeRun, 'The main graph did not run');
+    // The view opens before Run, as at the open of a workbench. It builds in Edit mode, and Run then builds it again in the mode of the cluster (15.8).
     stage = 'open the view';
     changeLayout((layout) => openView(VIEW_SLOTS.reduce((next, slot) => closePanel(next, slot), layout), 'model-view', 'split'));
     await until(() => !!panel()?.querySelector('.gui-viewport'), 'The 3D view did not build');
     if (!panel()!.closest('section.area.split')) throw new Error('The 3D view did not open in the second center pane');
+    stage = 'run';
+    const beforeRun = runs;
+    show(await api.run());
+    await until(() => runs > beforeRun, 'The main graph did not run');
     // The first read of the selected node starts a batch run, so no second Run is necessary (15.8 rule 3).
     stage = 'select a node';
     rightClick(document.querySelector(`.react-flow__node[data-id="${node}"]`)!);
@@ -157,6 +163,42 @@ export async function modelWorkbench(view: View, show: (view: View) => void): Pr
       steps.push(`a click on Export writes the file: ${wrote()}`);
       show(await api.undo());
     }
+    stage = 'drag the 3D view';
+    // The mouse works as in Maya: the left button orbits, the middle button pans and the right button zooms (15.8).
+    let lastPrint = await capture(`${shot}-view-before-drag`);
+    for (const [button, name] of [[0, 'orbit'], [1, 'pan'], [2, 'zoom']] as const) {
+      const area = panel()!.querySelector<HTMLElement>('.gui-viewport')!;
+      // A synthetic pointer is not active, so the real capture throws. The stubs act as a captured pointer.
+      area.setPointerCapture = () => {};
+      area.hasPointerCapture = () => true;
+      const r = area.getBoundingClientRect();
+      const at = (d: number) => ({ bubbles: true, button, buttons: [1, 4, 2][button], pointerId: 1, isPrimary: true, clientX: r.left + r.width / 2 + d, clientY: r.top + r.height / 2 + d / 2 });
+      area.dispatchEvent(new PointerEvent('pointerdown', at(0)));
+      for (const d of [20, 40, 60]) {
+        await sleep(60);
+        area.dispatchEvent(new PointerEvent('pointermove', at(d)));
+      }
+      area.dispatchEvent(new PointerEvent('pointerup', at(60)));
+      await sleep(800);
+      const print = await capture(`${shot}-view-${name}`);
+      if (print === lastPrint) throw new Error(`A drag with mouse button ${button} did not ${name} the 3D view`);
+      lastPrint = print;
+    }
+    steps.push('a left drag orbits, a middle drag pans and a right drag zooms the 3D view');
+    for (const [graph, id] of others ?? []) {
+      // Each top graph shows its solid in the 3D view after a node selection.
+      stage = `show the ${graph} graph`;
+      show(await api.openGraph(graph));
+      await until(() => shown() === '', `The 3D view kept the last solid after the open of ${graph}`);
+      rightClick(document.querySelector(`.react-flow__node[data-id="${id}"]`)!);
+      await until(() => !!document.querySelector('.menu-layer'), 'The node menu did not open');
+      closeMenu();
+      await until(() => !document.querySelector('.menu-layer') && shown() !== '', `The 3D view did not show the selected node of ${graph}`);
+      await sleep(800);
+      await capture(`${shot}-view-${graph}`);
+      steps.push(`the ${graph} graph shows its solid: ${shown()}`);
+    }
+    if (others) show(await api.openGraph('main'));
     if (next) {
       // A new node process draws the view after the switch. A view that keeps the old image fails the seed check of the nested run.
       stage = `open the ${next} workbench`;

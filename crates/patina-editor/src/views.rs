@@ -88,11 +88,12 @@ impl Views {
     /// the build, from `poll`.
     pub fn ui(&mut self, out: &Out, shared: &Shared, (folder, toolchain): (&Path, &mut Option<Toolchain>), input: ViewInput, frames: Option<&mut Frames>) {
         // A slot that shows another view now drops the old instance. A view links the type crates
-        // of one build mode, so an instance of another mode than the cluster builds again (15.8).
+        // of one build mode, so an instance of another mode than the cluster builds again. The old
+        // instance and its last image stay until the new build loads (15.8).
         let mode = frames.as_ref().map(|frames| frames.mode());
-        self.open.retain(|(name, instance, _, built)| *instance != input.instance || (*name == input.name && mode.is_none_or(|m| m == *built)));
+        self.open.retain(|(name, instance, _, _)| *instance != input.instance || *name == input.name);
         self.cancel(out, |b| b.instance == input.instance && b.name != input.name, "The panel shows another view.");
-        if self.open.iter().any(|(_, instance, _, _)| *instance == input.instance) {
+        if self.open.iter().any(|(_, instance, _, built)| *instance == input.instance && mode.is_none_or(|m| m == *built)) {
             return out.reply(input.ask, self.reply(shared, &input, frames));
         }
         if let Some(waits) = self.building.iter_mut().find(|b| b.instance == input.instance) {
@@ -122,14 +123,19 @@ impl Views {
             let done = self.building.swap_remove(at);
             let built = done.thread.join().unwrap_or_else(|_| Err("The view build panicked.".to_owned()));
             let fail = |inputs: Vec<ViewInput>, e: String| inputs.into_iter().for_each(|input| out.reply(input.ask, Err::<ViewReply, _>(e.clone())));
-            if done.again {
-                let mode = frames.as_ref().map_or(done.mode, |frames| frames.mode());
+            // A Run can load a cluster of another mode during the build, so the view builds again.
+            let mode = frames.as_ref().map_or(done.mode, |frames| frames.mode());
+            if done.again || mode != done.mode {
                 match build(done.toolchain.clone(), done.root.clone(), done.name.clone(), mode) {
                     Ok(thread) => self.building.push(Building { thread, mode, again: false, ..done }),
-                    Err(e) => fail(done.inputs, e),
+                    Err(e) => {
+                        self.open.retain(|(_, instance, _, _)| *instance != done.instance);
+                        fail(done.inputs, e);
+                    }
                 }
                 continue;
             }
+            self.open.retain(|(_, instance, _, _)| *instance != done.instance);
             match built.and_then(|library| View::load(&library, &done.root)) {
                 Ok(view) => {
                     self.open.push((done.name, done.instance, view, done.mode));
