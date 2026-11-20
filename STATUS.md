@@ -772,7 +772,8 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   its 16 inputs are the most that a node function takes (spec 4.1). Its contacts show the lanes.
 - The `pulse` node has a custom GUI, as `clock`: an LED, a scope, the length and the **-** and
   **+** buttons (2026-11-19). A hidden `--shot` of a test graph drew `clock`, `pulse` and `bus`
-  in the editor. No person clicked the buttons, and no shot drew `rom`.
+  in the editor. A hidden `--shot` drew `rom` with ten words: the word map, the address and
+  the word. No person clicked the buttons.
 
 ### Touchpad pan
 
