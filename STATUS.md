@@ -568,8 +568,16 @@ The open items of each section. Items that the text marks as fixed are in [docs/
   - 7 unit tests of the type crate passed with the MSVC toolchain. CI does not run them.
   - The MSVC build and a toolchain run (Zig, gnu target) gave the same mesh hashes: the box and a
     seeded model of 5 boxes. A cold build took 5.3 s with MSVC and 8.8 s with the own toolchain.
+- Kernel exceptions (2026-11-19): a C++ exception of the kernel does not stop the program. A
+  solid gets the error "the result is too large" for a `bad_alloc`, or else "the construction is
+  not valid". The booleans keep the error. A sketch that the kernel cannot make is empty.
+- Checked on 2026-11-19, on Windows only: a unit test catches a `bad_alloc` and keeps its error
+  through a union. A unit test makes a sketch with a coordinate out of the Clipper2 range. Before
+  the change, Clipper2 threw an exception for this sketch.
 - Known limits:
-  - A C++ `bad_alloc` in the kernel stops the program. It does not give an error.
+  - After a kernel exception, the kernel memory of the failed call stays until the program stops.
+  - A sketch that the kernel cannot make is empty. It has no error text.
+  - An allocation failure in the Rust code stops the program.
   - The `parallel` feature of `cc` adds `jobserver` and `libc` to the crate downloads.
   - Linux and macOS did not run.
 

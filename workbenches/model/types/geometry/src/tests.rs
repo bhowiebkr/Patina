@@ -128,6 +128,8 @@ fn sketches_make_solids() {
     assert_eq!(Sketch::polygon(&[[0.0, 0.0], [0.0, 2.0], [2.0, 0.0]]).area(), 2.0);
     assert_eq!(Sketch::circle(1.0, 6).corners(), 6);
     assert_eq!(Sketch::circle(1.0, 100_000).corners(), MAX_SEGMENTS as usize);
+    // Clipper2 throws on a coordinate out of its range, and the sketch is empty.
+    assert_eq!(format!("{:?}", Sketch::polygon(&[[0.0, 0.0], [1e300, 0.0], [0.0, 1e300]])), "empty");
     let block = Solid::extrude(&rect, 3.0, 0.0, [1.0; 2], 0);
     assert_eq!(block.bounds(), [[-1.0, -0.5, 0.0], [1.0, 0.5, 3.0]]);
     let point = Solid::extrude(&rect, 1.0, 0.0, [0.0; 2], 0).checked().unwrap();

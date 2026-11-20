@@ -14,6 +14,7 @@ fn main() {
     let vendor = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("cargo sets it")).join("vendor");
     let (manifold, clipper) = (vendor.join("manifold"), vendor.join("clipper2"));
     println!("cargo:rerun-if-changed=vendor");
+    println!("cargo:rerun-if-changed=src/guard.cpp");
     let mut build = cc::Build::new();
     build
         .cpp(true)
@@ -34,5 +35,6 @@ fn main() {
     build.files(MANIFOLD.iter().map(|name| manifold.join("src").join(format!("{name}.cpp"))));
     build.files(BINDINGS.iter().map(|name| manifold.join("bindings/c").join(format!("{name}.cpp"))));
     build.files(CLIPPER.iter().map(|name| clipper.join("src").join(format!("{name}.cpp"))));
+    build.file("src/guard.cpp");
     build.compile("manifold");
 }
