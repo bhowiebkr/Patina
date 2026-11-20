@@ -158,7 +158,7 @@ makeup = "3"
 [[node]]
 id = "e6beb00000000010"
 folder = "nodes/reverb"
-pos = [1360.0, 1020.0]
+pos = [1440.0, 1020.0]
 
 [node.params]
 decay = "0.7"
@@ -264,5 +264,5 @@ to = ["e6beb00000000004.notes"]
 [[output]]
 key = "bb000002"
 name = "sound"
-pos = [1700.0, 1050.0]
+pos = [1780.0, 1050.0]
 from = "e6beb00000000010.out"

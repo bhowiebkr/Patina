@@ -1,4 +1,4 @@
-use crate::{RATE, finite};
+use crate::{RATE, finite, tap};
 use patina_sdk::AudioBlock;
 use std::f32::consts::TAU;
 
@@ -32,11 +32,7 @@ impl Chorus {
             let mut wet = 0.0;
             for offset in [0.0, 0.25] {
                 let delay = 0.022 * RATE + (TAU * (self.phase + offset)).sin() * self.depth;
-                let read = (self.cursor as f32 - delay).rem_euclid(self.buffer.len() as f32);
-                let index = read as usize;
-                let t = read.fract();
-                wet += self.buffer[index] * (1.0 - t)
-                    + self.buffer[(index + 1) % self.buffer.len()] * t;
+                wet += tap(&self.buffer, self.cursor as f32 - delay);
             }
             let dry = finite(sound[i], 0.0, -32.0, 32.0);
             self.buffer[self.cursor] = dry;

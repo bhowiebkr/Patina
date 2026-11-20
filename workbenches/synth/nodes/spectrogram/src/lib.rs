@@ -1,5 +1,5 @@
 use panel::{INK, MUTED, VIOLET, panel};
-use patina_sdk::Ui;
+use patina_sdk::{Mode, Ui};
 use std::time::{Duration, Instant};
 use synth_dsp::{
     RATE,
@@ -9,8 +9,10 @@ use synth_dsp::{
 
 mod display;
 
-const SIZE: [f32; 2] = [624.0, 502.0];
-const PLOT: [f32; 4] = [56.0, 146.0, 512.0, 256.0];
+// A node is 480 px wide at most (spec 4.3). The image fills the width between equal margins.
+const SIZE: [f32; 2] = [472.0, 452.0];
+const PLOT: [f32; 4] = [56.0, 146.0, SIZE[0] - 112.0, (SIZE[0] - 112.0) / 2.0];
+const STATUS: f32 = PLOT[1] + PLOT[3] + 94.0;
 
 /// A continuous frequency history. Connect Audio Capture to its source input.
 #[patina_sdk::node(domain = frame, free_layout, full_gui, color = "#59366f")]
@@ -45,47 +47,57 @@ impl Spectrogram {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
-        let mut c = ui.canvas("Spectrogram frequency and time axes", SIZE);
-        panel(
-            &mut c,
-            SIZE,
-            "SIGNAL / SPECTROGRAM",
-            "FREQUENCY OVER TIME / BRIGHTER MEANS LOUDER",
-            VIOLET,
-        );
-        display::axes(&mut c, PLOT, self.max_hz(), self.columns(), self.floor_db());
-        c.text([16.0, 480.0], INK, self.status());
-        c.text(
-            [320.0, 480.0],
-            MUTED,
-            &format!(
-                "2048 FFT / 23.4 Hz / {:.1} dBFS peak",
-                synth_dsp::spectrum::db(self.history.peak)
-            ),
-        );
-        drop(c);
+        // The Inspector is narrower than the node, so it stacks the controls without places.
+        let flow = ui.mode() == Mode::Large;
+        let place = |ui: &mut Ui, at: [f32; 2]| {
+            if !flow {
+                ui.place(at);
+            }
+        };
+        if flow {
+            ui.label(self.status());
+        } else {
+            let mut c = ui.canvas("Spectrogram frequency and time axes", SIZE);
+            panel(
+                &mut c,
+                SIZE,
+                "SIGNAL / SPECTROGRAM",
+                "FREQUENCY OVER TIME / BRIGHTER MEANS LOUDER",
+                VIOLET,
+            );
+            display::axes(&mut c, PLOT, self.max_hz(), self.columns(), self.floor_db());
+            c.text([16.0, STATUS], INK, self.status());
+            c.text(
+                [16.0, STATUS + 18.0],
+                MUTED,
+                format!(
+                    "2048 FFT / 23.4 Hz / {:.1} dBFS peak",
+                    synth_dsp::spectrum::db(self.history.peak)
+                ),
+            );
+        }
 
-        ui.place([16.0, 70.0]);
+        place(ui, [16.0, 70.0]);
         ui.tabs(
             "Frequency range",
             &mut self.range,
             &["2 kHz", "5 kHz", "12 kHz", "24 kHz"],
         );
-        ui.place([386.0, 70.0]);
+        place(ui, [300.0, 70.0]);
         if ui.toggle("Freeze", &mut self.frozen).changed() && !self.frozen {
             self.history.clear();
         }
-        ui.place([500.0, 70.0]);
+        place(ui, [396.0, 70.0]);
         if ui.button("Clear").clicked() {
             self.history.clear();
         }
-        ui.place([16.0, 104.0]);
+        place(ui, [16.0, 104.0]);
         ui.tabs(
             "Time span",
             &mut self.span,
             &["5.5 seconds", "10.9 seconds"],
         );
-        ui.place([330.0, 104.0]);
+        place(ui, [230.0, 104.0]);
         ui.tabs(
             "Level floor",
             &mut self.floor,
@@ -94,14 +106,16 @@ impl Spectrogram {
 
         let (hz, columns, floor) = (self.max_hz(), self.columns(), self.floor_db());
         display::pixels(&self.history, &mut self.pixels, hz, columns, floor);
-        ui.place([PLOT[0], PLOT[1]]);
+        place(ui, [PLOT[0], PLOT[1]]);
         ui.image(
-            "Spectrogram: time runs left to right; frequency rises upward",
+            "Spectrogram: time right, frequency up",
             [256, 128],
             &self.pixels,
         );
-        ui.pin("source", [0.0, 146.0]);
-        ui.pin("out", [SIZE[0], 480.0]);
+        if !flow {
+            ui.pin("source", [0.0, 146.0]);
+            ui.pin("out", [SIZE[0], STATUS]);
+        }
     }
 
     fn max_hz(&self) -> f32 {

@@ -4,7 +4,8 @@ All milestones of the roadmap (spec section 16) ended. Milestone 12, the event d
 2026-11-16. The [quality plan](docs/quality-plan.md) of 2026-11-17 is done, except two items
 that need the owner. The next work is the open items of the known limits and of
 [docs/before-building.md](docs/before-building.md).
-The owner feedback of 2026-11-19 is the current work list: [docs/feedback-2026-11-19.md](docs/feedback-2026-11-19.md).
+The 7 items of the owner feedback of 2026-11-19 are done since 2026-11-20:
+[docs/feedback-2026-11-19.md](docs/feedback-2026-11-19.md).
 Milestone 11, the audio domain, ended on 2026-11-16. Since 2026-11-20, an audio node can have a GUI
 with a display value (spec 4.3). The settings and the messages of audio GUIs stay deferred.
 The circuit graphs of question 13 (spec section 18) work: the computer example of NAND gates is
@@ -674,6 +675,7 @@ The open items of each section. Items that the text marks as fixed are in [docs/
 - Presets require the original main patch's parameter nodes. Favorites, recent entries, and pinned controls last for one tab instance.
 - Device selection, device connection status, modulation history, and spectrograms remain open.
 - See the [dock implementation record](docs/synth-dock-design.md) for checks and remaining limits.
+- On 2026-11-20, the hidden synth shot passed all 111 steps on Windows. The fixes were in the chorus and echo ring reads, export cancel, the Strip Inspector names, the **impact** layout and the spectrogram size.
 
 ### Ember song arrangement, 2026-11-19
 

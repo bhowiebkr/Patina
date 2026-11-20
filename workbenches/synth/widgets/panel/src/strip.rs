@@ -1,6 +1,6 @@
 //! The live panel of the audio nodes: a trace, a stereo peak meter and small controls (spec 4.3).
 use crate::{AMBER, DARK, EDGE, INK, MUTED, button, inside, panel, rounded, screen, trace};
-use patina_sdk::{Canvas, Key, Pointer, Ui};
+use patina_sdk::{Canvas, Key, Mode, Pointer, Ui};
 use std::f32::consts::PI;
 use std::fmt::Write;
 
@@ -140,9 +140,12 @@ impl Strip {
         let mut text = String::with_capacity(160);
         let _ = write!(text, "{} {}", look.title, look.subtitle);
         let mut buf = String::with_capacity(16);
-        for (ctl, &v) in ctls.iter().zip(&values) {
-            ctl.text(&mut buf, v);
-            let _ = write!(text, ", {} {buf}", ctl.label);
+        // The Inspector shows the name as a one-line label, with the parameters above it.
+        if ui.mode() != Mode::Large {
+            for (ctl, &v) in ctls.iter().zip(&values) {
+                ctl.text(&mut buf, v);
+                let _ = write!(text, ", {} {buf}", ctl.label);
+            }
         }
         let mut send = [None; 5];
         {

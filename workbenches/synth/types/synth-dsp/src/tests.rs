@@ -189,3 +189,11 @@ pub(super) mod allocations {
     #[global_allocator]
     static ALLOCATOR: Counter = Counter;
 }
+
+#[test]
+fn a_ring_tap_just_below_zero_stays_in_range() {
+    let buffer = [1.0, 2.0, 3.0, 4.0];
+    assert_eq!(tap(&buffer, -1e-7), 1.0);
+    assert_eq!(tap(&buffer, -0.5), 2.5);
+    assert_eq!(tap(&buffer, 5.5), 2.5);
+}

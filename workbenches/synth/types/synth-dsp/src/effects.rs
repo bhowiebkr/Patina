@@ -1,4 +1,4 @@
-use super::{Color, RATE, Space, finite};
+use super::{Color, RATE, Space, finite, tap};
 use crate::processors::Integrators;
 use patina_sdk::AudioBlock;
 
@@ -67,10 +67,7 @@ impl Echo {
             self.delay += (delay - self.delay) * 0.0002;
             self.feedback += (feedback - self.feedback) * 0.002;
             self.mix += (mix - self.mix) * 0.002;
-            let read = (self.cursor as f32 - self.delay).rem_euclid(len as f32);
-            let index = read as usize;
-            let frac = read.fract();
-            let wet = self.buffer[index] * (1.0 - frac) + self.buffer[(index + 1) % len] * frac;
+            let wet = tap(&self.buffer, self.cursor as f32 - self.delay);
             self.low += 0.25 * (wet - self.low);
             self.buffer[self.cursor] = input[i] + self.low * self.feedback;
             self.cursor = (self.cursor + 1) % len;

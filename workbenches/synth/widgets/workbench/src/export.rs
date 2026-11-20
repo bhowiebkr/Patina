@@ -263,14 +263,16 @@ impl Job {
                 let mut command = Command::new("taskkill.exe");
                 command.args(["/PID", &self.child.id().to_string(), "/T", "/F"]);
                 hidden(&mut command);
-                if !command
+                let status = command
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
                     .status()
-                    .map_err(|e| e.to_string())?
-                    .success()
-                {
-                    return Err("Cannot stop the render process tree".into());
+                    .map_err(|e| e.to_string())?;
+                // taskkill /T fails when a tree process, such as conhost, exits during the walk.
+                if !status.success() {
+                    self.child
+                        .kill()
+                        .map_err(|e| format!("Cannot stop the render process tree: {e}"))?;
                 }
             }
             #[cfg(unix)]

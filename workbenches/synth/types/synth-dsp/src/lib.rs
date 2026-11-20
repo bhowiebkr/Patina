@@ -194,6 +194,16 @@ pub fn finite(value: f32, fallback: f32, lo: f32, hi: f32) -> f32 {
     }
 }
 
+/// Linear read from a ring buffer at a fractional position, wrapped into range.
+pub(crate) fn tap(buffer: &[f32], position: f32) -> f32 {
+    let len = buffer.len();
+    let read = position.rem_euclid(len as f32);
+    // rem_euclid of a tiny negative position rounds up to len itself.
+    let index = read as usize % len;
+    let t = read.fract();
+    buffer[index] * (1.0 - t) + buffer[(index + 1) % len] * t
+}
+
 pub fn parse_pattern(text: &str) -> [i8; 16] {
     let mut notes = [-1; 16];
     for (to, from) in notes.iter_mut().zip(text.split_whitespace()) {

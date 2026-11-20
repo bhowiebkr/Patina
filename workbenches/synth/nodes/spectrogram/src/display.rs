@@ -7,7 +7,7 @@ pub fn axes(c: &mut Canvas, [x, y, w, h]: [f32; 4], hz: f32, columns: usize, flo
         c.text(
             [12.0, y + h * (1.0 - at) + 4.0],
             MUTED,
-            &format!("{:.0}", hz * at),
+            format!("{:.0}", hz * at),
         );
         let seconds = History::seconds(columns) * (1.0 - at);
         c.text(
@@ -21,17 +21,18 @@ pub fn axes(c: &mut Canvas, [x, y, w, h]: [f32; 4], hz: f32, columns: usize, flo
         );
     }
     c.text([12.0, y - 8.0], MUTED, "Hz");
-    c.text([228.0, y + h + 20.0], MUTED, "seconds ago");
-    for i in 0..128 {
+    c.text([x + w / 2.0 - 34.0, y + h + 38.0], MUTED, "seconds ago");
+    let blocks = (w / 4.0) as usize;
+    for i in 0..blocks {
         c.rect(
-            [x + i as f32 * 4.0, 438.0],
+            [x + i as f32 * 4.0, y + h + 52.0],
             [4.0, 8.0],
-            color(i as f32 / 127.0),
+            color(i as f32 / (blocks - 1) as f32),
             true,
         );
     }
-    c.text([x, 460.0], MUTED, &format!("{floor:.0} dBFS"));
-    c.text([x + w - 45.0, 460.0], MUTED, "0 dBFS");
+    c.text([x, y + h + 74.0], MUTED, format!("{floor:.0} dBFS"));
+    c.text([x + w - 45.0, y + h + 74.0], MUTED, "0 dBFS");
 }
 
 pub fn pixels(history: &History, pixels: &mut [u8], hz: f32, span: usize, floor: f32) {

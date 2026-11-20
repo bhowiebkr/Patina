@@ -83,7 +83,8 @@ export async function songWorkbench(view: View, show: (view: View) => void): Pro
     click('arrange', 'Automation'); await sleep(250); fit('arrange');
     steps.push('the piano roll changes note pitch; mixer and automation controls fit the dock');
     click('arrange', 'Arrange'); await sleep(250);
-    enterText(field('arrange', 'Audio clip / WAV'), 'types/synth-dsp/check.wav');
+    // The export step of synthDocks wrote this WAV earlier in the same shot.
+    enterText(field('arrange', 'Audio clip / WAV'), 'dock-check.wav');
     await sleep(200); click('arrange', 'Import WAV clip'); await sleep(400);
     const imported = await api.pause(); show(imported);
     if (!scoreText(imported)?.includes('"kind":"Audio"')) throw new Error('WAV import did not add an audio clip');
