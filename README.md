@@ -204,6 +204,55 @@ image-pipeline/
 Node code runs with your user rights. A project from another person opens read-only until you
 trust it.
 
+## Code editor
+
+The editor has a code editor for the Rust code of each node. Select a node, then click the
+**Code** tab of the **Inspector**.
+
+![The Code tab of the Inspector with the Rust code of the twin oscillator node of the synth workbench, with syntax highlighting](docs/images/editor/code-editor.png)
+
+- The tabs show the `src/lib.rs` and the `Cargo.toml` of the node, with syntax highlighting.
+- In a trusted project, rust-analyzer gives completion and hover. The toolchain installs it.
+- Push Ctrl+S or click **Save**. Patina builds only that node and swaps it in while the graph
+  runs. The tab shows the build time, for example **Built in 0.3 s**.
+- A build error shows as a mark in the gutter. Put the pointer on the mark to read the error.
+- **Add crate** adds a crate of crates.io to the `Cargo.toml` of the node.
+- The `#[patina_sdk::node(...)]` attribute sets the clock domain, the layout and the header color
+  of the node. The `ui` function draws the GUI of the node.
+
+[Write a custom node](docs/custom-nodes.md) has the full rules for the code and the look of a
+node.
+
+## Subgraphs
+
+A subgraph is a graph that shows as one node in another graph. To make one, select two or more
+nodes and push Ctrl+G. You can also right-click them and click **Collapse into subgraph**.
+
+Click a subgraph in the **Subgraphs** group of the **Project** panel to open it. The path bar
+shows the path from the main graph, for example **main / adder-4**. Click **Test** in the path
+bar to test the subgraph alone.
+
+![The adder-4 subgraph of the computer workbench: four full adders, switches, a hex display and the Subgraph interface](docs/images/editor/subgraph.png)
+
+Click an empty part of an open subgraph. The **Inspector** shows the **Subgraph interface**:
+
+- **Look** sets how each use of the subgraph looks: the **Shape**, the **Label** and the
+  **Color**. The shapes are a box, the gates, the blocks, **Custom outline** and **Code**.
+- **Inputs** and **Outputs** list the public pins. Rename, move, add and remove the pins here.
+- **Public node preview** shows a use of the subgraph.
+
+With **Custom outline**, the preview shows the corners of the outline:
+
+- Drag a corner to move it.
+- Drag a dot on an edge to add a corner.
+- Double-click a corner to remove it.
+- Click **Reset outline** to get the box again.
+
+<img src="docs/images/editor/subgraph-look.png" width="560" alt="The Look section of the Subgraph interface with a custom outline: the corners of the outline in the Public node preview">
+
+With **Code**, a face node draws each use with Rust code. Edit the code in the **Look code**
+section of the **Inspector**. [A symbol](docs/custom-nodes.md#a-symbol) has the rules.
+
 ## Graph view
 
 The graph view moves at once, with no animation.
@@ -385,7 +434,7 @@ use becomes a frame with its inner nodes and their live values. Click **Hide inn
 close it. To edit the inner nodes, open the subgraph.
 To test a subgraph alone, open it and click **Test** in the path bar. Click the switch at the left
 of an input to toggle it. The lamp at the right of an output shows its value. Click **End test**
-to return. The **Graphs** group of the **Project** panel lists the subgraphs. Click one to open
+to return. The **Subgraphs** group of the **Project** panel lists the subgraphs. Click one to open
 it, or drag it into the graph to add a use.
 In an open subgraph, click an empty part of the graph to see the **Subgraph interface** in the
 **Inspector**. It lists the public pins in the order of each use. Use it to rename, move, add
