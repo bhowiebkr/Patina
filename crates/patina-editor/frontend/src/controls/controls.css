@@ -298,17 +298,75 @@
   outline-offset: 1px;
 }
 
-.gui-code-box > .gui-code:focus-visible {
+.gui-code-box .gui-code:focus-visible {
   outline: none;
 }
 
-.gui-code-box > .gui-code {
+.gui-code-box > .gui-code,
+.gui-code-box > .gui-code-paint {
   flex: 1;
   min-width: 0;
+}
+
+.gui-code-box .gui-code {
   background: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
+}
+
+/* A code field with syntax colors draws the colored text over the field. The field keeps the caret and the selection. */
+.gui-code-paint {
+  position: relative;
+}
+
+.gui-code-paint > textarea.gui-code {
+  display: block;
+  color: transparent;
+  caret-color: var(--text);
+}
+
+.gui-code-paint > pre.gui-code {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: clip;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  resize: none;
+  pointer-events: none;
+}
+
+.gui-code-paint > textarea:disabled + pre {
+  opacity: 0.55;
+}
+
+.gui-code-paint code {
+  display: block;
+  font: inherit;
+}
+
+.gui-code-paint .code-word {
+  color: var(--code-keyword);
+}
+
+.gui-code-paint .code-label {
+  color: var(--code-label);
+}
+
+.gui-code-paint .code-number {
+  color: var(--code-number);
+}
+
+.gui-code-paint .code-name {
+  color: var(--code-name);
+}
+
+.gui-code-paint .code-comment {
+  color: var(--code-comment);
 }
 
 .gui-code-gutter {

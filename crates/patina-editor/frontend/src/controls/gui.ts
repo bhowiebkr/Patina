@@ -1,5 +1,6 @@
 // The widget lines of a node GUI (spec 4.3), as `patina_sdk::Ui::tree` writes them.
 
+import { parseSyntax, type Syntax } from './codeColors.ts';
 import { parseTimeline, type TimelineData } from './timelineData.ts';
 
 /** A widget of a node GUI. `index` is its order in the `ui` call, which events name. */
@@ -12,8 +13,8 @@ export type Widget =
   | { kind: 'slider'; index: number; text: string; value: number; low: number; high: number }
   | { kind: 'number'; index: number; text: string; value: number; step: number; unit: string }
   | { kind: 'text'; index: number; text: string; value: string }
-  /** `editor` adds line numbers, the `current` line (-1 for none) and the `errors` by line, from 0. */
-  | { kind: 'code'; index: number; text: string; value: string; editor: boolean; current: number; errors: [number, string][] }
+  /** `syntax` gives the colors. `editor` adds line numbers, the `current` line (-1 for none) and the `errors` by line, from 0. */
+  | { kind: 'code'; index: number; text: string; value: string; syntax: Syntax; editor: boolean; current: number; errors: [number, string][] }
   | { kind: 'path'; index: number; text: string; pick: 'open' | 'save' | 'folder'; value: string }
   | { kind: 'asset'; index: number; text: string; extensions: string[]; value: string }
   | { kind: 'dropdown'; index: number; text: string; selected: number; options: string[] }
@@ -263,7 +264,7 @@ export function parseTree(tree: string): Widget[] {
     else if (kind === 'slider' && [value, low, high].every(Number.isFinite) && low <= high) widgets.push({ kind, index, text, value, low, high });
     else if (kind === 'number' && Number.isFinite(value)) widgets.push({ kind, index, text, value, step: low > 0 && Number.isFinite(low) ? low : 0, unit: rest[2] ?? '' });
     else if (kind === 'text') widgets.push({ kind, index, text, value: rest[0] ?? '' });
-    else if (kind === 'code') widgets.push({ kind, index, text, value: unescapeCode(rest[0] ?? ''), ...codeLines(rest.slice(1)) });
+    else if (kind === 'code') widgets.push({ kind, index, text, value: unescapeCode(rest[0] ?? ''), syntax: parseSyntax(rest[1] ?? ''), ...codeLines(rest.slice(2)) });
     else if (kind === 'path' && (rest[0] === 'open' || rest[0] === 'save' || rest[0] === 'folder')) widgets.push({ kind, index, text, pick: rest[0], value: rest[1] ?? '' });
     else if (kind === 'asset') widgets.push({ kind, index, text, extensions: (rest[0] ?? '').split(' ').filter(Boolean), value: rest[1] ?? '' });
     else if ((kind === 'dropdown' || kind === 'tabs') && Number.isInteger(value)) widgets.push({ kind, index, text, selected: value, options: rest.slice(1) });

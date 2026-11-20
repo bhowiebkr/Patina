@@ -6,11 +6,11 @@ mod render;
 
 use camera::Camera;
 use geometry::{Mesh, Scene, Solid};
-use patina_sdk::{Graph, Key, Pointer, Ui};
+use patina_sdk::{Button, Graph, Key, Pointer, Press, Ui};
 use render::{Content, Options, Renderer};
 
-/// Shows the solid or the scene of the selected node. Drag to orbit, Shift and drag to pan, use the wheel to
-/// zoom, or press Home to frame.
+/// Shows the solid or the scene of the selected node. The mouse works as in Maya: the left button
+/// orbits, the middle button pans, and the right button or the wheel zooms. Home frames the model.
 #[patina_sdk::view]
 pub struct ModelView {
     renderer: Option<Renderer>,
@@ -21,8 +21,27 @@ pub struct ModelView {
     shown: Option<Shown>,
     /// True when the GPU does not have the mesh of `shown` with the current part colors.
     stale: bool,
-    drag: Option<[f32; 2]>,
-    shift: bool,
+    drag: Option<([f32; 2], Gesture)>,
+}
+
+/// What a drag in the view does, as in Maya. Alt and a button does the same as the button alone.
+#[derive(Clone, Copy)]
+enum Gesture {
+    Orbit,
+    Pan,
+    Dolly,
+}
+
+impl Gesture {
+    /// The left button orbits, or pans with Shift. The middle button pans. The right button zooms.
+    fn of(press: Press) -> Gesture {
+        match press.button {
+            Button::Left if press.shift => Gesture::Pan,
+            Button::Left => Gesture::Orbit,
+            Button::Middle => Gesture::Pan,
+            Button::Right => Gesture::Dolly,
+        }
+    }
 }
 
 /// The model that the view shows.
@@ -66,7 +85,6 @@ impl ModelView {
             shown: None,
             stale: true,
             drag: None,
-            shift: false,
         }
     }
 
@@ -115,26 +133,21 @@ impl ModelView {
         // The part colors are in the vertices, so a change of the toggle sends the mesh again.
         self.stale |= parts != self.options.parts;
         reframe |= ui.button("Frame model").clicked();
-        ui.label("Drag to orbit. Shift and drag to pan. Wheel to zoom. Home to frame.");
+        ui.label("Left drag to orbit. Middle drag to pan. Right drag or wheel to zoom. Home to frame.");
 
-        for key in &viewport.keys {
-            match key {
-                Key::Down(name) | Key::Up(name) if name.starts_with("Shift") => self.shift = matches!(key, Key::Down(_)),
-                Key::Down(name) if name == "Home" => reframe = true,
-                _ => {}
-            }
-        }
+        reframe |= viewport.keys.iter().any(|key| matches!(key, Key::Down(name) if name == "Home"));
         for pointer in &viewport.pointer {
             match *pointer {
-                Pointer::Down(at) => self.drag = Some(at),
+                Pointer::Down(at) => self.drag = Some((at, Gesture::of(viewport.press.unwrap_or_default()))),
                 Pointer::Move(at) => {
-                    if let Some(last) = self.drag.replace(at) {
-                        let delta = [at[0] - last[0], at[1] - last[1]];
-                        if self.shift {
-                            self.camera.pan(delta, viewport.rect[3] as f32);
-                        } else {
-                            self.camera.orbit(delta);
-                        }
+                    let Some((last, gesture)) = &mut self.drag else { continue };
+                    let [dx, dy] = [at[0] - last[0], at[1] - last[1]];
+                    *last = at;
+                    match gesture {
+                        Gesture::Orbit => self.camera.orbit([dx, dy]),
+                        Gesture::Pan => self.camera.pan([dx, dy], viewport.rect[3] as f32),
+                        // As in Maya, a drag to the right or down moves in, and to the left or up moves out.
+                        Gesture::Dolly => self.camera.zoom(-2.0 * (dx + dy)),
                     }
                 }
                 Pointer::Up(_) => self.drag = None,

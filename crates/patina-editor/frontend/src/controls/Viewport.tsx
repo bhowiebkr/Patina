@@ -92,11 +92,19 @@ export function ViewportView({ w, send, disabled, window: handle }: Props) {
           disabled
             ? undefined
             : (e) => {
+                // preventDefault stops the scroll of the middle button. The view gets the button and the modifier keys (15.8).
+                e.preventDefault();
                 e.currentTarget.setPointerCapture(e.pointerId);
                 e.currentTarget.focus();
-                send(`down ${at(e)}`);
+                const keys = [e.altKey && 'alt', e.ctrlKey && 'ctrl', e.shiftKey && 'shift'].filter(Boolean);
+                send([`down ${at(e)} ${e.button}`, ...keys].join(' '));
               }
         }
+        onContextMenu={(e) => {
+          // The right button drags in the view, so the page menu does not open.
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onPointerMove={disabled ? undefined : (e) => drag(e) && send(`move ${at(e)}`)}
         onPointerUp={disabled ? undefined : (e) => drag(e) && send(`up ${at(e)}`)}
       />

@@ -26,6 +26,9 @@
   --code-name: #9cdcfe;
   --code-string: #ce9178;
   --code-number: #b5cea8;
+  --code-keyword: #569cd6;
+  --code-comment: #6a9955;
+  --code-label: #dcdcaa;
   --xy-background-color: var(--canvas);
   --xy-selection-background-color: rgba(223, 166, 75, 0.08);
   --xy-selection-border: 1px dotted var(--accent);

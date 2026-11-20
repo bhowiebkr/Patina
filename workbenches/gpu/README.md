@@ -7,7 +7,8 @@ The project has two top graphs. **main** shows small GPU experiments.
 
 Open **materials** in the **Project** panel. Click **Run** to evaluate the copper recipe.
 Open **material-preview** from **Views**. Click **Run** again to capture the finished material.
-Drag the preview to orbit. Use the wheel to zoom. **Frame material** restores the camera.
+The mouse works as in Maya. Drag with the left button to orbit, the middle button to pan, and the right
+button to zoom. The wheel also zooms. **Frame material** restores the camera.
 The **Channel** list shows shading, base color, roughness, metallic, height, occlusion, and normal.
 
 The graph has 28 material nodes, three workflow nodes, and six labeled groups:

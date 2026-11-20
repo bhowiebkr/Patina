@@ -1,7 +1,8 @@
 // A text, number or file path field, and the asset picker, of a node GUI (spec 4.3, GUI guide controls).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
+import { codeTokens } from './codeColors';
 import { escapeCode, stepped, type Widget } from './gui';
 import { guiIcon } from './icons';
 
@@ -82,9 +83,13 @@ export function Field({ w, send, disabled }: { w: Extract<Widget, { kind: 'numbe
  * on the current line and the error lines, with the error text as a tooltip. */
 export function CodeField({ w, send, disabled }: { w: Extract<Widget, { kind: 'code' }>; send: (value: string) => void; disabled: boolean }) {
   const [draft, setDraft] = useState<string | null>(null);
-  const [scroll, setScroll] = useState(0);
+  const [[scroll, left], setScroll] = useState([0, 0]);
   const text = draft ?? w.value;
   const lines = text.split('\n').length;
+  const { comment, words } = w.syntax;
+  const painted = comment !== '' || words.length > 0;
+  const wordList = words.join(' ');
+  const tokens = useMemo(() => (painted ? codeTokens(text, { comment, words: wordList.split(' ') }) : []), [painted, text, comment, wordList]);
   const commit = () => {
     if (draft === null) return;
     setDraft(null);
@@ -100,18 +105,32 @@ export function CodeField({ w, send, disabled }: { w: Extract<Widget, { kind: 'c
       disabled={disabled}
       onChange={(e) => setDraft(e.currentTarget.value)}
       onBlur={commit}
-      onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+      onScroll={(e) => setScroll([e.currentTarget.scrollTop, e.currentTarget.scrollLeft])}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commit();
         else if (e.key === 'Escape') setDraft(null);
       }}
     />
   );
+  // The colored text goes over the text field, which keeps the caret, the selection and the input.
+  const field = !painted ? (
+    area
+  ) : (
+    <div className="gui-code-paint">
+      {area}
+      <pre className="field gui-code" aria-hidden="true">
+        <code style={{ transform: `translate(${-left}px, ${-scroll}px)` }}>
+          {tokens.map((t, i) => (t.kind === 'plain' ? t.text : <span key={i} className={`code-${t.kind}`}>{t.text}</span>))}
+          {'\n'}
+        </code>
+      </pre>
+    </div>
+  );
   if (!w.editor) {
     return (
       <label className="gui-code-row">
         <span className="label">{w.text}</span>
-        {area}
+        {field}
       </label>
     );
   }
@@ -131,7 +150,7 @@ export function CodeField({ w, send, disabled }: { w: Extract<Widget, { kind: 'c
             ))}
           </div>
         </div>
-        {area}
+        {field}
         {w.current >= 0 && <div className="gui-code-line" style={{ top: 6 + w.current * 16 - scroll }} />}
       </div>
     </label>

@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { codeTokens } from './codeColors.ts';
 import { applyTransform, dragTransform, escapeCode, eventLine, freeLayout, movePivot, nest, nodeWidth, parseTree, rampGradient, scaleTo, skippedShape, stepped, transformEvent, unescapeCode } from './gui.ts';
 
 test('each widget line gives a widget, and a bad line keeps its index', () => {
@@ -42,15 +43,25 @@ test('a code field keeps its line breaks, tabs and backslashes', () => {
   assert.equal(line, 'LDI 1\\n\\tOUT ; a\\\\b\\nend\\\\');
   assert.equal(unescapeCode(line), text);
   assert.equal(unescapeCode('a\\qb\\'), 'a\\qb\\');
-  const plain = { kind: 'code', index: 0, text: 'Program', value: text, editor: false, current: -1, errors: [] };
-  assert.deepEqual(parseTree(`code\tProgram\t${line}`), [plain]);
-  // A code editor: the current line, then a line and a text for each error. A bad mark is dropped.
-  const editor = parseTree(`code\tProgram\t${line}\t2\t0 bad\\tword\tx y\t1 \ncode\tB\t\t\t`);
+  const none = { comment: '', words: [] };
+  const plain = { kind: 'code', index: 0, text: 'Program', value: text, syntax: none, editor: false, current: -1, errors: [] };
+  assert.deepEqual(parseTree(`code\tProgram\t${line}\t`), [plain]);
+  // A code editor: the syntax, the current line, then a line and a text for each error. A bad mark is dropped.
+  const editor = parseTree(`code\tProgram\t${line}\t; JMP OUT\t2\t0 bad\\tword\tx y\t1 \ncode\tB\t\t \t\t`);
   assert.deepEqual(editor, [
-    { ...plain, editor: true, current: 2, errors: [[0, 'bad\tword'], [1, '']] },
-    { kind: 'code', index: 1, text: 'B', value: '', editor: true, current: -1, errors: [] },
+    { ...plain, syntax: { comment: ';', words: ['JMP', 'OUT'] }, editor: true, current: 2, errors: [[0, 'bad\tword'], [1, '']] },
+    { kind: 'code', index: 1, text: 'B', value: '', syntax: none, editor: true, current: -1, errors: [] },
   ]);
   assert.equal(eventLine(0, line), `0 ${line}`);
+});
+
+test('a code field colors the comments, the words with no case, the labels, the numbers and the names', () => {
+  const text = 'top: ldi -1 ; go\n  JMP top\nN = 0x1F\n; all';
+  const tokens = codeTokens(text, { comment: ';', words: ['LDI', 'JMP'] });
+  assert.equal(tokens.map((t) => t.text).join(''), text);
+  const colored = tokens.filter((t) => t.kind !== 'plain').map((t) => `${t.kind} ${t.text}`);
+  assert.deepEqual(colored, ['label top:', 'word ldi', 'number -1', 'comment ; go', 'word JMP', 'name top', 'name N', 'number 0x1F', 'comment ; all']);
+  assert.deepEqual(codeTokens('a;b', { comment: '', words: [] }).map((t) => t.kind), ['name', 'plain', 'name']);
 });
 
 test('a unit, tabs and sections keep their values, and an end line closes the last section', () => {

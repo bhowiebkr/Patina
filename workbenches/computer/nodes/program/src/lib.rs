@@ -2,13 +2,15 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime};
 
-use patina_sdk::{Mode, Ui, node, project_path};
+use patina_sdk::{Mode, Syntax, Ui, node, project_path};
 
 const WORDS: usize = 256;
 /// The rows of the memory view.
 const SHOWN: usize = 16;
 /// The operations of the CPU, in the order of their 4-bit codes.
 const OPS: [&str; 16] = ["LDI", "ADDI", "SUBI", "ANDI", "LD", "ADD", "SUB", "AND", "ST", "STX", "LDX", "TAX", "OUT", "JMP", "JC", "JZ"];
+/// The colors of the code field: the comments and the instructions (4.3).
+const ASM: Syntax = Syntax { comment: ";", words: &OPS };
 /// The operations without an operand.
 const BARE: [&str; 2] = ["TAX", "OUT"];
 const TEXT: [u8; 3] = [238, 238, 235];
@@ -110,9 +112,9 @@ impl Program {
             let pc = usize::from(self.pc);
             let current = (self.errors.is_empty() && pc < self.image.len).then(|| self.image.lines[pc]);
             let marks = self.errors.iter().filter_map(|(line, text)| line.map(|l| (l, text.as_str())));
-            ui.code_editor("Program", &mut self.code, current, marks).changed()
+            ui.code_editor("Program", &mut self.code, ASM, current, marks).changed()
         } else {
-            ui.code_field("Program", &mut self.code).changed()
+            ui.code_field("Program", &mut self.code, ASM).changed()
         };
         if changed {
             self.assemble();

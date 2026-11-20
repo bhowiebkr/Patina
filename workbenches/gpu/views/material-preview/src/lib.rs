@@ -1,11 +1,13 @@
 use material_lab::{Material, render::Look};
-use patina_sdk::{Graph, Key, Pointer, Ui};
+use patina_sdk::{Button, Graph, Key, Pointer, Ui};
 
-/// A resizable PBR preview. Drag to orbit, use the wheel to zoom, or press Home to frame.
+/// A resizable PBR preview. The mouse works as in Maya: the left button orbits, the middle button
+/// pans, and the right button or the wheel zooms. Home frames the material.
 #[patina_sdk::view]
 pub struct MaterialPreview {
     look: Option<Look>,
-    drag: Option<[f32; 2]>,
+    /// The last pointer place of a drag and the button that started it.
+    drag: Option<([f32; 2], Button)>,
     channel: usize,
     exposure: f32,
     rotation: f32,
@@ -63,7 +65,7 @@ impl MaterialPreview {
             .slider("Studio rotation", &mut self.rotation, 0.0..=360.0)
             .changed();
         let reset = ui.button("Frame material").clicked();
-        ui.label("Drag to orbit. Wheel to zoom. Home to frame.");
+        ui.label("Left drag to orbit. Middle drag to pan. Right drag or wheel to zoom. Home to frame.");
         if self.look.is_none() {
             match Look::new([320, 320]) {
                 Ok(look) => self.look = Some(look),
@@ -78,14 +80,24 @@ impl MaterialPreview {
         };
         for pointer in &viewport.pointer {
             match *pointer {
-                Pointer::Down(at) => self.drag = Some(at),
+                Pointer::Down(at) => {
+                    let press = viewport.press.unwrap_or_default();
+                    let button = if press.shift { Button::Middle } else { press.button };
+                    self.drag = Some((at, button));
+                }
                 Pointer::Move(at) => {
-                    if let Some(last) = self.drag {
-                        look.camera
-                            .orbit((at[0] - last[0]) * 0.008, (at[1] - last[1]) * 0.008);
-                        look.dirty = true;
-                        self.drag = Some(at);
+                    let Some((last, button)) = &mut self.drag else {
+                        continue;
+                    };
+                    let [dx, dy] = [at[0] - last[0], at[1] - last[1]];
+                    *last = at;
+                    match button {
+                        Button::Left => look.camera.orbit(dx * 0.008, dy * 0.008),
+                        Button::Middle => look.camera.pan(dx, dy, viewport.rect[3] as f32),
+                        // As in Maya, a drag to the right or down moves in, and to the left or up moves out.
+                        Button::Right => look.camera.zoom((-0.002 * (dx + dy)).clamp(-1.0, 1.0).exp()),
                     }
+                    look.dirty = true;
                 }
                 Pointer::Up(_) => self.drag = None,
             }

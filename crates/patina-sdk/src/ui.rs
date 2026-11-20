@@ -11,6 +11,7 @@ mod path;
 mod ramp;
 mod timeline;
 mod transform;
+pub use code::Syntax;
 pub use layers::Layer;
 pub use path::PathKind;
 pub use ramp::{Blend, ColorRamp};
@@ -79,6 +80,24 @@ pub enum Pointer {
     Up([f32; 2]),
 }
 
+/// A mouse button of a viewport press.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Button {
+    #[default]
+    Left,
+    Middle,
+    Right,
+}
+
+/// The button and the modifier keys of a viewport press (15.8).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Press {
+    pub button: Button,
+    pub alt: bool,
+    pub ctrl: bool,
+    pub shift: bool,
+}
+
 /// The place and the input of a viewport (15.8). A view draws into it with
 /// `patina_gpu::ViewportSurface`. The sizes are in physical pixels.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -92,6 +111,8 @@ pub struct Viewport {
     pub rect: [u32; 4],
     /// The pointer inputs since the last call of `ui`, from the top left corner of the area.
     pub pointer: Vec<Pointer>,
+    /// The button and the modifier keys of the last `Pointer::Down` in `pointer`.
+    pub press: Option<Press>,
     /// The wheel movement since the last call of `ui`, in pixels of the page. Down is positive.
     pub wheel: f32,
     /// The key inputs since the last call of `ui`, while the viewport has the focus. A click gives
@@ -296,6 +317,9 @@ impl Ui {
             } else if let Some(d) = event.strip_prefix("wheel ").and_then(|d| d.parse().ok()).filter(|d: &f32| d.is_finite()) {
                 viewport.wheel += d;
             } else if let Some(p) = pointer(event) {
+                if matches!(p, Pointer::Down(_)) {
+                    viewport.press = Some(press(event));
+                }
                 viewport.pointer.push(p);
             } else if let Some(k) = key(event) {
                 viewport.keys.push(k);
@@ -700,6 +724,23 @@ fn pointer(event: &str) -> Option<Pointer> {
         "up" => Some(Pointer::Up(at)),
         _ => None,
     }
+}
+
+/// Reads the button and the modifier keys after the place of a down event, for example
+/// `down 10 20 2 alt`. The button is the web number: 0 left, 1 middle, 2 right.
+fn press(event: &str) -> Press {
+    let mut press = Press::default();
+    for word in event.split(' ').skip(3) {
+        match word {
+            "1" => press.button = Button::Middle,
+            "2" => press.button = Button::Right,
+            "alt" => press.alt = true,
+            "ctrl" => press.ctrl = true,
+            "shift" => press.shift = true,
+            _ => {}
+        }
+    }
+    press
 }
 
 /// Reads a trim event, for example `0.1 0.9`.

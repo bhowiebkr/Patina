@@ -121,20 +121,31 @@ export async function materialWorkbench(view: View, show: (view: View) => void, 
     const before = await api.pause(); show(before);
     const depth = before.graph.node?.find((n) => n.id === id)?.params?.depth;
     const control = document.querySelector<HTMLInputElement>(`.react-flow__node[data-id="${id}"] input[type="range"]`)!;
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(control, '0.025');
-    control.dispatchEvent(new Event('input', { bubbles: true }));
-    await sleep(100);
-    control.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }));
+    const drag = (value: string) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(control, value);
+      control.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const depthNow = async () => { const v = await api.pause(); show(v); return v.graph.node?.find((n) => n.id === id)?.params?.depth; };
+    // The node gets the values during the drag, before the pointer goes up, and one undo removes all of the drag (9.1).
+    control.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+    drag('0.02');
+    const end = Date.now() + 10_000;
+    while (Number(await depthNow()) !== 0.02) {
+      if (Date.now() > end) throw new Error('The Finish slider did not change depth during the drag');
+      await sleep(100);
+    }
+    drag('0.025');
     await sleep(500);
-    const after = await api.pause(); show(after);
-    if (Number(after.graph.node?.find((n) => n.id === id)?.params?.depth) !== 0.025) throw new Error('The Finish slider did not change depth');
+    control.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+    await sleep(300);
+    if (Number(await depthNow()) !== 0.025) throw new Error('The Finish slider did not change depth');
     const undo = await api.undo(); show(undo);
-    if (undo.graph.node?.find((n) => n.id === id)?.params?.depth !== depth) throw new Error('Undo did not restore Finish depth');
+    if (undo.graph.node?.find((n) => n.id === id)?.params?.depth !== depth) throw new Error('One undo did not restore Finish depth after the drag');
     show(await api.save());
     const reopened = await api.openGraph('main'); show(reopened);
     const saved = await api.openGraph('materials'); show(saved);
     if (saved.graph.node?.find((n) => n.id === id)?.params?.depth !== depth) throw new Error('Material parameters did not survive graph switching');
-    steps.push('material parameters use normal edit, undo, save, and top graph switching');
+    steps.push('a Finish slider drag changes depth before the release, one undo restores it, and save and top graph switching keep it');
     show(await api.stop());
     show(await api.openGraph('main'));
     changeLayout((layout) => VIEW_SLOTS.reduce((next, slot) => closePanel(next, slot), layout));

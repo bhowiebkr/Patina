@@ -4,20 +4,39 @@ use std::fmt::Write;
 
 use super::{Response, Ui, changed};
 
+/// The colors of a code field (4.3). The editor colors the comments, the words, the numbers, the
+/// labels (a name and `:` at the start of a line) and the other names.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Syntax<'a> {
+    /// The text that starts a comment to the end of the line, for example `;`. Empty for none.
+    pub comment: &'a str,
+    /// The keywords, for example the instructions of an assembler. The case of a letter does not
+    /// matter. The editor removes the spaces of a word.
+    pub words: &'a [&'a str],
+}
+
 impl Ui {
     /// Shows a field for a text of many lines in a monospace font, for example a program. The
-    /// editor sends the text when the field loses the focus, and on Ctrl+Enter.
-    pub fn code_field(&mut self, text: &str, value: &mut String) -> Response {
+    /// editor sends the text when the field loses the focus, and on Ctrl+Enter. `syntax` gives
+    /// the colors of the text.
+    pub fn code_field(&mut self, text: &str, value: &mut String, syntax: Syntax) -> Response {
         let event = self.push("code", text).map(unescape);
         self.tree.push('\t');
         escape(&mut self.tree, value);
+        self.tree.push('\t');
+        for (i, part) in std::iter::once(syntax.comment).chain(syntax.words.iter().copied()).enumerate() {
+            if i > 0 {
+                self.tree.push(' ');
+            }
+            self.tree.extend(part.chars().filter(|c| !c.is_whitespace() && !c.is_control()));
+        }
         changed(event.map(|v| *value = v))
     }
 
     /// Shows a code field with line numbers, for the full size. `current` marks a line, from 0,
     /// for example the line that runs. Each item of `errors` marks its line and gives its text.
-    pub fn code_editor<'a>(&mut self, text: &str, value: &mut String, current: Option<usize>, errors: impl IntoIterator<Item = (usize, &'a str)>) -> Response {
-        let response = self.code_field(text, value);
+    pub fn code_editor<'a>(&mut self, text: &str, value: &mut String, syntax: Syntax, current: Option<usize>, errors: impl IntoIterator<Item = (usize, &'a str)>) -> Response {
+        let response = self.code_field(text, value, syntax);
         self.tree.push('\t');
         if let Some(line) = current {
             let _ = write!(self.tree, "{line}");
@@ -80,13 +99,15 @@ mod tests {
 
         let mut value = String::from("old");
         let mut ui = Ui::new(0, "0 JMP 0\\nOUT");
-        assert!(ui.code_field("Program", &mut value).changed());
+        assert!(ui.code_field("Program", &mut value, Syntax::default()).changed());
         assert_eq!(value, "JMP 0\nOUT");
-        assert_eq!(ui.tree(), "code\tProgram\told");
+        assert_eq!(ui.tree(), "code\tProgram\told\t");
 
+        // The syntax goes after the text: the comment mark and the words, with no spaces in a word.
         let mut ui = Ui::new(2, "");
-        ui.code_editor("Program", &mut value, Some(1), [(0, "bad\tword"), (2, "x")]);
-        ui.code_editor("Other", &mut value, None, std::iter::empty());
-        assert_eq!(ui.tree(), "code\tProgram\tJMP 0\\nOUT\t1\t0 bad\\tword\t2 x\ncode\tOther\tJMP 0\\nOUT\t");
+        let asm = Syntax { comment: ";", words: &["JMP", "O UT\t"] };
+        ui.code_editor("Program", &mut value, asm, Some(1), [(0, "bad\tword"), (2, "x")]);
+        ui.code_editor("Other", &mut value, Syntax::default(), None, std::iter::empty());
+        assert_eq!(ui.tree(), "code\tProgram\tJMP 0\\nOUT\t; JMP OUT\t1\t0 bad\\tword\t2 x\ncode\tOther\tJMP 0\\nOUT\t\t");
     }
 }

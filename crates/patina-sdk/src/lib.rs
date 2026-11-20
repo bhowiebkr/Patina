@@ -11,7 +11,7 @@ mod view;
 pub use audio::AudioBlock;
 pub use graph::Graph;
 pub use patina_macros::{connection, node, view};
-pub use ui::{Automation, Blend, Canvas, Clip, ColorRamp, Key, Lane, LaneKind, Layer, Mode, Number, PathKind, Pointer, Response, Timeline, Transform2d, Ui, Viewport, Widget};
+pub use ui::{Automation, Blend, Button, Canvas, Clip, ColorRamp, Key, Lane, LaneKind, Layer, Mode, Number, PathKind, Pointer, Press, Response, Syntax, Timeline, Transform2d, Ui, Viewport, Widget};
 pub use view::{Lanes, Text, Thumbnail, Viewer};
 
 /// The path of a file in the `assets/` folder of the node crate (6.2), for example a WESL

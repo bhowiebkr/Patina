@@ -1,7 +1,7 @@
 // Draws the widget lines of a node GUI with the shared controls (spec 4.3, GUI guide controls).
 
 import { Component, createContext, memo, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
-import { api } from '../api';
+import { api, holdGuiGesture } from '../api';
 import { engineId } from '../canvas/crumbs';
 import { AssetPicker, CodeField, Field } from './Field';
 import { eventLine, freeLayout, nest, parseTree, type Block, type Shape, type Widget } from './gui';
@@ -22,14 +22,39 @@ interface Props {
 }
 
 function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>; send: (value: number) => void; disabled: boolean }) {
-  // A drag shows its own value and sends it at the end, so a drag runs the graph one time (9.1).
+  // A drag sends its value at most one time in each display frame, so the node and its preview change during
+  // the drag. The values of one drag are one step of undo (9.1).
   const [draft, setDraft] = useState<number | null>(null);
+  const pending = useRef<number | null>(null);
+  const frame = useRef(0);
+  const held = useRef(false);
   const value = draft ?? w.value;
   const fill = w.high > w.low ? Math.min(100, Math.max(0, ((value - w.low) / (w.high - w.low)) * 100)) : 0;
+  const flush = () => {
+    cancelAnimationFrame(frame.current);
+    frame.current = 0;
+    if (pending.current !== null && pending.current !== w.value) send(pending.current);
+    pending.current = null;
+  };
+  const change = (v: number) => {
+    setDraft(v);
+    pending.current = v;
+    if (!frame.current) frame.current = requestAnimationFrame(flush);
+  };
+  const hold = (on: boolean) => {
+    if (held.current !== on) holdGuiGesture(on);
+    held.current = on;
+  };
   const commit = () => {
-    if (draft !== null && draft !== w.value) send(draft);
+    flush();
+    hold(false);
     setDraft(null);
   };
+  // A slider that goes away during a drag ends the drag, so the next input is a new step of undo.
+  useEffect(() => () => {
+    cancelAnimationFrame(frame.current);
+    if (held.current) holdGuiGesture(false);
+  }, []);
   return (
     <label className="gui-row">
       <span className="label">{w.text}</span>
@@ -42,8 +67,10 @@ function Slider({ w, send, disabled }: { w: Extract<Widget, { kind: 'slider' }>;
         value={value}
         style={{ '--fill': `${fill}%` } as CSSProperties}
         disabled={disabled}
-        onChange={(e) => setDraft(Number(e.currentTarget.value))}
+        onChange={(e) => change(Number(e.currentTarget.value))}
+        onPointerDown={() => hold(true)}
         onPointerUp={commit}
+        onPointerCancel={commit}
         onKeyUp={commit}
         onBlur={commit}
       />

@@ -193,7 +193,7 @@ impl Number {
         ui.layer_stack("Layers", &mut self.layers, &mut self.layer);
         ui.file_path("Path", &mut self.path, patina_sdk::PathKind::Save);
         ui.asset_picker("Source", &mut self.source, &["toml"]);
-        ui.code_field("Code", &mut self.code);
+        ui.code_field("Code", &mut self.code, patina_sdk::Syntax::default());
         let mut pad = ui.canvas("Pad", [160.0, 48.0]);
         pad.grab();
         if pad.keys().contains(&patina_sdk::Key::Down("KeyK".into())) {

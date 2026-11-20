@@ -394,10 +394,17 @@ export type EngineEvent =
   | { state: 'gui'; serial: number; trees: Tree[]; reports: Report[]; params: ParamWrite[] };
 
 let gesture = 0;
+/** True while the user holds a slider of a GUI, so all values of the drag keep one number. */
+let holding = false;
 /** The number of the last input of a node GUI. The moves and the up of a canvas drag keep the number of its down (4.3). */
 export const guiGesture = () => gesture;
 /** Starts one undo step for a view control. */
-export const beginGuiGesture = () => ++gesture;
+export const beginGuiGesture = () => (holding ? gesture : ++gesture);
+/** A slider drag sends many values as one undo step (9.1): true at the press, false at the release. */
+export const holdGuiGesture = (on: boolean) => {
+  if (on && !holding) gesture += 1;
+  holding = on;
+};
 
 /** A parameter write of a node GUI (4.3), from `Ui::set_param`. */
 export interface ParamWrite {
@@ -634,7 +641,7 @@ export const api = {
   stop: () => invoke<View>('stop'),
   /** Sends user input to a node GUI, or asks for its widget lines when `events` is empty (4.3). */
   gui: (id: string, mode: number, events: string) => {
-    if (events && !/^\d+ (move|up) /.test(events)) gesture += 1;
+    if (events && !holding && !/^\d+ (move|up) /.test(events)) gesture += 1;
     return invoke<void>('gui', { id, mode, events });
   },
   /** Gives the nodes in view. The frames draw only their GUIs (4.3 rule 3). */

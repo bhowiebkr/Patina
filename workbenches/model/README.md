@@ -56,7 +56,9 @@ The view shows the output of the node, also when the output has no wire. For a n
 solid output, for example `report`, it shows the solid that goes into the node. When the selection
 has no solid, the view keeps the last solid.
 
-- Drag to orbit. Shift and drag to pan. Turn the wheel to zoom. Press Home or click
+- The mouse works as in Maya. Drag with the left button to orbit, with the middle button to
+  pan, and with the right button to zoom. A drag to the right or down zooms in. Alt and a button
+  does the same. Shift and a left drag also pans. Turn the wheel to zoom. Press Home or click
   **Frame model** to frame the model.
 - **Wireframe** shows the triangle edges, **Grid** shows the ground grid and the X and Y axes,
   and **Part colors** gives each part its own color. **Toon** gives three light bands and dark

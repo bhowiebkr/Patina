@@ -143,6 +143,13 @@ fn a_viewport_reads_its_place_and_input() {
     assert_eq!(viewport.keys, [Key::Down("KeyW".into()), Key::Up("KeyW".into())]);
     assert_eq!(ui.tree(), "viewport\tScene\t240");
     assert_eq!(Ui::new(0, "").viewport("Empty", 1.0), Viewport::default());
+    assert_eq!(viewport.press, Some(Press::default()));
+    let pressed = |events| Ui::new(0, events).viewport("Scene", 1.0).press;
+    let right = Press { button: Button::Right, alt: true, ctrl: false, shift: true };
+    assert_eq!(pressed("0 down 1 2 1
+0 up 1 2
+0 down 3 4 2 alt shift"), Some(right));
+    assert_eq!(pressed("0 move 1 2 2"), None);
 }
 
 #[test]

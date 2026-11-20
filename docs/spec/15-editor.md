@@ -488,9 +488,15 @@ change it.)
 - A save of the code of a view drops the loaded view and does not build the clusters. The next
   `ui` call builds the view again. After a panic, the next call makes a new state.
 - `Ui::viewport` shows a viewport and returns its place and input: the window handle, the
-  window size, the area, the pointer and the wheel, in physical pixels. The page sends the place
-  at each display frame. Only the newest place goes with the next ask, so a slow view does not
-  draw at an old place.
+  window size, the area, the pointer and the wheel, in physical pixels. `press` gives the mouse
+  button and the Alt, Ctrl and Shift keys of the last pointer down. The page sends them as
+  `down x y button`, with `alt`, `ctrl` and `shift` after it. The viewport stops the page menu of
+  the right button and the scroll of the middle button. The page sends the place at each display
+  frame. Only the newest place goes with the next ask, so a slow view does not draw at an old
+  place.
+- The 3D views of the workbenches use the mouse as Maya does: the left button orbits, the middle
+  button pans, and the right button zooms. A right drag to the right or down zooms in. The owner
+  asked for this on 2026-11-19.
 - The view keeps a `patina_gpu::ViewportSurface` in its state and calls `draw` in its `ui` call,
   on the engine thread. Thus there is no render thread and no scissor in version 1. A window
   has one surface, so it shows one viewport.
