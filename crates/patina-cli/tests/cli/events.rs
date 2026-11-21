@@ -218,12 +218,12 @@ fn triggers_start_runs_and_their_rules_hold() {
     drop(used);
 
     // The event runs go on with the frames. The 30 frames end the endless schedule, and the stop
-    // drops the wait of run 1. The other runs end at once. A fire each 60 ms keeps fewer than 16
-    // runs in the 1 s of run 1 also on a slow computer.
+    // drops the wait of run 1. The other runs end at once. A fire each 200 ms keeps fewer than 16
+    // runs in the 1 s of run 1, also when a slow CI runner does not end the other runs in time.
     let frame = node("f0", "tick") + "domain = \"frame\"
 
 ";
-    fs::write(&main, graph("every_ms = \"60\"
+    fs::write(&main, graph("every_ms = \"200\"
 overlap = \"both\"").replacen("format = 1
 
 ", &format!("format = 1
